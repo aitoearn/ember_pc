@@ -1,6 +1,6 @@
 <div align="center"><a name="readme-top"></a>
 
-<img src="./docs/images/readme-hero-en.png" alt="Ember README hero banner: Test once, quality in sight" width="100%" />
+<img src="./docs/images/feature-start.png" alt="Ember home: start from one testing goal" width="100%" />
 
 # Ember
 
@@ -32,9 +32,9 @@ Ember keeps requirements, test context, cases, execution notes, and regression r
 
 - [What is Ember?](#what-is-ember)
 - [What you can do with Ember](#what-you-can-do-with-ember)
+- [Core Capabilities](#core-capabilities)
 - [Real QA workflows](#real-qa-workflows)
 - [A simple workflow](#a-simple-workflow)
-- [Core Workflow](#core-workflow)
 - [Who Ember is for](#who-ember-is-for)
 - [If you are searching for these tools](#if-you-are-searching-for-these-tools)
 - [Who Ember is not for](#who-ember-is-not-for)
@@ -65,12 +65,59 @@ If you often switch between requirements docs, API platforms, bug trackers, auto
 
 ## What you can do with Ember
 
-- **Test design and analysis**: organize functional cases, API cases, edge scenarios, and assertion checklists.
-- **Regression and release validation**: scope regression coverage, priorities, and release gate suggestions by version.
-- **Specialized testing plans**: compatibility matrices, E2E main paths, performance load tests, and security review outlines.
-- **Test context management**: store PRDs, API docs, test standards, environment info, and historical defects.
-- **Experts and Skills**: use built-in testing experts and Skills for strategy, design, automation, performance, and security.
-- **Agent Apps and device automation**: organize batch execution through the Test Workbench app; combine with device automation for mobile validation.
+- **Start from one testing goal**: describe reports, regression scope, case design, or specialized plans in natural language with quick-entry shortcuts.
+- **Manage cases and generate with AI**: organize modules and cases structurally, then draft from requirements or acceptance criteria and add them to the library.
+- **Build project knowledge**: curate PRDs, API notes, code snippets, and test reviews so later tasks can reuse confirmed context.
+- **Use the Expert Plaza and Skills**: pick expert agents for strategy, case design, automation, performance, security, and more.
+- **Manage devices and run mobile automation**: connect Android devices, then open the workbench for UI automation, Monkey, performance monitoring, and packet capture.
+- **Run mobile UI automation**: combine live device mirroring with natural-language steps so the agent follows a ReAct loop of screenshot, reasoning, and action.
+- **Bring your own AI models**: configure OpenAI-compatible providers, API hosts, keys, and primary models locally.
+
+---
+
+## Core Capabilities
+
+### Start from one test task
+
+<img src="./docs/images/feature-start.png" alt="Home screen with testing goal input and quick-entry chips" width="100%" />
+
+The home surface is organized around the current project. Enter goals such as "help me write a test report" or "scope regression for this release," then jump into guidance, case writing, requirement-to-case, scenario coverage, and related workflows.
+
+### Test case management and AI generation
+
+<img src="./docs/images/test-case-ai.png" alt="Test case management with AI draft generation modal" width="100%" />
+
+Manage cases by module with search, IDs, and tags. When you need a fast draft, paste requirements or upload `.md` / `.txt` / `.json` material, choose a model, generate drafts, and add them to the library.
+
+### Project knowledge and test context
+
+<img src="./docs/images/feature-workspace.png" alt="Project materials page for confirmed test context" width="100%" />
+
+Organize PRDs, API docs, code snippets, and test reviews as project materials. After confirmation, mark what is available for testing or recommended for the current round so agents do not start from empty context.
+
+### Expert Plaza
+
+<img src="./docs/images/experts-plaza.png" alt="Expert Plaza with strategy, design, automation, and security experts" width="100%" />
+
+Browse expert agents by strategy, case design, automation, performance, security, and quality analysis. Add frequently used experts to a project and start from those entry points instead of rewriting prompts every time.
+
+### Device management
+
+<img src="./docs/images/device-management.png" alt="Device management list with online Android devices" width="100%" />
+
+See connected device model, OS version, resolution, and online status in one place, then enter the mobile workbench for AI case generation, UI automation, Monkey, performance monitoring, startup timing, and packet capture.
+
+### Mobile UI automation
+
+<img src="./docs/images/regression-review.png" alt="Mobile workbench with device mirror and natural-language UI automation" width="100%" />
+
+The left panel shows the live device screen; the right panel accepts natural-language steps and assertions. Supports UI-tree, vision, and hybrid perception modes plus free/strict execution for login flows, settings checks, kill-and-restart scenarios, and more.
+
+### Use your own AI services
+
+<img src="./docs/images/feature-provider.png" alt="AI provider settings for API host, key, and model priority" width="100%" />
+
+Ember does not provide model services itself. Configure OpenAI-compatible providers, API hosts, keys, and primary models in settings, fetch or manually add model lists, and test the connection before running tasks.
 
 ---
 
@@ -88,13 +135,13 @@ What remains is not just one answer, but a test trail from scope to execution ch
 
 OpenAPI or contract docs are ready, but happy paths, auth failures, boundary values, and error responses are not yet structured.
 
-In Ember, you can feed contracts and focus scenarios into a task, generate extendable API cases and assertion points, and persist them into the current project's test context.
+In Ember, you can feed contracts and focus scenarios into a task, or use AI case generation to draft from requirements and persist them into the current project's test context.
 
-### 3. Multi-platform work: compatibility matrices are hard to maintain
+### 3. Mobile regression: device in hand, script maintenance too slow
 
-The same feature must be validated on web, mobile, and multiple OS versions. Manual matrix maintenance is costly and easy to miss.
+The same feature must be validated repeatedly on Android hardware, but traditional automation scripts take too long to build for short-notice regression.
 
-Ember fits this kind of specialized work: structure coverage and risk priority first, then add cases step by step and keep iterating in the workspace.
+Ember's device workbench shows the live screen and accepts natural-language steps and assertions, with agents using UI-tree or vision perception for exploratory checks and regression spot tests.
 
 ### 4. Defect review: many issues, little structured analysis
 
@@ -106,49 +153,27 @@ With Ember, you can import defect summaries or test records, classify and analyz
 
 Some people are strong at API testing, others at E2E or performance. The problem is that this experience rarely becomes reusable team entry points.
 
-Ember can turn stable testing practices into Skills, experts, and app entries so the next regression plan or API review does not start from a blank prompt.
+Ember can turn stable testing practices into experts, Skills, and app entries so the next regression plan or API review does not start from a blank prompt.
 
 ---
 
 ## A simple workflow
 
 1. Create a task, such as "Scope regression for v2.3 release candidate"
-2. Add PRD summaries, API notes, known defects, or environment constraints
-3. Choose your AI provider and model
-4. Let Ember draft scope, scenarios, or case structure first
-5. Keep refining assertions, E2E steps, or specialized test plans in the same task
-6. Save useful outputs into project knowledge for the next validation round
+2. Organize and confirm PRDs, API notes, or defect history in project materials first
+3. Configure and test your model in AI provider settings
+4. Start from the home goal input, or open test cases, Expert Plaza, or mobile testing
+5. Keep refining assertions, steps, or on-device validation in the same task
+6. Save useful outputs into project knowledge or the case library for the next round
 
 In short: bring test context in first, let AI help you move forward, then keep what is useful.
-
----
-
-## Core Workflow
-
-### Start from one test task
-
-<img src="./docs/images/readme-feature-start.png" alt="Ember start from one test task" />
-
-Start from a testing goal and keep references, models, Skills, and recent outputs in one place without facing a wall of tools first.
-
-### Keep refining in one test space
-
-<img src="./docs/images/readme-feature-workspace.png" alt="Ember keep refining in one workspace" />
-
-Generation, follow-up questions, edits, reference lookup, and result organization all stay around the current task. Good for cases, regression lists, reports, and specialized plans that need multiple rounds.
-
-### Use your own AI services
-
-<img src="./docs/images/readme-feature-provider.png" alt="Ember use your own AI providers" />
-
-Ember does not provide model services itself. Configure your own providers, API keys, and preferred models for different testing tasks.
 
 ---
 
 ## Who Ember is for
 
 - QA engineers, SDETs, quality leads, and release managers
-- Teams maintaining regression lists, API cases, E2E plans, or specialized test documents
+- Teams maintaining regression lists, API cases, E2E plans, or mobile validation
 - People who regularly organize PRDs, API docs, defects, and test reports
 - Teams that want to save personal methods, team templates, and project context
 - People already using AI models who want a more stable testing workspace
@@ -157,7 +182,7 @@ Ember does not provide model services itself. Configure your own providers, API 
 
 ## If you are searching for these tools
 
-Ember may fit searches like: AI test workspace, desktop QA tool, test case design, regression planning, API testing assistant, knowledge base for testing, multi-model workflow, E2E testing, performance testing, security testing, mobile automation.
+Ember may fit searches like: AI test workspace, desktop QA tool, test case design, regression planning, API testing assistant, knowledge base for testing, multi-model workflow, mobile UI automation, Android device testing, E2E testing, performance testing, security testing.
 
 ---
 
@@ -175,27 +200,22 @@ Ember works best when AI is a testing collaborator: you provide scope, context, 
 
 ### Download
 
-Get the installer from [Releases](https://github.com/aitoearn/ember_pc/releases).
+Download the installer for your platform from GitHub Releases:
 
-- macOS: `.dmg` or Homebrew
-- Windows: `Ember_*_x64-setup.exe`
+https://github.com/aitoearn/ember_pc/releases
+
+- macOS: `.dmg` installer
+- Windows: `Ember_*_x64-setup.exe` installer
 - macOS and Windows only; Linux desktop builds are paused
 - Windows SmartScreen warnings may appear for unsigned or low-reputation installers
-
-Homebrew on macOS:
-
-```bash
-brew tap aitoearn/tap
-brew install --cask ember
-```
 
 ### First run
 
 1. Open Ember
-2. Go to AI provider settings
-3. Add your API key and test the connection
-4. Return to home and create a test task
-5. Add a PRD, API note, or testing goal and start generating cases or regression lists
+2. Go to **AI provider settings**, add your API key, and test the model
+3. Organize and confirm project materials for this round
+4. Create a test task from home, or open **test cases**, **experts**, or **mobile testing**
+5. Add a PRD, API note, or testing goal and start generating cases, regression lists, or device validation
 
 ---
 
@@ -203,6 +223,7 @@ brew install --cask ember
 
 - Desktop: Electron, Rust App Server
 - Frontend: React, TypeScript, Vite
+- Device automation: ADB, scrcpy, UI-agent perception, and device mirroring
 - Platforms: macOS, Windows
 - License: GPLv3
 
@@ -212,7 +233,7 @@ brew install --cask ember
 
 ### Does Ember provide AI models?
 
-No. Ember is a testing workspace, not a model provider. Configure your own AI provider and API key.
+No. Ember is a testing workspace, not a model provider. Configure your own provider and API key in **AI provider settings**.
 
 ### Will all my test data be uploaded?
 
@@ -220,11 +241,15 @@ Ember prefers to keep project knowledge, session history, and settings on your m
 
 ### How is this different from a normal chat tool?
 
-Chat tools optimize for one-shot Q&A. Ember optimizes for long-running quality work: context can be saved, cases and checklists can accumulate, tasks can continue, and repeatable methods can be reused.
+Chat tools optimize for one-shot Q&A. Ember optimizes for long-running quality work: project knowledge can be confirmed and reused, cases can be managed structurally, devices can be connected for validation, and experts or Skills can be called repeatedly.
 
 ### Do I need to be good at prompt engineering?
 
-No. Ember is designed to reduce starting from blank prompts every time. Begin from built-in testing Skills, expert entries, project knowledge, and prior outputs, then iterate step by step.
+No. Start from home quick entries, Expert Plaza, project materials, or AI case generation, then let agents iterate on confirmed context.
+
+### What do I need for mobile testing?
+
+A working local ADB setup and a connected Android device or emulator. After connection, check status in device management, then open the workbench for mirroring and UI automation.
 
 ---
 

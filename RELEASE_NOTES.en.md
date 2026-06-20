@@ -2,8 +2,17 @@
 
 <sub>The Simplified Chinese release notes are the primary version. This English page is a companion for international readers.</sub>
 
+Open-source AI test workspace for QA teams: test design, regression planning, API/E2E validation, test-context management, multi-model analysis, and device automation.
+
+- **Repository**: https://github.com/aitoearn/ember_pc
+- **Issues**: https://github.com/aitoearn/ember_pc/issues
+- **Downloads**: https://github.com/aitoearn/ember_pc/releases
+- **Homebrew** (macOS): `brew tap aitoearn/tap && brew install --cask ember`
+
 ### New Features
 
+- Product positioning now aligns with the AI test-workspace narrative; README, release notes, and GitHub metadata all point to `aitoearn/ember_pc` so Issues, Releases, and Homebrew publishing share one remote repository.
+- Device automation mirror UX improvements: added `DeviceMirrorViewport` for unified scrcpy / screenshot mirror rendering; added Android brand inference (`deviceBrand`), display formatting (`deviceDisplay`), and `androidDeviceMetadata` reads for more stable device list and debug views.
 - Agent App runtime now connects to the current App Server client and capability APIs, allowing standalone Agent Apps to reuse the JSON-RPC client, capability host, and runtime projection path.
 - Agent Runtime standard packages now include App Server facts, fixture replay, subagents, refs, and validation support for shared runtime, projection, and UI consumption.
 - App Server workspace / project git / session admin protocols now expose workspace update, workspace delete, project git worktree delete, and batch session archive capabilities through the current JSON-RPC path, with matching Rust protocol catalog, schema export, npm `app-server-client`, and frontend API updates.
@@ -27,11 +36,13 @@
 - Expanded the Agent Runtime / Agent UI npm packages with standard contracts, fixtures, projection helpers, runtime facts, and UI exports to reduce duplicated GUI and SDK implementation.
 - Continued splitting App Server processor logic into agent app, automation, gallery, gateway, MCP, media, model, project, skill, unified, voice, and workspace domain modules to reduce central dispatcher growth.
 - `packages/ember-cli-npm/bin/ember` is no longer committed as a platform-specific binary; CLI release assets continue to be built by the release pipeline.
+- Repository Git URLs across the codebase now point to `https://github.com/aitoearn/ember_pc`, replacing legacy `lmtestplatform`, `aiclientproxy/ember`, and `embercloud/ember` references in package metadata, README, Homebrew workflow, Cargo manifests, and frontend feedback links.
 
 ### Tests And Quality
 
 - Expanded App Server protocol catalog, workspace / project git / session admin APIs, npm `app-server-client`, Agent Runtime client, projection, UI contracts, and fixture replay regressions.
 - Updated AppSidebar, Agent Chat input bar, Home / EmptyState / task tabs, workspace scene, workspace send, settings v2, Agent App runtime page, and i18n resource tests.
+- Added unit and component regressions for device mirror viewport, brand/display projection, and Android metadata helpers.
 - Updated Electron SDK fixture smoke, tool-surface smoke, command-contract checks, quality-task planning, and i18n readiness reporting.
 - Updated the root app, Rust workspace, CLI npm package, Agent App runtime package, App Server client package, Agent Runtime client dependency, and lockfiles to `1.0.0`.
 - Updated app-server-client contract checks, script root governance baseline, `tsconfig.electron.json`, and `.gitignore` so generated protocol files, Electron typechecking, and script entry governance stay aligned.
@@ -46,5 +57,6 @@
 ### Other
 
 - This release keeps release facts centered on App Server JSON-RPC, Electron Desktop Host, current npm clients, `ember-rs/crates/**`, generated schemas, and machine-readable guards while preventing old Team Workspace, Companion, and legacy command surfaces from flowing back into the product path.
+- GitHub Releases, Homebrew Cask files, and the CI `update-homebrew` workflow now use `aitoearn/ember_pc` as the download and homepage source of truth.
 
 **Full changes**: `v1.65.0` -> `v1.0.0`
