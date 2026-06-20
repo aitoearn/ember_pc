@@ -1,0 +1,196 @@
+/**
+ * withI18nPatch Higher-Order Component
+ *
+ * HOC that wraps a component with I18nPatchProvider.
+ * Loads the language config from the Desktop Host and passes it to the provider.
+ *
+ * This HOC is used to wrap the root App component, enabling
+ * the Patch Layer architecture for the entire application.
+ *
+ * Features:
+ * - Loads language config from Desktop Host backend
+ * - Handles loading state
+ * - Applies fade-in transition to prevent text flashing
+ * - Falls back to default language in non-Desktop Host environments
+ */
+
+import React, { useEffect, useState } from "react";
+import { getConfig, type Config } from "@/lib/api/appConfig";
+import { I18nPatchProvider } from "./legacy-patch/I18nPatchProvider";
+import { StartupLoadingScreen } from "./StartupLoadingScreen";
+import { hasDesktopHostInvokeCapability } from "@/lib/desktop-runtime";
+import { hasNativeStartupScreen } from "@/lib/nativeStartupScreen";
+import { changeEmberLocale } from "./createI18n";
+import { toLegacyPatchLanguage } from "./locales";
+
+const CONFIG_LOAD_TIMEOUT_MS = 2500;
+const READY_COMMIT_TIMEOUT_MS = 48;
+const DEFAULT_STARTUP_CONFIG: LocaleConfig = { language: "auto" };
+
+type LocaleConfig = Pick<Config, "language">;
+
+/**
+ * 检查是否在 Desktop Host 环境中运行
+ */
+function isDesktopHostEnvironment(): boolean {
+  return hasDesktopHostInvokeCapability();
+}
+
+interface WithI18nPatchOptions {
+  /** Fade-in duration in milliseconds (default: 150ms) */
+  fadeInDuration?: number;
+}
+
+/**
+ * Higher-Order Component that adds i18n patch support
+ *
+ * @param Component - The component to wrap
+ * @param options - Configuration options
+ * @returns A new component with i18n patch support
+ */
+export function withI18nPatch<P extends object>(
+  Component: React.ComponentType<P>,
+  options: WithI18nPatchOptions = {},
+): React.ComponentType<P> {
+  const { fadeInDuration = 150 } = options;
+
+  return function PatchedComponent(props: P) {
+    const nativeStartupScreenAvailable = hasNativeStartupScreen();
+    const [config, setConfig] = useState<LocaleConfig | null>(() =>
+      nativeStartupScreenAvailable ? DEFAULT_STARTUP_CONFIG : null,
+    );
+    const [isReady, setIsReady] = useState(nativeStartupScreenAvailable);
+
+    useEffect(() => {
+      let cancelled = false;
+      let timeoutId: number | null = null;
+      let readyCommitTimeoutId: number | null = null;
+      let readyRafId: number | null = null;
+
+      const markReady = () => {
+        if (cancelled) {
+          return;
+        }
+        setIsReady(true);
+      };
+
+      const applyConfig = async (nextConfig: LocaleConfig) => {
+        if (cancelled) {
+          return;
+        }
+
+        try {
+          await changeEmberLocale(nextConfig.language || "auto");
+        } catch (error) {
+          console.warn("[i18n] Failed to apply key-based locale:", error);
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        setConfig(nextConfig);
+
+        if (typeof window.requestAnimationFrame === "function") {
+          readyCommitTimeoutId = window.setTimeout(() => {
+            if (
+              readyRafId !== null &&
+              typeof window.cancelAnimationFrame === "function"
+            ) {
+              window.cancelAnimationFrame(readyRafId);
+            }
+            readyRafId = null;
+            markReady();
+          }, READY_COMMIT_TIMEOUT_MS);
+
+          readyRafId = window.requestAnimationFrame(() => {
+            if (readyCommitTimeoutId !== null) {
+              window.clearTimeout(readyCommitTimeoutId);
+              readyCommitTimeoutId = null;
+            }
+            readyRafId = null;
+            markReady();
+          });
+          return;
+        }
+
+        markReady();
+      };
+
+      const fallbackToDefault = (reason: string, error?: unknown) => {
+        if (error) {
+          console.error(`[i18n] ${reason}:`, error);
+        } else {
+          console.warn(`[i18n] ${reason}`);
+        }
+        void applyConfig(DEFAULT_STARTUP_CONFIG);
+      };
+
+      // 如果不在 Desktop Host 环境，使用默认配置
+      if (!isDesktopHostEnvironment()) {
+        void applyConfig(DEFAULT_STARTUP_CONFIG);
+        return () => {
+          cancelled = true;
+        };
+      }
+
+      timeoutId = window.setTimeout(() => {
+        fallbackToDefault("Config load timed out, using default language");
+      }, CONFIG_LOAD_TIMEOUT_MS);
+
+      getConfig()
+        .then((c) => {
+          if (timeoutId !== null) {
+            window.clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          void applyConfig(c);
+        })
+        .catch((err) => {
+          if (timeoutId !== null) {
+            window.clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          fallbackToDefault("Failed to load config", err);
+        });
+
+      return () => {
+        cancelled = true;
+        if (timeoutId !== null) {
+          window.clearTimeout(timeoutId);
+        }
+        if (readyCommitTimeoutId !== null) {
+          window.clearTimeout(readyCommitTimeoutId);
+        }
+        if (
+          readyRafId !== null &&
+          typeof window.cancelAnimationFrame === "function"
+        ) {
+          window.cancelAnimationFrame(readyRafId);
+        }
+      };
+    }, [nativeStartupScreenAvailable]);
+
+    if (!config) {
+      return <StartupLoadingScreen />;
+    }
+
+    const legacyPatchLanguage = toLegacyPatchLanguage(config.language || "auto");
+
+    return (
+      <div
+        style={{
+          opacity: isReady ? 1 : 0,
+          transition: `opacity ${fadeInDuration}ms ease-in`,
+        }}
+      >
+        <I18nPatchProvider
+          key={legacyPatchLanguage}
+          initialLanguage={legacyPatchLanguage}
+        >
+          <Component {...props} />
+        </I18nPatchProvider>
+      </div>
+    );
+  };
+}

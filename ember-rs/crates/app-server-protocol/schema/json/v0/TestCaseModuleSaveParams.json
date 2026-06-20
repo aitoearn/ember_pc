@@ -1,0 +1,47 @@
+{
+  "$defs": {
+    "TestCaseModule": {
+      "description": "树形测试模块节点。",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "orderIndex": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "parentId": {
+          "default": null,
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "module": {
+      "$ref": "#/$defs/TestCaseModule"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "module",
+    "workspaceId"
+  ],
+  "title": "TestCaseModuleSaveParams",
+  "type": "object"
+}

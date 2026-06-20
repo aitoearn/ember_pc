@@ -1,0 +1,8 @@
+<!-- MYWIKI:BEGIN -->
+## MyWiki 知识库
+
+本项目启用 MyWiki Cursor Kit。当用户意图涉及知识库的查询、入库、总结、沉淀时，
+遵循 .cursor/rules/00-mywiki-routing.mdc 的路由表，路由到对应 .cursor/skills/<name>/SKILL.md。
+**提交代码 / commit 时**另遵循 .cursor/rules/04-mywiki-commit-coupling.mdc：同一轮次先 obsidian-save 再 git commit。
+知识库根目录由 MYWIKI_ROOT 环境变量或 .cursor/runtime-profile.json 决定。
+<!-- MYWIKI:END -->

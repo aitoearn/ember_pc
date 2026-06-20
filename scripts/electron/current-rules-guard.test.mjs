@@ -1,0 +1,233 @@
+import fs from "node:fs";
+import { describe, expect, it } from "vitest";
+
+function readFile(filePath) {
+  return fs.readFileSync(filePath, "utf8");
+}
+
+function existingFiles(filePaths) {
+  return filePaths.filter((filePath) => fs.existsSync(filePath));
+}
+
+function expectNoBrandPrefixRule(content, label) {
+  expect(content, label).toMatch(/Ember`\s*\/\s*`ember_`\s*\/\s*`ember-/);
+  expect(content, label).toMatch(/品牌前缀|新增命名/);
+  expect(content, label).toMatch(
+    /不得添加|不要加|使用领域名|current 事实源命名|直接使用领域名/,
+  );
+}
+
+function expectAppServerAgentRule(content, label) {
+  expect(content, label).toMatch(/App Server JSON-RPC|JSON-RPC/);
+  expect(content, label).toMatch(
+    /新增 AI Agent|新增 Agent 逻辑|新增的是 AI Agent/,
+  );
+  expect(content, label).toMatch(/agent_runtime_\*/);
+  expect(content, label).toMatch(/兼容适配|compat/);
+}
+
+function expectRustCommandsCleanupRule(content, label) {
+  expect(content, label).toContain("ember-rs/src/commands/**");
+  expect(content, label).toMatch(
+    /已删除|已物理删除|已随 `ember-rs\/src\/\*\*` 删除|旧 (?:Tauri )?(?:command )?wrapper (?:删除)?清理|清理区/,
+  );
+  expect(content, label).toMatch(
+    /不得恢复|不再承接|不得.*新增|不再落|不能.*新增|新增 stub|新增业务逻辑/,
+  );
+  expect(content, label).toMatch(
+    /App Server|RuntimeCore|services|Electron Desktop Host/,
+  );
+  expect(content, label).toMatch(
+    /stub|compat wrapper|thin facade|退场 stub|fail-closed stub|tombstone|blocker|撤注册|删除/,
+  );
+}
+
+function retiredHostPackageName() {
+  return ["@", "ta", "uri-apps"].join("");
+}
+
+function retiredHostGlobalName() {
+  return ["__TA", "URI__"].join("");
+}
+
+function retiredHostInternalsName() {
+  return ["__TA", "URI_INTERNALS__"].join("");
+}
+
+function retiredHostMockDir() {
+  return ["src/lib/", "ta", "uri-mock"].join("");
+}
+
+function retiredHostPackagePatternSource() {
+  return '["@", "ta", "uri-apps", "\\\\/api"].join("")';
+}
+
+function retiredHostGlobalPatternSource() {
+  return '["__TA", "URI__"].join("")';
+}
+
+describe("Electron current repository rules guard", () => {
+  it("keeps root and aiprompts rules on Electron/App Server current", () => {
+    const docs = [
+      "AGENTS.md",
+      "internal/aiprompts/README.md",
+      "internal/aiprompts/commands.md",
+      "internal/aiprompts/governance.md",
+      "internal/aiprompts/quality-workflow.md",
+    ];
+
+    for (const filePath of docs) {
+      const content = readFile(filePath);
+
+      expect(content, filePath).toMatch(/Electron/);
+      expect(content, filePath).toMatch(/App Server/);
+    }
+
+    expectNoBrandPrefixRule(readFile("AGENTS.md"), "AGENTS.md");
+    expectAppServerAgentRule(readFile("AGENTS.md"), "AGENTS.md");
+    expectNoBrandPrefixRule(
+      readFile("internal/aiprompts/README.md"),
+      "internal/aiprompts/README.md",
+    );
+    expectAppServerAgentRule(
+      readFile("internal/aiprompts/README.md"),
+      "internal/aiprompts/README.md",
+    );
+    expectRustCommandsCleanupRule(readFile("AGENTS.md"), "AGENTS.md");
+    expectRustCommandsCleanupRule(
+      readFile("internal/aiprompts/README.md"),
+      "internal/aiprompts/README.md",
+    );
+    expectRustCommandsCleanupRule(
+      readFile("internal/aiprompts/commands.md"),
+      "internal/aiprompts/commands.md",
+    );
+    expectRustCommandsCleanupRule(
+      readFile("internal/README.md"),
+      "internal/README.md",
+    );
+  });
+
+  it("keeps App Server roadmap aware that Rust commands are cleanup-only", () => {
+    const docs = [
+      "internal/roadmap/appserver/README.md",
+      "internal/roadmap/appserver/architecture.md",
+      "internal/roadmap/appserver/frontend-electron-migration.md",
+      "internal/roadmap/appserver/service-extraction.md",
+      "internal/roadmap/appserver/testing-migration.md",
+      "internal/roadmap/appserver/implementation-plan.md",
+    ];
+
+    for (const filePath of docs) {
+      expectRustCommandsCleanupRule(readFile(filePath), filePath);
+    }
+  });
+
+  it("keeps execution plan entrypoints aware that Rust commands are cleanup-only", () => {
+    const docs = [
+      "internal/exec-plans/README.md",
+      "internal/exec-plans/production-command-current-migration-plan.md",
+      "internal/exec-plans/tauri-wrapper-quick-cleanup-queue.md",
+      "internal/exec-plans/tauri-wrapper-command-inventory.md",
+    ];
+
+    for (const filePath of docs) {
+      expectRustCommandsCleanupRule(readFile(filePath), filePath);
+    }
+  });
+
+  it("keeps governance, quality, docs, and skill references aware of Rust commands cleanup", () => {
+    const docs = [
+      "docs/README.md",
+      "internal/aiprompts/governance.md",
+      "internal/aiprompts/quality-workflow.md",
+      "internal/aiprompts/commands.md",
+      ...existingFiles([
+        ".codex/skills/ember-command-boundary/references/commands.md",
+        ".codex/skills/ember-governance/references/governance.md",
+        ".codex/skills/ember-quality-workflow/references/quality-workflow.md",
+      ]),
+    ];
+
+    for (const filePath of docs) {
+      expectRustCommandsCleanupRule(readFile(filePath), filePath);
+    }
+  });
+
+  it("keeps command/governance/quality skills aligned with current rules", () => {
+    const skillFiles = existingFiles([
+      ".codex/skills/ember-command-boundary/SKILL.md",
+      ".codex/skills/ember-governance/SKILL.md",
+      ".codex/skills/ember-quality-workflow/SKILL.md",
+    ]);
+
+    for (const filePath of skillFiles) {
+      const content = readFile(filePath);
+
+      expectNoBrandPrefixRule(content, filePath);
+      expectAppServerAgentRule(content, filePath);
+      expect(content, filePath).toMatch(/Electron/);
+      expect(content, filePath).toMatch(/App Server/);
+    }
+  });
+
+  it("keeps testing rules on Electron current evidence", () => {
+    const content = readFile("internal/aiprompts/quality-workflow.md");
+
+    expect(content).toContain("测试用例需要全面更新口径");
+    expect(content).toContain("Electron Desktop Host");
+    expect(content).toContain("App Server JSON-RPC");
+    expect(content).toContain("src/lib/desktop-host/");
+    expect(content).toContain("packages/app-server-client");
+    expect(content).toContain("smoke:electron");
+    expect(content).toContain("不得作为新改动的可交付证据");
+  });
+
+  it("keeps Vitest smoke runner aliases on desktop-host current naming", () => {
+    const content = readFile("scripts/lib/vitest-smoke-runner.mjs");
+
+    expect(content).toContain("desktopHostAliasPatterns");
+    expect(content).toContain("desktopHostDir");
+    expect(content).toContain("src/lib/desktop-host");
+    expect(content).not.toContain(["Ta", "uriAliasPatterns"].join(""));
+    expect(content).not.toContain(["ta", "uriMockDir"].join(""));
+    expect(content).not.toContain(retiredHostMockDir());
+    expect(content).not.toContain("ember-vitest-smoke-");
+  });
+
+  it("keeps Vitest layer classifier from treating legacy desktop host API as desktop-host current", () => {
+    const content = readFile("scripts/lib/vitest-layer-classifier.mjs");
+
+    expect(content).toContain('reason: "desktop-host-api"');
+    expect(content).toContain("desktop-host|DesktopHost");
+    expect(content).toContain('reason: "legacy-desktop-host-api"');
+    expect(content).toContain(retiredHostPackagePatternSource());
+    expect(content).toContain(retiredHostGlobalPatternSource());
+    expect(content).not.toContain(retiredHostPackageName());
+    expect(content).not.toContain(retiredHostGlobalName());
+    expect(content).not.toContain(
+      `reason: "desktop-host-api", pattern: /${retiredHostPackageName()}`,
+    );
+  });
+
+  it("keeps renderer HTML entrypoint free of retired desktop host probes", () => {
+    const content = readFile("index.html");
+
+    expect(content).not.toContain(retiredHostPackageName());
+    expect(content).not.toContain(retiredHostGlobalName());
+    expect(content).not.toContain(retiredHostInternalsName());
+    expect(content).not.toContain(retiredHostMockDir());
+    expect(content).not.toContain("SC_DISABLE_SPEEDY");
+  });
+
+  it("keeps renderer HTML entrypoint covered by the native startup shell", () => {
+    const content = readFile("index.html");
+
+    expect(content).toContain("data-ember-native-startup");
+    expect(content).toContain("data-ember-startup-shell");
+    expect(content).toContain("data-ember-startup-logo");
+    expect(content).toContain('params.get("nativeStartup") === "1"');
+    expect(content).toContain("index-startup-progress-shift");
+    expect(content).toContain("animation: index-startup-progress-shift");
+  });
+});

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "执行过程中的一步观察。",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "observation": {
+      "default": "",
+      "type": "string"
+    },
+    "runId": {
+      "default": "",
+      "type": "string"
+    },
+    "screenshotPath": {
+      "default": "",
+      "type": "string"
+    },
+    "stepNo": {
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "ts": {
+      "default": "",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "stepNo"
+  ],
+  "title": "TestCaseRunStep",
+  "type": "object"
+}

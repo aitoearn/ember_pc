@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@embercloud/app-server-client": [
+        "packages/app-server-client/src/index.ts"
+      ],
+      "app-server-client": ["packages/app-server-client/src/index.ts"]
+    },
+    "types": ["node", "electron"],
+    "noEmit": true
+  },
+  "include": ["electron/**/*.ts", "packages/app-server-client/src/**/*.ts"],
+  "exclude": ["electron/**/*.test.ts"]
+}

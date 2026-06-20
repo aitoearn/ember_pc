@@ -1,0 +1,51 @@
+{
+  "name": "@embercloud/agent-runtime-ui",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Shared React primitives for Agent Runtime timelines and runtime facts.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/embercloud/ember.git",
+    "directory": "packages/agent-runtime-ui"
+  },
+  "homepage": "https://github.com/embercloud/ember/tree/main/packages/agent-runtime-ui#readme",
+  "bugs": {
+    "url": "https://github.com/embercloud/ember/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "prepack": "npm run build",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "test": "npm --prefix ../agent-ui-contracts run build && npm --prefix ../agent-runtime-projection run build && npm run build && node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@embercloud/agent-ui-contracts": "0.1.0"
+  },
+  "devDependencies": {
+    "@embercloud/agent-runtime-projection": "0.1.0"
+  },
+  "peerDependencies": {
+    "react": ">=18 <20",
+    "react-dom": ">=18 <20"
+  },
+  "sideEffects": false
+}

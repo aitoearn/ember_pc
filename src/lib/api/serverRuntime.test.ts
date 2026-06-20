@@ -1,0 +1,223 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { safeInvoke } from "@/lib/dev-bridge";
+import {
+  exportSupportBundle,
+  getLogStorageDiagnostics,
+  getServerDiagnostics,
+  getWindowsStartupDiagnostics,
+} from "./serverRuntime";
+
+const appServerMocks = vi.hoisted(() => ({
+  readServerDiagnostics: vi.fn(),
+  readLogStorageDiagnostics: vi.fn(),
+  exportSupportBundle: vi.fn(),
+  readWindowsStartupDiagnostics: vi.fn(),
+}));
+
+vi.mock("@/lib/dev-bridge", () => ({
+  safeInvoke: vi.fn(),
+}));
+
+vi.mock("./appServer", () => ({
+  createAppServerClient: () => appServerMocks,
+}));
+
+describe("serverRuntime API", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("应通过 App Server current 读取 server diagnostics 并保留旧 API 返回形态", async () => {
+    appServerMocks.readServerDiagnostics.mockResolvedValueOnce({
+      result: {
+        generatedAt: "2026-06-09T00:00:00Z",
+        running: true,
+        host: "127.0.0.1",
+        port: 0,
+        telemetrySummary: {
+          totalRequests: 0,
+          successfulRequests: 0,
+          failedRequests: 0,
+          timeoutRequests: 0,
+          successRate: 0,
+          avgLatencyMs: 0,
+          minLatencyMs: null,
+          maxLatencyMs: null,
+          totalInputTokens: 0,
+          totalOutputTokens: 0,
+          totalTokens: 0,
+        },
+        capabilityRouting: {
+          filterEvalTotal: 0,
+          filterExcludedTotal: 0,
+          filterExcludedToolsTotal: 0,
+          filterExcludedVisionTotal: 0,
+          filterExcludedContextTotal: 0,
+          providerFallbackTotal: 0,
+          modelFallbackTotal: 0,
+          allCandidatesExcludedTotal: 0,
+        },
+        responseCache: {
+          config: {
+            enabled: false,
+            ttlSecs: 0,
+            maxEntries: 0,
+            maxBodyBytes: 0,
+            cacheableStatusCodes: [],
+          },
+          stats: { size: 0, hits: 0, misses: 0, evictions: 0 },
+          hitRatePercent: 0,
+        },
+        requestDedup: {
+          config: {
+            enabled: false,
+            ttlSecs: 0,
+            waitTimeoutMs: 0,
+          },
+          stats: {},
+          replayRatePercent: 0,
+        },
+        idempotency: {
+          config: {
+            enabled: false,
+            ttlSecs: 0,
+            headerName: "idempotency-key",
+          },
+          stats: {},
+          replayRatePercent: 0,
+        },
+      },
+    });
+
+    await expect(getServerDiagnostics()).resolves.toEqual(
+      expect.objectContaining({
+        generated_at: "2026-06-09T00:00:00Z",
+        running: true,
+        host: "127.0.0.1",
+        port: 0,
+        telemetry_summary: expect.objectContaining({ total_requests: 0 }),
+        response_cache: expect.objectContaining({
+          config: expect.objectContaining({ ttl_secs: 0 }),
+        }),
+      }),
+    );
+    expect(safeInvoke).not.toHaveBeenCalled();
+  });
+
+  it("应通过 App Server current 读取日志存储诊断并保留旧 API 返回形态", async () => {
+    appServerMocks.readLogStorageDiagnostics.mockResolvedValueOnce({
+      result: {
+        logDirectory: "/tmp/logs",
+        currentLogPath: "/tmp/logs/ember.log",
+        currentLogExists: true,
+        currentLogSizeBytes: 128,
+        inMemoryLogCount: 0,
+        relatedLogFiles: [
+          {
+            fileName: "ember.log",
+            path: "/tmp/logs/ember.log",
+            sizeBytes: 128,
+            modifiedAt: "2026-06-09T00:00:00Z",
+            compressed: false,
+          },
+        ],
+        rawResponseFiles: [],
+      },
+    });
+
+    await expect(getLogStorageDiagnostics()).resolves.toEqual({
+      log_directory: "/tmp/logs",
+      current_log_path: "/tmp/logs/ember.log",
+      current_log_exists: true,
+      current_log_size_bytes: 128,
+      in_memory_log_count: 0,
+      related_log_files: [
+        {
+          file_name: "ember.log",
+          path: "/tmp/logs/ember.log",
+          size_bytes: 128,
+          modified_at: "2026-06-09T00:00:00Z",
+          compressed: false,
+        },
+      ],
+      raw_response_files: [],
+    });
+    expect(safeInvoke).not.toHaveBeenCalled();
+  });
+
+  it("应通过 App Server current 导出支持包并保留旧 API 返回形态", async () => {
+    appServerMocks.exportSupportBundle.mockResolvedValueOnce({
+      result: {
+        bundlePath: "/tmp/Ember-Support.zip",
+        outputDirectory: "/tmp",
+        generatedAt: "2026-06-09T00:00:00Z",
+        platform: "darwin",
+        includedSections: ["meta/manifest.json"],
+        omittedSections: ["Windows 启动诊断（Desktop Host current 待迁移）"],
+      },
+    });
+
+    await expect(exportSupportBundle()).resolves.toEqual({
+      bundle_path: "/tmp/Ember-Support.zip",
+      output_directory: "/tmp",
+      generated_at: "2026-06-09T00:00:00Z",
+      platform: "darwin",
+      included_sections: ["meta/manifest.json"],
+      omitted_sections: ["Windows 启动诊断（Desktop Host current 待迁移）"],
+    });
+    expect(safeInvoke).not.toHaveBeenCalled();
+  });
+
+  it("应通过 App Server current 读取 Windows 启动诊断并保留旧 API 返回形态", async () => {
+    appServerMocks.readWindowsStartupDiagnostics.mockResolvedValueOnce({
+      result: {
+        platform: "darwin",
+        appDataDir: "/tmp/data",
+        legacyLimeDir: "/tmp/.ember",
+        dbPath: "/tmp/data/ember.db",
+        currentExe: "/Applications/Ember.app",
+        currentDir: "/tmp",
+        homeDir: "/Users/coso",
+        shellEnv: "/bin/zsh",
+        checks: [
+          {
+            key: "app_data_dir",
+            status: "ok",
+            message: "应用数据目录可写",
+          },
+        ],
+        hasBlockingIssues: false,
+        hasWarnings: false,
+        summaryMessage: "App Server 启动环境自检通过。",
+      },
+    });
+
+    await expect(getWindowsStartupDiagnostics()).resolves.toEqual({
+      platform: "darwin",
+      app_data_dir: "/tmp/data",
+      legacy_ember_dir: "/tmp/.ember",
+      db_path: "/tmp/data/ember.db",
+      webview2_version: null,
+      current_exe: "/Applications/Ember.app",
+      current_dir: "/tmp",
+      resource_dir: null,
+      home_dir: "/Users/coso",
+      shell_env: "/bin/zsh",
+      comspec_env: null,
+      resolved_terminal_shell: null,
+      installation_kind_guess: null,
+      checks: [
+        {
+          key: "app_data_dir",
+          status: "ok",
+          message: "应用数据目录可写",
+          detail: null,
+        },
+      ],
+      has_blocking_issues: false,
+      has_warnings: false,
+      summary_message: "App Server 启动环境自检通过。",
+    });
+    expect(safeInvoke).not.toHaveBeenCalled();
+  });
+});

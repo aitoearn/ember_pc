@@ -1,0 +1,52 @@
+{
+  "automaticAnthropicCompatibleHosts": [
+    {
+      "provider": "zhipuai",
+      "contains": "bigmodel.cn/api/anthropic"
+    },
+    {
+      "provider": "zhipuai",
+      "contains": "bigmodel.cn/api/coding/paas/v4"
+    },
+    {
+      "provider": "zai",
+      "contains": "api.z.ai/api/anthropic"
+    },
+    {
+      "provider": "moonshotai",
+      "contains": "moonshot.cn/anthropic"
+    },
+    {
+      "provider": "moonshotai",
+      "contains": "moonshot.ai/anthropic"
+    },
+    {
+      "provider": "kimi-for-coding",
+      "contains": "api.kimi.com/coding"
+    },
+    {
+      "provider": "minimax",
+      "contains": "minimaxi.com/anthropic"
+    },
+    {
+      "provider": "minimax",
+      "contains": "minimax.io/anthropic"
+    },
+    {
+      "provider": "alibaba-cn",
+      "contains": "coding.dashscope.aliyuncs.com/apps/anthropic"
+    },
+    {
+      "provider": "alibaba",
+      "contains": "coding-intl.dashscope.aliyuncs.com/apps/anthropic"
+    },
+    {
+      "provider": "xiaomi",
+      "contains": "token-plan-cn.xiaomimimo.com/anthropic"
+    },
+    {
+      "provider": "xiaomi",
+      "contains": "token-plan-sgp.xiaomimimo.com/anthropic"
+    }
+  ]
+}

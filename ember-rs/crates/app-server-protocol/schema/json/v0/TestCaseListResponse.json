@@ -1,0 +1,120 @@
+{
+  "$defs": {
+    "TestCase": {
+      "description": "单条测试用例。",
+      "properties": {
+        "assertions": {
+          "default": [],
+          "description": "断言/通过条件（与步骤分离的独立验证项）。",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "caseId": {
+          "type": "string"
+        },
+        "caseType": {
+          "default": "",
+          "type": "string"
+        },
+        "createdAt": {
+          "default": "",
+          "type": "string"
+        },
+        "execResult": {
+          "default": "",
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "moduleId": {
+          "default": "",
+          "type": "string"
+        },
+        "precondition": {
+          "default": "",
+          "type": "string"
+        },
+        "priority": {
+          "default": "",
+          "type": "string"
+        },
+        "remark": {
+          "default": "",
+          "type": "string"
+        },
+        "source": {
+          "default": "",
+          "type": "string"
+        },
+        "status": {
+          "default": "",
+          "type": "string"
+        },
+        "steps": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TestCaseStep"
+          },
+          "type": "array"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "title": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "caseId",
+        "id",
+        "title"
+      ],
+      "type": "object"
+    },
+    "TestCaseStep": {
+      "description": "结构化测试步骤：步骤号 + 操作 + 预期。",
+      "properties": {
+        "action": {
+          "default": "",
+          "type": "string"
+        },
+        "expected": {
+          "default": "",
+          "type": "string"
+        },
+        "stepNo": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "stepNo"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "cases": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/TestCase"
+      },
+      "type": "array"
+    }
+  },
+  "title": "TestCaseListResponse",
+  "type": "object"
+}

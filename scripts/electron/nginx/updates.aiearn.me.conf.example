@@ -1,0 +1,64 @@
+# ECS / 宝塔面板 Nginx 示例：updates.aiearn.me
+#
+# 环境参考：
+#   nginx/1.28.1，prefix=/www/server/nginx，user=www，OpenSSL 1.1.1q，支持 HTTP/2 / HTTP/3
+#
+# 推荐目录（与 upload-update-feed 脚本一致）：
+#   站点根：/www/wwwroot/updates.aiearn.me
+#   feed：  /www/wwwroot/updates.aiearn.me/ember/stable/<feed>/RELEASES.json | RELEASES
+#
+# 宝塔操作顺序：
+#   1. 网站 → 添加站点 → 域名 updates.aiearn.me → 根目录 /www/wwwroot/updates.aiearn.me
+#   2. 网站 → SSL → Let's Encrypt 或上传证书 → 开启强制 HTTPS
+#   3. 网站 → 配置文件 → 在 server { } 内合并下方 location 块（保留面板生成的 ssl_* 指令）
+#   4. 上传 release 资产后：nginx -t && nginx -s reload
+#
+# SCP 上传示例（与仓库脚本对齐）：
+#   EMBER_UPDATES_SSH_TARGET=root@<ecs-ip> \
+#   EMBER_UPDATES_REMOTE_ROOT=/www/wwwroot/updates.aiearn.me \
+#   npm run electron:upload-update-feed -- --version v1.0.0
+#
+# 验证：
+#   curl -I https://updates.aiearn.me/ember/stable/darwin-arm64/RELEASES.json
+
+server {
+    listen 80;
+    listen 443 ssl http2;
+    listen 443 quic reuseport;
+    server_name updates.aiearn.me;
+
+    # 宝塔申请证书后通常自动生成；手动部署时可改为：
+    # ssl_certificate    /www/server/panel/vhost/cert/updates.aiearn.me/fullchain.pem;
+    # ssl_certificate_key /www/server/panel/vhost/cert/updates.aiearn.me/privkey.pem;
+    # include /www/server/panel/vhost/nginx/well-known/updates.aiearn.me.conf;
+
+    root /www/wwwroot/updates.aiearn.me;
+    index index.html;
+    autoindex off;
+
+    # Electron autoUpdater 跨域读取 manifest（macOS json / Windows RELEASES）
+    add_header Access-Control-Allow-Origin "*" always;
+    add_header Alt-Svc 'h3=":443"; ma=86400' always;
+
+    # manifest：短缓存，便于推送新版本
+    location ~ ^/ember/stable/[^/]+/RELEASES(?:\.json)?$ {
+        add_header Cache-Control "public, max-age=60, stale-while-revalidate=300" always;
+        try_files $uri =404;
+    }
+
+    # 安装包 zip / dmg / nupkg / exe：长缓存
+    location ^~ /ember/stable/ {
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    # 禁止列出目录、禁止执行脚本
+    location ~* \.(php|jsp|cgi|asp|aspx)$ {
+        return 404;
+    }
+
+    access_log /www/wwwlogs/updates.aiearn.me.log;
+    error_log  /www/wwwlogs/updates.aiearn.me.error.log;
+}
+
+# 若宝塔已单独生成 80→443 跳转，可删除重复 listen 80 或在面板勾选「强制 HTTPS」

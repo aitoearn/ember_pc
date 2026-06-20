@@ -1,0 +1,58 @@
+---
+description: "MyWiki 知识库路由与路径约束。当用户意图涉及知识库查询/入库/总结/沉淀时，强制路由到对应 SKILL.md，并约束 wiki/ 写入纪律。"
+globs:
+  - "wiki/**/*.md"
+  - "wiki/raw/**/*"
+  - ".mywiki/wiki/**/*.md"
+alwaysApply: true
+---
+
+# 00 · MyWiki 路由与约束（始终生效）
+
+本规则常驻上下文。一旦用户意图匹配知识库（knowledge base）操作，必须按下方路由表读取对应 `SKILL.md` 再执行，禁止凭记忆直接动手。
+
+## 运行时模式（runtime mode）
+
+执行任何知识库操作前，读取 `.cursor/runtime-profile.json`：
+
+- `storage_mode`：`vault` / `project-local` / `external-vault`，决定 wiki 根目录。
+- `telemetry_mode`：`full` / `degraded`。Cursor 通常为 `degraded`（无 hooks，L1 自动采集不可用）。
+- `wiki_dir`：wiki 目录绝对路径。若档案缺失，回退顺序：`$MYWIKI_ROOT/wiki/` → `./.mywiki/wiki/` → `./wiki/`。
+
+## 操作路由表（8 种意图 → SKILL.md）
+
+| 用户意图（中文 / English） | 路由到 |
+| --- | --- |
+| 查询、查一下、问知识库、what do you know、query | `.cursor/skills/obsidian-wiki-query/SKILL.md` |
+| 入库、收录、处理这个文件/URL、ingest | `.cursor/skills/obsidian-wiki-ingest/SKILL.md` |
+| 保存会话结论、save、记一下这个结论 | `.cursor/skills/obsidian-save/SKILL.md` |
+| **提交代码、提交、commit、git commit、创建提交**（先 commit 再 save） | `.cursor/skills/obsidian-save/SKILL.md` + `.cursor/rules/04-mywiki-commit-coupling.mdc` |
+| 沉淀、这个该放哪、归档到知识库 | `.cursor/skills/mywiki-router/SKILL.md` |
+| 自动研究、补全这块知识、autoresearch | `.cursor/skills/obsidian-autoresearch/SKILL.md` |
+| 健康检查、查死链/孤岛、lint | `.cursor/skills/obsidian-wiki-lint/SKILL.md` |
+| 初始化知识库、scaffold、建 wiki | `.cursor/skills/obsidian-wiki/SKILL.md` |
+| 今日总结、工作总结、今天干了什么 | `.cursor/skills/mywiki-telemetry-work-pipeline/SKILL.md` |
+
+## 全局路径约束
+
+- `wiki/`：Agent 可读写的知识层（markdown）。所有内部引用用双链 `[[页面名]]`。
+- `wiki/raw/`：**原始文件不可变（immutable）**。Agent 不得修改用户拖入的原文，仅维护 `raw/.manifest.json`。
+- `_templates/`：模板目录，新页面按对应模板生成 frontmatter（YAML 扁平结构）。
+
+## 统一知识架构
+
+- `wiki/central/`：跨项目可复用的通用知识。
+- `wiki/projects/<project-id>/`：项目专属知识。沉淀时由 `mywiki-router` 判断落点。
+
+## 写后闭环（强制纪律）
+
+任何对 `wiki/` 正文的改动后，必须依次执行，缺一步知识图谱即出现孤岛或死链：
+
+1. 更新 `wiki/index.md`（全局索引）
+2. 更新相关域索引页 `wiki/<域>/_index.md`
+3. 追加 `wiki/log.md`（新条目置顶，append-only）
+4. 刷新 `wiki/hot.md`（≤ 500 字，重写不留历史）
+
+## 强制路由：总结类请求
+
+当用户说「今日总结」「工作总结」「今天干了什么」时，**禁止跳过 Pipeline 直接写总结正文**。必须先 Read `mywiki-telemetry-work-pipeline/SKILL.md`，再按 **A（分析）→ B（落盘）** 顺序执行。

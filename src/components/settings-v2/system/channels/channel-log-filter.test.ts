@@ -1,0 +1,89 @@
+import { describe, expect, it } from "vitest";
+import type { LogEntry } from "@/lib/api/logs";
+import { buildChannelLogRegex, filterChannelLogs } from "./channel-log-filter";
+
+const MOCK_LOGS: LogEntry[] = [
+  {
+    timestamp: "2026-03-05 10:00:00.000",
+    level: "info",
+    message: "[TelegramGateway] account=default 启动成功",
+  },
+  {
+    timestamp: "2026-03-05 10:00:01.000",
+    level: "info",
+    message: "[RPC] agent.run created runId=abc",
+  },
+  {
+    timestamp: "2026-03-05 10:00:01.500",
+    level: "info",
+    message: "[WechatGateway] account=wx-default 收到消息",
+  },
+  {
+    timestamp: "2026-03-05 10:00:02.000",
+    level: "info",
+    message: "[FeishuGateway] account=default 启动成功",
+  },
+];
+
+const INVALID_REGEX_MESSAGE = "Invalid regex. Falling back to no filter.";
+
+describe("channel-log-filter", () => {
+  it("预置 telegram 过滤应命中 TelegramGateway", () => {
+    const { regex, error } = buildChannelLogRegex(
+      "telegram",
+      "",
+      INVALID_REGEX_MESSAGE,
+    );
+    expect(error).toBeNull();
+    const result = filterChannelLogs(MOCK_LOGS, regex);
+    expect(result).toHaveLength(1);
+    expect(result[0].message).toContain("TelegramGateway");
+  });
+
+  it("预置 rpc 过滤应命中 RPC 与 agent.run", () => {
+    const { regex, error } = buildChannelLogRegex(
+      "rpc",
+      "",
+      INVALID_REGEX_MESSAGE,
+    );
+    expect(error).toBeNull();
+    const result = filterChannelLogs(MOCK_LOGS, regex);
+    expect(result).toHaveLength(1);
+    expect(result[0].message).toContain("agent.run");
+  });
+
+  it("预置 wechat 过滤应命中 WechatGateway", () => {
+    const { regex, error } = buildChannelLogRegex(
+      "wechat",
+      "",
+      INVALID_REGEX_MESSAGE,
+    );
+    expect(error).toBeNull();
+    const result = filterChannelLogs(MOCK_LOGS, regex);
+    expect(result).toHaveLength(1);
+    expect(result[0].message).toContain("WechatGateway");
+  });
+
+  it("自定义正则非法时应返回错误并回退不过滤", () => {
+    const { regex, error } = buildChannelLogRegex(
+      "custom",
+      "[invalid",
+      INVALID_REGEX_MESSAGE,
+    );
+    expect(regex).toBeNull();
+    expect(error).toContain("Invalid regex");
+    const result = filterChannelLogs(MOCK_LOGS, regex);
+    expect(result).toHaveLength(4);
+  });
+
+  it("all 模式应不过滤", () => {
+    const { regex, error } = buildChannelLogRegex(
+      "all",
+      "",
+      INVALID_REGEX_MESSAGE,
+    );
+    expect(error).toBeNull();
+    const result = filterChannelLogs(MOCK_LOGS, regex);
+    expect(result).toHaveLength(4);
+  });
+});

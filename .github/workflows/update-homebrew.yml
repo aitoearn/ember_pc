@@ -1,0 +1,105 @@
+name: Update Homebrew Tap
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (不带 v 前缀，如 0.37.0)'
+        required: true
+
+jobs:
+  update-homebrew:
+    if: github.event_name == 'workflow_dispatch' || github.event.release.prerelease != true
+    runs-on: macos-latest
+    steps:
+      - name: 获取版本号
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            # 从 tag 中提取版本号，去掉 v 前缀
+            VERSION="${{ github.event.release.tag_name }}"
+            echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 等待 Release 资源就绪
+        run: sleep 30
+
+      - name: 下载 DMG 并计算 SHA256
+        id: sha
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          
+          # 下载 ARM64 DMG
+          echo "下载 ARM64 DMG..."
+          curl -sL -o arm64.dmg "https://github.com/aiclientproxy/ember/releases/download/v${VERSION}/ember_${VERSION}_aarch64.dmg"
+          ARM64_SHA=$(shasum -a 256 arm64.dmg | awk '{print $1}')
+          echo "ARM64 SHA256: $ARM64_SHA"
+          echo "arm64_sha=$ARM64_SHA" >> $GITHUB_OUTPUT
+          
+          # 下载 x64 DMG
+          echo "下载 x64 DMG..."
+          curl -sL -o x64.dmg "https://github.com/aiclientproxy/ember/releases/download/v${VERSION}/ember_${VERSION}_x64.dmg"
+          X64_SHA=$(shasum -a 256 x64.dmg | awk '{print $1}')
+          echo "x64 SHA256: $X64_SHA"
+          echo "x64_sha=$X64_SHA" >> $GITHUB_OUTPUT
+
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: aiclientproxy/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: 更新 Cask 文件
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ARM64_SHA="${{ steps.sha.outputs.arm64_sha }}"
+          X64_SHA="${{ steps.sha.outputs.x64_sha }}"
+          
+          cat > homebrew-tap/Casks/ember.rb << EOF
+          cask "ember" do
+            version "$VERSION"
+
+            on_arm do
+              sha256 "$ARM64_SHA"
+              url "https://github.com/aiclientproxy/ember/releases/download/v#{version}/ember_#{version}_aarch64.dmg"
+            end
+
+            on_intel do
+              sha256 "$X64_SHA"
+              url "https://github.com/aiclientproxy/ember/releases/download/v#{version}/ember_#{version}_x64.dmg"
+            end
+
+            name "Ember"
+            desc "AI API 代理桌面应用 - 将 AI 客户端凭证转换为 OpenAI 兼容接口"
+            homepage "https://github.com/aiclientproxy/ember"
+
+            livecheck do
+              url :url
+              strategy :github_latest
+            end
+
+            app "Ember.app"
+
+            zap trash: [
+              "~/.config/com.ember.app",
+              "~/Library/Application Support/com.ember.app",
+              "~/Library/Caches/com.ember.app",
+              "~/Library/Preferences/com.ember.app.plist",
+              "~/Library/Saved Application State/com.ember.app.savedState",
+            ]
+          end
+          EOF
+
+      - name: 提交并推送
+        run: |
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/ember.rb
+          git commit -m "chore: bump ember to ${{ steps.version.outputs.version }}"
+          git push

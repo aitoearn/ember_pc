@@ -1,0 +1,37 @@
+---
+description: i18n 仅维护 zh-CN 与 en-US；新增/改文案不同步繁中/日/韩
+alwaysApply: true
+---
+
+# 05 · i18n 双语策略（始终生效）
+
+本规则 **覆盖** 仓库内「五语言全覆盖」类旧描述（如 AGENTS.md #10、部分 spec/exec-plan），以本规则为当前事实源。
+
+## 适用范围
+
+凡涉及 **新增或修改用户可见文案**（按钮、标题、Tab、空态、toast、confirm、placeholder、aria、错误提示、导出文案等），以及新建 i18n namespace / key：
+
+## 必须做
+
+1. **只改两个 locale**：
+   - `src/i18n/resources/zh-CN/**`
+   - `src/i18n/resources/en-US/**`
+2. 中英文 key **必须成对出现**，结构一致。
+3. 新建 namespace 时，同步登记 `bundledNamespaceParts.ts` / `types.d.ts`（若项目已有该流程）。
+
+## 禁止做（除非用户明确要求）
+
+- **不要** 修改 `zh-TW`、`ja-JP`、`ko-KR` 下的 json。
+- **不要** 在收尾清单里写「五语言已同步」。
+- **不要** 因 AGENTS.md / spec 里的五语言表述而主动补全其他语言。
+
+## 例外
+
+用户明确说「补全五语言 / 同步繁中 / 更新日语韩语」时，才可改动 `zh-TW`、`ja-JP`、`ko-KR`。
+
+## 示例
+
+```text
+✅ 新增 Tab 文案 → 只改 zh-CN/deviceAutomation.json + en-US/deviceAutomation.json
+❌ 顺带改 ja-JP/ko-KR/zh-TW 同 key
+```

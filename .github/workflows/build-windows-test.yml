@@ -1,0 +1,99 @@
+name: Build Windows Test Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "要构建的分支 / tag / commit SHA"
+        required: false
+        default: "main"
+      retention_days:
+        description: "Artifact 保留天数"
+        required: false
+        default: "7"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-windows-test-${{ github.event.inputs.source_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+  CARGO_TERM_COLOR: always
+  NODE_OPTIONS: --max-old-space-size=8192
+  ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+  EMBER_ELECTRON_UPDATES_URL: https://updates.aiearn.me/ember/stable/win32-x64/
+
+jobs:
+  build-windows-test:
+    name: Build Electron Windows x64 Squirrel installer
+    runs-on: windows-2022
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.source_ref || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "package-lock.json"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ember-rs
+          shared-key: windows-test-x64-electron
+          cache-on-failure: true
+          cache-all-crates: true
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Electron Windows test package
+        shell: bash
+        env:
+          CARGO_PROFILE_RELEASE_LTO: "off"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 32
+          CARGO_INCREMENTAL: 0
+          CARGO_TARGET_DIR: ${{ github.workspace }}/ember-rs/target
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: sccache
+        run: |
+          set -euxo pipefail
+          npm run electron:build
+          npx electron-forge make --platform win32 --arch x64 --targets squirrel
+          VERSION="$(node -p "require('./package.json').version")"
+          node scripts/electron/verify-package-resources.mjs \
+            --package-root release-electron \
+            --platform win32 \
+            --arch x64
+          node scripts/electron/stage-release-assets.mjs \
+            --forge-dir release-electron \
+            --out-dir windows-test-package \
+            --target-triple x86_64-pc-windows-msvc \
+            --version "$VERSION"
+
+      - name: Upload Windows test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ember-electron-windows-test-x64
+          if-no-files-found: error
+          retention-days: ${{ github.event.inputs.retention_days || 7 }}
+          path: windows-test-package/*

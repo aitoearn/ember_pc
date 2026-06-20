@@ -1,0 +1,94 @@
+import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { getWindowsStartupDiagnostics } from "@/lib/api/serverRuntime";
+import { ensureDefaultWorkspaceReady } from "@/lib/api/project";
+import { recordWorkspaceRepair } from "@/lib/workspaceHealthTelemetry";
+import { hasDesktopHostInvokeCapability } from "@/lib/desktop-runtime";
+import type { Page } from "@/types/page";
+
+function isDesktopHostEnvironment(): boolean {
+  return hasDesktopHostInvokeCapability();
+}
+
+function isWindowsNavigatorPlatform(): boolean {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  const platform = navigator.platform || "";
+  const userAgent = navigator.userAgent || "";
+  return /win/i.test(platform) || /windows/i.test(userAgent);
+}
+
+interface UseAppStartupEffectsOptions {
+  currentPage: Page;
+}
+
+export function useAppStartupEffects({
+  currentPage,
+}: UseAppStartupEffectsOptions): void {
+  const { t } = useTranslation("common");
+
+  useEffect(() => {
+    if (!isDesktopHostEnvironment() || !isWindowsNavigatorPlatform()) {
+      return;
+    }
+
+    void getWindowsStartupDiagnostics()
+      .then((diagnostics) => {
+        if (!diagnostics.summary_message) {
+          return;
+        }
+
+        if (diagnostics.has_blocking_issues) {
+          toast.error(t("common.app.startup.windows.blockingTitle"), {
+            description: diagnostics.summary_message,
+            duration: 12000,
+          });
+          return;
+        }
+
+        if (diagnostics.has_warnings) {
+          toast.warning(t("common.app.startup.windows.warningTitle"), {
+            description: diagnostics.summary_message,
+            duration: 8000,
+          });
+        }
+      })
+      .catch((error) => {
+        console.warn("[App] 获取 Windows 启动诊断失败:", error);
+      });
+  }, [t]);
+
+  useEffect(() => {
+    if (!isDesktopHostEnvironment()) {
+      return;
+    }
+
+    void ensureDefaultWorkspaceReady()
+      .then((result) => {
+        if (result?.repaired) {
+          recordWorkspaceRepair({
+            workspaceId: result.workspaceId,
+            rootPath: result.rootPath,
+            source: "app_startup",
+          });
+          console.info(
+            "[App] 启动时检测到默认工作区目录缺失，已自动修复:",
+            result.rootPath,
+          );
+        }
+      })
+      .catch((error) => {
+        console.warn("[App] 启动时工作区健康检查失败:", error);
+      });
+  }, []);
+
+  useEffect(() => {
+    const mainElement = document.querySelector("main");
+    if (mainElement) {
+      mainElement.scrollTop = 0;
+    }
+  }, [currentPage]);
+}

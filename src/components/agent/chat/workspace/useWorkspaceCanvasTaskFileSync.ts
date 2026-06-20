@@ -1,0 +1,89 @@
+import {
+  useEffect,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from "react";
+import type { CanvasStateUnion } from "@/components/workspace/canvas/canvasUtils";
+import { createInitialDocumentState } from "@/components/workspace/canvas/canvasUtils";
+import type { ThemeType } from "@/lib/workspace/workbenchContract";
+import type { TaskFile } from "../components/TaskFiles";
+import {
+  resolveCanvasTaskFileTarget,
+  shouldDeferCanvasSyncWhileEditing,
+} from "../utils/taskFileCanvasSync";
+import { isRenderableTaskFile } from "./generalWorkbenchHelpers";
+
+interface UseWorkspaceCanvasTaskFileSyncParams {
+  taskFiles: TaskFile[];
+  isThemeWorkbench: boolean;
+  selectedFileId?: string;
+  canvasState: CanvasStateUnion | null;
+  mappedTheme: ThemeType;
+  documentEditorFocusedRef: MutableRefObject<boolean>;
+  setSelectedFileId: Dispatch<SetStateAction<string | undefined>>;
+  setCanvasState: Dispatch<SetStateAction<CanvasStateUnion | null>>;
+}
+
+export function useWorkspaceCanvasTaskFileSync({
+  taskFiles,
+  isThemeWorkbench,
+  selectedFileId,
+  canvasState,
+  mappedTheme,
+  documentEditorFocusedRef,
+  setSelectedFileId,
+  setCanvasState,
+}: UseWorkspaceCanvasTaskFileSyncParams) {
+  useEffect(() => {
+    const renderableFiles = taskFiles.filter((file) =>
+      isRenderableTaskFile(file, isThemeWorkbench),
+    );
+    if (renderableFiles.length === 0) {
+      return;
+    }
+
+    const { targetFile, nextSelectedFileId } = resolveCanvasTaskFileTarget(
+      renderableFiles,
+      selectedFileId,
+    );
+    if (!targetFile?.content) {
+      return;
+    }
+
+    if (nextSelectedFileId) {
+      setSelectedFileId((previous) =>
+        previous === nextSelectedFileId ? previous : nextSelectedFileId,
+      );
+    }
+
+    if (
+      shouldDeferCanvasSyncWhileEditing({
+        canvasType: canvasState?.type ?? null,
+        editorFocused: documentEditorFocusedRef.current,
+      })
+    ) {
+      return;
+    }
+
+    const targetContent = targetFile.content;
+    setCanvasState((previous) => {
+      if (!previous || previous.type !== "document") {
+        return createInitialDocumentState(targetContent);
+      }
+      if (previous.content === targetContent) {
+        return previous;
+      }
+      return { ...previous, content: targetContent };
+    });
+  }, [
+    canvasState?.type,
+    documentEditorFocusedRef,
+    isThemeWorkbench,
+    mappedTheme,
+    selectedFileId,
+    setCanvasState,
+    setSelectedFileId,
+    taskFiles,
+  ]);
+}

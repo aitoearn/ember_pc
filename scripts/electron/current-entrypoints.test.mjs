@@ -1,0 +1,309 @@
+import fs from "node:fs";
+import path from "node:path";
+import { describe, expect, it } from "vitest";
+
+function readPackageScripts() {
+  return JSON.parse(fs.readFileSync("package.json", "utf8")).scripts ?? {};
+}
+
+function readFile(filePath) {
+  return fs.readFileSync(filePath, "utf8");
+}
+
+function retiredHostTopic() {
+  return ["ta", "uri"].join("");
+}
+
+function retiredHostConfigStem() {
+  return ["ta", "uri.conf"].join("");
+}
+
+function retiredRootDesktopHostFiles() {
+  const configStem = retiredHostConfigStem();
+  return [
+    "ember-rs/build.rs",
+    "ember-rs/src/main.rs",
+    "ember-rs/src/lib.rs",
+    ["ember-rs/", configStem, ".json"].join(""),
+    ["ember-rs/", configStem, ".headless.json"].join(""),
+    ["ember-rs/", retiredHostTopic(), ".windows.conf.json"].join(""),
+  ];
+}
+
+function retiredHostCleanupCandidateFiles() {
+  return [];
+}
+
+function retiredHostBuildInputTerms() {
+  return [
+    retiredHostConfigStem(),
+    ["ember-rs/", retiredHostConfigStem()].join(""),
+    ["ember-rs/", retiredHostTopic(), ".windows.conf"].join(""),
+    ["src-", "ta", "uri"].join(""),
+    ["@", "ta", "uri-apps/cli"].join(""),
+    ["npm run ", "ta", "uri"].join(""),
+    ["node_modules/.bin/", "ta", "uri"].join(""),
+  ];
+}
+
+function retiredHostRuntimeTerms() {
+  return [
+    ...retiredHostBuildInputTerms(),
+    ["__", "TA", "URI__"].join(""),
+    ["__", "TA", "URI_INTERNALS__"].join(""),
+    ["TA", "URI_"].join(""),
+    ["ta", "uri::"].join(""),
+    ["#[", "ta", "uri::command]"].join(""),
+  ];
+}
+
+function expectNoRetiredHostBuildInput(content, label) {
+  for (const term of retiredHostBuildInputTerms()) {
+    expect(content, label).not.toContain(term);
+  }
+}
+
+function expectNoRetiredHostRuntimeInput(content, label) {
+  for (const term of retiredHostRuntimeTerms()) {
+    expect(content, label).not.toContain(term);
+  }
+}
+
+function expectNoElectronRuntimeEsmImport(content, label) {
+  const runtimeImportLines = content
+    .split("\n")
+    .filter((line) => /^\s*import\s+(?!type\b).*from "electron";/.test(line));
+
+  expect(runtimeImportLines, label).toEqual([]);
+}
+
+function listFiles(root, predicate = () => true) {
+  const entries = fs.readdirSync(root, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const filePath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listFiles(filePath, predicate));
+      continue;
+    }
+    if (entry.isFile() && predicate(filePath)) {
+      files.push(filePath);
+    }
+  }
+  return files.sort();
+}
+
+function currentElectronEntrypointFiles() {
+  const explicitFiles = [
+    "package.json",
+    "forge.config.mjs",
+    "scripts/electron/brand-mac-helper-apps.mjs",
+    "scripts/check-app-version-consistency.mjs",
+    "scripts/electron/build-host.mjs",
+    "scripts/electron/build-renderer.mjs",
+    "scripts/electron/build-renderer-smoke.mjs",
+    "scripts/electron/renderer-build-env.mjs",
+    "scripts/electron/copy-desktop-assets.mjs",
+    "scripts/electron/smoke.mjs",
+    "scripts/electron/make-zip-local-feed.mjs",
+    "scripts/electron/update-feed-r2-upload-plan.mjs",
+    "scripts/electron/prepare-app-server-assets.mjs",
+    "scripts/electron/run-dev.mjs",
+    "scripts/electron/run-package-dir.mjs",
+    "scripts/electron/run-preview.mjs",
+    "scripts/electron/stage-release-assets.mjs",
+    "scripts/electron/verify-package-resources.mjs",
+  ];
+  return [
+    ...explicitFiles,
+    ...listFiles(".github", (filePath) =>
+      /\.(ya?ml|json|md|sh|mjs|js|ts)$/i.test(filePath),
+    ),
+    ...listFiles("electron", (filePath) =>
+      /\.(ya?ml|json|md|mjs|js|ts|tsx)$/i.test(filePath),
+    ),
+  ];
+}
+
+describe("Electron current package entrypoints", () => {
+  it("default desktop commands point to Electron current", () => {
+    const scripts = readPackageScripts();
+
+    expect(scripts.dev).toBe("npm run electron:dev");
+    expect(scripts.build).toBe("npm run electron:build");
+    expect(scripts.preview).toBe("npm run electron:start");
+    expect(scripts["verify:gui-smoke"]).toBe("npm run smoke:electron");
+    expect(scripts["smoke:electron"]).toContain("scripts/electron/smoke.mjs");
+    expect(scripts["electron:make:zip-local-feed"]).toBe(
+      "node scripts/electron/make-zip-local-feed.mjs",
+    );
+  });
+
+  it("package scripts do not expose retired desktop host as a GUI current path", () => {
+    const scripts = readPackageScripts();
+    const retiredHostScripts = Object.entries(scripts).filter(
+      ([name, command]) =>
+        `${name} ${command}`.toLowerCase().includes("retired-host"),
+    );
+
+    expect(retiredHostScripts).toEqual([]);
+  });
+
+  it("does not keep retired root desktop host app entry files", () => {
+    for (const filePath of retiredRootDesktopHostFiles()) {
+      expect(fs.existsSync(filePath), filePath).toBe(false);
+    }
+  });
+
+  it("keeps retired host cleanup candidates out of current entrypoints", () => {
+    const currentEntrypointContent = currentElectronEntrypointFiles()
+      .map((filePath) => readFile(filePath))
+      .join("\n");
+
+    for (const filePath of retiredHostCleanupCandidateFiles()) {
+      expect(currentEntrypointContent, filePath).not.toContain(filePath);
+    }
+  });
+
+  it("package scripts, Electron Forge, and version checks do not consume retired host config", () => {
+    const scripts = readPackageScripts();
+    const scriptEntrypoints = Object.entries(scripts)
+      .map(([name, command]) => `${name} ${command}`)
+      .join("\n");
+    const forgeConfig = readFile("forge.config.mjs");
+    const appVersionCheck = readFile(
+      "scripts/check-app-version-consistency.mjs",
+    );
+
+    expectNoRetiredHostBuildInput(scriptEntrypoints, "package.json scripts");
+    expectNoRetiredHostBuildInput(forgeConfig, "forge.config.mjs");
+    expectNoRetiredHostBuildInput(
+      appVersionCheck,
+      "scripts/check-app-version-consistency.mjs",
+    );
+
+    expect(forgeConfig).toContain('const PRODUCT_NAME = "Ember"');
+    expect(forgeConfig).toContain('const APP_ID = "com.embercloud.ember"');
+    expect(forgeConfig).toContain("app-server.release.json");
+    expect(forgeConfig).toContain("new MakerDMG");
+    expect(forgeConfig).toContain("new MakerZIP");
+    expect(forgeConfig).toContain("new MakerSquirrel");
+    expect(scriptEntrypoints).toContain(
+      "electron:make:zip-local-feed node scripts/electron/make-zip-local-feed.mjs",
+    );
+    expect(appVersionCheck).toContain("Cargo.toml");
+    expect(appVersionCheck).toContain("packages");
+    expect(appVersionCheck).toContain("ember-cli-npm");
+  });
+
+  it("Electron current build, release, CI, and host files stay free of retired host runtime inputs", () => {
+    for (const filePath of currentElectronEntrypointFiles()) {
+      expectNoRetiredHostRuntimeInput(readFile(filePath), filePath);
+    }
+  });
+
+  it("Electron main process avoids ESM runtime imports from electron", () => {
+    const mainProcessFiles = [
+      "electron/main.ts",
+      "electron/updateHost.ts",
+      "electron/appServerHost.ts",
+      "electron/hostCommands.ts",
+    ];
+    for (const filePath of mainProcessFiles) {
+      expectNoElectronRuntimeEsmImport(readFile(filePath), filePath);
+      expect(readFile(filePath), filePath).toContain(
+        'from "./electronRuntime"',
+      );
+    }
+
+    const runtime = readFile("electron/electronRuntime.ts");
+    expect(runtime).toContain("createRequire(import.meta.url)");
+    expect(runtime).toContain('requireElectron("electron")');
+    expectNoElectronRuntimeEsmImport(runtime, "electron/electronRuntime.ts");
+  });
+
+  it("legacy verify-gui-smoke script delegates to Electron smoke", () => {
+    const content = readFile("scripts/verify-gui-smoke.mjs");
+
+    expect(content).toContain('"smoke:electron"');
+    expect(content).toContain("Electron Desktop Host current GUI smoke");
+    expect(content).not.toMatch(/retired-host/i);
+    expect(content).not.toContain("headless");
+    expect(content).not.toContain("retired-host.conf");
+    expect(content).not.toContain("node_modules/.bin");
+  });
+
+  it("Electron smoke gates Claw workbench shell and composer readiness", () => {
+    const mainContent = readFile("electron/main.ts");
+    const smokeScript = readFile("scripts/electron/smoke.mjs");
+
+    expect(mainContent).toContain("waitForElectronSmokeWorkbenchReady");
+    expect(mainContent).toContain('[data-testid="workspace-shell-scene"]');
+    expect(mainContent).toContain('[data-testid="inputbar-core-container"]');
+    expect(mainContent).toContain('textarea[name="agent-chat-message"]');
+    expect(mainContent).toContain("claw workbench shell ready");
+    expect(mainContent).not.toContain('"agentSession/turn/start"');
+    expect(mainContent).not.toContain('"test_api_key_provider_chat"');
+    expect(smokeScript).toContain("mkdtempSync");
+    expect(smokeScript).toContain("ELECTRON_E2E_USER_DATA_DIR");
+    expect(smokeScript).toContain('EMBER_ELECTRON_E2E: "1"');
+    expect(smokeScript).toContain("timed out waiting for renderer/workbench");
+  });
+
+  it("Electron packaged renderer uses relative assets under file URLs", () => {
+    const viteConfig = readFile("vite.config.ts");
+    const buildRenderer = readFile("scripts/electron/build-renderer.mjs");
+    const smokeBuildRenderer = readFile(
+      "scripts/electron/build-renderer-smoke.mjs",
+    );
+    const rendererBuildEnv = readFile(
+      "scripts/electron/renderer-build-env.mjs",
+    );
+
+    expect(buildRenderer).toContain("EMBER_ELECTRON_RENDERER");
+    expect(buildRenderer).toContain("rendererBuildEnv");
+    expect(buildRenderer).toContain("startRendererBuildHeartbeat");
+    expect(smokeBuildRenderer).toContain("EMBER_ELECTRON_RENDERER");
+    expect(smokeBuildRenderer).toContain("rendererBuildEnv");
+    expect(smokeBuildRenderer).toContain("startRendererBuildHeartbeat");
+    expect(rendererBuildEnv).toContain("--max-old-space-size=8192");
+    expect(rendererBuildEnv).toContain("NODE_OPTIONS");
+    expect(rendererBuildEnv).toContain("still running after");
+    expect(viteConfig).toContain("base:");
+    expect(viteConfig).toContain('isElectronRenderer ? "./" : undefined');
+    expect(viteConfig).toContain('find: "@embercloud/app-server-client"');
+    expect(viteConfig).toContain("./packages/app-server-client/src/index.ts");
+  });
+
+  it("build monitor observes Electron package output instead of retired host bundles", () => {
+    const content = readFile("scripts/monitor-build.sh");
+
+    expect(content).toContain("Electron 打包进度监控");
+    expect(content).toContain("/tmp/electron-build.log");
+    expect(content).toContain("release-electron");
+    expect(content).toContain(
+      "electron-forge|electron:package:dir|electron:dist",
+    );
+    expect(content).not.toMatch(/retired-host/i);
+    expect(content).not.toContain("ember-rs/target/release/bundle");
+    expect(content).not.toContain("/tmp/retired-host-build.log");
+  });
+
+  it("local install script advertises Electron current desktop commands", () => {
+    const content = readFile("ember-rs/install-local.sh");
+
+    expect(content).toContain("Rust CLI");
+    expect(content).toContain("Electron 命令接管");
+    expect(content).toContain("npm run electron:dev");
+    expect(content).toContain("npm run electron:build");
+    expect(content).toContain("npm run verify:gui-smoke");
+    expectNoRetiredHostBuildInput(content, "ember-rs/install-local.sh");
+  });
+
+  it("repository discovery metadata advertises Electron current host", () => {
+    const content = readFile(".github/repository-metadata.md");
+
+    expect(content).toContain("electron");
+    expect(content).not.toContain(retiredHostTopic());
+  });
+});

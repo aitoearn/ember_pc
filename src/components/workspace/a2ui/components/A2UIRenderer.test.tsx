@@ -1,0 +1,340 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { A2UIRenderer } from "./index";
+import { TextRenderer } from "../catalog/basic/components/Text";
+import { A2UI_RENDERER_TOKENS } from "../rendererTokens";
+import {
+  cleanupMountedRoots,
+  clickButtonByText,
+  flushEffects,
+  mountHarness,
+  setupReactActEnvironment,
+  type MountedRoot,
+} from "@/components/workspace/hooks/testUtils";
+
+setupReactActEnvironment();
+
+const { mockOpenExternalUrlWithSystemBrowser } = vi.hoisted(() => ({
+  mockOpenExternalUrlWithSystemBrowser: vi.fn(),
+}));
+
+vi.mock("@/lib/api/externalUrl", () => ({
+  openExternalUrlWithSystemBrowser: mockOpenExternalUrlWithSystemBrowser,
+}));
+
+describe("A2UIRenderer", () => {
+  const mountedRoots: MountedRoot[] = [];
+
+  afterEach(() => {
+    cleanupMountedRoots(mountedRoots);
+    vi.clearAllMocks();
+  });
+
+  it("应使用统一容器与提交按钮样式，并支持禁用提交", () => {
+    const submitSpy = vi.fn();
+    const { container } = mountHarness(
+      A2UIRenderer,
+      {
+        response: {
+          id: "demo",
+          root: "root",
+          thinking: "这是推理提示",
+          data: {},
+          components: [
+            {
+              id: "content",
+              component: "Text",
+              text: "请选择开始方式",
+              variant: "body",
+            },
+            {
+              id: "root",
+              component: "Column",
+              children: ["content"],
+              gap: 12,
+              align: "stretch",
+            },
+          ],
+          submitAction: {
+            label: "开始处理",
+            action: { name: "submit" },
+          },
+        },
+        submitDisabled: true,
+        onSubmit: submitSpy,
+      },
+      mountedRoots,
+    );
+
+    const root = container.querySelector(
+      ".a2ui-container",
+    ) as HTMLDivElement | null;
+    expect(root?.className).toContain("space-y-1.5");
+    expect(container.textContent).toContain("这是推理提示");
+    const submitButton = clickButtonByText(container, "开始处理");
+    expect(submitButton?.className).toBe(A2UI_RENDERER_TOKENS.submitButton);
+    expect(submitButton?.disabled).toBe(true);
+    expect(submitSpy).not.toHaveBeenCalled();
+  });
+
+  it("找不到根组件时应显示统一错误样式", () => {
+    const { container } = mountHarness(
+      A2UIRenderer,
+      {
+        response: {
+          id: "missing-root",
+          root: "unknown",
+          data: {},
+          components: [],
+        },
+      },
+      mountedRoots,
+    );
+
+    const errorNode = container.querySelector("div");
+    expect(errorNode?.className).toBe(A2UI_RENDERER_TOKENS.errorText);
+    expect(container.textContent).toContain("错误：找不到根组件 unknown");
+  });
+
+  it("应渲染媒体、标签页与模态组件", async () => {
+    const { container } = mountHarness(
+      A2UIRenderer,
+      {
+        response: {
+          id: "rich-surface",
+          root: "root",
+          data: {},
+          components: [
+            {
+              id: "hero-image",
+              component: "Image",
+              url: "https://example.com/hero.png",
+              variant: "mediumFeature",
+            },
+            {
+              id: "status-icon",
+              component: "Icon",
+              name: "star",
+            },
+            {
+              id: "video",
+              component: "Video",
+              url: "https://example.com/demo.mp4",
+            },
+            {
+              id: "audio",
+              component: "AudioPlayer",
+              url: "https://example.com/demo.mp3",
+              description: "语音摘要",
+            },
+            {
+              id: "tab-content-a",
+              component: "Text",
+              text: "第一个标签页",
+              variant: "body",
+            },
+            {
+              id: "tab-content-b",
+              component: "Text",
+              text: "第二个标签页",
+              variant: "body",
+            },
+            {
+              id: "tabs",
+              component: "Tabs",
+              tabs: [
+                { title: "概览", child: "tab-content-a" },
+                { title: "详情", child: "tab-content-b" },
+              ],
+            },
+            {
+              id: "modal-trigger-text",
+              component: "Text",
+              text: "打开详情",
+              variant: "body",
+            },
+            {
+              id: "modal-trigger",
+              component: "Button",
+              child: "modal-trigger-text",
+              action: { name: "open_modal" },
+              variant: "primary",
+            },
+            {
+              id: "modal-content",
+              component: "Text",
+              text: "弹窗内容",
+              variant: "body",
+            },
+            {
+              id: "modal",
+              component: "Modal",
+              trigger: "modal-trigger",
+              content: "modal-content",
+            },
+            {
+              id: "root",
+              component: "Column",
+              children: [
+                "hero-image",
+                "status-icon",
+                "video",
+                "audio",
+                "tabs",
+                "modal",
+              ],
+              gap: 12,
+              align: "stretch",
+            },
+          ],
+        },
+      },
+      mountedRoots,
+    );
+
+    expect(container.querySelector("img")?.getAttribute("src")).toBe(
+      "https://example.com/hero.png",
+    );
+    expect(container.querySelector("img")?.className).toContain("h-28");
+    expect(container.querySelector("video")?.getAttribute("src")).toBe(
+      "https://example.com/demo.mp4",
+    );
+    expect(container.querySelector("video")?.className).toContain(
+      "rounded-[12px]",
+    );
+    expect(container.querySelector("audio")?.getAttribute("src")).toBe(
+      "https://example.com/demo.mp3",
+    );
+    expect(container.querySelector("svg")).not.toBeNull();
+    expect(container.querySelector("svg")?.className.baseVal).toContain("h-4");
+    expect(container.textContent).toContain("第一个标签页");
+    expect(container.textContent).not.toContain("第二个标签页");
+    const modalButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.includes("打开详情"),
+    );
+    expect(modalButton?.className).toContain("h-8");
+
+    clickButtonByText(container, "详情");
+    expect(container.textContent).toContain("第二个标签页");
+
+    clickButtonByText(container, "打开详情");
+    await flushEffects();
+    expect(document.body.textContent).toContain("弹窗内容");
+  });
+});
+
+describe("TextRenderer", () => {
+  const mountedRoots: MountedRoot[] = [];
+
+  afterEach(() => {
+    cleanupMountedRoots(mountedRoots);
+  });
+
+  it("应使用统一文本 variant token", () => {
+    const { container } = mountHarness(
+      TextRenderer,
+      {
+        component: {
+          id: "caption",
+          component: "Text",
+          text: "辅助说明",
+          variant: "caption",
+        },
+        data: {},
+      },
+      mountedRoots,
+    );
+
+    const textNode = container.querySelector(".a2ui-text-block");
+    expect(textNode?.className).toContain(
+      A2UI_RENDERER_TOKENS.textVariants.caption,
+    );
+    expect(container.textContent).toContain("辅助说明");
+  });
+
+  it("检测到 markdown 语法时应渲染语义化内容而不是原始标记", async () => {
+    mockOpenExternalUrlWithSystemBrowser.mockResolvedValue(undefined);
+    const { container } = mountHarness(
+      TextRenderer,
+      {
+        component: {
+          id: "markdown-text",
+          component: "Text",
+          text: [
+            "# 标题",
+            "",
+            "这是 **重点**。",
+            "",
+            "- 第一项",
+            "- 第二项",
+            "",
+            "```ts",
+            "const answer = 42;",
+            "```",
+            "",
+            "[查看说明](https://example.com)",
+            "第一行  ",
+            "第二行",
+          ].join("\n"),
+          variant: "body",
+        },
+        data: {},
+      },
+      mountedRoots,
+    );
+
+    expect(container.querySelector("h1")?.textContent).toBe("标题");
+    expect(container.querySelector("strong")?.textContent).toBe("重点");
+    expect(
+      Array.from(container.querySelectorAll("li")).map(
+        (item) => item.textContent,
+      ),
+    ).toEqual(["第一项", "第二项"]);
+    const link = container.querySelector("a");
+    expect(link?.getAttribute("href")).toBe("https://example.com");
+    expect(link?.getAttribute("target")).toBeNull();
+    expect(link?.getAttribute("rel")).toBe("noreferrer noopener");
+
+    const clickEvent = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+    });
+    link?.dispatchEvent(clickEvent);
+    await Promise.resolve();
+
+    expect(clickEvent.defaultPrevented).toBe(true);
+    expect(mockOpenExternalUrlWithSystemBrowser).toHaveBeenCalledWith(
+      "https://example.com",
+    );
+    expect(container.querySelector("br")).not.toBeNull();
+    expect(container.textContent).not.toContain("**重点**");
+    const codeBlock = container.querySelector("pre");
+    expect(codeBlock?.className).toContain("rounded-[10px]");
+    expect(codeBlock?.className).toContain("shadow-none");
+    expect(codeBlock?.textContent).toContain("const answer = 42;");
+  });
+
+  it("markdown 表格应使用紧凑表格样式", () => {
+    const { container } = mountHarness(
+      TextRenderer,
+      {
+        component: {
+          id: "markdown-table",
+          component: "Text",
+          text: ["| 项目 | 状态 |", "| --- | --- |", "| A2UI | 已适配 |"].join(
+            "\n",
+          ),
+          variant: "body",
+        },
+        data: {},
+      },
+      mountedRoots,
+    );
+
+    const tableShell = container.querySelector("table")?.parentElement;
+    const header = container.querySelector("th");
+    expect(tableShell?.className).toContain("rounded-[10px]");
+    expect(tableShell?.className).toContain("border-slate-200");
+    expect(header?.className).toContain("bg-slate-50");
+    expect(container.textContent).toContain("已适配");
+  });
+});

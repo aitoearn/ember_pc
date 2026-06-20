@@ -1,0 +1,245 @@
+export const IPC_INVOKE_CHANNEL = "app:invoke";
+export const IPC_EMIT_CHANNEL = "app:emit";
+export const IPC_DIALOG_OPEN_CHANNEL = "app:dialog:open";
+export const IPC_DIALOG_SAVE_CHANNEL = "app:dialog:save";
+export const IPC_SHELL_OPEN_CHANNEL = "app:shell:open";
+export const IPC_WINDOW_COMMAND_CHANNEL = "app:window:command";
+export const IPC_GLOBAL_SHORTCUT_COMMAND_CHANNEL =
+  "app:global-shortcut:command";
+export const IPC_DEEP_LINK_GET_URLS_CHANNEL = "app:deep-link:get-urls";
+export const IPC_DEEP_LINK_GET_CURRENT_CHANNEL = "app:deep-link:get-current";
+
+export const ELECTRON_HOST_COMMANDS = [
+  "app_server_handle_json_lines",
+  "app_server_drain_events",
+  "aster_agent_init",
+  "sync_tray_model_shortcuts",
+  "take_pending_skill_package_open_requests",
+  "agent_runtime_create_session",
+  "agent_runtime_submit_turn",
+  "agent_runtime_interrupt_turn",
+  "agent_runtime_update_session",
+  "agent_runtime_respond_action",
+  "agent_runtime_get_thread_read",
+  "agent_runtime_export_evidence_pack",
+  "agent_runtime_get_tool_inventory",
+  "agent_runtime_list_sessions",
+  "agent_runtime_get_session",
+  "agent_runtime_list_workspace_skill_bindings",
+  "agent_app_select_directory",
+  "agent_app_launch_shell",
+  "agent_app_get_ui_runtime_status",
+  "agent_app_start_ui_runtime",
+  "agent_app_stop_ui_runtime",
+  "agent_app_runtime_start_task",
+  "agent_app_runtime_cancel_task",
+  "agent_app_runtime_get_task",
+  "agent_app_runtime_submit_host_response",
+  "get_browser_backend_policy",
+  "get_browser_backends_status",
+  "get_browser_connector_install_status_cmd",
+  "get_browser_connector_settings_cmd",
+  "get_chrome_bridge_endpoint_info",
+  "get_chrome_bridge_status",
+  "get_chrome_profile_sessions",
+  "get_config",
+  "device_automation_ensure_sidecar",
+  "device_automation_get_sidecar_status",
+  "device_automation_list_devices",
+  "device_automation_capture_screenshot",
+  "device_automation_send_navigation",
+  "device_automation_ensure_ai_sidecar",
+  "device_automation_prepare_ai_session",
+  "device_automation_submit_ai_task",
+  "device_automation_poll_ai_task",
+  "device_automation_cancel_ai_task",
+  "device_automation_send_tap",
+  "device_automation_send_swipe",
+  "device_automation_scrcpy_reverse_tcp",
+  "device_automation_scrcpy_start",
+  "device_automation_scrcpy_connect",
+  "device_automation_scrcpy_launch",
+  "device_automation_scrcpy_prewarm",
+  "device_automation_scrcpy_prepare_reverse",
+  "device_automation_scrcpy_stop",
+  "device_automation_scrcpy_teardown",
+  "device_automation_stop_sidecar",
+  "device_automation_perf_list_apps",
+  "device_automation_perf_start",
+  "device_automation_perf_stop",
+  "device_automation_perf_get_status",
+  "device_automation_monkey_start",
+  "device_automation_monkey_stop",
+  "device_automation_monkey_get_status",
+  "device_automation_perf_trace_start",
+  "device_automation_perf_trace_stop",
+  "device_automation_perf_trace_cancel",
+  "device_automation_perf_trace_get_status",
+  "device_automation_perf_trace_analyze",
+  "device_automation_perf_trace_open_external",
+  "device_automation_perf_trace_delete_local",
+  "ui_agent_start",
+  "ui_agent_cancel",
+  "device_flow_record_manual_start",
+  "device_flow_record_manual_stop",
+  "device_flow_replay_start",
+  "device_flow_replay_cancel",
+  "get_default_provider",
+  "get_environment_preview",
+  "get_experimental_config",
+  "get_file_icon_data_url",
+  "get_file_manager_locations",
+  "get_home_dir",
+  "get_local_skills_for_app",
+  "get_or_create_default_project",
+  "get_skill_package_file_association_status",
+  "get_voice_shortcut_runtime_status",
+  "analyze_layered_design_flat_image",
+  "open_external_url",
+  "open_system_settings_url",
+  "open_with_default_app",
+  "project_memory_get",
+  "read_layered_design_project_export",
+  "recognize_layered_design_text",
+  "reveal_in_finder",
+  "report_frontend_crash",
+  "report_frontend_debug_log",
+  "save_config",
+  "save_exported_document",
+  "save_layered_design_project_export",
+  "save_experimental_config",
+  "set_skill_package_file_association_default",
+  "start_oem_cloud_oauth_callback_bridge",
+  "validate_shortcut",
+  "voice_models_delete",
+  "voice_models_download",
+  "voice_models_get_install_state",
+  "voice_models_list_catalog",
+  "workspace_ensure",
+  "workspace_ensure_default_ready",
+  "workspace_ensure_ready",
+  "workspace_get",
+  "workspace_get_by_path",
+  "workspace_get_default",
+  "workspace_get_projects_root",
+  "workspace_list",
+  "workspace_resolve_project_path",
+  "check_for_updates",
+  "close_update_window",
+  "dismiss_update_notification",
+  "download_update",
+  "get_update_check_settings",
+  "get_update_install_session",
+  "get_update_notification_metrics",
+  "open_update_window",
+  "record_update_notification_action",
+  "remind_update_later",
+  "set_update_check_settings",
+  "skip_update_version",
+  "start_update_install_session",
+  "test_update_window",
+] as const;
+
+export type ElectronHostCommand = (typeof ELECTRON_HOST_COMMANDS)[number];
+
+export const ELECTRON_APP_SERVER_COMMANDS = [
+  "app_server_handle_json_lines",
+  "app_server_drain_events",
+] as const;
+
+export type ElectronAppServerCommand =
+  (typeof ELECTRON_APP_SERVER_COMMANDS)[number];
+
+export const ELECTRON_APP_SERVER_TRUTH_BRIDGE_COMMANDS = [
+  "aster_agent_init",
+  "agent_app_get_ui_runtime_status",
+  "agent_app_start_ui_runtime",
+  "agent_app_stop_ui_runtime",
+  "agent_app_runtime_start_task",
+  "agent_app_runtime_cancel_task",
+  "agent_app_runtime_get_task",
+  "agent_app_runtime_submit_host_response",
+  "agent_runtime_create_session",
+  "agent_runtime_submit_turn",
+  "agent_runtime_interrupt_turn",
+  "agent_runtime_update_session",
+  "agent_runtime_respond_action",
+  "agent_runtime_get_thread_read",
+  "agent_runtime_export_evidence_pack",
+  "agent_runtime_get_tool_inventory",
+  "agent_runtime_list_sessions",
+  "agent_runtime_get_session",
+  "agent_runtime_list_workspace_skill_bindings",
+  "get_default_provider",
+  "get_local_skills_for_app",
+  "project_memory_get",
+  "workspace_ensure",
+  "workspace_ensure_default_ready",
+  "workspace_ensure_ready",
+  "workspace_get",
+  "workspace_get_by_path",
+  "workspace_get_default",
+  "workspace_get_projects_root",
+  "workspace_list",
+  "workspace_resolve_project_path",
+] as const;
+
+export type ElectronAppServerTruthBridgeCommand =
+  (typeof ELECTRON_APP_SERVER_TRUTH_BRIDGE_COMMANDS)[number];
+
+export const ELECTRON_UPDATE_COMMANDS = [
+  "check_for_updates",
+  "close_update_window",
+  "dismiss_update_notification",
+  "download_update",
+  "get_update_check_settings",
+  "get_update_install_session",
+  "get_update_notification_metrics",
+  "open_update_window",
+  "record_update_notification_action",
+  "remind_update_later",
+  "set_update_check_settings",
+  "skip_update_version",
+  "start_update_install_session",
+  "test_update_window",
+] as const;
+
+export type ElectronUpdateCommand = (typeof ELECTRON_UPDATE_COMMANDS)[number];
+
+export function isElectronHostCommand(
+  command: string,
+): command is ElectronHostCommand {
+  return ELECTRON_HOST_COMMANDS.includes(command as ElectronHostCommand);
+}
+
+export function isElectronAppServerCommand(
+  command: string,
+): command is ElectronAppServerCommand {
+  return ELECTRON_APP_SERVER_COMMANDS.includes(
+    command as ElectronAppServerCommand,
+  );
+}
+
+export function isElectronUpdateCommand(
+  command: string,
+): command is ElectronUpdateCommand {
+  return ELECTRON_UPDATE_COMMANDS.includes(command as ElectronUpdateCommand);
+}
+
+export type ElectronInvokeSuccess<T = unknown> = {
+  ok: true;
+  result: T;
+};
+
+export type ElectronInvokeFailure = {
+  ok: false;
+  error: {
+    message: string;
+    code?: string;
+    data?: unknown;
+  };
+};
+
+export type ElectronInvokeResponse<T = unknown> =
+  | ElectronInvokeSuccess<T>
+  | ElectronInvokeFailure;

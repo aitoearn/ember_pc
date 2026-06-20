@@ -1,0 +1,201 @@
+{
+  "$defs": {
+    "FlowAssertion": {
+      "description": "断言：`type` ∈ {hard,soft}，`expr` 结构随类型而定（保真往返）。",
+      "properties": {
+        "expr": {
+          "default": null
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "FlowLocator": {
+      "description": "多策略定位中的单条定位。",
+      "properties": {
+        "kind": {
+          "description": "resource_id / text / accessibility_id / ui_tree_path / vlm_anchor。",
+          "type": "string"
+        },
+        "match": {
+          "description": "文案匹配：exact / contains。",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "value": {
+          "default": "",
+          "type": "string"
+        },
+        "vlmAnchor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowVlmAnchor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "FlowStep": {
+      "description": "结构化流步骤。",
+      "properties": {
+        "args": true,
+        "assert": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowAssertion"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "index": {
+          "description": "步骤序号，从 0 起连续。",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "intent": {
+          "description": "自然语言意图，自愈时喂给 VLM。",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "locators": {
+          "items": {
+            "$ref": "#/$defs/FlowLocator"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "op": {
+          "type": "string"
+        },
+        "wait": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowWaitPolicy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "index",
+        "op"
+      ],
+      "type": "object"
+    },
+    "FlowVlmAnchor": {
+      "description": "归一化视觉锚点坐标（0–1000 体系，与既有 UI Agent 归一化坐标一致）。",
+      "properties": {
+        "xNorm": {
+          "format": "double",
+          "type": "number"
+        },
+        "yNorm": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "xNorm",
+        "yNorm"
+      ],
+      "type": "object"
+    },
+    "FlowWaitPolicy": {
+      "description": "单步等待策略。",
+      "properties": {
+        "stabilizeMs": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "timeoutMs": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "stabilizeMs",
+        "timeoutMs"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "一条可确定性回放的测试流。",
+  "properties": {
+    "appPackage": {
+      "type": "string"
+    },
+    "createdAt": {
+      "default": "",
+      "type": "string"
+    },
+    "formatVersion": {
+      "format": "int64",
+      "type": "integer"
+    },
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "platform": {
+      "default": "",
+      "type": "string"
+    },
+    "selfHealingEnabled": {
+      "default": false,
+      "type": "boolean"
+    },
+    "source": {
+      "default": "",
+      "type": "string"
+    },
+    "steps": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/FlowStep"
+      },
+      "type": "array"
+    },
+    "updatedAt": {
+      "default": "",
+      "type": "string"
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "appPackage",
+    "formatVersion",
+    "id",
+    "name",
+    "workspaceId"
+  ],
+  "title": "TestFlow",
+  "type": "object"
+}

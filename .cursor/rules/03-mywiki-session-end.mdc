@@ -1,0 +1,21 @@
+---
+description: "MyWiki 会话收尾。替代 Claude Code 的 Stop hook，确保每次知识库操作后刷新 hot.md 并追加 log.md。"
+alwaysApply: true
+---
+
+# 03 · MyWiki 会话收尾（始终生效）
+
+Cursor 没有 Stop hook，本规则承担会话收尾职责。**只要本轮改动过 `wiki/`**，结束前必须确保：
+
+1. **刷新 `wiki/hot.md`**：≤ 500 字，重写覆盖（它是缓存不是日记，不保留历史）。内容包含本轮做了什么、关键页面双链、下一步。
+2. **追加 `wiki/log.md`**：新条目置顶，append-only，记录操作类型、涉及页面、一句话要点。
+
+`hot.md` 是下次会话的快速入口。不刷新会导致下次检索成本翻倍。
+
+## degraded 模式补录提示
+
+若 `.cursor/runtime-profile.json` 的 `telemetry_mode` 为 `degraded`，且本轮发生了知识库操作，在收尾时**主动提示**用户：
+
+> 当前为 degraded 遥测模式（无 hooks 自动采集）。如需让 L2 Pipeline 有数据可分析，可说「补录今天的遥测」触发 `mywiki-session-telemetry-fallback`。
+
+无改动 `wiki/` 的纯对话轮次，跳过本规则。

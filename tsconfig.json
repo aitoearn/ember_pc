@@ -1,0 +1,44 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@embercloud/agent-runtime-projection": [
+        "./packages/agent-runtime-projection/src/index.ts"
+      ],
+      "@embercloud/agent-runtime-client": [
+        "./packages/agent-runtime-client/src/index.ts"
+      ],
+      "@embercloud/agent-runtime-client/sessionGateway": [
+        "./packages/agent-runtime-client/src/sessionGateway.ts"
+      ],
+      "@embercloud/app-server-client": [
+        "./packages/app-server-client/src/index.ts"
+      ],
+      "@embercloud/agent-runtime-ui": [
+        "./packages/agent-runtime-ui/src/index.ts"
+      ],
+      "@embercloud/agent-ui-contracts": [
+        "./packages/agent-ui-contracts/src/index.ts"
+      ],
+      "app-server-client": ["./packages/app-server-client/src/index.ts"],
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

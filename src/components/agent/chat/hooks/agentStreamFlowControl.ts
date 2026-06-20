@@ -1,0 +1,346 @@
+import type { Dispatch, MutableRefObject, SetStateAction } from "react";
+import type { AgentThreadItem, AgentThreadTurn } from "@/lib/api/agentProtocol";
+import type { QueuedTurnSnapshot } from "@/lib/api/agentRuntime";
+import type { Message } from "../types";
+import type { ActiveStreamState } from "./agentStreamSubmissionLifecycle";
+import type { AgentRuntimeAdapter } from "./agentRuntimeAdapter";
+import { updateMessageArtifactsStatus } from "../utils/messageArtifacts";
+import {
+  removeThreadItemState,
+  removeThreadTurnState,
+} from "./agentThreadState";
+
+interface AgentStreamFlowNotify {
+  info: (message: string) => void;
+  error: (message: string) => void;
+}
+
+interface StopAgentStreamOptions {
+  activeStream: ActiveStreamState | null;
+  sessionIdRef: MutableRefObject<string | null>;
+  runtime: AgentRuntimeAdapter;
+  removeStreamListener: (eventName: string) => boolean;
+  refreshSessionReadModel: (targetSessionId?: string) => Promise<boolean>;
+  setQueuedTurns: Dispatch<SetStateAction<QueuedTurnSnapshot[]>>;
+  setThreadItems: Dispatch<SetStateAction<AgentThreadItem[]>>;
+  setThreadTurns: Dispatch<SetStateAction<AgentThreadTurn[]>>;
+  setCurrentTurnId: Dispatch<SetStateAction<string | null>>;
+  setMessages: Dispatch<SetStateAction<Message[]>>;
+  setActiveStream: (nextActive: ActiveStreamState | null) => void;
+  notify: AgentStreamFlowNotify;
+  onInterruptError?: (error: unknown) => void;
+}
+
+function resolveInterruptTurnId(activeStream: ActiveStreamState | null) {
+  const explicitTurnId = activeStream?.turnId?.trim();
+  if (explicitTurnId) {
+    return explicitTurnId;
+  }
+
+  const pendingTurnKey = activeStream?.pendingTurnKey?.trim();
+  if (pendingTurnKey && !pendingTurnKey.startsWith("pending-turn:")) {
+    return pendingTurnKey;
+  }
+
+  return undefined;
+}
+
+const INTERRUPTED_TOOL_RESULT_TEXT = "本轮已中止";
+
+function settleInterruptedToolCall<
+  T extends { status: string; result?: unknown; endTime?: Date },
+>(toolCall: T): T {
+  if (toolCall.status !== "running") {
+    return toolCall;
+  }
+
+  return {
+    ...toolCall,
+    status: "failed",
+    endTime: new Date(),
+    result: {
+      success: false,
+      output: "",
+      error: INTERRUPTED_TOOL_RESULT_TEXT,
+    },
+  };
+}
+
+export function settleInterruptedMessageProcess(message: Message): Message {
+  const nextToolCalls = message.toolCalls?.map(settleInterruptedToolCall);
+  const nextContentParts = message.contentParts?.map((part) => {
+    if (part.type !== "tool_use") {
+      return part;
+    }
+
+    return {
+      ...part,
+      toolCall: settleInterruptedToolCall(part.toolCall),
+    };
+  });
+
+  return {
+    ...message,
+    toolCalls: nextToolCalls,
+    contentParts: nextContentParts,
+  };
+}
+
+interface QueueActionOptions {
+  sessionIdRef: MutableRefObject<string | null>;
+  refreshSessionReadModel: (targetSessionId?: string) => Promise<boolean>;
+  setQueuedTurns: Dispatch<SetStateAction<QueuedTurnSnapshot[]>>;
+  notify: AgentStreamFlowNotify;
+}
+
+interface RemoveQueuedTurnOptions extends QueueActionOptions {
+  runtime: Pick<AgentRuntimeAdapter, "removeQueuedTurn">;
+  queuedTurnId: string;
+  onError?: (error: unknown) => void;
+}
+
+interface PromoteQueuedTurnOptions extends QueueActionOptions {
+  runtime: Pick<AgentRuntimeAdapter, "promoteQueuedTurn">;
+  queuedTurnId: string;
+  activeStream: ActiveStreamState | null;
+  removeStreamListener: (eventName: string) => boolean;
+  setThreadItems: Dispatch<SetStateAction<AgentThreadItem[]>>;
+  setThreadTurns: Dispatch<SetStateAction<AgentThreadTurn[]>>;
+  setCurrentTurnId: Dispatch<SetStateAction<string | null>>;
+  setMessages: Dispatch<SetStateAction<Message[]>>;
+  setActiveStream: (nextActive: ActiveStreamState | null) => void;
+  onError?: (error: unknown) => void;
+}
+
+interface ResumeThreadOptions extends Omit<
+  QueueActionOptions,
+  "setQueuedTurns"
+> {
+  runtime: Pick<AgentRuntimeAdapter, "resumeThread">;
+  onError?: (error: unknown) => void;
+}
+
+export function removeQueuedTurnFromState(
+  queuedTurns: QueuedTurnSnapshot[],
+  queuedTurnId: string,
+) {
+  return queuedTurns
+    .filter((item) => item.queued_turn_id !== queuedTurnId)
+    .map((item, index) => ({
+      ...item,
+      position: index + 1,
+    }));
+}
+
+export async function stopActiveAgentStream(options: StopAgentStreamOptions) {
+  const {
+    activeStream,
+    sessionIdRef,
+    runtime,
+    removeStreamListener,
+    refreshSessionReadModel,
+    setQueuedTurns,
+    setThreadItems,
+    setThreadTurns,
+    setCurrentTurnId,
+    setMessages,
+    setActiveStream,
+    notify,
+    onInterruptError,
+  } = options;
+
+  if (activeStream) {
+    removeStreamListener(activeStream.eventName);
+  }
+
+  const activeSessionId = activeStream?.sessionId || sessionIdRef.current;
+  const runInterruptAndRefresh = async () => {
+    if (!activeSessionId) {
+      return;
+    }
+    try {
+      await runtime.interruptTurn(
+        activeSessionId,
+        resolveInterruptTurnId(activeStream),
+        activeStream?.eventName,
+      );
+    } catch (error) {
+      onInterruptError?.(error);
+    }
+    try {
+      await refreshSessionReadModel(activeSessionId);
+    } catch (error) {
+      onInterruptError?.(error);
+    }
+  };
+
+  setQueuedTurns([]);
+
+  if (activeStream?.assistantMsgId) {
+    if (activeStream.pendingItemKey) {
+      setThreadItems((prev) =>
+        removeThreadItemState(prev, activeStream.pendingItemKey!),
+      );
+    }
+    if (activeStream.pendingTurnKey) {
+      setThreadTurns((prev) =>
+        removeThreadTurnState(prev, activeStream.pendingTurnKey!),
+      );
+      setCurrentTurnId((prev) =>
+        prev === activeStream.pendingTurnKey ? null : prev,
+      );
+    }
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === activeStream.assistantMsgId
+          ? {
+              ...updateMessageArtifactsStatus(
+                settleInterruptedMessageProcess(msg),
+                "complete",
+              ),
+              isThinking: false,
+              content: msg.content || "(已停止)",
+              runtimeStatus: undefined,
+            }
+          : msg,
+      ),
+    );
+  }
+
+  setActiveStream(null);
+  notify.info("已停止生成");
+  void runInterruptAndRefresh();
+}
+
+export async function removeQueuedAgentTurn(options: RemoveQueuedTurnOptions) {
+  const {
+    runtime,
+    queuedTurnId,
+    sessionIdRef,
+    refreshSessionReadModel,
+    setQueuedTurns,
+    notify,
+    onError,
+  } = options;
+  const activeSessionId = sessionIdRef.current;
+  if (!activeSessionId || !queuedTurnId.trim()) {
+    return false;
+  }
+
+  try {
+    const removed = await runtime.removeQueuedTurn(
+      activeSessionId,
+      queuedTurnId,
+    );
+    if (removed) {
+      setQueuedTurns((prev) => removeQueuedTurnFromState(prev, queuedTurnId));
+    }
+    await refreshSessionReadModel(activeSessionId);
+    return removed;
+  } catch (error) {
+    onError?.(error);
+    await refreshSessionReadModel(activeSessionId);
+    notify.error("移除排队消息失败");
+    return false;
+  }
+}
+
+export async function promoteQueuedAgentTurn(
+  options: PromoteQueuedTurnOptions,
+) {
+  const {
+    runtime,
+    queuedTurnId,
+    activeStream,
+    removeStreamListener,
+    sessionIdRef,
+    refreshSessionReadModel,
+    setQueuedTurns,
+    setThreadItems,
+    setThreadTurns,
+    setCurrentTurnId,
+    setMessages,
+    setActiveStream,
+    notify,
+    onError,
+  } = options;
+  const activeSessionId = sessionIdRef.current;
+  if (!activeSessionId || !queuedTurnId.trim()) {
+    return false;
+  }
+
+  if (activeStream) {
+    removeStreamListener(activeStream.eventName);
+    if (activeStream.pendingItemKey) {
+      setThreadItems((prev) =>
+        removeThreadItemState(prev, activeStream.pendingItemKey!),
+      );
+    }
+    if (activeStream.pendingTurnKey) {
+      setThreadTurns((prev) =>
+        removeThreadTurnState(prev, activeStream.pendingTurnKey!),
+      );
+      setCurrentTurnId((prev) =>
+        prev === activeStream.pendingTurnKey ? null : prev,
+      );
+    }
+    if (activeStream.assistantMsgId) {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === activeStream.assistantMsgId
+            ? {
+                ...updateMessageArtifactsStatus(msg, "complete"),
+                isThinking: false,
+                runtimeStatus: undefined,
+              }
+            : msg,
+        ),
+      );
+    }
+    setActiveStream(null);
+  }
+
+  setQueuedTurns((prev) => removeQueuedTurnFromState(prev, queuedTurnId));
+
+  try {
+    const promoted = await runtime.promoteQueuedTurn(
+      activeSessionId,
+      queuedTurnId,
+    );
+    await refreshSessionReadModel(activeSessionId);
+    if (!promoted) {
+      return false;
+    }
+
+    notify.info("正在切换到该排队任务");
+    return true;
+  } catch (error) {
+    onError?.(error);
+    await refreshSessionReadModel(activeSessionId);
+    notify.error("立即执行排队消息失败");
+    return false;
+  }
+}
+
+export async function resumeAgentStreamThread(options: ResumeThreadOptions) {
+  const { runtime, sessionIdRef, refreshSessionReadModel, notify, onError } =
+    options;
+  const activeSessionId = sessionIdRef.current;
+  if (!activeSessionId) {
+    return false;
+  }
+
+  try {
+    const resumed = await runtime.resumeThread(activeSessionId);
+    await refreshSessionReadModel(activeSessionId);
+    if (resumed) {
+      notify.info("正在恢复排队执行");
+    }
+    return resumed;
+  } catch (error) {
+    onError?.(error);
+    await refreshSessionReadModel(activeSessionId);
+    notify.error("恢复线程执行失败");
+    return false;
+  }
+}

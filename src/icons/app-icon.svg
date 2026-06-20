@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <!-- 纯黑背景 -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#000000"/>
+      <stop offset="100%" style="stop-color:#0a0a0a"/>
+    </linearGradient>
+
+    <!-- P字母左侧竖条渐变：从蓝色到深蓝 -->
+    <linearGradient id="leftGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4fc3f7"/>
+      <stop offset="50%" style="stop-color:#3f51b5"/>
+      <stop offset="100%" style="stop-color:#1a237e"/>
+    </linearGradient>
+
+    <!-- P字母右侧弧形渐变：从蓝紫到粉紫 -->
+    <linearGradient id="rightGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7c4dff"/>
+      <stop offset="50%" style="stop-color:#9c27b0"/>
+      <stop offset="100%" style="stop-color:#e91e63"/>
+    </linearGradient>
+
+    <!-- 高光效果 -->
+    <linearGradient id="highlightGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:rgba(255,255,255,0.4)"/>
+      <stop offset="50%" style="stop-color:rgba(255,255,255,0.1)"/>
+      <stop offset="100%" style="stop-color:rgba(255,255,255,0)"/>
+    </linearGradient>
+
+    <!-- 阴影和发光效果 -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- 圆角矩形背景 -->
+  <rect x="8" y="8" width="112" height="112" rx="24" ry="24" fill="url(#bgGradient)"/>
+
+  <!-- P字母主体 -->
+  <g filter="url(#glow)">
+    <!-- P的左侧竖条 -->
+    <path d="M 32 28 L 32 96 Q 32 100 36 100 L 44 100 Q 48 100 48 96 L 48 28 Q 48 24 44 24 L 36 24 Q 32 24 32 28 Z"
+          fill="url(#leftGradient)"/>
+
+    <!-- P的上半部分（顶部横条和右上弧） -->
+    <path d="M 48 28 Q 48 24 52 24 L 72 24 Q 88 24 96 32 Q 104 40 104 56 Q 104 72 96 80 Q 88 88 72 88 L 52 88 Q 48 88 48 84 L 48 72 Q 48 68 52 68 L 68 68 Q 76 68 80 64 Q 84 60 84 56 Q 84 52 80 48 Q 76 44 68 44 L 52 44 Q 48 44 48 40 L 48 28 Z"
+          fill="url(#rightGradient)"/>
+
+    <!-- 左侧高光 -->
+    <rect x="34" y="26" width="6" height="30" rx="3" fill="url(#highlightGradient)" opacity="0.8"/>
+
+    <!-- 右侧高光 -->
+    <ellipse cx="78" cy="42" rx="8" ry="12" fill="url(#highlightGradient)" opacity="0.6"/>
+  </g>
+
+  <!-- 外围光晕 -->
+  <circle cx="64" cy="64" r="45" fill="none" stroke="url(#rightGradient)" stroke-width="0.5" opacity="0.3"/>
+  <circle cx="64" cy="64" r="50" fill="none" stroke="url(#leftGradient)" stroke-width="0.3" opacity="0.2"/>
+</svg>

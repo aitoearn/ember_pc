@@ -1,0 +1,90 @@
+{
+  "$defs": {
+    "PerfMetricSummary": {
+      "description": "单指标摘要（AVG/MAX/MIN）。",
+      "properties": {
+        "avg": {
+          "format": "double",
+          "type": "number"
+        },
+        "max": {
+          "format": "double",
+          "type": "number"
+        },
+        "min": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "avg",
+        "max",
+        "min"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "一次性能采集会话。",
+  "properties": {
+    "deviceId": {
+      "type": "string"
+    },
+    "devicePlatform": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "intervalMs": {
+      "default": 1000,
+      "format": "int64",
+      "type": "integer"
+    },
+    "metrics": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "packageName": {
+      "type": "string"
+    },
+    "startedAt": {
+      "default": "",
+      "type": "string"
+    },
+    "status": {
+      "default": "",
+      "type": "string"
+    },
+    "stoppedAt": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "summary": {
+      "additionalProperties": {
+        "$ref": "#/$defs/PerfMetricSummary"
+      },
+      "type": [
+        "null",
+        "object"
+      ]
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "deviceId",
+    "devicePlatform",
+    "id",
+    "packageName",
+    "workspaceId"
+  ],
+  "title": "PerformanceSession",
+  "type": "object"
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "moduleId": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspaceId"
+  ],
+  "title": "TestCaseListParams",
+  "type": "object"
+}

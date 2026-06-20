@@ -1,0 +1,203 @@
+# Warp 对照多模态管理验收标准
+
+> 状态：current planning source
+> 更新时间：2026-05-12
+> 目标：为 [implementation-plan.md](./implementation-plan.md) 提供可验证场景，避免“参考 Warp”停留在架构口号。
+
+## 1. 总体验收口径
+
+本文件里的 `@` 命令场景是验收样本，不是开发顺序。
+
+开发顺序必须先证明底层 `ModalityRuntimeContract`、模型能力矩阵、execution profile、artifact graph、executor adapter 和 EmberCore policy 可用，然后再验证 `@` 命令是否只是薄入口。
+
+本路线图完成后，任意多模态入口都必须回答：
+
+1. 用户从哪里触发？
+2. 前端补了什么 structured metadata？
+3. Agent 首刀应该做什么？
+4. 需要哪些模型能力？
+5. 需要哪些权限？
+6. 谁是真正 executor？
+7. 唯一 truth source 是什么？
+8. 结果落成什么 artifact kind？
+9. viewer 如何打开？
+10. evidence pack 导出什么？
+11. EmberCore 提供了什么目录或策略？
+12. 失败时如何解释和降级？
+
+只要有一项回答不清，该入口就不能算 current 完成。
+
+额外约束：
+
+1. 上层入口不得直接创建任务、写 artifact 或决定 viewer。
+2. 上层入口不得直接决定模型和权限。
+3. 上层入口只能补 launch metadata，并绑定到底层 contract。
+4. 找不到 execution profile 或 executor adapter 的 current contract 不能继续绑定入口。
+
+## 2. `@配图` 验收
+
+必须证明：
+
+1. 原始用户消息进入 Agent turn。
+2. 前端只补 `harness.image_skill_launch` 或后续同构 contract metadata。
+3. Agent 首刀调用 `Skill(image_generate)`。
+4. 如果尚未拿到 `task_id/path/status`，必须继续调用 `ember_create_image_generation_task`。
+5. 模型路由要求 `image_generation` 能力。
+6. 结果落 `image_task` / `image_output`，不重复镜像成普通文件卡。
+7. viewer 打开图片工作台或图片详情，不由聊天消息伪造完成。
+8. evidence pack 能看到 task、model routing、artifact、timeline。
+
+禁止：
+
+1. 前端直建图片任务绕过 Agent。
+2. 首刀先走 ToolSearch / WebSearch / Read / Glob / Grep 找技能。
+3. 回退旧 Bash CLI 作为 current 首发路径。
+
+## 3. `@浏览器` 验收
+
+必须证明：
+
+1. 入口生成 `browser_requirement` 或同构 contract metadata。
+2. 模型路由要求 `browser_reasoning`。
+3. 权限 profile 检查 `browser_control`。
+4. 执行动作是 typed browser/computer action。
+5. 每次关键动作产生 observation：screenshot、DOM、network 或 URL state。
+6. timeline 展示真实 browser tool 过程。
+7. evidence pack 导出 browser trace，并在 `snapshotIndex.browserActionIndex` 中提供 action/session/URL/observation 可查询摘要；Harness evidence panel 能展示该摘要，并能打开最小 `browser_replay_viewer` 复盘最近浏览器动作。
+8. 禁用 browser_control 时给出阻断或询问，不回退 WebSearch 假装完成。
+
+禁止：
+
+1. 把浏览器需求改写成普通搜索。
+2. 只输出文字总结，不保留可复查 evidence。
+3. 让 viewer 从 UI 状态反向定义执行事实。
+
+## 4. `@读PDF` 验收
+
+必须证明：
+
+1. 前端补 `pdf_read_skill_launch` 或同构 contract metadata。
+2. Agent 首刀调用 `Skill(pdf_read)`。
+3. 本地路径场景检查 `read_files` 权限。
+4. 输入 PDF 是 attachment，不是 output artifact。
+5. 输出为 `pdf_extract` 或文档 artifact，带页码/引用/来源。
+6. viewer 能打开抽取结果并回到原文件引用。
+7. evidence pack 能导出 read/extract timeline。
+
+禁止：
+
+1. 前端本地直接解析后伪装成 skill 结果。
+2. 把 PDF 抽取结果只作为普通聊天文本保存。
+
+## 5. `@配音` / `@转写` 验收
+
+必须证明：
+
+1. `@配音` 走 `service_scene_launch(scene_key=voice_runtime)` 或后续同构 contract。
+2. `@转写` 走 `audio_transcription` contract，不和普通文件读取混淆；前端与 Rust metadata 都保留同一份 runtime contract snapshot。
+3. 模型路由分别识别 `voice_generation` / `audio_transcription`。
+4. 媒体上传、读取和生成权限进入 profile。
+5. 输出区分 `audio_task`、`audio_output`、`transcript`。
+6. 音频 artifact 带时长、mime、来源、任务状态。
+7. evidence pack 能导出媒体任务与产物；`audio_transcription` 必须把 `transcription_generate` task 与 `transcript` 子产物纳入同一 `snapshotIndex.transcriptIndex`，Replay / grader 能检查 transcript 状态、来源、语言、格式与失败码。
+8. 当前转写 worker 必须通过同一 task artifact 回写 `transcript.completed` 或 `transcript.failed`；成功时 transcript 文件落在 `.ember/runtime/transcripts/*`，失败时保留 provider/source/contract 错误码，聊天任务卡与 `.ember/runtime/transcription-generate/*.md` 运行时文档必须优先消费 `list_media_task_artifacts` 的 `transcript_*` snapshot，并在完成态读取 `transcript_path` 指向的文本内容用于内部校对；如果 transcript 文件是 JSON / SRT / VTT，还必须解析时间轴与说话人并在同一运行时文档里展示可逐段编辑校对的段落表。用户保存校对稿时必须落回同一 ArtifactDocument 新版本，并写入 `transcriptCorrection*` / `transcriptSegmentsCorrected` / `transcriptCorrectionDiffSummary` metadata，同时在 viewer 中展示“校对稿已保存”状态；原始 ASR 输出文件保持不可变，不能另写普通文件卡。
+
+禁止：
+
+1. 回流旧本地 TTS 测试命令作为 current。
+2. 把音频输出只当通用文件卡。
+3. 前端直连 ASR、普通文件读取或 generic file transcript 绕过 `audio_transcription` 合同。
+
+## 6. `@搜索` / `@深搜` / `@研报` 验收
+
+必须证明：
+
+1. `@搜索` 只补 research launch metadata，首刀 `Skill(research)`。
+2. `@深搜` 同样走 research skill，但 contract 标明多轮扩搜要求。
+3. `@研报` 首刀 `Skill(report_generate)`。
+4. Web search 权限进入 profile。
+5. 搜索过程进入 tool timeline。
+6. 研报结果落 `report_document`，不是只留聊天总结。
+7. evidence pack 能区分 search events 与 report artifact。
+
+禁止：
+
+1. 前端伪造“已搜索完成”。
+2. 深搜只作为普通搜索加强文案。
+3. 研报由前端本地拼接。
+
+## 7. `/scene-key` 验收
+
+必须证明：
+
+1. Scene 目录优先来自 EmberCore `client/scenes` 或 `bootstrap.sceneCatalog`。
+2. 客户端 seeded/fallback 只做韧性兜底。
+3. Scene 入口生成 `service_scene_launch` 或同构 contract。
+4. 默认仍由 Ember 本地执行，除非 scene 明确声明 cloud run。
+5. cloud run 场景进入 EmberCore audit。
+6. 本地执行场景进入 Ember evidence pack。
+7. 目录缺失、权限缺失、策略禁用都有清晰降级。
+
+禁止：
+
+1. 继续长期维护客户端第二份产品型 `/scene` 静态定义。
+2. 把 EmberCore 误写成所有 Scene 的默认执行器。
+
+## 8. 模型路由验收
+
+必须证明：
+
+1. 每个入口都能生成 capability requirements。
+2. `CandidateModelSet` 根据 capability 过滤候选。
+3. 用户显式锁定模型时仍做能力校验。
+4. 租户 policy 可以禁用某类能力或模型。
+5. 候选为空时输出 capability gap。
+6. 候选唯一时输出 `single_candidate_only`，不宣传智能优选。
+7. routing decision 写入 thread read 和 evidence。
+8. 图片输入能力判断优先消费明确事实源：`input_modalities=image`、`task_families=vision_understanding`、`capabilities.vision`；模型名启发式只做兜底，不能把“未知”当成“不支持”。
+9. 纯生图 / 纯修图模型不能被当作图片理解聊天模型推荐；但显式同时具备 `vision_understanding` 和文本输出的多模态模型不能因为也支持生图而被过滤。
+10. Provider 实时 `/models` 返回的 `input_modalities`、`output_modalities`、`task_families`、`runtime_features`、`capabilities` 必须进入统一模型注册表；不能在 API 解析层丢掉显式多模态事实。
+11. Provider 实时 `/models` 若返回 models.dev 风格的 `modalities.input/output`，或 Warp 风格的 `vision_supported=true`，也必须归一到同一套 `input_modalities=image` / `vision_understanding` 事实源；`attachment` 这类泛附件位不能单独当作图片输入事实。
+12. 图片理解回合进入 OpenAI-compatible Provider 请求时必须同时保留用户文本 prompt 和图片 part；不能因为消息里出现 `image_url` / `input_image` 就把“请识别图片文字”等文本指令丢掉。
+
+## 9. Artifact / Viewer 验收
+
+必须证明：
+
+1. viewer 只消费 artifact graph 或 runtime truth source。
+2. artifact kind 能决定 viewer surface。
+3. 空内容文件不自动成为用户可见结果卡。
+4. 用户点击轻卡能打开对应 viewer。
+5. 流式写入文档类 artifact 才允许自动抢焦点。
+6. artifact 能回到原 turn/task/model routing/evidence。
+
+## 10. EmberCore 协同验收
+
+必须证明：
+
+1. `client/skills` / `client/scenes` 能覆盖在线目录。
+2. bootstrap 下发目录后，客户端不重复维护业务定义。
+3. model catalog / provider offer 进入 routing constraints。
+4. Gateway 调用使用 current `https://llm.emberai.run` 入口，不回流 `/gateway-api`。
+5. Scene cloud run 只在明确 cloud 执行时发生。
+6. EmberCore audit 与 Ember evidence 通过关联键能互相解释。
+
+## 11. 最小回归集
+
+每次推进本路线图，至少选择相关命令：
+
+1. 文档/contract 改动：`npm run harness:doc-freshness` 或等价文档检查。
+2. contract / profile / artifact graph 改动：`npm run governance:modality-contracts`。
+3. command/runtime contract 改动：`npm run test:contracts`。
+4. UI 可见改动：相关 `*.test.tsx` 与 `npm run verify:gui-smoke`。
+5. 图片输入 / 历史恢复改动：覆盖用户图片消息不被 tool-response 省略投影替换、会话 hydrate 不覆盖本地已显示输出、附件数量 / 大小 / 格式限制。
+6. 模型路由改动：相关 Rust / TS 路由测试与 thread read 断言；图片输入支持必须覆盖 `capabilities.vision=false` 但 `input_modalities=image` 或 `task_families=vision_understanding` 的模型。
+7. Provider 模型目录解析改动：覆盖 direct `input_modalities`、nested `modalities.input/output`、Warp 风格 `vision_supported`，以及 `o3/o4-mini/grok-4.3/qwen3.5/gemma-3` 等无 `vision` 字样但明确支持图片输入的兜底样本。
+8. Provider 请求格式改动：覆盖 runtime 图片回合 `build_runtime_user_message -> provider format_messages` 链路，断言文本 prompt 与 `data:image/*;base64,...` 图片 part 同时进入请求。
+9. EmberCore 接口改动：同步改 EmberCore OpenAPI、SDK、类型与客户端消费测试。
+
+最终收口前，至少跑：
+
+```bash
+npm run verify:local
+```

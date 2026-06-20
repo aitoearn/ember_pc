@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 运行 AI 代码验证..."
+
+# 仅对暂存的文件运行验证
+npx tsx scripts/ai-code-verify.ts
+
+exit_code=$?
+
+if [ $exit_code -ne 0 ]; then
+  echo ""
+  echo "❌ AI 代码验证失败"
+  echo ""
+  echo "提示："
+  echo "  - 跳过：git commit --no-verify"
+  echo "  - 禁用：在 .ai-code-verify.json 中设置 \"enabled\": false"
+  echo ""
+fi
+
+exit $exit_code

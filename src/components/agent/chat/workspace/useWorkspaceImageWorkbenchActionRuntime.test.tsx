@@ -1,0 +1,207 @@
+import { act } from "react";
+import { describe, expect, it, vi } from "vitest";
+import { createInitialSessionImageWorkbenchState } from "./imageWorkbenchHelpers";
+import {
+  createParsedCommand,
+  mockGenerateAgentRuntimeTitle,
+  renderHook,
+  toast,
+} from "./useWorkspaceImageWorkbenchActionRuntime.testFixtures";
+
+describe("useWorkspaceImageWorkbenchActionRuntime", () => {
+  it("应通过 Agent 主链提交图片 skill launch，而不是前端直建 task", async () => {
+    const submitImageWorkbenchAgentCommand = vi.fn().mockResolvedValue(true);
+    const createImageGenerationTask = vi.fn();
+    const { render, getValue } = renderHook({
+      submitImageWorkbenchAgentCommand,
+      createImageGenerationTask,
+    });
+
+    await render();
+
+    let handled = false;
+    await act(async () => {
+      handled = await getValue().handleImageWorkbenchCommand({
+        rawText: "@配图 生成 城市夜景主视觉",
+        parsedCommand: createParsedCommand(),
+        images: [],
+      });
+    });
+
+    expect(handled).toBe(true);
+    expect(submitImageWorkbenchAgentCommand).toHaveBeenCalledTimes(1);
+    expect(submitImageWorkbenchAgentCommand).toHaveBeenCalledWith({
+      rawText: "@配图 生成 城市夜景主视觉",
+      displayContent: "@配图 生成 城市夜景主视觉",
+      images: [],
+      requestContext: expect.objectContaining({
+        kind: "image_task",
+        image_task: expect.objectContaining({
+          title: "城市夜景主视觉",
+          title_generation_result: expect.objectContaining({
+            title: "城市夜景主视觉",
+            sessionId: "title-session-1",
+          }),
+          mode: "generate",
+          prompt: "城市夜景主视觉",
+          size: "1024x1024",
+          usage: "claw-image-workbench",
+          session_id: "session-1",
+          project_id: "project-1",
+          entry_source: "at_image_command",
+          requested_target: "generate",
+        }),
+      }),
+    });
+    expect(mockGenerateAgentRuntimeTitle).toHaveBeenCalledWith({
+      sessionId: "session-1",
+      previewText: "城市夜景主视觉",
+      titleKind: "image_task",
+    });
+    expect(createImageGenerationTask).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("本地图片工作台 key 首次提交时应保留统一发送主线，延后由发送边界绑定真实会话", async () => {
+    const submitImageWorkbenchAgentCommand = vi.fn().mockResolvedValue(true);
+    const localImageWorkbenchSessionKey =
+      "__local_image_workbench__:draft:image";
+    const { render, getValue } = renderHook({
+      submitImageWorkbenchAgentCommand,
+      imageWorkbenchSessionKey: localImageWorkbenchSessionKey,
+    });
+
+    await render();
+
+    await act(async () => {
+      await getValue().handleImageWorkbenchCommand({
+        rawText: "@配图 生成 城市夜景主视觉",
+        parsedCommand: createParsedCommand(),
+        images: [],
+      });
+    });
+
+    expect(submitImageWorkbenchAgentCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestContext: expect.objectContaining({
+          image_task: expect.objectContaining({
+            session_id: localImageWorkbenchSessionKey,
+          }),
+        }),
+      }),
+    );
+    expect(mockGenerateAgentRuntimeTitle).toHaveBeenCalledWith({
+      previewText: "城市夜景主视觉",
+      titleKind: "image_task",
+    });
+  });
+
+  it("应把编辑命令解析为统一的 skillRequest 上下文", async () => {
+    const currentImageWorkbenchState = {
+      ...createInitialSessionImageWorkbenchState(),
+      outputs: [
+        {
+          id: "task-image-1:output:1",
+          taskId: "task-image-1",
+          hookImageId: "task-image-1:hook:1",
+          refId: "img-2",
+          url: "https://example.com/image-2.png",
+          prompt: "原始图片",
+          createdAt: Date.now(),
+          providerName: "fal",
+          modelName: "fal-ai/nano-banana-pro",
+          size: "1024x1024",
+          parentOutputId: null,
+          resourceSaved: false,
+          applyTarget: null,
+        },
+      ],
+    };
+    const { render, getValue } = renderHook({
+      currentImageWorkbenchState,
+    });
+
+    await render();
+
+    const skillRequest = getValue().resolveImageWorkbenchSkillRequest({
+      rawText: "@配图 编辑 #img-2 去掉角标，保留主体",
+      parsedCommand: {
+        rawText: "@配图 编辑 #img-2 去掉角标，保留主体",
+        commandKey: "image_edit",
+        trigger: "@配图",
+        body: "编辑 #img-2 去掉角标，保留主体",
+        mode: "edit",
+        prompt: "去掉角标，保留主体",
+        count: 1,
+        size: undefined,
+        aspectRatio: undefined,
+        targetRef: "img-2",
+      },
+      images: [
+        {
+          data: "base64-image-1",
+          mediaType: "image/png",
+        },
+      ],
+    });
+
+    expect(skillRequest).toMatchObject({
+      images: [
+        {
+          data: "base64-image-1",
+          mediaType: "image/png",
+        },
+      ],
+      requestContext: {
+        kind: "image_task",
+        image_task: {
+          mode: "edit",
+          prompt: "去掉角标，保留主体",
+          target_output_ref_id: "img-2",
+          reference_images: [
+            "https://example.com/image-2.png",
+            "skill-input-image://1",
+          ],
+        },
+      },
+    });
+  });
+
+  it("当前选中 Provider 尚未就绪时应回退到已解析偏好", async () => {
+    const { render, getValue } = renderHook({
+      imageWorkbenchPreferredModelId: "gpt-images-2",
+      imageWorkbenchPreferredProviderId:
+        "custom-f0181b00-35b6-4731-94e2-24f17fd247c9",
+      imageWorkbenchSelectedModelId: "",
+      imageWorkbenchSelectedProviderId: "",
+    });
+
+    await render();
+
+    const skillRequest = getValue().resolveImageWorkbenchSkillRequest({
+      rawText: "@配图 生成 柴犬头像暖色插画",
+      parsedCommand: {
+        rawText: "@配图 生成 柴犬头像暖色插画",
+        commandKey: "image_generate",
+        trigger: "@配图",
+        body: "生成 柴犬头像暖色插画",
+        mode: "generate",
+        prompt: "柴犬头像暖色插画",
+        count: 1,
+        size: "1024x1024",
+        aspectRatio: undefined,
+        targetRef: undefined,
+      },
+      images: [],
+    });
+
+    expect(skillRequest).toMatchObject({
+      requestContext: {
+        image_task: {
+          provider_id: "custom-f0181b00-35b6-4731-94e2-24f17fd247c9",
+          model: "gpt-images-2",
+        },
+      },
+    });
+  });
+});

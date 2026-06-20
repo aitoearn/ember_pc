@@ -1,0 +1,991 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 186 88% 32%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --radius: 0.5rem;
+
+    /* Claude 风格颜色 */
+    --surface: #ffffff;
+    --surface-secondary: #f5f4f1;
+    --surface-tertiary: #efeee9;
+    --surface-cream: #faf9f6;
+    --ink-900: #1a1915;
+    --ink-700: #4a4a45;
+    --ink-600: #666661;
+    --ink-400: #9b9b96;
+    --claude-accent: #d97757;
+    --claude-accent-hover: #cc785c;
+    --claude-accent-subtle: #fdf4f1;
+    --success: #16a34a;
+    --info: #2563eb;
+    --tooltip-bg: #f8fbf8;
+    --tooltip-foreground: #1f2937;
+    --tooltip-border: #d7e3db;
+    --tooltip-shadow:
+      0 20px 38px -24px rgba(15, 23, 42, 0.28),
+      0 12px 22px -20px rgba(46, 89, 67, 0.22);
+
+    /* lmweb 对齐：动态主题色阶与布局 token */
+    --theme-lighter: #fef4d4;
+    --theme-light: #fed680;
+    --theme-default: #fda92d;
+    --theme-dark: #b66816;
+    --theme-darker: #793908;
+    --theme-subtle: color-mix(in srgb, var(--theme-default) 8%, #ffffff);
+    --theme-border: color-mix(in srgb, var(--theme-default) 24%, #ffffff);
+    --theme-hover: color-mix(in srgb, var(--theme-default) 12%, #ffffff);
+    --layout-header-height: 58px;
+    --layout-sidebar-width: 220px;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+
+    /* Claude 风格颜色 - 暗色模式 */
+    --surface: #1a1915;
+    --surface-secondary: #2d2d2a;
+    --surface-tertiary: #3a3a35;
+    --surface-cream: #242420;
+    --ink-900: #f5f4f1;
+    --ink-700: #d1d1cc;
+    --ink-600: #9b9b96;
+    --ink-400: #666661;
+    --claude-accent: #e8956f;
+    --claude-accent-hover: #d97757;
+    --claude-accent-subtle: #3d2a24;
+    --tooltip-bg: #1f2b36;
+    --tooltip-foreground: #edf4f2;
+    --tooltip-border: #31424f;
+    --tooltip-shadow:
+      0 20px 38px -24px rgba(2, 8, 23, 0.5),
+      0 12px 22px -20px rgba(2, 8, 23, 0.4);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    overflow: hidden;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background-color: var(--ember-app-bg, var(--surface-cream, #faf9f6));
+    font-family:
+      -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+      Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    overflow: hidden;
+  }
+
+  /* Custom scrollbar styles */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+}
+
+/* Claude 风格动画 */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.4s linear infinite;
+}
+
+.ember-tooltip {
+  border: 1px solid var(--tooltip-border);
+  border-radius: 12px;
+  background: var(--tooltip-bg);
+  color: var(--tooltip-foreground);
+  box-shadow: var(--tooltip-shadow);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0;
+  animation: tooltip-fade-in 140ms ease-out;
+}
+
+/* Claude 风格消息标题 */
+.claude-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--claude-accent);
+  margin-bottom: 0.5rem;
+}
+
+/* Claude 风格工具调用卡片 */
+.claude-tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-radius: 1rem;
+  background: var(--surface-tertiary);
+  padding: 0.5rem 0.75rem;
+  margin-top: 1rem;
+}
+
+/* Claude 风格状态指示器 */
+.claude-status-dot {
+  position: relative;
+  display: flex;
+  height: 0.5rem;
+  width: 0.5rem;
+}
+
+.claude-status-dot-inner {
+  position: relative;
+  display: inline-flex;
+  height: 0.5rem;
+  width: 0.5rem;
+  border-radius: 9999px;
+}
+
+.claude-status-dot-ping {
+  position: absolute;
+  display: inline-flex;
+  height: 100%;
+  width: 100%;
+  border-radius: 9999px;
+  opacity: 0.75;
+  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes tooltip-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ping {
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* Artifact 流式进度动画 */
+/* @requirements 11.1 */
+@keyframes streaming-progress {
+  0% {
+    width: 0%;
+    transform: translateX(0);
+  }
+  50% {
+    width: 100%;
+    transform: translateX(0);
+  }
+  100% {
+    width: 100%;
+    transform: translateX(100%);
+  }
+}
+
+.animate-streaming-progress {
+  animation: streaming-progress 1.5s ease-in-out infinite;
+}
+
+/* 设置页和工作台仍有存量 Tailwind 静态色；用单一作用域接入 Ember 主题变量，避免每页散落补丁。 */
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope) {
+  background: var(--ember-app-bg, var(--ember-stage-surface, #faf9f6));
+  color: var(--ember-text, #4a4a45);
+}
+
+:where(
+  .ember-settings-theme-scope,
+  .ember-workbench-theme-scope
+).ember-workbench-surface-scope {
+  background: var(--ember-surface, #ffffff) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-white"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-white/70"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-white/72"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-white/75"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-white/78"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-white/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-white/82"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-white/84"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-white/85"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-white/86"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-white/88"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-white/90"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-white/92"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-white/95"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-white/98"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-background"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-background/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-background/90"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-card"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-card/95"] {
+  background: var(--ember-surface, #ffffff) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-slate-50"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-slate-50/60"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-slate-50/70"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-slate-50/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-slate-50/88"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-slate-50/90"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-slate-50/92"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-slate-50/95"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-slate-100"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-slate-100/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-slate-100/90"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-muted"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-muted/20"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-muted/30"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-muted/35"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-muted/40"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-muted/50"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-muted/60"] {
+  background: var(--ember-surface-soft, #f8fcf9) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-slate-200"] {
+  background: var(--ember-surface-muted, #f2f7f3) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-slate-300"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-slate-300/80"] {
+  background: var(--ember-surface-border-strong, #c7e7d1) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-gradient-to-br"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class*="bg-[linear-gradient(135deg,rgba"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class*="bg-[linear-gradient(180deg,rgba"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class*="bg-[linear-gradient(180deg,#"] {
+  background: var(
+    --ember-card-subtle,
+    var(--ember-surface-soft, #f8fcf9)
+  ) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class*="bg-[linear-gradient(135deg,#"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class*="bg-[linear-gradient(90deg,#"] {
+  background: var(--ember-primary-gradient-simple, #10b981) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-emerald-50"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-emerald-50/30"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-emerald-50/40"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-emerald-50/60"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-emerald-50/70"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-emerald-50/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-emerald-50/90"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-emerald-100"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-emerald-100/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-green-100"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-teal-100/24"] {
+  background: var(--ember-brand-soft, #ecfdf5) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-emerald-200"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-emerald-200/30"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-emerald-300"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-emerald-400"] {
+  background: color-mix(
+    in srgb,
+    var(--ember-brand, #10b981) 36%,
+    transparent
+  ) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-emerald-500"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-emerald-700"] {
+  background: var(--ember-brand, #10b981) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-primary/10"] {
+  background: var(--ember-brand-soft, #ecfdf5) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-sky-50"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-sky-50/50"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-sky-50/70"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-sky-50/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-sky-100"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-sky-200/28"] {
+  background: var(--ember-info-soft, #f0f9ff) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-amber-50"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-amber-50/70"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-amber-50/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-amber-50/85"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-amber-50/90"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-amber-100"] {
+  background: var(--ember-warning-soft, #fffbeb) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-rose-50"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-rose-50/70"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-rose-50/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-rose-50/90"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-rose-100"] {
+  background: var(--ember-danger-soft, #fff1f2) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-red-50"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-red-50/90"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-red-100"] {
+  background: var(--ember-danger-soft, #fff1f2) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-orange-100"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-orange-100/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-stone-100"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-violet-50"] {
+  background: var(--ember-surface-muted, #f2f7f3) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-slate-100"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-slate-200"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-slate-200/70"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-slate-200/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-slate-200/90"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-white"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-white/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-white/85"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-white/90"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-border"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-border/60"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-border/70"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-border/80"] {
+  border-color: var(--ember-surface-border, #e2f0e2) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-slate-300"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-slate-700"] {
+  border-color: var(--ember-surface-border-strong, #c7e7d1) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-emerald-100"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-emerald-200"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-emerald-200/40"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-emerald-200/60"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-emerald-200/70"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-emerald-200/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-emerald-300"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-emerald-300/60"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-emerald-700"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-primary"] {
+  border-color: var(--ember-surface-border-strong, #c7e7d1) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-sky-100"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-sky-200"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-sky-200/80"] {
+  border-color: var(--ember-info-border, #bfdbfe) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-amber-200"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-amber-200/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-amber-300"] {
+  border-color: var(--ember-warning-border, #fde68a) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-rose-100"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-rose-200"] {
+  border-color: var(--ember-danger-border, #fecdd3) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-red-200"] {
+  border-color: var(--ember-danger-border, #fecdd3) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-orange-200"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-violet-200"] {
+  border-color: var(--ember-surface-border-strong, #c7e7d1) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-slate-950"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-slate-900"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-slate-800"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-foreground"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-card-foreground"] {
+  color: var(--ember-text-strong, #0f172a) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-slate-700"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-slate-600"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-primary"] {
+  color: var(--ember-text, #1a3b2b) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-slate-500"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-slate-400"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-slate-300"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-muted-foreground"] {
+  color: var(--ember-text-muted, #6b826b) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-emerald-700"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-emerald-700/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-emerald-500"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-emerald-600"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-emerald-800"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-emerald-800/90"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-emerald-900"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-green-700"] {
+  color: var(--ember-brand-strong, #166534) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-sky-600"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-sky-700"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-sky-900"] {
+  color: var(--ember-info, #0284c7) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-amber-600"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-amber-700"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-amber-800"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-amber-900"] {
+  color: var(--ember-warning, #b45309) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-rose-600"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-rose-700"] {
+  color: var(--ember-danger, #be123c) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-red-700"] {
+  color: var(--ember-danger, #be123c) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-orange-700"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-orange-800"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-stone-800"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-violet-700"] {
+  color: var(--ember-text, #1a3b2b) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="ring-slate-200"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="ring-slate-400"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="focus-visible:ring-slate-300"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="focus-visible:ring-emerald-300"] {
+  --tw-ring-color: var(--ember-surface-border, #e2f0e2) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="ring-emerald-200"] {
+  --tw-ring-color: var(--ember-surface-border-strong, #c7e7d1) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="focus:ring-emerald-100"]:focus,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="focus-visible:ring-emerald-300"]:focus-visible {
+  --tw-ring-color: var(--ember-focus-ring, rgba(52, 171, 103, 0.18)) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="ring-amber-200"] {
+  --tw-ring-color: var(--ember-warning-border, #fde68a) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-white"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-white/78"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-white/90"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-white/92"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="focus:bg-white"]:focus {
+  background: var(--ember-surface, #ffffff) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-slate-50"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-slate-100"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-slate-200"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-muted/60"]:hover {
+  background: var(--ember-surface-hover, #f4fdf4) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-emerald-50"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-emerald-50/40"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-emerald-100"]:hover {
+  background: var(--ember-brand-soft, #ecfdf5) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-emerald-800"]:hover {
+  background: var(--ember-brand-strong, #166534) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-sky-50"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-sky-100"]:hover {
+  background: var(--ember-info-soft, #f0f9ff) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-amber-100"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-amber-100/40"]:hover {
+  background: var(--ember-warning-soft, #fffbeb) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-rose-50"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-rose-100"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-rose-100/70"]:hover {
+  background: var(--ember-danger-soft, #fff1f2) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:border-slate-300"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:border-slate-400"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="focus:border-slate-300"]:focus,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="focus:border-slate-400"]:focus {
+  border-color: var(--ember-surface-border-strong, #c7e7d1) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:border-emerald-200"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:border-emerald-300"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="focus:border-emerald-300"]:focus {
+  border-color: var(--ember-surface-border-strong, #c7e7d1) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:border-sky-300"]:hover {
+  border-color: var(--ember-info-border, #bfdbfe) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:border-amber-300"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:border-amber-400"]:hover {
+  border-color: var(--ember-warning-border, #fde68a) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:border-rose-300"]:hover {
+  border-color: var(--ember-danger-border, #fecdd3) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:text-slate-700"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:text-slate-900"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:text-slate-950"]:hover,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:text-foreground"]:hover {
+  color: var(--ember-text-strong, #0f172a) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:text-emerald-900"]:hover {
+  color: var(--ember-brand-strong, #166534) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:text-emerald-800"]:hover {
+  color: var(--ember-brand-strong, #166534) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:text-sky-800"]:hover {
+  color: var(--ember-info, #0284c7) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:text-rose-600"]:hover {
+  color: var(--ember-danger, #be123c) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="focus:ring-slate-200"]:focus {
+  --tw-ring-color: var(--ember-focus-ring, rgba(52, 171, 103, 0.18)) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="data-[state=active]:bg-white"][data-state="active"] {
+  background: var(--ember-surface, #ffffff) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="data-[state=active]:text-slate-900"][data-state="active"] {
+  color: var(--ember-text-strong, #0f172a) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope) input,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope) textarea,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope) select {
+  background: var(--ember-surface, #ffffff);
+  border-color: var(--ember-surface-border, #e2f0e2);
+  color: var(--ember-text-strong, #0f172a);
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  input::placeholder,
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  textarea::placeholder {
+  color: var(--ember-text-muted, #6b826b);
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="placeholder:text-slate-400"]::placeholder {
+  color: var(--ember-text-muted, #9b9b96) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-neutral-50"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-neutral-100"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-neutral-100/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-neutral-200"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-neutral-200/80"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="bg-neutral-200/90"] {
+  background: var(--ember-surface-muted, #f0efec) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-neutral-400"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-neutral-500"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-neutral-600"] {
+  color: var(--ember-text-muted, #9b9b96) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-neutral-700"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-neutral-800"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-neutral-900"] {
+  color: var(--ember-text-strong, #1a1915) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-neutral-100"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-neutral-200"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-neutral-200/80"] {
+  border-color: var(--ember-surface-border, #ececea) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="hover:bg-neutral-100"]:hover {
+  background: var(--ember-surface-hover, #f7f6f3) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class*="bg-[#7c3aed]"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class*="bg-[#6d28d9]"] {
+  background: var(--theme-default, #fda92d) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class*="hover:bg-[#6d28d9]"]:hover {
+  background: var(--theme-dark, #007867) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class*="bg-[#f0f1f3]"] {
+  background: var(--ember-app-bg, #faf9f6) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-slate-900"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-slate-950"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-slate-800"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-slate-700"] {
+  color: var(--ember-text-strong, #1a1915) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-slate-600"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-slate-500"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="text-slate-400"] {
+  color: var(--ember-text-muted, #9b9b96) !important;
+}
+
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-slate-100"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-slate-200"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-slate-200/70"],
+:where(.ember-settings-theme-scope, .ember-workbench-theme-scope)
+  [class~="border-slate-200/80"] {
+  border-color: var(--ember-surface-border, #ececea) !important;
+}
+
+html[data-ember-window="update-notification"],
+html[data-ember-window="update-notification"] body,
+html[data-ember-window="update-notification"] #root {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+html[data-ember-window="update-notification"] body {
+  margin: 0;
+  overflow: hidden;
+}
+
+html[data-ember-window="update-notification"] .index-startup-shell {
+  display: none !important;
+}

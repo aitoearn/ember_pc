@@ -1,0 +1,561 @@
+import { describe, expect, it, vi } from "vitest";
+import { createExportClient } from "./exportClient";
+import type { AppServerRequestResult } from "@/lib/api/appServer";
+import type { AgentRuntimeCommandInvoke } from "./transport";
+import type { AgentRuntimeEvidenceExportAppServerClient } from "./exportClient";
+
+const handoffBundleOutput = {
+  sessionId: "session-handoff",
+  threadId: "thread-handoff",
+  workspaceRoot: "/tmp/workspace",
+  bundleRelativeRoot: ".ember/harness/sessions/session-handoff",
+  bundleAbsoluteRoot: "/tmp/workspace/.ember/harness/sessions/session-handoff",
+  exportedAt: "2026-06-08T08:00:00.000Z",
+  threadStatus: "running",
+  pendingRequestCount: 1,
+  queuedTurnCount: 0,
+  activeSubagentCount: 2,
+  todoTotal: 3,
+  todoPending: 1,
+  todoInProgress: 1,
+  todoCompleted: 1,
+  artifacts: [
+    {
+      kind: "handoff",
+      title: "handoff.md",
+      relativePath: ".ember/harness/sessions/session-handoff/handoff.md",
+      absolutePath:
+        "/tmp/workspace/.ember/harness/sessions/session-handoff/handoff.md",
+      bytes: 128,
+    },
+  ],
+};
+
+const analysisHandoffOutput = {
+  session_id: "session-analysis",
+  thread_id: "thread-analysis",
+  workspace_root: "/tmp/workspace",
+  analysis_relative_root: ".ember/harness/sessions/session-analysis/analysis",
+  analysis_absolute_root:
+    "/tmp/workspace/.ember/harness/sessions/session-analysis/analysis",
+  handoff_bundle_relative_root: ".ember/harness/sessions/session-analysis",
+  evidence_pack_relative_root:
+    ".ember/harness/sessions/session-analysis/evidence",
+  replay_case_relative_root: ".ember/harness/sessions/session-analysis/replay",
+  exported_at: "2026-06-08T08:05:00.000Z",
+  title: "外部分析",
+  thread_status: "waiting_request",
+  pending_request_count: 1,
+  queued_turn_count: 0,
+  sanitized_workspace_root: "/tmp/workspace",
+  copy_prompt: "请审阅这份 handoff。",
+  artifacts: [
+    {
+      kind: "analysis_brief",
+      title: "analysis-brief.md",
+      relative_path:
+        ".ember/harness/sessions/session-analysis/analysis/analysis-brief.md",
+      absolute_path:
+        "/tmp/workspace/.ember/harness/sessions/session-analysis/analysis/analysis-brief.md",
+      bytes: 256,
+    },
+  ],
+};
+
+const replayCaseOutput = {
+  sessionId: "session-replay",
+  threadId: "thread-replay",
+  workspaceRoot: "/tmp/workspace",
+  replayRelativeRoot: ".ember/harness/sessions/session-replay/replay",
+  replayAbsoluteRoot:
+    "/tmp/workspace/.ember/harness/sessions/session-replay/replay",
+  handoffBundleRelativeRoot: ".ember/harness/sessions/session-replay",
+  evidencePackRelativeRoot: ".ember/harness/sessions/session-replay/evidence",
+  exportedAt: "2026-06-08T08:10:00.000Z",
+  threadStatus: "failed",
+  pendingRequestCount: 0,
+  queuedTurnCount: 1,
+  linkedHandoffArtifactCount: 1,
+  linkedEvidenceArtifactCount: 1,
+  recentArtifactCount: 2,
+  artifacts: [
+    {
+      kind: "input",
+      title: "input.json",
+      relativePath: ".ember/harness/sessions/session-replay/replay/input.json",
+      absolutePath:
+        "/tmp/workspace/.ember/harness/sessions/session-replay/replay/input.json",
+      bytes: 512,
+    },
+  ],
+};
+
+const reviewDecision = {
+  decisionStatus: "accepted",
+  decisionSummary: "确认可以合入。",
+  chosenFixStrategy: "保留最小 current 边界。",
+  riskLevel: "medium",
+  riskTags: ["runtime"],
+  humanReviewer: "Ember Maintainer",
+  followupActions: ["补 GUI smoke"],
+  regressionRequirements: ["npm run test:contracts"],
+  notes: "",
+};
+
+const reviewDecisionTemplateOutput = {
+  sessionId: "session-review",
+  threadId: "thread-review",
+  workspaceRoot: "/tmp/workspace",
+  reviewRelativeRoot: ".ember/harness/sessions/session-review/review",
+  reviewAbsoluteRoot:
+    "/tmp/workspace/.ember/harness/sessions/session-review/review",
+  analysisRelativeRoot: ".ember/harness/sessions/session-review/analysis",
+  analysisAbsoluteRoot:
+    "/tmp/workspace/.ember/harness/sessions/session-review/analysis",
+  handoffBundleRelativeRoot: ".ember/harness/sessions/session-review",
+  evidencePackRelativeRoot: ".ember/harness/sessions/session-review/evidence",
+  replayCaseRelativeRoot: ".ember/harness/sessions/session-review/replay",
+  exportedAt: "2026-06-08T08:15:00.000Z",
+  title: "人工审核结论",
+  threadStatus: "waiting_request",
+  pendingRequestCount: 1,
+  queuedTurnCount: 0,
+  defaultDecisionStatus: "pending_review",
+  decision: reviewDecision,
+  decisionStatusOptions: [
+    "accepted",
+    "deferred",
+    "rejected",
+    "needs_more_evidence",
+    "pending_review",
+  ],
+  riskLevelOptions: ["low", "medium", "high", "unknown"],
+  reviewChecklist: ["确认 evidence pack"],
+  analysisArtifacts: [
+    {
+      kind: "analysis_brief",
+      title: "analysis-brief.md",
+      relativePath:
+        ".ember/harness/sessions/session-review/analysis/analysis-brief.md",
+      absolutePath:
+        "/tmp/workspace/.ember/harness/sessions/session-review/analysis/analysis-brief.md",
+      bytes: 256,
+    },
+  ],
+  artifacts: [
+    {
+      kind: "review_decision_json",
+      title: "review-decision.json",
+      relativePath:
+        ".ember/harness/sessions/session-review/review/review-decision.json",
+      absolutePath:
+        "/tmp/workspace/.ember/harness/sessions/session-review/review/review-decision.json",
+      bytes: 384,
+    },
+  ],
+};
+
+function appServerClientMock(): AgentRuntimeEvidenceExportAppServerClient {
+  return {
+    exportHandoffBundle: vi.fn().mockResolvedValue({
+      id: 1,
+      result: handoffBundleOutput,
+      response: { id: 1, result: handoffBundleOutput },
+      notifications: [],
+      messages: [],
+    }),
+    exportAnalysisHandoff: vi.fn().mockResolvedValue({
+      id: 1,
+      result: analysisHandoffOutput,
+      response: { id: 1, result: analysisHandoffOutput },
+      notifications: [],
+      messages: [],
+    }),
+    exportReplayCase: vi.fn().mockResolvedValue({
+      id: 1,
+      result: replayCaseOutput,
+      response: { id: 1, result: replayCaseOutput },
+      notifications: [],
+      messages: [],
+    }),
+    exportReviewDecisionTemplate: vi.fn().mockResolvedValue({
+      id: 1,
+      result: reviewDecisionTemplateOutput,
+      response: { id: 1, result: reviewDecisionTemplateOutput },
+      notifications: [],
+      messages: [],
+    }),
+    saveReviewDecision: vi.fn().mockResolvedValue({
+      id: 1,
+      result: reviewDecisionTemplateOutput,
+      response: { id: 1, result: reviewDecisionTemplateOutput },
+      notifications: [],
+      messages: [],
+    }),
+    exportEvidence: vi.fn().mockResolvedValue({
+      id: 1,
+      result: {
+        session: {
+          sessionId: "session-1",
+          threadId: "thread-1",
+          appId: "desktop",
+          workspaceId: "workspace-1",
+          status: "running",
+          createdAt: "2026-06-06T00:00:00.000Z",
+          updatedAt: "2026-06-06T00:00:03.000Z",
+        },
+        turns: [],
+        events: [],
+        artifacts: [],
+        exportedAt: "2026-06-06T00:00:04.000Z",
+        evidencePack: {
+          packRelativeRoot: ".ember/harness/sessions/session-1/evidence",
+          packAbsoluteRoot:
+            "/tmp/work/.ember/harness/sessions/session-1/evidence",
+          exportedAt: "2026-06-06T00:00:05.000Z",
+          threadStatus: "running",
+          latestTurnStatus: "accepted",
+          turnCount: 2,
+          itemCount: 6,
+          pendingRequestCount: 1,
+          queuedTurnCount: 0,
+          recentArtifactCount: 1,
+          knownGaps: [],
+          artifacts: [],
+        },
+      },
+      response: { id: 1, result: {} },
+      notifications: [],
+      messages: [],
+    }),
+  };
+}
+
+function malformedAppServerResult<T>(
+  result: unknown,
+): AppServerRequestResult<T> {
+  return {
+    id: 1,
+    result: result as T,
+    response: {
+      id: 1,
+      result: result as T,
+    },
+    notifications: [],
+    messages: [],
+  };
+}
+
+describe("agentRuntime exportClient", () => {
+  it("handoff export 应走 App Server current，不回退 legacy command", async () => {
+    const appServerClient = appServerClientMock();
+    const invokeCommand = vi.fn() as unknown as AgentRuntimeCommandInvoke;
+    const client = createExportClient({
+      appServerClient,
+      invokeCommand,
+    });
+
+    await expect(
+      client.exportAgentRuntimeHandoffBundle(" session-handoff "),
+    ).resolves.toMatchObject({
+      session_id: "session-handoff",
+      active_subagent_count: 2,
+      artifacts: [
+        expect.objectContaining({
+          kind: "handoff",
+          relative_path: ".ember/harness/sessions/session-handoff/handoff.md",
+        }),
+      ],
+    });
+
+    expect(appServerClient.exportHandoffBundle).toHaveBeenCalledWith({
+      sessionId: "session-handoff",
+    });
+    expect(invokeCommand).not.toHaveBeenCalled();
+  });
+
+  it("analysis / replay / review current 导出应走 App Server 并先校验 DTO 再 normalize", async () => {
+    const appServerClient = appServerClientMock();
+    const invokeCommand = vi.fn() as unknown as AgentRuntimeCommandInvoke;
+    const client = createExportClient({
+      appServerClient,
+      invokeCommand,
+    });
+
+    await expect(
+      client.exportAgentRuntimeAnalysisHandoff("session-analysis"),
+    ).resolves.toMatchObject({
+      session_id: "session-analysis",
+      copy_prompt: "请审阅这份 handoff。",
+      artifacts: [
+        expect.objectContaining({
+          kind: "analysis_brief",
+        }),
+      ],
+    });
+    await expect(
+      client.exportAgentRuntimeReplayCase("session-replay"),
+    ).resolves.toMatchObject({
+      session_id: "session-replay",
+      linked_handoff_artifact_count: 1,
+      artifacts: [
+        expect.objectContaining({
+          kind: "input",
+        }),
+      ],
+    });
+    await expect(
+      client.exportAgentRuntimeReviewDecisionTemplate("session-review"),
+    ).resolves.toMatchObject({
+      session_id: "session-review",
+      decision: expect.objectContaining({
+        decision_status: "accepted",
+      }),
+      artifacts: [
+        expect.objectContaining({
+          kind: "review_decision_json",
+        }),
+      ],
+    });
+    await expect(
+      client.saveAgentRuntimeReviewDecision({
+        session_id: "session-review",
+        decision_status: "accepted",
+        decision_summary: "确认可以合入。",
+        chosen_fix_strategy: "保留最小 current 边界。",
+        risk_level: "medium",
+        risk_tags: ["runtime"],
+        human_reviewer: "Ember Maintainer",
+        followup_actions: ["补 GUI smoke"],
+        regression_requirements: ["npm run test:contracts"],
+        notes: "",
+      }),
+    ).resolves.toMatchObject({
+      session_id: "session-review",
+      decision: expect.objectContaining({
+        risk_level: "medium",
+      }),
+    });
+
+    expect(appServerClient.exportAnalysisHandoff).toHaveBeenCalledWith({
+      sessionId: "session-analysis",
+    });
+    expect(appServerClient.exportReplayCase).toHaveBeenCalledWith({
+      sessionId: "session-replay",
+    });
+    expect(appServerClient.exportReviewDecisionTemplate).toHaveBeenCalledWith({
+      sessionId: "session-review",
+    });
+    expect(appServerClient.saveReviewDecision).toHaveBeenCalledWith({
+      sessionId: "session-review",
+      decisionStatus: "accepted",
+      decisionSummary: "确认可以合入。",
+      chosenFixStrategy: "保留最小 current 边界。",
+      riskLevel: "medium",
+      riskTags: ["runtime"],
+      humanReviewer: "Ember Maintainer",
+      followupActions: ["补 GUI smoke"],
+      regressionRequirements: ["npm run test:contracts"],
+      notes: "",
+    });
+    expect(invokeCommand).not.toHaveBeenCalled();
+  });
+
+  it("handoff current export 收到假成功或缺字段时应 fail closed", async () => {
+    const appServerClient = appServerClientMock();
+    vi.mocked(appServerClient.exportHandoffBundle).mockResolvedValueOnce(
+      malformedAppServerResult({ success: true }),
+    );
+    const invokeCommand = vi.fn() as unknown as AgentRuntimeCommandInvoke;
+    const client = createExportClient({
+      appServerClient,
+      invokeCommand,
+    });
+
+    await expect(
+      client.exportAgentRuntimeHandoffBundle("session-handoff"),
+    ).rejects.toThrow(
+      "agentSession/handoffBundle/export did not return runtime handoff bundle",
+    );
+
+    expect(appServerClient.exportHandoffBundle).toHaveBeenCalledWith({
+      sessionId: "session-handoff",
+    });
+    expect(invokeCommand).not.toHaveBeenCalled();
+  });
+
+  it("analysis / replay / review current 收到假成功或缺字段时应 fail closed", async () => {
+    const appServerClient = appServerClientMock();
+    vi.mocked(appServerClient.exportAnalysisHandoff).mockResolvedValueOnce(
+      malformedAppServerResult({
+        ...analysisHandoffOutput,
+        copy_prompt: undefined,
+      }),
+    );
+    vi.mocked(appServerClient.exportReplayCase).mockResolvedValueOnce(
+      malformedAppServerResult({
+        ...replayCaseOutput,
+        artifacts: [{ kind: "input", title: "input.json" }],
+      }),
+    );
+    vi.mocked(
+      appServerClient.exportReviewDecisionTemplate,
+    ).mockResolvedValueOnce(
+      malformedAppServerResult({
+        ...reviewDecisionTemplateOutput,
+        decision: {
+          ...reviewDecision,
+          riskTags: "runtime",
+        },
+      }),
+    );
+    vi.mocked(appServerClient.saveReviewDecision).mockResolvedValueOnce(
+      malformedAppServerResult({
+        error: {
+          code: "COMMAND_UNSUPPORTED",
+          message: "not available",
+        },
+      }),
+    );
+    const invokeCommand = vi.fn() as unknown as AgentRuntimeCommandInvoke;
+    const client = createExportClient({
+      appServerClient,
+      invokeCommand,
+    });
+
+    await expect(
+      client.exportAgentRuntimeAnalysisHandoff("session-analysis"),
+    ).rejects.toThrow(
+      "agentSession/analysisHandoff/export did not return runtime analysis handoff",
+    );
+    await expect(
+      client.exportAgentRuntimeReplayCase("session-replay"),
+    ).rejects.toThrow(
+      "agentSession/replayCase/export did not return runtime replay case",
+    );
+    await expect(
+      client.exportAgentRuntimeReviewDecisionTemplate("session-review"),
+    ).rejects.toThrow(
+      "agentSession/reviewDecisionTemplate/export did not return runtime review decision template",
+    );
+    await expect(
+      client.saveAgentRuntimeReviewDecision({
+        session_id: "session-review",
+        decision_status: "accepted",
+        decision_summary: "确认可以合入。",
+        chosen_fix_strategy: "保留最小 current 边界。",
+        risk_level: "medium",
+        risk_tags: ["runtime"],
+        human_reviewer: "Ember Maintainer",
+        followup_actions: [],
+        regression_requirements: [],
+        notes: "",
+      }),
+    ).rejects.toThrow(
+      "agentSession/reviewDecision/save did not return runtime review decision template",
+    );
+    expect(invokeCommand).not.toHaveBeenCalled();
+  });
+
+  it("exportAgentRuntimeEvidencePack 应走 App Server evidence/export，不回退 legacy command", async () => {
+    const appServerClient = appServerClientMock();
+    const invokeCommand = vi.fn() as unknown as AgentRuntimeCommandInvoke;
+    const client = createExportClient({
+      appServerClient,
+      invokeCommand,
+    });
+
+    await expect(
+      client.exportAgentRuntimeEvidencePack(" session-1 "),
+    ).resolves.toMatchObject({
+      session_id: "session-1",
+      thread_id: "thread-1",
+      workspace_root: "/tmp/work",
+      pack_relative_root: ".ember/harness/sessions/session-1/evidence",
+      thread_status: "running",
+    });
+
+    expect(appServerClient.exportEvidence).toHaveBeenCalledWith({
+      sessionId: "session-1",
+      includeEvents: true,
+      includeArtifacts: true,
+      includeEvidencePack: true,
+    });
+    expect(invokeCommand).not.toHaveBeenCalled();
+  });
+
+  it("缺少 sessionId 时 evidence export 应 fail closed", async () => {
+    const appServerClient = appServerClientMock();
+    const invokeCommand = vi.fn() as unknown as AgentRuntimeCommandInvoke;
+    const client = createExportClient({
+      appServerClient,
+      invokeCommand,
+    });
+
+    await expect(client.exportAgentRuntimeEvidencePack(" ")).rejects.toThrow(
+      "sessionId is required to export App Server evidence",
+    );
+
+    expect(appServerClient.exportEvidence).not.toHaveBeenCalled();
+    expect(invokeCommand).not.toHaveBeenCalled();
+  });
+
+  it("缺少 sessionId 时 handoff export 应 fail closed", async () => {
+    const appServerClient = appServerClientMock();
+    const invokeCommand = vi.fn() as unknown as AgentRuntimeCommandInvoke;
+    const client = createExportClient({
+      appServerClient,
+      invokeCommand,
+    });
+
+    await expect(client.exportAgentRuntimeHandoffBundle(" ")).rejects.toThrow(
+      "sessionId is required to export App Server handoff bundle",
+    );
+
+    expect(appServerClient.exportHandoffBundle).not.toHaveBeenCalled();
+    expect(invokeCommand).not.toHaveBeenCalled();
+  });
+
+  it("缺少 sessionId 时派生导出应 fail closed", async () => {
+    const appServerClient = appServerClientMock();
+    const invokeCommand = vi.fn() as unknown as AgentRuntimeCommandInvoke;
+    const client = createExportClient({
+      appServerClient,
+      invokeCommand,
+    });
+
+    await expect(client.exportAgentRuntimeReplayCase(" ")).rejects.toThrow(
+      "sessionId is required to export App Server replay case",
+    );
+    await expect(client.exportAgentRuntimeAnalysisHandoff(" ")).rejects.toThrow(
+      "sessionId is required to export App Server analysis handoff",
+    );
+    await expect(
+      client.exportAgentRuntimeReviewDecisionTemplate(" "),
+    ).rejects.toThrow(
+      "sessionId is required to export App Server review decision template",
+    );
+    await expect(
+      client.saveAgentRuntimeReviewDecision({
+        session_id: " ",
+        decision_status: "accepted",
+        decision_summary: "",
+        chosen_fix_strategy: "",
+        risk_level: "low",
+        risk_tags: [],
+        human_reviewer: "",
+        followup_actions: [],
+        regression_requirements: [],
+        notes: "",
+      }),
+    ).rejects.toThrow(
+      "sessionId is required to save App Server review decision",
+    );
+
+    expect(appServerClient.exportReplayCase).not.toHaveBeenCalled();
+    expect(appServerClient.exportAnalysisHandoff).not.toHaveBeenCalled();
+    expect(appServerClient.exportReviewDecisionTemplate).not.toHaveBeenCalled();
+    expect(appServerClient.saveReviewDecision).not.toHaveBeenCalled();
+    expect(invokeCommand).not.toHaveBeenCalled();
+  });
+});

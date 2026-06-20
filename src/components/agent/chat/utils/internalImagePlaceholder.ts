@@ -1,0 +1,6 @@
+export {
+  containsRuntimeAttachmentPlaceholder as containsInternalImagePlaceholder,
+  isOnlyRuntimeAttachmentPlaceholderText as isOnlyInternalImagePlaceholderText,
+  replaceRuntimeAttachmentPlaceholders as replaceInternalImagePlaceholders,
+  resolveRuntimeAttachmentTaskDisplayName as resolveInternalImageTaskDisplayName,
+} from "./runtimeAttachmentPlaceholder";

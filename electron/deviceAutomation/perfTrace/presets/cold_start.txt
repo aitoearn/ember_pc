@@ -1,0 +1,28 @@
+duration_ms: 30000
+
+buffers {
+  size_kb: 65536
+  fill_policy: DISCARD
+}
+
+data_sources {
+  config {
+    name: "android.startup.startups"
+  }
+}
+
+data_sources {
+  config {
+    name: "android.activity_manager"
+  }
+}
+
+data_sources {
+  config {
+    name: "linux.ftrace"
+    ftrace_config {
+      ftrace_events: "sched/sched_switch"
+      ftrace_events: "binder/binder_transaction"
+    }
+  }
+}

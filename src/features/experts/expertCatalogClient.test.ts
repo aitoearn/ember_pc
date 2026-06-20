@@ -1,0 +1,180 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  getExpertCatalog,
+  readCachedExpertCatalog,
+  saveCachedExpertCatalog,
+} from "./expertCatalogClient";
+import { getSeededExpertCatalog } from "./seededExpertCatalog";
+import type { ExpertCatalog } from "./types";
+
+const EXPERT_CATALOG_CACHE_STORAGE_KEY = "ember:expert-catalog-cache:v1";
+
+function buildRemoteCatalog(): ExpertCatalog {
+  const catalog = getSeededExpertCatalog();
+  return {
+    ...catalog,
+    version: "remote-experts-2026-05-15",
+    tenantId: "tenant-demo",
+    items: catalog.items.map((item) => ({
+      ...item,
+      source: "cloud_catalog",
+    })),
+  };
+}
+
+function buildEmptyRemoteCatalog(): ExpertCatalog {
+  return {
+    ...buildRemoteCatalog(),
+    version: "remote-experts-empty",
+    items: [],
+  };
+}
+
+describe("expertCatalogClient", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    delete window.__EMBER_BOOTSTRAP__;
+    delete window.__EMBER_OEM_CLOUD__;
+    delete window.__EMBER_SESSION_TOKEN__;
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+    delete window.__EMBER_BOOTSTRAP__;
+    delete window.__EMBER_OEM_CLOUD__;
+    delete window.__EMBER_SESSION_TOKEN__;
+    vi.unstubAllGlobals();
+  });
+
+  it("无远端刷新请求时应优先读取本地缓存", async () => {
+    saveCachedExpertCatalog(buildRemoteCatalog());
+
+    const catalog = await getExpertCatalog();
+
+    expect(catalog.tenantId).toBe("tenant-demo");
+    expect(catalog.version).toBe("remote-experts-2026-05-15");
+  });
+
+  it("本地缓存是空专家目录时应回退 seeded，避免专家广场空白", async () => {
+    window.localStorage.setItem(
+      EXPERT_CATALOG_CACHE_STORAGE_KEY,
+      JSON.stringify(buildEmptyRemoteCatalog()),
+    );
+
+    const catalog = await getExpertCatalog();
+
+    expect(catalog.tenantId).toBe("local-seeded");
+    expect(catalog.items.length).toBeGreaterThan(0);
+    expect(readCachedExpertCatalog()).toBeNull();
+  });
+
+  it("存在 OEM 会话时应从 EmberCore 刷新并缓存专家目录", async () => {
+    window.__EMBER_OEM_CLOUD__ = {
+      baseUrl: "https://oem.example.com",
+      tenantId: "tenant-demo",
+    };
+    window.__EMBER_SESSION_TOKEN__ = "session-token-demo";
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        code: 200,
+        message: "success",
+        data: buildRemoteCatalog(),
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const catalog = await getExpertCatalog({ refreshRemote: true });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://oem.example.com/api/v1/public/tenants/tenant-demo/client/experts?includeRankings=true",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          Accept: "application/json",
+          Authorization: "Bearer session-token-demo",
+        }),
+      }),
+    );
+    expect(catalog.tenantId).toBe("tenant-demo");
+    expect(readCachedExpertCatalog()?.version).toBe(
+      "remote-experts-2026-05-15",
+    );
+  });
+
+  it("远端返回空专家目录时应保留可用缓存", async () => {
+    saveCachedExpertCatalog(buildRemoteCatalog());
+    window.__EMBER_OEM_CLOUD__ = {
+      baseUrl: "https://oem.example.com",
+      tenantId: "tenant-demo",
+    };
+    window.__EMBER_SESSION_TOKEN__ = "session-token-demo";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          code: 200,
+          message: "success",
+          data: buildEmptyRemoteCatalog(),
+        }),
+      })),
+    );
+
+    const catalog = await getExpertCatalog({ refreshRemote: true });
+
+    expect(catalog.tenantId).toBe("tenant-demo");
+    expect(catalog.version).toBe("remote-experts-2026-05-15");
+    expect(readCachedExpertCatalog()?.version).toBe(
+      "remote-experts-2026-05-15",
+    );
+  });
+
+  it("远端返回空专家目录且没有缓存时应回退 seeded", async () => {
+    window.__EMBER_OEM_CLOUD__ = {
+      baseUrl: "https://oem.example.com",
+      tenantId: "tenant-demo",
+    };
+    window.__EMBER_SESSION_TOKEN__ = "session-token-demo";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          code: 200,
+          message: "success",
+          data: buildEmptyRemoteCatalog(),
+        }),
+      })),
+    );
+
+    const catalog = await getExpertCatalog({ refreshRemote: true });
+
+    expect(catalog.tenantId).toBe("local-seeded");
+    expect(catalog.items.length).toBeGreaterThan(0);
+    expect(readCachedExpertCatalog()).toBeNull();
+  });
+
+  it("远端刷新失败时应回退到上次缓存而不是直接丢回 seeded", async () => {
+    saveCachedExpertCatalog(buildRemoteCatalog());
+    window.__EMBER_OEM_CLOUD__ = {
+      baseUrl: "https://oem.example.com",
+      tenantId: "tenant-demo",
+    };
+    window.__EMBER_SESSION_TOKEN__ = "session-token-demo";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        status: 503,
+        json: async () => ({ message: "unavailable" }),
+      })),
+    );
+
+    const catalog = await getExpertCatalog({ refreshRemote: true });
+
+    expect(catalog.tenantId).toBe("tenant-demo");
+    expect(catalog.version).toBe("remote-experts-2026-05-15");
+  });
+});

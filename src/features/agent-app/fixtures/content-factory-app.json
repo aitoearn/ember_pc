@@ -1,0 +1,253 @@
+{
+  "manifestVersion": "0.3.0",
+  "name": "content-factory-app",
+  "displayName": "测试工作台",
+  "version": "0.3.0",
+  "status": "draft",
+  "appType": "domain-app",
+  "description": "测试工作台，用项目测试上下文驱动用例设计、回归执行、质量报告、缺陷复盘和版本发布验证。",
+  "runtimeTargets": [
+    "local"
+  ],
+  "requires": {
+    "ember": {
+      "appRuntime": ">=0.3.0 <1.0.0"
+    },
+    "sdk": "@ember/app-sdk@^0.3.0",
+    "capabilities": {
+      "ember.ui": "^0.3.0",
+      "ember.storage": "^0.3.0",
+      "ember.files": "^0.3.0",
+      "ember.agent": "^0.3.0",
+      "ember.knowledge": "^0.3.0",
+      "ember.tools": "^0.3.0",
+      "ember.artifacts": "^0.3.0",
+      "ember.workflow": "^0.3.0",
+      "ember.evidence": "^0.3.0"
+    }
+  },
+  "runtimePackage": {
+    "ui": {
+      "path": "./dist/ui"
+    },
+    "worker": {
+      "path": "./dist/worker"
+    },
+    "storage": {
+      "schema": "./storage/schema.json",
+      "migrations": "./storage/migrations"
+    }
+  },
+  "storage": {
+    "namespace": "content-factory-app",
+    "schema": "./storage/schema.json",
+    "migrations": "./storage/migrations",
+    "retention": "ask"
+  },
+  "entries": [
+    {
+      "key": "dashboard",
+      "kind": "page",
+      "title": "测试项目首页",
+      "description": "查看项目、测试资产健康度和当前版本验证状态。",
+      "route": "/dashboard"
+    },
+    {
+      "key": "knowledge",
+      "kind": "page",
+      "title": "测试上下文库",
+      "description": "管理项目背景、测试规范、用例资产、环境资料与版本信息。",
+      "route": "/knowledge"
+    },
+    {
+      "key": "content_scenario_planning",
+      "kind": "workflow",
+      "title": "测试场景规划",
+      "description": "基于测试上下文规划用户路径、风险点、覆盖范围和验证切入点。",
+      "workflow": "./workflows/content-scenarios.workflow.md",
+      "requiredCapabilities": [
+        "ember.agent",
+        "ember.knowledge",
+        "ember.storage"
+      ]
+    },
+    {
+      "key": "content_factory",
+      "kind": "page",
+      "title": "用例执行台",
+      "description": "批量组织测试用例、回归清单、接口验证脚本和执行记录。",
+      "route": "/content-factory"
+    },
+    {
+      "key": "content_strategist",
+      "kind": "expert-chat",
+      "title": "测试策略专家",
+      "description": "围绕版本范围、覆盖策略、风险优先级和发布门禁给出建议。",
+      "persona": "./agents/content-strategist.md"
+    }
+  ],
+  "knowledgeTemplates": [
+    {
+      "key": "ip_knowledge",
+      "standard": "agentknowledge",
+      "type": "organization-knowhow",
+      "required": false
+    },
+    {
+      "key": "project_knowledge",
+      "standard": "agentknowledge",
+      "type": "brand-product",
+      "required": true
+    },
+    {
+      "key": "material_library",
+      "standard": "agentknowledge",
+      "type": "content-operations",
+      "required": false
+    }
+  ],
+  "artifacts": [
+    {
+      "key": "content_table",
+      "title": "用例表",
+      "type": "table",
+      "required": true
+    },
+    {
+      "key": "scene_table",
+      "title": "场景表",
+      "type": "table",
+      "required": true
+    },
+    {
+      "key": "content_batch",
+      "title": "测试批次",
+      "type": "batch",
+      "required": true
+    },
+    {
+      "key": "script_batch",
+      "title": "回归批次",
+      "type": "batch",
+      "required": true
+    },
+    {
+      "key": "prompt_batch",
+      "title": "报告批次",
+      "type": "batch",
+      "required": false
+    }
+  ],
+  "policies": [
+    {
+      "key": "lab_only",
+      "title": "P4-R 实验岛",
+      "required": true
+    }
+  ],
+  "services": [
+    {
+      "key": "content_worker",
+      "kind": "worker",
+      "path": "./dist/worker/index.js",
+      "required": true
+    }
+  ],
+  "workflows": [
+    {
+      "key": "content_scenario_planning",
+      "path": "./workflows/content-scenarios.workflow.md",
+      "humanReview": true,
+      "required": true
+    }
+  ],
+  "skillRefs": [
+    {
+      "id": "article-writer",
+      "standard": "agentskills",
+      "activation": "entry",
+      "required": true
+    }
+  ],
+  "toolRefs": [
+    {
+      "key": "document_parser",
+      "provider": "ember.tools",
+      "required": true
+    },
+    {
+      "key": "competitor_research",
+      "provider": "ember.tools",
+      "required": false
+    },
+    {
+      "key": "creative_capability_search",
+      "provider": "ember.tools",
+      "capabilities": [
+        "ember.capability.image.generate",
+        "ember.capability.cover.generate",
+        "ember.capability.research.search",
+        "ember.capability.report.generate",
+        "ember.capability.pdf.read",
+        "ember.capability.summary.generate"
+      ],
+      "required": false
+    }
+  ],
+  "evals": [
+    {
+      "key": "fact_grounding",
+      "kind": "quality",
+      "evidenceRequired": true,
+      "required": true
+    },
+    {
+      "key": "publish_readiness",
+      "kind": "human-review",
+      "evidenceRequired": false,
+      "required": false
+    }
+  ],
+  "events": [
+    {
+      "key": "content_factory.completed",
+      "direction": "publish",
+      "required": false
+    }
+  ],
+  "secrets": [
+    {
+      "key": "publishing_workspace_token",
+      "provider": "ember.secrets",
+      "scope": "workspace",
+      "required": false
+    }
+  ],
+  "overlayTemplates": [
+    {
+      "key": "workspace_content_rules",
+      "scope": "workspace",
+      "required": false
+    }
+  ],
+  "ui": {
+    "routes": [
+      {
+        "entry": "dashboard",
+        "path": "/dashboard"
+      },
+      {
+        "entry": "content_factory",
+        "path": "/content-factory"
+      }
+    ]
+  },
+  "lifecycle": {
+    "install": {
+      "reviewRequired": true
+    },
+    "uninstall": {
+      "policy": "ask"
+    }
+  }
+}

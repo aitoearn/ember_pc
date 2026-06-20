@@ -1,0 +1,51 @@
+---
+description: "MyWiki 入库工作流（L3 写入）。把文件/URL/图片收录进知识库时按需触发，定义防重复入库、文件类型路由与 11 步入库流程。"
+alwaysApply: false
+---
+
+# 02 · MyWiki 入库工作流（按需触发）
+
+L3 写入流程。完整步骤见 `.cursor/skills/obsidian-wiki-ingest/SKILL.md`，本规则给出关键约束。
+
+## 入库前：防重复
+
+读 `wiki/raw/.manifest.json`，按文件哈希（hash）判断是否已入库：
+
+1. 计算哈希：`md5 -q <文件>`（macOS）或 `md5sum <文件> | cut -d' ' -f1`（Linux）。
+2. 路径已存在且哈希一致 → 跳过，提示「已入库（未变更），如需重做请说 force」。
+3. 缺失或哈希不同 → 继续入库。
+
+## 文件类型路由
+
+| 类型 | 落点 |
+| --- | --- |
+| `.md` 文章、web 抓取 | `wiki/raw/articles/` |
+| `.png/.jpg/.svg` 图片 | `wiki/raw/images/` |
+| `.pdf/.docx` 文档 | `wiki/raw/documents/` |
+
+## 11 步入库流程（要点）
+
+读源 → 与用户讨论侧重 → 生成 `wiki/sources/` 摘要页（含 wikilink-embed 链接原文）→ 创建/更新实体页与概念页 → 更新域索引 → 更新 `index.md` → 刷新 `hot.md` → 追加 `log.md` → 检查矛盾。
+
+source 摘要页中链接原文的 wikilink-embed 写法：
+
+```html
+<wikilink-embed
+  class="wikilink-embed"
+  data-wikilink-embed-path="raw%2Farticles%2Fexample.md"
+  data-wikilink-embed-text="raw%2Farticles%2Fexample.md">
+</wikilink-embed>
+```
+
+## 矛盾处理
+
+新信息与既有页面冲突时，**不要静默覆盖**。在两边页面各加 callout：
+
+```markdown
+> [!contradiction] 与 [[新来源]] 冲突
+> [[既有页]] 声称 X，[[新来源]] 说 Y。需核对日期与原始来源后由用户裁定。
+```
+
+## 入库后
+
+写入 `wiki/raw/.manifest.json`：`{path: {hash, ingested_at, pages_created, pages_updated}}`，并完成写后闭环（index → 域索引 → log → hot）。

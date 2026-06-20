@@ -1,0 +1,56 @@
+---
+description: "MyWiki 提交联动：用户要求提交/创建 git commit 时，先完成 git 提交，commit 成功后同一轮次立即触发 obsidian-save 会话沉淀。"
+alwaysApply: true
+---
+
+# 04 · MyWiki 提交联动（始终生效）
+
+当用户意图为 **提交代码 / 创建 commit**（而非仅 push、仅 diff、仅问 commit message 写法）时，**同一轮次必须先完成 git 提交，commit 成功后立即做知识库会话保存**。
+
+## 触发词（任一命中即启用本规则）
+
+- 中文：`提交代码`、`提交`、`帮我提交`、`创建提交`、`commit`、`git commit`、`提交并推送`（含 commit 语义时）
+- English：`commit changes`、`create a commit`、`git commit`
+
+**不触发**：仅 `push`、`git status`、`git diff`、仅写 commit message 草稿、用户明确说「只提交不要存知识库」。
+
+## 执行顺序（强制）
+
+```
+1. 按用户 git 安全协议执行：status → diff → log → add → commit → status
+2. commit 成功后，Read `.cursor/skills/obsidian-save/SKILL.md`（提交联动模式）
+3. Read `.cursor/runtime-profile.json` 定位 wiki 根目录
+4. 立即自动沉淀本轮会话 → 写后闭环（index / 域 _index / log / hot）
+5. 收尾回复须同时包含：commit hash + 知识库写入结果（页面双链或「本轮无写入」）
+```
+
+**禁止** commit 成功后直接结束轮次而跳过步骤 2–4（除非步骤 4 判定为「无可沉淀内容」）。
+
+## 沉淀内容（提交联动模式，默认不问用户）
+
+从**本会话全文**自动提炼，优先包含：
+
+| 优先级 | 内容 |
+| --- | --- |
+| P0 | 修复了什么问题、根因、关键文件/命令 |
+| P1 | 架构/协议决策、踩坑与验证方式 |
+| P2 | 关联 commit 范围（改动的模块、仓库、**commit hash**） |
+
+落点：先 Read `.cursor/skills/mywiki-router/SKILL.md` 判定 `central` vs `projects/<id>/`；开发任务默认 `projects/lime/` 或当前仓库对应 project-id。
+
+页面策略：
+
+- **有完整排查/联调/多问题复盘** → 新建或更新 `projects/<id>/<主题>-复盘-YYYY-MM-DD.md` 或 runbook 条目
+- **小步修复** → 追加/更新对应 runbook 或域 `_index` 下的简短条目，避免为单次 commit 新建空页
+- **无可沉淀**（纯格式化、仅改 typo、用户已明确「这次不用存」）→ 跳过写入，收尾一句说明「本轮无知识库写入」
+
+## 与 git 提交的衔接
+
+- 沉淀正文**必须写入实际 commit hash**（步骤 1 已完成后再写 wiki，无需占位符）。
+- 知识库写入失败 **不得** 撤销 git commit；失败时在回复中说明并给出未落盘要点，提示用户可说「补存知识库」重试。
+- 多仓库（如 lime + agent-device）：沉淀页分别注明仓库与 commit，或同一复盘页分节。
+
+## 与 00 / 03 规则的关系
+
+- 路由与写后闭环：仍遵守 [[00-mywiki-routing]] 与 [[03-mywiki-session-end]]。
+- 本规则是 **commit 意图的额外入口**，等价于用户同时说了「提交代码」+「保存会话结论（commit 后自动）」。

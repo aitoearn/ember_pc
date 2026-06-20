@@ -1,0 +1,20 @@
+[package]
+name = "ember-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "ember"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+serde_json.workspace = true
+ember-media-runtime.workspace = true
+ember-core.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

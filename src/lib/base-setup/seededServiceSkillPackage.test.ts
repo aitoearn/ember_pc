@@ -1,0 +1,265 @@
+import { describe, expect, it } from "vitest";
+import {
+  createSeededCloudServiceSkillCatalog,
+  createSeededLocalCustomServiceSkillBaseSetupPackage,
+  createSeededLocalCustomServiceSkillCatalog,
+  createSeededServiceSkillBaseSetupPackage,
+  SEEDED_SERVICE_SKILL_CATALOG_TENANT_ID,
+  SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+} from "./seededServiceSkillPackage";
+
+describe("seededServiceSkillPackage", () => {
+  it("应提供 seeded 基础设置包事实源", () => {
+    const pkg = createSeededServiceSkillBaseSetupPackage();
+
+    expect(pkg.id).toBe("ember-seeded-service-skills");
+    expect(pkg.version).toBe(SEEDED_SERVICE_SKILL_CATALOG_VERSION);
+    expect(pkg.catalogProjections).toHaveLength(17);
+    expect(pkg.catalogProjections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "personal-ip-knowledge-builder",
+          targetCatalog: "service_skill_catalog",
+          bindingProfileRef: "native-skill-instant",
+          skillBundleMetadata: expect.objectContaining({
+            Ember_knowledge_pack_type: "personal-profile",
+            Ember_agent_knowledge_runtime_mode: "persona",
+            Ember_skill_bundle_path:
+              "ember-rs/resources/default-skills/personal-ip-knowledge-builder",
+          }),
+        }),
+        expect.objectContaining({
+          id: "brand-persona-knowledge-builder",
+          targetCatalog: "service_skill_catalog",
+          bindingProfileRef: "native-skill-instant",
+          skillBundleMetadata: expect.objectContaining({
+            Ember_knowledge_pack_type: "brand-persona",
+            Ember_agent_knowledge_runtime_mode: "persona",
+            Ember_skill_bundle_path:
+              "ember-rs/resources/default-skills/brand-persona-knowledge-builder",
+          }),
+        }),
+        expect.objectContaining({
+          id: "content-operations-knowledge-builder",
+          targetCatalog: "service_skill_catalog",
+          bindingProfileRef: "native-skill-instant",
+          skillBundleMetadata: expect.objectContaining({
+            Ember_knowledge_pack_type: "content-operations",
+            Ember_agent_knowledge_runtime_mode: "data",
+            Ember_skill_bundle_path:
+              "ember-rs/resources/default-skills/content-operations-knowledge-builder",
+          }),
+        }),
+        expect.objectContaining({
+          id: "brand-product-knowledge-builder",
+          targetCatalog: "service_skill_catalog",
+          bindingProfileRef: "native-skill-instant",
+          skillBundleMetadata: expect.objectContaining({
+            Ember_knowledge_pack_type: "brand-product",
+            Ember_agent_knowledge_runtime_mode: "data",
+            Ember_skill_bundle_path:
+              "ember-rs/resources/default-skills/brand-product-knowledge-builder",
+          }),
+        }),
+      ]),
+    );
+    expect(pkg.automationProfiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "daily-trend-briefing-automation",
+        }),
+        expect.objectContaining({
+          id: "account-performance-tracking-automation",
+        }),
+      ]),
+    );
+    expect(pkg.bindingProfiles.map((profile) => profile.id)).toEqual(
+      expect.arrayContaining(["agent-turn-instant", "automation-job-managed"]),
+    );
+    expect(pkg.compatibility.requiredKernelCapabilities).not.toContain(
+      "cloud_scene",
+    );
+  });
+
+  it("应提供 seeded 本地定制场景的基础设置包事实源", () => {
+    const pkg = createSeededLocalCustomServiceSkillBaseSetupPackage();
+
+    expect(pkg.id).toBe("ember-seeded-local-custom-service-skills");
+    expect(pkg.version).toBe(SEEDED_SERVICE_SKILL_CATALOG_VERSION);
+    expect(pkg.catalogProjections).toHaveLength(1);
+    expect(pkg.catalogProjections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "x-article-export",
+          targetCatalog: "service_skill_catalog",
+          bindingProfileRef: "browser-assist-instant",
+        }),
+      ]),
+    );
+    expect(pkg.catalogProjections[0]).toEqual(
+      expect.objectContaining({
+        id: "x-article-export",
+        targetCatalog: "service_skill_catalog",
+        bindingProfileRef: "browser-assist-instant",
+      }),
+    );
+  });
+
+  it("应把 seeded 基础设置包编译成默认云端目录", () => {
+    const catalog = createSeededCloudServiceSkillCatalog();
+
+    expect(catalog.tenantId).toBe(SEEDED_SERVICE_SKILL_CATALOG_TENANT_ID);
+    expect(catalog.version).toBe(SEEDED_SERVICE_SKILL_CATALOG_VERSION);
+    expect(catalog.items).toHaveLength(17);
+    expect(catalog.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "carousel-post-replication",
+          title: "兼容性测试",
+          skillBundle: expect.objectContaining({
+            name: "carousel-post-replication",
+            metadata: expect.objectContaining({
+              Ember_base_setup_package_id: "ember-seeded-service-skills",
+              Ember_prompt_template_key: "replication",
+            }),
+          }),
+        }),
+        expect.objectContaining({
+          id: "account-performance-tracking",
+          runnerType: "managed",
+          defaultExecutorBinding: "automation_job",
+          skillBundle: expect.objectContaining({
+            metadata: expect.objectContaining({
+              Ember_automation_profile_ref:
+                "account-performance-tracking-automation",
+            }),
+          }),
+        }),
+        expect.objectContaining({
+          id: "cloud-video-dubbing",
+          title: "性能测试",
+          defaultExecutorBinding: "agent_turn",
+          executionLocation: "client_default",
+        }),
+        expect.objectContaining({
+          id: "personal-ip-knowledge-builder",
+          source: "cloud_catalog",
+          defaultExecutorBinding: "native_skill",
+          skillBundle: expect.objectContaining({
+            name: "personal-ip-knowledge-builder",
+            resourceSummary: {
+              hasScripts: true,
+              hasReferences: true,
+              hasAssets: true,
+            },
+            metadata: expect.objectContaining({
+              Ember_knowledge_builder: "true",
+              Ember_knowledge_pack_type: "personal-profile",
+              Ember_knowledge_template: "personal-ip",
+              Ember_knowledge_family: "persona",
+            }),
+          }),
+        }),
+        expect.objectContaining({
+          id: "brand-persona-knowledge-builder",
+          source: "cloud_catalog",
+          defaultExecutorBinding: "native_skill",
+          skillBundle: expect.objectContaining({
+            name: "brand-persona-knowledge-builder",
+            resourceSummary: {
+              hasScripts: false,
+              hasReferences: true,
+              hasAssets: false,
+            },
+            metadata: expect.objectContaining({
+              Ember_knowledge_builder: "true",
+              Ember_knowledge_pack_type: "brand-persona",
+              Ember_knowledge_template: "brand-persona",
+              Ember_knowledge_family: "persona",
+            }),
+          }),
+        }),
+        expect.objectContaining({
+          id: "content-operations-knowledge-builder",
+          source: "cloud_catalog",
+          defaultExecutorBinding: "native_skill",
+          skillBundle: expect.objectContaining({
+            name: "content-operations-knowledge-builder",
+            resourceSummary: {
+              hasScripts: false,
+              hasReferences: true,
+              hasAssets: false,
+            },
+            metadata: expect.objectContaining({
+              Ember_knowledge_builder: "true",
+              Ember_knowledge_pack_type: "content-operations",
+              Ember_knowledge_family: "data",
+            }),
+          }),
+        }),
+        expect.objectContaining({
+          id: "private-domain-operations-knowledge-builder",
+          defaultExecutorBinding: "native_skill",
+        }),
+        expect.objectContaining({
+          id: "live-commerce-operations-knowledge-builder",
+          defaultExecutorBinding: "native_skill",
+        }),
+        expect.objectContaining({
+          id: "campaign-operations-knowledge-builder",
+          defaultExecutorBinding: "native_skill",
+        }),
+        expect.objectContaining({
+          id: "brand-product-knowledge-builder",
+          defaultExecutorBinding: "native_skill",
+          skillBundle: expect.objectContaining({
+            name: "brand-product-knowledge-builder",
+            metadata: expect.objectContaining({
+              Ember_knowledge_pack_type: "brand-product",
+              Ember_knowledge_family: "data",
+            }),
+          }),
+        }),
+        expect.objectContaining({
+          id: "organization-knowhow-knowledge-builder",
+          defaultExecutorBinding: "native_skill",
+        }),
+        expect.objectContaining({
+          id: "growth-strategy-knowledge-builder",
+          defaultExecutorBinding: "native_skill",
+        }),
+      ]),
+    );
+  });
+
+  it("应把 seeded 本地定制基础设置包编译成 local_custom 目录项", () => {
+    const catalog = createSeededLocalCustomServiceSkillCatalog();
+
+    expect(catalog.tenantId).toBe(SEEDED_SERVICE_SKILL_CATALOG_TENANT_ID);
+    expect(catalog.version).toBe(SEEDED_SERVICE_SKILL_CATALOG_VERSION);
+    expect(catalog.items).toHaveLength(1);
+    expect(catalog.items[0]).toEqual(
+      expect.objectContaining({
+        id: "x-article-export",
+        source: "local_custom",
+        runnerType: "instant",
+        defaultExecutorBinding: "browser_assist",
+        sceneBinding: expect.objectContaining({
+          sceneKey: "x-article-export",
+          commandPrefix: "/x文章转存",
+        }),
+        skillBundle: expect.objectContaining({
+          metadata: expect.objectContaining({
+            Ember_base_setup_package_id:
+              "ember-seeded-local-custom-service-skills",
+            Ember_executor_binding: "browser_assist",
+            Ember_runner_type: "instant",
+          }),
+        }),
+      }),
+    );
+    expect(catalog.items.map((item) => item.id)).not.toContain(
+      "personal-ip-knowledge-builder",
+    );
+  });
+});

@@ -1,0 +1,103 @@
+# Ember 离线语音模型路线图
+
+> 状态：current planning source
+> 更新时间：2026-05-01
+> 目标：把截图参考里的“语音模型”能力收敛为 Ember 可实现的离线语音主线：embercore 下发 SenseVoice Small 下载地址、本地 ASR 转写、Fn 按住说话、测试转写与转写历史。
+
+## 1. 本路线图回答什么
+
+本目录统一回答下面几类问题：
+
+1. Ember 如何接入 SenseVoice Small 离线 ASR，而不是继续只依赖云端 ASR 凭证。
+2. 离线模型如何通过 embercore 模型清单与对象存储/CDN 按需下载，避免安装包内置大文件。
+3. Fn 按住录音、松开转写的快捷键体验如何落到 macOS 桌面主链。
+4. 语音设置页如何区分语音输入 ASR、语音润色 LLM 与配音/TTS 服务模型。
+5. 新能力如何接回现有 `voice_command_service -> voice_asr_service -> voice-core` 主链，而不是新造第二套语音系统。
+
+## 2. 固定结论
+
+### 2.1 模型不内置进安装包
+
+SenseVoice Small、Silero VAD、Whisper、GGUF 等大模型文件都不进入 App 初始安装包。
+
+安装包只包含：
+
+1. 模型清单读取
+2. 下载与校验能力
+3. 本地模型状态管理
+4. 已安装模型的推理运行时
+5. 缺模型时的明确引导
+
+模型必须由用户显式触发下载。后台不能静默拉取几百 MB 的模型文件。
+
+### 2.2 P0 只产品化 SenseVoice Small
+
+P0 只把截图参考中的 `SenseVoice Small` 做成主路径：
+
+1. 通过 `sherpa-onnx` 运行本地 ASR。
+2. 通过 embercore `voice-model-catalog` 获取对象存储/CDN 下载地址。
+3. 支持中、粤、英、日、韩自动识别。
+4. 默认启用 ITN，把语音识别结果归一成更适合输入的文本。
+
+已有 `WhisperLocal` 能力作为现有代码资产保留，但不作为 P0 的产品化下载模型。
+
+### 2.3 Fn 是专门输入模式，不是普通快捷键字符串
+
+现有 `tauri_plugin_global_shortcut` 适合 `CommandOrControl+Shift+V` 这类组合键。Fn 在 macOS 上属于特殊硬件/系统层按键，不能简单塞进现有 shortcut 字符串解析。
+
+P0 固定为：
+
+1. Apple 键盘上优先提供 Fn 按住说话体验。
+2. 无法捕获 Fn 或权限不足时，降级到现有自定义快捷键。
+3. 第三方键盘默认走自定义快捷键，不承诺 Fn。
+
+## 3. 先读顺序
+
+1. [sensevoice-small-integration.md](./sensevoice-small-integration.md)
+2. [fn-dictation-shortcut.md](./fn-dictation-shortcut.md)
+
+## 4. 当前 Ember 事实源
+
+当前仓库已经有语音主链基础：
+
+1. `ember-rs/crates/voice-core` 负责录音、转写核心类型、云端 ASR 客户端与可选 Whisper 本地识别。
+2. `ember-rs/crates/services/src/voice_asr_service.rs` 统一管理 ASR 服务。
+3. `ember-rs/crates/services/src/voice_command_service.rs` 封装转写、润色和输出流程。
+4. `ember-rs/src/voice/shortcut.rs` 负责普通全局快捷键 press/release。
+5. `src/components/settings-v2/agent/voice/index.tsx` 已有语音输入、语音处理、语音服务模型三段设置。
+6. `src/components/agent/chat/components/Inputbar/hooks/useInputbarDictation.ts` 已把输入栏语音听写接到现有转写主链。
+
+后续实现必须复用这些入口，不新增平行 ASR 流程。
+
+## 5. 当前实现进度
+
+2026-05-01 已推进到可验证主链：
+
+1. `SenseVoice Small` 模型目录、安装状态、下载、删除、设为默认已接到设置页“语音模型”卡片。
+2. 模型文件仍按需下载到用户数据目录，不进入 App 安装包；下载地址优先来自 embercore `GET /api/v1/public/tenants/:tenantId/client/voice-model-catalog`，未配置时兜底使用当前 R2 公开基址。
+3. SenseVoice Small INT8 与 Silero VAD 已上传到 Cloudflare R2 `ember-releases`，当前公开基址为 `https://pub-fa568bd8496349bcafe04091e2b02e1e.r2.dev`，清单记录 sha256 校验值。
+4. `voice_asr_service` 已把 `SenseVoiceLocal` 接到 `voice_core::SenseVoiceTranscriber`，通过 `sherpa-onnx` 执行 non-streaming 本地转写。
+5. macOS Fn 按住录音已落第一刀：原生监听 Fn press/release，失败时保留普通快捷键 fallback。
+6. 已补“已安装模型后的 WAV 测试转写”入口：设置页可原生选择或手动输入本机 16-bit PCM WAV 路径后，通过 `voice_models_test_transcribe_file` 复用 `voice_asr_service` 真实本地推理链路。
+7. 已用 embercore 本地服务验证 `voice-model-catalog` 下发：`tenant-0001` 返回 R2 archive / VAD URL，Ember 可通过后端目录项完成真实下载并安装到用户数据目录。
+8. 已用 DevBridge 验证录音使用链路：开启语音输入后 `fn_registered=true`、普通语音快捷键已注册；`start_recording -> stop_recording -> transcribe_audio` 可走 `SenseVoice Small 本地`。
+9. 输入栏与悬浮语音窗已接到同一条录音主链：录音中显示时长、音量反馈，并通过录音增量片段转写实时预览；点击停止后用完整音频转写结果覆盖为最终文本。
+10. 默认 ASR 为本地 SenseVoice 时，录音入口会先检查模型安装状态；未安装时提示下载模型并打开“语音模型”设置页，不自动启动录音或静默下载。
+11. 已补 `get_recording_segment` 增量片段命令，并缓存 SenseVoice 本地识别器，避免实时预览每次解码完整录音或反复加载模型。
+12. 录音实时预览已补性能护栏：前端限制单次预览片段 `1.2s`，后端默认片段 `1.25s` / 硬上限 `2s`，录音 callback 不再分配中间 `Vec`，单次录音最多保留 `300s` PCM，并在 ASR 前跳过静音片段。
+13. 仍未做 P1 能力：视频抽音、真正的 sherpa-onnx streaming decoder、VAD 分段、转写历史。
+
+## 6. 当前必须避免的误区
+
+1. 把 SenseVoice Small 打进安装包，导致桌面包体积膨胀。
+2. 把 Fn 当成普通 shortcut 字符串，导致配置看似成功但实际不可用。
+3. 把语音输入 ASR 和配音/TTS 的“语音服务模型”混在同一个设置语义里。
+4. 因为接入 `sherpa-onnx` 就绕过 `voice_asr_service` 主链。
+5. 缺模型时自动下载，造成不可预期流量和等待。
+6. 在 Tauri 客户端保存对象存储 Access Key 或让客户端生成签名 URL；签名或公开域名必须由 embercore 管理。
+
+## 7. 这一步如何服务主线
+
+这套文档的直接主线收益是：
+
+**把 Ember 语音输入从“云端 ASR 凭证 + 普通快捷键”推进到“按需下载本地模型 + Fn 按住说话 + 可测试可删除”的 current 语音主链。**

@@ -1,0 +1,426 @@
+#!/usr/bin/env node
+
+import process from "node:process";
+
+const DEFAULT_LAUNCH_HTML =
+  "<html><title>Ember Browser Runtime Smoke</title><body><h1>Ember Browser Runtime Smoke</h1><p>read_page smoke fixture</p></body></html>";
+const DEFAULT_LAUNCH_URL = `data:text/html,${encodeURIComponent(
+  DEFAULT_LAUNCH_HTML,
+)}`;
+
+const DEFAULTS = {
+  healthUrl: "http://127.0.0.1:3030/health",
+  invokeUrl: "http://127.0.0.1:3030/invoke",
+  timeoutMs: 90_000,
+  intervalMs: 1_000,
+  launchUrl: DEFAULT_LAUNCH_URL,
+  openWindow: false,
+  headless: false,
+  streamMode: "both",
+};
+
+const INVOKE_TIMEOUT_CEILING_MS = 180_000;
+const INVOKE_RETRY_COUNT = 10;
+const INVOKE_RETRY_DELAY_MS = 1_000;
+const POST_HEALTH_SETTLE_MS = 3_000;
+const POST_LAUNCH_SETTLE_MS = 1_500;
+const READ_PAGE_TIMEOUT_MS = 45_000;
+const DEFAULT_SMOKE_PROFILE_KEY =
+  process.env.EMBER_BROWSER_RUNTIME_SMOKE_PROFILE_KEY ||
+  `smoke-browser-runtime-${process.pid}`;
+
+function printHelp() {
+  console.log(`
+Ember Browser Runtime Smoke
+
+用途:
+  验证 browser runtime 最短主链可用：启动会话、读取状态、执行最小动作，并确认审计日志带出 session / target 关联键。
+
+用法:
+  node scripts/browser-runtime-smoke.mjs [选项]
+
+选项:
+  --health-url <url>       DevBridge 健康检查地址，默认 http://127.0.0.1:3030/health
+  --invoke-url <url>       DevBridge invoke 地址，默认 http://127.0.0.1:3030/invoke
+  --timeout-ms <ms>        等待健康检查超时，默认 90000
+  --interval-ms <ms>       健康检查轮询间隔，默认 1000
+  --launch-url <url>       启动浏览器会话的 URL，默认使用内置 data: 测试页
+  --profile-key <key>      smoke 专用浏览器 profile key，默认按进程隔离
+  --open-window            显式打开浏览器窗口
+  --headless               以无界面浏览器会话执行 smoke，避免弹出空白 Chrome
+  --stream-mode <mode>     events | frames | both，默认 both
+  -h, --help               显示帮助
+`);
+}
+
+function parseArgs(argv) {
+  const options = { ...DEFAULTS };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--health-url" && argv[index + 1]) {
+      options.healthUrl = String(argv[index + 1]).trim();
+      index += 1;
+      continue;
+    }
+    if (arg === "--invoke-url" && argv[index + 1]) {
+      options.invokeUrl = String(argv[index + 1]).trim();
+      index += 1;
+      continue;
+    }
+    if (arg === "--timeout-ms" && argv[index + 1]) {
+      options.timeoutMs = Number(argv[index + 1]);
+      index += 1;
+      continue;
+    }
+    if (arg === "--interval-ms" && argv[index + 1]) {
+      options.intervalMs = Number(argv[index + 1]);
+      index += 1;
+      continue;
+    }
+    if (arg === "--launch-url" && argv[index + 1]) {
+      options.launchUrl = String(argv[index + 1]).trim();
+      index += 1;
+      continue;
+    }
+    if (arg === "--stream-mode" && argv[index + 1]) {
+      options.streamMode = String(argv[index + 1]).trim();
+      index += 1;
+      continue;
+    }
+    if (arg === "--profile-key" && argv[index + 1]) {
+      options.profileKey = String(argv[index + 1]).trim();
+      index += 1;
+      continue;
+    }
+    if (arg === "--open-window") {
+      options.openWindow = true;
+      continue;
+    }
+    if (arg === "--headless") {
+      options.headless = true;
+      continue;
+    }
+    if (arg === "--help" || arg === "-h") {
+      printHelp();
+      process.exit(0);
+    }
+  }
+
+  if (!Number.isFinite(options.timeoutMs) || options.timeoutMs < 1_000) {
+    throw new Error("--timeout-ms 必须是 >= 1000 的数字");
+  }
+  if (!Number.isFinite(options.intervalMs) || options.intervalMs < 100) {
+    throw new Error("--interval-ms 必须是 >= 100 的数字");
+  }
+  if (!["events", "frames", "both"].includes(options.streamMode)) {
+    throw new Error("--stream-mode 只支持 events / frames / both");
+  }
+  if (!options.launchUrl) {
+    throw new Error("--launch-url 不能为空");
+  }
+  if (!options.profileKey) {
+    options.profileKey = DEFAULT_SMOKE_PROFILE_KEY;
+  }
+
+  return options;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+function isTransientInvokeError(error) {
+  return (
+    error?.name === "TimeoutError" ||
+    (error instanceof TypeError && error.message === "fetch failed")
+  );
+}
+
+async function invoke(options, cmd, args) {
+  const invokeTimeoutMs = Math.min(
+    options.timeoutMs,
+    INVOKE_TIMEOUT_CEILING_MS,
+  );
+  const requestInit = {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ cmd, args }),
+    signal: AbortSignal.timeout(invokeTimeoutMs),
+  };
+
+  for (let attempt = 1; attempt <= INVOKE_RETRY_COUNT; attempt += 1) {
+    try {
+      const response = await fetch(options.invokeUrl, requestInit);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const payload = await response.json();
+      if (payload?.error) {
+        throw new Error(String(payload.error));
+      }
+
+      return payload?.result;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      if (!isTransientInvokeError(error) || attempt >= INVOKE_RETRY_COUNT) {
+        if (error?.name === "TimeoutError") {
+          throw new Error(
+            `[smoke:browser-runtime] ${cmd} 超时，${invokeTimeoutMs}ms 内未收到 DevBridge 响应`,
+          );
+        }
+        throw new Error(`[smoke:browser-runtime] ${cmd} 请求失败: ${detail}`);
+      }
+      console.warn(
+        `[smoke:browser-runtime] ${cmd} 第 ${attempt} 次请求失败，${INVOKE_RETRY_DELAY_MS}ms 后重试: ${detail}`,
+      );
+      await sleep(INVOKE_RETRY_DELAY_MS);
+    }
+  }
+
+  throw new Error(`[smoke:browser-runtime] ${cmd} 请求失败: unknown error`);
+}
+
+async function closeSmokeProfileSession(options, profileKey, label) {
+  try {
+    await invoke(options, "close_chrome_profile_session", {
+      profile_key: profileKey,
+    });
+  } catch (error) {
+    console.warn(
+      `[smoke:browser-runtime] ${label}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+}
+
+async function waitForHealth(options) {
+  const startedAt = Date.now();
+  let lastError = null;
+
+  while (Date.now() - startedAt < options.timeoutMs) {
+    try {
+      const response = await fetch(options.healthUrl, { method: "GET" });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      console.log(
+        `[smoke:browser-runtime] DevBridge 已就绪 (${Date.now() - startedAt}ms)${
+          payload?.status ? ` status=${payload.status}` : ""
+        }`,
+      );
+      return;
+    } catch (error) {
+      lastError = error;
+      await sleep(options.intervalMs);
+    }
+  }
+
+  const detail =
+    lastError instanceof Error
+      ? lastError.message
+      : String(lastError || "unknown error");
+  throw new Error(
+    `[smoke:browser-runtime] DevBridge 未就绪，请先启动 npm run electron:dev。最后错误: ${detail}`,
+  );
+}
+
+function findLatestAudit(logs, matcher) {
+  return (logs || []).find((item) => matcher(item));
+}
+
+async function main() {
+  if (typeof fetch !== "function") {
+    throw new Error("当前 Node 运行时不支持 fetch，请使用 Node 18+");
+  }
+
+  const options = parseArgs(process.argv.slice(2));
+  await waitForHealth(options);
+  await sleep(POST_HEALTH_SETTLE_MS);
+
+  const profileKey = options.profileKey;
+  let sessionId = null;
+  let cleanupStatus = "skipped";
+
+  try {
+    await closeSmokeProfileSession(
+      options,
+      profileKey,
+      "预清理旧 smoke profile 失败",
+    );
+
+    const launchResponse = await invoke(options, "launch_browser_session", {
+      request: {
+        profile_key: profileKey,
+        url: options.launchUrl,
+        open_window: options.openWindow,
+        headless: options.headless,
+        stream_mode: options.streamMode,
+      },
+    });
+
+    sessionId = launchResponse?.session?.session_id ?? null;
+    assert(
+      typeof sessionId === "string" && sessionId.trim(),
+      "launch_browser_session 未返回 session.session_id",
+    );
+    assert(
+      launchResponse?.session?.profile_key === profileKey,
+      "launch_browser_session 返回的 profile_key 与请求不一致",
+    );
+
+    const sessionState = await invoke(options, "get_browser_session_state", {
+      request: {
+        session_id: sessionId,
+      },
+    });
+    assert(
+      sessionState?.session_id === sessionId,
+      "get_browser_session_state 返回的 session_id 不一致",
+    );
+    assert(
+      sessionState?.profile_key === profileKey,
+      "get_browser_session_state 返回的 profile_key 不一致",
+    );
+    assert(
+      typeof sessionState?.target_id === "string" &&
+        sessionState.target_id.trim(),
+      "get_browser_session_state 未返回 target_id",
+    );
+
+    await sleep(POST_LAUNCH_SETTLE_MS);
+
+    const actionResult = await invoke(options, "browser_execute_action", {
+      request: {
+        profile_key: profileKey,
+        action: "read_page",
+        timeout_ms: Math.min(options.timeoutMs, READ_PAGE_TIMEOUT_MS),
+      },
+    });
+    assert(
+      actionResult?.success === true,
+      "browser_execute_action(read_page) 未成功",
+    );
+    assert(
+      actionResult?.session_id === sessionId,
+      "browser_execute_action 未返回对应的 session_id",
+    );
+    assert(
+      actionResult?.target_id === sessionState.target_id,
+      "browser_execute_action 未返回对应的 target_id",
+    );
+
+    const consoleResult = await invoke(options, "browser_execute_action", {
+      request: {
+        profile_key: profileKey,
+        action: "read_console_messages",
+        args: { since: 0 },
+        timeout_ms: Math.min(options.timeoutMs, READ_PAGE_TIMEOUT_MS),
+      },
+    });
+    assert(
+      consoleResult?.success === true,
+      "browser_execute_action(read_console_messages) 未成功",
+    );
+    const consoleCount = Array.isArray(consoleResult?.data?.messages)
+      ? consoleResult.data.messages.length
+      : 0;
+
+    const networkResult = await invoke(options, "browser_execute_action", {
+      request: {
+        profile_key: profileKey,
+        action: "read_network_requests",
+        args: { since: 0 },
+        timeout_ms: Math.min(options.timeoutMs, READ_PAGE_TIMEOUT_MS),
+      },
+    });
+    assert(
+      networkResult?.success === true,
+      "browser_execute_action(read_network_requests) 未成功",
+    );
+    const networkCount = Array.isArray(networkResult?.data?.events)
+      ? networkResult.data.events.length
+      : 0;
+
+    const auditLogs = await invoke(options, "get_browser_action_audit_logs", {
+      limit: 10,
+    });
+    const launchAudit = findLatestAudit(
+      auditLogs,
+      (item) =>
+        item?.kind === "launch" &&
+        item?.profile_key === profileKey &&
+        item?.session_id === sessionId,
+    );
+    assert(launchAudit, "未找到对应的 launch audit 记录");
+    assert(
+      launchAudit?.target_id === sessionState.target_id,
+      "launch audit 缺少 target_id 关联键",
+    );
+
+    const actionAudit = findLatestAudit(
+      auditLogs,
+      (item) =>
+        item?.kind === "action" &&
+        item?.action === "read_page" &&
+        item?.profile_key === profileKey,
+    );
+    assert(actionAudit, "未找到对应的 action audit 记录");
+    assert(
+      actionAudit?.session_id === sessionId,
+      `action audit 缺少 session_id 关联键，record=${actionAudit?.id ?? "unknown"}`,
+    );
+    assert(
+      actionAudit?.target_id === sessionState.target_id,
+      `action audit 缺少 target_id 关联键，record=${actionAudit?.id ?? "unknown"}`,
+    );
+
+    console.log(
+      `[smoke:browser-runtime] 通过 session=${sessionId} target=${sessionState.target_id} profile=${profileKey} consoleEvents=${consoleCount} networkEvents=${networkCount}`,
+    );
+  } finally {
+    if (sessionId) {
+      try {
+        await invoke(options, "close_cdp_session", {
+          request: {
+            session_id: sessionId,
+          },
+        });
+        cleanupStatus = "pass";
+      } catch (error) {
+        cleanupStatus = "failed";
+        console.warn(
+          `[smoke:browser-runtime] 清理会话失败: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    await closeSmokeProfileSession(
+      options,
+      profileKey,
+      "关闭 smoke profile 失败",
+    );
+    console.log(
+      `[smoke:browser-runtime] cleanup=${cleanupStatus} session=${sessionId ?? "none"} profile=${profileKey}`,
+    );
+  }
+}
+
+main().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});

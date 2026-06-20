@@ -1,0 +1,62 @@
+<h2>断言如何在自然语言用例中体现</h2>
+<p class="subtitle">执行引擎是 VLM ReAct（模型看屏幕自己操作+判断），所以断言 = 写进 instruction 的「通过条件」，由模型自判。下面是映射关系。</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">结构化用例（库里存的）</div>
+    <div class="mockup-body" style="font-size:12px;line-height:1.7">
+      <b>TC-LOGIN-001 · 登录成功</b><br>
+      前置：已安装App、未登录<br>
+      <u>步骤1</u> 输入正确账号密码并点登录<br>
+      　预期：进入首页<br>
+      <u>步骤2</u> 查看首页顶部<br>
+      　预期：显示「欢迎，张三」<br>
+      整体预期：成功登录并停留在首页
+    </div>
+  </div>
+  <div class="mockup">
+    <div class="mockup-header">转成的 instruction（喂给模型）</div>
+    <div class="mockup-body" style="font-size:12px;line-height:1.7">
+      【任务】完成登录并验证<br>
+      【前置】已安装App、未登录<br>
+      【操作步骤】<br>
+      1. 输入账号密码并点击登录<br>
+      2. 查看首页顶部<br>
+      <span style="background:#fff0a8">【通过条件 / 断言】<br>
+      ✓ 登录后进入首页<br>
+      ✓ 首页顶部显示「欢迎，张三」<br>
+      只有全部满足才报成功；<br>
+      若某条不满足，指出是哪条。</span>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:16px">
+  <div class="label">模型自判 → 结果</div>
+  <div class="mockup">
+    <div class="mockup-body" style="font-size:13px">
+      模型执行中逐步对照「通过条件」，结束时自报：<b>success=true/false</b> + finalMessage（哪条没过）→ 回写用例 execResult。
+    </div>
+  </div>
+</div>
+
+<div class="pros-cons">
+  <div class="pros">
+    <h4>软断言能做到</h4>
+    <ul>
+      <li>每步 expected、整体预期都进 prompt</li>
+      <li>模型对照判断、报出失败原因</li>
+      <li>可用 prompt 结构强化（必须逐条核对）</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <h4>现状做不到（属未来 App Server 路线）</h4>
+    <ul>
+      <li>确定性逐步断言 / 截图比对 / DOM 断言</li>
+      <li>模型可能误判（幻觉）</li>
+      <li>不保证「显示欢迎张三」像素级正确</li>
+    </ul>
+  </div>
+</div>
+
+<p class="subtitle">理解了就回终端，我接着问下一个问题（也可以告诉我对这个软断言方案是否接受）。</p>

@@ -1,0 +1,527 @@
+name: Quality
+
+on:
+  pull_request:
+    paths-ignore:
+      - ".github/workflows/build-windows-test.yml"
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - ".github/workflows/build-windows-test.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  changed:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    outputs:
+      bridge: ${{ steps.detect.outputs.bridge }}
+      bridge_reasons: ${{ steps.detect.outputs.bridge_reasons }}
+      changed_count: ${{ steps.detect.outputs.changed_count }}
+      docs: ${{ steps.detect.outputs.docs }}
+      docs_only: ${{ steps.detect.outputs.docs_only }}
+      fallback: ${{ steps.detect.outputs.fallback }}
+      frontend: ${{ steps.detect.outputs.frontend }}
+      gui_smoke: ${{ steps.detect.outputs.gui_smoke }}
+      integrity: ${{ steps.detect.outputs.integrity }}
+      rust: ${{ steps.detect.outputs.rust }}
+      workflow: ${{ steps.detect.outputs.workflow }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Detect tasks
+        id: detect
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          args=(--format github)
+          if [[ "${{ github.event_name }}" == "push" && -n "${BEFORE_SHA}" && "${BEFORE_SHA}" != "0000000000000000000000000000000000000000" ]]; then
+            args+=(--base "${BEFORE_SHA}")
+          fi
+          node scripts/quality-task-selector.mjs "${args[@]}" >> "$GITHUB_OUTPUT"
+
+  # PR 侧保留快速反馈门禁；main / 手动触发继续跑全量前端与 Rust。
+
+  integrity:
+    name: Integrity
+    runs-on: ubuntu-latest
+    needs: changed
+    if: ${{ needs.changed.outputs.integrity == 'true' || needs.changed.outputs.fallback == 'true' || needs.changed.outputs.workflow == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify app version consistency
+        run: npm run verify:app-version
+
+  frontend:
+    name: Frontend Quick
+    runs-on: ubuntu-latest
+    needs: changed
+    if: ${{ github.event_name == 'pull_request' && (needs.changed.outputs.frontend == 'true' || needs.changed.outputs.fallback == 'true' || needs.changed.outputs.workflow == 'true') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test layer budget
+        run: node scripts/check-vitest-layer-budget.mjs --max-component-candidates 12
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Contract layer tests
+        run: npm run test:contract
+
+  frontend_full:
+    name: Frontend Full
+    runs-on: ubuntu-latest
+    needs: changed
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changed.outputs.docs_only != 'true') || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test layer budget
+        run: node scripts/check-vitest-layer-budget.mjs --max-component-candidates 12
+
+      - name: Full frontend Vitest
+        run: npm run test:frontend:all
+
+  bridge_contracts:
+    name: Bridge & Contracts
+    runs-on: ubuntu-latest
+    needs: changed
+    if: ${{ needs.changed.outputs.bridge == 'true' || needs.changed.outputs.fallback == 'true' || needs.changed.outputs.workflow == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Bridge tests
+        run: npm run test:bridge
+
+      - name: Command contracts
+        run: npm run test:contracts
+
+  gui_smoke:
+    name: GUI Smoke
+    runs-on: macos-latest
+    timeout-minutes: 90
+    needs: changed
+    if: ${{ needs.changed.outputs.gui_smoke == 'true' || needs.changed.outputs.fallback == 'true' || needs.changed.outputs.workflow == 'true' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changed.outputs.docs_only != 'true') || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ember-rs
+          shared-key: quality-gui-smoke
+          cache-on-failure: true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run headless GUI smoke
+        run: npm run verify:gui-smoke -- --timeout-ms 1800000
+
+  rust:
+    name: Rust Quick
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: changed
+    if: ${{ github.event_name == 'pull_request' && (needs.changed.outputs.rust == 'true' || needs.changed.outputs.fallback == 'true' || needs.changed.outputs.workflow == 'true') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ember-rs
+          shared-key: quality-rust-quick
+          cache-on-failure: true
+
+      - name: Rust layer budget
+        run: node scripts/check-rust-layer-budget.mjs --max-e2e-runnable 0
+
+      - name: Unit Rust tests
+        run: npm run test:rust:unit
+
+  rust_full:
+    name: Rust Full
+    runs-on: macos-latest
+    timeout-minutes: 30
+    needs: changed
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changed.outputs.docs_only != 'true') || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ember-rs
+          shared-key: quality-rust-full
+          cache-on-failure: true
+
+      - name: Test Rust workspace
+        run: npm run test:rust
+
+  windows_shell_runtime:
+    name: Windows Shell Runtime
+    runs-on: windows-2022
+    timeout-minutes: 20
+    needs: changed
+    if: ${{ needs.changed.outputs.rust == 'true' || needs.changed.outputs.fallback == 'true' || needs.changed.outputs.workflow == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ember-rs
+          shared-key: quality-windows-shell-runtime
+          cache-on-failure: true
+
+      - name: Test Windows shell runtime fallback
+        run: cargo test --manifest-path ember-rs/Cargo.toml -p ember-agent --test windows_shell_runtime -- --test-threads=1
+
+      - name: Test Windows file browser directory creation
+        run: cargo test --manifest-path ember-rs/Cargo.toml -p ember-services create_directory_creates_nested_directory_from_platform_path -- --test-threads=1
+
+  results:
+    name: Quality results
+    runs-on: ubuntu-latest
+    needs:
+      - changed
+      - integrity
+      - frontend
+      - frontend_full
+      - bridge_contracts
+      - gui_smoke
+      - rust
+      - rust_full
+      - windows_shell_runtime
+    if: always()
+    steps:
+      - name: Summarize
+        shell: bash
+        run: |
+          CHANGED_COUNT='${{ needs.changed.outputs.changed_count }}'
+          DOCS_ONLY='${{ needs.changed.outputs.docs_only }}'
+          BRIDGE_REASONS='${{ needs.changed.outputs.bridge_reasons }}'
+          INTEGRITY_RESULT='${{ needs.integrity.result }}'
+          FRONTEND_RESULT='${{ needs.frontend.result }}'
+          FRONTEND_FULL_RESULT='${{ needs.frontend_full.result }}'
+          BRIDGE_RESULT='${{ needs.bridge_contracts.result }}'
+          GUI_SMOKE_RESULT='${{ needs.gui_smoke.result }}'
+          RUST_RESULT='${{ needs.rust.result }}'
+          RUST_FULL_RESULT='${{ needs.rust_full.result }}'
+          WINDOWS_SHELL_RESULT='${{ needs.windows_shell_runtime.result }}'
+          FALLBACK='${{ needs.changed.outputs.fallback }}'
+          WORKFLOW='${{ needs.changed.outputs.workflow }}'
+          INTEGRITY_REQUIRED='${{ needs.changed.outputs.integrity }}'
+          FRONTEND_REQUIRED='${{ needs.changed.outputs.frontend }}'
+          BRIDGE_REQUIRED='${{ needs.changed.outputs.bridge }}'
+          GUI_SMOKE_REQUIRED='${{ needs.changed.outputs.gui_smoke }}'
+          RUST_REQUIRED='${{ needs.changed.outputs.rust }}'
+          IS_MAIN_PUSH="false"
+          IS_WORKFLOW_DISPATCH="false"
+          if [[ "${GITHUB_EVENT_NAME:-}" == "push" && "${GITHUB_REF:-}" == "refs/heads/main" ]]; then
+            IS_MAIN_PUSH="true"
+          fi
+          if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
+            IS_WORKFLOW_DISPATCH="true"
+          fi
+          FRONTEND_QUICK_REQUIRED="false"
+          RUST_QUICK_REQUIRED="false"
+          MAIN_FULL_REQUIRED="false"
+          if [[ "${DOCS_ONLY}" != "true" ]]; then
+            if [[ "${IS_MAIN_PUSH}" == "true" || "${IS_WORKFLOW_DISPATCH}" == "true" ]]; then
+              MAIN_FULL_REQUIRED="true"
+            else
+              if [[ "${FRONTEND_REQUIRED}" == "true" || "${FALLBACK}" == "true" || "${WORKFLOW}" == "true" ]]; then
+                FRONTEND_QUICK_REQUIRED="true"
+              fi
+              if [[ "${RUST_REQUIRED}" == "true" || "${FALLBACK}" == "true" || "${WORKFLOW}" == "true" ]]; then
+                RUST_QUICK_REQUIRED="true"
+              fi
+            fi
+          fi
+
+          BRIDGE_REASONS_DISPLAY="${BRIDGE_REASONS//,/、}"
+          if [[ -z "${BRIDGE_REASONS_DISPLAY}" ]]; then
+            BRIDGE_REASONS_DISPLAY="无"
+          fi
+
+          echo "changed_count: ${CHANGED_COUNT}"
+          echo "docs_only   : ${DOCS_ONLY}"
+          echo "bridge_reasons: ${BRIDGE_REASONS}"
+          echo "integrity   : ${INTEGRITY_RESULT}"
+          echo "frontend_quick: ${FRONTEND_RESULT}"
+          echo "frontend_full : ${FRONTEND_FULL_RESULT}"
+          echo "bridge      : ${BRIDGE_RESULT}"
+          echo "gui_smoke   : ${GUI_SMOKE_RESULT}"
+          echo "rust_quick  : ${RUST_RESULT}"
+          echo "rust_full   : ${RUST_FULL_RESULT}"
+          echo "windows_shell_runtime: ${WINDOWS_SHELL_RESULT}"
+
+          FINAL_STATUS="success"
+          FAILURE_REASON=""
+          NEXT_ACTION="No extra action required."
+
+          if [[ "${DOCS_ONLY}" == 'true' ]]; then
+            SUMMARY_NOTE="Only docs/markdown changes detected -> quality checks not required."
+            NEXT_ACTION="No action required for docs-only changes."
+          else
+            SUMMARY_NOTE="Quality checks evaluated against changed areas."
+
+            if [[ "${INTEGRITY_REQUIRED}" == 'true' || "${FALLBACK}" == 'true' || "${WORKFLOW}" == 'true' ]]; then
+              if [[ "${INTEGRITY_RESULT}" != 'success' ]]; then
+                FINAL_STATUS="failed"
+                FAILURE_REASON="integrity failed"
+              fi
+            fi
+
+            if [[ -z "${FAILURE_REASON}" && "${FRONTEND_QUICK_REQUIRED}" == 'true' ]]; then
+              if [[ "${FRONTEND_RESULT}" != 'success' ]]; then
+                FINAL_STATUS="failed"
+                FAILURE_REASON="frontend quick failed"
+              fi
+            fi
+
+            if [[ -z "${FAILURE_REASON}" && ("${BRIDGE_REQUIRED}" == 'true' || "${FALLBACK}" == 'true' || "${WORKFLOW}" == 'true') ]]; then
+              if [[ "${BRIDGE_RESULT}" != 'success' ]]; then
+                FINAL_STATUS="failed"
+                FAILURE_REASON="bridge/contracts failed"
+              fi
+            fi
+
+            if [[ -z "${FAILURE_REASON}" && ("${GUI_SMOKE_REQUIRED}" == 'true' || "${FALLBACK}" == 'true' || "${WORKFLOW}" == 'true') ]]; then
+              if [[ "${GUI_SMOKE_RESULT}" != 'success' ]]; then
+                FINAL_STATUS="failed"
+                FAILURE_REASON="gui smoke failed"
+              fi
+            fi
+
+            if [[ -z "${FAILURE_REASON}" && "${RUST_QUICK_REQUIRED}" == 'true' ]]; then
+              if [[ "${RUST_RESULT}" != 'success' ]]; then
+                FINAL_STATUS="failed"
+                FAILURE_REASON="rust quick failed"
+              fi
+            fi
+
+            if [[ -z "${FAILURE_REASON}" && "${MAIN_FULL_REQUIRED}" == 'true' ]]; then
+              if [[ "${FRONTEND_FULL_RESULT}" != 'success' ]]; then
+                FINAL_STATUS="failed"
+                FAILURE_REASON="frontend full failed"
+              fi
+            fi
+
+            if [[ -z "${FAILURE_REASON}" && "${MAIN_FULL_REQUIRED}" == 'true' ]]; then
+              if [[ "${RUST_FULL_RESULT}" != 'success' ]]; then
+                FINAL_STATUS="failed"
+                FAILURE_REASON="rust full failed"
+              fi
+            fi
+
+            if [[ -z "${FAILURE_REASON}" && "${MAIN_FULL_REQUIRED}" == 'true' ]]; then
+              if [[ "${GUI_SMOKE_RESULT}" != 'success' ]]; then
+                FINAL_STATUS="failed"
+                FAILURE_REASON="gui smoke failed"
+              fi
+            fi
+
+            if [[ -z "${FAILURE_REASON}" && ("${RUST_REQUIRED}" == 'true' || "${FALLBACK}" == 'true' || "${WORKFLOW}" == 'true') ]]; then
+              if [[ "${WINDOWS_SHELL_RESULT}" != 'success' ]]; then
+                FINAL_STATUS="failed"
+                FAILURE_REASON="windows shell runtime failed"
+              fi
+            fi
+
+            if [[ -n "${FAILURE_REASON}" ]]; then
+              if [[ "${FAILURE_REASON}" == "integrity failed" ]]; then
+                NEXT_ACTION='Run `npm run verify:app-version` and sync package / Cargo / Electron version files.'
+              elif [[ "${FAILURE_REASON}" == "frontend quick failed" ]]; then
+                NEXT_ACTION='Run `npm run lint && npm run typecheck && node scripts/check-vitest-layer-budget.mjs --max-component-candidates 12 && npm run test:unit && npm run test:contract` to reproduce the frontend quick failure locally.'
+              elif [[ "${FAILURE_REASON}" == "frontend full failed" ]]; then
+                NEXT_ACTION='Run `node scripts/check-vitest-layer-budget.mjs --max-component-candidates 12 && npm run test:frontend:all` after `npm run lint && npm run typecheck` to reproduce the full frontend failure locally.'
+              elif [[ "${FAILURE_REASON}" == "bridge/contracts failed" ]]; then
+                if [[ ",${BRIDGE_REASONS}," == *",harness_cleanup_contract,"* ]]; then
+                  NEXT_ACTION='Run `npm run harness:cleanup-report:check` first, then `npm run test:contracts`.'
+                elif [[ ",${BRIDGE_REASONS}," == *",bridge_runtime,"* ]]; then
+                  NEXT_ACTION='Run `npm run test:bridge` first, then `npm run test:contracts`.'
+                else
+                  NEXT_ACTION='Run `npm run verify:local` or `npm run test:bridge && npm run test:contracts` to reproduce the bridge/contracts failure.'
+                fi
+              elif [[ "${FAILURE_REASON}" == "gui smoke failed" ]]; then
+                NEXT_ACTION='Run `npm run verify:gui-smoke -- --timeout-ms 900000` and inspect Electron Desktop Host / DevBridge readiness.'
+              elif [[ "${FAILURE_REASON}" == "rust quick failed" ]]; then
+                NEXT_ACTION='Run `node scripts/check-rust-layer-budget.mjs --max-e2e-runnable 0 && npm run test:rust:unit` to reproduce the Rust unit-layer failure locally.'
+              elif [[ "${FAILURE_REASON}" == "windows shell runtime failed" ]]; then
+                NEXT_ACTION='Run `cargo test --manifest-path ember-rs/Cargo.toml -p ember-agent --test windows_shell_runtime -- --test-threads=1` on Windows and inspect PowerShell PATH fallback.'
+              elif [[ "${FAILURE_REASON}" == "rust full failed" ]]; then
+                NEXT_ACTION='Run `npm run test:rust` to reproduce the Rust workspace failure locally.'
+              fi
+            fi
+          fi
+
+          {
+            echo "## Quality Summary"
+            echo
+            echo "**Final status:** ${FINAL_STATUS}"
+            echo
+            echo "### Scope"
+            echo
+            echo "- changed_count: ${CHANGED_COUNT}"
+            echo "- docs_only: ${DOCS_ONLY}"
+            echo "- bridge_reasons: ${BRIDGE_REASONS_DISPLAY}"
+            echo
+            echo "### Required Gates"
+            echo
+            echo "| Gate | Required | Result |"
+            echo "| --- | --- | --- |"
+            echo "| integrity | ${INTEGRITY_REQUIRED} | ${INTEGRITY_RESULT} |"
+            echo "| frontend_quick | ${FRONTEND_QUICK_REQUIRED} | ${FRONTEND_RESULT} |"
+            echo "| frontend_full | ${MAIN_FULL_REQUIRED} | ${FRONTEND_FULL_RESULT} |"
+            echo "| bridge_contracts | ${BRIDGE_REQUIRED} | ${BRIDGE_RESULT} |"
+            echo "| gui_smoke | ${GUI_SMOKE_REQUIRED} / main_full=${MAIN_FULL_REQUIRED} | ${GUI_SMOKE_RESULT} |"
+            echo "| rust_quick | ${RUST_QUICK_REQUIRED} | ${RUST_RESULT} |"
+            echo "| rust_full | ${MAIN_FULL_REQUIRED} | ${RUST_FULL_RESULT} |"
+            echo "| windows_shell_runtime | ${RUST_REQUIRED} | ${WINDOWS_SHELL_RESULT} |"
+            echo
+            echo "### Notes"
+            echo
+            echo "- ${SUMMARY_NOTE}"
+            echo
+            echo "### Recommended Next Action"
+            echo
+            echo "- ${NEXT_ACTION}"
+            if [[ -n "${FAILURE_REASON}" ]]; then
+              echo
+              echo "### Failure"
+              echo
+              echo "- ${FAILURE_REASON}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${DOCS_ONLY}" == 'true' ]]; then
+            echo "${SUMMARY_NOTE}"
+            exit 0
+          fi
+
+          if [[ -n "${FAILURE_REASON}" ]]; then
+            echo "${FAILURE_REASON}"
+            exit 1
+          fi

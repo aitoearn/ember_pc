@@ -1,0 +1,270 @@
+import React from "react";
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { WorkspacePendingA2UIPanel } from "./WorkspacePendingA2UIPanel";
+
+const mockA2UITaskCard = vi.fn((_props?: unknown) => (
+  <div data-testid="workspace-a2ui-card" />
+));
+const mockSubmissionNotice = vi.fn(
+  (props?: { notice?: { title?: string; summary?: string } }) => (
+    <div data-testid="workspace-a2ui-notice">
+      {props?.notice?.title}:{props?.notice?.summary}
+    </div>
+  ),
+);
+const mockUseStickyA2UIForm = vi.fn();
+const mockUseA2UISubmissionNotice = vi.fn();
+
+vi.mock("../components/A2UITaskCard", () => ({
+  A2UITaskCard: (props?: unknown) => mockA2UITaskCard(props),
+}));
+
+vi.mock("react-i18next", async () => {
+  const workspaceZhCN = (await import("@/i18n/resources/zh-CN/workspace.json"))
+    .default as Record<string, string>;
+
+  return {
+    useTranslation: () => ({
+      t: (key: string, options?: Record<string, unknown>) => {
+        const template = workspaceZhCN[key] ?? key;
+        return template.replace(/{{\s*([^}]+?)\s*}}/g, (_, name: string) =>
+          String(options?.[name.trim()] ?? ""),
+        );
+      },
+    }),
+  };
+});
+
+vi.mock("./A2UISubmissionNotice", () => ({
+  A2UISubmissionNotice: (props?: {
+    notice?: { title?: string; summary?: string };
+  }) => mockSubmissionNotice(props),
+}));
+
+vi.mock("./useStickyA2UIForm", () => ({
+  useStickyA2UIForm: (props: unknown) => mockUseStickyA2UIForm(props),
+}));
+
+vi.mock("./useA2UISubmissionNotice", () => ({
+  useA2UISubmissionNotice: (props: unknown) =>
+    mockUseA2UISubmissionNotice(props),
+}));
+
+interface MountedHarness {
+  container: HTMLDivElement;
+  root: Root;
+}
+
+const mountedRoots: MountedHarness[] = [];
+
+beforeEach(() => {
+  (
+    globalThis as typeof globalThis & {
+      IS_REACT_ACT_ENVIRONMENT?: boolean;
+    }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
+  mockUseStickyA2UIForm.mockReturnValue({
+    visibleForm: null,
+    isStale: false,
+  });
+  mockUseA2UISubmissionNotice.mockReturnValue({
+    visibleNotice: null,
+    isVisible: false,
+  });
+});
+
+afterEach(() => {
+  while (mountedRoots.length > 0) {
+    const mounted = mountedRoots.pop();
+    if (!mounted) break;
+    act(() => {
+      mounted.root.unmount();
+    });
+    mounted.container.remove();
+  }
+  vi.clearAllMocks();
+});
+
+function renderPanel(
+  props?: Partial<React.ComponentProps<typeof WorkspacePendingA2UIPanel>>,
+) {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+
+  act(() => {
+    root.render(
+      <WorkspacePendingA2UIPanel
+        pendingA2UIForm={null}
+        onA2UISubmit={vi.fn()}
+        a2uiSubmissionNotice={null}
+        {...props}
+      />,
+    );
+  });
+
+  mountedRoots.push({ container, root });
+  return container;
+}
+
+describe("WorkspacePendingA2UIPanel", () => {
+  it("有待处理表单时应渲染内置 A2UI 卡片", () => {
+    mockUseStickyA2UIForm.mockReturnValue({
+      visibleForm: {
+        id: "form-1",
+        root: "root",
+        components: [],
+        submitAction: {
+          label: "继续处理",
+          action: { name: "submit" },
+        },
+      },
+      isStale: true,
+    });
+
+    const container = renderPanel({
+      pendingA2UIForm: {
+        id: "form-1",
+        root: "root",
+        components: [],
+        submitAction: {
+          label: "继续处理",
+          action: { name: "submit" },
+        },
+      },
+    });
+
+    expect(
+      container.querySelector('[data-testid="workspace-pending-a2ui-panel"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="workspace-a2ui-card"]'),
+    ).not.toBeNull();
+    expect(
+      container
+        .querySelector('[data-testid="workspace-pending-a2ui-panel"]')
+        ?.getAttribute("data-placement"),
+    ).toBe("dock");
+    expect(
+      container.querySelector(
+        '[data-testid="workspace-pending-a2ui-scroll-area"]',
+      )?.className,
+    ).toContain("overflow-y-auto");
+    expect(mockA2UITaskCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        compact: true,
+        surface: "embedded",
+        submitDisabled: true,
+        statusLabel: "继续处理中",
+        footerText: "刚刚补充的信息已收到，暂时不用重复提交。",
+      }),
+    );
+  });
+
+  it("渐进式表单应使用 workspace namespace 生成步骤状态", () => {
+    mockUseStickyA2UIForm.mockReturnValue({
+      visibleForm: {
+        id: "form-progressive",
+        root: "root",
+        components: [],
+        data: {
+          progressiveA2UI: {
+            currentStep: 2,
+            totalSteps: 3,
+            questionsInStep: 1,
+            totalQuestions: 4,
+            isFinalStep: false,
+            fieldIds: ["topic"],
+          },
+        },
+        submitAction: {
+          label: "继续处理",
+          action: { name: "submit" },
+        },
+      },
+      isStale: false,
+    });
+
+    renderPanel({
+      pendingA2UIForm: {
+        id: "form-progressive",
+        root: "root",
+        components: [],
+        submitAction: {
+          label: "继续处理",
+          action: { name: "submit" },
+        },
+      },
+    });
+
+    expect(mockA2UITaskCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        footerText: "先完成这一步，后面会继续补齐。",
+        statusLabel: "第 2/3 步",
+        submitDisabled: false,
+      }),
+    );
+  });
+
+  it("只有提交完成提示时也应保留聊天区内联反馈", () => {
+    mockUseA2UISubmissionNotice.mockReturnValue({
+      visibleNotice: {
+        title: "补充信息已确认",
+        summary: "已继续处理。",
+      },
+      isVisible: true,
+    });
+
+    const container = renderPanel({
+      a2uiSubmissionNotice: {
+        title: "补充信息已确认",
+        summary: "已继续处理。",
+      },
+    });
+
+    expect(
+      container.querySelector('[data-testid="workspace-pending-a2ui-panel"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="workspace-a2ui-notice"]'),
+    ).not.toBeNull();
+    expect(container.textContent).toContain("补充信息已确认:已继续处理。");
+  });
+
+  it("消息流位置应使用内联卡片布局", () => {
+    mockUseStickyA2UIForm.mockReturnValue({
+      visibleForm: {
+        id: "form-message",
+        root: "root",
+        components: [],
+        submitAction: {
+          label: "继续处理",
+          action: { name: "submit" },
+        },
+      },
+      isStale: false,
+    });
+
+    const container = renderPanel({
+      placement: "message",
+      pendingA2UIForm: {
+        id: "form-message",
+        root: "root",
+        components: [],
+        submitAction: {
+          label: "继续处理",
+          action: { name: "submit" },
+        },
+      },
+    });
+
+    const panel = container.querySelector(
+      '[data-testid="workspace-pending-a2ui-panel"]',
+    );
+    expect(panel?.getAttribute("data-placement")).toBe("message");
+    expect(panel?.className).toContain("max-w-[432px]");
+    expect(panel?.className).not.toContain("mb-3");
+  });
+});

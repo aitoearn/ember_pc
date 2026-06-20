@@ -1,0 +1,35 @@
+{
+  "name": "@embercloud/ember-cli",
+  "version": "1.0.0",
+  "description": "Ember 官方任务 CLI",
+  "bin": {
+    "ember": "scripts/run.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install.js",
+    "build:release": "node scripts/build-release.js"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/embercloud/ember.git"
+  },
+  "license": "MIT",
+  "files": [
+    "README.md",
+    "scripts/install.js",
+    "scripts/release-meta.js",
+    "scripts/run.js"
+  ]
+}

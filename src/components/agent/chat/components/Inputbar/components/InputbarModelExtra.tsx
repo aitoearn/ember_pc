@@ -1,0 +1,56 @@
+import React from "react";
+import type { AsterSessionExecutionRuntime } from "@/lib/api/agentRuntime";
+import { hasDesktopHostInvokeCapability } from "@/lib/desktop-runtime";
+import { ChatModelSelector } from "../../ChatModelSelector";
+import type { ModelReasoningEffortLevel } from "@/lib/types/modelRegistry";
+
+interface InputbarModelExtraProps {
+  isFullscreen?: boolean;
+  providerType?: string;
+  setProviderType: (type: string) => void;
+  model?: string;
+  setModel: (model: string) => void;
+  reasoningEffort?: ModelReasoningEffortLevel | "";
+  setReasoningEffort?: (value: ModelReasoningEffortLevel | "") => void;
+  activeTheme?: string;
+  onManageProviders?: () => void;
+  executionRuntime?: AsterSessionExecutionRuntime | null;
+}
+
+export const InputbarModelExtra: React.FC<InputbarModelExtraProps> = ({
+  isFullscreen = false,
+  providerType,
+  setProviderType,
+  model,
+  setModel,
+  reasoningEffort,
+  setReasoningEffort,
+  activeTheme,
+  onManageProviders,
+  executionRuntime: _executionRuntime = null,
+}) => {
+  if (isFullscreen) {
+    return null;
+  }
+  const selectorBackgroundPreload = hasDesktopHostInvokeCapability()
+    ? "immediate"
+    : "disabled";
+
+  return (
+    <div className="flex items-center flex-wrap gap-2">
+      <ChatModelSelector
+        providerType={providerType ?? ""}
+        setProviderType={setProviderType}
+        model={model ?? ""}
+        setModel={setModel}
+        reasoningEffort={reasoningEffort ?? ""}
+        setReasoningEffort={setReasoningEffort}
+        activeTheme={activeTheme}
+        compactTrigger
+        popoverSide="top"
+        onManageProviders={onManageProviders}
+        backgroundPreload={selectorBackgroundPreload}
+      />
+    </div>
+  );
+};

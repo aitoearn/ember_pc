@@ -1,0 +1,296 @@
+/**
+ * @file update-notification.css
+ * @description 更新提醒独立窗口样式
+ *
+ * 独立窗口的轻量 toast 样式，贴近系统更新提醒体验。
+ */
+
+.update-container {
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  align-items: stretch;
+  justify-items: stretch;
+  background: transparent;
+  padding: 0;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.update-toast {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #fff;
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.14),
+    0 2px 8px rgba(15, 23, 42, 0.08);
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+  pointer-events: auto;
+  -webkit-app-region: drag;
+}
+
+.update-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.update-toast.is-closing {
+  opacity: 0;
+  transform: translateY(6px) scale(0.99);
+}
+
+.update-toast-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  margin-top: 5px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f172a;
+  background: rgba(15, 23, 42, 0.08);
+  -webkit-app-region: no-drag;
+}
+
+.update-toast-main {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.update-toast-top {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 9px;
+}
+
+.update-toast-message {
+  min-width: 0;
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #0f172a;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 26px;
+  word-break: break-word;
+}
+
+.update-toast-sub {
+  display: block;
+  margin-top: 2px;
+  margin-left: 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.update-toast-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  width: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.update-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: auto;
+  min-height: 30px;
+  border-radius: 8px;
+  padding: 0 10px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+  -webkit-app-region: no-drag;
+}
+
+.update-btn:hover:not(:disabled) {
+  background: rgba(15, 23, 42, 0.07);
+}
+
+.update-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.update-btn-ghost {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  color: #334155;
+}
+
+.update-btn-primary {
+  border: 1px solid #111827;
+  background: #111827;
+  color: #f8fafc;
+}
+
+.update-btn-primary:hover:not(:disabled) {
+  background: #1f2937;
+}
+
+.update-btn-icon {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  min-height: 24px;
+  height: 24px;
+  padding: 0;
+}
+
+.update-session-row {
+  min-height: 12px;
+  display: flex;
+  align-items: stretch;
+  flex-direction: column;
+  gap: 6px;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.update-session-text {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.update-progress {
+  position: relative;
+  height: 4px;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.update-progress-bar {
+  height: 100%;
+  min-width: 4px;
+  border-radius: inherit;
+  background: #0f172a;
+  transition: width 0.16s ease;
+}
+
+.update-progress-value {
+  width: 100%;
+  flex: 0 0 auto;
+  text-align: right;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+}
+
+.animate-spin {
+  animation: update-spin 0.8s linear infinite;
+}
+
+@keyframes update-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 520px) {
+  .update-toast {
+    padding: 10px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .update-toast {
+    border-color: rgba(148, 163, 184, 0.2);
+    background: #0f172a;
+    box-shadow:
+      0 10px 32px rgba(2, 6, 23, 0.5),
+      0 2px 8px rgba(2, 6, 23, 0.4);
+  }
+
+  .update-toast-icon {
+    color: #e2e8f0;
+    background: rgba(148, 163, 184, 0.15);
+  }
+
+  .update-toast-message {
+    color: #f8fafc;
+  }
+
+  .update-toast-sub {
+    color: #94a3b8;
+  }
+
+  .update-btn {
+    color: #cbd5e1;
+  }
+
+  .update-btn:hover:not(:disabled) {
+    background: rgba(148, 163, 184, 0.16);
+  }
+
+  .update-btn-ghost {
+    border-color: rgba(148, 163, 184, 0.28);
+  }
+
+  .update-btn-primary {
+    border-color: #e2e8f0;
+    background: #e2e8f0;
+    color: #0f172a;
+  }
+
+  .update-btn-primary:hover:not(:disabled) {
+    background: #cbd5e1;
+  }
+
+  .update-session-row {
+    color: #94a3b8;
+  }
+
+  .update-progress {
+    background: rgba(148, 163, 184, 0.24);
+  }
+
+  .update-progress-bar {
+    background: #e2e8f0;
+  }
+
+  .update-progress-value {
+    color: #cbd5e1;
+  }
+}

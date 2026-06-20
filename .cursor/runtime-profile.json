@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "storage_mode": "external-vault",
+  "telemetry_mode": "degraded",
+  "mywiki_root": "/Users/lisq/obsidian/codingrag",
+  "wiki_dir": "/Users/lisq/obsidian/codingrag/wiki",
+  "installed_at": "2026-06-14",
+  "kit_version": "0.1.0"
+}

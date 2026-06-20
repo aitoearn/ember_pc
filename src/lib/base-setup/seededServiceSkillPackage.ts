@@ -1,0 +1,1653 @@
+import type { ServiceSkillCatalog } from "@/lib/api/serviceSkills";
+import { compileBaseSetupPackage } from "./compiler";
+import type { BaseSetupPackage } from "./types";
+
+export const SEEDED_SERVICE_SKILL_CATALOG_VERSION =
+  "client-seed-2026-05-08-knowledge-v2-persona-builders";
+export const SEEDED_SERVICE_SKILL_CATALOG_SYNCED_AT =
+  "2026-03-24T00:00:00.000Z";
+export const SEEDED_SERVICE_SKILL_CATALOG_TENANT_ID = "local-seeded";
+
+const PLATFORM_OPTIONS = [
+  { value: "xiaohongshu", label: "小红书" },
+  { value: "douyin", label: "抖音" },
+  { value: "x", label: "X / Twitter" },
+  { value: "bilibili", label: "Bilibili" },
+  { value: "general", label: "通用平台" },
+] as const;
+
+const SEEDED_SERVICE_SKILL_SURFACE_SCOPES = [
+  "home",
+  "mention",
+  "workspace",
+] as const;
+
+const SEEDED_SERVICE_SKILL_PACKAGE: BaseSetupPackage = {
+  id: "ember-seeded-service-skills",
+  version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+  title: "Ember Seeded Service Skills",
+  summary: "Ember 内置默认场景目录的基础设置包事实源。",
+  bundleRefs: [
+    {
+      id: "carousel-post-replication-bundle",
+      source: "builtin",
+      pathOrUri: "seeded://service-skills/carousel-post-replication",
+      kind: "skill_bundle",
+    },
+    {
+      id: "short-video-script-replication-bundle",
+      source: "builtin",
+      pathOrUri: "seeded://service-skills/short-video-script-replication",
+      kind: "skill_bundle",
+    },
+    {
+      id: "article-to-slide-video-outline-bundle",
+      source: "builtin",
+      pathOrUri: "seeded://service-skills/article-to-slide-video-outline",
+      kind: "skill_bundle",
+    },
+    {
+      id: "story-video-suite-bundle",
+      source: "builtin",
+      pathOrUri: "seeded://service-skills/story-video-suite",
+      kind: "skill_bundle",
+    },
+    {
+      id: "cloud-video-dubbing-bundle",
+      source: "builtin",
+      pathOrUri: "seeded://service-skills/cloud-video-dubbing",
+      kind: "skill_bundle",
+    },
+    {
+      id: "video-dubbing-language-bundle",
+      source: "builtin",
+      pathOrUri: "seeded://service-skills/video-dubbing-language",
+      kind: "skill_bundle",
+    },
+    {
+      id: "daily-trend-briefing-bundle",
+      source: "builtin",
+      pathOrUri: "seeded://service-skills/daily-trend-briefing",
+      kind: "skill_bundle",
+    },
+    {
+      id: "account-performance-tracking-bundle",
+      source: "builtin",
+      pathOrUri: "seeded://service-skills/account-performance-tracking",
+      kind: "skill_bundle",
+    },
+    {
+      id: "personal-ip-knowledge-builder-bundle",
+      source: "builtin",
+      pathOrUri: "builtin://default-skills/personal-ip-knowledge-builder",
+      kind: "skill_bundle",
+      versionConstraint: ">=1.0.0",
+    },
+    {
+      id: "brand-persona-knowledge-builder-bundle",
+      source: "builtin",
+      pathOrUri: "builtin://default-skills/brand-persona-knowledge-builder",
+      kind: "skill_bundle",
+      versionConstraint: ">=1.0.0",
+    },
+    {
+      id: "content-operations-knowledge-builder-bundle",
+      source: "builtin",
+      pathOrUri:
+        "builtin://default-skills/content-operations-knowledge-builder",
+      kind: "skill_bundle",
+      versionConstraint: ">=1.0.0",
+    },
+    {
+      id: "private-domain-operations-knowledge-builder-bundle",
+      source: "builtin",
+      pathOrUri:
+        "builtin://default-skills/private-domain-operations-knowledge-builder",
+      kind: "skill_bundle",
+      versionConstraint: ">=1.0.0",
+    },
+    {
+      id: "live-commerce-operations-knowledge-builder-bundle",
+      source: "builtin",
+      pathOrUri:
+        "builtin://default-skills/live-commerce-operations-knowledge-builder",
+      kind: "skill_bundle",
+      versionConstraint: ">=1.0.0",
+    },
+    {
+      id: "campaign-operations-knowledge-builder-bundle",
+      source: "builtin",
+      pathOrUri:
+        "builtin://default-skills/campaign-operations-knowledge-builder",
+      kind: "skill_bundle",
+      versionConstraint: ">=1.0.0",
+    },
+    {
+      id: "brand-product-knowledge-builder-bundle",
+      source: "builtin",
+      pathOrUri: "builtin://default-skills/brand-product-knowledge-builder",
+      kind: "skill_bundle",
+      versionConstraint: ">=1.0.0",
+    },
+    {
+      id: "organization-knowhow-knowledge-builder-bundle",
+      source: "builtin",
+      pathOrUri:
+        "builtin://default-skills/organization-knowhow-knowledge-builder",
+      kind: "skill_bundle",
+      versionConstraint: ">=1.0.0",
+    },
+    {
+      id: "growth-strategy-knowledge-builder-bundle",
+      source: "builtin",
+      pathOrUri: "builtin://default-skills/growth-strategy-knowledge-builder",
+      kind: "skill_bundle",
+      versionConstraint: ">=1.0.0",
+    },
+  ],
+  catalogProjections: [
+    {
+      id: "carousel-post-replication",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "carousel-post-replication",
+      skillKey: "carousel-post-replication",
+      skillType: "service",
+      title: "兼容性测试",
+      summary:
+        "围绕目标平台、浏览器/系统版本和核心功能路径，整理兼容性测试范围、矩阵和优先级。",
+      entryHint:
+        "给我被测功能、目标平台和版本范围，我先整理兼容性矩阵，再产出可执行的测试清单。",
+      aliases: ["兼容测试", "多端兼容", "浏览器兼容", "跨平台测试"],
+      category: "专项测试",
+      outputHint: "兼容矩阵 + 测试清单",
+      triggerHints: [
+        "需要在多个平台、浏览器或系统版本上验证同一功能时使用。",
+        "发布前需要快速梳理兼容性覆盖范围和已知风险时使用。",
+      ],
+      bundleRefId: "carousel-post-replication-bundle",
+      slotProfileRef: "carousel-post-replication-slots",
+      bindingProfileRef: "agent-turn-instant",
+      artifactProfileRef: "carousel-post-replication-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-all-surfaces",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: ["适合先锁定覆盖矩阵，再逐条补充用例和已知缺陷。", "平台与版本范围越明确，测试清单会越可执行。"],
+      setupRequirements: ["需要已选择可用模型。", "建议在目标项目内启动，方便清单直接写回当前工作区。"],
+      examples: ["帮我整理登录模块在 Chrome/Safari/移动端上的兼容性测试矩阵。", "围绕 v2.3 发布候选版，列出必须覆盖的平台版本和回归优先级。"],
+      promptTemplateKey: "replication",
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+    {
+      id: "short-video-script-replication",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "short-video-script-replication",
+      skillKey: "short-video-script-replication",
+      skillType: "service",
+      title: "接口测试",
+      summary: "围绕 API 契约、参数组合和异常路径，输出一版可直接继续补充的接口测试用例。",
+      entryHint:
+        "把接口说明、鉴权方式和关注场景给我，我先整理正常/异常用例，再补断言点。",
+      aliases: ["API测试", "接口用例", "REST测试", "接口回归"],
+      category: "专项测试",
+      outputHint: "接口用例 + 断言点",
+      triggerHints: [
+        "已经有接口契约或 OpenAPI 文档，希望快速整理测试用例时使用。",
+        "需要围绕正常、边界和异常路径补全断言时使用。",
+      ],
+      bundleRefId: "short-video-script-replication-bundle",
+      slotProfileRef: "short-video-script-replication-slots",
+      bindingProfileRef: "agent-turn-instant",
+      artifactProfileRef: "short-video-script-replication-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-workspace-only",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: ["适合先锁定契约和断言，再继续补测试数据和自动化脚本。", "如果接口有复杂状态依赖，建议在命令里写清楚前置条件。"],
+      setupRequirements: ["需要已选择可用模型。", "建议在接口或后端项目内启动，方便用例直接回到当前工作区。"],
+      examples: ["围绕订单创建接口，帮我整理正常、边界和鉴权失败场景的测试用例。", "按这份 OpenAPI 文档生成一版可执行的接口回归清单。"],
+      promptTemplateKey: "replication",
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+    {
+      id: "article-to-slide-video-outline",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "article-to-slide-video-outline",
+      skillKey: "article-to-slide-video-outline",
+      skillType: "service",
+      title: "安全测试",
+      summary: "把被测系统或功能拆成威胁面、攻击路径和验证点，先生成一版适合推进的安全测试提纲。",
+      category: "专项测试",
+      outputHint: "威胁面 + 验证清单",
+      triggerHints: [
+        "需要围绕登录、权限或数据访问梳理安全验证点时使用。",
+        "发布前需要快速整理威胁面和基础安全回归项时使用。",
+      ],
+      bundleRefId: "article-to-slide-video-outline-bundle",
+      slotProfileRef: "article-to-slide-video-outline-slots",
+      bindingProfileRef: "native-skill-instant",
+      artifactProfileRef: "article-to-slide-video-outline-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-default-policy",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: ["适合先确定威胁面和验证优先级，再继续补 PoC 步骤和回归项。", "系统边界和权限模型越完整，提纲会越稳定。"],
+      setupRequirements: ["需要已选择可用模型。", "建议在安全或后端项目内启动，方便提纲直接沉淀为当前资料。"],
+      examples: ["围绕用户登录与权限模块，整理一版安全测试提纲。", "按这份 API 列表生成鉴权、越权和输入校验相关的测试检查点。"],
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+    {
+      id: "story-video-suite",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "story-video-suite",
+      skillKey: "story-video-suite",
+      skillType: "service",
+      title: "端到端测试",
+      summary:
+        "把用户主路径、关键分支和环境依赖串成一版可继续执行的端到端测试方案。",
+      entryHint:
+        "输入被测流程、环境约束和验收标准，我会先拆 E2E 路径，再补数据、断言和执行顺序。",
+      aliases: ["e2e", "端到端", "E2E测试", "主路径测试"],
+      category: "专项测试",
+      outputHint: "E2E 路径 + 执行清单",
+      triggerHints: [
+        "只有业务流程描述，还没有可执行的 E2E 测试方案时使用。",
+        "需要把主路径、分支路径和断言点先串成一版执行清单时使用。",
+      ],
+      bundleRefId: "story-video-suite-bundle",
+      slotProfileRef: "story-video-suite-slots",
+      bindingProfileRef: "agent-turn-instant",
+      artifactProfileRef: "story-video-suite-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-workspace-only",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: [
+        "适合先锁定主路径和关键断言，再继续补测试数据和自动化脚本。",
+        "如果已有环境约束或依赖服务，应在命令中一并写清楚。",
+      ],
+      setupRequirements: [
+        "需要已选择可用模型。",
+        "建议在测试项目内启动，方便 E2E 方案继续沉淀到当前工作区。",
+      ],
+      examples: ["把下单到支付成功这条主路径编排成端到端测试方案。", "围绕注册-登录-下单流程，整理一版可重复执行的 E2E 检查清单。"],
+      sceneBinding: {
+        sceneKey: "story-video-suite",
+        commandPrefix: "/story-video-suite",
+        title: "端到端测试",
+        summary: "把主路径、分支路径和 E2E 执行步骤串成一条本地场景链。",
+        aliases: ["e2e", "端到端", "E2E测试", "主路径测试"],
+      },
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+    {
+      id: "cloud-video-dubbing",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "cloud-video-dubbing",
+      skillKey: "cloud-video-dubbing",
+      skillType: "service",
+      title: "性能测试",
+      summary:
+        "围绕被测接口或页面、负载目标和 SLA，先在本地工作区整理一版可继续执行的性能测试方案。",
+      category: "专项测试",
+      outputHint: "性能方案 + 指标基线",
+      triggerHints: [
+        "已有性能目标或 SLA，希望先整理压测方案和指标阈值时使用。",
+        "需要围绕 QPS、响应时间和资源占用快速进入性能测试设计时使用。",
+      ],
+      bundleRefId: "cloud-video-dubbing-bundle",
+      slotProfileRef: "cloud-video-dubbing-slots",
+      bindingProfileRef: "agent-turn-instant",
+      artifactProfileRef: "cloud-video-dubbing-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-all-surfaces",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: ["适合已经有性能目标或 SLA，希望先整理可执行的压测方案。", "如果有目标 QPS、P95 或资源约束，建议直接写在命令里。"],
+      setupRequirements: ["需要已选择可用模型。", "建议在性能或后端项目内启动，方便方案直接回到当前工作区。"],
+      examples: ["给首页接口做一版并发 500 的性能测试方案和关键指标阈值。", "参考这份压测目标，整理响应时间、吞吐量和错误率监控项。"],
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+    {
+      id: "video-dubbing-language",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "video-dubbing-language",
+      skillKey: "video-dubbing-language",
+      skillType: "service",
+      title: "压力测试",
+      summary: "先整理压测场景、阶梯负载和熔断条件，输出一版可继续进入压测流程的执行稿。",
+      category: "专项测试",
+      outputHint: "压测场景 + 负载阶梯",
+      triggerHints: [
+        "需要在峰值或阶梯负载下验证系统稳定性时使用。",
+        "需要围绕容量上限和恢复能力整理压力测试场景时使用。",
+      ],
+      bundleRefId: "video-dubbing-language-bundle",
+      slotProfileRef: "video-dubbing-language-slots",
+      bindingProfileRef: "agent-turn-instant",
+      artifactProfileRef: "video-dubbing-language-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-default-policy",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: ["适合先整理负载模型和停止条件，再进入正式压测执行。", "如果有关键依赖或限流策略，建议在说明里一并补充。"],
+      setupRequirements: ["需要已选择可用模型。", "建议在性能项目内启动，方便执行稿直接回到当前工作区。"],
+      examples: ["把这个支付链路整理成一版阶梯加压的压力测试执行稿。", "参考当前容量目标，输出一版峰值负载与恢复验证步骤。"],
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+    {
+      id: "daily-trend-briefing",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "daily-trend-briefing",
+      skillKey: "daily-trend-briefing",
+      skillType: "service",
+      title: "回归测试巡检",
+      summary:
+        "围绕指定版本、模块和环境，先产出一版回归范围建议，并给出后续定时巡检任务配置。",
+      entryHint:
+        "把版本范围、核心模块和回归策略给我，我先整理巡检清单，再补定时执行建议。",
+      aliases: ["回归巡检", "回归测试", "版本巡检", "定时回归"],
+      category: "测试运营",
+      outputHint: "回归清单 + 调度建议",
+      triggerHints: [
+        "想先做一版回归巡检清单，再决定是否开启定时执行时使用。",
+        "需要围绕版本和核心模块持续追回归范围时使用。",
+      ],
+      bundleRefId: "daily-trend-briefing-bundle",
+      slotProfileRef: "daily-trend-briefing-slots",
+      bindingProfileRef: "automation-job-scheduled",
+      artifactProfileRef: "daily-trend-briefing-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-all-surfaces",
+      automationProfileRef: "daily-trend-briefing-automation",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: ["先完成一次首轮巡检，再根据结果决定推送频率和覆盖范围。", "模块范围尽量聚焦一条业务链，定时结果会更稳定可读。"],
+      setupRequirements: ["需要已选择可用模型。", "建议在目标项目内启动，方便首轮结果和后续回流都落到同一工作区。"],
+      examples: ["每天帮我巡检 v2.3 核心链路的回归范围，并生成一版执行摘要。", "围绕支付和订单模块做一个每日回归巡检任务。"],
+      promptTemplateKey: "trend_briefing",
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+    {
+      id: "account-performance-tracking",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "account-performance-tracking",
+      skillKey: "account-performance-tracking",
+      skillType: "service",
+      title: "稳定性测试",
+      summary:
+        "围绕被测服务、运行环境和 SLO，先整理稳定性测试策略，再持续跟踪异常、资源波动和告警条件。",
+      entryHint:
+        "给我被测服务、环境目标和 SLO，我先出稳定性测试策略、观察指标和后续跟踪条件。",
+      aliases: ["稳定性", "长跑测试", "soak测试", "SLO跟踪", "服务稳定性"],
+      category: "测试运营",
+      outputHint: "稳定性策略 + 观察指标 + 告警条件",
+      triggerHints: [
+        "想先产出稳定性测试策略，再持续观察服务异常和资源波动时使用。",
+        "需要围绕 SLO 持续跟踪长跑测试指标和告警条件时使用。",
+      ],
+      bundleRefId: "account-performance-tracking-bundle",
+      slotProfileRef: "account-performance-tracking-slots",
+      bindingProfileRef: "automation-job-managed",
+      artifactProfileRef: "account-performance-tracking-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-all-surfaces",
+      automationProfileRef: "account-performance-tracking-automation",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: ["适合先产出首版稳定性策略，再逐步收紧观察指标和告警条件。", "服务和环境范围越明确，后续持续跟踪会越准确。"],
+      setupRequirements: ["需要已选择可用模型。", "建议在目标项目内启动，方便首轮策略和持续跟踪结果沉淀到同一工作区。"],
+      examples: ["围绕这几个核心服务做一版 72 小时稳定性测试策略，并设置日更跟踪。", "帮我针对预发环境的订单服务生成稳定性观察计划和告警阈值。"],
+      promptTemplateKey: "account_growth",
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+    {
+      id: "personal-ip-knowledge-builder",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "personal-ip-knowledge-builder",
+      skillKey: "personal-ip-knowledge-builder",
+      skillType: "service",
+      title: "个人 IP 知识库生成器",
+      summary:
+        "把访谈稿、聊天记录、简历、公开内容和案例整理成 Agent Knowledge v0.6 document-first 个人人设包。",
+      entryHint:
+        "由项目资料整理流程自动调用；普通用户仍看到“个人 IP”资料模板。",
+      aliases: ["个人IP知识库", "个人 IP", "人设包", "persona builder"],
+      category: "项目资料",
+      outputHint: "document-first 个人 IP 知识库",
+      triggerHints: [
+        "用户选择个人 IP 资料模板并导入访谈或历史内容时使用。",
+        "需要重新维护 personal-profile / persona pack 时使用。",
+      ],
+      bundleRefId: "personal-ip-knowledge-builder-bundle",
+      slotProfileRef: "personal-ip-knowledge-builder-slots",
+      bindingProfileRef: "native-skill-instant",
+      artifactProfileRef: "knowledge-builder-document-first-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-internal-only",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: [
+        "章节模板、访谈问题和质量检查表以 Builder Skill 的 references/ 为事实源。",
+        "运行时只消费生成后的 KnowledgePack，不执行 Builder Skill。",
+      ],
+      setupRequirements: [
+        "需要已选择可用模型。",
+        "需要当前项目内已有 sources/ 来源资料或用户粘贴的访谈内容。",
+      ],
+      examples: [
+        "把 1 小时访谈稿整理成创始人个人 IP 知识库。",
+        "基于历史文章和聊天记录补齐一个专家 persona pack。",
+      ],
+      skillBundleMetadata: {
+        Ember_knowledge_builder: "true",
+        Ember_knowledge_pack_type: "personal-profile",
+        Ember_knowledge_template: "personal-ip",
+        Ember_knowledge_family: "persona",
+        Ember_agent_knowledge_profile: "document-first",
+        Ember_agent_knowledge_runtime_mode: "persona",
+        Ember_skill_bundle_path:
+          "ember-rs/resources/default-skills/personal-ip-knowledge-builder",
+        Ember_skill_bundle_version: "1.0.0",
+      },
+      skillBundleResourceSummary: {
+        hasScripts: true,
+        hasReferences: true,
+        hasAssets: true,
+      },
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+    {
+      id: "brand-persona-knowledge-builder",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "brand-persona-knowledge-builder",
+      skillKey: "brand-persona-knowledge-builder",
+      skillType: "service",
+      title: "品牌人设知识库生成器",
+      summary:
+        "把品牌定位、价值观、受众关系、语气风格、内容样例和表达禁区整理成 Agent Knowledge v0.6 document-first 品牌人设包。",
+      entryHint:
+        "由项目资料整理流程自动调用；普通用户仍看到“品牌人设”资料模板。",
+      aliases: [
+        "品牌人设知识库",
+        "品牌口吻",
+        "品牌 persona",
+        "brand persona builder",
+      ],
+      category: "项目资料",
+      outputHint: "document-first 品牌人设知识库",
+      triggerHints: [
+        "用户选择品牌人设资料模板并导入品牌手册、历史内容或客服话术时使用。",
+        "需要重新维护 brand-persona / persona pack 时使用。",
+      ],
+      bundleRefId: "brand-persona-knowledge-builder-bundle",
+      slotProfileRef: "brand-persona-knowledge-builder-slots",
+      bindingProfileRef: "native-skill-instant",
+      artifactProfileRef: "knowledge-builder-document-first-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-internal-only",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: [
+        "章节模板、访谈问题和质量检查表以 Builder Skill 的 references/ 为事实源。",
+        "运行时只消费生成后的 KnowledgePack，不执行 Builder Skill。",
+      ],
+      setupRequirements: [
+        "需要已选择可用模型。",
+        "需要当前项目内已有品牌来源资料或用户粘贴的品牌定位、内容样例和表达边界。",
+      ],
+      examples: [
+        "把品牌手册和历史文案整理成品牌人设知识库。",
+        "基于客服话术、公众号文章和危机案例补齐一个品牌 persona pack。",
+      ],
+      skillBundleMetadata: {
+        Ember_knowledge_builder: "true",
+        Ember_knowledge_pack_type: "brand-persona",
+        Ember_knowledge_template: "brand-persona",
+        Ember_knowledge_family: "persona",
+        Ember_agent_knowledge_profile: "document-first",
+        Ember_agent_knowledge_runtime_mode: "persona",
+        Ember_skill_bundle_path:
+          "ember-rs/resources/default-skills/brand-persona-knowledge-builder",
+        Ember_skill_bundle_version: "1.0.0",
+      },
+      skillBundleResourceSummary: {
+        hasScripts: false,
+        hasReferences: true,
+        hasAssets: false,
+      },
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+    {
+      id: "content-operations-knowledge-builder",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "content-operations-knowledge-builder",
+      skillKey: "content-operations-knowledge-builder",
+      skillType: "service",
+      title: "内容运营知识库生成器",
+      summary:
+        "把选题、栏目、素材、发布节奏和复盘整理成 Agent Knowledge v0.6 document-first 运营资料包。",
+      entryHint: "由项目资料整理流程自动调用；普通用户看到“内容运营”资料模板。",
+      aliases: ["内容运营知识库", "选题库", "内容 SOP", "content ops builder"],
+      category: "项目资料",
+      outputHint: "document-first 内容运营知识库",
+      triggerHints: [
+        "用户选择内容运营资料模板并导入选题、排期、素材或复盘时使用。",
+        "需要维护 content-operations / data pack 时使用。",
+      ],
+      bundleRefId: "content-operations-knowledge-builder-bundle",
+      slotProfileRef: "operations-knowledge-builder-slots",
+      bindingProfileRef: "native-skill-instant",
+      artifactProfileRef: "knowledge-builder-document-first-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-internal-only",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: [
+        "模板和质量检查表以 Builder Skill 的 references/ 为事实源。",
+        "运行时只消费生成后的 KnowledgePack，可与 persona pack 协同进入上下文。",
+      ],
+      setupRequirements: [
+        "需要已选择可用模型。",
+        "需要当前项目内已有内容运营来源资料或用户粘贴的历史运营内容。",
+      ],
+      examples: [
+        "把这个季度选题表和复盘整理成内容运营知识库。",
+        "基于历史公众号和视频号运营资料沉淀一份可复用 SOP。",
+      ],
+      skillBundleMetadata: {
+        Ember_knowledge_builder: "true",
+        Ember_knowledge_pack_type: "content-operations",
+        Ember_knowledge_template: "content-operations",
+        Ember_knowledge_family: "data",
+        Ember_agent_knowledge_profile: "document-first",
+        Ember_agent_knowledge_runtime_mode: "data",
+        Ember_skill_bundle_path:
+          "ember-rs/resources/default-skills/content-operations-knowledge-builder",
+        Ember_skill_bundle_version: "1.0.0",
+      },
+      skillBundleResourceSummary: {
+        hasScripts: false,
+        hasReferences: true,
+        hasAssets: false,
+      },
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+    {
+      id: "private-domain-operations-knowledge-builder",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "private-domain-operations-knowledge-builder",
+      skillKey: "private-domain-operations-knowledge-builder",
+      skillType: "service",
+      title: "私域运营知识库生成器",
+      summary:
+        "把社群 SOP、用户分层、触达节奏、转化话术和服务边界整理成 document-first 私域运营资料包。",
+      entryHint:
+        "由项目资料整理流程自动调用；普通用户看到“私域 / 社群运营”资料模板。",
+      aliases: ["私域知识库", "社群 SOP", "私域运营", "community ops builder"],
+      category: "项目资料",
+      outputHint: "document-first 私域运营知识库",
+      triggerHints: [
+        "用户选择私域 / 社群运营资料模板并导入 SOP、话术或活动资料时使用。",
+        "需要维护 private-domain-operations / data pack 时使用。",
+      ],
+      bundleRefId: "private-domain-operations-knowledge-builder-bundle",
+      slotProfileRef: "operations-knowledge-builder-slots",
+      bindingProfileRef: "native-skill-instant",
+      artifactProfileRef: "knowledge-builder-document-first-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-internal-only",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: [
+        "把社群节奏、分层标签、话术和人工升级条件沉淀到 references/ 模板结构里。",
+        "运行时只消费生成后的 KnowledgePack，可与 persona pack 协同进入上下文。",
+      ],
+      setupRequirements: [
+        "需要已选择可用模型。",
+        "需要私域、社群或客服来源资料。",
+      ],
+      examples: [
+        "把社群欢迎语、日常触达和转化 SOP 整理成私域运营知识库。",
+        "基于这批群聊运营复盘沉淀一份可复用社群话术边界。",
+      ],
+      skillBundleMetadata: {
+        Ember_knowledge_builder: "true",
+        Ember_knowledge_pack_type: "private-domain-operations",
+        Ember_knowledge_template: "private-domain-operations",
+        Ember_knowledge_family: "data",
+        Ember_agent_knowledge_profile: "document-first",
+        Ember_agent_knowledge_runtime_mode: "data",
+        Ember_skill_bundle_path:
+          "ember-rs/resources/default-skills/private-domain-operations-knowledge-builder",
+        Ember_skill_bundle_version: "1.0.0",
+      },
+      skillBundleResourceSummary: {
+        hasScripts: false,
+        hasReferences: true,
+        hasAssets: false,
+      },
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+    {
+      id: "live-commerce-operations-knowledge-builder",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "live-commerce-operations-knowledge-builder",
+      skillKey: "live-commerce-operations-knowledge-builder",
+      skillType: "service",
+      title: "直播运营知识库生成器",
+      summary:
+        "把直播排期、货盘节奏、场控流程、互动话术和复盘指标整理成 document-first 直播运营资料包。",
+      entryHint: "由项目资料整理流程自动调用；普通用户看到“直播运营”资料模板。",
+      aliases: ["直播知识库", "直播 SOP", "带货运营", "live ops builder"],
+      category: "项目资料",
+      outputHint: "document-first 直播运营知识库",
+      triggerHints: [
+        "用户选择直播运营资料模板并导入排期、货盘、脚本或复盘时使用。",
+        "需要维护 live-commerce-operations / data pack 时使用。",
+      ],
+      bundleRefId: "live-commerce-operations-knowledge-builder-bundle",
+      slotProfileRef: "operations-knowledge-builder-slots",
+      bindingProfileRef: "native-skill-instant",
+      artifactProfileRef: "knowledge-builder-document-first-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-internal-only",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: [
+        "把场次目标、货盘、场控、话术、异常预案和复盘指标沉淀为 data pack。",
+        "运行时只消费生成后的 KnowledgePack，可与 persona pack 协同进入上下文。",
+      ],
+      setupRequirements: [
+        "需要已选择可用模型。",
+        "需要直播脚本、货盘或复盘来源资料。",
+      ],
+      examples: [
+        "把这几场直播脚本和复盘整理成直播运营知识库。",
+        "基于货盘和场控流程生成一份可复用直播 SOP。",
+      ],
+      skillBundleMetadata: {
+        Ember_knowledge_builder: "true",
+        Ember_knowledge_pack_type: "live-commerce-operations",
+        Ember_knowledge_template: "live-commerce-operations",
+        Ember_knowledge_family: "data",
+        Ember_agent_knowledge_profile: "document-first",
+        Ember_agent_knowledge_runtime_mode: "data",
+        Ember_skill_bundle_path:
+          "ember-rs/resources/default-skills/live-commerce-operations-knowledge-builder",
+        Ember_skill_bundle_version: "1.0.0",
+      },
+      skillBundleResourceSummary: {
+        hasScripts: false,
+        hasReferences: true,
+        hasAssets: false,
+      },
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+    {
+      id: "campaign-operations-knowledge-builder",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "campaign-operations-knowledge-builder",
+      skillKey: "campaign-operations-knowledge-builder",
+      skillType: "service",
+      title: "活动运营知识库生成器",
+      summary:
+        "把活动目标、渠道分工、物料清单、执行节奏、风险预案和复盘整理成 document-first 活动运营资料包。",
+      entryHint:
+        "由项目资料整理流程自动调用；普通用户看到“活动 / Campaign”资料模板。",
+      aliases: [
+        "活动知识库",
+        "Campaign SOP",
+        "活动运营",
+        "campaign ops builder",
+      ],
+      category: "项目资料",
+      outputHint: "document-first 活动运营知识库",
+      triggerHints: [
+        "用户选择活动 / Campaign 资料模板并导入方案、物料或复盘时使用。",
+        "需要维护 campaign-operations / data pack 时使用。",
+      ],
+      bundleRefId: "campaign-operations-knowledge-builder-bundle",
+      slotProfileRef: "operations-knowledge-builder-slots",
+      bindingProfileRef: "native-skill-instant",
+      artifactProfileRef: "knowledge-builder-document-first-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-internal-only",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: [
+        "把活动目标、节奏、渠道、物料、风险和复盘沉淀为可协同 persona 的 data pack。",
+        "运行时只消费生成后的 KnowledgePack，不执行 Builder Skill。",
+      ],
+      setupRequirements: [
+        "需要已选择可用模型。",
+        "需要活动方案、物料或复盘来源资料。",
+      ],
+      examples: [
+        "把这次私域活动的方案、物料清单和复盘整理成活动运营知识库。",
+        "基于 Campaign 资料沉淀一份可复用活动 SOP。",
+      ],
+      skillBundleMetadata: {
+        Ember_knowledge_builder: "true",
+        Ember_knowledge_pack_type: "campaign-operations",
+        Ember_knowledge_template: "campaign-operations",
+        Ember_knowledge_family: "data",
+        Ember_agent_knowledge_profile: "document-first",
+        Ember_agent_knowledge_runtime_mode: "data",
+        Ember_skill_bundle_path:
+          "ember-rs/resources/default-skills/campaign-operations-knowledge-builder",
+        Ember_skill_bundle_version: "1.0.0",
+      },
+      skillBundleResourceSummary: {
+        hasScripts: false,
+        hasReferences: true,
+        hasAssets: false,
+      },
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+    {
+      id: "brand-product-knowledge-builder",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "brand-product-knowledge-builder",
+      skillKey: "brand-product-knowledge-builder",
+      skillType: "service",
+      title: "品牌产品知识库生成器",
+      summary:
+        "把产品事实、规格、卖点证据、FAQ、价格权益和合规边界整理成 document-first 产品资料包。",
+      entryHint: "由项目资料整理流程自动调用；普通用户看到“品牌产品”资料模板。",
+      aliases: [
+        "产品知识库",
+        "产品 FAQ",
+        "产品资料包",
+        "brand product builder",
+      ],
+      category: "项目资料",
+      outputHint: "document-first 品牌产品知识库",
+      triggerHints: [
+        "用户选择品牌产品资料模板并导入手册、FAQ、价格或客服资料时使用。",
+        "需要维护 brand-product / data pack 时使用。",
+      ],
+      bundleRefId: "brand-product-knowledge-builder-bundle",
+      slotProfileRef: "operations-knowledge-builder-slots",
+      bindingProfileRef: "native-skill-instant",
+      artifactProfileRef: "knowledge-builder-document-first-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-internal-only",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: [
+        "把产品事实、卖点证据、FAQ、渠道表达和合规禁区沉淀为 data pack。",
+        "运行时只消费生成后的 KnowledgePack，可与 persona pack 协同进入上下文。",
+      ],
+      setupRequirements: [
+        "需要已选择可用模型。",
+        "需要产品手册、FAQ、价格权益或客服来源资料。",
+      ],
+      examples: [
+        "把产品手册、客服 FAQ 和价格表整理成品牌产品知识库。",
+        "基于产品资料沉淀一份可复用的直播和客服话术边界。",
+      ],
+      skillBundleMetadata: {
+        Ember_knowledge_builder: "true",
+        Ember_knowledge_pack_type: "brand-product",
+        Ember_knowledge_template: "brand-product",
+        Ember_knowledge_family: "data",
+        Ember_agent_knowledge_profile: "document-first",
+        Ember_agent_knowledge_runtime_mode: "data",
+        Ember_skill_bundle_path:
+          "ember-rs/resources/default-skills/brand-product-knowledge-builder",
+        Ember_skill_bundle_version: "1.0.0",
+      },
+      skillBundleResourceSummary: {
+        hasScripts: false,
+        hasReferences: true,
+        hasAssets: false,
+      },
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+    {
+      id: "organization-knowhow-knowledge-builder",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "organization-knowhow-knowledge-builder",
+      skillKey: "organization-knowhow-knowledge-builder",
+      skillType: "service",
+      title: "组织经验知识库生成器",
+      summary:
+        "把团队 SOP、交付流程、角色职责、FAQ、决策边界和复盘整理成 document-first 组织经验资料包。",
+      entryHint: "由项目资料整理流程自动调用；普通用户看到“组织经验”资料模板。",
+      aliases: [
+        "组织知识库",
+        "团队 SOP",
+        "交付流程",
+        "organization knowhow builder",
+      ],
+      category: "项目资料",
+      outputHint: "document-first 组织经验知识库",
+      triggerHints: [
+        "用户选择组织经验资料模板并导入 SOP、复盘或交付资料时使用。",
+        "需要维护 organization-knowhow / data pack 时使用。",
+      ],
+      bundleRefId: "organization-knowhow-knowledge-builder-bundle",
+      slotProfileRef: "operations-knowledge-builder-slots",
+      bindingProfileRef: "native-skill-instant",
+      artifactProfileRef: "knowledge-builder-document-first-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-internal-only",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: [
+        "把角色职责、SOP、检查点、升级机制和复盘经验沉淀为 data pack。",
+        "运行时只消费生成后的 KnowledgePack，不执行 Builder Skill。",
+      ],
+      setupRequirements: [
+        "需要已选择可用模型。",
+        "需要团队 SOP、交付流程、复盘或 FAQ 来源资料。",
+      ],
+      examples: [
+        "把项目交付 SOP、会议纪要和复盘整理成组织经验知识库。",
+        "基于团队资料生成一份可复用的新成员 onboarding 知识库。",
+      ],
+      skillBundleMetadata: {
+        Ember_knowledge_builder: "true",
+        Ember_knowledge_pack_type: "organization-knowhow",
+        Ember_knowledge_template: "organization-knowhow",
+        Ember_knowledge_family: "data",
+        Ember_agent_knowledge_profile: "document-first",
+        Ember_agent_knowledge_runtime_mode: "data",
+        Ember_skill_bundle_path:
+          "ember-rs/resources/default-skills/organization-knowhow-knowledge-builder",
+        Ember_skill_bundle_version: "1.0.0",
+      },
+      skillBundleResourceSummary: {
+        hasScripts: false,
+        hasReferences: true,
+        hasAssets: false,
+      },
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+    {
+      id: "growth-strategy-knowledge-builder",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "growth-strategy-knowledge-builder",
+      skillKey: "growth-strategy-knowledge-builder",
+      skillType: "service",
+      title: "增长策略知识库生成器",
+      summary:
+        "把增长目标、指标体系、渠道策略、实验计划、资源约束和复盘整理成 document-first 增长资料包。",
+      entryHint: "由项目资料整理流程自动调用；普通用户看到“增长策略”资料模板。",
+      aliases: [
+        "增长知识库",
+        "增长策略",
+        "实验复盘",
+        "growth strategy builder",
+      ],
+      category: "项目资料",
+      outputHint: "document-first 增长策略知识库",
+      triggerHints: [
+        "用户选择增长策略资料模板并导入增长计划、指标或复盘时使用。",
+        "需要维护 growth-strategy / data pack 时使用。",
+      ],
+      bundleRefId: "growth-strategy-knowledge-builder-bundle",
+      slotProfileRef: "operations-knowledge-builder-slots",
+      bindingProfileRef: "native-skill-instant",
+      artifactProfileRef: "knowledge-builder-document-first-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-internal-only",
+      readinessRequirements: {
+        requiresModel: true,
+        requiresProject: true,
+      },
+      usageGuidelines: [
+        "把增长目标、指标口径、渠道策略、实验计划和停止条件沉淀为 data pack。",
+        "运行时只消费生成后的 KnowledgePack，可与 persona pack 协同进入上下文。",
+      ],
+      setupRequirements: [
+        "需要已选择可用模型。",
+        "需要增长计划、指标看板、渠道复盘或商业计划来源资料。",
+      ],
+      examples: [
+        "把季度增长计划、指标口径和渠道复盘整理成增长策略知识库。",
+        "基于实验记录沉淀一份可复用的增长实验与停止条件资料包。",
+      ],
+      skillBundleMetadata: {
+        Ember_knowledge_builder: "true",
+        Ember_knowledge_pack_type: "growth-strategy",
+        Ember_knowledge_template: "growth-strategy",
+        Ember_knowledge_family: "data",
+        Ember_agent_knowledge_profile: "document-first",
+        Ember_agent_knowledge_runtime_mode: "data",
+        Ember_skill_bundle_path:
+          "ember-rs/resources/default-skills/growth-strategy-knowledge-builder",
+        Ember_skill_bundle_version: "1.0.0",
+      },
+      skillBundleResourceSummary: {
+        hasScripts: false,
+        hasReferences: true,
+        hasAssets: false,
+      },
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+  ],
+  slotProfiles: [
+    {
+      id: "carousel-post-replication-slots",
+      slots: [
+        {
+          key: "reference_post",
+          label: "参考帖子",
+          type: "textarea",
+          required: true,
+          placeholder: "粘贴参考轮播帖链接、正文或结构摘要",
+        },
+        {
+          key: "delivery_mode",
+          label: "执行方式",
+          type: "enum",
+          required: true,
+          defaultValue: "one_to_one",
+          placeholder: "选择复制方式",
+          options: [
+            { value: "one_to_one", label: "1:1 复刻" },
+            { value: "expand", label: "同风格扩写" },
+          ],
+        },
+        {
+          key: "platform",
+          label: "发布平台",
+          type: "platform",
+          required: true,
+          defaultValue: "xiaohongshu",
+          placeholder: "选择发布平台",
+          options: [...PLATFORM_OPTIONS],
+        },
+        {
+          key: "must_keep",
+          label: "必须保留的信息",
+          type: "textarea",
+          required: false,
+          placeholder: "例如品牌名、核心结论、活动信息",
+        },
+      ],
+    },
+    {
+      id: "short-video-script-replication-slots",
+      slots: [
+        {
+          key: "reference_video",
+          label: "参考视频链接/素材",
+          type: "url",
+          required: true,
+          placeholder: "输入视频链接，或粘贴素材描述",
+        },
+        {
+          key: "script_mode",
+          label: "脚本模式",
+          type: "enum",
+          required: true,
+          defaultValue: "replicate",
+          placeholder: "选择脚本模式",
+          options: [
+            { value: "replicate", label: "贴近原结构" },
+            { value: "expand", label: "同风格扩展" },
+          ],
+        },
+        {
+          key: "platform",
+          label: "发布平台",
+          type: "platform",
+          required: true,
+          defaultValue: "douyin",
+          placeholder: "选择发布平台",
+          options: [...PLATFORM_OPTIONS],
+        },
+        {
+          key: "focus_changes",
+          label: "重点调整点",
+          type: "textarea",
+          required: false,
+          placeholder: "例如语气更克制、减少夸张表述、加强转化 CTA",
+        },
+      ],
+    },
+    {
+      id: "article-to-slide-video-outline-slots",
+      slots: [
+        {
+          key: "article_source",
+          label: "文章链接/正文",
+          type: "textarea",
+          required: true,
+          placeholder: "输入文章链接、正文，或文章摘要",
+        },
+        {
+          key: "target_duration",
+          label: "目标时长",
+          type: "text",
+          required: true,
+          defaultValue: "60-90 秒",
+          placeholder: "例如 60-90 秒",
+        },
+        {
+          key: "platform",
+          label: "发布平台",
+          type: "platform",
+          required: true,
+          defaultValue: "bilibili",
+          placeholder: "选择发布平台",
+          options: [...PLATFORM_OPTIONS],
+        },
+      ],
+    },
+    {
+      id: "story-video-suite-slots",
+      slots: [
+        {
+          key: "source_material",
+          label: "活动 / 内容素材",
+          type: "textarea",
+          required: true,
+          placeholder: "粘贴活动介绍、产品卖点、文章摘要或脚本素材",
+        },
+        {
+          key: "target_duration",
+          label: "目标时长",
+          type: "text",
+          required: false,
+          defaultValue: "45-60 秒",
+          placeholder: "例如 30 秒、45-60 秒、90 秒",
+        },
+        {
+          key: "platform",
+          label: "发布平台",
+          type: "platform",
+          required: false,
+          defaultValue: "douyin",
+          placeholder: "选择发布平台",
+          options: [...PLATFORM_OPTIONS],
+        },
+      ],
+    },
+    {
+      id: "cloud-video-dubbing-slots",
+      slots: [
+        {
+          key: "reference_video",
+          label: "参考视频链接/素材",
+          type: "url",
+          required: true,
+          placeholder: "输入视频链接，或在命令里补充素材说明",
+        },
+        {
+          key: "target_language",
+          label: "目标语言",
+          type: "text",
+          required: false,
+          defaultValue: "中文",
+          placeholder: "例如 中文、英文、日文",
+        },
+        {
+          key: "voice_style",
+          label: "旁白风格",
+          type: "text",
+          required: false,
+          defaultValue: "自然清晰",
+          placeholder: "例如 自然清晰、科技感、温柔讲解",
+        },
+      ],
+    },
+    {
+      id: "video-dubbing-language-slots",
+      slots: [
+        {
+          key: "video_source",
+          label: "视频链接/素材",
+          type: "url",
+          required: true,
+          placeholder: "输入视频链接，或补充素材说明",
+        },
+        {
+          key: "target_language",
+          label: "目标语言",
+          type: "text",
+          required: true,
+          defaultValue: "英文",
+          placeholder: "例如 英文、日文、西班牙语",
+        },
+        {
+          key: "subtitle_preference",
+          label: "字幕要求",
+          type: "enum",
+          required: false,
+          defaultValue: "keep_original",
+          placeholder: "选择字幕要求",
+          options: [
+            { value: "keep_original", label: "保留原字幕" },
+            { value: "bilingual", label: "中英双语字幕" },
+            { value: "dub_only", label: "只做配音稿" },
+          ],
+        },
+      ],
+    },
+    {
+      id: "daily-trend-briefing-slots",
+      slots: [
+        {
+          key: "platform",
+          label: "监测平台",
+          type: "platform",
+          required: true,
+          defaultValue: "x",
+          placeholder: "选择监测平台",
+          options: [...PLATFORM_OPTIONS],
+        },
+        {
+          key: "industry_keywords",
+          label: "行业关键词",
+          type: "textarea",
+          required: true,
+          placeholder: "例如 AI Agent、短剧出海、跨境电商",
+        },
+        {
+          key: "time_window",
+          label: "时间范围",
+          type: "text",
+          required: true,
+          defaultValue: "过去 24 小时",
+          placeholder: "例如 过去 24 小时、过去 7 天",
+        },
+        {
+          key: "region",
+          label: "地区",
+          type: "text",
+          required: false,
+          defaultValue: "全球",
+          placeholder: "例如 中国、北美、全球",
+        },
+        {
+          key: "schedule_time",
+          label: "推送时间",
+          type: "schedule_time",
+          required: false,
+          defaultValue: "每天 09:00",
+          placeholder: "例如 每天 09:00",
+        },
+      ],
+    },
+    {
+      id: "account-performance-tracking-slots",
+      slots: [
+        {
+          key: "platform",
+          label: "目标平台",
+          type: "platform",
+          required: true,
+          defaultValue: "x",
+          placeholder: "选择账号平台",
+          options: [...PLATFORM_OPTIONS],
+        },
+        {
+          key: "account_list",
+          label: "参考账号 / 目标账号",
+          type: "account_list",
+          required: true,
+          placeholder: "每行一个账号，或用逗号分隔多个账号",
+        },
+        {
+          key: "report_cadence",
+          label: "回报频率",
+          type: "schedule_time",
+          required: false,
+          defaultValue: "每天 10:00",
+          placeholder: "例如 每天 10:00",
+        },
+        {
+          key: "alert_threshold",
+          label: "告警阈值",
+          type: "text",
+          required: false,
+          placeholder: "例如 日增粉低于 1% 或互动率骤降 20%",
+        },
+      ],
+    },
+    {
+      id: "personal-ip-knowledge-builder-slots",
+      slots: [],
+    },
+    {
+      id: "brand-persona-knowledge-builder-slots",
+      slots: [],
+    },
+    {
+      id: "operations-knowledge-builder-slots",
+      slots: [],
+    },
+  ],
+  bindingProfiles: [
+    {
+      id: "agent-turn-instant",
+      bindingFamily: "agent_turn",
+      runnerType: "instant",
+      executionLocation: "client_default",
+    },
+    {
+      id: "native-skill-instant",
+      bindingFamily: "native_skill",
+      runnerType: "instant",
+      executionLocation: "client_default",
+    },
+    {
+      id: "automation-job-scheduled",
+      bindingFamily: "automation_job",
+      runnerType: "scheduled",
+      executionLocation: "client_default",
+    },
+    {
+      id: "automation-job-managed",
+      bindingFamily: "automation_job",
+      runnerType: "managed",
+      executionLocation: "client_default",
+    },
+  ],
+  artifactProfiles: [
+    {
+      id: "carousel-post-replication-artifact",
+      deliveryContract: "artifact_bundle",
+      requiredParts: ["index.md"],
+      viewerKind: "artifact_bundle",
+      defaultArtifactKind: "brief",
+      outputDestination:
+        "结果会写回当前工作区中的内容草稿，方便继续改写和发布。",
+    },
+    {
+      id: "short-video-script-replication-artifact",
+      deliveryContract: "artifact_bundle",
+      requiredParts: ["index.md"],
+      viewerKind: "artifact_bundle",
+      defaultArtifactKind: "brief",
+      outputDestination:
+        "结果会写回当前工作区中的脚本草稿，方便继续补镜头与口播。",
+    },
+    {
+      id: "article-to-slide-video-outline-artifact",
+      deliveryContract: "artifact_bundle",
+      requiredParts: ["index.md"],
+      viewerKind: "artifact_bundle",
+      defaultArtifactKind: "analysis",
+      outputDestination:
+        "结果会写回当前工作区中的提纲文档，方便继续补正文和分镜。",
+    },
+    {
+      id: "story-video-suite-artifact",
+      deliveryContract: "artifact_bundle",
+      requiredParts: ["index.md"],
+      viewerKind: "artifact_bundle",
+      defaultArtifactKind: "brief",
+      outputDestination:
+        "短视频执行稿会写回当前工作区，方便继续补素材、分镜、字幕和剪辑清单。",
+    },
+    {
+      id: "cloud-video-dubbing-artifact",
+      deliveryContract: "artifact_bundle",
+      requiredParts: ["index.md"],
+      viewerKind: "artifact_bundle",
+      defaultArtifactKind: "brief",
+      outputDestination:
+        "配音稿会直接写回当前工作区，方便继续补字幕、旁白和镜头节奏。",
+    },
+    {
+      id: "video-dubbing-language-artifact",
+      deliveryContract: "artifact_bundle",
+      requiredParts: ["index.md"],
+      viewerKind: "artifact_bundle",
+      defaultArtifactKind: "brief",
+      outputDestination:
+        "结果会写回当前工作区中的配音稿，方便继续进入配音与剪辑流程。",
+    },
+    {
+      id: "daily-trend-briefing-artifact",
+      deliveryContract: "artifact_bundle",
+      requiredParts: ["index.md"],
+      viewerKind: "artifact_bundle",
+      defaultArtifactKind: "analysis",
+      outputDestination:
+        "首轮结果会进入当前工作区；后续执行结果会继续回到生成与对应项目内容。",
+    },
+    {
+      id: "account-performance-tracking-artifact",
+      deliveryContract: "artifact_bundle",
+      requiredParts: ["index.md"],
+      viewerKind: "artifact_bundle",
+      defaultArtifactKind: "analysis",
+      outputDestination:
+        "首轮策略会写回当前工作区；后续跟踪结果会持续回流到生成与项目内容。",
+    },
+    {
+      id: "knowledge-builder-document-first-artifact",
+      deliveryContract: "project_pack",
+      requiredParts: ["KNOWLEDGE.md", "documents"],
+      viewerKind: "document",
+      defaultArtifactKind: "brief",
+      outputDestination:
+        "结果写入当前项目的 Agent Knowledge document-first 资料包。",
+    },
+  ],
+  scorecardProfiles: [
+    {
+      id: "seeded-service-skill-scorecard",
+      metrics: ["activation_rate", "completion_rate"],
+    },
+  ],
+  automationProfiles: [
+    {
+      id: "daily-trend-briefing-automation",
+      enabledByDefault: true,
+      schedule: {
+        kind: "cron",
+        cronExpr: "0 9 * * *",
+        cronTz: "Asia/Shanghai",
+        slotKey: "schedule_time",
+      },
+      maxRetries: 2,
+      delivery: {
+        mode: "none",
+        bestEffort: true,
+      },
+    },
+    {
+      id: "account-performance-tracking-automation",
+      enabledByDefault: true,
+      schedule: {
+        kind: "cron",
+        cronExpr: "0 10 * * *",
+        cronTz: "Asia/Shanghai",
+        slotKey: "report_cadence",
+      },
+      maxRetries: 2,
+      delivery: {
+        mode: "none",
+        bestEffort: true,
+      },
+    },
+  ],
+  policyProfiles: [
+    {
+      id: "seeded-all-surfaces",
+      enabled: true,
+      surfaceScopes: [...SEEDED_SERVICE_SKILL_SURFACE_SCOPES],
+      rolloutStage: "seeded",
+    },
+    {
+      id: "seeded-default-policy",
+      enabled: true,
+      rolloutStage: "seeded",
+    },
+    {
+      id: "seeded-internal-only",
+      enabled: true,
+      surfaceScopes: [],
+      rolloutStage: "seeded",
+    },
+    {
+      id: "seeded-workspace-only",
+      enabled: true,
+      surfaceScopes: ["workspace"],
+      rolloutStage: "seeded",
+    },
+  ],
+  compatibility: {
+    minAppVersion: "1.11.0",
+    requiredKernelCapabilities: [
+      "agent_turn",
+      "native_skill",
+      "automation_job",
+      "artifact_viewer",
+      "workspace_storage",
+    ],
+    seededFallback: true,
+    compatCatalogProjection: true,
+  },
+};
+
+const SEEDED_LOCAL_CUSTOM_SERVICE_SKILL_PACKAGE: BaseSetupPackage = {
+  id: "ember-seeded-local-custom-service-skills",
+  version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+  title: "Ember Seeded Local Custom Service Skills",
+  summary: "Ember 内置本地定制场景的基础设置包事实源。",
+  bundleRefs: [
+    {
+      id: "x-article-export-bundle",
+      source: "local",
+      pathOrUri: "seeded://local-custom/x-article-export",
+      kind: "local_bundle",
+    },
+  ],
+  catalogProjections: [
+    {
+      id: "x-article-export",
+      targetCatalog: "service_skill_catalog",
+      entryKey: "x-article-export",
+      skillKey: "x-article-export",
+      skillType: "site",
+      title: "X 文章转存",
+      summary:
+        "复用已连接的 X / Twitter 浏览器登录态，导出长文为 Markdown，并可按目标语言翻译正文后把文内图片一并落到项目目录。",
+      entryHint:
+        "给我 X 文章链接，我会复用现有浏览器上下文抓正文、代码块和图片，并按需要翻译成中文后沉淀到项目导出目录。",
+      aliases: [
+        "x文章转存",
+        "x 长文转存",
+        "twitter article export",
+        "twitter-article-export",
+      ],
+      category: "站点采集",
+      outputHint: "Markdown 正文 + 图片目录 + 元信息",
+      triggerHints: [
+        "需要把 X 长文沉淀到本地项目目录，方便继续改写或引用时使用。",
+        "需要保留文内图片、代码块和标题结构，转换成 Markdown 时使用。",
+      ],
+      bundleRefId: "x-article-export-bundle",
+      slotProfileRef: "x-article-export-slots",
+      bindingProfileRef: "browser-assist-instant",
+      artifactProfileRef: "x-article-export-artifact",
+      scorecardProfileRef: "seeded-service-skill-scorecard",
+      policyProfileRef: "seeded-internal-only",
+      readinessRequirements: {
+        requiresBrowser: true,
+        requiresProject: true,
+      },
+      usageGuidelines: [
+        "优先在已连接浏览器上下文中执行，避免丢失 X 的登录态和长文阅读权限。",
+        "结果会落到当前项目目录，适合后续继续整理、引用和版本管理。",
+      ],
+      setupRequirements: [
+        "需要先在浏览器工作台连接目标浏览器。",
+        "需要当前会话已经选择项目，方便把 Markdown 和图片写入项目目录。",
+      ],
+      examples: [
+        "把这篇 X 长文导出成 Markdown，并把图片一起保存到项目里。",
+        "请转存这条 Twitter Article，并翻译成中文，我后面还要继续改写和引用里面的代码示例。",
+      ],
+      siteCapabilityBinding: {
+        autoRun: true,
+        requireAttachedSession: true,
+        saveMode: "project_resource",
+        siteLabel: "X",
+        adapterMatch: {
+          urlArgName: "url",
+          requiredCapabilities: ["article_export", "markdown_bundle"],
+          hostAliases: ["twitter.com", "www.twitter.com", "www.x.com"],
+        },
+        slotArgMap: {
+          article_url: "url",
+          target_language: "target_language",
+        },
+      },
+      sceneBinding: {
+        sceneKey: "x-article-export",
+        commandPrefix: "/x文章转存",
+        title: "X文章转存",
+        summary:
+          "复用 X / Twitter 登录态，把长文导出成 Markdown，并把文内图片一起写入项目目录。",
+        aliases: [
+          "x文章转存",
+          "x转存",
+          "twitter-article-export",
+          "twitter文章转存",
+        ],
+      },
+      themeTarget: "general",
+      version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
+    },
+  ],
+  slotProfiles: [
+    {
+      id: "x-article-export-slots",
+      slots: [
+        {
+          key: "article_url",
+          label: "X 文章链接",
+          type: "url",
+          required: true,
+          placeholder: "https://x.com/<账号>/article/<文章ID>",
+          helpText: "支持 x.com 和 twitter.com 的 Article 链接。",
+        },
+        {
+          key: "target_language",
+          label: "目标语言",
+          type: "text",
+          required: false,
+          defaultValue: "中文",
+          placeholder: "例如 中文、英文、日文",
+          helpText: "仅翻译正文，代码块、链接和图片路径保持原样。",
+        },
+      ],
+    },
+  ],
+  bindingProfiles: [
+    {
+      id: "browser-assist-instant",
+      bindingFamily: "browser_assist",
+      runnerType: "instant",
+      executionLocation: "client_default",
+    },
+  ],
+  artifactProfiles: [
+    {
+      id: "x-article-export-artifact",
+      deliveryContract: "artifact_bundle",
+      requiredParts: ["index.md", "meta.json"],
+      viewerKind: "artifact_bundle",
+      outputDestination:
+        "结果会写入当前项目目录下的导出文件夹，并在工作区生成一个结果入口文档。",
+    },
+  ],
+  scorecardProfiles: [
+    {
+      id: "seeded-service-skill-scorecard",
+      metrics: ["activation_rate", "completion_rate"],
+    },
+  ],
+  policyProfiles: [
+    {
+      id: "seeded-internal-only",
+      enabled: true,
+      surfaceScopes: [],
+      rolloutStage: "seeded",
+    },
+    {
+      id: "seeded-workspace-only",
+      enabled: true,
+      surfaceScopes: ["workspace"],
+      rolloutStage: "seeded",
+    },
+  ],
+  compatibility: {
+    minAppVersion: "1.11.0",
+    requiredKernelCapabilities: [
+      "browser_assist",
+      "native_skill",
+      "artifact_viewer",
+      "workspace_storage",
+    ],
+    seededFallback: true,
+    compatCatalogProjection: true,
+  },
+};
+
+export function createSeededServiceSkillBaseSetupPackage(): BaseSetupPackage {
+  return JSON.parse(
+    JSON.stringify(SEEDED_SERVICE_SKILL_PACKAGE),
+  ) as BaseSetupPackage;
+}
+
+export function createSeededLocalCustomServiceSkillBaseSetupPackage(): BaseSetupPackage {
+  return JSON.parse(
+    JSON.stringify(SEEDED_LOCAL_CUSTOM_SERVICE_SKILL_PACKAGE),
+  ) as BaseSetupPackage;
+}
+
+export function createSeededCloudServiceSkillCatalog(): ServiceSkillCatalog {
+  return compileBaseSetupPackage(createSeededServiceSkillBaseSetupPackage(), {
+    tenantId: SEEDED_SERVICE_SKILL_CATALOG_TENANT_ID,
+    syncedAt: SEEDED_SERVICE_SKILL_CATALOG_SYNCED_AT,
+  }).serviceSkillCatalogProjection;
+}
+
+export function createSeededLocalCustomServiceSkillCatalog(): ServiceSkillCatalog {
+  return compileBaseSetupPackage(
+    createSeededLocalCustomServiceSkillBaseSetupPackage(),
+    {
+      tenantId: SEEDED_SERVICE_SKILL_CATALOG_TENANT_ID,
+      syncedAt: SEEDED_SERVICE_SKILL_CATALOG_SYNCED_AT,
+    },
+  ).serviceSkillCatalogProjection;
+}

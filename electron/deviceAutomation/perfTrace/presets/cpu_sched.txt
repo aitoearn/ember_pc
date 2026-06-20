@@ -1,0 +1,24 @@
+duration_ms: 30000
+
+buffers {
+  size_kb: 65536
+  fill_policy: DISCARD
+}
+
+data_sources {
+  config {
+    name: "linux.ftrace"
+    ftrace_config {
+      ftrace_events: "sched/sched_switch"
+      ftrace_events: "sched/sched_wakeup"
+      ftrace_events: "power/cpu_frequency"
+      ftrace_events: "power/cpu_idle"
+    }
+  }
+}
+
+data_sources {
+  config {
+    name: "linux.process_stats"
+  }
+}

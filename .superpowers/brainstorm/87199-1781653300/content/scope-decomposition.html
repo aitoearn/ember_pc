@@ -1,0 +1,52 @@
+<h2>需求拆分：先聊哪一块？</h2>
+<p class="subtitle">你选了 B（AI 生成为核心）+ C（与端自动化打通执行）。这两块叠加偏大，我建议拆成可独立交付的阶段。下面是完整数据流，灰色虚线是阶段边界。</p>
+
+<div class="section">
+  <div class="label">完整数据流</div>
+  <div class="mockup">
+    <div class="mockup-header">需求 → 生成 → 管理 → 执行 → 回写</div>
+    <div class="mockup-body">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px">
+        <div class="placeholder" style="margin:0">需求/PRD 文本</div>
+        <span>→</span>
+        <div class="placeholder" style="margin:0;background:#e7f0ff">AI 生成用例<br><span style="font-size:11px;color:#666">草稿预览·挑选·入库</span></div>
+        <span>→</span>
+        <div class="placeholder" style="margin:0;background:#e7f0ff">用例库管理<br><span style="font-size:11px;color:#666">模块树·CRUD·筛选·导入导出</span></div>
+        <span style="color:#aaa">┄┄→</span>
+        <div class="placeholder" style="margin:0;background:#fff0e0">用例→instruction</div>
+        <span>→</span>
+        <div class="placeholder" style="margin:0;background:#fff0e0">端自动化执行<br><span style="font-size:11px;color:#666">ui_agent_start · Android</span></div>
+        <span>→</span>
+        <div class="placeholder" style="margin:0;background:#fff0e0">回写 execResult</div>
+      </div>
+      <p style="font-size:12px;color:#888;margin-top:12px">蓝色 = 阶段一（管理+AI生成，localStorage，纯前端可交付）　橙色 = 阶段二（执行打通，依赖阶段一）</p>
+    </div>
+  </div>
+</div>
+
+<h3>第一阶段先做哪个范围？</h3>
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>阶段一 = 管理 + AI 生成（推荐）</h3>
+      <p>模块树·CRUD·筛选·批量·导入导出 + AI从需求生成（草稿预览再入库）。完整可用、纯前端 localStorage。执行打通(C)作为阶段二单独立项。先把这块做成可交付。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>阶段一 = 管理 + AI 生成 + 最小执行桥</h3>
+      <p>在 A 基础上，额外含一个 P0 执行桥：用例→instruction→在 Android 上跑→回写整体通过/失败。逐步断言留到后续。范围更大但 B+C 一次见效。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>阶段一 = 最小管理闭环</h3>
+      <p>只做模块树·CRUD·筛选·导入导出。AI 生成与执行打通都留到后续阶段。最快出可用页面，但暂时没有你最看重的 AI 生成。</p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle">点选一个，或在终端告诉我你的想法。</p>

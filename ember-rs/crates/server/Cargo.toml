@@ -1,0 +1,47 @@
+[package]
+name = "ember-server"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+ember-core.workspace = true
+ember-config.workspace = true
+ember-infra.workspace = true
+ember-providers.workspace = true
+ember-services.workspace = true
+ember-websocket.workspace = true
+ember-processor.workspace = true
+ember-server-utils.workspace = true
+ember-scheduler.workspace = true
+ember-agent.workspace = true
+aster.workspace = true
+
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+futures.workspace = true
+hex.workspace = true
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+reqwest.workspace = true
+rusqlite.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+base64.workspace = true
+bytes.workspace = true
+regex.workspace = true
+subtle.workspace = true
+async-stream.workspace = true
+urlencoding.workspace = true
+parking_lot.workspace = true
+rand.workspace = true
+sha2.workspace = true
+tokio-util.workspace = true
+dirs.workspace = true
+once_cell.workspace = true
+indexmap.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

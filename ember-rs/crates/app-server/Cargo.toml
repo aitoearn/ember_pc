@@ -1,0 +1,58 @@
+[package]
+name = "app-server"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "app-server"
+path = "src/main.rs"
+
+[lib]
+name = "app_server"
+path = "src/lib.rs"
+doctest = false
+
+[features]
+default = []
+aster-backend = []
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+aster.workspace = true
+base64.workspace = true
+chrono.workspace = true
+chrono-tz.workspace = true
+cron.workspace = true
+dirs.workspace = true
+flate2.workspace = true
+app-server-protocol.workspace = true
+app-server-transport.workspace = true
+ember-core.workspace = true
+ember-gateway.workspace = true
+ember-agent.workspace = true
+ember-knowledge.workspace = true
+ember-media-runtime.workspace = true
+ember-mcp.workspace = true
+ember-skills.workspace = true
+ember-services.workspace = true
+hex.workspace = true
+reqwest.workspace = true
+rusqlite.workspace = true
+scopeguard.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+url.workspace = true
+uuid.workspace = true
+zip.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

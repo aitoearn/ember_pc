@@ -1,0 +1,44 @@
+{
+  "name": "@embercloud/agent-runtime-projection",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Shared Agent Runtime event projection and read-model helpers.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/embercloud/ember.git",
+    "directory": "packages/agent-runtime-projection"
+  },
+  "homepage": "https://github.com/embercloud/ember/tree/main/packages/agent-runtime-projection#readme",
+  "bugs": {
+    "url": "https://github.com/embercloud/ember/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "prepack": "npm run build",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "test": "npm --prefix ../agent-ui-contracts run build && npm run build && node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@embercloud/agent-ui-contracts": "0.1.0"
+  },
+  "sideEffects": false
+}

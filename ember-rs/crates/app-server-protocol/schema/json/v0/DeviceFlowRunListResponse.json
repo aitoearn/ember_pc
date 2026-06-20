@@ -1,0 +1,71 @@
+{
+  "$defs": {
+    "FlowRun": {
+      "description": "一次确定性回放的留痕。",
+      "properties": {
+        "conclusion": {
+          "default": "",
+          "description": "passed / failed / blocked。",
+          "type": "string"
+        },
+        "deviceId": {
+          "default": "",
+          "type": "string"
+        },
+        "finishedAt": {
+          "default": null,
+          "description": "结束时间（RFC3339）；未结束为 null。",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "flowId": {
+          "type": "string"
+        },
+        "healingTriggered": {
+          "default": false,
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "llmTokenUsed": {
+          "default": 0,
+          "description": "大模型 token 消耗；纯确定性回放应为 0，自愈步另计。",
+          "format": "int64",
+          "type": "integer"
+        },
+        "startedAt": {
+          "default": "",
+          "type": "string"
+        },
+        "summary": {
+          "default": "",
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "flowId",
+        "id",
+        "workspaceId"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "runs": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/FlowRun"
+      },
+      "type": "array"
+    }
+  },
+  "title": "DeviceFlowRunListResponse",
+  "type": "object"
+}

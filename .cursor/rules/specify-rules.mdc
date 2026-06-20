@@ -1,0 +1,13 @@
+---
+alwaysApply: true
+---
+
+<!-- SPECKIT START -->
+当前活动功能：确定性可复现测试流与自愈回放（feature/deterministic-flow-self-healing）。
+在 UI 自动测试既有 VLM 自然语言执行之外，新增「录制为结构化流 → 确定性回放（不调大模型）→ 失配自愈降级 VLM 回写」三段闭环。
+技术栈、项目结构、命令与设计细节见实现计划：
+specs/003-deterministic-flow-self-healing/plan.md
+（配套：spec.md / research.md / data-model.md / contracts/ / quickstart.md）
+
+前序功能（参考）：specs/001-test-case-management/plan.md、specs/002-device-performance-monitor/plan.md。
+<!-- SPECKIT END -->

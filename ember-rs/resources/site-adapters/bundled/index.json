@@ -1,0 +1,321 @@
+{
+  "registry_version": 1,
+  "adapters": [
+    {
+      "name": "36kr/newsflash",
+      "domain": "www.36kr.com",
+      "description": "采集 36Kr 快讯列表。",
+      "read_only": true,
+      "capabilities": ["newsflash", "research"],
+      "args": [
+        {
+          "name": "limit",
+          "description": "返回条目数量上限",
+          "required": false,
+          "arg_type": "integer",
+          "example": 8
+        }
+      ],
+      "example": "36kr/newsflash {\"limit\":8}",
+      "entry": {
+        "kind": "fixed_url",
+        "url": "https://www.36kr.com/newsflashes"
+      },
+      "script_file": "scripts/36kr-newsflash.js",
+      "source_version": "2026-03-25"
+    },
+    {
+      "name": "bilibili/search",
+      "domain": "search.bilibili.com",
+      "description": "按关键词采集 B 站视频搜索结果。",
+      "read_only": true,
+      "capabilities": ["search", "video", "research"],
+      "args": [
+        {
+          "name": "query",
+          "description": "搜索关键词",
+          "required": true,
+          "arg_type": "string",
+          "example": "AI Agent"
+        },
+        {
+          "name": "limit",
+          "description": "返回条目数量上限",
+          "required": false,
+          "arg_type": "integer",
+          "example": 5
+        }
+      ],
+      "example": "bilibili/search {\"query\":\"AI Agent\",\"limit\":5}",
+      "entry": {
+        "kind": "url_template",
+        "template": "https://search.bilibili.com/all?keyword={{query|urlencode}}"
+      },
+      "script_file": "scripts/bilibili-search.js",
+      "source_version": "2026-03-25"
+    },
+    {
+      "name": "github/issues",
+      "domain": "github.com",
+      "description": "采集指定 GitHub 仓库的 issue 列表。",
+      "read_only": true,
+      "capabilities": ["issues", "repository", "research"],
+      "args": [
+        {
+          "name": "repo",
+          "description": "GitHub 仓库，格式 owner/name",
+          "required": true,
+          "arg_type": "string",
+          "example": "rust-lang/rust"
+        },
+        {
+          "name": "query",
+          "description": "Issue 搜索关键词，可选",
+          "required": false,
+          "arg_type": "string",
+          "example": "borrow checker"
+        },
+        {
+          "name": "state",
+          "description": "Issue 状态过滤，可选 open/closed/all",
+          "required": false,
+          "arg_type": "string",
+          "example": "open"
+        },
+        {
+          "name": "limit",
+          "description": "返回条目数量上限",
+          "required": false,
+          "arg_type": "integer",
+          "example": 5
+        }
+      ],
+      "example": "github/issues {\"repo\":\"rust-lang/rust\",\"query\":\"borrow checker\",\"limit\":5}",
+      "auth_hint": "私有仓库或受限 issue 需要先在浏览器中登录 GitHub。",
+      "entry": {
+        "kind": "builder",
+        "id": "github_issues"
+      },
+      "script_file": "scripts/github-issues.js",
+      "source_version": "2026-03-25"
+    },
+    {
+      "name": "github/search",
+      "domain": "github.com",
+      "description": "按关键词采集 GitHub 仓库搜索结果。",
+      "read_only": true,
+      "capabilities": ["search", "repository", "research"],
+      "args": [
+        {
+          "name": "query",
+          "description": "搜索关键词",
+          "required": true,
+          "arg_type": "string",
+          "example": "AI Agent"
+        },
+        {
+          "name": "limit",
+          "description": "返回条目数量上限",
+          "required": false,
+          "arg_type": "integer",
+          "example": 5
+        }
+      ],
+      "example": "github/search {\"query\":\"model context protocol\",\"limit\":5}",
+      "auth_hint": "若需要访问更完整的搜索结果，请先在浏览器中登录 GitHub。",
+      "entry": {
+        "kind": "url_template",
+        "template": "https://github.com/search?q={{query|urlencode}}&type=repositories"
+      },
+      "script_file": "scripts/github-search.js",
+      "source_version": "2026-03-25"
+    },
+    {
+      "name": "linux-do/categories",
+      "domain": "linux.do",
+      "description": "读取 linux.do 分类列表。",
+      "read_only": true,
+      "capabilities": ["categories", "community", "research"],
+      "args": [
+        {
+          "name": "limit",
+          "description": "返回分类数量上限",
+          "required": false,
+          "arg_type": "integer",
+          "example": 10
+        }
+      ],
+      "example": "linux-do/categories {\"limit\":10}",
+      "auth_hint": "请先在浏览器中登录 linux.do，再重试该命令。",
+      "entry": {
+        "kind": "fixed_url",
+        "url": "https://linux.do"
+      },
+      "script_file": "scripts/linux-do-categories.js",
+      "source_version": "2026-03-28"
+    },
+    {
+      "name": "linux-do/hot",
+      "domain": "linux.do",
+      "description": "读取 linux.do 热门话题。",
+      "read_only": true,
+      "capabilities": ["hot", "topics", "community", "research"],
+      "args": [
+        {
+          "name": "limit",
+          "description": "返回话题数量上限",
+          "required": false,
+          "arg_type": "integer",
+          "example": 10
+        },
+        {
+          "name": "period",
+          "description": "热门周期，可选 all/daily/weekly/monthly/yearly",
+          "required": false,
+          "arg_type": "string",
+          "example": "weekly"
+        }
+      ],
+      "example": "linux-do/hot {\"period\":\"weekly\",\"limit\":10}",
+      "auth_hint": "请先在浏览器中登录 linux.do，再重试该命令。",
+      "entry": {
+        "kind": "fixed_url",
+        "url": "https://linux.do"
+      },
+      "script_file": "scripts/linux-do-hot.js",
+      "source_version": "2026-03-28"
+    },
+    {
+      "name": "smzdm/search",
+      "domain": "search.smzdm.com",
+      "description": "按关键词采集什么值得买搜索结果。",
+      "read_only": true,
+      "capabilities": ["search", "shopping", "deals", "research"],
+      "args": [
+        {
+          "name": "query",
+          "description": "搜索关键词",
+          "required": true,
+          "arg_type": "string",
+          "example": "Mac mini"
+        },
+        {
+          "name": "limit",
+          "description": "返回条目数量上限",
+          "required": false,
+          "arg_type": "integer",
+          "example": 5
+        }
+      ],
+      "example": "smzdm/search {\"query\":\"Mac mini\",\"limit\":5}",
+      "entry": {
+        "kind": "url_template",
+        "template": "https://search.smzdm.com/?c=home&s={{query|urlencode}}&v=b"
+      },
+      "script_file": "scripts/smzdm-search.js",
+      "source_version": "2026-03-28"
+    },
+    {
+      "name": "yahoo-finance/quote",
+      "domain": "finance.yahoo.com",
+      "description": "读取 Yahoo Finance 股票行情摘要。",
+      "read_only": true,
+      "capabilities": ["quote", "finance", "research"],
+      "args": [
+        {
+          "name": "symbol",
+          "description": "股票代码，例如 AAPL、MSFT",
+          "required": true,
+          "arg_type": "string",
+          "example": "AAPL"
+        }
+      ],
+      "example": "yahoo-finance/quote {\"symbol\":\"AAPL\"}",
+      "entry": {
+        "kind": "url_template",
+        "template": "https://finance.yahoo.com/quote/{{symbol|urlencode}}/"
+      },
+      "script_file": "scripts/yahoo-finance-quote.js",
+      "source_version": "2026-03-28"
+    },
+    {
+      "name": "x/article-export",
+      "domain": "x.com",
+      "description": "把 X 长文导出为 Markdown 正文和图片资源包。",
+      "read_only": true,
+      "capabilities": ["article_export", "markdown_bundle", "research"],
+      "args": [
+        {
+          "name": "url",
+          "description": "X 长文链接，格式 https://x.com/<账号>/article/<文章ID>",
+          "required": true,
+          "arg_type": "string",
+          "example": "https://x.com/GoogleCloudTech/article/2033953579824758855"
+        }
+      ],
+      "example": "x/article-export {\"url\":\"https://x.com/GoogleCloudTech/article/2033953579824758855\"}",
+      "auth_hint": "如果页面内容未完整加载，请先在浏览器中登录 X 并打开目标文章页面。",
+      "entry": {
+        "kind": "builder",
+        "id": "x_article_export"
+      },
+      "script_file": "scripts/x-article-export.js",
+      "source_version": "2026-04-08"
+    },
+    {
+      "name": "zhihu/hot",
+      "domain": "www.zhihu.com",
+      "description": "采集知乎热榜问题列表。",
+      "read_only": true,
+      "capabilities": ["hot", "feed", "research"],
+      "args": [
+        {
+          "name": "limit",
+          "description": "返回条目数量上限",
+          "required": false,
+          "arg_type": "integer",
+          "example": 5
+        }
+      ],
+      "example": "zhihu/hot {\"limit\":5}",
+      "auth_hint": "请先在浏览器中登录知乎，再重试该命令。",
+      "entry": {
+        "kind": "fixed_url",
+        "url": "https://www.zhihu.com/hot"
+      },
+      "script_file": "scripts/zhihu-hot.js",
+      "source_version": "2026-03-25"
+    },
+    {
+      "name": "zhihu/search",
+      "domain": "www.zhihu.com",
+      "description": "按关键词采集知乎搜索结果。",
+      "read_only": true,
+      "capabilities": ["search", "research"],
+      "args": [
+        {
+          "name": "query",
+          "description": "搜索关键词",
+          "required": true,
+          "arg_type": "string",
+          "example": "AI Agent"
+        },
+        {
+          "name": "limit",
+          "description": "返回条目数量上限",
+          "required": false,
+          "arg_type": "integer",
+          "example": 5
+        }
+      ],
+      "example": "zhihu/search {\"query\":\"AI Agent\",\"limit\":5}",
+      "auth_hint": "请先在浏览器中登录知乎，再重试该命令。",
+      "entry": {
+        "kind": "url_template",
+        "template": "https://www.zhihu.com/search?type=content&q={{query|urlencode}}"
+      },
+      "script_file": "scripts/zhihu-search.js",
+      "source_version": "2026-03-25"
+    }
+  ]
+}

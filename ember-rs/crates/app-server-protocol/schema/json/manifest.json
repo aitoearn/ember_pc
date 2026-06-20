@@ -1,0 +1,1600 @@
+{
+  "jsonRpc": {
+    "envelopes": [
+      "error",
+      "notification",
+      "request",
+      "response"
+    ],
+    "sendsJsonRpcVersionField": false,
+    "version": "2.0"
+  },
+  "methods": [
+    {
+      "kind": "request",
+      "method": "agentAppInstalled/disabled/set"
+    },
+    {
+      "kind": "request",
+      "method": "agentAppInstalled/list"
+    },
+    {
+      "kind": "request",
+      "method": "agentAppInstalled/save"
+    },
+    {
+      "kind": "request",
+      "method": "agentAppInstalled/uninstall"
+    },
+    {
+      "kind": "request",
+      "method": "agentAppInstalled/uninstall/rehearsal"
+    },
+    {
+      "kind": "request",
+      "method": "agentAppLocalPackage/inspect"
+    },
+    {
+      "kind": "request",
+      "method": "agentAppPackage/fetchCloud"
+    },
+    {
+      "kind": "request",
+      "method": "agentAppShell/prepare"
+    },
+    {
+      "kind": "request",
+      "method": "agentAppUiRuntime/start"
+    },
+    {
+      "kind": "request",
+      "method": "agentAppUiRuntime/status"
+    },
+    {
+      "kind": "request",
+      "method": "agentAppUiRuntime/stop"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/action/replay"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/action/respond"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/analysisHandoff/export"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/archiveMany"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/compact"
+    },
+    {
+      "kind": "notification",
+      "method": "agentSession/event"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/fileCheckpoint/diff"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/fileCheckpoint/get"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/fileCheckpoint/list"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/fileCheckpoint/restore"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/handoffBundle/export"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/list"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/objective/audit"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/objective/clear"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/objective/continue"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/objective/read"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/objective/set"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/objective/status/update"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/queuedTurn/promote"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/queuedTurn/remove"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/read"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/replayCase/export"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/reviewDecision/save"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/reviewDecisionTemplate/export"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/start"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/thread/resume"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/turn/cancel"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/turn/start"
+    },
+    {
+      "kind": "request",
+      "method": "agentSession/update"
+    },
+    {
+      "kind": "request",
+      "method": "artifact/read"
+    },
+    {
+      "kind": "request",
+      "method": "automationJob/create"
+    },
+    {
+      "kind": "request",
+      "method": "automationJob/delete"
+    },
+    {
+      "kind": "request",
+      "method": "automationJob/health"
+    },
+    {
+      "kind": "request",
+      "method": "automationJob/list"
+    },
+    {
+      "kind": "request",
+      "method": "automationJob/read"
+    },
+    {
+      "kind": "request",
+      "method": "automationJob/runHistory"
+    },
+    {
+      "kind": "request",
+      "method": "automationJob/runNow"
+    },
+    {
+      "kind": "request",
+      "method": "automationJob/update"
+    },
+    {
+      "kind": "request",
+      "method": "automationSchedule/preview"
+    },
+    {
+      "kind": "request",
+      "method": "automationSchedule/validate"
+    },
+    {
+      "kind": "request",
+      "method": "automationScheduler/config/read"
+    },
+    {
+      "kind": "request",
+      "method": "automationScheduler/config/update"
+    },
+    {
+      "kind": "request",
+      "method": "automationScheduler/status"
+    },
+    {
+      "kind": "request",
+      "method": "capability/list"
+    },
+    {
+      "kind": "request",
+      "method": "connectCallback/send"
+    },
+    {
+      "kind": "request",
+      "method": "connectDeepLink/resolve"
+    },
+    {
+      "kind": "request",
+      "method": "connectOpenDeepLink/resolve"
+    },
+    {
+      "kind": "request",
+      "method": "connectRelayApiKey/save"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlow/delete"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlow/list"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlow/read"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlow/save"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlowHealing/list"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlowHealing/resolve"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlowHealing/save"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlowRun/list"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlowRun/read"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlowRun/save"
+    },
+    {
+      "kind": "request",
+      "method": "diagnostics/logStorage/read"
+    },
+    {
+      "kind": "request",
+      "method": "diagnostics/server/read"
+    },
+    {
+      "kind": "request",
+      "method": "diagnostics/supportBundle/export"
+    },
+    {
+      "kind": "request",
+      "method": "diagnostics/windowsStartup/read"
+    },
+    {
+      "kind": "request",
+      "method": "discordChannel/probe"
+    },
+    {
+      "kind": "request",
+      "method": "evidence/export"
+    },
+    {
+      "kind": "request",
+      "method": "feishuChannel/probe"
+    },
+    {
+      "kind": "request",
+      "method": "fileSystem/createDirectory"
+    },
+    {
+      "kind": "request",
+      "method": "fileSystem/createFile"
+    },
+    {
+      "kind": "request",
+      "method": "fileSystem/deleteFile"
+    },
+    {
+      "kind": "request",
+      "method": "fileSystem/listDirectory"
+    },
+    {
+      "kind": "request",
+      "method": "fileSystem/readFilePreview"
+    },
+    {
+      "kind": "request",
+      "method": "fileSystem/renameFile"
+    },
+    {
+      "kind": "request",
+      "method": "galleryMaterial/get"
+    },
+    {
+      "kind": "request",
+      "method": "galleryMaterial/listByImageCategory"
+    },
+    {
+      "kind": "request",
+      "method": "galleryMaterial/listByLayoutCategory"
+    },
+    {
+      "kind": "request",
+      "method": "galleryMaterial/listByMood"
+    },
+    {
+      "kind": "request",
+      "method": "galleryMaterialMetadata/create"
+    },
+    {
+      "kind": "request",
+      "method": "galleryMaterialMetadata/delete"
+    },
+    {
+      "kind": "request",
+      "method": "galleryMaterialMetadata/get"
+    },
+    {
+      "kind": "request",
+      "method": "galleryMaterialMetadata/update"
+    },
+    {
+      "kind": "request",
+      "method": "gatewayChannel/start"
+    },
+    {
+      "kind": "request",
+      "method": "gatewayChannel/status"
+    },
+    {
+      "kind": "request",
+      "method": "gatewayChannel/stop"
+    },
+    {
+      "kind": "request",
+      "method": "gatewayTunnel/cloudflared/detect"
+    },
+    {
+      "kind": "request",
+      "method": "gatewayTunnel/cloudflared/install"
+    },
+    {
+      "kind": "request",
+      "method": "gatewayTunnel/create"
+    },
+    {
+      "kind": "request",
+      "method": "gatewayTunnel/probe"
+    },
+    {
+      "kind": "request",
+      "method": "gatewayTunnel/restart"
+    },
+    {
+      "kind": "request",
+      "method": "gatewayTunnel/start"
+    },
+    {
+      "kind": "request",
+      "method": "gatewayTunnel/status"
+    },
+    {
+      "kind": "request",
+      "method": "gatewayTunnel/stop"
+    },
+    {
+      "kind": "request",
+      "method": "gatewayTunnel/syncWebhookUrl"
+    },
+    {
+      "kind": "request",
+      "method": "initialize"
+    },
+    {
+      "kind": "notification",
+      "method": "initialized"
+    },
+    {
+      "kind": "request",
+      "method": "knowledgeContext/resolve"
+    },
+    {
+      "kind": "request",
+      "method": "knowledgeContextRun/validate"
+    },
+    {
+      "kind": "request",
+      "method": "knowledgePack/compile"
+    },
+    {
+      "kind": "request",
+      "method": "knowledgePack/default/set"
+    },
+    {
+      "kind": "request",
+      "method": "knowledgePack/list"
+    },
+    {
+      "kind": "request",
+      "method": "knowledgePack/read"
+    },
+    {
+      "kind": "request",
+      "method": "knowledgePack/source/import"
+    },
+    {
+      "kind": "request",
+      "method": "knowledgePack/status/update"
+    },
+    {
+      "kind": "request",
+      "method": "log/clear"
+    },
+    {
+      "kind": "request",
+      "method": "log/diagnosticHistory/clear"
+    },
+    {
+      "kind": "request",
+      "method": "log/list"
+    },
+    {
+      "kind": "request",
+      "method": "log/persistedTail"
+    },
+    {
+      "kind": "request",
+      "method": "mcpPrompt/get"
+    },
+    {
+      "kind": "request",
+      "method": "mcpPrompt/list"
+    },
+    {
+      "kind": "request",
+      "method": "mcpResource/list"
+    },
+    {
+      "kind": "request",
+      "method": "mcpResource/read"
+    },
+    {
+      "kind": "request",
+      "method": "mcpServer/create"
+    },
+    {
+      "kind": "request",
+      "method": "mcpServer/delete"
+    },
+    {
+      "kind": "request",
+      "method": "mcpServer/enabled/set"
+    },
+    {
+      "kind": "request",
+      "method": "mcpServer/importFromApp"
+    },
+    {
+      "kind": "request",
+      "method": "mcpServer/list"
+    },
+    {
+      "kind": "request",
+      "method": "mcpServer/start"
+    },
+    {
+      "kind": "request",
+      "method": "mcpServer/stop"
+    },
+    {
+      "kind": "request",
+      "method": "mcpServer/syncAllToLive"
+    },
+    {
+      "kind": "request",
+      "method": "mcpServer/update"
+    },
+    {
+      "kind": "request",
+      "method": "mcpServerStatus/list"
+    },
+    {
+      "kind": "request",
+      "method": "mcpTool/call"
+    },
+    {
+      "kind": "request",
+      "method": "mcpTool/callWithCaller"
+    },
+    {
+      "kind": "request",
+      "method": "mcpTool/list"
+    },
+    {
+      "kind": "request",
+      "method": "mcpTool/listForContext"
+    },
+    {
+      "kind": "request",
+      "method": "mcpTool/search"
+    },
+    {
+      "kind": "request",
+      "method": "mediaTaskArtifact/audio/complete"
+    },
+    {
+      "kind": "request",
+      "method": "mediaTaskArtifact/audio/create"
+    },
+    {
+      "kind": "request",
+      "method": "mediaTaskArtifact/cancel"
+    },
+    {
+      "kind": "request",
+      "method": "mediaTaskArtifact/get"
+    },
+    {
+      "kind": "request",
+      "method": "mediaTaskArtifact/image/create"
+    },
+    {
+      "kind": "request",
+      "method": "mediaTaskArtifact/list"
+    },
+    {
+      "kind": "request",
+      "method": "mediaTaskArtifact/video/create"
+    },
+    {
+      "kind": "request",
+      "method": "model/list"
+    },
+    {
+      "kind": "request",
+      "method": "modelPreferences/list"
+    },
+    {
+      "kind": "request",
+      "method": "modelProvider/catalog/list"
+    },
+    {
+      "kind": "request",
+      "method": "modelProvider/create"
+    },
+    {
+      "kind": "request",
+      "method": "modelProvider/delete"
+    },
+    {
+      "kind": "request",
+      "method": "modelProvider/fetchModels"
+    },
+    {
+      "kind": "request",
+      "method": "modelProvider/list"
+    },
+    {
+      "kind": "request",
+      "method": "modelProvider/read"
+    },
+    {
+      "kind": "request",
+      "method": "modelProvider/sortOrders/update"
+    },
+    {
+      "kind": "request",
+      "method": "modelProvider/testChat"
+    },
+    {
+      "kind": "request",
+      "method": "modelProvider/testConnection"
+    },
+    {
+      "kind": "request",
+      "method": "modelProvider/update"
+    },
+    {
+      "kind": "request",
+      "method": "modelProviderAlias/list"
+    },
+    {
+      "kind": "request",
+      "method": "modelProviderAlias/read"
+    },
+    {
+      "kind": "request",
+      "method": "modelProviderConfig/export"
+    },
+    {
+      "kind": "request",
+      "method": "modelProviderConfig/import"
+    },
+    {
+      "kind": "request",
+      "method": "modelProviderKey/create"
+    },
+    {
+      "kind": "request",
+      "method": "modelProviderKey/delete"
+    },
+    {
+      "kind": "request",
+      "method": "modelProviderKey/error/record"
+    },
+    {
+      "kind": "request",
+      "method": "modelProviderKey/next"
+    },
+    {
+      "kind": "request",
+      "method": "modelProviderKey/update"
+    },
+    {
+      "kind": "request",
+      "method": "modelProviderKey/usage/record"
+    },
+    {
+      "kind": "request",
+      "method": "modelProviderUiState/read"
+    },
+    {
+      "kind": "request",
+      "method": "modelProviderUiState/write"
+    },
+    {
+      "kind": "request",
+      "method": "modelSyncState/read"
+    },
+    {
+      "kind": "request",
+      "method": "perfMonitor/session/list"
+    },
+    {
+      "kind": "request",
+      "method": "perfMonitor/session/read"
+    },
+    {
+      "kind": "request",
+      "method": "perfMonitor/session/save"
+    },
+    {
+      "kind": "request",
+      "method": "projectGit/branch/checkout"
+    },
+    {
+      "kind": "request",
+      "method": "projectGit/branch/create"
+    },
+    {
+      "kind": "request",
+      "method": "projectGit/status"
+    },
+    {
+      "kind": "request",
+      "method": "projectGit/worktree/create"
+    },
+    {
+      "kind": "request",
+      "method": "projectMaterial/content"
+    },
+    {
+      "kind": "request",
+      "method": "projectMaterial/count"
+    },
+    {
+      "kind": "request",
+      "method": "projectMaterial/delete"
+    },
+    {
+      "kind": "request",
+      "method": "projectMaterial/get"
+    },
+    {
+      "kind": "request",
+      "method": "projectMaterial/importFromUrl"
+    },
+    {
+      "kind": "request",
+      "method": "projectMaterial/list"
+    },
+    {
+      "kind": "request",
+      "method": "projectMaterial/update"
+    },
+    {
+      "kind": "request",
+      "method": "projectMaterial/upload"
+    },
+    {
+      "kind": "request",
+      "method": "projectMemory/read"
+    },
+    {
+      "kind": "request",
+      "method": "sessionFile/delete"
+    },
+    {
+      "kind": "request",
+      "method": "sessionFile/getOrCreate"
+    },
+    {
+      "kind": "request",
+      "method": "sessionFile/list"
+    },
+    {
+      "kind": "request",
+      "method": "sessionFile/read"
+    },
+    {
+      "kind": "request",
+      "method": "sessionFile/resolvePath"
+    },
+    {
+      "kind": "request",
+      "method": "sessionFile/save"
+    },
+    {
+      "kind": "request",
+      "method": "sessionFile/updateMeta"
+    },
+    {
+      "kind": "request",
+      "method": "skill/list"
+    },
+    {
+      "kind": "request",
+      "method": "skill/read"
+    },
+    {
+      "kind": "request",
+      "method": "skillCache/refresh"
+    },
+    {
+      "kind": "request",
+      "method": "skillInstalledDirectories/list"
+    },
+    {
+      "kind": "request",
+      "method": "skillLocal/detail/inspect"
+    },
+    {
+      "kind": "request",
+      "method": "skillLocal/import"
+    },
+    {
+      "kind": "request",
+      "method": "skillLocal/inspect"
+    },
+    {
+      "kind": "request",
+      "method": "skillLocal/rename"
+    },
+    {
+      "kind": "request",
+      "method": "skillLocal/scaffold/create"
+    },
+    {
+      "kind": "request",
+      "method": "skillManagement/install"
+    },
+    {
+      "kind": "request",
+      "method": "skillManagement/list"
+    },
+    {
+      "kind": "request",
+      "method": "skillManagement/uninstall"
+    },
+    {
+      "kind": "request",
+      "method": "skillMarketplace/install"
+    },
+    {
+      "kind": "request",
+      "method": "skillPackage/download/install"
+    },
+    {
+      "kind": "request",
+      "method": "skillPackage/export"
+    },
+    {
+      "kind": "request",
+      "method": "skillPackage/local/inspect"
+    },
+    {
+      "kind": "request",
+      "method": "skillPackage/local/install"
+    },
+    {
+      "kind": "request",
+      "method": "skillPackage/local/replace"
+    },
+    {
+      "kind": "request",
+      "method": "skillRemote/inspect"
+    },
+    {
+      "kind": "request",
+      "method": "skillRepository/delete"
+    },
+    {
+      "kind": "request",
+      "method": "skillRepository/list"
+    },
+    {
+      "kind": "request",
+      "method": "skillRepository/save"
+    },
+    {
+      "kind": "request",
+      "method": "telegramChannel/probe"
+    },
+    {
+      "kind": "request",
+      "method": "testCase/delete"
+    },
+    {
+      "kind": "request",
+      "method": "testCase/list"
+    },
+    {
+      "kind": "request",
+      "method": "testCase/read"
+    },
+    {
+      "kind": "request",
+      "method": "testCase/save"
+    },
+    {
+      "kind": "request",
+      "method": "testCaseModule/delete"
+    },
+    {
+      "kind": "request",
+      "method": "testCaseModule/list"
+    },
+    {
+      "kind": "request",
+      "method": "testCaseModule/save"
+    },
+    {
+      "kind": "request",
+      "method": "testCaseRun/list"
+    },
+    {
+      "kind": "request",
+      "method": "testCaseRun/save"
+    },
+    {
+      "kind": "request",
+      "method": "unifiedMemory/analyze"
+    },
+    {
+      "kind": "request",
+      "method": "unifiedMemory/create"
+    },
+    {
+      "kind": "request",
+      "method": "unifiedMemory/delete"
+    },
+    {
+      "kind": "request",
+      "method": "unifiedMemory/get"
+    },
+    {
+      "kind": "request",
+      "method": "unifiedMemory/hybridSearch"
+    },
+    {
+      "kind": "request",
+      "method": "unifiedMemory/list"
+    },
+    {
+      "kind": "request",
+      "method": "unifiedMemory/search"
+    },
+    {
+      "kind": "request",
+      "method": "unifiedMemory/semanticSearch"
+    },
+    {
+      "kind": "request",
+      "method": "unifiedMemory/stats"
+    },
+    {
+      "kind": "request",
+      "method": "unifiedMemory/update"
+    },
+    {
+      "kind": "request",
+      "method": "usageStats/dailyTrends/list"
+    },
+    {
+      "kind": "request",
+      "method": "usageStats/modelRanking/list"
+    },
+    {
+      "kind": "request",
+      "method": "usageStats/read"
+    },
+    {
+      "kind": "request",
+      "method": "voiceAsrCredential/create"
+    },
+    {
+      "kind": "request",
+      "method": "voiceAsrCredential/default/set"
+    },
+    {
+      "kind": "request",
+      "method": "voiceAsrCredential/delete"
+    },
+    {
+      "kind": "request",
+      "method": "voiceAsrCredential/list"
+    },
+    {
+      "kind": "request",
+      "method": "voiceAsrCredential/test"
+    },
+    {
+      "kind": "request",
+      "method": "voiceAsrCredential/update"
+    },
+    {
+      "kind": "request",
+      "method": "voiceInstruction/delete"
+    },
+    {
+      "kind": "request",
+      "method": "voiceInstruction/list"
+    },
+    {
+      "kind": "request",
+      "method": "voiceInstruction/save"
+    },
+    {
+      "kind": "request",
+      "method": "voiceModel/default/set"
+    },
+    {
+      "kind": "request",
+      "method": "voiceModel/testTranscribeFile"
+    },
+    {
+      "kind": "request",
+      "method": "wechatChannel/account/remove"
+    },
+    {
+      "kind": "request",
+      "method": "wechatChannel/accounts/list"
+    },
+    {
+      "kind": "request",
+      "method": "wechatChannel/login/start"
+    },
+    {
+      "kind": "request",
+      "method": "wechatChannel/login/wait"
+    },
+    {
+      "kind": "request",
+      "method": "wechatChannel/probe"
+    },
+    {
+      "kind": "request",
+      "method": "wechatChannel/runtimeModel/set"
+    },
+    {
+      "kind": "request",
+      "method": "workspace/byPath/read"
+    },
+    {
+      "kind": "request",
+      "method": "workspace/default/ensure"
+    },
+    {
+      "kind": "request",
+      "method": "workspace/default/read"
+    },
+    {
+      "kind": "request",
+      "method": "workspace/delete"
+    },
+    {
+      "kind": "request",
+      "method": "workspace/ensure"
+    },
+    {
+      "kind": "request",
+      "method": "workspace/ensureReady"
+    },
+    {
+      "kind": "request",
+      "method": "workspace/list"
+    },
+    {
+      "kind": "request",
+      "method": "workspace/projectPath/resolve"
+    },
+    {
+      "kind": "request",
+      "method": "workspace/projectsRoot/read"
+    },
+    {
+      "kind": "request",
+      "method": "workspace/read"
+    },
+    {
+      "kind": "request",
+      "method": "workspace/update"
+    },
+    {
+      "kind": "request",
+      "method": "workspaceRegisteredSkills/list"
+    },
+    {
+      "kind": "request",
+      "method": "workspaceSkillBindings/list"
+    }
+  ],
+  "protocolVersion": "appserver.v0",
+  "schemas": {
+    "jsonrpc": [
+      "JsonRpcError",
+      "JsonRpcErrorResponse",
+      "JsonRpcMessage",
+      "JsonRpcNotification",
+      "JsonRpcRequest",
+      "JsonRpcResponse",
+      "RequestId"
+    ],
+    "v0": [
+      "AgentAppCloudReleaseDescriptor",
+      "AgentAppDeleteDataExecutionEvidence",
+      "AgentAppDeleteDataPostDeleteResidualAudit",
+      "AgentAppDeleteDataTargetEvidence",
+      "AgentAppFetchCloudPackageParams",
+      "AgentAppInstalledDisabledSetParams",
+      "AgentAppInstalledListResponse",
+      "AgentAppInstalledSaveParams",
+      "AgentAppLocalPackageInspectParams",
+      "AgentAppLocalPackageInspectResponse",
+      "AgentAppPackageCacheEntry",
+      "AgentAppPackageIdentity",
+      "AgentAppShellPackageMount",
+      "AgentAppShellPrepareParams",
+      "AgentAppShellPrepareResponse",
+      "AgentAppUiRuntimeStartParams",
+      "AgentAppUiRuntimeStatusParams",
+      "AgentAppUiRuntimeStatusResponse",
+      "AgentAppUiRuntimeStopParams",
+      "AgentAppUninstallParams",
+      "AgentAppUninstallRehearsalParams",
+      "AgentAppUninstallRehearsalResponse",
+      "AgentAppUninstallRehearsalTarget",
+      "AgentAppUninstallResponse",
+      "AgentAttachment",
+      "AgentEvent",
+      "AgentInput",
+      "AgentSession",
+      "AgentSessionActionReplayParams",
+      "AgentSessionActionReplayResponse",
+      "AgentSessionActionRespondParams",
+      "AgentSessionActionRespondResponse",
+      "AgentSessionActionScope",
+      "AgentSessionActionType",
+      "AgentSessionAnalysisHandoffExportParams",
+      "AgentSessionAnalysisHandoffExportResponse",
+      "AgentSessionArchiveManyParams",
+      "AgentSessionArchiveManyResponse",
+      "AgentSessionCompactParams",
+      "AgentSessionCompactResponse",
+      "AgentSessionEventParams",
+      "AgentSessionFileCheckpointDetail",
+      "AgentSessionFileCheckpointDiffParams",
+      "AgentSessionFileCheckpointDiffResponse",
+      "AgentSessionFileCheckpointGetParams",
+      "AgentSessionFileCheckpointListParams",
+      "AgentSessionFileCheckpointListResponse",
+      "AgentSessionFileCheckpointRestoreParams",
+      "AgentSessionFileCheckpointRestoreResponse",
+      "AgentSessionFileCheckpointSummary",
+      "AgentSessionFileCheckpointThreadSummary",
+      "AgentSessionHandoffArtifact",
+      "AgentSessionHandoffBundleExportParams",
+      "AgentSessionHandoffBundleExportResponse",
+      "AgentSessionListParams",
+      "AgentSessionListResponse",
+      "AgentSessionObjectiveAuditParams",
+      "AgentSessionObjectiveAuditResponse",
+      "AgentSessionObjectiveClearParams",
+      "AgentSessionObjectiveClearResponse",
+      "AgentSessionObjectiveContinueParams",
+      "AgentSessionObjectiveContinueResponse",
+      "AgentSessionObjectiveReadParams",
+      "AgentSessionObjectiveReadResponse",
+      "AgentSessionObjectiveSetParams",
+      "AgentSessionObjectiveSetResponse",
+      "AgentSessionObjectiveStatusUpdateParams",
+      "AgentSessionObjectiveStatusUpdateResponse",
+      "AgentSessionOverview",
+      "AgentSessionQueuedTurnPromoteParams",
+      "AgentSessionQueuedTurnPromoteResponse",
+      "AgentSessionQueuedTurnRemoveParams",
+      "AgentSessionQueuedTurnRemoveResponse",
+      "AgentSessionReadParams",
+      "AgentSessionReadResponse",
+      "AgentSessionReplayCaseExportParams",
+      "AgentSessionReplayCaseExportResponse",
+      "AgentSessionReplayedActionRequired",
+      "AgentSessionReviewDecision",
+      "AgentSessionReviewDecisionSaveParams",
+      "AgentSessionReviewDecisionTemplateExportParams",
+      "AgentSessionReviewDecisionTemplateExportResponse",
+      "AgentSessionStartParams",
+      "AgentSessionStartResponse",
+      "AgentSessionStatus",
+      "AgentSessionThreadResumeParams",
+      "AgentSessionThreadResumeResponse",
+      "AgentSessionTurnCancelParams",
+      "AgentSessionTurnCancelResponse",
+      "AgentSessionTurnStartParams",
+      "AgentSessionTurnStartResponse",
+      "AgentSessionUpdateParams",
+      "AgentSessionUpdateResponse",
+      "AgentTurn",
+      "AgentTurnStatus",
+      "ArtifactContentStatus",
+      "ArtifactReadParams",
+      "ArtifactReadResponse",
+      "ArtifactSummary",
+      "AutomationJobCreateParams",
+      "AutomationJobDeleteResponse",
+      "AutomationJobHealthParams",
+      "AutomationJobHealthResponse",
+      "AutomationJobIdParams",
+      "AutomationJobListResponse",
+      "AutomationJobReadResponse",
+      "AutomationJobRunHistoryParams",
+      "AutomationJobRunHistoryResponse",
+      "AutomationJobRunNowResponse",
+      "AutomationJobUpdateParams",
+      "AutomationJobWriteResponse",
+      "AutomationScheduleParams",
+      "AutomationSchedulePreviewResponse",
+      "AutomationScheduleValidateResponse",
+      "AutomationSchedulerConfigReadResponse",
+      "AutomationSchedulerConfigUpdateParams",
+      "AutomationSchedulerConfigUpdateResponse",
+      "AutomationSchedulerStatusResponse",
+      "BusinessObjectRef",
+      "CapabilityDescriptor",
+      "CapabilityListParams",
+      "CapabilityListResponse",
+      "ChannelProbeParams",
+      "ChannelProbeResponse",
+      "ClientCapabilities",
+      "ClientInfo",
+      "ConnectCallbackSendParams",
+      "ConnectCallbackSendResponse",
+      "ConnectCallbackStatus",
+      "ConnectDeepLinkResolveParams",
+      "ConnectDeepLinkResolveResponse",
+      "ConnectOpenDeepLinkResolveParams",
+      "ConnectOpenDeepLinkResolveResponse",
+      "ConnectPayload",
+      "ConnectRelayApiKeySaveParams",
+      "ConnectRelayApiKeySaveResponse",
+      "DeviceFlowDeleteParams",
+      "DeviceFlowDeleteResponse",
+      "DeviceFlowHealingListParams",
+      "DeviceFlowHealingListResponse",
+      "DeviceFlowHealingResolveParams",
+      "DeviceFlowHealingResolveResponse",
+      "DeviceFlowHealingSaveParams",
+      "DeviceFlowHealingSaveResponse",
+      "DeviceFlowListParams",
+      "DeviceFlowListResponse",
+      "DeviceFlowReadParams",
+      "DeviceFlowReadResponse",
+      "DeviceFlowRunListParams",
+      "DeviceFlowRunListResponse",
+      "DeviceFlowRunReadParams",
+      "DeviceFlowRunReadResponse",
+      "DeviceFlowRunSaveParams",
+      "DeviceFlowRunSaveResponse",
+      "DeviceFlowSaveParams",
+      "DeviceFlowSaveResponse",
+      "DiagnosticsCapabilityRoutingMetricsSnapshot",
+      "DiagnosticsIdempotencyDiagnostics",
+      "DiagnosticsMetricConfig",
+      "DiagnosticsRequestDedupDiagnostics",
+      "DiagnosticsResponseCacheDiagnostics",
+      "DiagnosticsTelemetrySummary",
+      "EvidenceExportParams",
+      "EvidenceExportResponse",
+      "EvidencePackArtifact",
+      "EvidencePackSummary",
+      "FileSystemCreateDirectoryParams",
+      "FileSystemCreateFileParams",
+      "FileSystemDeleteFileParams",
+      "FileSystemDirectoryListing",
+      "FileSystemFileEntry",
+      "FileSystemFilePreview",
+      "FileSystemListDirectoryParams",
+      "FileSystemMutationResponse",
+      "FileSystemReadFilePreviewParams",
+      "FileSystemRenameFileParams",
+      "FlowAssertResult",
+      "FlowAssertion",
+      "FlowLocator",
+      "FlowLocatorRef",
+      "FlowRun",
+      "FlowRunStep",
+      "FlowStep",
+      "FlowVlmAnchor",
+      "FlowWaitPolicy",
+      "GalleryMaterial",
+      "GalleryMaterialDeleteResponse",
+      "GalleryMaterialFilterParams",
+      "GalleryMaterialListResponse",
+      "GalleryMaterialLookupParams",
+      "GalleryMaterialMetadata",
+      "GalleryMaterialMetadataCreateParams",
+      "GalleryMaterialMetadataResponse",
+      "GalleryMaterialMetadataUpdateParams",
+      "GalleryMaterialResponse",
+      "GatewayChannelStartParams",
+      "GatewayChannelStatusParams",
+      "GatewayChannelStatusResponse",
+      "GatewayChannelStopParams",
+      "GatewayTunnelCloudflaredDetectResponse",
+      "GatewayTunnelCloudflaredInstallParams",
+      "GatewayTunnelCloudflaredInstallResponse",
+      "GatewayTunnelCreateParams",
+      "GatewayTunnelCreateResponse",
+      "GatewayTunnelCreateResult",
+      "GatewayTunnelProbeResponse",
+      "GatewayTunnelStatusResponse",
+      "GatewayTunnelSyncWebhookUrlParams",
+      "GatewayTunnelSyncWebhookUrlResponse",
+      "HealingRevision",
+      "ImageStoryboardSlotInput",
+      "InitializeParams",
+      "InitializeResponse",
+      "KnowledgeCompilePackParams",
+      "KnowledgeCompilePackResponse",
+      "KnowledgeContextResolutionResponse",
+      "KnowledgeImportSourceParams",
+      "KnowledgeImportSourceResponse",
+      "KnowledgeListPacksParams",
+      "KnowledgeListPacksResponse",
+      "KnowledgeReadPackParams",
+      "KnowledgeReadPackResponse",
+      "KnowledgeResolveContextPackParams",
+      "KnowledgeResolveContextParams",
+      "KnowledgeSetDefaultPackParams",
+      "KnowledgeSetDefaultPackResponse",
+      "KnowledgeUpdatePackStatusParams",
+      "KnowledgeUpdatePackStatusResponse",
+      "KnowledgeValidateContextRunParams",
+      "KnowledgeValidateContextRunResponse",
+      "LogArtifactEntry",
+      "LogClearResponse",
+      "LogEntry",
+      "LogListResponse",
+      "LogPersistedTailParams",
+      "LogPersistedTailResponse",
+      "LogStorageDiagnosticsResponse",
+      "ManagedObjective",
+      "ManagedObjectiveStatus",
+      "McpContent",
+      "McpPromptGetParams",
+      "McpPromptGetResponse",
+      "McpPromptListResponse",
+      "McpPromptMessage",
+      "McpResourceListResponse",
+      "McpResourceReadParams",
+      "McpResourceReadResponse",
+      "McpServerCreateParams",
+      "McpServerDeleteParams",
+      "McpServerEnabledSetParams",
+      "McpServerImportFromAppParams",
+      "McpServerImportFromAppResponse",
+      "McpServerLifecycleResponse",
+      "McpServerListResponse",
+      "McpServerStartParams",
+      "McpServerStatusListResponse",
+      "McpServerStopParams",
+      "McpServerUpdateParams",
+      "McpToolCallParams",
+      "McpToolCallResponse",
+      "McpToolCallWithCallerParams",
+      "McpToolListForContextParams",
+      "McpToolListResponse",
+      "McpToolSearchParams",
+      "MediaTaskArtifactAudioCompleteParams",
+      "MediaTaskArtifactAudioCreateParams",
+      "MediaTaskArtifactImageCreateParams",
+      "MediaTaskArtifactListFilters",
+      "MediaTaskArtifactListParams",
+      "MediaTaskArtifactListResponse",
+      "MediaTaskArtifactLookupParams",
+      "MediaTaskArtifactResponse",
+      "MediaTaskArtifactVideoCreateParams",
+      "ModelListParams",
+      "ModelListResponse",
+      "ModelPreferencesListResponse",
+      "ModelProviderAliasListResponse",
+      "ModelProviderAliasReadParams",
+      "ModelProviderAliasReadResponse",
+      "ModelProviderCatalogListResponse",
+      "ModelProviderConfigExportParams",
+      "ModelProviderConfigExportResponse",
+      "ModelProviderConfigImportParams",
+      "ModelProviderConfigImportResponse",
+      "ModelProviderCreateParams",
+      "ModelProviderDeleteParams",
+      "ModelProviderDeleteResponse",
+      "ModelProviderFetchModelsParams",
+      "ModelProviderFetchModelsResponse",
+      "ModelProviderKeyCreateParams",
+      "ModelProviderKeyDeleteParams",
+      "ModelProviderKeyDeleteResponse",
+      "ModelProviderKeyEventParams",
+      "ModelProviderKeyNextParams",
+      "ModelProviderKeyNextResponse",
+      "ModelProviderKeyUpdateParams",
+      "ModelProviderKeyWriteResponse",
+      "ModelProviderListResponse",
+      "ModelProviderMutationResponse",
+      "ModelProviderReadParams",
+      "ModelProviderReadResponse",
+      "ModelProviderSortOrderItem",
+      "ModelProviderSortOrdersUpdateParams",
+      "ModelProviderTestChatParams",
+      "ModelProviderTestChatResponse",
+      "ModelProviderTestConnectionParams",
+      "ModelProviderTestConnectionResponse",
+      "ModelProviderUiStateReadParams",
+      "ModelProviderUiStateReadResponse",
+      "ModelProviderUiStateWriteParams",
+      "ModelProviderUpdateParams",
+      "ModelProviderWriteResponse",
+      "ModelSyncStateReadResponse",
+      "OpenDeepLinkPayload",
+      "PerfMetricSummary",
+      "PerfMonitorSessionListParams",
+      "PerfMonitorSessionListResponse",
+      "PerfMonitorSessionReadParams",
+      "PerfMonitorSessionReadResponse",
+      "PerfMonitorSessionSaveParams",
+      "PerfMonitorSessionSaveResponse",
+      "PerformanceSession",
+      "PlatformInfo",
+      "ProjectGitBranchCheckoutParams",
+      "ProjectGitBranchCreateParams",
+      "ProjectGitStatusParams",
+      "ProjectGitStatusResponse",
+      "ProjectGitWorktreeCreateParams",
+      "ProjectGitWorktreeCreateResponse",
+      "ProjectGitWorktreeDeleteParams",
+      "ProjectGitWorktreeDeleteResponse",
+      "ProjectMaterial",
+      "ProjectMaterialContentResponse",
+      "ProjectMaterialCountResponse",
+      "ProjectMaterialDeleteResponse",
+      "ProjectMaterialFilter",
+      "ProjectMaterialImportFromUrlParams",
+      "ProjectMaterialListParams",
+      "ProjectMaterialListResponse",
+      "ProjectMaterialLookupParams",
+      "ProjectMaterialResponse",
+      "ProjectMaterialUpdate",
+      "ProjectMaterialUpdateParams",
+      "ProjectMaterialUploadParams",
+      "ProjectMemoryReadParams",
+      "ProjectMemoryReadResponse",
+      "RuntimeOptions",
+      "ServerCapabilities",
+      "ServerDiagnosticsResponse",
+      "ServerInfo",
+      "SessionFileEntry",
+      "SessionFileEntryResponse",
+      "SessionFileGetOrCreateParams",
+      "SessionFileIdParams",
+      "SessionFileListResponse",
+      "SessionFileMeta",
+      "SessionFileMetaResponse",
+      "SessionFileMutationResponse",
+      "SessionFileReadResponse",
+      "SessionFileResolvePathResponse",
+      "SessionFileSaveParams",
+      "SessionFileUpdateMetaParams",
+      "SkillDownloadInstallParams",
+      "SkillDownloadInstallResponse",
+      "SkillInstalledDirectoriesListResponse",
+      "SkillListResponse",
+      "SkillLocalDetailInspectParams",
+      "SkillLocalDetailInspectResponse",
+      "SkillLocalImportParams",
+      "SkillLocalImportResponse",
+      "SkillLocalInspectParams",
+      "SkillLocalInspectResponse",
+      "SkillLocalRenameParams",
+      "SkillLocalRenameResponse",
+      "SkillManagementInstallParams",
+      "SkillManagementListParams",
+      "SkillManagementUninstallParams",
+      "SkillManagementWriteResponse",
+      "SkillMarketplaceBundleFile",
+      "SkillMarketplaceInstallParams",
+      "SkillMarketplaceInstallResponse",
+      "SkillPackageExportParams",
+      "SkillPackageExportResponse",
+      "SkillPackageLocalInspectParams",
+      "SkillPackageLocalInspectResponse",
+      "SkillPackageLocalInstallParams",
+      "SkillPackageLocalInstallResponse",
+      "SkillPackageLocalReplaceParams",
+      "SkillPackageLocalReplaceResponse",
+      "SkillReadParams",
+      "SkillReadResponse",
+      "SkillRemoteInspectParams",
+      "SkillRemoteInspectResponse",
+      "SkillRepositoryDeleteParams",
+      "SkillRepositoryEntry",
+      "SkillRepositoryListResponse",
+      "SkillRepositorySaveParams",
+      "SkillScaffoldCreateParams",
+      "SkillScaffoldCreateResponse",
+      "SupportBundleExportResponse",
+      "TestCase",
+      "TestCaseDeleteParams",
+      "TestCaseDeleteResponse",
+      "TestCaseListParams",
+      "TestCaseListResponse",
+      "TestCaseModule",
+      "TestCaseModuleDeleteParams",
+      "TestCaseModuleDeleteResponse",
+      "TestCaseModuleListParams",
+      "TestCaseModuleListResponse",
+      "TestCaseModuleSaveParams",
+      "TestCaseModuleSaveResponse",
+      "TestCaseReadParams",
+      "TestCaseReadResponse",
+      "TestCaseRun",
+      "TestCaseRunListParams",
+      "TestCaseRunListResponse",
+      "TestCaseRunSaveParams",
+      "TestCaseRunSaveResponse",
+      "TestCaseRunStep",
+      "TestCaseSaveParams",
+      "TestCaseSaveResponse",
+      "TestCaseStep",
+      "TestFlow",
+      "UnifiedMemory",
+      "UnifiedMemoryAnalysisResponse",
+      "UnifiedMemoryAnalyzeParams",
+      "UnifiedMemoryCategory",
+      "UnifiedMemoryCategoryCount",
+      "UnifiedMemoryCreateParams",
+      "UnifiedMemoryCreateRequest",
+      "UnifiedMemoryDeleteParams",
+      "UnifiedMemoryDeleteResponse",
+      "UnifiedMemoryGetParams",
+      "UnifiedMemoryGetResponse",
+      "UnifiedMemoryHybridSearchOptions",
+      "UnifiedMemoryHybridSearchParams",
+      "UnifiedMemoryListFilters",
+      "UnifiedMemoryListParams",
+      "UnifiedMemoryListResponse",
+      "UnifiedMemoryMetadata",
+      "UnifiedMemorySearchParams",
+      "UnifiedMemorySemanticSearchOptions",
+      "UnifiedMemorySemanticSearchParams",
+      "UnifiedMemorySource",
+      "UnifiedMemoryStatsResponse",
+      "UnifiedMemoryType",
+      "UnifiedMemoryUpdateParams",
+      "UnifiedMemoryUpdateRequest",
+      "UnifiedMemoryWriteResponse",
+      "UsageStatsDailyTrendsListResponse",
+      "UsageStatsDailyUsage",
+      "UsageStatsModelRankingListResponse",
+      "UsageStatsModelUsage",
+      "UsageStatsRangeParams",
+      "UsageStatsReadResponse",
+      "UsageStatsSummary",
+      "VoiceAsrBaiduConfig",
+      "VoiceAsrCredential",
+      "VoiceAsrCredentialCreateParams",
+      "VoiceAsrCredentialIdParams",
+      "VoiceAsrCredentialListResponse",
+      "VoiceAsrCredentialMutationResponse",
+      "VoiceAsrCredentialTestResponse",
+      "VoiceAsrCredentialUpdateParams",
+      "VoiceAsrCredentialWriteResponse",
+      "VoiceAsrOpenAiConfig",
+      "VoiceAsrProviderType",
+      "VoiceAsrSenseVoiceLocalConfig",
+      "VoiceAsrWhisperLocalConfig",
+      "VoiceAsrWhisperModelSize",
+      "VoiceAsrXunfeiConfig",
+      "VoiceInstruction",
+      "VoiceInstructionIdParams",
+      "VoiceInstructionListResponse",
+      "VoiceInstructionMutationResponse",
+      "VoiceInstructionSaveParams",
+      "VoiceModelDefaultSetParams",
+      "VoiceModelDefaultSetResponse",
+      "VoiceModelTestTranscribeFileParams",
+      "VoiceModelTestTranscribeFileResponse",
+      "WechatChannelAccountListResponse",
+      "WechatChannelAccountRemoveParams",
+      "WechatChannelAccountRemoveResponse",
+      "WechatConfiguredAccount",
+      "WechatLoginStartParams",
+      "WechatLoginStartResponse",
+      "WechatLoginWaitParams",
+      "WechatLoginWaitResponse",
+      "WechatRuntimeModelSetParams",
+      "WechatRuntimeModelSetResponse",
+      "WindowsStartupCheck",
+      "WindowsStartupDiagnosticsResponse",
+      "WorkspaceDeleteParams",
+      "WorkspaceDeleteResponse",
+      "WorkspaceEnsureParams",
+      "WorkspaceEnsureProjectParams",
+      "WorkspaceEnsureProjectResponse",
+      "WorkspaceEnsureReadyResponse",
+      "WorkspaceListResponse",
+      "WorkspacePathReadParams",
+      "WorkspaceProjectPathResolveParams",
+      "WorkspaceProjectPathResolveResponse",
+      "WorkspaceProjectsRootReadResponse",
+      "WorkspaceReadParams",
+      "WorkspaceReadResponse",
+      "WorkspaceRegisteredSkillsListParams",
+      "WorkspaceRegisteredSkillsListResponse",
+      "WorkspaceSkillBindingsListParams",
+      "WorkspaceSkillBindingsListResponse",
+      "WorkspaceUpdateParams",
+      "WorkspaceUpdateResponse"
+    ]
+  }
+}

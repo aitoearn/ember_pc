@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MyWiki skill-creator · 评估报告</title>
+  <!--
+    run_loop 的实时 HTML 评估报告模板（live report）。
+    skill-creator 在每次迭代后用真实数据填充下方占位符（{{...}}）并写出一份具体报告，
+    供用户实时查看优化进度。本文件是模板，不含真实数据。
+  -->
+  <style>
+    :root { --bg:#0A0A0A; --fg:#EDEDED; --accent:#E07850; --muted:#8A8A8A; --pass:#28AA96; --fail:#C85A46; }
+    body { margin:0; background:var(--bg); color:var(--fg); font-family:-apple-system,"Space Grotesk","PingFang SC",sans-serif; padding:32px; }
+    h1 { font-size:22px; } h2 { font-size:16px; color:var(--accent); margin-top:28px; }
+    .meta { color:var(--muted); font-size:13px; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; font-size:13px; }
+    th,td { text-align:left; padding:8px 10px; border-bottom:1px solid #222; }
+    .pass { color:var(--pass); } .fail { color:var(--fail); }
+    .score { font-size:28px; font-weight:700; }
+    .bar { height:8px; background:#222; border-radius:4px; overflow:hidden; }
+    .bar > span { display:block; height:100%; background:var(--accent); }
+    code { background:#1A1A1A; padding:2px 6px; border-radius:4px; }
+  </style>
+</head>
+<body>
+  <h1>skill-creator 评估报告 · {{SKILL_NAME}}</h1>
+  <p class="meta">生成时间：{{GENERATED_AT}} ｜ 迭代数：{{ITERATIONS}} ｜ 最佳版本：v{{BEST_ITERATION}}</p>
+
+  <h2>得分（test split）</h2>
+  <p>基线 {{BASELINE_TEST_SCORE}} → 最佳 <span class="score">{{BEST_TEST_SCORE}}</span>（{{IMPROVED_LABEL}}）</p>
+  <div class="bar"><span style="width:{{BEST_TEST_PERCENT}}%"></span></div>
+
+  <h2>迭代轨迹</h2>
+  <table>
+    <thead><tr><th>迭代</th><th>train score</th><th>test score</th><th>改动说明</th></tr></thead>
+    <tbody>
+      {{ITERATION_ROWS}}
+      <!-- 行示例： <tr><td>3</td><td>0.83</td><td>0.90</td><td>增补中文触发词</td></tr> -->
+    </tbody>
+  </table>
+
+  <h2>失败案例（train split，供 analyzer 使用）</h2>
+  <table>
+    <thead><tr><th>query</th><th>期望</th><th>实际</th><th>判定</th></tr></thead>
+    <tbody>
+      {{FAILURE_ROWS}}
+    </tbody>
+  </table>
+
+  <h2>最优 description</h2>
+  <pre><code>{{FINAL_DESCRIPTION}}</code></pre>
+
+  <p class="meta">防过拟合：最终择优依据 test score；analyzer 全程看不到 test 结果（blind test）。</p>
+</body>
+</html>

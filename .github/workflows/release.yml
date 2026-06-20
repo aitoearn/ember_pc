@@ -1,0 +1,678 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+      - ".github/workflows/deploy-docs.yml"
+      - ".github/workflows/update-homebrew.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., v0.1.0)"
+        required: true
+        default: "v0.1.0"
+      source_ref:
+        description: "Git ref to build from (e.g., v0.96.0 or main)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  packages: write
+  actions: read
+
+env:
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+  CARGO_TERM_COLOR: always
+
+jobs:
+  prepare_release:
+    name: Prepare GitHub release
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.source_ref || github.ref }}
+
+      - name: Ensure GitHub release exists
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.version || github.ref_name }}"
+          TARGET_REF="${{ github.event.inputs.source_ref || github.sha }}"
+          NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+
+          if [[ "$TAG" == *-* ]]; then
+            echo "::error::Stable release does not accept prerelease tag: $TAG"
+            exit 1
+          fi
+
+          if [ -f RELEASE_NOTES.md ]; then
+            cp RELEASE_NOTES.md "$NOTES_FILE"
+          else
+            PREV_TAG="$(git tag --sort=-v:refname | grep -v "^${TAG}$" | head -n 1)"
+            if [ -z "$PREV_TAG" ]; then
+              CHANGELOG="$(git log --pretty=format:"- %s (%h)" "${TAG}" 2>/dev/null || git log --pretty=format:"- %s (%h)")"
+            else
+              CHANGELOG="$(git log --pretty=format:"- %s (%h)" "${PREV_TAG}..${TAG}" 2>/dev/null || git log --pretty=format:"- %s (%h)" "${PREV_TAG}..HEAD")"
+            fi
+
+            {
+              echo "## Ember ${TAG}"
+              echo
+              echo "### Changes"
+              echo "${CHANGELOG}"
+            } > "$NOTES_FILE"
+          fi
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Ember $TAG" \
+              --notes-file "$NOTES_FILE"
+            echo "Release $TAG already exists; notes refreshed"
+            exit 0
+          fi
+
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$TARGET_REF" \
+            --title "Ember $TAG" \
+            --notes-file "$NOTES_FILE"
+
+  build:
+    name: Build Electron ${{ matrix.name }}
+    needs: prepare_release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-15
+            target: aarch64-apple-darwin
+            host_platform: darwin
+            arch: arm64
+            feed: darwin-arm64
+            forge_targets: dmg,zip
+            name: macOS-arm64
+          - platform: macos-15-intel
+            target: x86_64-apple-darwin
+            host_platform: darwin
+            arch: x64
+            feed: darwin-x64
+            forge_targets: dmg,zip
+            name: macOS-x64
+          - platform: windows-2022
+            target: x86_64-pc-windows-msvc
+            host_platform: win32
+            arch: x64
+            feed: win32-x64
+            forge_targets: squirrel
+            name: Windows-x64
+
+    runs-on: ${{ matrix.platform }}
+    env:
+      NODE_OPTIONS: --max-old-space-size=8192
+      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+      EMBER_ELECTRON_UPDATES_URL: ${{ (secrets.EMBER_UPDATES_BASE_URL || vars.EMBER_UPDATES_BASE_URL || 'https://updates.aiearn.me') }}/ember/stable/${{ matrix.feed }}/
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.source_ref || github.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ember-rs
+          shared-key: "rust-${{ matrix.target }}"
+          cache-on-failure: true
+          cache-all-crates: true
+          save-if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --config.node-linker=hoisted
+
+      - name: Validate Electron macOS signing secrets
+        if: startsWith(matrix.platform, 'macos')
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -n "${APPLE_CERTIFICATE:-}" ] || missing+=("APPLE_CERTIFICATE")
+          [ -n "${APPLE_CERTIFICATE_PASSWORD:-}" ] || missing+=("APPLE_CERTIFICATE_PASSWORD")
+          [ -n "${APPLE_ID:-}" ] || missing+=("APPLE_ID")
+          [ -n "${APPLE_PASSWORD:-}" ] || missing+=("APPLE_PASSWORD")
+          [ -n "${APPLE_SIGNING_IDENTITY:-}" ] || missing+=("APPLE_SIGNING_IDENTITY")
+          [ -n "${APPLE_TEAM_ID:-}" ] || missing+=("APPLE_TEAM_ID")
+          [ -n "${KEYCHAIN_PASSWORD:-}" ] || missing+=("KEYCHAIN_PASSWORD")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf 'Missing Electron macOS signing/notarization secrets: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Validate Electron Windows signing secrets
+        if: matrix.host_platform == 'win32'
+        shell: bash
+        env:
+          WINDOWS_SIGNING_CERTIFICATE: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE }}
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=()
+          has_certificate=0
+          has_password=0
+          [ -z "${WINDOWS_SIGNING_CERTIFICATE:-}" ] || has_certificate=1
+          [ -z "${WINDOWS_SIGNING_CERTIFICATE_PASSWORD:-}" ] || has_password=1
+          if [ "$has_certificate" -eq 0 ] && [ "$has_password" -eq 0 ]; then
+            echo "Electron Windows signing secrets are not configured; Forge Squirrel will produce unsigned installer assets."
+            exit 0
+          fi
+          [ "$has_certificate" -eq 1 ] || missing+=("WINDOWS_SIGNING_CERTIFICATE")
+          [ "$has_password" -eq 1 ] || missing+=("WINDOWS_SIGNING_CERTIFICATE_PASSWORD")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf 'Incomplete Electron Windows signing secrets: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+          echo "Electron Windows signing secrets detected; Forge Squirrel signing will be enabled."
+
+      - name: Import Electron macOS signing certificate
+        if: startsWith(matrix.platform, 'macos')
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN_PATH="$RUNNER_TEMP/ember-electron-signing.keychain-db"
+          CERTIFICATE_PATH="$RUNNER_TEMP/ember-electron-signing.p12"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$CERTIFICATE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          existing_keychains=()
+          while IFS= read -r keychain; do
+            [ -n "$keychain" ] || continue
+            existing_keychains+=("$keychain")
+          done < <(security list-keychains -d user | tr -d '"')
+          security list-keychains -d user -s "$KEYCHAIN_PATH" "${existing_keychains[@]}"
+          security import "$CERTIFICATE_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+          echo "Available macOS signing identities in release keychain:"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+          echo "EMBER_MACOS_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+      - name: Prepare Electron Windows signing certificate
+        if: matrix.host_platform == 'win32'
+        shell: bash
+        env:
+          WINDOWS_SIGNING_CERTIFICATE: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE }}
+          WINDOWS_SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${WINDOWS_SIGNING_CERTIFICATE:-}" ] && [ -z "${WINDOWS_SIGNING_CERTIFICATE_PASSWORD:-}" ]; then
+            echo "Skipping Electron Windows signing certificate preparation; no Windows signing secrets are configured."
+            exit 0
+          fi
+          CERTIFICATE_PATH="$RUNNER_TEMP/ember-electron-signing.pfx"
+          WINDOWS_SIGNING_CERTIFICATE_PATH="$CERTIFICATE_PATH" node - <<'NODE'
+          const fs = require("node:fs");
+          const certificate = process.env.WINDOWS_SIGNING_CERTIFICATE || "";
+          const certificatePath = process.env.WINDOWS_SIGNING_CERTIFICATE_PATH;
+          fs.writeFileSync(certificatePath, Buffer.from(certificate, "base64"));
+          NODE
+          echo "EMBER_WINDOWS_SIGNING_CERTIFICATE_FILE=$CERTIFICATE_PATH" >> "$GITHUB_ENV"
+          echo "EMBER_WINDOWS_SIGNING_CERTIFICATE_PASSWORD=$WINDOWS_SIGNING_CERTIFICATE_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Build Electron app
+        shell: bash
+        env:
+          CARGO_PROFILE_RELEASE_LTO: "off"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 32
+          CARGO_INCREMENTAL: 0
+          CARGO_TARGET_DIR: ${{ github.workspace }}/ember-rs/target
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: sccache
+          EMBER_ELECTRON_SIGN: ${{ (startsWith(matrix.platform, 'macos') || matrix.host_platform == 'win32') && '1' || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ startsWith(matrix.platform, 'macos') && secrets.APPLE_SIGNING_IDENTITY || '' }}
+          APPLE_ID: ${{ startsWith(matrix.platform, 'macos') && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ startsWith(matrix.platform, 'macos') && secrets.APPLE_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ startsWith(matrix.platform, 'macos') && secrets.APPLE_TEAM_ID || '' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euxo pipefail
+          npm run electron:build
+          npx electron-forge package \
+            --platform "${{ matrix.host_platform }}" \
+            --arch "${{ matrix.arch }}"
+          FORGE_MAKE_LOG="$RUNNER_TEMP/electron-forge-make-${{ matrix.host_platform }}-${{ matrix.arch }}.log"
+          run_forge_make() {
+            set +e
+            npx electron-forge make \
+              --skip-package \
+              --platform "${{ matrix.host_platform }}" \
+              --arch "${{ matrix.arch }}" \
+              --targets "${{ matrix.forge_targets }}" 2>&1 | tee "$FORGE_MAKE_LOG"
+            forge_status=${PIPESTATUS[0]}
+            set -e
+          }
+          run_forge_make
+          if [ "$forge_status" -ne 0 ] && [ "${{ matrix.host_platform }}" = "darwin" ] && grep -q "hdiutil detach /Volumes/Ember" "$FORGE_MAKE_LOG" && grep -q "No such file or directory" "$FORGE_MAKE_LOG"; then
+            echo "Electron Forge DMG cleanup hit a missing /Volumes/Ember mount; retrying make once after best-effort cleanup."
+            hdiutil detach "/Volumes/Ember" -force || true
+            sleep 5
+            run_forge_make
+          fi
+          echo "Electron Forge output files:"
+          if [ -d release-electron ]; then
+            find release-electron -type f | sort
+          else
+            echo "release-electron output directory is missing"
+          fi
+          if [ "${{ matrix.host_platform }}" = "darwin" ]; then
+            APP_PATH="release-electron/Ember-darwin-${{ matrix.arch }}/Ember.app"
+            if [ -d "$APP_PATH" ]; then
+              codesign --display --verbose=4 "$APP_PATH" || true
+              codesign --verify --deep --strict --verbose=4 "$APP_PATH" || true
+            else
+              find release-electron -name "*.app" -type d -print 2>/dev/null || true
+            fi
+          fi
+          if [ "$forge_status" -ne 0 ]; then
+            exit "$forge_status"
+          fi
+          make_assets=()
+          if [ -d release-electron/make ]; then
+            while IFS= read -r asset; do
+              [ -n "$asset" ] || continue
+              make_assets+=("$asset")
+            done < <(find release-electron/make -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" -o -name "*.nupkg" -o -name "RELEASES" -o -name "RELEASES.json" \) | sort)
+          fi
+          if [ "${#make_assets[@]}" -eq 0 ]; then
+            echo "Electron Forge make produced no release assets" >&2
+            find release-electron -maxdepth 5 -type f | sort
+            exit 1
+          fi
+          printf 'Electron Forge make assets:\n'
+          printf ' - %s\n' "${make_assets[@]}"
+
+      - name: Verify Electron package resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/electron/verify-package-resources.mjs \
+            --package-root release-electron \
+            --platform "${{ matrix.host_platform }}" \
+            --arch "${{ matrix.arch }}"
+
+      - name: Stage Electron release assets
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.version || github.ref_name }}
+        run: |
+          set -euo pipefail
+          node scripts/electron/stage-release-assets.mjs \
+            --forge-dir release-electron \
+            --out-dir "release-assets/${{ matrix.target }}" \
+            --target-triple "${{ matrix.target }}" \
+            --version "$RELEASE_TAG"
+          find "release-assets/${{ matrix.target }}" -maxdepth 1 -type f | sort
+
+      - name: Upload staged release assets artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-${{ matrix.target }}
+          path: release-assets
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Show sccache stats
+        if: always()
+        run: sccache --show-stats
+
+  publish_release_assets:
+    name: Publish Electron release assets
+    needs: build
+    if: needs.build.result == 'success'
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.source_ref || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Download staged release assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-assets-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Inspect Electron release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          assets=()
+          while IFS= read -r asset; do
+            [ -n "$asset" ] || continue
+            assets+=("$asset")
+          done < <(find "release-assets" -type f | sort)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "No staged Electron release assets found" >&2
+            exit 1
+          fi
+          printf 'Downloaded Electron release assets:\n'
+          printf ' - %s\n' "${assets[@]}"
+          if find "release-assets" -type f \( -name "*.app.tar.gz" -o -name "*.sig" -o -name "latest.json" -o -name "latest.yml" -o -name "latest-mac.yml" -o -name "*.blockmap" \) | grep -q .; then
+            echo "::error::Legacy updater assets must not be published by the Electron release workflow"
+            find "release-assets" -type f \( -name "*.app.tar.gz" -o -name "*.sig" -o -name "latest.json" -o -name "latest.yml" -o -name "latest-mac.yml" -o -name "*.blockmap" \) | sort
+            exit 1
+          fi
+
+      - name: Prepare GitHub release upload assets
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.version || github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/electron/prepare-github-release-assets.mjs \
+            --assets-dir release-assets \
+            --out-dir release-github-assets \
+            --version "$RELEASE_TAG"
+
+      - name: Upload Electron assets to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.version || github.ref_name }}"
+          assets=()
+          while IFS= read -r -d '' asset; do
+            assets+=("$asset")
+          done < <(find "release-github-assets" -type f -print0 | sort -z)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "No prepared GitHub release assets found" >&2
+            exit 1
+          fi
+          printf 'Uploading GitHub release assets:\n'
+          printf ' - %s\n' "${assets[@]}"
+          gh release upload "$TAG" "${assets[@]}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+      - name: Publish GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.inputs.version || github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft=false \
+            --latest
+
+  publish_updater_assets_r2:
+    name: Publish Electron updater assets to Cloudflare R2
+    needs: publish_release_assets
+    if: needs.publish_release_assets.result == 'success'
+    continue-on-error: true
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.source_ref || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Download staged release assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-assets-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Upload Electron updater assets to Cloudflare R2
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          EMBER_RELEASES_R2_BUCKET: ${{ secrets.EMBER_RELEASES_R2_BUCKET }}
+          RELEASE_TAG: ${{ github.event.inputs.version || github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUCKET="${EMBER_RELEASES_R2_BUCKET:-ember-releases}"
+          PLAN="$RUNNER_TEMP/electron-r2-upload-plan.json"
+          node scripts/electron/update-feed-r2-upload-plan.mjs \
+            --assets-dir release-assets \
+            --bucket "$BUCKET" \
+            --channel stable \
+            --version "$RELEASE_TAG" \
+            --output "$PLAN"
+
+          node - "$PLAN" <<'NODE' > "$RUNNER_TEMP/electron-r2-upload.sh"
+          const fs = require('fs');
+          const plan = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          for (const item of plan) {
+            const args = [
+              'npx wrangler@latest r2 object put',
+              JSON.stringify(`${item.bucket}/${item.key}`),
+              '--remote',
+              '--file',
+              JSON.stringify(item.file),
+              '--content-type',
+              JSON.stringify(item.contentType),
+              '--cache-control',
+              JSON.stringify(item.cacheControl),
+            ];
+            console.log(args.join(' '));
+          }
+          NODE
+          bash "$RUNNER_TEMP/electron-r2-upload.sh"
+
+      - name: Clean old updater assets from Cloudflare R2
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          EMBER_MINIMUM_SUPPORTED_VERSION: ${{ secrets.EMBER_MINIMUM_SUPPORTED_VERSION }}
+          EMBER_R2_KEEP_RELEASES: ${{ vars.EMBER_R2_KEEP_RELEASES }}
+          EMBER_RELEASES_R2_BUCKET: ${{ secrets.EMBER_RELEASES_R2_BUCKET }}
+          RELEASE_TAG: ${{ github.event.inputs.version || github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUCKET="${EMBER_RELEASES_R2_BUCKET:-ember-releases}"
+          KEEP="${EMBER_R2_KEEP_RELEASES:-3}"
+          if ! npx wrangler@latest r2 object --help | grep -q "object list"; then
+            echo "::warning::wrangler r2 object list is unavailable; skipping old R2 updater cleanup"
+            exit 0
+          fi
+          npx wrangler@latest r2 object list "$BUCKET" \
+            --remote \
+            --prefix "ember/stable/v" \
+            --json > "$RUNNER_TEMP/r2-objects.json"
+          node scripts/electron/r2-release-cleanup-plan.mjs \
+            --input "$RUNNER_TEMP/r2-objects.json" \
+            --output "$RUNNER_TEMP/r2-delete-keys.txt" \
+            --current "$RELEASE_TAG" \
+            --keep "$KEEP" \
+            --minimum "${EMBER_MINIMUM_SUPPORTED_VERSION:-}" \
+            --channel stable
+          if [ ! -s "$RUNNER_TEMP/r2-delete-keys.txt" ]; then
+            echo "No old R2 updater assets to delete"
+            exit 0
+          fi
+          printf 'Deleting old R2 updater assets:\n'
+          cat "$RUNNER_TEMP/r2-delete-keys.txt"
+          while IFS= read -r key; do
+            [ -n "$key" ] || continue
+            npx wrangler@latest r2 object delete "${BUCKET}/${key}" --remote
+          done < "$RUNNER_TEMP/r2-delete-keys.txt"
+
+  publish_ember_cli_assets:
+    name: Publish ember-cli release assets
+    needs: publish_release_assets
+    if: needs.publish_release_assets.result == 'success'
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            name: macOS-arm64-cli
+          - platform: macos-15-intel
+            target: x86_64-apple-darwin
+            name: macOS-x64-cli
+          - platform: windows-2022
+            target: x86_64-pc-windows-msvc
+            name: Windows-x64-cli
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            name: Linux-x64-cli
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.source_ref || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ember-rs
+          shared-key: "ember-cli-${{ matrix.target }}"
+          cache-on-failure: true
+          cache-all-crates: true
+          save-if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') }}
+
+      - name: Build ember-cli release binary
+        shell: bash
+        env:
+          CARGO_PROFILE_RELEASE_LTO: "off"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 32
+          CARGO_INCREMENTAL: 0
+          CARGO_TARGET_DIR: ${{ github.workspace }}/ember-rs/target
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: sccache
+        run: |
+          set -euxo pipefail
+          cargo build --manifest-path ember-rs/Cargo.toml -p ember-cli --release --target "${{ matrix.target }}"
+
+      - name: Package ember-cli release asset
+        id: package_ember_cli
+        shell: bash
+        run: |
+          set -euxo pipefail
+          VERSION="${{ github.event.inputs.version || github.ref_name }}"
+          VERSION="${VERSION#v}"
+
+          metadata="$(
+            node packages/ember-cli-npm/scripts/build-release.js \
+              --target-triple "${{ matrix.target }}" \
+              --version "$VERSION" \
+              --out-dir "packages/ember-cli-npm/dist" \
+              --json
+          )"
+
+          echo "$metadata"
+          asset_path="$(node -e 'const data = JSON.parse(process.argv[1]); process.stdout.write(data.archivePath);' "$metadata")"
+          echo "asset_path=$asset_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload ember-cli asset to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.inputs.version || github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ASSET_PATH="${{ steps.package_ember_cli.outputs.asset_path }}"
+          if [ -z "$ASSET_PATH" ] || [ ! -f "$ASSET_PATH" ]; then
+            echo "ember-cli asset missing: $ASSET_PATH" >&2
+            exit 1
+          fi
+
+          gh release upload "$RELEASE_TAG" "$ASSET_PATH" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
+      - name: Show sccache stats
+        if: always()
+        run: sccache --show-stats

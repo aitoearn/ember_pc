@@ -1,0 +1,32 @@
+---
+description: 大需求走 brainstorming 流程；禁用已废弃的 /brainstorm 斜杠命令
+alwaysApply: true
+---
+
+# 06 · 大需求 brainstorming 流程
+
+## `/brainstorm` 斜杠命令（已禁用）
+
+- **不要**使用 Cursor 斜杠命令 `/brainstorm`（Superpowers 插件已废弃，本仓库视为删除）。
+- 若用户输入 `/brainstorm`，按下方「自然语言触发」执行，**不要**回复「命令已废弃」就结束。
+
+## 自然语言触发（任一命中）
+
+- 需求澄清、brainstorm、brainstorming、设计方案、写需求文档、大需求、实现前先设计
+
+## 执行方式
+
+1. Read Superpowers skill：`~/.cursor/plugins/cache/cursor-public/superpowers/*/skills/brainstorming/SKILL.md`（或 `.claude/skills/brainstorming/SKILL.md`）
+2. **HARD-GATE**：设计批准前禁止写业务代码
+3. 设计落盘：`docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`
+4. 用户批准 spec 后 Read `writing-plans` skill → `docs/superpowers/plans/` + `specs/00x-<feature>/plan.md`
+
+## 文档惯例（lime）
+
+| 产物 | 路径 |
+| --- | --- |
+| 设计 Spec | `docs/superpowers/specs/` |
+| 实现计划（细步骤） | `docs/superpowers/plans/` |
+| 功能包（plan/data-model/contracts/tasks） | `specs/00x-<feature>/` |
+
+参考：`specs/001-test-case-management/`、`specs/002-device-performance-monitor/`。

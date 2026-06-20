@@ -1,0 +1,96 @@
+{
+  "$defs": {
+    "FlowAssertResult": {
+      "description": "回放步骤断言判定结果。",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "FlowLocatorRef": {
+      "description": "回放步骤实际使用的定位（精简引用）。",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "回放过程中的一步留痕。",
+  "properties": {
+    "assertResult": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FlowAssertResult"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "durationMs": {
+      "default": 0,
+      "format": "int64",
+      "type": "integer"
+    },
+    "index": {
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "locatorUsed": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FlowLocatorRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "op": {
+      "default": "",
+      "type": "string"
+    },
+    "runId": {
+      "type": "string"
+    },
+    "screenshotPath": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "status": {
+      "default": "",
+      "description": "passed / failed / blocked / healed。",
+      "type": "string"
+    }
+  },
+  "required": [
+    "index",
+    "runId"
+  ],
+  "title": "FlowRunStep",
+  "type": "object"
+}

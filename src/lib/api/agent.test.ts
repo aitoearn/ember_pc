@@ -1,0 +1,2035 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const {
+  mockIsElectronHostCommandAvailable,
+  mockLogAgentDebug,
+  mockSafeListen,
+  mockSafeInvoke,
+} = vi.hoisted(() => ({
+  mockIsElectronHostCommandAvailable: vi.fn(),
+  mockLogAgentDebug: vi.fn(),
+  mockSafeListen: vi.fn(),
+  mockSafeInvoke: vi.fn(),
+}));
+
+vi.mock("@/lib/agentDebug", () => ({
+  logAgentDebug: mockLogAgentDebug,
+}));
+
+vi.mock("@/lib/dev-bridge", () => ({
+  safeInvoke: mockSafeInvoke,
+  safeListen: mockSafeListen,
+}));
+
+vi.mock("@/lib/electron-host", () => ({
+  isElectronHostCommandAvailable: mockIsElectronHostCommandAvailable,
+}));
+
+import {
+  APP_SERVER_METHOD_AGENT_SESSION_ACTION_REPLAY,
+  APP_SERVER_METHOD_AGENT_SESSION_ACTION_RESPOND,
+  APP_SERVER_METHOD_AGENT_SESSION_ANALYSIS_HANDOFF_EXPORT,
+  APP_SERVER_METHOD_AGENT_SESSION_HANDOFF_BUNDLE_EXPORT,
+  APP_SERVER_METHOD_AGENT_SESSION_QUEUED_TURN_PROMOTE,
+  APP_SERVER_METHOD_AGENT_SESSION_READ,
+  APP_SERVER_METHOD_AGENT_SESSION_REPLAY_CASE_EXPORT,
+  APP_SERVER_METHOD_AGENT_SESSION_REVIEW_DECISION_SAVE,
+  APP_SERVER_METHOD_AGENT_SESSION_REVIEW_DECISION_TEMPLATE_EXPORT,
+  APP_SERVER_METHOD_AGENT_SESSION_START,
+  APP_SERVER_METHOD_AGENT_SESSION_THREAD_RESUME,
+  APP_SERVER_METHOD_AGENT_SESSION_UPDATE,
+  APP_SERVER_METHOD_AGENT_SESSION_TURN_CANCEL,
+  APP_SERVER_METHOD_AGENT_SESSION_TURN_START,
+  APP_SERVER_METHOD_EVIDENCE_EXPORT,
+} from "./appServer";
+import {
+  exportAgentRuntimeAnalysisHandoff,
+  createAgentRuntimeSession,
+  deleteAgentRuntimeSession,
+  exportAgentRuntimeEvidencePack,
+  exportAgentRuntimeHandoffBundle,
+  exportAgentRuntimeReplayCase,
+  exportAgentRuntimeReviewDecisionTemplate,
+  saveAgentRuntimeReviewDecision,
+  generateAgentRuntimeTitleResult,
+  generateAgentRuntimeTitle,
+  generateAgentRuntimeSessionTitle,
+  getAgentRuntimeSession,
+  getAgentRuntimeThreadRead,
+  getAgentRuntimeToolInventory,
+  interruptAgentRuntimeTurn,
+  listAgentRuntimeSessions,
+  promoteAgentRuntimeQueuedTurn,
+  replayAgentRuntimeRequest,
+  resumeAgentRuntimeThread,
+  respondAgentRuntimeAction,
+  submitAgentRuntimeTurn,
+  updateAgentRuntimeSession,
+} from "./agentRuntime";
+
+function line(value: unknown): string {
+  return `${JSON.stringify(value)}\n`;
+}
+
+type AppServerMockEnvelope =
+  | { result: unknown }
+  | { error: { code: number; message: string; data?: unknown } };
+
+const appServerResponseQueue: AppServerMockEnvelope[] = [];
+
+function mockAppServerResponse(result: unknown): void {
+  appServerResponseQueue.push({ result });
+}
+
+function mockAppServerError(message: string, code = -32000): void {
+  appServerResponseQueue.push({ error: { code, message } });
+}
+
+function installAppServerMock(): void {
+  mockSafeInvoke.mockImplementation(async (command, args) => {
+    if (command === "app_server_drain_events") {
+      return { lines: [] };
+    }
+    if (command !== "app_server_handle_json_lines") {
+      return undefined;
+    }
+
+    const envelope = appServerResponseQueue.shift();
+    const requestLine = args?.request?.lines?.[0];
+    const request =
+      typeof requestLine === "string"
+        ? (JSON.parse(requestLine) as { id: number | string })
+        : { id: 1 };
+
+    return {
+      lines: [
+        line({
+          id: request.id,
+          ...(envelope ?? { result: undefined }),
+        }),
+      ],
+    };
+  });
+}
+
+function expectAppServerRequest(
+  callIndex: number,
+  method: string,
+  params: Record<string, unknown>,
+): void {
+  const call = mockSafeInvoke.mock.calls.filter(
+    (safeInvokeCall) => safeInvokeCall[0] === "app_server_handle_json_lines",
+  )[callIndex - 1];
+  expect(call?.[0]).toBe("app_server_handle_json_lines");
+  const requestLine = call?.[1]?.request?.lines?.[0];
+  expect(typeof requestLine).toBe("string");
+  const request = JSON.parse(requestLine as string);
+  expect(request).toMatchObject({
+    method,
+    params,
+  });
+}
+
+describe("Agent API 治理护栏", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    appServerResponseQueue.length = 0;
+    installAppServerMock();
+    mockIsElectronHostCommandAvailable.mockReturnValue(true);
+    mockSafeListen.mockResolvedValue(vi.fn());
+  });
+
+  it("createAgentRuntimeSession 应经 Electron IPC 调 App Server session/start", async () => {
+    mockAppServerResponse({
+      session: {
+        sessionId: "session-created",
+        threadId: "thread-created",
+        appId: "desktop",
+        workspaceId: "workspace-2",
+        status: "idle",
+        createdAt: "2026-06-06T00:00:00.000Z",
+        updatedAt: "2026-06-06T00:00:00.000Z",
+      },
+    });
+
+    await expect(
+      createAgentRuntimeSession("workspace-2", "新会话", "react", {
+        runStartHooks: false,
+      }),
+    ).resolves.toBe("session-created");
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_START, {
+      appId: "desktop",
+      workspaceId: "workspace-2",
+      businessObjectRef: {
+        kind: "agent.session",
+        id: expect.stringMatching(/^agent-session:workspace-2:\d+$/),
+        title: "新会话",
+        metadata: {
+          title: "新会话",
+          executionStrategy: "react",
+          runStartHooks: false,
+        },
+      },
+    });
+  });
+
+  it("submitAgentRuntimeTurn 应经 Electron IPC 调 App Server turn/start", async () => {
+    mockAppServerResponse({
+      turn: {
+        turnId: "turn-runtime",
+        sessionId: "session-runtime",
+        threadId: "thread-runtime",
+        status: "accepted",
+      },
+    });
+
+    await submitAgentRuntimeTurn({
+      message: "runtime hello",
+      session_id: "session-runtime",
+      event_name: "event-runtime",
+      workspace_id: "workspace-runtime",
+      turn_config: {
+        execution_strategy: "react",
+        provider_config: {
+          provider_id: "provider-runtime",
+          provider_name: "Provider Runtime",
+          model_name: "model-runtime",
+        },
+        metadata: {
+          source: "hook-facade",
+        },
+      },
+    });
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_TURN_START, {
+      sessionId: "session-runtime",
+      input: {
+        text: "runtime hello",
+      },
+      runtimeOptions: {
+        stream: true,
+        eventName: "event-runtime",
+        metadata: {
+          source: "hook-facade",
+        },
+        hostOptions: {
+          asterChatRequest: {
+            message: "runtime hello",
+            session_id: "session-runtime",
+            event_name: "event-runtime",
+            workspace_id: "workspace-runtime",
+            execution_strategy: "react",
+            provider_config: {
+              provider_id: "provider-runtime",
+              provider_name: "Provider Runtime",
+              model_name: "model-runtime",
+            },
+            metadata: {
+              source: "hook-facade",
+            },
+          },
+        },
+      },
+    });
+  });
+
+  it("submitAgentRuntimeTurn 应通过 App Server runtimeOptions 保留 web_search 与 queue_if_busy", async () => {
+    mockAppServerResponse({
+      turn: {
+        turnId: "queued-turn-1",
+        sessionId: "session-runtime-search",
+        threadId: "thread-runtime-search",
+        status: "queued",
+      },
+    });
+
+    await submitAgentRuntimeTurn({
+      message: "查一下今天的汇率",
+      session_id: "session-runtime-search",
+      event_name: "event-runtime-search",
+      workspace_id: "workspace-runtime-search",
+      queue_if_busy: true,
+      queued_turn_id: "queued-turn-1",
+      skip_pre_submit_resume: true,
+      turn_config: {
+        execution_strategy: "react",
+        web_search: true,
+      },
+    });
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_TURN_START, {
+      sessionId: "session-runtime-search",
+      input: {
+        text: "查一下今天的汇率",
+      },
+      runtimeOptions: {
+        stream: true,
+        eventName: "event-runtime-search",
+        queuedTurnId: "queued-turn-1",
+        hostOptions: {
+          asterChatRequest: {
+            message: "查一下今天的汇率",
+            session_id: "session-runtime-search",
+            event_name: "event-runtime-search",
+            workspace_id: "workspace-runtime-search",
+            queue_if_busy: true,
+            queued_turn_id: "queued-turn-1",
+            execution_strategy: "react",
+            web_search: true,
+          },
+        },
+      },
+      queueIfBusy: true,
+      skipPreSubmitResume: true,
+    });
+  });
+
+  it("submitAgentRuntimeTurn 应通过 App Server runtimeOptions 支持 provider/model 偏好字段", async () => {
+    mockAppServerResponse({
+      turn: {
+        turnId: "turn-runtime-preference",
+        sessionId: "session-runtime-preference",
+        threadId: "thread-runtime-preference",
+        status: "accepted",
+      },
+    });
+
+    await submitAgentRuntimeTurn({
+      message: "请继续",
+      session_id: "session-runtime-preference",
+      event_name: "event-runtime-preference",
+      workspace_id: "workspace-runtime-preference",
+      turn_config: {
+        provider_preference: "custom-provider",
+        model_preference: "gpt-5.3-codex",
+        thinking_enabled: true,
+        approval_policy: "on-request",
+        sandbox_policy: "workspace-write",
+      },
+    });
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_TURN_START, {
+      sessionId: "session-runtime-preference",
+      input: {
+        text: "请继续",
+      },
+      runtimeOptions: {
+        stream: true,
+        eventName: "event-runtime-preference",
+        providerPreference: "custom-provider",
+        modelPreference: "gpt-5.3-codex",
+        hostOptions: {
+          asterChatRequest: {
+            message: "请继续",
+            session_id: "session-runtime-preference",
+            event_name: "event-runtime-preference",
+            workspace_id: "workspace-runtime-preference",
+            provider_preference: "custom-provider",
+            model_preference: "gpt-5.3-codex",
+            thinking_enabled: true,
+            approval_policy: "on-request",
+            sandbox_policy: "workspace-write",
+          },
+        },
+      },
+    });
+  });
+
+  it("updateAgentRuntimeSession 应支持 recent_access_mode", async () => {
+    mockAppServerResponse({
+      session: {
+        sessionId: "session-runtime-access",
+        threadId: "session-runtime-access",
+        title: "Session",
+        model: "gpt-5.4",
+        createdAt: "2026-06-06T00:00:00.000Z",
+        updatedAt: "2026-06-06T00:00:01.000Z",
+        messagesCount: 0,
+      },
+    });
+
+    await updateAgentRuntimeSession({
+      session_id: "session-runtime-access",
+      recent_access_mode: "full-access",
+    });
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_UPDATE, {
+      sessionId: "session-runtime-access",
+      recentAccessMode: "full-access",
+    });
+  });
+
+  it("updateAgentRuntimeSession 应透传 provider_selector", async () => {
+    mockAppServerResponse({
+      session: {
+        sessionId: "session-runtime-provider",
+        threadId: "session-runtime-provider",
+        title: "Session",
+        model: "mimo-v2-pro",
+        createdAt: "2026-06-06T00:00:00.000Z",
+        updatedAt: "2026-06-06T00:00:01.000Z",
+        messagesCount: 0,
+      },
+    });
+
+    await updateAgentRuntimeSession({
+      session_id: "session-runtime-provider",
+      provider_selector: "custom-cae6e762-fb45-4f71-878c-3106510ade78",
+      model_name: "mimo-v2-pro",
+    });
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_UPDATE, {
+      sessionId: "session-runtime-provider",
+      providerSelector: "custom-cae6e762-fb45-4f71-878c-3106510ade78",
+      modelName: "mimo-v2-pro",
+    });
+  });
+
+  it("respondAgentRuntimeAction 应经 Electron IPC 调 App Server action/respond", async () => {
+    mockAppServerResponse({});
+
+    await respondAgentRuntimeAction({
+      session_id: "session-runtime",
+      request_id: "req-runtime",
+      action_type: "ask_user",
+      confirmed: true,
+      response: '{"answer":"A"}',
+      user_data: { answer: "A" },
+    });
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_ACTION_RESPOND, {
+      sessionId: "session-runtime",
+      requestId: "req-runtime",
+      actionType: "ask_user",
+      confirmed: true,
+      response: '{"answer":"A"}',
+      userData: { answer: "A" },
+    });
+  });
+
+  it("respondAgentRuntimeAction 应通过 App Server 透传 event_name 以便立即恢复当前执行流", async () => {
+    mockAppServerResponse({});
+
+    await respondAgentRuntimeAction({
+      session_id: "session-runtime",
+      request_id: "req-runtime-resume",
+      action_type: "elicitation",
+      confirmed: true,
+      response: '{"answer":"继续"}',
+      user_data: { answer: "继续" },
+      event_name: "aster_stream_session-runtime",
+    });
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_ACTION_RESPOND, {
+      sessionId: "session-runtime",
+      requestId: "req-runtime-resume",
+      actionType: "elicitation",
+      confirmed: true,
+      response: '{"answer":"继续"}',
+      userData: { answer: "继续" },
+      eventName: "aster_stream_session-runtime",
+    });
+  });
+
+  it("respondAgentRuntimeAction 应通过 App Server 透传 action_scope 以便精确恢复 ask/elicitation", async () => {
+    mockAppServerResponse({});
+
+    await respondAgentRuntimeAction({
+      session_id: "session-runtime",
+      request_id: "req-runtime-scope",
+      action_type: "ask_user",
+      confirmed: true,
+      response: '{"answer":"自动执行"}',
+      user_data: { answer: "自动执行" },
+      action_scope: {
+        session_id: "session-runtime",
+        thread_id: "thread-runtime",
+        turn_id: "turn-runtime",
+      },
+    });
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_ACTION_RESPOND, {
+      sessionId: "session-runtime",
+      requestId: "req-runtime-scope",
+      actionType: "ask_user",
+      confirmed: true,
+      response: '{"answer":"自动执行"}',
+      userData: { answer: "自动执行" },
+      actionScope: {
+        sessionId: "session-runtime",
+        threadId: "thread-runtime",
+        turnId: "turn-runtime",
+      },
+    });
+  });
+
+  it("resumeAgentRuntimeThread 应经 Electron IPC 调 App Server thread/resume", async () => {
+    mockAppServerResponse({
+      session: {
+        sessionId: "session-runtime-resume",
+        threadId: "thread-runtime-resume",
+        appId: "agent-chat",
+        status: "running",
+        createdAt: "2026-06-06T00:00:00.000Z",
+        updatedAt: "2026-06-06T00:00:01.000Z",
+      },
+      turns: [],
+      resumed: true,
+    });
+
+    await expect(
+      resumeAgentRuntimeThread({
+        session_id: "session-runtime-resume",
+      }),
+    ).resolves.toBe(true);
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_THREAD_RESUME, {
+      sessionId: "session-runtime-resume",
+    });
+  });
+
+  it("replayAgentRuntimeRequest 应经 Electron IPC 调 App Server action/replay", async () => {
+    mockAppServerResponse({
+      action: {
+        type: "action_required",
+        requestId: "req-runtime-replay",
+        actionType: "ask_user",
+        prompt: "请选择执行模式",
+      },
+    });
+
+    await expect(
+      replayAgentRuntimeRequest({
+        session_id: "session-runtime-replay",
+        request_id: "req-runtime-replay",
+      }),
+    ).resolves.toMatchObject({
+      request_id: "req-runtime-replay",
+      action_type: "ask_user",
+      prompt: "请选择执行模式",
+    });
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_ACTION_REPLAY, {
+      sessionId: "session-runtime-replay",
+      requestId: "req-runtime-replay",
+    });
+  });
+
+  it("getAgentRuntimeThreadRead 应经 Electron IPC 调 App Server session/read 并归一化 queued_turns", async () => {
+    mockAppServerResponse({
+      session: {
+        sessionId: "session-runtime",
+        threadId: "thread-runtime",
+        appId: "agent-chat",
+        status: "waitingAction",
+        createdAt: "2026-06-06T00:00:00.000Z",
+        updatedAt: "2026-06-06T00:00:03.000Z",
+      },
+      turns: [
+        {
+          turnId: "turn-runtime",
+          sessionId: "session-runtime",
+          threadId: "thread-runtime",
+          status: "running",
+        },
+      ],
+      detail: {
+        thread_read: {
+          thread_id: "thread-runtime",
+          status: "blocked",
+          queued_turns: [
+            {
+              queued_turn_id: "queued-turn-1",
+              message_preview: "继续执行",
+              created_at: 1711184400,
+              position: 1,
+            },
+          ],
+        },
+      },
+    });
+
+    await expect(
+      getAgentRuntimeThreadRead("session-runtime"),
+    ).resolves.toMatchObject({
+      thread_id: "thread-runtime",
+      status: "blocked",
+      profile_status: "blocked",
+      active_turn_id: "turn-runtime",
+      queued_turns: [
+        expect.objectContaining({
+          queued_turn_id: "queued-turn-1",
+          position: 1,
+        }),
+      ],
+    });
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_READ, {
+      sessionId: "session-runtime",
+    });
+  });
+
+  it("exportAgentRuntimeReplayCase 应经 Electron IPC 调 App Server replayCase/export", async () => {
+    mockAppServerResponse({
+      sessionId: "session-runtime-replay-case",
+      threadId: "thread-runtime-replay-case",
+      workspaceRoot: "/tmp/workspace",
+      replayRelativeRoot:
+        ".ember/harness/sessions/session-runtime-replay-case/replay",
+      replayAbsoluteRoot:
+        "/tmp/workspace/.ember/harness/sessions/session-runtime-replay-case/replay",
+      handoffBundleRelativeRoot:
+        ".ember/harness/sessions/session-runtime-replay-case",
+      evidencePackRelativeRoot:
+        ".ember/harness/sessions/session-runtime-replay-case/evidence",
+      exportedAt: "2026-03-27T09:50:00.000Z",
+      threadStatus: "waiting_request",
+      pendingRequestCount: 1,
+      queuedTurnCount: 1,
+      linkedHandoffArtifactCount: 4,
+      linkedEvidenceArtifactCount: 4,
+      recentArtifactCount: 2,
+      artifacts: [],
+    });
+
+    await expect(
+      exportAgentRuntimeReplayCase("session-runtime-replay-case"),
+    ).resolves.toMatchObject({
+      replay_relative_root:
+        ".ember/harness/sessions/session-runtime-replay-case/replay",
+      linked_handoff_artifact_count: 4,
+    });
+
+    expectAppServerRequest(
+      1,
+      APP_SERVER_METHOD_AGENT_SESSION_REPLAY_CASE_EXPORT,
+      {
+        sessionId: "session-runtime-replay-case",
+      },
+    );
+  });
+
+  it("promoteAgentRuntimeQueuedTurn 应经 Electron IPC 调 App Server queuedTurn/promote", async () => {
+    mockAppServerResponse({
+      session: {
+        sessionId: "session-runtime",
+        threadId: "thread-runtime",
+        appId: "agent-chat",
+        status: "running",
+        createdAt: "2026-06-06T00:00:00.000Z",
+        updatedAt: "2026-06-06T00:00:01.000Z",
+      },
+      turns: [],
+      queuedTurnId: "queued-turn-2",
+      promoted: true,
+    });
+
+    await expect(
+      promoteAgentRuntimeQueuedTurn({
+        session_id: "session-runtime",
+        queued_turn_id: "queued-turn-2",
+      }),
+    ).resolves.toBe(true);
+
+    expectAppServerRequest(
+      1,
+      APP_SERVER_METHOD_AGENT_SESSION_QUEUED_TURN_PROMOTE,
+      {
+        sessionId: "session-runtime",
+        queuedTurnId: "queued-turn-2",
+      },
+    );
+  });
+
+  it("interruptAgentRuntimeTurn 与 updateAgentRuntimeSession 应经 Electron IPC 调 App Server", async () => {
+    mockAppServerResponse({});
+    mockAppServerResponse({
+      session: {
+        sessionId: "session-runtime",
+        threadId: "session-runtime",
+        title: "新标题",
+        model: "gpt-5.4",
+        createdAt: "2026-06-06T00:00:00.000Z",
+        updatedAt: "2026-06-06T00:00:01.000Z",
+        messagesCount: 0,
+      },
+    });
+
+    await interruptAgentRuntimeTurn({
+      session_id: "session-runtime",
+      turn_id: "turn-1",
+    });
+    await updateAgentRuntimeSession({
+      session_id: "session-runtime",
+      name: "新标题",
+      execution_strategy: "react",
+    });
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_TURN_CANCEL, {
+      sessionId: "session-runtime",
+      turnId: "turn-1",
+    });
+    expectAppServerRequest(2, APP_SERVER_METHOD_AGENT_SESSION_UPDATE, {
+      sessionId: "session-runtime",
+      title: "新标题",
+      executionStrategy: "react",
+    });
+  });
+
+  it("listAgentRuntimeSessions 应返回现役 runtime 会话列表", async () => {
+    mockAppServerResponse({
+      sessions: [
+        {
+          sessionId: "session-runtime-1",
+          threadId: "thread-runtime-1",
+          title: "Runtime Session",
+          model: "claude-sonnet-4-20250514",
+          createdAt: "2024-03-09T16:00:00.000Z",
+          updatedAt: "2024-03-09T16:02:03.000Z",
+          messagesCount: 3,
+          executionStrategy: "react",
+          workspaceId: "workspace-1",
+          workingDir: "/tmp/workspace-1",
+        },
+      ],
+    });
+
+    await expect(listAgentRuntimeSessions()).resolves.toEqual([
+      {
+        id: "session-runtime-1",
+        thread_id: "thread-runtime-1",
+        name: "Runtime Session",
+        model: "claude-sonnet-4-20250514",
+        created_at: 1710000000000,
+        updated_at: 1710000123000,
+        messages_count: 3,
+        workspace_id: "workspace-1",
+        working_dir: "/tmp/workspace-1",
+        execution_strategy: "react",
+      },
+    ]);
+    expectAppServerRequest(1, "agentSession/list", {});
+  });
+
+  it("listAgentRuntimeSessions 应支持请求包含归档会话", async () => {
+    mockAppServerResponse({
+      sessions: [
+        {
+          sessionId: "session-runtime-archived",
+          title: "Archived Runtime Session",
+          createdAt: "2024-03-09T16:00:00.000Z",
+          updatedAt: "2024-03-09T16:02:03.000Z",
+          archivedAt: "2024-03-09T16:05:00.000Z",
+          model: "gpt-5.4",
+          messagesCount: 0,
+        },
+      ],
+    });
+
+    await expect(
+      listAgentRuntimeSessions({ includeArchived: true }),
+    ).resolves.toEqual([
+      {
+        id: "session-runtime-archived",
+        thread_id: "session-runtime-archived",
+        name: "Archived Runtime Session",
+        model: "gpt-5.4",
+        created_at: 1710000000000,
+        updated_at: 1710000123000,
+        archived_at: 1710000300000,
+        messages_count: 0,
+      },
+    ]);
+
+    expectAppServerRequest(1, "agentSession/list", {
+      includeArchived: true,
+    });
+  });
+
+  it("listAgentRuntimeSessions 应支持工作区限流与仅归档过滤", async () => {
+    mockAppServerResponse({
+      sessions: [
+        {
+          sessionId: "session-runtime-archived",
+          title: "Archived Runtime Session",
+          createdAt: "2024-03-09T16:00:00.000Z",
+          updatedAt: "2024-03-09T16:02:03.000Z",
+          archivedAt: "2024-03-09T16:05:00.000Z",
+          workspaceId: "workspace-1",
+          model: "gpt-5.4",
+          messagesCount: 0,
+        },
+      ],
+    });
+
+    await expect(
+      listAgentRuntimeSessions({
+        archivedOnly: true,
+        workspaceId: "workspace-1",
+        limit: 12,
+      }),
+    ).resolves.toEqual([
+      {
+        id: "session-runtime-archived",
+        thread_id: "session-runtime-archived",
+        name: "Archived Runtime Session",
+        model: "gpt-5.4",
+        created_at: 1710000000000,
+        updated_at: 1710000123000,
+        archived_at: 1710000300000,
+        workspace_id: "workspace-1",
+        messages_count: 0,
+      },
+    ]);
+
+    expectAppServerRequest(1, "agentSession/list", {
+      archivedOnly: true,
+      workspaceId: "workspace-1",
+      limit: 12,
+    });
+  });
+
+  it("getAgentRuntimeSession 应返回现役 runtime 详情并归一 queued_turns", async () => {
+    mockAppServerResponse({
+      session: {
+        sessionId: "session-runtime-2",
+        threadId: "thread-runtime-2",
+        appId: "desktop",
+        workspaceId: "workspace-2",
+        status: "running",
+        createdAt: "2026-06-06T00:00:00.000Z",
+        updatedAt: "2026-06-06T00:00:02.000Z",
+      },
+      turns: [],
+      detail: {
+        id: "session-runtime-2",
+        name: "Runtime Detail",
+        model: "gpt-5.4",
+        created_at: 1710001000,
+        updated_at: 1710002000,
+        workspace_id: "workspace-2",
+        working_dir: "/tmp/workspace-2",
+        execution_strategy: "react",
+        child_subagent_sessions: [
+          {
+            id: "subagent-session-1",
+            name: "Image #1",
+            created_at: 1710001200,
+            updated_at: 1710001800,
+            session_type: "sub_agent",
+            model: "gpt-5.4-mini",
+            role_hint: "image_editor",
+            task_summary: "处理封面图优化",
+            origin_tool: "Agent",
+            runtime_status: "completed",
+          },
+        ],
+        subagent_parent_context: {
+          parent_session_id: "parent-session-1",
+          parent_session_name: "主线程会话",
+          role_hint: "image_editor",
+          task_summary: "处理封面图优化",
+          origin_tool: "Agent",
+          created_from_turn_id: "turn-2",
+          sibling_subagent_sessions: [
+            {
+              id: "subagent-session-2",
+              name: "Image #2",
+              created_at: 1710001250,
+              updated_at: 1710001850,
+              session_type: "sub_agent",
+              role_hint: "image_reviewer",
+              task_summary: "检查图片导出尺寸",
+              runtime_status: "running",
+            },
+          ],
+        },
+        queued_turns: [
+          {
+            queued_turn_id: "queued-1",
+            message_text: "排队中的任务",
+            message_preview: "排队中的任务",
+            created_at: 1710001500,
+            image_count: 0,
+            position: 2,
+          },
+        ],
+        thread_read: {
+          thread_id: "thread-runtime-2",
+          status: "running",
+          queued_turns: [
+            {
+              queued_turn_id: "queued-2",
+              message_text: "线程读模型中的排队任务",
+              message_preview: "线程读模型中的排队任务",
+              created_at: 1710001510,
+              image_count: 0,
+              position: 1,
+            },
+          ],
+        },
+        messages: [
+          {
+            role: "user",
+            content: [{ type: "text", text: "hello" }],
+            timestamp: 1710001000,
+          },
+          {
+            role: "assistant",
+            content: [{ type: "text", text: "world" }],
+            timestamp: 1710002000,
+          },
+        ],
+        items: [
+          {
+            id: "turn-summary-1",
+            thread_id: "thread-runtime-2",
+            turn_id: "turn-runtime-2",
+            sequence: 1,
+            status: "completed",
+            started_at: "2026-03-29T10:00:00Z",
+            completed_at: "2026-03-29T10:00:02Z",
+            updated_at: "2026-03-29T10:00:02Z",
+            type: "turn_summary",
+            text: "已决定：直接回答优先\n当前请求无需默认升级为搜索或任务。",
+          },
+        ],
+      },
+    });
+
+    await expect(getAgentRuntimeSession("session-runtime-2")).resolves.toEqual({
+      id: "session-runtime-2",
+      name: "Runtime Detail",
+      model: "gpt-5.4",
+      created_at: 1710001000,
+      updated_at: 1710002000,
+      workspace_id: "workspace-2",
+      working_dir: "/tmp/workspace-2",
+      execution_strategy: "react",
+      child_subagent_sessions: [
+        {
+          id: "subagent-session-1",
+          name: "Image #1",
+          created_at: 1710001200,
+          updated_at: 1710001800,
+          session_type: "sub_agent",
+          model: "gpt-5.4-mini",
+          role_hint: "image_editor",
+          task_summary: "处理封面图优化",
+          origin_tool: "Agent",
+          runtime_status: "completed",
+        },
+      ],
+      subagent_parent_context: {
+        parent_session_id: "parent-session-1",
+        parent_session_name: "主线程会话",
+        role_hint: "image_editor",
+        task_summary: "处理封面图优化",
+        origin_tool: "Agent",
+        created_from_turn_id: "turn-2",
+        sibling_subagent_sessions: [
+          {
+            id: "subagent-session-2",
+            name: "Image #2",
+            created_at: 1710001250,
+            updated_at: 1710001850,
+            session_type: "sub_agent",
+            origin_tool: undefined,
+            role_hint: "image_reviewer",
+            task_summary: "检查图片导出尺寸",
+            runtime_status: "running",
+          },
+        ],
+      },
+      queued_turns: [
+        {
+          queued_turn_id: "queued-1",
+          message_text: "排队中的任务",
+          message_preview: "排队中的任务",
+          created_at: 1710001500,
+          image_count: 0,
+          position: 2,
+        },
+      ],
+      thread_read: {
+        thread_id: "thread-runtime-2",
+        status: "running",
+        queued_turns: [
+          {
+            queued_turn_id: "queued-2",
+            message_text: "线程读模型中的排队任务",
+            message_preview: "线程读模型中的排队任务",
+            created_at: 1710001510,
+            image_count: 0,
+            position: 1,
+          },
+        ],
+      },
+      messages: [
+        {
+          role: "user",
+          content: [{ type: "text", text: "hello" }],
+          timestamp: 1710001000,
+        },
+        {
+          role: "assistant",
+          content: [{ type: "text", text: "world" }],
+          timestamp: 1710002000,
+        },
+      ],
+      items: [
+        {
+          id: "turn-summary-1",
+          thread_id: "thread-runtime-2",
+          turn_id: "turn-runtime-2",
+          sequence: 1,
+          status: "completed",
+          started_at: "2026-03-29T10:00:00Z",
+          completed_at: "2026-03-29T10:00:02Z",
+          updated_at: "2026-03-29T10:00:02Z",
+          type: "turn_summary",
+          text: "直接回答优先\n当前请求无需默认升级为搜索或任务。",
+        },
+      ],
+      todo_items: [],
+      turns: [],
+    });
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_READ, {
+      sessionId: "session-runtime-2",
+    });
+  });
+
+  it("getAgentRuntimeSession 应支持透传 resume hooks 标记", async () => {
+    mockAppServerResponse({
+      session: {
+        sessionId: "session-runtime-resume",
+        threadId: "thread-runtime-resume",
+        appId: "desktop",
+        status: "idle",
+        createdAt: "2026-06-06T00:00:00.000Z",
+        updatedAt: "2026-06-06T00:00:00.000Z",
+      },
+      turns: [],
+      detail: {
+        id: "session-runtime-resume",
+        messages: [],
+      },
+    });
+
+    await expect(
+      getAgentRuntimeSession("session-runtime-resume", {
+        resumeSessionStartHooks: true,
+      }),
+    ).resolves.toMatchObject({
+      id: "session-runtime-resume",
+      messages: [],
+    });
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_READ, {
+      sessionId: "session-runtime-resume",
+    });
+  });
+
+  it("getAgentRuntimeSession 应支持透传历史 tail 限制", async () => {
+    mockAppServerResponse({
+      session: {
+        sessionId: "session-runtime-tail",
+        threadId: "thread-runtime-tail",
+        appId: "desktop",
+        status: "idle",
+        createdAt: "2026-06-06T00:00:00.000Z",
+        updatedAt: "2026-06-06T00:00:00.000Z",
+      },
+      turns: [],
+      detail: {
+        id: "session-runtime-tail",
+        messages: [],
+      },
+    });
+
+    await expect(
+      getAgentRuntimeSession("session-runtime-tail", {
+        historyLimit: 120,
+      }),
+    ).resolves.toMatchObject({
+      id: "session-runtime-tail",
+      messages: [],
+    });
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_READ, {
+      sessionId: "session-runtime-tail",
+      historyLimit: 120,
+    });
+  });
+
+  it("getAgentRuntimeSession 遇到 transient DevBridge 读失败时只输出 warn 调试日志", async () => {
+    mockSafeInvoke.mockRejectedValueOnce(
+      new Error(
+        '[DevBridge] 浏览器模式无法连接后端桥接，命令 "app_server_handle_json_lines" 执行失败。原始错误: Failed to fetch (timeout after 20000ms)',
+      ),
+    );
+
+    await expect(
+      getAgentRuntimeSession("session-runtime-transient", {
+        historyLimit: 40,
+      }),
+    ).rejects.toThrow("timeout after 20000ms");
+
+    const errorDebugCall = mockLogAgentDebug.mock.calls.find(
+      ([component, phase]) =>
+        component === "AgentApi" && phase === "runtimeGetSession.error",
+    );
+
+    expect(errorDebugCall).toBeTruthy();
+    expect(errorDebugCall?.[3]).toMatchObject({ level: "warn" });
+  });
+
+  it("exportAgentRuntimeHandoffBundle 应经 Electron IPC 调 App Server handoffBundle/export", async () => {
+    mockAppServerResponse({
+      sessionId: "session-runtime-3",
+      threadId: "thread-runtime-3",
+      workspaceRoot: "/tmp/workspace-3",
+      bundleRelativeRoot: ".ember/harness/sessions/session-runtime-3",
+      bundleAbsoluteRoot:
+        "/tmp/workspace-3/.ember/harness/sessions/session-runtime-3",
+      exportedAt: "2026-03-27T10:00:00Z",
+      threadStatus: "running",
+      latestTurnStatus: "completed",
+      pendingRequestCount: 1,
+      queuedTurnCount: 0,
+      activeSubagentCount: 2,
+      todoTotal: 3,
+      todoPending: 1,
+      todoInProgress: 1,
+      todoCompleted: 1,
+      artifacts: [
+        {
+          kind: "handoff",
+          title: "交接摘要",
+          relativePath: ".ember/harness/sessions/session-runtime-3/handoff.md",
+          absolutePath:
+            "/tmp/workspace-3/.ember/harness/sessions/session-runtime-3/handoff.md",
+          bytes: 512,
+        },
+      ],
+    });
+
+    await expect(
+      exportAgentRuntimeHandoffBundle("session-runtime-3"),
+    ).resolves.toMatchObject({
+      session_id: "session-runtime-3",
+      thread_status: "running",
+      pending_request_count: 1,
+      artifacts: [
+        expect.objectContaining({
+          kind: "handoff",
+          relative_path: ".ember/harness/sessions/session-runtime-3/handoff.md",
+        }),
+      ],
+    });
+
+    expectAppServerRequest(
+      1,
+      APP_SERVER_METHOD_AGENT_SESSION_HANDOFF_BUNDLE_EXPORT,
+      {
+        sessionId: "session-runtime-3",
+      },
+    );
+  });
+
+  it("exportAgentRuntimeEvidencePack 应经 Electron IPC 调 App Server evidence/export", async () => {
+    mockAppServerResponse({
+      session: {
+        sessionId: "session-runtime-4",
+        threadId: "thread-runtime-4",
+        appId: "desktop",
+        workspaceId: "workspace-runtime-4",
+        status: "running",
+        createdAt: "2026-06-06T00:00:00.000Z",
+        updatedAt: "2026-06-06T00:00:03.000Z",
+      },
+      turns: [],
+      events: [],
+      artifacts: [],
+      exportedAt: "2026-06-06T00:00:04.000Z",
+      evidencePack: {
+        packRelativeRoot: ".ember/harness/sessions/session-runtime-4/evidence",
+        packAbsoluteRoot:
+          "/tmp/workspace-4/.ember/harness/sessions/session-runtime-4/evidence",
+        exportedAt: "2026-06-06T00:00:05.000Z",
+        threadStatus: "running",
+        latestTurnStatus: "running",
+        turnCount: 2,
+        itemCount: 6,
+        pendingRequestCount: 1,
+        queuedTurnCount: 1,
+        recentArtifactCount: 2,
+        knownGaps: ["request telemetry unavailable"],
+        completionAuditSummary: {
+          source: "runtime_evidence_pack_completion_audit",
+          decision: "completed",
+          ownerRunCount: 1,
+          requiredEvidence: {
+            automationOwner: true,
+            workspaceSkillToolCall: true,
+            artifactOrTimeline: true,
+            controlledGetEvidence: true,
+          },
+          blockingReasons: [],
+        },
+        artifacts: [
+          {
+            kind: "summary",
+            title: "问题摘要",
+            relativePath:
+              ".ember/harness/sessions/session-runtime-4/evidence/summary.md",
+            absolutePath:
+              "/tmp/workspace-4/.ember/harness/sessions/session-runtime-4/evidence/summary.md",
+            bytes: 256,
+          },
+        ],
+      },
+    });
+
+    await expect(
+      exportAgentRuntimeEvidencePack("session-runtime-4"),
+    ).resolves.toMatchObject({
+      session_id: "session-runtime-4",
+      thread_id: "thread-runtime-4",
+      workspace_id: "workspace-runtime-4",
+      workspace_root: "/tmp/workspace-4",
+      pack_relative_root: ".ember/harness/sessions/session-runtime-4/evidence",
+      pack_absolute_root:
+        "/tmp/workspace-4/.ember/harness/sessions/session-runtime-4/evidence",
+      thread_status: "running",
+      turn_count: 2,
+      known_gaps: ["request telemetry unavailable"],
+      completion_audit_summary: expect.objectContaining({
+        decision: "completed",
+        owner_run_count: 1,
+        required_evidence: expect.objectContaining({
+          automation_owner: true,
+          workspace_skill_tool_call: true,
+          artifact_or_timeline: true,
+          controlled_get_evidence: true,
+        }),
+      }),
+      artifacts: [
+        expect.objectContaining({
+          kind: "summary",
+          relative_path:
+            ".ember/harness/sessions/session-runtime-4/evidence/summary.md",
+        }),
+      ],
+    });
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_EVIDENCE_EXPORT, {
+      sessionId: "session-runtime-4",
+      includeEvents: true,
+      includeArtifacts: true,
+      includeEvidencePack: true,
+    });
+  });
+
+  it("exportAgentRuntimeAnalysisHandoff 应兼容 camelCase / snake_case 并经 App Server 导出", async () => {
+    mockAppServerResponse({
+      sessionId: "session-runtime-4a",
+      threadId: "thread-runtime-4a",
+      workspaceRoot: "/tmp/workspace-4a",
+      analysisRelativeRoot:
+        ".ember/harness/sessions/session-runtime-4a/analysis",
+      analysisAbsoluteRoot:
+        "/tmp/workspace-4a/.ember/harness/sessions/session-runtime-4a/analysis",
+      handoffBundleRelativeRoot: ".ember/harness/sessions/session-runtime-4a",
+      evidencePackRelativeRoot:
+        ".ember/harness/sessions/session-runtime-4a/evidence",
+      replayCaseRelativeRoot:
+        ".ember/harness/sessions/session-runtime-4a/replay",
+      exportedAt: "2026-03-27T10:08:00Z",
+      title: "确认当前失败案例如何交给外部 AI 修复",
+      threadStatus: "waiting_request",
+      latestTurnStatus: "action_required",
+      pendingRequestCount: 1,
+      queuedTurnCount: 0,
+      sanitizedWorkspaceRoot: "/workspace/ember",
+      copyPrompt: "# Ember 外部诊断与修复任务",
+      artifacts: [
+        {
+          kind: "analysis_brief",
+          title: "外部分析简报",
+          relativePath:
+            ".ember/harness/sessions/session-runtime-4a/analysis/analysis-brief.md",
+          absolutePath:
+            "/tmp/workspace-4a/.ember/harness/sessions/session-runtime-4a/analysis/analysis-brief.md",
+          bytes: 320,
+        },
+      ],
+    });
+
+    await expect(
+      exportAgentRuntimeAnalysisHandoff("session-runtime-4a"),
+    ).resolves.toMatchObject({
+      session_id: "session-runtime-4a",
+      thread_status: "waiting_request",
+      copy_prompt: "# Ember 外部诊断与修复任务",
+      artifacts: [
+        expect.objectContaining({
+          kind: "analysis_brief",
+          relative_path:
+            ".ember/harness/sessions/session-runtime-4a/analysis/analysis-brief.md",
+        }),
+      ],
+    });
+
+    expectAppServerRequest(
+      1,
+      APP_SERVER_METHOD_AGENT_SESSION_ANALYSIS_HANDOFF_EXPORT,
+      {
+        sessionId: "session-runtime-4a",
+      },
+    );
+  });
+
+  it("exportAgentRuntimeReviewDecisionTemplate 应兼容 camelCase / snake_case 并经 App Server 导出", async () => {
+    mockAppServerResponse({
+      sessionId: "session-runtime-4b",
+      threadId: "thread-runtime-4b",
+      workspaceRoot: "/tmp/workspace-4b",
+      reviewRelativeRoot: ".ember/harness/sessions/session-runtime-4b/review",
+      reviewAbsoluteRoot:
+        "/tmp/workspace-4b/.ember/harness/sessions/session-runtime-4b/review",
+      analysisRelativeRoot:
+        ".ember/harness/sessions/session-runtime-4b/analysis",
+      analysisAbsoluteRoot:
+        "/tmp/workspace-4b/.ember/harness/sessions/session-runtime-4b/analysis",
+      handoffBundleRelativeRoot: ".ember/harness/sessions/session-runtime-4b",
+      evidencePackRelativeRoot:
+        ".ember/harness/sessions/session-runtime-4b/evidence",
+      replayCaseRelativeRoot:
+        ".ember/harness/sessions/session-runtime-4b/replay",
+      exportedAt: "2026-03-27T10:18:00Z",
+      title: "记录人工审核决策",
+      threadStatus: "waiting_request",
+      latestTurnStatus: "action_required",
+      pendingRequestCount: 1,
+      queuedTurnCount: 0,
+      defaultDecisionStatus: "pending_review",
+      limitStatus: "user_locked_capability_gap",
+      capabilityGap: "browser_reasoning_candidate_missing",
+      userLockedCapabilitySummary:
+        "显式用户模型锁定不满足当前 execution profile（capabilityGap=browser_reasoning_candidate_missing），不能作为成功交付证据。",
+      permissionStatus: "requires_confirmation",
+      permissionConfirmationStatus: "denied",
+      permissionConfirmationRequestId: "approval-denied",
+      permissionConfirmationSource: "runtime_action_required",
+      permissionConfirmationSummary:
+        "已拒绝（request_id=approval-denied, source=runtime_action_required），不能作为成功交付证据。",
+      verificationSummary: {
+        artifactValidator: {
+          applicable: true,
+          recordCount: 1,
+          issueCount: 2,
+          repairedCount: 1,
+          fallbackUsedCount: 0,
+          outcome: "blocking_failure",
+        },
+        focusVerificationFailureOutcomes: [
+          "Artifact 校验存在 2 条未恢复 issues。",
+        ],
+        focusVerificationRecoveredOutcomes: [
+          "Artifact 校验已恢复 1 个产物，fallback 0 次。",
+        ],
+        requestedFixExecutionResults: [
+          {
+            requestedFix:
+              "复查 Artifact 校验相关产物，确认 issues / repaired / fallback 状态与最终结论一致。",
+            requestedFixIndex: 2,
+            executionStatus: "completed",
+            regressionOutcome: "recovered",
+            summaryPreview: "已复查并重新导出 evidence pack。",
+            resultRef:
+              "agent-runtime://session/session-runtime-4b/thread/thread-runtime-4b/turn/turn-review/item/item-fix-2",
+            artifactPaths: [
+              ".ember/harness/sessions/session-runtime-4b/evidence/runtime.json",
+            ],
+          },
+        ],
+      },
+      decision: {
+        decisionStatus: "pending_review",
+        decisionSummary: "",
+        chosenFixStrategy: "",
+        riskLevel: "unknown",
+        riskTags: [],
+        humanReviewer: "",
+        reviewedAt: null,
+        followupActions: [
+          "先对照 analysis-context.json / evidence/runtime.json 核对当前验证失败焦点，再决定是继续修复还是补证据。",
+          "复查 Artifact 校验相关产物，确认 issues / repaired / fallback 状态与最终结论一致。",
+        ],
+        regressionRequirements: [
+          "按 replay case 复现问题并确认修复后行为与预期一致。",
+          "重新导出 evidence pack，确认 Artifact 校验摘要已更新。",
+        ],
+        notes: "",
+      },
+      decisionStatusOptions: [
+        "accepted",
+        "deferred",
+        "rejected",
+        "needs_more_evidence",
+        "pending_review",
+      ],
+      riskLevelOptions: ["low", "medium", "high", "unknown"],
+      reviewChecklist: ["先阅读 analysis-brief.md"],
+      analysisArtifacts: [
+        {
+          kind: "analysis_brief",
+          title: "外部分析简报",
+          relativePath:
+            ".ember/harness/sessions/session-runtime-4b/analysis/analysis-brief.md",
+          absolutePath:
+            "/tmp/workspace-4b/.ember/harness/sessions/session-runtime-4b/analysis/analysis-brief.md",
+          bytes: 320,
+        },
+      ],
+      artifacts: [
+        {
+          kind: "review_decision_json",
+          title: "人工审核记录 JSON",
+          relativePath:
+            ".ember/harness/sessions/session-runtime-4b/review/review-decision.json",
+          absolutePath:
+            "/tmp/workspace-4b/.ember/harness/sessions/session-runtime-4b/review/review-decision.json",
+          bytes: 256,
+        },
+      ],
+    });
+
+    await expect(
+      exportAgentRuntimeReviewDecisionTemplate("session-runtime-4b"),
+    ).resolves.toMatchObject({
+      session_id: "session-runtime-4b",
+      default_decision_status: "pending_review",
+      limit_status: "user_locked_capability_gap",
+      capability_gap: "browser_reasoning_candidate_missing",
+      user_locked_capability_summary:
+        "显式用户模型锁定不满足当前 execution profile（capabilityGap=browser_reasoning_candidate_missing），不能作为成功交付证据。",
+      permission_status: "requires_confirmation",
+      permission_confirmation_status: "denied",
+      permission_confirmation_request_id: "approval-denied",
+      permission_confirmation_source: "runtime_action_required",
+      permission_confirmation_summary:
+        "已拒绝（request_id=approval-denied, source=runtime_action_required），不能作为成功交付证据。",
+      verification_summary: expect.objectContaining({
+        artifact_validator: expect.objectContaining({
+          outcome: "blocking_failure",
+          issue_count: 2,
+        }),
+        focus_verification_failure_outcomes: [
+          "Artifact 校验存在 2 条未恢复 issues。",
+        ],
+        focus_verification_recovered_outcomes: [
+          "Artifact 校验已恢复 1 个产物，fallback 0 次。",
+        ],
+        requested_fix_execution_results: [
+          expect.objectContaining({
+            requested_fix_index: 2,
+            execution_status: "completed",
+            regression_outcome: "recovered",
+            summary_preview: "已复查并重新导出 evidence pack。",
+            result_ref:
+              "agent-runtime://session/session-runtime-4b/thread/thread-runtime-4b/turn/turn-review/item/item-fix-2",
+            artifact_paths: [
+              ".ember/harness/sessions/session-runtime-4b/evidence/runtime.json",
+            ],
+          }),
+        ],
+      }),
+      decision: expect.objectContaining({
+        decision_status: "pending_review",
+        risk_level: "unknown",
+        followup_actions: [
+          "先对照 analysis-context.json / evidence/runtime.json 核对当前验证失败焦点，再决定是继续修复还是补证据。",
+          "复查 Artifact 校验相关产物，确认 issues / repaired / fallback 状态与最终结论一致。",
+        ],
+        regression_requirements: [
+          "按 replay case 复现问题并确认修复后行为与预期一致。",
+          "重新导出 evidence pack，确认 Artifact 校验摘要已更新。",
+        ],
+      }),
+      decision_status_options: expect.arrayContaining(["accepted"]),
+      risk_level_options: expect.arrayContaining(["medium"]),
+      review_checklist: ["先阅读 analysis-brief.md"],
+      analysis_artifacts: [
+        expect.objectContaining({
+          kind: "analysis_brief",
+          relative_path:
+            ".ember/harness/sessions/session-runtime-4b/analysis/analysis-brief.md",
+        }),
+      ],
+      artifacts: [
+        expect.objectContaining({
+          kind: "review_decision_json",
+          relative_path:
+            ".ember/harness/sessions/session-runtime-4b/review/review-decision.json",
+        }),
+      ],
+    });
+
+    expectAppServerRequest(
+      1,
+      APP_SERVER_METHOD_AGENT_SESSION_REVIEW_DECISION_TEMPLATE_EXPORT,
+      {
+        sessionId: "session-runtime-4b",
+      },
+    );
+  });
+
+  it("saveAgentRuntimeReviewDecision 应经 App Server 保存并归一化返回结构", async () => {
+    mockAppServerResponse({
+      sessionId: "session-runtime-4c",
+      threadId: "thread-runtime-4c",
+      workspaceRoot: "/tmp/workspace-4c",
+      reviewRelativeRoot: ".ember/harness/sessions/session-runtime-4c/review",
+      reviewAbsoluteRoot:
+        "/tmp/workspace-4c/.ember/harness/sessions/session-runtime-4c/review",
+      analysisRelativeRoot:
+        ".ember/harness/sessions/session-runtime-4c/analysis",
+      analysisAbsoluteRoot:
+        "/tmp/workspace-4c/.ember/harness/sessions/session-runtime-4c/analysis",
+      handoffBundleRelativeRoot: ".ember/harness/sessions/session-runtime-4c",
+      evidencePackRelativeRoot:
+        ".ember/harness/sessions/session-runtime-4c/evidence",
+      replayCaseRelativeRoot:
+        ".ember/harness/sessions/session-runtime-4c/replay",
+      exportedAt: "2026-03-27T10:25:00Z",
+      title: "保存人工审核结论",
+      threadStatus: "waiting_request",
+      latestTurnStatus: "action_required",
+      pendingRequestCount: 1,
+      queuedTurnCount: 0,
+      defaultDecisionStatus: "pending_review",
+      limit_status: "normal",
+      capability_gap: "",
+      user_locked_capability_summary: "",
+      permission_status: "requires_confirmation",
+      permission_confirmation_status: "resolved",
+      permission_confirmation_request_id: "approval-resolved",
+      permission_confirmation_source: "runtime_action_required",
+      permission_confirmation_summary:
+        "已通过（request_id=approval-resolved, source=runtime_action_required）。",
+      verificationSummary: {
+        artifactValidator: {
+          applicable: true,
+          recordCount: 1,
+          issueCount: 0,
+          repairedCount: 1,
+          fallbackUsedCount: 0,
+          outcome: "recovered",
+        },
+        focusVerificationFailureOutcomes: [],
+        focusVerificationRecoveredOutcomes: [
+          "Artifact 校验已恢复 1 个产物，fallback 0 次。",
+        ],
+      },
+      decision: {
+        decisionStatus: "accepted",
+        decisionSummary: "确认最小修复可接受。",
+        chosenFixStrategy: "先收口 runtime 命令，再补 UI 回归。",
+        riskLevel: "medium",
+        riskTags: ["runtime", "ui"],
+        humanReviewer: "Ember Maintainer",
+        reviewedAt: "2026-03-27T10:25:00Z",
+        followupActions: ["补充 HarnessStatusPanel 测试"],
+        regressionRequirements: ["npm run test:contracts"],
+        notes: "保持 review decision 主链单一。",
+      },
+      decisionStatusOptions: [
+        "accepted",
+        "deferred",
+        "rejected",
+        "needs_more_evidence",
+        "pending_review",
+      ],
+      riskLevelOptions: ["low", "medium", "high", "unknown"],
+      reviewChecklist: ["先阅读 analysis-brief.md"],
+      analysisArtifacts: [
+        {
+          kind: "analysis_brief",
+          title: "外部分析简报",
+          relativePath:
+            ".ember/harness/sessions/session-runtime-4c/analysis/analysis-brief.md",
+          absolutePath:
+            "/tmp/workspace-4c/.ember/harness/sessions/session-runtime-4c/analysis/analysis-brief.md",
+          bytes: 320,
+        },
+      ],
+      artifacts: [
+        {
+          kind: "review_decision_markdown",
+          title: "人工审核记录",
+          relativePath:
+            ".ember/harness/sessions/session-runtime-4c/review/review-decision.md",
+          absolutePath:
+            "/tmp/workspace-4c/.ember/harness/sessions/session-runtime-4c/review/review-decision.md",
+          bytes: 512,
+        },
+      ],
+    });
+
+    await expect(
+      saveAgentRuntimeReviewDecision({
+        session_id: "session-runtime-4c",
+        decision_status: "accepted",
+        decision_summary: "确认最小修复可接受。",
+        chosen_fix_strategy: "先收口 runtime 命令，再补 UI 回归。",
+        risk_level: "medium",
+        risk_tags: ["runtime", "ui"],
+        human_reviewer: "Ember Maintainer",
+        reviewed_at: "2026-03-27T10:25:00Z",
+        followup_actions: ["补充 HarnessStatusPanel 测试"],
+        regression_requirements: ["npm run test:contracts"],
+        notes: "保持 review decision 主链单一。",
+      }),
+    ).resolves.toMatchObject({
+      session_id: "session-runtime-4c",
+      permission_status: "requires_confirmation",
+      limit_status: "normal",
+      permission_confirmation_status: "resolved",
+      permission_confirmation_request_id: "approval-resolved",
+      permission_confirmation_source: "runtime_action_required",
+      verification_summary: expect.objectContaining({
+        artifact_validator: expect.objectContaining({
+          outcome: "recovered",
+          repaired_count: 1,
+        }),
+      }),
+      decision: expect.objectContaining({
+        decision_status: "accepted",
+        risk_level: "medium",
+        risk_tags: ["runtime", "ui"],
+      }),
+      artifacts: [
+        expect.objectContaining({
+          kind: "review_decision_markdown",
+        }),
+      ],
+    });
+
+    expectAppServerRequest(
+      1,
+      APP_SERVER_METHOD_AGENT_SESSION_REVIEW_DECISION_SAVE,
+      {
+        sessionId: "session-runtime-4c",
+        decisionStatus: "accepted",
+        decisionSummary: "确认最小修复可接受。",
+        chosenFixStrategy: "先收口 runtime 命令，再补 UI 回归。",
+        riskLevel: "medium",
+        riskTags: ["runtime", "ui"],
+        humanReviewer: "Ember Maintainer",
+        followupActions: ["补充 HarnessStatusPanel 测试"],
+        regressionRequirements: ["npm run test:contracts"],
+        notes: "保持 review decision 主链单一。",
+      },
+    );
+  });
+
+  it("saveAgentRuntimeReviewDecision 应透传 denied 权限确认阻止 accepted 的后端错误", async () => {
+    mockAppServerError(
+      "真实权限确认已被拒绝，不能把本次 review decision 保存为 accepted；请先处理真实权限确认，或改为 rejected / deferred / needs_more_evidence。",
+    );
+
+    await expect(
+      saveAgentRuntimeReviewDecision({
+        session_id: "session-runtime-4d",
+        decision_status: "accepted",
+        decision_summary: "错误接受被拒绝的权限确认。",
+        chosen_fix_strategy: "直接接受。",
+        risk_level: "low",
+        risk_tags: ["permission"],
+        human_reviewer: "Ember Maintainer",
+        reviewed_at: undefined,
+        followup_actions: [],
+        regression_requirements: [],
+        notes: "",
+      }),
+    ).rejects.toThrow("真实权限确认已被拒绝");
+
+    expectAppServerRequest(
+      1,
+      APP_SERVER_METHOD_AGENT_SESSION_REVIEW_DECISION_SAVE,
+      {
+        sessionId: "session-runtime-4d",
+        decisionStatus: "accepted",
+        decisionSummary: "错误接受被拒绝的权限确认。",
+        chosenFixStrategy: "直接接受。",
+        riskLevel: "low",
+        riskTags: ["permission"],
+        humanReviewer: "Ember Maintainer",
+        followupActions: [],
+        regressionRequirements: [],
+        notes: "",
+      },
+    );
+  });
+
+  it("saveAgentRuntimeReviewDecision 应透传用户锁定能力缺口阻止 accepted 的后端错误", async () => {
+    mockAppServerError(
+      "显式用户模型锁定不满足当前 execution profile（capabilityGap=browser_reasoning_candidate_missing），不能把本次 review decision 保存为 accepted；请切换到满足 routingSlot 的模型或取消显式模型锁定并重新导出证据，或改为 rejected / deferred / needs_more_evidence。",
+    );
+
+    await expect(
+      saveAgentRuntimeReviewDecision({
+        session_id: "session-runtime-4e",
+        decision_status: "accepted",
+        decision_summary: "错误接受模型锁定能力缺口。",
+        chosen_fix_strategy: "直接接受。",
+        risk_level: "low",
+        risk_tags: ["model-routing"],
+        human_reviewer: "Ember Maintainer",
+        reviewed_at: undefined,
+        followup_actions: [],
+        regression_requirements: [],
+        notes: "",
+      }),
+    ).rejects.toThrow("显式用户模型锁定");
+
+    expectAppServerRequest(
+      1,
+      APP_SERVER_METHOD_AGENT_SESSION_REVIEW_DECISION_SAVE,
+      {
+        sessionId: "session-runtime-4e",
+        decisionStatus: "accepted",
+        decisionSummary: "错误接受模型锁定能力缺口。",
+        chosenFixStrategy: "直接接受。",
+        riskLevel: "low",
+        riskTags: ["model-routing"],
+        humanReviewer: "Ember Maintainer",
+        followupActions: [],
+        regressionRequirements: [],
+        notes: "",
+      },
+    );
+  });
+
+  it("getAgentRuntimeToolInventory 应走统一 runtime inventory 命令", async () => {
+    mockSafeInvoke.mockResolvedValueOnce({
+      request: {
+        caller: "assistant",
+        surface: {
+          workbench: true,
+          browser_assist: true,
+        },
+      },
+      agent_initialized: true,
+      warnings: [],
+      mcp_servers: ["docs"],
+      default_allowed_tools: ["ToolSearch"],
+      counts: {
+        catalog_total: 1,
+        catalog_current_total: 1,
+        catalog_compat_total: 0,
+        catalog_deprecated_total: 0,
+        default_allowed_total: 1,
+        registry_total: 1,
+        registry_visible_total: 1,
+        registry_catalog_unmapped_total: 0,
+        extension_surface_total: 1,
+        extension_mcp_bridge_total: 1,
+        extension_runtime_total: 0,
+        extension_tool_total: 1,
+        extension_tool_visible_total: 1,
+        mcp_server_total: 1,
+        mcp_tool_total: 1,
+        mcp_tool_visible_total: 1,
+      },
+      catalog_tools: [
+        {
+          name: "bash",
+          profiles: ["core"],
+          capabilities: ["execution"],
+          lifecycle: "current",
+          source: "aster_builtin",
+          permission_plane: "parameter_restricted",
+          workspace_default_allow: false,
+          execution_warning_policy: "shell_command_risk",
+          execution_warning_policy_source: "default",
+          execution_restriction_profile: "workspace_shell_command",
+          execution_restriction_profile_source: "runtime",
+          execution_sandbox_profile: "workspace_command",
+          execution_sandbox_profile_source: "persisted",
+        },
+      ],
+      registry_tools: [
+        {
+          name: "bash",
+          description: "workspace bash",
+          catalog_entry_name: "bash",
+          catalog_source: "aster_builtin",
+          catalog_lifecycle: "current",
+          catalog_permission_plane: "parameter_restricted",
+          catalog_workspace_default_allow: false,
+          catalog_execution_warning_policy: "shell_command_risk",
+          catalog_execution_warning_policy_source: "default",
+          catalog_execution_restriction_profile: "workspace_shell_command",
+          catalog_execution_restriction_profile_source: "runtime",
+          catalog_execution_sandbox_profile: "workspace_command",
+          catalog_execution_sandbox_profile_source: "persisted",
+          deferred_loading: false,
+          always_visible: true,
+          allowed_callers: ["assistant"],
+          tags: [],
+          input_examples_count: 0,
+          caller_allowed: true,
+          visible_in_context: true,
+        },
+      ],
+      extension_surfaces: [],
+      extension_tools: [],
+      mcp_tools: [],
+    });
+
+    await expect(
+      getAgentRuntimeToolInventory({
+        workbench: true,
+        browserAssist: true,
+        caller: "assistant",
+      }),
+    ).resolves.toMatchObject({
+      request: {
+        caller: "assistant",
+        surface: {
+          workbench: true,
+          browser_assist: true,
+        },
+      },
+      counts: {
+        catalog_total: 1,
+      },
+      catalog_tools: [
+        expect.objectContaining({
+          execution_warning_policy_source: "default",
+          execution_restriction_profile_source: "runtime",
+          execution_sandbox_profile_source: "persisted",
+        }),
+      ],
+    });
+
+    expect(mockSafeInvoke).toHaveBeenCalledWith(
+      "agent_runtime_get_tool_inventory",
+      {
+        request: {
+          workbench: true,
+          browserAssist: true,
+          caller: "assistant",
+        },
+      },
+    );
+  });
+
+  it("getAgentRuntimeToolInventory 应透传 metadata 以计算 effective policy", async () => {
+    mockSafeInvoke.mockResolvedValueOnce({
+      request: {
+        caller: "assistant",
+        surface: {
+          workbench: false,
+          browser_assist: false,
+        },
+      },
+      agent_initialized: true,
+      warnings: [],
+      mcp_servers: [],
+      default_allowed_tools: [],
+      counts: {
+        catalog_total: 0,
+        catalog_current_total: 0,
+        catalog_compat_total: 0,
+        catalog_deprecated_total: 0,
+        default_allowed_total: 0,
+        registry_total: 0,
+        registry_visible_total: 0,
+        registry_catalog_unmapped_total: 0,
+        extension_surface_total: 0,
+        extension_mcp_bridge_total: 0,
+        extension_runtime_total: 0,
+        extension_tool_total: 0,
+        extension_tool_visible_total: 0,
+        mcp_server_total: 0,
+        mcp_tool_total: 0,
+        mcp_tool_visible_total: 0,
+      },
+      catalog_tools: [],
+      registry_tools: [],
+      extension_surfaces: [],
+      extension_tools: [],
+      mcp_tools: [],
+    });
+
+    await getAgentRuntimeToolInventory({
+      caller: "assistant",
+      metadata: {
+        harness: {
+          executionPolicy: {
+            toolOverrides: {
+              bash: {
+                warningPolicy: "none",
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(mockSafeInvoke).toHaveBeenCalledWith(
+      "agent_runtime_get_tool_inventory",
+      {
+        request: {
+          caller: "assistant",
+          metadata: {
+            harness: {
+              executionPolicy: {
+                toolOverrides: {
+                  bash: {
+                    warningPolicy: "none",
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    );
+  });
+
+  it("getAgentRuntimeToolInventory 默认请求应传空对象", async () => {
+    mockSafeInvoke.mockResolvedValueOnce({
+      request: {
+        caller: "assistant",
+        surface: {
+          workbench: false,
+          browser_assist: false,
+        },
+      },
+      agent_initialized: false,
+      warnings: [],
+      mcp_servers: [],
+      default_allowed_tools: [],
+      counts: {
+        catalog_total: 0,
+        catalog_current_total: 0,
+        catalog_compat_total: 0,
+        catalog_deprecated_total: 0,
+        default_allowed_total: 0,
+        registry_total: 0,
+        registry_visible_total: 0,
+        registry_catalog_unmapped_total: 0,
+        extension_surface_total: 0,
+        extension_mcp_bridge_total: 0,
+        extension_runtime_total: 0,
+        extension_tool_total: 0,
+        extension_tool_visible_total: 0,
+        mcp_server_total: 0,
+        mcp_tool_total: 0,
+        mcp_tool_visible_total: 0,
+      },
+      catalog_tools: [],
+      registry_tools: [],
+      extension_surfaces: [],
+      extension_tools: [],
+      mcp_tools: [],
+    });
+
+    await getAgentRuntimeToolInventory();
+
+    expect(mockSafeInvoke).toHaveBeenCalledWith(
+      "agent_runtime_get_tool_inventory",
+      {
+        request: {},
+      },
+    );
+  });
+
+  it("deleteAgentRuntimeSession / updateAgentRuntimeSession 应走 current 边界，标题生成只做本地投影", async () => {
+    mockAppServerResponse({});
+    mockAppServerResponse({
+      session: {
+        sessionId: "session-runtime-3",
+        threadId: "session-runtime-3",
+        title: "重命名后的标题",
+        model: "gpt-5.4",
+        createdAt: "2026-06-06T00:00:00.000Z",
+        updatedAt: "2026-06-06T00:00:01.000Z",
+        messagesCount: 0,
+      },
+    });
+
+    await deleteAgentRuntimeSession("session-runtime-3");
+    await updateAgentRuntimeSession({
+      session_id: "session-runtime-3",
+      name: "重命名后的标题",
+    });
+    await expect(
+      generateAgentRuntimeSessionTitle(
+        "session-runtime-3",
+        "user：新的智能标题\nassistant：正在整理",
+      ),
+    ).resolves.toBe("新的智能标题");
+
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_UPDATE, {
+      sessionId: "session-runtime-3",
+      archived: true,
+    });
+    expectAppServerRequest(2, APP_SERVER_METHOD_AGENT_SESSION_UPDATE, {
+      sessionId: "session-runtime-3",
+      title: "重命名后的标题",
+    });
+    expect(mockSafeInvoke).toHaveBeenCalledTimes(2);
+  });
+
+  it("generateAgentRuntimeTitle 应从图片任务预览文本生成本地标题", async () => {
+    await expect(
+      generateAgentRuntimeTitle({
+        previewText: "赛博朋克风城市夜景主视觉",
+        titleKind: "image_task",
+      }),
+    ).resolves.toBe("赛博朋克风城市夜景主视觉");
+
+    expect(mockSafeInvoke).not.toHaveBeenCalled();
+  });
+
+  it("generateAgentRuntimeTitleResult 应返回本地 fallback 诊断且不调用旧标题命令", async () => {
+    const result = await generateAgentRuntimeTitleResult({
+      sessionId: "session-runtime-3",
+      previewText:
+        "user：整理今天的国际新闻，按地区归类并给出可执行摘要\nassistant：好的",
+      titleKind: "session",
+    });
+
+    expect(result).toEqual({
+      title: "整理今天的国际新闻，按地区归类并给出可执行摘要",
+      sessionId: "session-runtime-3",
+      executionRuntime: null,
+      usedFallback: true,
+      fallbackReason: "local_preview_title",
+    });
+    expect(mockSafeInvoke).not.toHaveBeenCalled();
+  });
+
+  it("generateAgentRuntimeTitleResult 应清理 Markdown 与角色前缀", async () => {
+    await expect(
+      generateAgentRuntimeTitleResult({
+        previewText: "user：# `城市夜景主视觉`",
+        titleKind: "image_task",
+      }),
+    ).resolves.toEqual({
+      title: "城市夜景主视觉",
+      sessionId: null,
+      executionRuntime: null,
+      usedFallback: true,
+      fallbackReason: "local_preview_title",
+    });
+    expect(mockSafeInvoke).not.toHaveBeenCalled();
+  });
+});

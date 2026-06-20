@@ -1,0 +1,6998 @@
+/**
+ * AI Agent 聊天页面
+ *
+ * 包含聊天区域、任务中心和工作台布局
+ * 支持内容创作模式下的布局过渡和步骤引导
+ * 当主题为 general 时，使用 GeneralChat 组件实现
+ */
+
+import {
+  startTransition,
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  useRef,
+} from "react";
+import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import { useAgentChatUnified } from "./hooks";
+import {
+  resolveRecentTopicActionLabel,
+  resolveRecentTopicCandidate,
+} from "./hooks/agentChatShared";
+import { buildEmptyStateProjectConversationGroups } from "./components/EmptyStateViewModel";
+import {
+  settleLiveArtifactAfterStreamStops,
+  useArtifactDisplayState,
+} from "./hooks/useArtifactDisplayState";
+import type { TopicBranchStatus } from "./hooks/useTopicBranchBoard";
+import { useSessionFiles } from "./hooks/useSessionFiles";
+import { useContentSync } from "./hooks/useContentSync";
+import { useDeveloperFeatureFlags } from "@/hooks/useDeveloperFeatureFlags";
+import { useGlobalMediaGenerationDefaults } from "@/hooks/useGlobalMediaGenerationDefaults";
+import { useServiceModelsConfig } from "@/hooks/useServiceModelsConfig";
+import { useSoulArtifactVoiceGenerationBrief } from "@/hooks/useSoulArtifactVoiceGenerationBrief";
+import { useTrayModelShortcuts } from "./hooks/useTrayModelShortcuts";
+import { type CanvasWorkbenchLayoutMode } from "./components/CanvasWorkbenchLayout";
+import type { CreationMode } from "./components/types";
+import { type TaskFile } from "./components/TaskFiles";
+import { useWorkflow } from "@/components/workspace/hooks/useWorkflow";
+import {
+  createInitialCanvasState,
+  createInitialDocumentState,
+  createInitialVideoState,
+  type CanvasStateUnion,
+} from "@/components/workspace/canvas/canvasUtils";
+import {
+  type CanvasState as GeneralCanvasState,
+  DEFAULT_CANVAS_STATE,
+} from "@/components/general-chat/bridge";
+import {
+  artifactsAtom,
+  selectedArtifactAtom,
+  selectedArtifactIdAtom,
+} from "@/lib/artifact/store";
+import type { Artifact } from "@/lib/artifact/types";
+import { useAtomValue, useSetAtom } from "jotai";
+import { generateGeneralWorkbenchPrompt } from "@/lib/workspace/workbenchPrompt";
+import { generateProjectMemoryPrompt } from "@/lib/workspace/workbenchPrompt";
+import {
+  getProject,
+  getContent,
+  getGeneralWorkbenchDocumentState,
+  ensureWorkspaceReady,
+  getOrCreateDefaultProject,
+  type Project,
+} from "@/lib/api/project";
+import { executionRunGetGeneralWorkbenchState } from "@/lib/api/executionRun";
+import {
+  cancelMediaTaskArtifact,
+  createImageGenerationTaskArtifact,
+  getMediaTaskArtifact,
+} from "@/lib/api/mediaTasks";
+import {
+  exportAgentRuntimeReviewDecisionTemplate,
+  saveAgentRuntimeReviewDecision,
+  type AgentRuntimeReviewDecisionTemplate,
+  type AgentRuntimeSaveReviewDecisionRequest,
+} from "@/lib/api/agentRuntime";
+import {
+  getProjectMemory,
+  type ProjectMemory,
+  type Character,
+} from "@/lib/api/memory";
+import { logAgentDebug } from "@/lib/agentDebug";
+import { recordAgentUiPerformanceMetric } from "@/lib/agentUiPerformanceMetrics";
+import { setActiveContentTarget } from "@/lib/activeContentTarget";
+import { recordWorkspaceRepair } from "@/lib/workspaceHealthTelemetry";
+import { startupTracker } from "@/lib/diagnostics/startupPerformance";
+import { useImageGen } from "@/components/image-gen/useImageGen";
+import { resolveMediaGenerationPreference } from "@/lib/mediaGeneration";
+import { scheduleMinimumDelayIdleTask } from "@/lib/utils/scheduleMinimumDelayIdleTask";
+import {
+  buildTeamMemoryShadowRequestMetadata,
+  readTeamMemorySnapshot,
+} from "@/lib/teamMemorySync";
+import type { TaskCenterDraftSendRequest } from "./homePendingPreview";
+
+import type {
+  Message,
+  MessagePathReference,
+  MessagePreviewTarget,
+  SiteSavedContentTarget,
+  WriteArtifactContext,
+} from "./types";
+import {
+  isSpecializedWorkbenchTheme,
+  type LayoutMode,
+  type ThemeType,
+} from "@/lib/workspace/workbenchContract";
+import {
+  isDefaultProjectIdAlias,
+  isLegacyDefaultProjectId,
+  normalizeProjectId,
+} from "./utils/topicProjectResolution";
+import { buildHarnessRequestMetadata } from "./utils/harnessRequestMetadata";
+import { deriveHarnessSessionState } from "./utils/harnessState";
+import { resolveWorkflowLayoutBottomSpacing } from "./utils/workflowLayout";
+import {
+  alignChatToolPreferencesWithExecutionStrategy,
+  loadChatToolPreferences,
+  shouldUseCompactGeneralPromptForPreferences,
+} from "./utils/chatToolPreferences";
+import { isWorkspacePathErrorMessage } from "./hooks/agentChatCoreUtils";
+import { mergeArtifacts } from "./utils/messageArtifacts";
+import { createChatToolPreferencesFromExecutionRuntime } from "./utils/sessionExecutionRuntime";
+import { buildRealSubagentTimelineItems } from "./utils/subagentTimeline";
+import {
+  buildGeneralAgentSystemPrompt,
+  resolveAgentChatMode,
+} from "./utils/generalAgentPrompt";
+import { loadPersisted, savePersisted } from "./hooks/agentChatStorage";
+import {
+  closeProjectOpened,
+  loadPersistedProjectId,
+  loadPersistedSessionWorkspaceId,
+} from "./hooks/agentProjectStorage";
+import { useSelectedTeamPreference } from "./hooks/useSelectedTeamPreference";
+import { useTeamMemoryShadowSync } from "./hooks/useTeamMemoryShadowSync";
+import { useThemeScopedChatToolPreferences } from "./hooks/useThemeScopedChatToolPreferences";
+import { useEmberSkills } from "./hooks/useEmberSkills";
+import { useServiceSkills } from "./service-skills/useServiceSkills";
+import { useWorkspaceProjectSelection } from "./hooks/useWorkspaceProjectSelection";
+import { useOpenedProjectSummaries } from "./hooks/useOpenedProjectSummaries";
+import type { HandleSendOptions } from "./hooks/handleSendTypes";
+import type { InputbarSendHandler } from "./components/Inputbar/inputbarSendPayload";
+import { useRuntimeTeamFormation } from "./hooks/useRuntimeTeamFormation";
+import { mergeThreadItems } from "./utils/threadTimelineView";
+import { openCanvasForReason } from "./workspace/canvasOpenPolicy";
+import { useWorkbenchStore } from "@/stores/useWorkbenchStore";
+import {
+  asRecord,
+  GENERAL_BROWSER_ASSIST_ARTIFACT_ID,
+  mergeMessageArtifactsIntoStore,
+  readFirstString,
+} from "./workspace/browserAssistArtifact";
+import { SceneAppExecutionSummaryCard } from "./workspace/SceneAppExecutionSummaryCard";
+import { ServiceSkillExecutionCard } from "./workspace/ServiceSkillExecutionCard";
+import { useWorkspaceBrowserAssistRuntime } from "./workspace/useWorkspaceBrowserAssistRuntime";
+import { useWorkspaceA2UISubmitActions } from "./workspace/useWorkspaceA2UISubmitActions";
+import { useWorkspaceContextHarnessRuntime } from "./workspace/useWorkspaceContextHarnessRuntime";
+import { useWorkspaceHarnessInventoryRuntime } from "./workspace/useWorkspaceHarnessInventoryRuntime";
+import { useWorkspaceCanvasWorkflowActions } from "./workspace/useWorkspaceCanvasWorkflowActions";
+import { useWorkspaceCanvasSceneRuntime } from "./workspace/useWorkspaceCanvasSceneRuntime";
+import { useWorkspaceCanvasMessageSyncRuntime } from "./workspace/useWorkspaceCanvasMessageSyncRuntime";
+import { useWorkspaceConversationSceneRuntime } from "./workspace/useWorkspaceConversationSceneRuntime";
+import { useWorkspaceInputbarSceneRuntime } from "./workspace/useWorkspaceInputbarSceneRuntime";
+import { useWorkspaceNavigationActions } from "./workspace/useWorkspaceNavigationActions";
+import { useWorkspaceWriteFileAction } from "./workspace/useWorkspaceWriteFileAction";
+import { useWorkspaceArtifactPreviewActions } from "./workspace/useWorkspaceArtifactPreviewActions";
+import { useWorkspaceCanvasLayoutRuntime } from "./workspace/useWorkspaceCanvasLayoutRuntime";
+import { useSessionRecentMetadataSyncRuntime } from "./workspace/useSessionRecentMetadataSyncRuntime";
+import {
+  useTaskCenterDraftSendDispatchRuntime,
+  useTaskCenterHomePendingPreviewRuntime,
+} from "./workspace/useTaskCenterDraftSendRuntime";
+import { useTaskCenterDraftMaterializationRuntime } from "./workspace/useTaskCenterDraftMaterializationRuntime";
+import { useTaskCenterTabChrome } from "./workspace/useTaskCenterTabChrome";
+import { resolveTaskCenterTopicTitle } from "./workspace/taskCenterTabProjection";
+import { useTaskCenterTopicNavigationRuntime } from "./workspace/useTaskCenterTopicNavigationRuntime";
+import { markTaskCenterDraftTabRunning } from "./workspace/taskCenterDraftTabs";
+import { useWorkspaceCanvasTaskFileSync } from "./workspace/useWorkspaceCanvasTaskFileSync";
+import { useWorkspaceGeneralResourceSync } from "./workspace/useWorkspaceGeneralResourceSync";
+import { useWorkspaceArtifactWorkbenchActions } from "./workspace/useWorkspaceArtifactWorkbenchActions";
+import { useSceneAppExecutionSummaryRuntime } from "./workspace/useSceneAppExecutionSummaryRuntime";
+import {
+  buildSceneAppExecutionContentPostEntries,
+  type SceneAppExecutionContentPostEntry,
+} from "./workspace/sceneAppExecutionContentPosts";
+import {
+  useWorkspaceImageWorkbenchActionRuntime,
+  type SubmitImageWorkbenchAgentCommandParams,
+} from "./workspace/useWorkspaceImageWorkbenchActionRuntime";
+import { useWorkspaceImageWorkbenchEventRuntime } from "./workspace/useWorkspaceImageWorkbenchEventRuntime";
+import { buildImageSkillLaunchRequestMetadata } from "./workspace/imageSkillLaunch";
+import { useWorkspaceImageTaskPreviewRuntime } from "./workspace/useWorkspaceImageTaskPreviewRuntime";
+import { useWorkspaceAudioTaskPreviewRuntime } from "./workspace/useWorkspaceAudioTaskPreviewRuntime";
+import { useWorkspaceTranscriptionTaskPreviewRuntime } from "./workspace/useWorkspaceTranscriptionTaskPreviewRuntime";
+import { useWorkspaceVideoTaskPreviewRuntime } from "./workspace/useWorkspaceVideoTaskPreviewRuntime";
+import { useWorkspaceVideoTaskActionRuntime } from "./workspace/useWorkspaceVideoTaskActionRuntime";
+import { useWorkspaceSessionRestore } from "./workspace/useWorkspaceSessionRestore";
+import { useWorkspaceResetRuntime } from "./workspace/useWorkspaceResetRuntime";
+import { useWorkspaceSendActions } from "./workspace/useWorkspaceSendActions";
+import {
+  buildGeneralWorkbenchSendBoundaryState,
+  buildGeneralWorkbenchResumePromptFromRunState,
+  buildInitialDispatchKey,
+  type GeneralWorkbenchEntryPromptState,
+  type GeneralWorkbenchSendBoundaryState,
+  type InitialDispatchPreviewSnapshot,
+} from "./workspace/workspaceSendHelpers";
+import { useWorkspaceTeamSessionControlRuntime } from "./workspace/useWorkspaceTeamSessionControlRuntime";
+import { useWorkspaceGeneralWorkbenchScaffoldRuntime } from "./workspace/useWorkspaceGeneralWorkbenchScaffoldRuntime";
+import { useWorkspaceTopicSwitch } from "./workspace/useWorkspaceTopicSwitch";
+import { useWorkspaceA2UIRuntime } from "./workspace/useWorkspaceA2UIRuntime";
+import { useWorkspaceSceneGateRuntime } from "./workspace/useWorkspaceSceneGateRuntime";
+import { useWorkspaceGeneralWorkbenchSidebarRuntime } from "./workspace/useWorkspaceGeneralWorkbenchSidebarRuntime";
+import { useWorkspaceGeneralWorkbenchRuntime } from "./workspace/useWorkspaceGeneralWorkbenchRuntime";
+import { useWorkspaceTeamSessionRuntime } from "./workspace/useWorkspaceTeamSessionRuntime";
+import { useWorkspaceGeneralWorkbenchDocumentPersistenceRuntime } from "./workspace/useWorkspaceGeneralWorkbenchDocumentPersistenceRuntime";
+import { useWorkspaceServiceSkillEntryActions } from "./workspace/useWorkspaceServiceSkillEntryActions";
+import { useWorkspaceArtifactViewModeControl } from "./workspace/useWorkspaceArtifactViewModeControl";
+import { useWorkspaceInitialSessionNavigation } from "./workspace/useWorkspaceInitialSessionNavigation";
+import { WorkspaceGeneralWorkbenchSidebar } from "./workspace/WorkspaceGeneralWorkbenchSidebar";
+import { GeneralWorkbenchHarnessDialogSection } from "./workspace/WorkspaceHarnessDialogs";
+import { WorkspaceShellScene } from "./workspace/WorkspaceShellScene";
+import { ExpertInfoPanel } from "./experts/ExpertInfoPanel";
+import {
+  syncExpertAgentInstanceToCloud,
+  updateExpertAgentInstanceSession,
+  updateExpertAgentInstanceSkillRefs,
+} from "@/features/experts";
+import { FileManagerSidebar } from "./components/FileManager/FileManagerSidebar";
+import {
+  subscribeTaskCenterDraftTaskRequests,
+  subscribeTaskCenterTaskOpenRequests,
+} from "./taskCenterDraftTaskEvents";
+import type { GeneralWorkbenchFollowUpActionPayload } from "./components/generalWorkbenchSidebarContract";
+import { RuntimeReviewDecisionDialog } from "./components/RuntimeReviewDecisionDialog";
+import {
+  TEAM_PRIMARY_CHAT_PANEL_MIN_WIDTH,
+  TEAM_PRIMARY_CHAT_PANEL_WIDTH,
+} from "./workspace/WorkspaceStyles";
+import { hasNamedGeneralCanvasFilePreview } from "./workspace/generalCanvasPreviewState";
+import { resolvePreferredServiceSkillResultFileTarget } from "./workspace/serviceSkillResultFileTarget";
+import {
+  isAbsoluteWorkspacePath,
+  resolveAbsoluteWorkspacePath,
+} from "./workspace/workspacePath";
+import { doesWorkspaceFileCandidateMatch } from "./workspace/workspaceFilePathMatch";
+import {
+  normalizeArtifactProtocolPath,
+  resolveArtifactProtocolFilePath,
+} from "@/lib/artifact-protocol";
+import { resolveSiteSavedContentTargetFromRunResult } from "./utils/siteToolResultSummary";
+import type { ArtifactDocumentV1 } from "@/lib/artifact-document";
+import type { ArtifactTimelineOpenTarget } from "./utils/artifactTimelineNavigation";
+import { createUnifiedMemory } from "@/lib/api/unifiedMemory";
+import { getDefaultGuidePromptByTheme } from "./utils/defaultGuidePrompt";
+import { shouldShowChatLayout } from "./utils/chatLayoutVisibility";
+import { mergePathReferences } from "./utils/pathReferences";
+import {
+  applyTaskCenterRouteTabSyncToMap,
+  initializeTaskCenterOpenTabMap,
+  isTaskCenterTopicSwitchPending,
+  MAX_TASK_CENTER_OPEN_TABS,
+  normalizeTaskCenterWorkspaceTabMap,
+  reconcileTaskCenterTabIds,
+  replaceTaskCenterTabIdsForWorkspace,
+  resolveInitialTaskSessionSwitchOptions,
+  resolveTaskCenterFallbackRestorePlan,
+  resolveTaskCenterReconcileCurrentTopicId,
+  resolveTaskCenterPreviewTopicId,
+  resolveTaskCenterRouteTabSyncIntent,
+  resolveTaskCenterTabIdsForWorkspace,
+  shouldRespectTaskCenterLocalSessionOverride,
+  shouldWaitForTaskCenterInitialSessionTopic,
+  TASK_CENTER_OPEN_TAB_IDS_STORAGE_KEY,
+  type TaskCenterLocalSessionOverride,
+  type TaskCenterWorkspaceTabMap,
+  updateTaskCenterTabIdsForWorkspace,
+} from "./utils/taskCenterTabs";
+import {
+  createInitialSessionImageWorkbenchState,
+  type SessionImageWorkbenchState,
+} from "./workspace/imageWorkbenchHelpers";
+import {
+  buildSessionImageWorkbenchStateFromMessages,
+  isSessionImageWorkbenchStateMeaningful,
+  loadSessionImageWorkbenchCachedState,
+  saveSessionImageWorkbenchCachedState,
+} from "./workspace/imageWorkbenchStateCache";
+import { resolveImageWorkbenchStateForPreviewSelection } from "./workspace/imageWorkbenchPreviewSelection";
+import { buildImageWorkbenchPreviewResourceManagerInput } from "./workspace/imageWorkbenchResourceManager";
+import { openResourceManager } from "@/features/resource-manager";
+import {
+  SOCIAL_ARTICLE_SKILL_KEY,
+  GENERAL_WORKBENCH_HISTORY_PAGE_SIZE,
+  applyBackendGeneralWorkbenchDocumentState,
+  isCanvasStateEmpty,
+  isCorruptedGeneralWorkbenchDocumentContent,
+  isSyncContentEmpty,
+  readPersistedGeneralWorkbenchDocument,
+  serializeCanvasStateForSync,
+} from "./workspace/generalWorkbenchHelpers";
+import {
+  normalizeInitialTheme,
+  projectTypeToTheme,
+} from "./agentChatWorkspaceShared";
+import type { AgentChatWorkspaceProps } from "./agentChatWorkspaceContract";
+import type { AgentInitialInputCapabilityParams } from "@/types/page";
+import { extractCreationReplayMetadata } from "./utils/creationReplayMetadata";
+import { buildCreationReplaySurfaceModel } from "./utils/creationReplaySurface";
+import {
+  extractCuratedTaskReferenceMemoryIds,
+  mergeCuratedTaskReferenceEntries,
+  normalizeCuratedTaskReferenceMemoryIds,
+} from "./utils/curatedTaskReferenceSelection";
+import {
+  buildRuntimeInitialInputCapabilityFromFollowUpAction,
+  resolveEffectiveInitialInputCapability,
+} from "./utils/inputCapabilityBootstrap";
+import { buildMessageInspirationDraft } from "./utils/messageInspirationDraft";
+import { buildKnowledgeSavePageParams } from "./workspace/knowledge/knowledgeSaveNavigation";
+import {
+  listCuratedTaskRecommendationSignals,
+  recordCuratedTaskRecommendationSignalFromMemory,
+  recordCuratedTaskRecommendationSignalFromReviewDecision,
+  subscribeCuratedTaskRecommendationSignalsChanged,
+} from "./utils/curatedTaskRecommendationSignals";
+import {
+  buildSceneAppExecutionCuratedTaskFollowUpAction,
+  buildCuratedTaskReferenceEntryFromSceneAppExecution,
+  buildSceneAppExecutionReviewFollowUpAction,
+} from "./utils/sceneAppCuratedTaskReference";
+import {
+  buildSceneAppExecutionInspirationLibraryPageParams,
+  hasSavedSceneAppExecutionAsInspiration,
+  saveSceneAppExecutionAsInspiration,
+} from "./utils/saveSceneAppExecutionAsInspiration";
+import { buildSkillsPageParamsFromSceneAppExecution } from "./utils/sceneAppSkillScaffoldDraft";
+import { buildSkillsPageParamsFromMessage } from "./utils/skillScaffoldDraft";
+import { resolveAgentChatWorkspaceShellViewModel } from "./agentChatWorkspaceShellViewModel";
+import { AutomationJobDialog } from "@/components/settings-v2/system/automation/AutomationJobDialog";
+import {
+  APP_SIDEBAR_COLLAPSE_EVENT,
+  BLANK_HOME_DEFERRED_LOAD_MS,
+  BROWSER_WORKSPACE_HOME_HINT_AUTO_HIDE_MS,
+  BROWSER_WORKSPACE_HOME_HINT_MESSAGE,
+  BROWSER_WORKSPACE_HOME_HINT_STORAGE_KEY,
+  FILE_MANAGER_NAV_COLLAPSE_BREAKPOINT_PX,
+  GENERAL_BROWSER_ASSIST_PROFILE_KEY,
+  NOOP_SET_CHAT_MESSAGES,
+  RECENT_CONVERSATIONS_IDLE_DEFERRED_LOAD_MS,
+  SESSION_ENTRY_AUXILIARY_DEFERRED_LOAD_MS,
+  SESSION_ENTRY_RUNTIME_WARMUP_DEFERRED_LOAD_MS,
+  areStringArraysEqual,
+  createLocalImageWorkbenchSessionKey,
+  createTaskCenterDraftSendRequestId,
+  isTaskCenterDraftTabId,
+  isTransientWorkspaceBridgeError,
+  isUsableKnowledgeSourceText,
+  loadFileManagerSidebarOpen,
+  mergeExpertSkillRefsIntoRequestMetadata,
+  normalizeVideoAspectRatio,
+  normalizeVideoResolution,
+  resolveDefaultSelectedArtifact,
+  resolveTaskCenterDraftSendTitle,
+  resolveTaskCenterHomeSurfaceState,
+  resolveTaskPreviewArtifact,
+  resolveVideoCanvasStatusFromPreview,
+  saveFileManagerSidebarOpen,
+  type TaskCenterDraftTab,
+} from "./workspace/agentChatWorkspaceHelpers";
+import {
+  buildSceneAppQuickReviewDecisionRequest,
+  formatSceneAppErrorMessage,
+  SCENEAPP_QUICK_REVIEW_ACTIONS,
+} from "@/lib/agent/legacySceneAppExecutionSummary";
+
+export type {
+  AgentChatWorkspaceProps,
+  WorkflowProgressSnapshot,
+} from "./agentChatWorkspaceContract";
+
+export function AgentChatWorkspace({
+  onNavigate: _onNavigate,
+  projectId: externalProjectId,
+  contentId,
+  initialSessionId,
+  initialSceneAppExecutionSummary,
+  initialRequestMetadata,
+  initialAutoSendRequestMetadata,
+  autoRunInitialPromptOnMount = false,
+  agentEntry = "claw",
+  theme: initialTheme,
+  initialCreationMode,
+  lockTheme = false,
+  fromResources = false,
+  showChatPanel = true,
+  hideTopBar = false,
+  topBarChrome = "full",
+  onBackToProjectManagement,
+  hideInlineStepProgress = false,
+  onWorkflowProgressChange,
+  initialUserPrompt,
+  initialUserImages,
+  initialSessionName: _initialSessionName,
+  entryBannerMessage,
+  initialPendingServiceSkillLaunch,
+  initialInputCapability,
+  initialKnowledgePackSelection,
+  initialProjectFileOpenTarget,
+  onInitialUserPromptConsumed,
+  newChatAt,
+  expertAgentLaunch,
+  onRecommendationClick: _onRecommendationClick,
+  onHasMessagesChange,
+  onSessionChange,
+  preferContentReviewInRightRail = false,
+  openBrowserAssistOnMount = false,
+  initialSiteSkillLaunch,
+}: AgentChatWorkspaceProps) {
+  const { t } = useTranslation("agent");
+  const { t: tNavigation } = useTranslation("navigation");
+  const untitledTaskLabel = t(
+    "generalWorkbench.workflow.outputs.summary.untitledTask",
+  );
+  const taskCenterRenamePromptLabel = tNavigation(
+    "navigation.sidebar.conversations.rename.prompt",
+  );
+  const newConversationLabel = "新对话";
+
+  // 性能埋点：记录组件渲染开始时间
+  const workspaceRenderT0 = useRef<number>(performance.now());
+  useEffect(() => {
+    console.info(
+      `[PERF] AgentChatWorkspace mounted: ${(performance.now() - workspaceRenderT0.current).toFixed(0)}ms`,
+    );
+  }, []);
+
+  const normalizedEntryTheme = normalizeInitialTheme(initialTheme);
+  const shouldAutoCollapseClassicClawSidebar = agentEntry === "claw";
+  const defaultTopicSidebarVisible =
+    showChatPanel && !shouldAutoCollapseClassicClawSidebar;
+  const [showSidebar, setShowSidebar] = useState(
+    () => defaultTopicSidebarVisible,
+  );
+  const [input, setInput] = useState("");
+  const [pathReferences, setPathReferences] = useState<MessagePathReference[]>(
+    [],
+  );
+  const [fileManagerSidebarOpen, setFileManagerSidebarOpen] = useState(() =>
+    loadFileManagerSidebarOpen(),
+  );
+  const fileManagerAppSidebarCollapsedRef = useRef(false);
+  const handleSetFileManagerSidebarOpen = useCallback((open: boolean) => {
+    setFileManagerSidebarOpen(open);
+    saveFileManagerSidebarOpen(open);
+  }, []);
+  const handleAddPathReferences = useCallback(
+    (references: MessagePathReference[]) => {
+      setPathReferences((current) => mergePathReferences(current, references));
+    },
+    [],
+  );
+  const handleInstallSkillPackageFromFileManager = useCallback(
+    (entry: { path: string; name: string }) => {
+      _onNavigate?.("skills", {
+        initialView: "installed",
+        initialSkillPackagePath: entry.path,
+        initialSkillPackageName: entry.name,
+        initialSkillPackageRequestKey: Date.now(),
+      });
+    },
+    [_onNavigate],
+  );
+  const handleRemovePathReference = useCallback((id: string) => {
+    setPathReferences((current) =>
+      current.filter((reference) => reference.id !== id),
+    );
+  }, []);
+  const handleClearPathReferences = useCallback(() => {
+    setPathReferences([]);
+  }, []);
+  const [runtimeInitialInputCapability, setRuntimeInitialInputCapability] =
+    useState<AgentInitialInputCapabilityParams>();
+  const [runtimeEntryBannerMessage, setRuntimeEntryBannerMessage] = useState<
+    string | null
+  >(null);
+  const [selectedText, setSelectedText] = useState("");
+  const effectiveEntryBannerMessage =
+    runtimeEntryBannerMessage?.trim() || entryBannerMessage;
+  const [entryBannerVisible, setEntryBannerVisible] = useState(
+    Boolean(effectiveEntryBannerMessage),
+  );
+  const [browserWorkspaceHintVisible, setBrowserWorkspaceHintVisible] =
+    useState(false);
+  const shouldBootstrapCanvasOnEntry =
+    Boolean(contentId) && isSpecializedWorkbenchTheme(normalizedEntryTheme);
+  const shouldKeepNewTaskHomeSessionRestoreDisabled =
+    agentEntry === "new-task" && !contentId;
+
+  // 内容创作相关状态
+  const [activeTheme, setActiveTheme] = useState<string>(normalizedEntryTheme);
+  const [creationMode, setCreationMode] = useState<CreationMode>(
+    initialCreationMode ?? "guided",
+  );
+  const {
+    activeSessionIdRef,
+    chatToolPreferenceSessionSync,
+    deferSessionRecentMetadataSyncForNavigation,
+    selectedTeamSessionSync,
+    syncSessionRecentPreferences,
+  } = useSessionRecentMetadataSyncRuntime();
+  const sessionRecentPreferencesBackfillKeyRef = useRef<string | null>(null);
+  const {
+    chatToolPreferences,
+    setChatToolPreferences,
+    syncChatToolPreferencesSource,
+    getSyncedSessionRecentPreferences,
+  } = useThemeScopedChatToolPreferences(activeTheme, {
+    sessionSync: chatToolPreferenceSessionSync,
+  });
+  const handleOpenSubagents = useCallback(() => {
+    setChatToolPreferences((previous) =>
+      previous.subagent ? previous : { ...previous, subagent: true },
+    );
+  }, [setChatToolPreferences]);
+  const [inputbarObjectiveModeEnabled, setInputbarObjectiveModeEnabled] =
+    useState(false);
+  const {
+    projectId,
+    projectSelectionSource,
+    shouldDisableSessionRestore,
+    hasHandledNewChatRequest,
+    markNewChatRequestHandled,
+    rememberProjectId,
+    getRememberedProjectId,
+    applyProjectSelection,
+    resetProjectSelection,
+    clearProjectSelectionRuntime,
+    startTopicProjectResolution,
+    finishTopicProjectResolution,
+    deferTopicSwitch,
+    consumePendingTopicSwitch,
+  } = useWorkspaceProjectSelection({
+    externalProjectId,
+    initialSessionId,
+    keepNewChatSessionRestoreDisabled:
+      shouldKeepNewTaskHomeSessionRestoreDisabled,
+    newChatAt,
+  });
+  const taskCenterWorkspaceId = normalizeProjectId(projectId);
+  const normalizedInitialSessionId =
+    typeof initialSessionId === "string" && initialSessionId.trim().length > 0
+      ? initialSessionId.trim()
+      : null;
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>(
+    shouldBootstrapCanvasOnEntry ? "canvas" : "chat",
+  );
+  const shouldPreserveEntryThemeOnHome =
+    agentEntry === "new-task" && !contentId;
+  const shouldPreserveBlankHomeSurface =
+    shouldPreserveEntryThemeOnHome && normalizedEntryTheme === "general";
+  const shouldUseBrowserWorkspaceHomeChrome = shouldPreserveBlankHomeSurface;
+  const shouldPrioritizeInitialSessionEntry =
+    normalizedInitialSessionId !== null && !contentId;
+  const shouldPrioritizeInitialPromptEntry =
+    agentEntry === "claw" &&
+    !contentId &&
+    normalizedEntryTheme === "general" &&
+    Boolean(initialUserPrompt?.trim()) &&
+    !initialUserImages?.length &&
+    !initialSiteSkillLaunch &&
+    !initialPendingServiceSkillLaunch?.skillId?.trim() &&
+    !initialPendingServiceSkillLaunch?.skillKey?.trim() &&
+    !initialInputCapability?.capabilityRoute &&
+    !initialProjectFileOpenTarget?.relativePath?.trim();
+  const shouldDeferWorkspaceAuxiliaryLoads =
+    shouldPreserveBlankHomeSurface ||
+    shouldPrioritizeInitialSessionEntry ||
+    shouldPrioritizeInitialPromptEntry;
+  const shouldDeferInitialTopicsLoad =
+    shouldPreserveBlankHomeSurface ||
+    shouldPrioritizeInitialSessionEntry ||
+    shouldPrioritizeInitialPromptEntry;
+  const shouldDeferInitialRuntimeWarmup = shouldDeferInitialTopicsLoad;
+  const deferredWorkspaceAuxiliaryLoadMs = shouldPreserveBlankHomeSurface
+    ? BLANK_HOME_DEFERRED_LOAD_MS
+    : shouldPrioritizeInitialSessionEntry || shouldPrioritizeInitialPromptEntry
+      ? SESSION_ENTRY_AUXILIARY_DEFERRED_LOAD_MS
+      : undefined;
+  const deferredInitialTopicsLoadMs = shouldPreserveBlankHomeSurface
+    ? RECENT_CONVERSATIONS_IDLE_DEFERRED_LOAD_MS
+    : shouldPrioritizeInitialSessionEntry || shouldPrioritizeInitialPromptEntry
+      ? RECENT_CONVERSATIONS_IDLE_DEFERRED_LOAD_MS
+      : undefined;
+  const deferredInitialRuntimeWarmupMs = shouldPreserveBlankHomeSurface
+    ? BLANK_HOME_DEFERRED_LOAD_MS
+    : shouldPrioritizeInitialSessionEntry || shouldPrioritizeInitialPromptEntry
+      ? SESSION_ENTRY_RUNTIME_WARMUP_DEFERRED_LOAD_MS
+      : undefined;
+  const [isInitialContentLoading, setIsInitialContentLoading] = useState(
+    shouldBootstrapCanvasOnEntry,
+  );
+  const [initialContentLoadError, setInitialContentLoadError] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    if (!initialTheme) return;
+    setActiveTheme(normalizeInitialTheme(initialTheme));
+  }, [initialTheme]);
+
+  useEffect(() => {
+    if (!initialCreationMode) return;
+    setCreationMode(initialCreationMode);
+  }, [initialCreationMode]);
+
+  useEffect(() => {
+    if (entryBannerMessage) {
+      setRuntimeEntryBannerMessage(null);
+    }
+  }, [entryBannerMessage]);
+
+  useEffect(() => {
+    setEntryBannerVisible(Boolean(effectiveEntryBannerMessage));
+  }, [effectiveEntryBannerMessage]);
+
+  useEffect(() => {
+    if (
+      !shouldUseBrowserWorkspaceHomeChrome ||
+      !projectId ||
+      entryBannerMessage
+    ) {
+      return;
+    }
+
+    try {
+      if (
+        window.localStorage.getItem(BROWSER_WORKSPACE_HOME_HINT_STORAGE_KEY) ===
+        "true"
+      ) {
+        return;
+      }
+
+      window.localStorage.setItem(
+        BROWSER_WORKSPACE_HOME_HINT_STORAGE_KEY,
+        "true",
+      );
+    } catch {
+      // 本地存储不可用时仍展示一次提示，避免首开闭环静默失败。
+    }
+
+    setBrowserWorkspaceHintVisible(true);
+  }, [entryBannerMessage, projectId, shouldUseBrowserWorkspaceHomeChrome]);
+
+  useEffect(() => {
+    if (!browserWorkspaceHintVisible) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setBrowserWorkspaceHintVisible(false);
+    }, BROWSER_WORKSPACE_HOME_HINT_AUTO_HIDE_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [browserWorkspaceHintVisible]);
+
+  const pageMountedAtRef = useRef(Date.now());
+
+  useEffect(() => {
+    const mountedAt = pageMountedAtRef.current;
+    logAgentDebug("AgentChatPage", "mount", {
+      agentEntry,
+      contentId: contentId ?? null,
+      externalProjectId: externalProjectId ?? null,
+      initialCreationMode: initialCreationMode ?? null,
+      initialTheme: initialTheme ?? null,
+      lockTheme,
+    });
+
+    return () => {
+      logAgentDebug(
+        "AgentChatPage",
+        "unmount",
+        {
+          contentId: contentId ?? null,
+          externalProjectId: externalProjectId ?? null,
+          lifetimeMs: Date.now() - mountedAt,
+        },
+        { consoleOnly: true },
+      );
+    };
+  }, [
+    agentEntry,
+    contentId,
+    externalProjectId,
+    initialCreationMode,
+    initialTheme,
+    lockTheme,
+  ]);
+
+  useEffect(() => {
+    const shouldResolveLegacyDefaultProject =
+      isDefaultProjectIdAlias(externalProjectId) ||
+      isLegacyDefaultProjectId(externalProjectId);
+    if (!shouldResolveLegacyDefaultProject || projectId) {
+      return;
+    }
+
+    let cancelled = false;
+    const startedAt = Date.now();
+    const perfT0 = performance.now();
+    logAgentDebug("AgentChatPage", "resolveDefaultProjectAlias.start", {
+      externalProjectId: externalProjectId ?? null,
+    });
+
+    void (async () => {
+      try {
+        const rememberedProjectId = getRememberedProjectId();
+        if (rememberedProjectId) {
+          const rememberedProject = await getProject(rememberedProjectId);
+          if (rememberedProject && !rememberedProject.isArchived) {
+            let resolvedRootPath = rememberedProject.rootPath;
+
+            try {
+              const ensuredWorkspace = await ensureWorkspaceReady(
+                rememberedProject.id,
+              );
+              resolvedRootPath = ensuredWorkspace.rootPath || resolvedRootPath;
+            } catch (error) {
+              logAgentDebug(
+                "AgentChatPage",
+                "resolveDefaultProjectAlias.ensureRememberedWorkspaceReadyError",
+                {
+                  error,
+                  projectId: rememberedProject.id,
+                },
+                { level: "warn" },
+              );
+            }
+
+            if (cancelled) {
+              return;
+            }
+
+            applyProjectSelection(rememberedProject.id);
+            setProject((current) =>
+              current?.id === rememberedProject.id &&
+              current.rootPath === resolvedRootPath
+                ? current
+                : {
+                    ...rememberedProject,
+                    rootPath: resolvedRootPath,
+                  },
+            );
+            logAgentDebug(
+              "AgentChatPage",
+              "resolveDefaultProjectAlias.fromRememberedProject",
+              {
+                durationMs: Date.now() - startedAt,
+                projectId: rememberedProject.id,
+                rootPath: resolvedRootPath,
+              },
+            );
+            return;
+          }
+        }
+
+        const defaultProject = await getOrCreateDefaultProject();
+        let resolvedRootPath = defaultProject.rootPath;
+
+        try {
+          const ensuredWorkspace = await ensureWorkspaceReady(
+            defaultProject.id,
+          );
+          resolvedRootPath = ensuredWorkspace.rootPath || resolvedRootPath;
+        } catch (error) {
+          logAgentDebug(
+            "AgentChatPage",
+            "resolveDefaultProjectAlias.ensureWorkspaceReadyError",
+            {
+              error,
+              projectId: defaultProject.id,
+            },
+            { level: "warn" },
+          );
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        applyProjectSelection(defaultProject.id);
+        setProject((current) =>
+          current?.id === defaultProject.id &&
+          current.rootPath === resolvedRootPath
+            ? current
+            : {
+                ...defaultProject,
+                rootPath: resolvedRootPath,
+              },
+        );
+        logAgentDebug("AgentChatPage", "resolveDefaultProjectAlias.success", {
+          durationMs: Date.now() - startedAt,
+          projectId: defaultProject.id,
+          rootPath: resolvedRootPath,
+        });
+        console.info(
+          `[PERF] resolveDefaultProjectAlias: ${(performance.now() - perfT0).toFixed(0)}ms`,
+        );
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        console.warn("[AgentChatPage] 默认工作区别名解析失败:", error);
+        logAgentDebug(
+          "AgentChatPage",
+          "resolveDefaultProjectAlias.error",
+          {
+            durationMs: Date.now() - startedAt,
+            error,
+            externalProjectId: externalProjectId ?? null,
+          },
+          { level: "warn" },
+        );
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    applyProjectSelection,
+    externalProjectId,
+    getRememberedProjectId,
+    projectId,
+  ]);
+
+  useEffect(() => {
+    if (
+      !shouldUseBrowserWorkspaceHomeChrome ||
+      projectId ||
+      externalProjectId
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const startedAt = Date.now();
+
+    startupTracker.mark(
+      "AgentChatWorkspace: homeDefaultWorkspace resolve start",
+    );
+    logAgentDebug("AgentChatPage", "homeDefaultWorkspace.resolve.start", {
+      agentEntry,
+    });
+
+    void (async () => {
+      try {
+        startupTracker.mark(
+          "AgentChatWorkspace: calling getOrCreateDefaultProject",
+        );
+        const defaultProject = await getOrCreateDefaultProject();
+        startupTracker.mark(
+          "AgentChatWorkspace: getOrCreateDefaultProject returned",
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!defaultProject?.id) {
+          startupTracker.mark("AgentChatWorkspace: no default project");
+          logAgentDebug(
+            "AgentChatPage",
+            "homeDefaultWorkspace.resolve.empty",
+            {
+              durationMs: Date.now() - startedAt,
+            },
+            { level: "warn" },
+          );
+          return;
+        }
+
+        applyProjectSelection(defaultProject.id);
+        setProject(defaultProject);
+        startupTracker.mark(
+          `AgentChatWorkspace: homeDefaultWorkspace resolved (${Date.now() - startedAt}ms)`,
+        );
+        logAgentDebug("AgentChatPage", "homeDefaultWorkspace.resolve.success", {
+          durationMs: Date.now() - startedAt,
+          projectId: defaultProject.id,
+        });
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        startupTracker.mark(
+          `AgentChatWorkspace: homeDefaultWorkspace error (${Date.now() - startedAt}ms)`,
+        );
+        console.warn("[AgentChatPage] 准备默认工作区失败:", error);
+        logAgentDebug(
+          "AgentChatPage",
+          "homeDefaultWorkspace.resolve.error",
+          {
+            durationMs: Date.now() - startedAt,
+            error,
+          },
+          { level: "warn" },
+        );
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    agentEntry,
+    applyProjectSelection,
+    externalProjectId,
+    projectId,
+    shouldUseBrowserWorkspaceHomeChrome,
+  ]);
+
+  // 画布状态（支持多种画布类型）
+  const [canvasState, setCanvasState] = useState<CanvasStateUnion | null>(
+    () => {
+      if (!shouldBootstrapCanvasOnEntry) {
+        return null;
+      }
+
+      return (
+        createInitialCanvasState(normalizedEntryTheme, "") ||
+        createInitialDocumentState("")
+      );
+    },
+  );
+  const [documentVersionStatusMap, setDocumentVersionStatusMap] = useState<
+    Record<string, TopicBranchStatus>
+  >({});
+  const contentMetadataRef = useRef<Record<string, unknown>>({});
+  const persistedWorkbenchSnapshotRef = useRef("");
+  const lastCanvasSyncRequestRef = useRef<{
+    contentId: string;
+    body: string;
+  } | null>(null);
+  const handledInitialPendingServiceSkillLaunchSignatureRef = useRef("");
+  const dismissedInitialPendingServiceSkillLaunchSignatureRef = useRef("");
+  const handledInitialProjectFileOpenSignatureRef = useRef("");
+  const initialCreationReplay = useMemo(
+    () => extractCreationReplayMetadata(initialRequestMetadata),
+    [initialRequestMetadata],
+  );
+  const initialCreationReplaySurface = useMemo(
+    () => buildCreationReplaySurfaceModel(initialCreationReplay),
+    [initialCreationReplay],
+  );
+
+  useEffect(() => {
+    setActiveContentTarget(projectId, contentId, canvasState?.type ?? null);
+  }, [canvasState?.type, contentId, projectId]);
+
+  useEffect(() => {
+    persistedWorkbenchSnapshotRef.current = "";
+    contentMetadataRef.current = {};
+    lastCanvasSyncRequestRef.current = null;
+    if (!contentId) {
+      setDocumentVersionStatusMap({});
+    }
+  }, [contentId]);
+
+  // General 主题专用画布状态
+  const [generalCanvasState, setGeneralCanvasState] =
+    useState<GeneralCanvasState>(DEFAULT_CANVAS_STATE);
+  const [imageWorkbenchBySessionId, setImageWorkbenchBySessionId] = useState<
+    Record<string, SessionImageWorkbenchState>
+  >({});
+
+  // 任务文件状态
+  const [taskFiles, setTaskFiles] = useState<TaskFile[]>([]);
+  const [taskFilesExpanded, setTaskFilesExpanded] = useState(false);
+  const [selectedFileId, setSelectedFileId] = useState<string | undefined>();
+  const taskFilesRef = useRef<TaskFile[]>([]);
+  const socialStageLogRef = useRef<Record<string, string>>({});
+
+  // 项目上下文状态
+  const [project, setProject] = useState<Project | null>(null);
+  const [projectMemory, setProjectMemory] = useState<ProjectMemory | null>(
+    null,
+  );
+  const currentOpenedProjectSummary =
+    normalizeProjectId(project?.id) === normalizeProjectId(projectId)
+      ? project
+      : projectId
+        ? {
+            id: projectId,
+            name: projectId,
+          }
+        : null;
+  const openedProjects = useOpenedProjectSummaries(currentOpenedProjectSummary);
+  const handleCloseOpenedProject = useCallback(
+    (closingProjectId: string) => {
+      const normalizedClosingProjectId = normalizeProjectId(closingProjectId);
+      if (!normalizedClosingProjectId) {
+        return;
+      }
+
+      const remainingStoredProjectIds = closeProjectOpened(
+        normalizedClosingProjectId,
+      );
+      if (normalizeProjectId(projectId) !== normalizedClosingProjectId) {
+        return;
+      }
+
+      const fallbackProjectId =
+        openedProjects
+          .map((openedProject) => normalizeProjectId(openedProject.id))
+          .find(
+            (openedProjectId) =>
+              openedProjectId && openedProjectId !== normalizedClosingProjectId,
+          ) ??
+        remainingStoredProjectIds.find(
+          (openedProjectId) =>
+            normalizeProjectId(openedProjectId) !== normalizedClosingProjectId,
+        ) ??
+        null;
+
+      if (fallbackProjectId) {
+        setProject(null);
+        setProjectMemory(null);
+        applyProjectSelection(fallbackProjectId);
+        return;
+      }
+
+      applyProjectSelection(null);
+      setProject(null);
+      setProjectMemory(null);
+    },
+    [applyProjectSelection, openedProjects, projectId],
+  );
+  const runtimeWorkspaceId =
+    projectSelectionSource === "remembered" &&
+    taskCenterWorkspaceId &&
+    normalizeProjectId(project?.id) !== taskCenterWorkspaceId
+      ? ""
+      : (taskCenterWorkspaceId ?? "");
+  const { workspaceHarnessEnabled } = useDeveloperFeatureFlags();
+  const { mediaDefaults, loading: mediaDefaultsLoading } =
+    useGlobalMediaGenerationDefaults();
+  const { serviceModels, agentResponseLanguage } = useServiceModelsConfig();
+  const { generationBrief: soulArtifactVoiceGenerationBrief } =
+    useSoulArtifactVoiceGenerationBrief();
+  const [soulArtifactVoiceEnabledForTurn, setSoulArtifactVoiceEnabledForTurn] =
+    useState(true);
+  useEffect(() => {
+    setSoulArtifactVoiceEnabledForTurn(true);
+  }, [soulArtifactVoiceGenerationBrief]);
+  const inputCompletionEnabled =
+    serviceModels.input_completion?.enabled !== false;
+  const effectiveImageWorkbenchPreference = useMemo(
+    () =>
+      resolveMediaGenerationPreference(
+        project?.settings?.imageGeneration,
+        mediaDefaults.image,
+      ),
+    [mediaDefaults.image, project?.settings?.imageGeneration],
+  );
+
+  const imageWorkbenchGenerationRuntime = useImageGen({
+    preferredProviderId: effectiveImageWorkbenchPreference.preferredProviderId,
+    preferredModelId: effectiveImageWorkbenchPreference.preferredModelId,
+    allowFallback: effectiveImageWorkbenchPreference.allowFallback,
+    providerLoadMode: shouldDeferWorkspaceAuxiliaryLoads
+      ? "deferred"
+      : "immediate",
+    providerDeferredDelayMs: deferredWorkspaceAuxiliaryLoadMs,
+    selectionScopeKey: `${externalProjectId ?? project?.id ?? "no-project"}:${initialSessionId ?? "no-session"}:${contentId ?? "no-content"}`,
+  });
+  const {
+    availableProviders: imageWorkbenchProviders,
+    selectedProvider: imageWorkbenchSelectedProvider,
+    selectedProviderId: imageWorkbenchSelectedProviderId,
+    setSelectedProviderId: setImageWorkbenchSelectedProviderId,
+    selectedModel: imageWorkbenchSelectedModel,
+    selectedModelId: imageWorkbenchSelectedModelId,
+    setSelectedModelId: setImageWorkbenchSelectedModelId,
+    selectedSize: imageWorkbenchSelectedSize,
+    setSelectedSize: setImageWorkbenchSelectedSize,
+    preferredProviderUnavailable: imageWorkbenchPreferredProviderUnavailable,
+    saveImagesToResource: saveImageWorkbenchImagesToResource,
+  } = imageWorkbenchGenerationRuntime;
+  const imageWorkbenchPreferenceSourceLabel = useMemo(() => {
+    switch (effectiveImageWorkbenchPreference.source) {
+      case "project":
+        return "项目图片设置";
+      case "global":
+        return "全局图片设置";
+      case "auto":
+      default:
+        return "自动选择";
+    }
+  }, [effectiveImageWorkbenchPreference.source]);
+  const imageWorkbenchPreferenceSummary = useMemo(() => {
+    const providerLabel =
+      imageWorkbenchSelectedProvider?.name?.trim() ||
+      imageWorkbenchSelectedProviderId ||
+      "自动匹配";
+    const modelLabel =
+      imageWorkbenchSelectedModel?.name?.trim() ||
+      imageWorkbenchSelectedModelId ||
+      "自动模型";
+    return `来源：${imageWorkbenchPreferenceSourceLabel} · ${providerLabel} / ${modelLabel}`;
+  }, [
+    imageWorkbenchPreferenceSourceLabel,
+    imageWorkbenchSelectedModel?.name,
+    imageWorkbenchSelectedModelId,
+    imageWorkbenchSelectedProvider?.name,
+    imageWorkbenchSelectedProviderId,
+  ]);
+  const imageWorkbenchPreferenceWarning = useMemo(() => {
+    if (
+      !imageWorkbenchPreferredProviderUnavailable ||
+      effectiveImageWorkbenchPreference.allowFallback
+    ) {
+      return null;
+    }
+    return `默认图片服务 ${effectiveImageWorkbenchPreference.preferredProviderId} 当前不可用，且已关闭自动回退。`;
+  }, [
+    effectiveImageWorkbenchPreference.allowFallback,
+    effectiveImageWorkbenchPreference.preferredProviderId,
+    imageWorkbenchPreferredProviderUnavailable,
+  ]);
+  const imageGenerationSelectionWarning = useMemo(() => {
+    if (
+      mediaDefaultsLoading ||
+      imageWorkbenchGenerationRuntime.providersLoading
+    ) {
+      return "图片服务设置加载中，请稍后生成图层资产。";
+    }
+
+    if (
+      imageWorkbenchPreferredProviderUnavailable &&
+      !effectiveImageWorkbenchPreference.allowFallback
+    ) {
+      return imageWorkbenchPreferenceWarning;
+    }
+
+    if (
+      !imageWorkbenchGenerationRuntime.selectedProviderId ||
+      !imageWorkbenchGenerationRuntime.selectedModelId
+    ) {
+      return "图片服务尚未选定 Provider/模型，请先到媒体服务图片设置确认默认渠道。";
+    }
+
+    return null;
+  }, [
+    effectiveImageWorkbenchPreference.allowFallback,
+    imageWorkbenchGenerationRuntime.providersLoading,
+    imageWorkbenchGenerationRuntime.selectedModelId,
+    imageWorkbenchGenerationRuntime.selectedProviderId,
+    imageWorkbenchPreferenceWarning,
+    imageWorkbenchPreferredProviderUnavailable,
+    mediaDefaultsLoading,
+  ]);
+  const imageGenerationSelectionReady = !imageGenerationSelectionWarning;
+
+  useEffect(() => {
+    taskFilesRef.current = taskFiles;
+  }, [taskFiles]);
+
+  // 主动 workspace 健康检查失败标记（区别于 workspacePathMissing 发送失败场景）
+  const [workspaceHealthError, setWorkspaceHealthError] = useState(false);
+
+  // 引用的角色列表（用于注入到消息中）
+  const [mentionedCharacters, setMentionedCharacters] = useState<Character[]>(
+    [],
+  );
+
+  // 技能列表（用于 @ 引用）
+  const {
+    skills,
+    skillsLoading,
+    refreshSkills: loadSkills,
+  } = useEmberSkills({
+    autoLoad: shouldDeferWorkspaceAuxiliaryLoads ? "deferred" : "immediate",
+    deferredDelayMs: deferredWorkspaceAuxiliaryLoadMs,
+    logScope: "AgentChatPage",
+    onError: (error) => {
+      console.warn("[AgentChatPage] 加载 skills 失败:", error);
+    },
+  });
+  const {
+    skills: serviceSkills,
+    groups: serviceSkillGroups,
+    isLoading: serviceSkillsLoading,
+    error: serviceSkillsError,
+    recordUsage: recordServiceSkillUsage,
+  } = useServiceSkills({
+    enabled: activeTheme === "general",
+    loadMode: shouldDeferWorkspaceAuxiliaryLoads ? "deferred" : "immediate",
+    deferredDelayMs: deferredWorkspaceAuxiliaryLoadMs,
+  });
+
+  useEffect(() => {
+    if (activeTheme !== "general" || !serviceSkillsError) {
+      return;
+    }
+
+    toast.error(`加载技能目录失败：${serviceSkillsError}`);
+  }, [activeTheme, serviceSkillsError]);
+
+  const expertPanelRequestMetadata = useMemo(
+    () => initialAutoSendRequestMetadata ?? initialRequestMetadata ?? null,
+    [initialAutoSendRequestMetadata, initialRequestMetadata],
+  );
+  const [expertSkillRefsOverride, setExpertSkillRefsOverride] = useState<
+    string[] | null
+  >(null);
+  useEffect(() => {
+    setExpertSkillRefsOverride(null);
+  }, [expertPanelRequestMetadata]);
+  const handleExpertSkillRefsChange = useCallback(
+    (skillRefs: string[]) => {
+      setExpertSkillRefsOverride((current) =>
+        areStringArraysEqual(current, skillRefs) ? current : [...skillRefs],
+      );
+      if (!expertAgentLaunch) {
+        return;
+      }
+      const record = updateExpertAgentInstanceSkillRefs({
+        tenantId: expertAgentLaunch.tenantId,
+        expertId: expertAgentLaunch.expertId,
+        releaseId: expertAgentLaunch.releaseId,
+        catalogVersion: expertAgentLaunch.catalogVersion,
+        skillRefsOverride: skillRefs,
+      });
+      void syncExpertAgentInstanceToCloud(record).catch(() => undefined);
+    },
+    [expertAgentLaunch],
+  );
+  const workspaceRequestMetadataWithExpertSkills = useMemo(() => {
+    const metadataWithExpertSkills = mergeExpertSkillRefsIntoRequestMetadata(
+      initialRequestMetadata ?? initialAutoSendRequestMetadata ?? null,
+      expertSkillRefsOverride,
+    );
+    return metadataWithExpertSkills &&
+      Object.keys(metadataWithExpertSkills).length > 0
+      ? metadataWithExpertSkills
+      : null;
+  }, [
+    expertSkillRefsOverride,
+    initialAutoSendRequestMetadata,
+    initialRequestMetadata,
+  ]);
+  const initialPendingServiceSkillLaunchSignature = useMemo(() => {
+    const skillId = initialPendingServiceSkillLaunch?.skillId?.trim();
+    const skillKey = initialPendingServiceSkillLaunch?.skillKey?.trim();
+    if (!skillId && !skillKey) {
+      return "";
+    }
+
+    return JSON.stringify({
+      skillId,
+      skillKey,
+      requestKey: initialPendingServiceSkillLaunch?.requestKey ?? 0,
+      initialSlotValues:
+        initialPendingServiceSkillLaunch?.initialSlotValues ?? null,
+      prefillHint: initialPendingServiceSkillLaunch?.prefillHint ?? null,
+      launchUserInput:
+        initialPendingServiceSkillLaunch?.launchUserInput ?? null,
+    });
+  }, [initialPendingServiceSkillLaunch]);
+  const combinedSkillsLoading = skillsLoading || serviceSkillsLoading;
+
+  // Workbench Store（用于工作区右侧技能面板状态同步）
+  const pendingSkillKey = useWorkbenchStore((state) => state.pendingSkillKey);
+  const clearThemeSkillsRailState = useWorkbenchStore(
+    (state) => state.clearThemeSkillsRailState,
+  );
+  const consumePendingSkill = useWorkbenchStore(
+    (state) => state.consumePendingSkill,
+  );
+
+  // 用于追踪已处理的消息 ID，避免重复处理
+  const processedMessageIds = useRef<Set<string>>(new Set());
+  // 文件写入回调 ref（用于传递给统一聊天主链 Hook）
+  const handleWriteFileRef =
+    useRef<
+      (
+        content: string,
+        fileName: string,
+        context?: WriteArtifactContext,
+      ) => void
+    >();
+  const sceneGateResumeHandlerRef = useRef<
+    (input: {
+      rawText: string;
+      requestMetadata: Record<string, unknown>;
+    }) => Promise<boolean>
+  >(async () => false);
+
+  // 工作流状态（仅在内容创作模式下使用）
+  const mappedTheme = activeTheme as ThemeType;
+  const { steps, currentStepIndex, goToStep, completeStep } = useWorkflow(
+    mappedTheme,
+    creationMode,
+  );
+
+  // 内容同步 Hook
+  const { syncContent, syncStatus } = useContentSync({
+    debounceMs: 2000,
+    autoRetry: true,
+    retryDelayMs: 5000,
+  });
+
+  // 判断是否为内容创作模式
+  const isSpecializedThemeMode = isSpecializedWorkbenchTheme(activeTheme);
+
+  // Artifact 状态 - 用于在画布中显示
+  const artifacts = useAtomValue(artifactsAtom);
+  const selectedArtifactId = useAtomValue(selectedArtifactIdAtom);
+  const selectedArtifact = useAtomValue(selectedArtifactAtom);
+  const setArtifacts = useSetAtom(artifactsAtom);
+  const setSelectedArtifactId = useSetAtom(selectedArtifactIdAtom);
+  const upsertGeneralArtifact = useCallback(
+    (artifact: Artifact) => {
+      setArtifacts((currentArtifacts) =>
+        mergeArtifacts([...currentArtifacts, artifact]),
+      );
+    },
+    [setArtifacts],
+  );
+  const hasBrowserAssistArtifact = useMemo(
+    () =>
+      artifacts.some(
+        (artifact) =>
+          artifact.id === GENERAL_BROWSER_ASSIST_ARTIFACT_ID &&
+          artifact.type === "browser_assist",
+      ),
+    [artifacts],
+  );
+  const clearBrowserAssistCanvasArtifact = useCallback(() => {
+    setArtifacts((currentArtifacts) => {
+      const nextArtifacts = currentArtifacts.filter(
+        (artifact) =>
+          !(
+            artifact.id === GENERAL_BROWSER_ASSIST_ARTIFACT_ID &&
+            artifact.type === "browser_assist"
+          ),
+      );
+      return nextArtifacts.length === currentArtifacts.length
+        ? currentArtifacts
+        : nextArtifacts;
+    });
+
+    if (selectedArtifactId === GENERAL_BROWSER_ASSIST_ARTIFACT_ID) {
+      setSelectedArtifactId(null);
+    }
+  }, [selectedArtifactId, setArtifacts, setSelectedArtifactId]);
+  const defaultSelectedArtifact = useMemo(
+    () => resolveDefaultSelectedArtifact(activeTheme, artifacts),
+    [activeTheme, artifacts],
+  );
+  const preferGeneralCanvasFilePreview = useMemo(
+    () =>
+      activeTheme === "general" &&
+      hasNamedGeneralCanvasFilePreview(generalCanvasState),
+    [activeTheme, generalCanvasState],
+  );
+  const liveArtifact = useMemo(
+    () =>
+      preferGeneralCanvasFilePreview
+        ? null
+        : selectedArtifact || defaultSelectedArtifact,
+    [defaultSelectedArtifact, preferGeneralCanvasFilePreview, selectedArtifact],
+  );
+
+  // Artifact 预览状态
+  const [artifactPreviewSize, setArtifactPreviewSize] = useState<
+    "mobile" | "tablet" | "desktop"
+  >("desktop");
+  const [canvasWorkbenchLayoutMode, setCanvasWorkbenchLayoutMode] =
+    useState<CanvasWorkbenchLayoutMode>("split");
+  const [focusedArtifactBlockId, setFocusedArtifactBlockId] = useState<
+    string | null
+  >(null);
+  const [artifactBlockFocusRequestKey, setArtifactBlockFocusRequestKey] =
+    useState(0);
+  const [focusedTimelineItemId, setFocusedTimelineItemId] = useState<
+    string | null
+  >(null);
+  const [timelineFocusRequestKey, setTimelineFocusRequestKey] = useState(0);
+  const autoCollapsedTopicSidebarRef = useRef(false);
+
+  // 跳转到技能主页面
+  const handleNavigateToSkillSettings = useCallback(() => {
+    _onNavigate?.("skills");
+  }, [_onNavigate]);
+  const handleRefreshSkills = useCallback(async () => {
+    await loadSkills(true);
+  }, [loadSkills]);
+
+  // 加载项目、Memory 和内容
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadData = async () => {
+      const startedAt = Date.now();
+      logAgentDebug("AgentChatPage", "loadData.start", {
+        contentId: contentId ?? null,
+        lockTheme,
+        projectId: projectId ?? null,
+      });
+
+      if (contentId) {
+        setIsInitialContentLoading(true);
+        setInitialContentLoadError(null);
+      } else {
+        setIsInitialContentLoading(false);
+        setInitialContentLoadError(null);
+      }
+
+      if (!projectId) {
+        if (cancelled) {
+          return;
+        }
+        logAgentDebug("AgentChatPage", "loadData.noProject", {
+          contentId: contentId ?? null,
+          durationMs: Date.now() - startedAt,
+        });
+        setProject(null);
+        setProjectMemory(null);
+        setIsInitialContentLoading(false);
+        return;
+      }
+
+      try {
+        const p = await getProject(projectId);
+        if (!p) {
+          if (cancelled) {
+            return;
+          }
+          logAgentDebug(
+            "AgentChatPage",
+            "loadData.projectMissing",
+            {
+              contentId: contentId ?? null,
+              durationMs: Date.now() - startedAt,
+              projectId,
+            },
+            { level: "warn" },
+          );
+          setProject(null);
+          setProjectMemory(null);
+          if (!externalProjectId) {
+            resetProjectSelection();
+          }
+          if (contentId) {
+            setInitialContentLoadError("当前项目不存在或已被删除");
+          }
+          return;
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        setProject(p);
+        const theme = projectTypeToTheme(p.workspaceType);
+        logAgentDebug("AgentChatPage", "loadData.projectLoaded", {
+          durationMs: Date.now() - startedAt,
+          projectId: p.id,
+          theme,
+          workspaceType: p.workspaceType,
+        });
+        if (!shouldPreserveEntryThemeOnHome && (!lockTheme || !initialTheme)) {
+          setActiveTheme(theme);
+        }
+
+        if (!shouldDeferWorkspaceAuxiliaryLoads) {
+          const memory = await getProjectMemory(projectId);
+          if (cancelled) {
+            return;
+          }
+          setProjectMemory(memory);
+          logAgentDebug("AgentChatPage", "loadData.memoryLoaded", {
+            charactersCount: memory?.characters?.length ?? 0,
+            durationMs: Date.now() - startedAt,
+            hasOutline: Boolean(memory?.outline?.length),
+            projectId,
+          });
+        } else {
+          setProjectMemory(null);
+          logAgentDebug("AgentChatPage", "loadData.memoryDeferred", {
+            durationMs: Date.now() - startedAt,
+            projectId,
+          });
+        }
+
+        if (!contentId) {
+          logAgentDebug("AgentChatPage", "loadData.projectOnlyComplete", {
+            durationMs: Date.now() - startedAt,
+            projectId,
+          });
+          return;
+        }
+
+        const content = await getContent(contentId);
+        if (cancelled) {
+          return;
+        }
+
+        if (!content) {
+          logAgentDebug(
+            "AgentChatPage",
+            "loadData.contentMissing",
+            {
+              contentId,
+              durationMs: Date.now() - startedAt,
+              projectId,
+            },
+            { level: "warn" },
+          );
+          setInitialContentLoadError("文稿不存在或读取失败");
+          return;
+        }
+
+        logAgentDebug("AgentChatPage", "loadData.contentLoaded", {
+          bodyLength: content.body?.length ?? 0,
+          contentId: content.id,
+          durationMs: Date.now() - startedAt,
+          projectId,
+        });
+
+        contentMetadataRef.current = content.metadata || {};
+        const canvasTheme = (
+          lockTheme && initialTheme
+            ? normalizeInitialTheme(initialTheme)
+            : theme
+        ) as ThemeType;
+        const rawBody = content.body || "";
+        const sanitizedBody = isCorruptedGeneralWorkbenchDocumentContent(
+          rawBody,
+        )
+          ? ""
+          : rawBody;
+
+        if (rawBody && sanitizedBody !== rawBody) {
+          setInitialContentLoadError(
+            "当前文稿未生成有效主稿，请重新生成或稍后重试",
+          );
+        } else {
+          setInitialContentLoadError(null);
+        }
+
+        let initialState =
+          createInitialCanvasState(canvasTheme, sanitizedBody) ||
+          createInitialDocumentState(sanitizedBody);
+
+        if (initialState.type === "document") {
+          const backendDocumentState = await getGeneralWorkbenchDocumentState(
+            content.id,
+          ).catch((error) => {
+            console.warn(
+              "[AgentChatPage] 读取工作区文稿版本状态失败，降级为 metadata 解析:",
+              error,
+            );
+            logAgentDebug(
+              "AgentChatPage",
+              "loadData.documentStateError",
+              {
+                contentId: content.id,
+                durationMs: Date.now() - startedAt,
+                error,
+              },
+              { level: "warn" },
+            );
+            return null;
+          });
+          logAgentDebug("AgentChatPage", "loadData.documentStateLoaded", {
+            contentId: content.id,
+            durationMs: Date.now() - startedAt,
+            hasBackendDocumentState: Boolean(backendDocumentState),
+          });
+          const backendApplied = backendDocumentState
+            ? applyBackendGeneralWorkbenchDocumentState(
+                initialState,
+                backendDocumentState,
+                sanitizedBody,
+              )
+            : null;
+
+          if (backendApplied) {
+            initialState = backendApplied.state;
+            setDocumentVersionStatusMap(backendApplied.statusMap);
+          } else {
+            const persisted = readPersistedGeneralWorkbenchDocument(
+              content.metadata,
+            );
+            if (persisted) {
+              const restoredVersions = persisted.versions.map((version) =>
+                version.id === persisted.currentVersionId
+                  ? { ...version, content: sanitizedBody || version.content }
+                  : version,
+              );
+              const currentVersion =
+                restoredVersions.find(
+                  (version) => version.id === persisted.currentVersionId,
+                ) || restoredVersions[restoredVersions.length - 1];
+              initialState = {
+                ...initialState,
+                versions: restoredVersions,
+                currentVersionId: currentVersion.id,
+                content: currentVersion.content,
+              };
+              setDocumentVersionStatusMap(persisted.versionStatusMap);
+            } else {
+              setDocumentVersionStatusMap({});
+            }
+          }
+        } else {
+          setDocumentVersionStatusMap({});
+        }
+
+        lastCanvasSyncRequestRef.current = {
+          contentId: content.id,
+          body: serializeCanvasStateForSync(initialState),
+        };
+        setCanvasState(initialState);
+        setLayoutMode("canvas");
+        logAgentDebug("AgentChatPage", "loadData.complete", {
+          contentId: content.id,
+          durationMs: Date.now() - startedAt,
+          initialStateType: initialState.type,
+          projectId,
+        });
+      } catch (error) {
+        console.error("[AgentChatPage] 加载项目或文稿失败:", error);
+        logAgentDebug(
+          "AgentChatPage",
+          "loadData.error",
+          {
+            contentId: contentId ?? null,
+            durationMs: Date.now() - startedAt,
+            error,
+            projectId: projectId ?? null,
+          },
+          { level: "error" },
+        );
+        if (!cancelled && contentId) {
+          setInitialContentLoadError("文稿加载失败，请稍后重试");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsInitialContentLoading(false);
+        }
+      }
+    };
+
+    void loadData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    projectId,
+    contentId,
+    externalProjectId,
+    lockTheme,
+    initialTheme,
+    resetProjectSelection,
+    shouldDeferWorkspaceAuxiliaryLoads,
+    shouldPreserveEntryThemeOnHome,
+  ]);
+
+  useEffect(() => {
+    if (!shouldDeferWorkspaceAuxiliaryLoads) {
+      return;
+    }
+
+    const normalizedProjectId = normalizeProjectId(projectId);
+    if (!normalizedProjectId) {
+      setProjectMemory(null);
+      return;
+    }
+
+    let cancelled = false;
+    const cancelDeferredLoad = scheduleMinimumDelayIdleTask(
+      () => {
+        const startedAt = Date.now();
+        logAgentDebug("AgentChatPage", "loadDeferredMemory.start", {
+          projectId: normalizedProjectId,
+        });
+        void getProjectMemory(normalizedProjectId)
+          .then((memory) => {
+            if (cancelled) {
+              return;
+            }
+            setProjectMemory(memory);
+            logAgentDebug("AgentChatPage", "loadDeferredMemory.success", {
+              charactersCount: memory?.characters?.length ?? 0,
+              durationMs: Date.now() - startedAt,
+              hasOutline: Boolean(memory?.outline?.length),
+              projectId: normalizedProjectId,
+            });
+          })
+          .catch((error) => {
+            if (cancelled) {
+              return;
+            }
+            console.warn("[AgentChatPage] 延后加载项目 Memory 失败:", error);
+            logAgentDebug(
+              "AgentChatPage",
+              "loadDeferredMemory.error",
+              {
+                durationMs: Date.now() - startedAt,
+                error,
+                projectId: normalizedProjectId,
+              },
+              { level: "warn" },
+            );
+          });
+      },
+      {
+        minimumDelayMs:
+          deferredWorkspaceAuxiliaryLoadMs ??
+          SESSION_ENTRY_AUXILIARY_DEFERRED_LOAD_MS,
+        idleTimeoutMs: 1_500,
+      },
+    );
+
+    return () => {
+      cancelled = true;
+      cancelDeferredLoad();
+    };
+  }, [
+    deferredWorkspaceAuxiliaryLoadMs,
+    projectId,
+    shouldDeferWorkspaceAuxiliaryLoads,
+  ]);
+
+  useEffect(() => {
+    if (!shouldBootstrapCanvasOnEntry) {
+      return;
+    }
+
+    setLayoutMode("canvas");
+    setCanvasState((previous) => {
+      if (previous) {
+        return previous;
+      }
+
+      return (
+        createInitialCanvasState(normalizedEntryTheme, "") ||
+        createInitialDocumentState("")
+      );
+    });
+  }, [normalizedEntryTheme, shouldBootstrapCanvasOnEntry]);
+
+  // 当 projectId 变化时主动检查 workspace 目录健康状态
+  // 静默修复（auto-created）或显示 banner 提示用户重新选择
+  useEffect(() => {
+    setWorkspaceHealthError(false);
+    const normalizedId = normalizeProjectId(projectId);
+    if (!normalizedId) return;
+
+    let cancelled = false;
+    const runWorkspaceCheck = () => {
+      const startedAt = Date.now();
+      logAgentDebug("AgentChatPage", "workspaceCheck.start", {
+        projectId: normalizedId,
+      });
+      void ensureWorkspaceReady(normalizedId)
+        .then(({ repaired, rootPath }) => {
+          if (cancelled) {
+            return;
+          }
+          if (repaired) {
+            recordWorkspaceRepair({
+              workspaceId: normalizedId,
+              rootPath,
+              source: "agent_chat_page",
+            });
+            console.info("[AgentChatPage] workspace 目录已自动修复:", rootPath);
+          }
+          logAgentDebug("AgentChatPage", "workspaceCheck.success", {
+            durationMs: Date.now() - startedAt,
+            projectId: normalizedId,
+            repaired,
+            rootPath,
+          });
+        })
+        .catch((err: unknown) => {
+          if (cancelled) {
+            return;
+          }
+          const message = err instanceof Error ? err.message : String(err);
+          console.warn("[AgentChatPage] workspace 目录检查失败:", message);
+          logAgentDebug(
+            "AgentChatPage",
+            "workspaceCheck.error",
+            {
+              durationMs: Date.now() - startedAt,
+              error: err,
+              projectId: normalizedId,
+            },
+            { level: "warn" },
+          );
+          if (
+            isWorkspacePathErrorMessage(message) ||
+            !isTransientWorkspaceBridgeError(message)
+          ) {
+            setWorkspaceHealthError(true);
+          }
+        });
+    };
+
+    const cancelDeferredCheck = shouldDeferWorkspaceAuxiliaryLoads
+      ? scheduleMinimumDelayIdleTask(runWorkspaceCheck, {
+          minimumDelayMs:
+            deferredWorkspaceAuxiliaryLoadMs ??
+            SESSION_ENTRY_AUXILIARY_DEFERRED_LOAD_MS,
+          idleTimeoutMs: 1_500,
+        })
+      : null;
+
+    if (!cancelDeferredCheck) {
+      runWorkspaceCheck();
+    }
+
+    return () => {
+      cancelled = true;
+      cancelDeferredCheck?.();
+    };
+  }, [
+    deferredWorkspaceAuxiliaryLoadMs,
+    projectId,
+    shouldDeferWorkspaceAuxiliaryLoads,
+  ]);
+
+  useEffect(() => {
+    const normalizedProjectId = normalizeProjectId(projectId);
+    if (!normalizedProjectId) {
+      return;
+    }
+
+    if (project?.id === normalizedProjectId && project.isArchived) {
+      return;
+    }
+    rememberProjectId(normalizedProjectId);
+  }, [project, projectId, rememberProjectId]);
+
+  const chatMode = useMemo(
+    () => resolveAgentChatMode(mappedTheme, isSpecializedThemeMode),
+    [isSpecializedThemeMode, mappedTheme],
+  );
+  const generalHarnessEntryEnabled = chatMode === "general";
+  const shouldUseCompactGeneralSystemPrompt =
+    shouldUseCompactGeneralPromptForPreferences({
+      chatMode,
+      contentId,
+      preferences: chatToolPreferences,
+    });
+
+  // 生成系统提示词（包含项目 Memory）
+  const systemPrompt = useMemo(() => {
+    let prompt = "";
+
+    if (chatMode === "general") {
+      prompt = buildGeneralAgentSystemPrompt(mappedTheme, {
+        compact: shouldUseCompactGeneralSystemPrompt,
+        toolPreferences: chatToolPreferences,
+        harness: {
+          browserAssistEnabled: true,
+          browserAssistProfileKey: GENERAL_BROWSER_ASSIST_PROFILE_KEY,
+          contentId: contentId || null,
+        },
+      });
+    } else if (isSpecializedThemeMode) {
+      prompt = generateGeneralWorkbenchPrompt(mappedTheme, creationMode);
+    }
+
+    // 注入项目 Memory
+    if (projectMemory) {
+      const memoryPrompt = generateProjectMemoryPrompt(projectMemory);
+      if (memoryPrompt) {
+        prompt = prompt ? `${prompt}\n\n${memoryPrompt}` : memoryPrompt;
+      }
+    }
+
+    return prompt || undefined;
+  }, [
+    chatMode,
+    chatToolPreferences,
+    contentId,
+    creationMode,
+    isSpecializedThemeMode,
+    mappedTheme,
+    projectMemory,
+    shouldUseCompactGeneralSystemPrompt,
+  ]);
+
+  // 使用 Agent Chat Hook（传递系统提示词）
+  const {
+    providerType,
+    setProviderType,
+    model,
+    setModel,
+    reasoningEffort,
+    setReasoningEffort,
+    executionStrategy,
+    accessMode,
+    setAccessMode,
+    messages = [],
+    setMessages: setChatMessages = NOOP_SET_CHAT_MESSAGES,
+    currentTurnId,
+    turns = [],
+    threadItems = [],
+    todoItems = [],
+    childSubagentSessions = [],
+    subagentParentContext = null,
+    queuedTurns = [],
+    threadRead = null,
+    executionRuntime = null,
+    activeExecutionRuntime = null,
+    isSending,
+    sendMessage,
+    compactSession = async () => undefined,
+    stopSending,
+    resumeThread = async () => false,
+    replayPendingAction = async () => false,
+    promoteQueuedTurn = async () => false,
+    removeQueuedTurn = async () => false,
+    clearMessages,
+    deleteMessage,
+    editMessage,
+    handlePermissionResponse,
+    pendingActions = [],
+    submittedActionsInFlight = [],
+    triggerAIGuide,
+    topics = [],
+    sessionHistoryWindow = null,
+    isAutoRestoringSession = false,
+    isSessionHydrating = false,
+    sessionId,
+    createFreshSession,
+    ensureSession = async () => null,
+    switchTopic: originalSwitchTopic,
+    loadFullSessionHistory = async () => false,
+    refreshSessionReadModel = async () => false,
+    renameTopic,
+    workspacePathMissing = false,
+    fixWorkspacePathAndRetry,
+    dismissWorkspacePathError,
+  } = useAgentChatUnified({
+    systemPrompt,
+    onWriteFile: (content, fileName, context) => {
+      // 使用 ref 调用最新的 handleWriteFile
+      handleWriteFileRef.current?.(content, fileName, context);
+    },
+    workspaceId: runtimeWorkspaceId,
+    disableSessionRestore: shouldDisableSessionRestore,
+    initialTopicsLoadMode: shouldDeferInitialTopicsLoad
+      ? "deferred"
+      : "immediate",
+    initialTopicsDeferredDelayMs: shouldDeferInitialTopicsLoad
+      ? deferredInitialTopicsLoadMs
+      : undefined,
+    initialRuntimeWarmupLoadMode: shouldDeferInitialRuntimeWarmup
+      ? "deferred"
+      : "immediate",
+    initialRuntimeWarmupDeferredDelayMs: shouldDeferInitialRuntimeWarmup
+      ? deferredInitialRuntimeWarmupMs
+      : undefined,
+    getSyncedSessionRecentPreferences,
+    onOpenSubagents: handleOpenSubagents,
+  });
+  useEffect(() => {
+    const normalizedSessionId = sessionId?.trim();
+    if (!expertAgentLaunch || !normalizedSessionId) {
+      return;
+    }
+    const record = updateExpertAgentInstanceSession({
+      tenantId: expertAgentLaunch.tenantId,
+      expertId: expertAgentLaunch.expertId,
+      releaseId: expertAgentLaunch.releaseId,
+      catalogVersion: expertAgentLaunch.catalogVersion,
+      latestSessionId: normalizedSessionId,
+      skillRefsOverride:
+        expertSkillRefsOverride ?? expertAgentLaunch.skillRefsOverride,
+    });
+    if (record) {
+      void syncExpertAgentInstanceToCloud(record).catch(() => undefined);
+    }
+  }, [expertAgentLaunch, expertSkillRefsOverride, sessionId]);
+  const activeSessionKey = sessionId?.trim() || null;
+  const restoredInteractiveMessageSnapshotRef = useRef<{
+    sessionId: string | null;
+    ids: Set<string>;
+    capturedInitial: boolean;
+    pendingRestoreCapture: boolean;
+  }>({
+    sessionId: null,
+    ids: new Set<string>(),
+    capturedInitial: false,
+    pendingRestoreCapture: false,
+  });
+  const readOnlyInteractiveMessageIds = useMemo<ReadonlySet<string>>(() => {
+    const snapshot = restoredInteractiveMessageSnapshotRef.current;
+    if (!activeSessionKey) {
+      snapshot.sessionId = null;
+      snapshot.ids = new Set<string>();
+      snapshot.capturedInitial = false;
+      snapshot.pendingRestoreCapture = false;
+      return snapshot.ids;
+    }
+
+    if (snapshot.sessionId !== activeSessionKey) {
+      snapshot.sessionId = activeSessionKey;
+      snapshot.ids = new Set<string>();
+      snapshot.capturedInitial = false;
+      snapshot.pendingRestoreCapture = false;
+    }
+
+    if (isAutoRestoringSession || isSessionHydrating) {
+      snapshot.pendingRestoreCapture = true;
+    }
+
+    const shouldCaptureInitialSessionMessages =
+      normalizedInitialSessionId === activeSessionKey &&
+      !snapshot.capturedInitial &&
+      messages.length > 0;
+    const shouldCaptureRestoredMessages =
+      snapshot.pendingRestoreCapture ||
+      shouldCaptureInitialSessionMessages ||
+      sessionHistoryWindow?.isLoadingFull === true;
+    let didCaptureRestoredMessages = false;
+
+    if (shouldCaptureRestoredMessages && messages.length > 0) {
+      for (const message of messages) {
+        snapshot.ids.add(message.id);
+      }
+      snapshot.capturedInitial = true;
+      snapshot.pendingRestoreCapture = false;
+      didCaptureRestoredMessages = true;
+    }
+
+    return didCaptureRestoredMessages ? new Set(snapshot.ids) : snapshot.ids;
+  }, [
+    activeSessionKey,
+    isAutoRestoringSession,
+    isSessionHydrating,
+    messages,
+    normalizedInitialSessionId,
+    sessionHistoryWindow?.isLoadingFull,
+  ]);
+  const topicById = useMemo(
+    () => new Map(topics.map((topic) => [topic.id, topic])),
+    [topics],
+  );
+  activeSessionIdRef.current = sessionId;
+  const clawSidebarEntryResetKey = shouldAutoCollapseClassicClawSidebar
+    ? JSON.stringify({
+        projectId: externalProjectId ?? null,
+        contentId: contentId ?? null,
+        sessionId: sessionId ?? null,
+        theme: normalizedEntryTheme,
+        newChatAt: newChatAt ?? null,
+      })
+    : null;
+
+  useEffect(() => {
+    if (!shouldAutoCollapseClassicClawSidebar) {
+      return;
+    }
+
+    autoCollapsedTopicSidebarRef.current = false;
+    setShowSidebar(false);
+  }, [clawSidebarEntryResetKey, shouldAutoCollapseClassicClawSidebar]);
+  const persistedTeamMemoryShadowSnapshot = useMemo(() => {
+    const repoScope = project?.rootPath?.trim();
+    if (!repoScope || typeof localStorage === "undefined") {
+      return null;
+    }
+
+    return readTeamMemorySnapshot(localStorage, repoScope);
+  }, [project?.rootPath]);
+  const shouldAllowPersistedTeamFallback =
+    !persistedTeamMemoryShadowSnapshot &&
+    !executionRuntime?.recent_team_selection;
+
+  const {
+    selectedTeam,
+    preferredTeamPresetId,
+    selectedTeamLabel,
+    selectedTeamSummary,
+  } = useSelectedTeamPreference(activeTheme, {
+    runtimeSelection: executionRuntime?.recent_team_selection ?? null,
+    shadowSnapshot: persistedTeamMemoryShadowSnapshot,
+    sessionSync: selectedTeamSessionSync,
+    allowPersistedThemeFallback: shouldAllowPersistedTeamFallback,
+  });
+  const teamMemoryShadowSnapshot = useTeamMemoryShadowSync({
+    repoScope: project?.rootPath || null,
+    activeTheme,
+    sessionId,
+    selectedTeam,
+    childSubagentSessions,
+    subagentParentContext,
+  });
+  const resolvedTeamMemoryShadowSnapshot =
+    teamMemoryShadowSnapshot ?? persistedTeamMemoryShadowSnapshot;
+  const handleOpenSubagentSession = useCallback(
+    (subagentSessionId: string) => {
+      deferSessionRecentMetadataSyncForNavigation(subagentSessionId);
+      void originalSwitchTopic(subagentSessionId);
+    },
+    [deferSessionRecentMetadataSyncForNavigation, originalSwitchTopic],
+  );
+  const runtimeChatToolPreferences = useMemo(
+    () => createChatToolPreferencesFromExecutionRuntime(executionRuntime),
+    [executionRuntime],
+  );
+  const effectiveChatToolPreferences = useMemo(
+    () =>
+      alignChatToolPreferencesWithExecutionStrategy(
+        chatToolPreferences,
+        executionStrategy,
+      ),
+    [chatToolPreferences, executionStrategy],
+  );
+
+  useEffect(() => {
+    syncChatToolPreferencesSource(activeTheme, runtimeChatToolPreferences);
+  }, [activeTheme, runtimeChatToolPreferences, syncChatToolPreferencesSource]);
+
+  useEffect(() => {
+    if (
+      chatToolPreferences.task === effectiveChatToolPreferences.task &&
+      chatToolPreferences.subagent === effectiveChatToolPreferences.subagent
+    ) {
+      return;
+    }
+
+    setChatToolPreferences(effectiveChatToolPreferences);
+  }, [
+    chatToolPreferences.subagent,
+    chatToolPreferences.task,
+    effectiveChatToolPreferences,
+    setChatToolPreferences,
+  ]);
+
+  useEffect(() => {
+    const trimmedSessionId = sessionId?.trim();
+    if (!trimmedSessionId || runtimeChatToolPreferences) {
+      return;
+    }
+
+    const fallbackPreferences = {
+      ...alignChatToolPreferencesWithExecutionStrategy(
+        loadChatToolPreferences(activeTheme),
+        executionStrategy,
+      ),
+    };
+    const backfillKey = `${trimmedSessionId}:${JSON.stringify([
+      fallbackPreferences.task,
+      fallbackPreferences.subagent,
+    ])}`;
+    if (sessionRecentPreferencesBackfillKeyRef.current === backfillKey) {
+      return;
+    }
+    sessionRecentPreferencesBackfillKeyRef.current = backfillKey;
+
+    void syncSessionRecentPreferences(trimmedSessionId, fallbackPreferences, {
+      priority: "background",
+    }).catch((error) => {
+      console.warn("[AgentChatPage] 回填会话 recent_preferences 失败:", error);
+    });
+  }, [
+    activeTheme,
+    executionStrategy,
+    runtimeChatToolPreferences,
+    sessionId,
+    syncSessionRecentPreferences,
+  ]);
+
+  const {
+    clearRuntimeTeamState: clearPreparedRuntimeTeamState,
+    prepareRuntimeTeamBeforeSend,
+  } = useRuntimeTeamFormation({
+    projectId,
+    selectedTeam,
+    subagentEnabled: effectiveChatToolPreferences.subagent,
+  });
+  const clearRuntimeTeamState = useCallback(() => {
+    clearPreparedRuntimeTeamState();
+  }, [clearPreparedRuntimeTeamState]);
+  const localImageWorkbenchSessionKeyRef = useRef(
+    createLocalImageWorkbenchSessionKey(),
+  );
+  const [localImageWorkbenchSessionKey, setLocalImageWorkbenchSessionKey] =
+    useState(() => localImageWorkbenchSessionKeyRef.current);
+  const resetLocalImageWorkbenchSessionScope = useCallback(() => {
+    const previousLocalSessionKey = localImageWorkbenchSessionKeyRef.current;
+    const nextLocalSessionKey = createLocalImageWorkbenchSessionKey();
+    localImageWorkbenchSessionKeyRef.current = nextLocalSessionKey;
+    setLocalImageWorkbenchSessionKey(nextLocalSessionKey);
+    setImageWorkbenchBySessionId((previous) => {
+      if (!previous[previousLocalSessionKey]) {
+        return previous;
+      }
+      const next = { ...previous };
+      delete next[previousLocalSessionKey];
+      return next;
+    });
+  }, []);
+  const imageWorkbenchSessionKey = useMemo(
+    () => sessionId?.trim() || localImageWorkbenchSessionKey,
+    [localImageWorkbenchSessionKey, sessionId],
+  );
+  const cachedImageWorkbenchState = useMemo(() => {
+    const normalizedProjectId = normalizeProjectId(projectId);
+    const normalizedSessionId = sessionId?.trim();
+    if (!normalizedProjectId || !normalizedSessionId) {
+      return null;
+    }
+
+    return loadSessionImageWorkbenchCachedState(
+      normalizedProjectId,
+      normalizedSessionId,
+      { contentId, refreshAccess: false },
+    );
+  }, [contentId, projectId, sessionId]);
+  const currentImageWorkbenchState = useMemo(
+    () =>
+      imageWorkbenchBySessionId[imageWorkbenchSessionKey] ||
+      cachedImageWorkbenchState?.state ||
+      createInitialSessionImageWorkbenchState(),
+    [
+      cachedImageWorkbenchState,
+      imageWorkbenchBySessionId,
+      imageWorkbenchSessionKey,
+    ],
+  );
+  const imageWorkbenchStateForCache = useMemo(() => {
+    if (isSessionImageWorkbenchStateMeaningful(currentImageWorkbenchState)) {
+      return currentImageWorkbenchState;
+    }
+
+    return buildSessionImageWorkbenchStateFromMessages(messages);
+  }, [currentImageWorkbenchState, messages]);
+  const updateCurrentImageWorkbenchState = useCallback(
+    (
+      updater: (
+        current: SessionImageWorkbenchState,
+      ) => SessionImageWorkbenchState,
+    ) => {
+      setImageWorkbenchBySessionId((previous) => {
+        const current =
+          previous[imageWorkbenchSessionKey] ||
+          createInitialSessionImageWorkbenchState();
+        return {
+          ...previous,
+          [imageWorkbenchSessionKey]: updater(current),
+        };
+      });
+    },
+    [imageWorkbenchSessionKey],
+  );
+  const updateImageWorkbenchStateForSession = useCallback(
+    (
+      sessionKey: string,
+      updater: (
+        current: SessionImageWorkbenchState,
+      ) => SessionImageWorkbenchState,
+      options?: {
+        fallbackState?: SessionImageWorkbenchState;
+        removeSessionKeys?: string[];
+      },
+    ) => {
+      const normalizedSessionKey = sessionKey.trim();
+      if (!normalizedSessionKey) {
+        return;
+      }
+
+      setImageWorkbenchBySessionId((previous) => {
+        const current =
+          previous[normalizedSessionKey] ||
+          options?.fallbackState ||
+          createInitialSessionImageWorkbenchState();
+        const nextState = {
+          ...previous,
+          [normalizedSessionKey]: updater(current),
+        };
+
+        options?.removeSessionKeys?.forEach((candidateKey) => {
+          const normalizedCandidateKey = candidateKey.trim();
+          if (
+            !normalizedCandidateKey ||
+            normalizedCandidateKey === normalizedSessionKey
+          ) {
+            return;
+          }
+          delete nextState[normalizedCandidateKey];
+        });
+
+        return nextState;
+      });
+    },
+    [],
+  );
+  useEffect(() => {
+    const normalizedSessionId = sessionId?.trim();
+    const localSessionKey = localImageWorkbenchSessionKey;
+    if (!normalizedSessionId || normalizedSessionId === localSessionKey) {
+      return;
+    }
+
+    const localState = imageWorkbenchBySessionId[localSessionKey];
+    if (!localState) {
+      return;
+    }
+
+    updateImageWorkbenchStateForSession(
+      normalizedSessionId,
+      (current) => current,
+      {
+        fallbackState: localState,
+        removeSessionKeys: [localSessionKey],
+      },
+    );
+  }, [
+    imageWorkbenchBySessionId,
+    localImageWorkbenchSessionKey,
+    sessionId,
+    updateImageWorkbenchStateForSession,
+  ]);
+  useEffect(() => {
+    const normalizedProjectId = normalizeProjectId(projectId);
+    const normalizedSessionId = sessionId?.trim();
+    if (!normalizedProjectId || !normalizedSessionId) {
+      return;
+    }
+
+    if (!cachedImageWorkbenchState) {
+      return;
+    }
+
+    setImageWorkbenchBySessionId((previous) => {
+      if (
+        isSessionImageWorkbenchStateMeaningful(previous[normalizedSessionId])
+      ) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        [normalizedSessionId]: cachedImageWorkbenchState.state,
+      };
+    });
+  }, [cachedImageWorkbenchState, projectId, sessionId]);
+  useEffect(() => {
+    const normalizedProjectId = normalizeProjectId(projectId);
+    const normalizedSessionId = sessionId?.trim();
+    if (
+      !normalizedProjectId ||
+      !normalizedSessionId ||
+      !isSessionImageWorkbenchStateMeaningful(imageWorkbenchStateForCache)
+    ) {
+      return;
+    }
+
+    return scheduleMinimumDelayIdleTask(
+      () => {
+        saveSessionImageWorkbenchCachedState(
+          normalizedProjectId,
+          normalizedSessionId,
+          imageWorkbenchStateForCache,
+          { contentId },
+        );
+      },
+      {
+        minimumDelayMs: 400,
+        idleTimeoutMs: 2_000,
+      },
+    );
+  }, [contentId, imageWorkbenchStateForCache, projectId, sessionId]);
+  const teamSessionRuntime = useWorkspaceTeamSessionRuntime({
+    sessionId,
+    topics,
+    turns,
+    queuedTurnCount: queuedTurns.length,
+    isSending,
+    subagentEnabled: effectiveChatToolPreferences.subagent,
+    childSubagentSessions,
+    subagentParentContext,
+  });
+  const teamSessionControlRuntime = useWorkspaceTeamSessionControlRuntime({
+    sessionId,
+    childSubagentSessions,
+    liveRuntimeBySessionId: teamSessionRuntime.liveRuntimeBySessionId,
+    stopSending,
+  });
+  useEffect(() => {
+    logAgentDebug(
+      "AgentChatPage",
+      "stateSnapshot",
+      {
+        activeTheme,
+        contentId: contentId ?? null,
+        initialContentLoadError: initialContentLoadError ?? null,
+        isInitialContentLoading,
+        isSending,
+        layoutMode,
+        messagesCount: messages.length,
+        projectId: projectId ?? null,
+        sessionId: sessionId ?? null,
+        skillsCount: skills.length,
+        skillsLoading: combinedSkillsLoading,
+        topicsCount: topics.length,
+        workspaceHealthError,
+      },
+      {
+        dedupeKey: JSON.stringify({
+          activeTheme,
+          contentId: contentId ?? null,
+          initialContentLoadError: initialContentLoadError ?? null,
+          isInitialContentLoading,
+          isSending,
+          layoutMode,
+          messagesCount: messages.length,
+          projectId: projectId ?? null,
+          sessionId: sessionId ?? null,
+          skillsCount: skills.length,
+          skillsLoading: combinedSkillsLoading,
+          topicsCount: topics.length,
+          workspaceHealthError,
+        }),
+        throttleMs: 800,
+      },
+    );
+  }, [
+    activeTheme,
+    contentId,
+    initialContentLoadError,
+    isInitialContentLoading,
+    isSending,
+    layoutMode,
+    messages.length,
+    projectId,
+    sessionId,
+    skills.length,
+    combinedSkillsLoading,
+    topics.length,
+    workspaceHealthError,
+  ]);
+  const settledLiveArtifact = useMemo(
+    () =>
+      settleLiveArtifactAfterStreamStops(liveArtifact, {
+        streamActive: isSending,
+      }),
+    [isSending, liveArtifact],
+  );
+  const settledWorkbenchArtifacts = useMemo(() => {
+    if (!settledLiveArtifact) {
+      return artifacts;
+    }
+
+    let updated = false;
+    const nextArtifacts = artifacts.map((artifact) => {
+      if (artifact.id !== settledLiveArtifact.id) {
+        return artifact;
+      }
+
+      updated = updated || artifact !== settledLiveArtifact;
+      return settledLiveArtifact;
+    });
+
+    return updated ? nextArtifacts : artifacts;
+  }, [artifacts, settledLiveArtifact]);
+  const artifactDisplayState = useArtifactDisplayState(
+    settledLiveArtifact,
+    artifacts,
+  );
+  const currentCanvasArtifact = artifactDisplayState.liveArtifact;
+  const displayedCanvasArtifact = artifactDisplayState.displayArtifact;
+  const activeArtifactViewTargetId =
+    displayedCanvasArtifact?.id ||
+    currentCanvasArtifact?.id ||
+    selectedArtifact?.id ||
+    liveArtifact?.id ||
+    null;
+  const {
+    artifactViewMode,
+    applyAutoArtifactViewMode,
+    handleArtifactViewModeChange,
+  } = useWorkspaceArtifactViewModeControl({
+    activeTheme,
+    displayedArtifact: displayedCanvasArtifact,
+    activeArtifactId: activeArtifactViewTargetId,
+  });
+  const {
+    browserAssistLaunching,
+    browserAssistSessionState,
+    siteSkillExecutionState,
+    currentBrowserAssistScopeKey,
+    ensureBrowserAssistCanvas,
+    suppressBrowserAssistCanvasAutoOpen,
+    suppressGeneralCanvasArtifactAutoOpen,
+  } = useWorkspaceBrowserAssistRuntime({
+    activeTheme,
+    projectId,
+    sessionId,
+    contentId,
+    input,
+    initialUserPrompt,
+    openBrowserAssistOnMount,
+    initialSiteSkillLaunch,
+    siteSkillLaunchNonce: newChatAt,
+    artifacts,
+    messages,
+    setLayoutMode,
+    upsertGeneralArtifact,
+    generalBrowserAssistProfileKey: GENERAL_BROWSER_ASSIST_PROFILE_KEY,
+  });
+  const initialHarnessBrowserAssist = useMemo(() => {
+    return asRecord(
+      asRecord(initialAutoSendRequestMetadata)?.harness
+        ? asRecord(asRecord(initialAutoSendRequestMetadata)?.harness)
+            ?.browser_assist
+        : undefined,
+    );
+  }, [initialAutoSendRequestMetadata]);
+  const initialHarnessPreferredBackend = useMemo(() => {
+    const value = readFirstString(
+      initialHarnessBrowserAssist ? [initialHarnessBrowserAssist] : [],
+      ["preferred_backend", "preferredBackend"],
+    );
+    return value === "ember_extension_bridge" || value === "cdp_direct"
+      ? value
+      : undefined;
+  }, [initialHarnessBrowserAssist]);
+  const initialHarnessAutoLaunch = useMemo(() => {
+    const rawValue =
+      initialHarnessBrowserAssist?.auto_launch ??
+      initialHarnessBrowserAssist?.autoLaunch;
+    return typeof rawValue === "boolean" ? rawValue : undefined;
+  }, [initialHarnessBrowserAssist]);
+  const browserAssistRequestProfileKey = useMemo(() => {
+    if (mappedTheme !== "general") {
+      return undefined;
+    }
+
+    return (
+      browserAssistSessionState?.profileKey?.trim() ||
+      initialSiteSkillLaunch?.profileKey?.trim() ||
+      GENERAL_BROWSER_ASSIST_PROFILE_KEY
+    );
+  }, [
+    browserAssistSessionState?.profileKey,
+    initialSiteSkillLaunch?.profileKey,
+    mappedTheme,
+  ]);
+  const shouldPreferExistingSessionBridgeForClaw = useMemo(() => {
+    if (mappedTheme !== "general") {
+      return false;
+    }
+
+    return (
+      browserAssistSessionState?.transportKind === "existing_session" ||
+      initialHarnessPreferredBackend === "ember_extension_bridge" ||
+      initialHarnessAutoLaunch === false ||
+      Boolean(initialSiteSkillLaunch?.profileKey?.trim()) ||
+      Boolean(initialSiteSkillLaunch?.requireAttachedSession) ||
+      initialSiteSkillLaunch?.preferredBackend === "ember_extension_bridge" ||
+      initialSiteSkillLaunch?.autoLaunch === false
+    );
+  }, [
+    browserAssistSessionState?.transportKind,
+    initialHarnessAutoLaunch,
+    initialHarnessPreferredBackend,
+    initialSiteSkillLaunch?.autoLaunch,
+    initialSiteSkillLaunch?.profileKey,
+    initialSiteSkillLaunch?.preferredBackend,
+    initialSiteSkillLaunch?.requireAttachedSession,
+    mappedTheme,
+  ]);
+  const browserAssistRequestPreferredBackend =
+    initialSiteSkillLaunch?.preferredBackend ||
+    initialHarnessPreferredBackend ||
+    (shouldPreferExistingSessionBridgeForClaw
+      ? "ember_extension_bridge"
+      : undefined);
+  const browserAssistRequestAutoLaunch =
+    initialSiteSkillLaunch?.autoLaunch ??
+    initialHarnessAutoLaunch ??
+    (shouldPreferExistingSessionBridgeForClaw ? false : true);
+  const handleOpenBrowserRuntimeForBrowserAssist = useCallback(
+    (artifact?: Artifact) => {
+      if (!_onNavigate) {
+        toast.error("当前入口暂不支持打开浏览器工作台，请从桌面主界面重试。");
+        return;
+      }
+
+      const artifactMeta = artifact ? asRecord(artifact.meta) : null;
+      _onNavigate("browser-runtime", {
+        projectId: projectId ?? undefined,
+        contentId: contentId ?? undefined,
+        initialProfileKey:
+          readFirstString(artifactMeta ? [artifactMeta] : [], [
+            "profileKey",
+            "profile_key",
+          ]) ||
+          browserAssistSessionState?.profileKey ||
+          GENERAL_BROWSER_ASSIST_PROFILE_KEY,
+        initialSessionId:
+          readFirstString(artifactMeta ? [artifactMeta] : [], [
+            "sessionId",
+            "session_id",
+          ]) ||
+          browserAssistSessionState?.sessionId ||
+          undefined,
+        initialTargetId:
+          readFirstString(artifactMeta ? [artifactMeta] : [], [
+            "targetId",
+            "target_id",
+          ]) ||
+          browserAssistSessionState?.targetId ||
+          undefined,
+      });
+    },
+    [
+      _onNavigate,
+      browserAssistSessionState?.profileKey,
+      browserAssistSessionState?.sessionId,
+      browserAssistSessionState?.targetId,
+      contentId,
+      projectId,
+    ],
+  );
+  const handleOpenBrowserRuntimeForSiteSkillExecution = useCallback(() => {
+    if (!_onNavigate || !initialSiteSkillLaunch?.adapterName?.trim()) {
+      return;
+    }
+
+    _onNavigate("browser-runtime", {
+      projectId: projectId ?? undefined,
+      contentId: contentId ?? undefined,
+      initialProfileKey:
+        siteSkillExecutionState?.profileKey ||
+        initialSiteSkillLaunch.profileKey,
+      initialTargetId:
+        siteSkillExecutionState?.targetId || initialSiteSkillLaunch.targetId,
+      initialAdapterName: initialSiteSkillLaunch.adapterName,
+      initialArgs: initialSiteSkillLaunch.args,
+      initialAutoRun: false,
+      initialRequireAttachedSession: true,
+      initialSaveTitle: initialSiteSkillLaunch.saveTitle,
+    });
+  }, [
+    contentId,
+    initialSiteSkillLaunch,
+    _onNavigate,
+    projectId,
+    siteSkillExecutionState?.profileKey,
+    siteSkillExecutionState?.targetId,
+  ]);
+  const realSubagentTimelineItems = useMemo(
+    () =>
+      buildRealSubagentTimelineItems({
+        threadId: sessionId,
+        turns,
+        childSessions: childSubagentSessions,
+      }),
+    [childSubagentSessions, sessionId, turns],
+  );
+  const effectiveThreadItems = useMemo(
+    () => mergeThreadItems(threadItems, realSubagentTimelineItems),
+    [realSubagentTimelineItems, threadItems],
+  );
+  const harnessState = useMemo(
+    () =>
+      deriveHarnessSessionState(
+        messages,
+        pendingActions,
+        effectiveThreadItems,
+        todoItems,
+      ),
+    [effectiveThreadItems, messages, pendingActions, todoItems],
+  );
+  useEffect(() => {
+    onSessionChange?.(sessionId ?? null);
+  }, [onSessionChange, sessionId]);
+
+  useEffect(() => {
+    if (activeTheme !== "general") {
+      setArtifacts([]);
+      return;
+    }
+
+    const messageArtifacts = mergeArtifacts(
+      messages.flatMap((message) => message.artifacts || []),
+    );
+    setArtifacts((currentArtifacts) =>
+      mergeMessageArtifactsIntoStore(
+        messageArtifacts,
+        currentArtifacts,
+        currentBrowserAssistScopeKey,
+      ),
+    );
+  }, [activeTheme, currentBrowserAssistScopeKey, messages, setArtifacts]);
+
+  useEffect(() => {
+    if (activeTheme !== "general") {
+      if (selectedArtifactId !== null) {
+        setSelectedArtifactId(null);
+      }
+      return;
+    }
+
+    if (preferGeneralCanvasFilePreview) {
+      if (selectedArtifactId !== null) {
+        setSelectedArtifactId(null);
+      }
+      return;
+    }
+
+    if (artifacts.length === 0) {
+      if (selectedArtifactId !== null) {
+        setSelectedArtifactId(null);
+      }
+      return;
+    }
+
+    const fallbackArtifactId = defaultSelectedArtifact?.id || null;
+
+    if (!selectedArtifact) {
+      if (selectedArtifactId !== fallbackArtifactId) {
+        setSelectedArtifactId(fallbackArtifactId);
+      }
+      return;
+    }
+
+    if (selectedArtifact.type === "browser_assist") {
+      if (selectedArtifactId !== fallbackArtifactId) {
+        setSelectedArtifactId(fallbackArtifactId);
+      }
+      return;
+    }
+
+    const selectedStillExists = artifacts.some(
+      (artifact) => artifact.id === selectedArtifact.id,
+    );
+    if (!selectedStillExists && selectedArtifactId !== fallbackArtifactId) {
+      setSelectedArtifactId(fallbackArtifactId);
+    }
+  }, [
+    activeTheme,
+    artifacts,
+    defaultSelectedArtifact,
+    preferGeneralCanvasFilePreview,
+    selectedArtifact,
+    selectedArtifactId,
+    setSelectedArtifactId,
+  ]);
+
+  const contextHarnessRuntime = useWorkspaceContextHarnessRuntime({
+    enabled: workspaceHarnessEnabled || generalHarnessEntryEnabled,
+    projectId,
+    activeTheme,
+    messages,
+    providerType,
+    model,
+    mappedTheme,
+    isSending,
+    projectMemory,
+    harnessState,
+  });
+  const {
+    contextWorkspace,
+    isThemeWorkbench,
+    harnessPanelVisible,
+    setHarnessPanelVisible,
+    harnessPendingCount,
+    showHarnessToggle,
+    harnessAttentionLevel,
+    navbarHarnessPanelVisible,
+    harnessToggleLabel,
+  } = contextHarnessRuntime;
+  const generalWorkbenchScaffoldRuntime =
+    useWorkspaceGeneralWorkbenchScaffoldRuntime({
+      isGeneralWorkbench: isThemeWorkbench,
+      mappedTheme,
+      sessionId,
+      projectId,
+      canvasState,
+      documentVersionStatusMap,
+      setDocumentVersionStatusMap,
+      clearThemeSkillsRailState,
+      setCanvasState,
+      setLayoutMode,
+    });
+  const {
+    shouldUseCompactGeneralWorkbench,
+    shouldSkipGeneralWorkbenchAutoGuideWithoutPrompt,
+    setTopicStatus,
+  } = generalWorkbenchScaffoldRuntime;
+
+  useWorkspaceGeneralWorkbenchDocumentPersistenceRuntime({
+    isThemeWorkbench,
+    contentId,
+    canvasState,
+    documentVersionStatusMap,
+    contentMetadataRef,
+    persistedWorkbenchSnapshotRef,
+  });
+
+  const workspaceServiceSkillEntryActions =
+    useWorkspaceServiceSkillEntryActions({
+      activeTheme,
+      creationMode,
+      projectId,
+      contentId,
+      input,
+      chatToolPreferences: effectiveChatToolPreferences,
+      creationReplay: initialCreationReplay,
+      preferredTeamPresetId,
+      selectedTeam,
+      selectedTeamLabel,
+      selectedTeamSummary,
+      onNavigate: _onNavigate,
+      recordServiceSkillUsage,
+    });
+  const handlePendingServiceSkillLaunchSubmit =
+    workspaceServiceSkillEntryActions.handlePendingServiceSkillLaunchSubmit;
+  const clearPendingServiceSkillLaunch =
+    workspaceServiceSkillEntryActions.clearPendingServiceSkillLaunch;
+  useEffect(() => {
+    if (!initialPendingServiceSkillLaunchSignature) {
+      handledInitialPendingServiceSkillLaunchSignatureRef.current = "";
+      dismissedInitialPendingServiceSkillLaunchSignatureRef.current = "";
+      return;
+    }
+
+    if (
+      dismissedInitialPendingServiceSkillLaunchSignatureRef.current ===
+      initialPendingServiceSkillLaunchSignature
+    ) {
+      return;
+    }
+
+    if (
+      activeTheme !== "general" ||
+      serviceSkillsLoading ||
+      serviceSkillsError
+    ) {
+      return;
+    }
+
+    if (
+      handledInitialPendingServiceSkillLaunchSignatureRef.current ===
+      initialPendingServiceSkillLaunchSignature
+    ) {
+      return;
+    }
+
+    const skillId = initialPendingServiceSkillLaunch?.skillId?.trim();
+    const skillKey = initialPendingServiceSkillLaunch?.skillKey?.trim();
+    if (!skillId && !skillKey) {
+      return;
+    }
+
+    const matchedSkill = serviceSkills.find(
+      (skill) =>
+        (skillId && skill.id === skillId) ||
+        (skillKey && skill.skillKey === skillKey),
+    );
+    if (!matchedSkill) {
+      if (serviceSkills.length === 0) {
+        return;
+      }
+
+      handledInitialPendingServiceSkillLaunchSignatureRef.current =
+        initialPendingServiceSkillLaunchSignature;
+      toast.error(`未找到技能：${skillId ?? skillKey}`);
+      return;
+    }
+
+    handledInitialPendingServiceSkillLaunchSignatureRef.current =
+      initialPendingServiceSkillLaunchSignature;
+    workspaceServiceSkillEntryActions.handleServiceSkillSelect(matchedSkill, {
+      requestKey: initialPendingServiceSkillLaunch?.requestKey,
+      initialSlotValues: initialPendingServiceSkillLaunch?.initialSlotValues,
+      prefillHint: initialPendingServiceSkillLaunch?.prefillHint,
+      launchUserInput: initialPendingServiceSkillLaunch?.launchUserInput,
+    });
+  }, [
+    activeTheme,
+    initialPendingServiceSkillLaunch,
+    initialPendingServiceSkillLaunchSignature,
+    serviceSkills,
+    serviceSkillsError,
+    serviceSkillsLoading,
+    workspaceServiceSkillEntryActions,
+  ]);
+
+  const {
+    a2uiSubmissionNotice,
+    pendingA2UIForm,
+    pendingA2UISource,
+    pendingActionRequest,
+    pendingPromotedA2UIActionRequest,
+    resolvePendingA2UISubmit,
+  } = useWorkspaceA2UIRuntime({
+    messages,
+    readOnlyInteractiveMessageIds,
+  });
+  const pendingServiceSkillLaunchForm =
+    workspaceServiceSkillEntryActions.pendingServiceSkillLaunchForm;
+  const pendingServiceSkillLaunchSource =
+    workspaceServiceSkillEntryActions.pendingServiceSkillLaunchSource;
+  const {
+    pendingSceneGateForm,
+    pendingSceneGateSource,
+    openRuntimeSceneGate,
+    handleSceneGateSubmit,
+    clearRuntimeSceneGate,
+  } = useWorkspaceSceneGateRuntime({
+    serviceSkills: activeTheme === "general" ? serviceSkills : [],
+    projectId,
+    contentId,
+    creationReplay: initialCreationReplay,
+    applyProjectSelection,
+    resumeSceneGate: async (input) =>
+      await sceneGateResumeHandlerRef.current(input),
+  });
+  const effectivePendingA2UIForm =
+    pendingServiceSkillLaunchForm ?? pendingSceneGateForm ?? pendingA2UIForm;
+  const effectivePendingA2UISource =
+    pendingServiceSkillLaunchSource ??
+    pendingSceneGateSource ??
+    pendingA2UISource;
+  const hasPendingA2UIForm = Boolean(effectivePendingA2UIForm);
+  const suppressCanvasAutoOpenForPendingA2UI = hasPendingA2UIForm;
+  const clearEntryPendingA2UI = useCallback(() => {
+    if (initialPendingServiceSkillLaunchSignature) {
+      dismissedInitialPendingServiceSkillLaunchSignatureRef.current =
+        initialPendingServiceSkillLaunchSignature;
+    }
+
+    clearPendingServiceSkillLaunch();
+    clearRuntimeSceneGate();
+  }, [
+    clearPendingServiceSkillLaunch,
+    clearRuntimeSceneGate,
+    initialPendingServiceSkillLaunchSignature,
+  ]);
+
+  const {
+    currentGate,
+    documentEditorFocusedRef,
+    themeWorkbenchActiveQueueItem,
+    themeWorkbenchBackendRunState,
+    themeWorkbenchRunState,
+  } = useWorkspaceGeneralWorkbenchRuntime({
+    isThemeWorkbench,
+    sessionId,
+    isSending,
+    pendingActionRequest,
+  });
+
+  const generalWorkbenchSidebarRuntime =
+    useWorkspaceGeneralWorkbenchSidebarRuntime({
+      isThemeWorkbench,
+      sessionId,
+      messages,
+      isSending,
+      themeWorkbenchBackendRunState,
+      contextActivityLogs: contextWorkspace.activityLogs,
+      historyPageSize: GENERAL_WORKBENCH_HISTORY_PAGE_SIZE,
+    });
+
+  const handleViewContextDetail = useCallback(
+    (contextId: string) => {
+      const detail = contextWorkspace.getContextDetail(contextId);
+      if (!detail) {
+        toast.error(t("generalWorkbench.context.detail.notFound"));
+        return;
+      }
+
+      let sourceLabel = t("generalWorkbench.context.source.web");
+      if (detail.source === "material") {
+        sourceLabel = t("generalWorkbench.context.source.material");
+      } else if (detail.source === "content") {
+        sourceLabel = t("generalWorkbench.context.source.content");
+      } else if (detail.searchMode === "social") {
+        sourceLabel = t("generalWorkbench.context.source.social");
+      }
+
+      toast.info(
+        <div style={{ maxWidth: "500px" }}>
+          <div style={{ fontWeight: 600, marginBottom: "8px" }}>
+            {detail.name}
+          </div>
+          <div
+            style={{
+              fontSize: "12px",
+              color: "hsl(var(--muted-foreground))",
+              marginBottom: "8px",
+            }}
+          >
+            {t("generalWorkbench.context.detail.sourceTokens", {
+              source: sourceLabel,
+              tokens: detail.estimatedTokens,
+            })}
+          </div>
+          <div
+            style={{
+              fontSize: "13px",
+              lineHeight: "1.5",
+              maxHeight: "300px",
+              overflow: "auto",
+            }}
+          >
+            {detail.bodyText || detail.previewText}
+          </div>
+        </div>,
+        { duration: 10000 },
+      );
+    },
+    [contextWorkspace, t],
+  );
+
+  const harnessRequestMetadata = useMemo(
+    () =>
+      buildHarnessRequestMetadata({
+        theme: mappedTheme,
+        preferences: {
+          task: effectiveChatToolPreferences.task,
+          subagent: effectiveChatToolPreferences.subagent,
+        },
+        sessionMode: isThemeWorkbench ? "general_workbench" : "default",
+        gateKey: isThemeWorkbench ? currentGate.key : undefined,
+        runTitle: themeWorkbenchActiveQueueItem?.title?.trim() || undefined,
+        contentId: contentId || undefined,
+        browserAssistProfileKey: browserAssistRequestProfileKey,
+        browserAssistPreferredBackend: browserAssistRequestPreferredBackend,
+        browserAssistAutoLaunch: browserAssistRequestAutoLaunch,
+        preferredTeamPresetId,
+        selectedTeamId: selectedTeam?.id,
+        selectedTeamSource: selectedTeam?.source,
+        selectedTeamLabel,
+        selectedTeamDescription: selectedTeam?.description,
+        selectedTeamSummary,
+        selectedTeamRoles: selectedTeam?.roles,
+        teamMemoryShadow: buildTeamMemoryShadowRequestMetadata(
+          resolvedTeamMemoryShadowSnapshot,
+        ),
+        agentResponseLanguage,
+      }),
+    [
+      effectiveChatToolPreferences.subagent,
+      effectiveChatToolPreferences.task,
+      browserAssistRequestAutoLaunch,
+      browserAssistRequestPreferredBackend,
+      browserAssistRequestProfileKey,
+      contentId,
+      currentGate.key,
+      isThemeWorkbench,
+      mappedTheme,
+      preferredTeamPresetId,
+      selectedTeam?.id,
+      selectedTeam?.description,
+      selectedTeam?.roles,
+      selectedTeam?.source,
+      selectedTeamLabel,
+      selectedTeamSummary,
+      resolvedTeamMemoryShadowSnapshot,
+      agentResponseLanguage,
+      themeWorkbenchActiveQueueItem?.title,
+    ],
+  );
+  const harnessInventoryRuntime = useWorkspaceHarnessInventoryRuntime({
+    enabled: workspaceHarnessEnabled,
+    chatMode,
+    mappedTheme,
+    harnessPanelVisible,
+    harnessRequestMetadata,
+    isThemeWorkbench,
+    themeWorkbenchRunState,
+    currentGate,
+    themeWorkbenchBackendRunState,
+    themeWorkbenchActiveQueueItem,
+    harnessPendingCount,
+  });
+
+  useEffect(() => {
+    if (!isThemeWorkbench || themeWorkbenchRunState !== "idle") {
+      return;
+    }
+    if (!canvasState || canvasState.type !== "document") {
+      return;
+    }
+
+    const latestTerminal =
+      themeWorkbenchBackendRunState?.latest_terminal ?? null;
+
+    setDocumentVersionStatusMap((previous) => {
+      if (latestTerminal) {
+        const terminalVersionId = latestTerminal.run_id;
+        const terminalVersionExists = canvasState.versions.some(
+          (version) => version.id === terminalVersionId,
+        );
+        if (terminalVersionExists) {
+          const terminalStatus: TopicBranchStatus =
+            latestTerminal.status === "success" ? "merged" : "candidate";
+          if (previous[terminalVersionId] !== terminalStatus) {
+            return {
+              ...previous,
+              [terminalVersionId]: terminalStatus,
+            };
+          }
+        }
+      }
+
+      const currentVersionId = canvasState.currentVersionId;
+      if (!currentVersionId || previous[currentVersionId] !== "in_progress") {
+        return previous;
+      }
+      return {
+        ...previous,
+        [currentVersionId]: "pending",
+      };
+    });
+  }, [
+    canvasState,
+    isThemeWorkbench,
+    setDocumentVersionStatusMap,
+    themeWorkbenchBackendRunState?.latest_terminal,
+    themeWorkbenchRunState,
+  ]);
+
+  // 会话文件持久化 hook
+  const {
+    saveFile: saveSessionFile,
+    files: sessionFiles,
+    readFile: readSessionFile,
+    meta: sessionMeta,
+  } = useSessionFiles({
+    sessionId,
+    theme: mappedTheme,
+    creationMode,
+    autoInit: true,
+  });
+
+  const { syncGeneralArtifactToResource } = useWorkspaceGeneralResourceSync({
+    activeTheme,
+    projectId,
+    sessionId,
+    projectRootPath: project?.rootPath || null,
+  });
+
+  // 监听画布状态变化，自动同步到 Content
+  useEffect(() => {
+    if (!canvasState || !contentId) {
+      return;
+    }
+
+    try {
+      const content = serializeCanvasStateForSync(canvasState);
+      if (isSyncContentEmpty(content)) {
+        return;
+      }
+
+      const previousRequest = lastCanvasSyncRequestRef.current;
+      if (
+        previousRequest?.contentId === contentId &&
+        previousRequest.body === content
+      ) {
+        return;
+      }
+
+      lastCanvasSyncRequestRef.current = { contentId, body: content };
+      syncContent(contentId, content);
+    } catch (error) {
+      console.error("提取画布内容失败:", error);
+    }
+  }, [canvasState, contentId, syncContent]);
+
+  // 用于追踪是否已触发过 AI 引导
+  const hasTriggeredGuide = useRef(false);
+  const consumedInitialPromptRef = useRef<string | null>(null);
+  const consumedInitialPromptKey = consumedInitialPromptRef.current;
+  const [bootstrapDispatchSnapshot, setBootstrapDispatchSnapshot] =
+    useState<InitialDispatchPreviewSnapshot | null>(null);
+  const [generalWorkbenchEntryPrompt, setGeneralWorkbenchEntryPrompt] =
+    useState<GeneralWorkbenchEntryPromptState | null>(null);
+  const [
+    generalWorkbenchEntryCheckPending,
+    setGeneralWorkbenchEntryCheckPending,
+  ] = useState(false);
+  const hydratedPromptSignatureRef = useRef<string | null>(null);
+  const dismissedPromptSignatureRef = useRef<string | null>(null);
+  const initialDispatchKey = useMemo(
+    () => buildInitialDispatchKey(initialUserPrompt, initialUserImages),
+    [initialUserImages, initialUserPrompt],
+  );
+
+  useEffect(() => {
+    if (!initialDispatchKey) {
+      return;
+    }
+
+    setBootstrapDispatchSnapshot({
+      key: initialDispatchKey,
+      prompt: initialUserPrompt,
+      images: initialUserImages || [],
+    });
+  }, [initialDispatchKey, initialUserImages, initialUserPrompt]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      setBootstrapDispatchSnapshot(null);
+      return;
+    }
+
+    if (!initialDispatchKey && !isSending && queuedTurns.length === 0) {
+      setBootstrapDispatchSnapshot(null);
+    }
+  }, [initialDispatchKey, isSending, messages.length, queuedTurns.length]);
+
+  const activeBootstrapDispatch = useMemo(() => {
+    if (
+      initialDispatchKey &&
+      ((initialUserPrompt || "").trim() || (initialUserImages || []).length > 0)
+    ) {
+      return {
+        key: initialDispatchKey,
+        prompt: initialUserPrompt,
+        images: initialUserImages || [],
+      };
+    }
+
+    return bootstrapDispatchSnapshot;
+  }, [
+    bootstrapDispatchSnapshot,
+    initialDispatchKey,
+    initialUserImages,
+    initialUserPrompt,
+  ]);
+  const isBootstrapDispatchPending =
+    activeBootstrapDispatch !== null &&
+    consumedInitialPromptKey !== activeBootstrapDispatch.key;
+  const bootstrapDispatchPreview =
+    !shouldUseCompactGeneralWorkbench &&
+    activeBootstrapDispatch &&
+    messages.length === 0 &&
+    (isSending || queuedTurns.length > 0)
+      ? activeBootstrapDispatch
+      : null;
+  useEffect(() => {
+    hydratedPromptSignatureRef.current = null;
+    dismissedPromptSignatureRef.current = null;
+    setGeneralWorkbenchEntryPrompt(null);
+    setGeneralWorkbenchEntryCheckPending(false);
+  }, [activeTheme, contentId, initialDispatchKey]);
+
+  useEffect(() => {
+    if (shouldUseCompactGeneralWorkbench) {
+      return;
+    }
+
+    const pendingInitialPrompt = (initialUserPrompt || "").trim();
+    const pendingInitialImages = initialUserImages || [];
+    if (
+      !isThemeWorkbench ||
+      autoRunInitialPromptOnMount ||
+      !contentId ||
+      !initialDispatchKey ||
+      !pendingInitialPrompt ||
+      pendingInitialImages.length > 0 ||
+      messages.length > 0
+    ) {
+      return;
+    }
+
+    if (
+      consumedInitialPromptKey === initialDispatchKey ||
+      hydratedPromptSignatureRef.current === initialDispatchKey
+    ) {
+      return;
+    }
+
+    hydratedPromptSignatureRef.current = initialDispatchKey;
+    hasTriggeredGuide.current = true;
+    setInput((previous) => previous.trim() || pendingInitialPrompt);
+    setGeneralWorkbenchEntryPrompt({
+      kind: "initial_prompt",
+      signature: initialDispatchKey,
+      title: "已恢复待执行创作意图",
+      description: "进入页面后不会自动开始生成，确认后再继续。",
+      actionLabel: "继续生成",
+      prompt: pendingInitialPrompt,
+    });
+  }, [
+    autoRunInitialPromptOnMount,
+    consumedInitialPromptKey,
+    contentId,
+    initialDispatchKey,
+    initialUserImages,
+    initialUserPrompt,
+    isThemeWorkbench,
+    messages.length,
+    setInput,
+    shouldUseCompactGeneralWorkbench,
+  ]);
+
+  useEffect(() => {
+    if (shouldUseCompactGeneralWorkbench) {
+      setGeneralWorkbenchEntryCheckPending(false);
+      return;
+    }
+
+    if (
+      !isThemeWorkbench ||
+      !contentId ||
+      !sessionId ||
+      messages.length > 0 ||
+      Boolean(initialDispatchKey)
+    ) {
+      setGeneralWorkbenchEntryCheckPending(false);
+      return;
+    }
+
+    let disposed = false;
+    setGeneralWorkbenchEntryCheckPending(true);
+    const perfT0 = performance.now();
+
+    void (async () => {
+      try {
+        const backendState = await executionRunGetGeneralWorkbenchState(
+          sessionId,
+          3,
+        ).catch(() => null);
+
+        console.info(
+          `[PERF] executionRunGetGeneralWorkbenchState: ${(performance.now() - perfT0).toFixed(0)}ms`,
+        );
+
+        if (disposed) {
+          return;
+        }
+
+        const nextPrompt =
+          buildGeneralWorkbenchResumePromptFromRunState(backendState);
+        if (!nextPrompt) {
+          setGeneralWorkbenchEntryPrompt((current) =>
+            current?.kind === "resume" ? null : current,
+          );
+          return;
+        }
+
+        if (dismissedPromptSignatureRef.current === nextPrompt.signature) {
+          return;
+        }
+
+        setGeneralWorkbenchEntryPrompt((current) =>
+          current?.kind === "initial_prompt" ? current : nextPrompt,
+        );
+      } finally {
+        if (!disposed) {
+          setGeneralWorkbenchEntryCheckPending(false);
+        }
+      }
+    })();
+
+    return () => {
+      disposed = true;
+    };
+  }, [
+    contentId,
+    initialDispatchKey,
+    isThemeWorkbench,
+    messages.length,
+    sessionId,
+    shouldUseCompactGeneralWorkbench,
+  ]);
+
+  const clearGeneralWorkbenchEntryPrompt = useCallback(() => {
+    setGeneralWorkbenchEntryPrompt(null);
+  }, []);
+
+  const dismissGeneralWorkbenchEntryPrompt = useCallback(
+    (options?: {
+      consumeInitialPrompt?: boolean;
+      onConsumeInitialPrompt?: () => void;
+    }) => {
+      setGeneralWorkbenchEntryPrompt((current) => {
+        if (!current) {
+          return current;
+        }
+
+        if (
+          current.kind === "initial_prompt" &&
+          options?.consumeInitialPrompt &&
+          initialDispatchKey
+        ) {
+          options.onConsumeInitialPrompt?.();
+        } else {
+          dismissedPromptSignatureRef.current = current.signature;
+        }
+
+        return null;
+      });
+    },
+    [initialDispatchKey],
+  );
+  const consumeInitialPrompt = useCallback(
+    (dispatchKey: string | null) => {
+      consumedInitialPromptRef.current = dispatchKey;
+      onInitialUserPromptConsumed?.();
+    },
+    [onInitialUserPromptConsumed],
+  );
+  const resetConsumedInitialPrompt = useCallback(() => {
+    consumedInitialPromptRef.current = null;
+  }, []);
+  const resetGuideState = useCallback(() => {
+    hasTriggeredGuide.current = false;
+    consumedInitialPromptRef.current = null;
+  }, []);
+  const resolveSendBoundary = useCallback(
+    ({
+      sourceText,
+      sendOptions,
+    }: {
+      sourceText: string;
+      sendOptions?: HandleSendOptions;
+    }): GeneralWorkbenchSendBoundaryState =>
+      buildGeneralWorkbenchSendBoundaryState({
+        isThemeWorkbench,
+        contentId,
+        initialDispatchKey,
+        consumedInitialPromptKey,
+        initialUserImages,
+        mappedTheme,
+        socialArticleSkillKey: SOCIAL_ARTICLE_SKILL_KEY,
+        sourceText,
+        sendOptions,
+      }),
+    [
+      contentId,
+      consumedInitialPromptKey,
+      initialDispatchKey,
+      initialUserImages,
+      isThemeWorkbench,
+      mappedTheme,
+    ],
+  );
+  const finalizeAfterSendSuccess = useCallback(
+    (boundary: GeneralWorkbenchSendBoundaryState) => {
+      if (
+        boundary.shouldConsumePendingGeneralWorkbenchInitialPrompt &&
+        initialDispatchKey
+      ) {
+        consumeInitialPrompt(initialDispatchKey);
+      }
+
+      if (boundary.shouldDismissGeneralWorkbenchEntryPrompt) {
+        clearGeneralWorkbenchEntryPrompt();
+      }
+      setSoulArtifactVoiceEnabledForTurn(true);
+    },
+    [
+      clearGeneralWorkbenchEntryPrompt,
+      consumeInitialPrompt,
+      initialDispatchKey,
+      setSoulArtifactVoiceEnabledForTurn,
+    ],
+  );
+  const rollbackAfterSendFailure = useCallback(
+    (boundary: GeneralWorkbenchSendBoundaryState) => {
+      if (boundary.shouldConsumePendingGeneralWorkbenchInitialPrompt) {
+        resetConsumedInitialPrompt();
+      }
+    },
+    [resetConsumedInitialPrompt],
+  );
+  const { resetRestoredSessionState } = useWorkspaceSessionRestore({
+    sessionId,
+    sessionMeta,
+    lockTheme,
+    initialTheme,
+    sessionFiles,
+    taskFilesLength: taskFiles.length,
+    setActiveTheme,
+    setCreationMode,
+    setTaskFiles,
+  });
+  const { handleBackHome, resetTopicLocalState } = useWorkspaceResetRuntime({
+    clearMessages,
+    clearRuntimeTeamState,
+    clearPendingEntryA2UI: clearEntryPendingA2UI,
+    clearProjectSelectionRuntime,
+    resetRestoredSessionState,
+    resetGuideState,
+    hasHandledNewChatRequest,
+    markNewChatRequestHandled,
+    defaultTopicSidebarVisible,
+    normalizedInitialTheme: normalizedEntryTheme,
+    initialCreationMode,
+    newChatAt,
+    externalProjectId,
+    onNavigate: _onNavigate,
+    autoCollapsedTopicSidebarRef,
+    processedMessageIdsRef: processedMessageIds,
+    setInput,
+    setSelectedText,
+    setLayoutMode,
+    setShowSidebar,
+    setCanvasState,
+    setGeneralCanvasState,
+    setTaskFiles,
+    setSelectedFileId,
+    setMentionedCharacters,
+    setActiveTheme,
+    setCreationMode,
+  });
+
+  const { switchTopic } = useWorkspaceTopicSwitch({
+    projectId,
+    externalProjectId,
+    originalSwitchTopic,
+    onBeforeTopicSwitch: deferSessionRecentMetadataSyncForNavigation,
+    startTopicProjectResolution,
+    finishTopicProjectResolution,
+    deferTopicSwitch,
+    consumePendingTopicSwitch,
+    rememberProjectId,
+    getRememberedProjectId,
+    loadTopicBoundProjectId: (topicId) =>
+      topicById.get(topicId)?.workspaceId ||
+      loadPersistedSessionWorkspaceId(topicId) ||
+      loadPersistedProjectId(`agent_session_workspace_${topicId}`),
+    resetTopicLocalState,
+  });
+  const resolveInitialSessionSwitch = useCallback(
+    (topicId: string) => {
+      return resolveInitialTaskSessionSwitchOptions(topicById.get(topicId));
+    },
+    [topicById],
+  );
+  useWorkspaceInitialSessionNavigation({
+    initialSessionId,
+    currentSessionId: sessionId,
+    resolveInitialSessionSwitch,
+    switchTopic,
+  });
+  const [taskCenterOpenTabMap, setTaskCenterOpenTabMap] =
+    useState<TaskCenterWorkspaceTabMap>(() => {
+      const initialTabMap = normalizeTaskCenterWorkspaceTabMap(
+        loadPersisted<unknown>(TASK_CENTER_OPEN_TAB_IDS_STORAGE_KEY, []),
+        {
+          workspaceId: taskCenterWorkspaceId,
+        },
+      );
+
+      return initializeTaskCenterOpenTabMap({
+        initialTabMap,
+        agentEntry,
+        workspaceId: taskCenterWorkspaceId,
+        normalizedInitialSessionId,
+      });
+    });
+  const [taskCenterDetachedTopicId, setTaskCenterDetachedTopicId] = useState<
+    string | null
+  >(null);
+  const [taskCenterTransitionTopicId, setTaskCenterTransitionTopicId] =
+    useState<string | null>(null);
+  const [
+    taskCenterEmbeddedHomeSessionIds,
+    setTaskCenterEmbeddedHomeSessionIds,
+  ] = useState<Set<string>>(() => new Set());
+  const [taskCenterDraftTabs, setTaskCenterDraftTabs] = useState<
+    TaskCenterDraftTab[]
+  >([]);
+  const [activeTaskCenterDraftTabId, setActiveTaskCenterDraftTabId] = useState<
+    string | null
+  >(null);
+  const [taskCenterDraftSendRequest, setTaskCenterDraftSendRequest] =
+    useState<TaskCenterDraftSendRequest | null>(null);
+  const [homePendingPreviewRequest, setHomePendingPreviewRequest] =
+    useState<TaskCenterDraftSendRequest | null>(null);
+  const taskCenterDraftSurfaceActiveRef = useRef(false);
+  const [taskCenterLocalSessionOverride, setTaskCenterLocalSessionOverride] =
+    useState<TaskCenterLocalSessionOverride | null>(null);
+  const shouldRespectTaskCenterLocalSession =
+    shouldRespectTaskCenterLocalSessionOverride({
+      localSessionOverride: taskCenterLocalSessionOverride,
+      normalizedInitialSessionId,
+      sessionId,
+    });
+  const taskCenterOpenTabIds = useMemo(
+    () =>
+      resolveTaskCenterTabIdsForWorkspace(
+        taskCenterOpenTabMap,
+        taskCenterWorkspaceId,
+      ),
+    [taskCenterOpenTabMap, taskCenterWorkspaceId],
+  );
+  const taskCenterOpenTabIdsRef = useRef(taskCenterOpenTabIds);
+  const taskCenterFallbackRestoreRef = useRef<{
+    topicId: string;
+    startedAt: number;
+  } | null>(null);
+  const taskCenterRouteTabSyncRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    taskCenterOpenTabIdsRef.current = taskCenterOpenTabIds;
+  }, [taskCenterOpenTabIds]);
+
+  const isTaskCenterEntry =
+    agentEntry === "claw" || agentEntry === "new-task";
+
+  useEffect(() => {
+    if (!isTaskCenterEntry) {
+      taskCenterDraftSurfaceActiveRef.current = false;
+      setTaskCenterTransitionTopicId(null);
+      return;
+    }
+
+    if (
+      taskCenterTransitionTopicId &&
+      taskCenterTransitionTopicId === sessionId
+    ) {
+      setTaskCenterTransitionTopicId(null);
+    }
+  }, [isTaskCenterEntry, sessionId, taskCenterTransitionTopicId]);
+
+  useEffect(() => {
+    if (!isTaskCenterEntry) {
+      setTaskCenterDetachedTopicId(null);
+      setTaskCenterEmbeddedHomeSessionIds((current) =>
+        current.size > 0 ? new Set<string>() : current,
+      );
+      setTaskCenterDraftTabs((current) => (current.length > 0 ? [] : current));
+      setActiveTaskCenterDraftTabId(null);
+      taskCenterDraftSurfaceActiveRef.current = false;
+      if (agentEntry !== "new-task") {
+        setTaskCenterDraftSendRequest(null);
+        setHomePendingPreviewRequest(null);
+        setTaskCenterLocalSessionOverride(null);
+      }
+      return;
+    }
+
+    if (agentEntry !== "claw") {
+      return;
+    }
+
+    if (!sessionId || sessionId !== normalizedInitialSessionId) {
+      return;
+    }
+
+    const hasTopicMatch = topicById.has(sessionId);
+    if (hasTopicMatch) {
+      setTaskCenterDetachedTopicId((current) =>
+        current === sessionId ? null : current,
+      );
+      return;
+    }
+
+    setTaskCenterDetachedTopicId((current) =>
+      current === sessionId ? current : sessionId,
+    );
+  }, [
+    agentEntry,
+    isTaskCenterEntry,
+    normalizedInitialSessionId,
+    sessionId,
+    topicById,
+  ]);
+
+  useEffect(() => {
+    const syncIntent = resolveTaskCenterRouteTabSyncIntent({
+      agentEntry,
+      workspaceId: taskCenterWorkspaceId,
+      normalizedInitialSessionId,
+      lastSyncedInitialSessionId: taskCenterRouteTabSyncRef.current,
+      shouldRespectLocalSession: shouldRespectTaskCenterLocalSession,
+    });
+    if (!syncIntent.shouldSync) {
+      return;
+    }
+
+    taskCenterRouteTabSyncRef.current = syncIntent.nextRouteSyncSessionId;
+    if (syncIntent.shouldClearActiveDraft) {
+      setActiveTaskCenterDraftTabId(null);
+    }
+    if (syncIntent.shouldClearTransitionAndDetached) {
+      setTaskCenterTransitionTopicId(null);
+      setTaskCenterDetachedTopicId(null);
+    }
+    setTaskCenterOpenTabMap((currentMap) =>
+      applyTaskCenterRouteTabSyncToMap({
+        currentMap,
+        workspaceId: taskCenterWorkspaceId,
+        normalizedInitialSessionId,
+        shouldRespectLocalSession: shouldRespectTaskCenterLocalSession,
+      }),
+    );
+  }, [
+    agentEntry,
+    normalizedInitialSessionId,
+    shouldRespectTaskCenterLocalSession,
+    taskCenterWorkspaceId,
+  ]);
+
+  useEffect(() => {
+    if (
+      agentEntry !== "claw" ||
+      !taskCenterWorkspaceId ||
+      !normalizedInitialSessionId ||
+      normalizedInitialSessionId === sessionId ||
+      shouldRespectTaskCenterLocalSession
+    ) {
+      return;
+    }
+
+    setTaskCenterTransitionTopicId((current) =>
+      current === normalizedInitialSessionId
+        ? current
+        : normalizedInitialSessionId,
+    );
+    setTaskCenterDetachedTopicId(null);
+  }, [
+    agentEntry,
+    normalizedInitialSessionId,
+    sessionId,
+    shouldRespectTaskCenterLocalSession,
+    taskCenterWorkspaceId,
+  ]);
+
+  useEffect(() => {
+    if (agentEntry !== "claw" || !taskCenterWorkspaceId) {
+      return;
+    }
+
+    const hasInitialSessionTopic = normalizedInitialSessionId
+      ? topicById.has(normalizedInitialSessionId)
+      : false;
+    if (
+      shouldWaitForTaskCenterInitialSessionTopic({
+        normalizedInitialSessionId,
+        hasInitialSessionTopic,
+      })
+    ) {
+      return;
+    }
+
+    setTaskCenterOpenTabMap((currentMap) => {
+      const nextIds = reconcileTaskCenterTabIds({
+        existingIds: resolveTaskCenterTabIdsForWorkspace(
+          currentMap,
+          taskCenterWorkspaceId,
+        ),
+        topics,
+        currentTopicId: resolveTaskCenterReconcileCurrentTopicId({
+          normalizedInitialSessionId,
+          sessionId,
+          shouldRespectLocalSession: shouldRespectTaskCenterLocalSession,
+          localSessionOverride: taskCenterLocalSessionOverride,
+          detachedTopicId: taskCenterDetachedTopicId,
+        }),
+      });
+      return updateTaskCenterTabIdsForWorkspace(
+        currentMap,
+        taskCenterWorkspaceId,
+        nextIds,
+      );
+    });
+  }, [
+    agentEntry,
+    sessionId,
+    normalizedInitialSessionId,
+    shouldRespectTaskCenterLocalSession,
+    taskCenterLocalSessionOverride,
+    taskCenterDetachedTopicId,
+    taskCenterWorkspaceId,
+    topicById,
+    topics,
+  ]);
+
+  useEffect(() => {
+    if (agentEntry !== "claw" && agentEntry !== "new-task") {
+      return;
+    }
+
+    savePersisted(TASK_CENTER_OPEN_TAB_IDS_STORAGE_KEY, taskCenterOpenTabMap);
+  }, [agentEntry, taskCenterOpenTabMap]);
+
+  useTrayModelShortcuts({
+    providerType,
+    setProviderType,
+    model,
+    setModel,
+    activeTheme: mappedTheme,
+    deferInitialSync: false,
+  });
+
+  useWorkspaceCanvasMessageSyncRuntime({
+    canvasState,
+    isSpecializedThemeMode,
+    isThemeWorkbench,
+    mappedTheme,
+    messages,
+    processedMessageIdsRef: processedMessageIds,
+    setCanvasState,
+  });
+
+  const submitImageWorkbenchAgentCommandRef = useRef<
+    | ((params: SubmitImageWorkbenchAgentCommandParams) => Promise<boolean>)
+    | null
+  >(null);
+  const imageWorkbenchActionRuntime = useWorkspaceImageWorkbenchActionRuntime({
+    cancelImageTask: cancelMediaTaskArtifact,
+    contentId,
+    createImageGenerationTask: createImageGenerationTaskArtifact,
+    getImageTask: getMediaTaskArtifact,
+    currentImageWorkbenchState,
+    imageWorkbenchPreferredModelId:
+      effectiveImageWorkbenchPreference.preferredModelId,
+    imageWorkbenchPreferredProviderId:
+      effectiveImageWorkbenchPreference.preferredProviderId,
+    imageWorkbenchPreferredProviderUnavailable:
+      imageWorkbenchPreferredProviderUnavailable,
+    imageWorkbenchSelectedModelId,
+    imageWorkbenchSelectedProviderId,
+    imageWorkbenchSelectedSize,
+    imageWorkbenchSessionKey,
+    projectId,
+    projectRootPath: project?.rootPath || null,
+    saveImageWorkbenchImagesToResource,
+    submitImageWorkbenchAgentCommand: async (params) =>
+      (await submitImageWorkbenchAgentCommandRef.current?.(params)) ?? false,
+    setCanvasState,
+    setInput,
+    updateCurrentImageWorkbenchState,
+  });
+  const { handleImageWorkbenchCommand, resolveImageWorkbenchSkillRequest } =
+    imageWorkbenchActionRuntime;
+  const {
+    handleSend,
+    handleRecommendationClick,
+    handleSendRef,
+    isPreparingSend,
+    displayMessages,
+    teamDispatchPreviewState,
+  } = useWorkspaceSendActions({
+    input,
+    setInput,
+    mentionedCharacters,
+    setMentionedCharacters,
+    chatToolPreferences: effectiveChatToolPreferences,
+    setChatToolPreferences,
+    serviceSkills: activeTheme === "general" ? serviceSkills : [],
+    activeTheme,
+    mappedTheme,
+    isThemeWorkbench,
+    contextWorkspace: {
+      enabled: contextWorkspace.generalWorkbenchEnabled,
+      activeContextPrompt: contextWorkspace.activeContextPrompt,
+      prepareActiveContextPrompt: contextWorkspace.prepareActiveContextPrompt,
+    },
+    projectId,
+    projectRootPath: project?.rootPath || null,
+    sessionId,
+    executionStrategy,
+    accessMode,
+    providerType,
+    preferredTeamPresetId,
+    selectedTeam,
+    selectedTeamLabel,
+    selectedTeamSummary,
+    teamMemoryShadowSnapshot: resolvedTeamMemoryShadowSnapshot,
+    currentGateKey: currentGate.key,
+    themeWorkbenchActiveQueueTitle: themeWorkbenchActiveQueueItem?.title,
+    contentId,
+    browserAssistProfileKey: browserAssistRequestProfileKey,
+    browserAssistPreferredBackend: browserAssistRequestPreferredBackend,
+    browserAssistAutoLaunch: browserAssistRequestAutoLaunch,
+    workspaceRequestMetadataBase:
+      workspaceRequestMetadataWithExpertSkills ?? undefined,
+    savedSoulArtifactVoiceGenerationBrief: soulArtifactVoiceGenerationBrief,
+    soulArtifactVoiceEnabledForTurn,
+    serviceModels,
+    agentResponseLanguage,
+    messages,
+    setChatMessages,
+    bootstrapDispatchPreview,
+    sendMessage,
+    resolveSendBoundary,
+    finalizeAfterSendSuccess,
+    rollbackAfterSendFailure,
+    prepareRuntimeTeamBeforeSend,
+    ensureBrowserAssistCanvas,
+    handleAutoLaunchMatchedSiteSkill:
+      workspaceServiceSkillEntryActions.handleAutoLaunchMatchedSiteSkill,
+    openRuntimeSceneGate,
+    ensureSessionForCommandMetadata: ensureSession,
+    resolveImageWorkbenchSkillRequest,
+  });
+  useEffect(() => {
+    sceneGateResumeHandlerRef.current = async ({ rawText, requestMetadata }) =>
+      await handleSendRef.current(
+        [],
+        undefined,
+        undefined,
+        rawText,
+        undefined,
+        undefined,
+        {
+          requestMetadata,
+          skipSceneCommandRouting: true,
+        },
+      );
+  }, [handleSendRef]);
+  const submitImageWorkbenchAgentCommand = useCallback(
+    async (params: SubmitImageWorkbenchAgentCommandParams) =>
+      await handleSendRef.current(
+        params.images,
+        undefined,
+        undefined,
+        params.rawText,
+        undefined,
+        undefined,
+        {
+          displayContent: params.displayContent,
+          requestMetadata: buildImageSkillLaunchRequestMetadata(
+            undefined,
+            params.requestContext,
+          ),
+        },
+      ),
+    [handleSendRef],
+  );
+  submitImageWorkbenchAgentCommandRef.current =
+    submitImageWorkbenchAgentCommand;
+
+  const handleContinueGeneralWorkbenchEntryPrompt = useCallback(async () => {
+    if (!generalWorkbenchEntryPrompt) {
+      return;
+    }
+
+    const promptToSend =
+      input.trim() || generalWorkbenchEntryPrompt.prompt.trim();
+    if (!promptToSend) {
+      toast.info("请先补充要继续执行的内容");
+      return;
+    }
+
+    await handleSendRef.current([], undefined, undefined, promptToSend);
+  }, [generalWorkbenchEntryPrompt, handleSendRef, input]);
+  const applyWorkbenchFollowUpActionPayload = useCallback(
+    (payload: GeneralWorkbenchFollowUpActionPayload) => {
+      const normalizedPrompt = payload.prompt.trim();
+      if (!normalizedPrompt) {
+        return;
+      }
+      const nextBannerMessage = payload.bannerMessage?.trim() || null;
+      setRuntimeEntryBannerMessage(nextBannerMessage);
+      setEntryBannerVisible(Boolean(nextBannerMessage || entryBannerMessage));
+      setInput(normalizedPrompt);
+      const nextRuntimeInitialInputCapability =
+        buildRuntimeInitialInputCapabilityFromFollowUpAction({
+          payload,
+          requestKey: Date.now(),
+        });
+      if (!nextRuntimeInitialInputCapability) {
+        return;
+      }
+      setRuntimeInitialInputCapability(nextRuntimeInitialInputCapability);
+    },
+    [entryBannerMessage],
+  );
+  const handleRestartGeneralWorkbenchEntryPrompt = useCallback(() => {
+    if (!generalWorkbenchEntryPrompt) {
+      return;
+    }
+
+    dismissGeneralWorkbenchEntryPrompt({
+      consumeInitialPrompt:
+        generalWorkbenchEntryPrompt.kind === "initial_prompt",
+      onConsumeInitialPrompt: () => {
+        consumeInitialPrompt(initialDispatchKey);
+      },
+    });
+    setInput("");
+  }, [
+    consumeInitialPrompt,
+    dismissGeneralWorkbenchEntryPrompt,
+    generalWorkbenchEntryPrompt,
+    initialDispatchKey,
+    setInput,
+  ]);
+  const {
+    handleDocumentAutoContinueRun,
+    handleArtifactBlockRewriteRun,
+    handleDocumentContentReviewRun,
+    handleDocumentTextStylizeRun,
+    handleSwitchBranchVersion,
+    handleCreateVersionSnapshot,
+    handleSetBranchStatus,
+    handleAddImage,
+    handleImportDocument,
+  } = useWorkspaceCanvasWorkflowActions({
+    sendRef: handleSendRef,
+    setCanvasState,
+    setTopicStatus,
+    projectId,
+    projectName: project?.name,
+    canvasState,
+    contentId,
+    selectedText,
+    onRunImageWorkbenchCommand: handleImageWorkbenchCommand,
+  });
+  const { handleInputbarA2UISubmit } = useWorkspaceA2UISubmitActions({
+    handlePermissionResponse,
+    pendingPromotedA2UIActionRequest,
+    resolvePendingA2UISubmit,
+    sendMessage,
+  });
+  const handlePendingA2UISubmit = useCallback(
+    (formData: Parameters<typeof handleInputbarA2UISubmit>[0]) => {
+      if (pendingServiceSkillLaunchForm) {
+        void handlePendingServiceSkillLaunchSubmit(formData);
+        return;
+      }
+
+      if (pendingSceneGateForm) {
+        void handleSceneGateSubmit(formData);
+        return;
+      }
+
+      handleInputbarA2UISubmit(formData);
+    },
+    [
+      handleInputbarA2UISubmit,
+      handleSceneGateSubmit,
+      handlePendingServiceSkillLaunchSubmit,
+      pendingSceneGateForm,
+      pendingServiceSkillLaunchForm,
+    ],
+  );
+  const handleMessageA2UISubmit = useCallback(
+    (
+      formData: Parameters<typeof handleInputbarA2UISubmit>[0],
+      _messageId: string,
+    ) => {
+      handleInputbarA2UISubmit(formData);
+    },
+    [handleInputbarA2UISubmit],
+  );
+
+  // 监听工作区技能触发
+  useEffect(() => {
+    if (!pendingSkillKey || !isThemeWorkbench) {
+      return;
+    }
+
+    // 立即消费，避免重复触发
+    consumePendingSkill();
+
+    // 触发技能命令
+    const command = `/${pendingSkillKey}`;
+    console.log("[AgentChatPage] 执行技能命令:", command);
+    handleSend([], false, false, command);
+  }, [pendingSkillKey, isThemeWorkbench, consumePendingSkill, handleSend]);
+  const latestAssistantMessageId = useMemo(
+    () =>
+      [...displayMessages]
+        .reverse()
+        .find((message) => message.role === "assistant")?.id ?? null,
+    [displayMessages],
+  );
+  const activeTaskCenterDraftTab = useMemo(
+    () =>
+      activeTaskCenterDraftTabId
+        ? (taskCenterDraftTabs.find(
+            (tab) => tab.id === activeTaskCenterDraftTabId,
+          ) ?? null)
+        : null,
+    [activeTaskCenterDraftTabId, taskCenterDraftTabs],
+  );
+  const isTaskCenterDraftTabActive = Boolean(
+    isTaskCenterEntry && activeTaskCenterDraftTab,
+  );
+  const isTaskCenterDraftSurfaceActive = Boolean(
+    isTaskCenterEntry &&
+      (activeTaskCenterDraftTab || taskCenterDraftSurfaceActiveRef.current),
+  );
+  const isTaskCenterDraftSendInFlight = Boolean(
+    agentEntry === "claw" &&
+    taskCenterDraftSendRequest?.materializeDraft &&
+    (activeTaskCenterDraftTab
+      ? taskCenterDraftSendRequest.draftTabId === activeTaskCenterDraftTab.id
+      : taskCenterDraftSurfaceActiveRef.current),
+  );
+  const shouldSuppressTaskCenterDraftContent =
+    isTaskCenterDraftSurfaceActive && !isTaskCenterDraftSendInFlight;
+  const { homePendingPreviewMessages, isHomePendingPreviewActive } =
+    useTaskCenterHomePendingPreviewRuntime({
+      homePendingPreviewRequest,
+      shouldSuppressTaskCenterDraftContent,
+      displayMessagesLength: displayMessages.length,
+      executionStrategy,
+      workspaceId: taskCenterWorkspaceId,
+    });
+
+  const hasCanvasWorkbenchContent = layoutMode !== "chat";
+  const {
+    hasDisplayMessages,
+    hasMessages,
+    effectiveShowChatPanel,
+    shouldRestoreImageTasksFromWorkspace,
+  } = resolveAgentChatWorkspaceShellViewModel({
+    agentEntry,
+    showChatPanel,
+    contentId,
+    displayMessageCount: displayMessages.length,
+    isHomePendingPreviewActive,
+    shouldSuppressTaskCenterDraftContent,
+    hasCanvasWorkbenchContent,
+    isThemeWorkbench,
+    shouldUseCompactGeneralWorkbench,
+    isBootstrapDispatchPending,
+    isSessionHydrating,
+    isSending,
+    queuedTurnCount: queuedTurns.length,
+  });
+
+  const handleCanvasSelectionTextChange = useCallback((text: string) => {
+    const normalized = text.trim().replace(/\s+/g, " ");
+    const nextValue =
+      normalized.length > 500 ? normalized.slice(0, 500) : normalized;
+    startTransition(() => {
+      setSelectedText((previous) =>
+        previous === nextValue ? previous : nextValue,
+      );
+    });
+  }, []);
+
+  useEffect(() => {
+    setSelectedText("");
+  }, [activeTheme, contentId]);
+
+  const {
+    handleToggleCanvas,
+    handleCloseCanvas,
+    resolvedCanvasState,
+  } = useWorkspaceCanvasLayoutRuntime({
+    activeTheme,
+    isThemeWorkbench,
+    hasPendingA2UIForm,
+    layoutMode,
+    showChatPanel: effectiveShowChatPanel,
+    showSidebar,
+    defaultTopicSidebarVisible,
+    hasMessages,
+    canvasWorkbenchLayoutMode,
+    autoCollapsedTopicSidebarRef,
+    mappedTheme,
+    normalizedEntryTheme,
+    shouldPreserveBlankHomeSurface,
+    shouldBootstrapCanvasOnEntry,
+    canvasState,
+    generalCanvasState,
+    hasCurrentCanvasArtifact: Boolean(currentCanvasArtifact),
+    currentCanvasArtifactType: currentCanvasArtifact?.type,
+    hasBrowserAssistArtifact,
+    currentImageWorkbenchActive: currentImageWorkbenchState.active,
+    onHasMessagesChange,
+    suppressGeneralCanvasArtifactAutoOpen,
+    suppressBrowserAssistCanvasAutoOpen,
+    clearBrowserAssistCanvasArtifact,
+    setShowSidebar,
+    setLayoutMode,
+    setGeneralCanvasState,
+    setCanvasState,
+    setCanvasWorkbenchLayoutMode,
+  });
+
+  useWorkspaceCanvasTaskFileSync({
+    taskFiles,
+    isThemeWorkbench,
+    selectedFileId,
+    canvasState,
+    mappedTheme,
+    documentEditorFocusedRef,
+    setSelectedFileId,
+    setCanvasState,
+  });
+
+  useEffect(() => {
+    if (
+      activeTheme !== "general" ||
+      !liveArtifact ||
+      !settledLiveArtifact ||
+      liveArtifact === settledLiveArtifact
+    ) {
+      return;
+    }
+
+    upsertGeneralArtifact(settledLiveArtifact);
+  }, [activeTheme, liveArtifact, settledLiveArtifact, upsertGeneralArtifact]);
+
+  const upsertTaskCenterOpenTab = useCallback(
+    (topicId: string, workspaceIdOverride?: string | null) => {
+      const targetWorkspaceId =
+        normalizeProjectId(workspaceIdOverride) ?? taskCenterWorkspaceId;
+      if (!targetWorkspaceId) {
+        return;
+      }
+
+      setTaskCenterOpenTabMap((currentMap) =>
+        updateTaskCenterTabIdsForWorkspace(
+          currentMap,
+          targetWorkspaceId,
+          (currentIds) =>
+            [topicId, ...currentIds.filter((item) => item !== topicId)].slice(
+              0,
+              MAX_TASK_CENTER_OPEN_TABS,
+            ),
+        ),
+      );
+    },
+    [taskCenterWorkspaceId],
+  );
+
+  const replaceTaskCenterOpenTabs = useCallback(
+    (topicId: string, workspaceIdOverride?: string | null) => {
+      const targetWorkspaceId =
+        normalizeProjectId(workspaceIdOverride) ?? taskCenterWorkspaceId;
+      if (!targetWorkspaceId) {
+        return;
+      }
+
+      setTaskCenterOpenTabMap((currentMap) =>
+        replaceTaskCenterTabIdsForWorkspace(
+          currentMap,
+          targetWorkspaceId,
+          topicId,
+        ),
+      );
+    },
+    [taskCenterWorkspaceId],
+  );
+
+  const markTaskCenterEmbeddedHomeSession = useCallback((topicId: string) => {
+    setTaskCenterEmbeddedHomeSessionIds((current) => {
+      if (current.has(topicId)) {
+        return current;
+      }
+
+      const next = new Set(current);
+      next.add(topicId);
+      return next;
+    });
+  }, []);
+
+  const markTaskCenterLocalSessionOverride = useCallback(
+    (topicId: string) => {
+      setTaskCenterLocalSessionOverride({
+        sessionId: topicId,
+        routeSessionId: normalizedInitialSessionId,
+      });
+    },
+    [normalizedInitialSessionId],
+  );
+
+  const clearTaskCenterEmbeddedHomeSession = useCallback((topicId: string) => {
+    setTaskCenterEmbeddedHomeSessionIds((current) => {
+      if (!current.has(topicId)) {
+        return current;
+      }
+
+      const next = new Set(current);
+      next.delete(topicId);
+      return next;
+    });
+  }, []);
+
+  const {
+    activeTaskCenterDraftTabIdRef,
+    commitMaterializedTaskCenterDraftTab,
+    materializeTaskCenterDraftTab,
+    openTaskCenterDraftTab,
+    taskCenterDraftMaterializedSessionIdsRef,
+    taskCenterDraftTabsRef,
+  } = useTaskCenterDraftMaterializationRuntime({
+    activeTaskCenterDraftTabId,
+    agentEntry,
+    clearMessages,
+    createFreshSession,
+    input,
+    isPreparingSend,
+    isSending,
+    markTaskCenterEmbeddedHomeSession,
+    markTaskCenterLocalSessionOverride,
+    resetLocalImageWorkbenchSessionScope,
+    resetTopicLocalState,
+    setActiveTaskCenterDraftTabId,
+    setHomePendingPreviewRequest,
+    setInput,
+    setMentionedCharacters,
+    setSelectedText,
+    setTaskCenterDetachedTopicId,
+    setTaskCenterDraftSendRequest,
+    setTaskCenterDraftTabs,
+    setTaskCenterTransitionTopicId,
+    taskCenterDraftSurfaceActiveRef,
+    taskCenterDraftTabs,
+    taskCenterWorkspaceId,
+    upsertTaskCenterOpenTab,
+  });
+  const {
+    handleCloseTaskCenterTab,
+    handleOpenTaskTopic,
+    handleSwitchTaskTopic,
+  } = useTaskCenterTopicNavigationRuntime({
+    activeSessionIdRef,
+    activeTaskCenterDraftTabIdRef,
+    agentEntry,
+    clearEntryPendingA2UI,
+    clearMessages,
+    clearTaskCenterEmbeddedHomeSession,
+    messagesLength: messages.length,
+    openTaskCenterDraftTab,
+    replaceTaskCenterOpenTabs,
+    resetLocalImageWorkbenchSessionScope,
+    resetTopicLocalState,
+    sessionId,
+    setActiveTaskCenterDraftTabId,
+    setHomePendingPreviewRequest,
+    setInput,
+    setMentionedCharacters,
+    setSelectedText,
+    setTaskCenterDetachedTopicId,
+    setTaskCenterDraftSendRequest,
+    setTaskCenterDraftTabs,
+    setTaskCenterLocalSessionOverride,
+    setTaskCenterOpenTabMap,
+    setTaskCenterTransitionTopicId,
+    switchTopic,
+    taskCenterDetachedTopicId,
+    taskCenterDraftSurfaceActiveRef,
+    taskCenterDraftTabsRef,
+    taskCenterOpenTabIdsRef,
+    taskCenterTransitionTopicId,
+    taskCenterWorkspaceId,
+    topicById,
+    upsertTaskCenterOpenTab,
+    markTaskCenterLocalSessionOverride,
+  });
+
+  const handleRenameTaskTopic = useCallback(
+    async (topicId: string) => {
+      if (isTaskCenterDraftTabId(topicId) || typeof window === "undefined") {
+        return;
+      }
+
+      const topic = topicById.get(topicId);
+      if (!topic) {
+        return;
+      }
+
+      const currentTitle = resolveTaskCenterTopicTitle(
+        topic.title,
+        untitledTaskLabel,
+      );
+      const nextTitle = window
+        .prompt(taskCenterRenamePromptLabel, currentTitle)
+        ?.trim();
+      if (!nextTitle || nextTitle === currentTitle) {
+        return;
+      }
+
+      await renameTopic(topicId, nextTitle);
+    },
+    [renameTopic, taskCenterRenamePromptLabel, topicById, untitledTaskLabel],
+  );
+
+  const recentSessionTopic = useMemo(
+    () => resolveRecentTopicCandidate(topics, sessionId),
+    [sessionId, topics],
+  );
+  const recentSessionActionLabel = useMemo(
+    () =>
+      recentSessionTopic
+        ? resolveRecentTopicActionLabel(recentSessionTopic)
+        : "继续最近会话",
+    [recentSessionTopic],
+  );
+  const handleResumeRecentSession = useCallback(() => {
+    if (!recentSessionTopic) {
+      return;
+    }
+
+    void handleOpenTaskTopic(recentSessionTopic.id, {
+      preferResume: true,
+      forceRefresh: recentSessionTopic.statusReason === "workspace_error",
+    });
+  }, [handleOpenTaskTopic, recentSessionTopic]);
+  const projectConversationGroups = useMemo(
+    () =>
+      buildEmptyStateProjectConversationGroups({
+        topics,
+        currentProjectId: projectId,
+        currentSessionId: sessionId,
+        openedProjects,
+      }),
+    [openedProjects, projectId, sessionId, topics],
+  );
+  const handleOpenProjectConversation = useCallback(
+    (topicId: string, statusReason?: string) => {
+      void handleOpenTaskTopic(topicId, {
+        preferResume: true,
+        forceRefresh: statusReason === "workspace_error",
+      });
+    },
+    [handleOpenTaskTopic],
+  );
+  const handleOpenTaskCenterNewTaskPage = useCallback(() => {
+    if (agentEntry !== "claw" && agentEntry !== "new-task") {
+      return;
+    }
+
+    openTaskCenterDraftTab();
+  }, [agentEntry, openTaskCenterDraftTab]);
+  useEffect(() => {
+    if (agentEntry !== "claw" && agentEntry !== "new-task") {
+      return;
+    }
+
+    return subscribeTaskCenterDraftTaskRequests(() => {
+      handleOpenTaskCenterNewTaskPage();
+    });
+  }, [agentEntry, handleOpenTaskCenterNewTaskPage]);
+  useEffect(() => {
+    if (agentEntry !== "claw" && agentEntry !== "new-task") {
+      return;
+    }
+
+    return subscribeTaskCenterTaskOpenRequests(
+      ({ sessionId: requestedSessionId, workspaceId }) => {
+        const requestedWorkspaceId = normalizeProjectId(workspaceId);
+        if (
+          requestedWorkspaceId &&
+          requestedWorkspaceId !== normalizeProjectId(taskCenterWorkspaceId)
+        ) {
+          setTaskCenterTransitionTopicId(requestedSessionId);
+          setTaskCenterDetachedTopicId(null);
+          setActiveTaskCenterDraftTabId(null);
+          markTaskCenterLocalSessionOverride(requestedSessionId);
+          upsertTaskCenterOpenTab(requestedSessionId, requestedWorkspaceId);
+          deferTopicSwitch(requestedSessionId, requestedWorkspaceId);
+          return;
+        }
+
+        void handleOpenTaskTopic(requestedSessionId);
+      },
+    );
+  }, [
+    agentEntry,
+    deferTopicSwitch,
+    handleOpenTaskTopic,
+    markTaskCenterLocalSessionOverride,
+    taskCenterWorkspaceId,
+    upsertTaskCenterOpenTab,
+  ]);
+  const taskCenterPreviewTopicId = useMemo(
+    () =>
+      resolveTaskCenterPreviewTopicId({
+        sessionId,
+        detachedTopicId: taskCenterDetachedTopicId,
+        switchingTopicId: taskCenterTransitionTopicId,
+      }),
+    [sessionId, taskCenterDetachedTopicId, taskCenterTransitionTopicId],
+  );
+  const taskCenterSessionSwitchPending = useMemo(
+    () =>
+      isTaskCenterTopicSwitchPending({
+        sessionId,
+        switchingTopicId: taskCenterTransitionTopicId,
+      }),
+    [sessionId, taskCenterTransitionTopicId],
+  );
+  const hasHomeConversationActivity =
+    !shouldSuppressTaskCenterDraftContent &&
+    (hasDisplayMessages ||
+      hasPendingA2UIForm ||
+      isPreparingSend ||
+      isSending ||
+      Boolean(taskCenterDraftSendRequest) ||
+      isHomePendingPreviewActive ||
+      queuedTurns.length > 0);
+  const taskCenterHomeSurfaceState = resolveTaskCenterHomeSurfaceState({
+    agentEntry,
+    draftSurfaceActive: isTaskCenterDraftSurfaceActive,
+    shouldSuppressDraftContent: shouldSuppressTaskCenterDraftContent,
+    sessionSwitchPending: taskCenterSessionSwitchPending,
+    hasConversationActivity: hasHomeConversationActivity,
+    sessionId,
+    embeddedHomeSessionIds: taskCenterEmbeddedHomeSessionIds,
+    isAutoRestoringSession,
+    isSessionHydrating,
+  });
+  const shouldRenderTaskCenterEmbeddedHome =
+    taskCenterHomeSurfaceState.shouldRenderEmbeddedHome;
+  useEffect(() => {
+    if (!sessionId || !taskCenterEmbeddedHomeSessionIds.has(sessionId)) {
+      return;
+    }
+
+    if (hasHomeConversationActivity) {
+      clearTaskCenterEmbeddedHomeSession(sessionId);
+    }
+  }, [
+    clearTaskCenterEmbeddedHomeSession,
+    hasHomeConversationActivity,
+    sessionId,
+    taskCenterEmbeddedHomeSessionIds,
+  ]);
+  const suppressHomeNavbarUtilityActions =
+    (shouldUseBrowserWorkspaceHomeChrome && !hasHomeConversationActivity) ||
+    shouldRenderTaskCenterEmbeddedHome;
+
+  useEffect(() => {
+    if (!suppressHomeNavbarUtilityActions || !harnessPanelVisible) {
+      return;
+    }
+
+    setHarnessPanelVisible(false);
+  }, [
+    harnessPanelVisible,
+    setHarnessPanelVisible,
+    suppressHomeNavbarUtilityActions,
+  ]);
+  const {
+    shouldHideDetachedTaskCenterTabs,
+    taskCenterVisibleTabIds,
+    shouldRenderTaskCenterTabStrip,
+    taskCenterTabsNode,
+    browserWorkspaceHomeTabsNode,
+  } = useTaskCenterTabChrome({
+    agentEntry,
+    sessionId,
+    normalizedInitialSessionId,
+    detachedTopicId: taskCenterDetachedTopicId,
+    openTabIds: taskCenterOpenTabIds,
+    topics,
+    previewTopicId: taskCenterPreviewTopicId,
+    draftTabs: taskCenterDraftTabs,
+    activeDraftTabId: activeTaskCenterDraftTabId,
+    isDraftTabActive: isTaskCenterDraftTabActive,
+    hasLocalSessionOverride: taskCenterLocalSessionOverride !== null,
+    topicById,
+    untitledTaskLabel,
+    shouldUseBrowserWorkspaceHomeChrome,
+    newConversationLabel,
+    newChatAt,
+    homeMountedAt: pageMountedAtRef.current,
+    isThemeWorkbench,
+    layoutMode,
+    onSwitchTaskTopic: handleSwitchTaskTopic,
+    onRenameTaskTopic: handleRenameTaskTopic,
+    onCloseTaskCenterTab: handleCloseTaskCenterTab,
+    onOpenTaskCenterNewTaskPage: handleOpenTaskCenterNewTaskPage,
+    onToggleWorkbench: handleToggleCanvas,
+  });
+  useEffect(() => {
+    const restorePlan = resolveTaskCenterFallbackRestorePlan({
+      agentEntry,
+      workspaceId: taskCenterWorkspaceId,
+      isAutoRestoringSession,
+      isSessionHydrating,
+      draftSurfaceActive: taskCenterDraftSurfaceActiveRef.current,
+      draftTabActive: isTaskCenterDraftTabActive,
+      initialPendingServiceSkillLaunchSignature,
+      initialDispatchKey,
+      isBootstrapDispatchPending,
+      messagesLength: messages.length,
+      isSending,
+      queuedTurnsLength: queuedTurns.length,
+      shouldHideDetachedTaskCenterTabs,
+      normalizedInitialSessionId,
+      sessionId,
+      currentSessionIsKnownTopic: Boolean(
+        sessionId && topicById.has(sessionId),
+      ),
+      hasDisplayMessages,
+      switchingTopicId: taskCenterTransitionTopicId,
+      openTabIds: taskCenterOpenTabIds,
+      topics,
+      previousRestore: taskCenterFallbackRestoreRef.current,
+      now: Date.now(),
+    });
+
+    if (restorePlan.action === "skip") {
+      if (restorePlan.reason !== "detached-session") {
+        return;
+      }
+      logAgentDebug(
+        "AgentChatPage",
+        "taskCenter.fallback.skipDetachedSession",
+        {
+          detachedTopicId: taskCenterDetachedTopicId,
+          initialSessionId: normalizedInitialSessionId,
+          openTabIds: taskCenterOpenTabIds,
+          sessionId,
+          visibleTabIds: taskCenterVisibleTabIds,
+        },
+        {
+          dedupeKey: `taskCenter.fallback.skipDetached:${sessionId ?? "none"}:${taskCenterDetachedTopicId ?? "none"}`,
+          throttleMs: 1000,
+        },
+      );
+      return;
+    }
+
+    taskCenterFallbackRestoreRef.current = restorePlan.nextRestore;
+    logAgentDebug("AgentChatPage", "taskCenter.fallback.restoreVisibleTask", {
+      fallbackId: restorePlan.fallbackTopicId,
+      openTabIds: taskCenterOpenTabIds,
+      sessionId,
+      transitionTopicId: taskCenterTransitionTopicId,
+      visibleTabIds: taskCenterVisibleTabIds,
+    });
+
+    void handleOpenTaskTopic(restorePlan.fallbackTopicId);
+  }, [
+    agentEntry,
+    handleOpenTaskTopic,
+    hasDisplayMessages,
+    initialDispatchKey,
+    initialPendingServiceSkillLaunchSignature,
+    isBootstrapDispatchPending,
+    isAutoRestoringSession,
+    isSessionHydrating,
+    isSending,
+    isTaskCenterDraftTabActive,
+    messages.length,
+    normalizedInitialSessionId,
+    queuedTurns.length,
+    sessionId,
+    shouldHideDetachedTaskCenterTabs,
+    taskCenterDetachedTopicId,
+    taskCenterOpenTabIds,
+    taskCenterTransitionTopicId,
+    taskCenterVisibleTabIds,
+    taskCenterWorkspaceId,
+    topicById,
+    topics,
+  ]);
+  const handleWriteFile = useWorkspaceWriteFileAction({
+    activeTheme,
+    artifacts,
+    contentId,
+    currentGateKey: currentGate.key,
+    currentStepIndex,
+    isSpecializedThemeMode,
+    isThemeWorkbench,
+    mappedTheme,
+    projectId,
+    sessionId,
+    themeWorkbenchActiveQueueItem,
+    taskFilesRef,
+    socialStageLogRef,
+    setDocumentVersionStatusMap,
+    saveSessionFile: async (fileName, content, metadata) => {
+      await saveSessionFile(fileName, content, metadata);
+    },
+    syncGeneralArtifactToResource,
+    upsertGeneralArtifact,
+    setSelectedArtifactId,
+    setArtifactViewMode: applyAutoArtifactViewMode,
+    setLayoutMode,
+    suppressCanvasAutoOpen: suppressCanvasAutoOpenForPendingA2UI,
+    completeStep,
+    setTaskFiles,
+    setSelectedFileId,
+    setCanvasState,
+  });
+
+  // 更新 ref，供统一聊天主链 Hook 使用
+  useEffect(() => {
+    handleWriteFileRef.current = handleWriteFile;
+  }, [handleWriteFile]);
+
+  const handleSaveArtifactDocument = useCallback(
+    async (artifact: Artifact, document: ArtifactDocumentV1) => {
+      const filePath = resolveArtifactProtocolFilePath(artifact);
+      const serializedDocument = JSON.stringify(document, null, 2);
+
+      await Promise.resolve(
+        handleWriteFile(serializedDocument, filePath, {
+          artifactId: artifact.id,
+          source: "message_content",
+          status: "complete",
+          artifact: {
+            ...artifact,
+            content: serializedDocument,
+            status: "complete",
+            meta: {
+              ...artifact.meta,
+              artifactDocument: document,
+              language: "json",
+              filePath:
+                typeof artifact.meta.filePath === "string" &&
+                artifact.meta.filePath.trim()
+                  ? artifact.meta.filePath
+                  : filePath,
+              filename:
+                typeof artifact.meta.filename === "string" &&
+                artifact.meta.filename.trim()
+                  ? artifact.meta.filename
+                  : artifact.title,
+            },
+            updatedAt: Date.now(),
+          },
+          metadata: {
+            writePhase: "persisted",
+            previewText: document.summary || document.title,
+            lastUpdateSource: "message_content",
+          },
+        }),
+      );
+    },
+    [handleWriteFile],
+  );
+  const { renderToolbarActions: renderArtifactWorkbenchToolbarActions } =
+    useWorkspaceArtifactWorkbenchActions({
+      activeTheme,
+      projectId,
+      syncGeneralArtifactToResource,
+      onSaveArtifactDocument: handleSaveArtifactDocument,
+    });
+
+  const {
+    handleHarnessLoadFilePreview,
+    handleArtifactClick,
+    handleFileClick,
+    handleCodeBlockClick,
+    shouldCollapseCodeBlocks,
+    shouldCollapseCodeBlockInChat,
+    handleTaskFileClick,
+  } = useWorkspaceArtifactPreviewActions({
+    activeTheme,
+    mappedTheme,
+    layoutMode,
+    isThemeWorkbench,
+    isGeneralCanvasOpen: generalCanvasState.isOpen,
+    artifacts,
+    currentCanvasArtifact,
+    taskFiles,
+    sessionFiles,
+    readSessionFile,
+    suppressBrowserAssistCanvasAutoOpen,
+    onOpenBrowserRuntimeForArtifact: handleOpenBrowserRuntimeForBrowserAssist,
+    upsertGeneralArtifact,
+    setSelectedArtifactId,
+    setArtifactViewMode: applyAutoArtifactViewMode,
+    setLayoutMode,
+    setTaskFiles,
+    setSelectedFileId,
+    setGeneralCanvasState,
+    setCanvasState,
+  });
+  const handleWorkspaceFileClick = useCallback(
+    (fileName: string, content: string) => {
+      setFocusedArtifactBlockId(null);
+      const normalizedFileName = fileName.trim();
+      if (content.trim() || !normalizedFileName) {
+        handleFileClick(fileName, content);
+        return;
+      }
+
+      void (async () => {
+        const absolutePath =
+          resolveAbsoluteWorkspacePath(project?.rootPath, normalizedFileName) ||
+          normalizedFileName;
+        const preview = await handleHarnessLoadFilePreview(absolutePath);
+        if (preview.error) {
+          toast.error(
+            t("agentChat.filePreview.openFailed", {
+              message: preview.error,
+            }),
+          );
+          return;
+        }
+        if (preview.isBinary) {
+          toast.info(t("agentChat.filePreview.binaryUnsupported"));
+          return;
+        }
+
+        const nextContent =
+          typeof preview.content === "string" ? preview.content : "";
+        const nextFilePath = isAbsoluteWorkspacePath(normalizedFileName)
+          ? preview.path || normalizedFileName
+          : normalizedFileName;
+        startTransition(() => {
+          handleFileClick(nextFilePath, nextContent);
+        });
+      })();
+    },
+    [handleFileClick, handleHarnessLoadFilePreview, project?.rootPath, t],
+  );
+  const openProjectFilePreviewInCanvas = useCallback(
+    async ({
+      relativePath,
+      absolutePath,
+      isCancelled,
+    }: {
+      relativePath?: string | null;
+      absolutePath: string;
+      isCancelled?: () => boolean;
+    }) => {
+      const preview = await handleHarnessLoadFilePreview(absolutePath);
+      if (isCancelled?.()) {
+        return false;
+      }
+
+      if (preview.error) {
+        toast.error(`打开导出文件失败: ${preview.error}`);
+        return false;
+      }
+
+      if (preview.isBinary) {
+        toast.info("导出文件是二进制格式，暂不支持在工作台预览");
+        return false;
+      }
+
+      const nextContent =
+        typeof preview.content === "string" ? preview.content : "";
+      const nextFilePath = relativePath?.trim() || preview.path || absolutePath;
+      startTransition(() => {
+        handleWorkspaceFileClick(nextFilePath, nextContent);
+      });
+      return true;
+    },
+    [handleHarnessLoadFilePreview, handleWorkspaceFileClick],
+  );
+  const handleOpenSavedSiteContent = useCallback(
+    async ({
+      projectId: targetProjectId,
+      contentId: targetContentId,
+      preferredTarget,
+      projectFile,
+    }: SiteSavedContentTarget) => {
+      const relativePath = projectFile?.relativePath?.trim() || "";
+      const canOpenInlineInCurrentWorkspace =
+        preferredTarget === "project_file" &&
+        Boolean(relativePath) &&
+        Boolean(project?.rootPath) &&
+        Boolean(projectId) &&
+        targetProjectId === projectId;
+
+      if (canOpenInlineInCurrentWorkspace) {
+        const absolutePath = resolveAbsoluteWorkspacePath(
+          project?.rootPath,
+          relativePath,
+        );
+        if (absolutePath) {
+          const opened = await openProjectFilePreviewInCanvas({
+            relativePath,
+            absolutePath,
+          });
+          if (opened) {
+            return;
+          }
+        }
+      }
+
+      _onNavigate?.("agent", {
+        projectId: targetProjectId,
+        contentId: targetContentId,
+        lockTheme: true,
+        fromResources: true,
+        ...(preferredTarget === "project_file" && relativePath
+          ? {
+              initialProjectFileOpenTarget: {
+                relativePath,
+                requestKey: Date.now(),
+              },
+            }
+          : {}),
+      });
+    },
+    [_onNavigate, openProjectFilePreviewInCanvas, project?.rootPath, projectId],
+  );
+  const handleWorkspaceArtifactClick = useCallback(
+    (artifact: Artifact) => {
+      setFocusedArtifactBlockId(null);
+      handleArtifactClick(artifact);
+    },
+    [handleArtifactClick],
+  );
+  const handleOpenMessagePreview = useCallback(
+    (target: MessagePreviewTarget, message: Message) => {
+      if (target.kind === "image_workbench") {
+        const resourceManagerInput =
+          buildImageWorkbenchPreviewResourceManagerInput({
+            message,
+            preview: target.preview,
+            selection: target.selection,
+            threadId: sessionId ?? null,
+          });
+
+        if (resourceManagerInput) {
+          void openResourceManager(resourceManagerInput);
+          return;
+        }
+
+        updateCurrentImageWorkbenchState((current) =>
+          resolveImageWorkbenchStateForPreviewSelection({
+            current,
+            messages,
+            preview: target.preview,
+            selection: target.selection,
+          }),
+        );
+        openCanvasForReason("user_open_message_preview", setLayoutMode);
+        return;
+      }
+
+      if (target.preview.kind === "video_generate") {
+        const preview = target.preview;
+        const initialState = createInitialVideoState(preview.prompt);
+        setCanvasState({
+          ...initialState,
+          providerId: preview.providerId?.trim() || "",
+          model: preview.model?.trim() || "",
+          duration: preview.durationSeconds || initialState.duration,
+          aspectRatio: normalizeVideoAspectRatio(preview.aspectRatio),
+          resolution: normalizeVideoResolution(preview.resolution),
+          status: resolveVideoCanvasStatusFromPreview(target),
+          selectedTaskId: preview.taskId,
+          videoUrl: preview.videoUrl || undefined,
+          errorMessage:
+            preview.status === "failed" || preview.status === "cancelled"
+              ? preview.statusMessage?.trim() || "视频任务未成功完成"
+              : undefined,
+        });
+        openCanvasForReason("user_open_message_preview", setLayoutMode);
+        return;
+      }
+
+      const matchedArtifact = resolveTaskPreviewArtifact(message, target);
+      if (matchedArtifact) {
+        handleWorkspaceArtifactClick(matchedArtifact);
+        return;
+      }
+
+      const normalizedArtifactPath = normalizeArtifactProtocolPath(
+        target.preview.artifactPath || null,
+      );
+      if (normalizedArtifactPath) {
+        const matchedTaskFile = taskFiles.find((file) =>
+          doesWorkspaceFileCandidateMatch(file.name, normalizedArtifactPath),
+        );
+        if (matchedTaskFile?.content?.trim()) {
+          handleWorkspaceFileClick(
+            matchedTaskFile.name,
+            matchedTaskFile.content,
+          );
+          return;
+        }
+      }
+
+      toast.info("当前任务产物还未同步完成，请稍后再试");
+    },
+    [
+      handleWorkspaceArtifactClick,
+      handleWorkspaceFileClick,
+      messages,
+      sessionId,
+      setCanvasState,
+      setLayoutMode,
+      taskFiles,
+      updateCurrentImageWorkbenchState,
+    ],
+  );
+  const handleOpenArtifactFromTimeline = useCallback(
+    (target: ArtifactTimelineOpenTarget) => {
+      void (async () => {
+        let content = target.content;
+        if (!content.trim()) {
+          const absolutePath = resolveAbsoluteWorkspacePath(
+            project?.rootPath,
+            target.filePath,
+          );
+          if (absolutePath) {
+            const preview = await handleHarnessLoadFilePreview(absolutePath);
+            if (preview.error) {
+              toast.error(`打开产物失败: ${preview.error}`);
+              return;
+            }
+            if (preview.isBinary) {
+              toast.info("该产物是二进制格式，暂不支持在工作台预览");
+              return;
+            }
+            content =
+              typeof preview.content === "string" ? preview.content : "";
+          }
+        }
+
+        handleWorkspaceFileClick(target.filePath, content);
+
+        const normalizedBlockId = target.blockId?.trim();
+        if (!normalizedBlockId) {
+          return;
+        }
+
+        setFocusedArtifactBlockId(normalizedBlockId);
+        setArtifactBlockFocusRequestKey((current) => current + 1);
+      })();
+    },
+    [handleHarnessLoadFilePreview, handleWorkspaceFileClick, project?.rootPath],
+  );
+  const siteSkillSavedContentTarget = useMemo(
+    () =>
+      resolveSiteSavedContentTargetFromRunResult(
+        siteSkillExecutionState?.result || null,
+      ),
+    [siteSkillExecutionState?.result],
+  );
+  const currentTurnThreadItems = useMemo(
+    () =>
+      currentTurnId
+        ? effectiveThreadItems.filter((item) => item.turn_id === currentTurnId)
+        : [],
+    [currentTurnId, effectiveThreadItems],
+  );
+  const preferredServiceSkillResultFileTarget = useMemo(
+    () =>
+      resolvePreferredServiceSkillResultFileTarget({
+        threadItems: currentTurnThreadItems,
+        savedContentTarget: siteSkillSavedContentTarget,
+      }),
+    [currentTurnThreadItems, siteSkillSavedContentTarget],
+  );
+  const handleOpenServiceSkillResultFile = useCallback(
+    async (relativePath: string) => {
+      const normalizedPath = relativePath.trim();
+      if (!normalizedPath) {
+        return;
+      }
+
+      const absolutePath = resolveAbsoluteWorkspacePath(
+        project?.rootPath,
+        normalizedPath,
+      );
+      if (absolutePath) {
+        const opened = await openProjectFilePreviewInCanvas({
+          relativePath: normalizedPath,
+          absolutePath,
+        });
+        if (opened) {
+          return;
+        }
+      }
+
+      const matchedTaskFile = taskFiles.find((file) =>
+        doesWorkspaceFileCandidateMatch(file.name, normalizedPath),
+      );
+      if (matchedTaskFile) {
+        handleWorkspaceFileClick(
+          matchedTaskFile.name,
+          matchedTaskFile.content ?? "",
+        );
+        return;
+      }
+
+      if (absolutePath) {
+        return;
+      }
+
+      toast.error("打开结果文件失败：当前工作区里还没有同步到这份文件");
+    },
+    [
+      handleWorkspaceFileClick,
+      openProjectFilePreviewInCanvas,
+      project?.rootPath,
+      taskFiles,
+    ],
+  );
+  useEffect(() => {
+    const relativePath = initialProjectFileOpenTarget?.relativePath?.trim();
+    if (!relativePath) {
+      handledInitialProjectFileOpenSignatureRef.current = "";
+      return;
+    }
+
+    if (contentId && isInitialContentLoading) {
+      return;
+    }
+
+    if (!project?.rootPath && !isAbsoluteWorkspacePath(relativePath)) {
+      return;
+    }
+
+    const absolutePath = resolveAbsoluteWorkspacePath(
+      project?.rootPath,
+      relativePath,
+    );
+    if (!absolutePath) {
+      return;
+    }
+
+    const signature = JSON.stringify({
+      projectId: projectId ?? "",
+      contentId: contentId ?? "",
+      relativePath,
+      requestKey: initialProjectFileOpenTarget?.requestKey ?? 0,
+    });
+    if (handledInitialProjectFileOpenSignatureRef.current === signature) {
+      return;
+    }
+    handledInitialProjectFileOpenSignatureRef.current = signature;
+
+    let cancelled = false;
+    void (async () => {
+      await openProjectFilePreviewInCanvas({
+        relativePath,
+        absolutePath,
+        isCancelled: () => cancelled,
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    contentId,
+    initialProjectFileOpenTarget,
+    isInitialContentLoading,
+    openProjectFilePreviewInCanvas,
+    project?.rootPath,
+    projectId,
+  ]);
+  const serviceSkillExecutionCard = useMemo(
+    () =>
+      siteSkillExecutionState ? (
+        <ServiceSkillExecutionCard
+          state={siteSkillExecutionState}
+          onOpenBrowserRuntime={
+            siteSkillExecutionState.phase === "blocked"
+              ? handleOpenBrowserRuntimeForSiteSkillExecution
+              : undefined
+          }
+          preferredResultFileTarget={preferredServiceSkillResultFileTarget}
+          onOpenResultFile={handleOpenServiceSkillResultFile}
+          onOpenSavedSiteContent={handleOpenSavedSiteContent}
+        />
+      ) : null,
+    [
+      handleOpenServiceSkillResultFile,
+      handleOpenBrowserRuntimeForSiteSkillExecution,
+      handleOpenSavedSiteContent,
+      preferredServiceSkillResultFileTarget,
+      siteSkillExecutionState,
+    ],
+  );
+  const sceneAppExecutionSummaryState = useSceneAppExecutionSummaryRuntime({
+    initialSummary: initialSceneAppExecutionSummary,
+    sessionId,
+    isSending,
+  });
+  const requestRefreshSceneAppExecutionSummary =
+    sceneAppExecutionSummaryState?.requestRefresh;
+  const sceneAppExecutionReferenceEntry = useMemo(
+    () =>
+      buildCuratedTaskReferenceEntryFromSceneAppExecution({
+        summary: sceneAppExecutionSummaryState?.summary,
+      }),
+    [sceneAppExecutionSummaryState?.summary],
+  );
+  const defaultCuratedTaskReferenceEntries = useMemo(
+    () =>
+      mergeCuratedTaskReferenceEntries([
+        ...(initialCreationReplaySurface?.defaultReferenceEntries ?? []),
+        sceneAppExecutionReferenceEntry,
+      ]).slice(0, 3),
+    [
+      initialCreationReplaySurface?.defaultReferenceEntries,
+      sceneAppExecutionReferenceEntry,
+    ],
+  );
+  const defaultCuratedTaskReferenceMemoryIds = useMemo(
+    () =>
+      normalizeCuratedTaskReferenceMemoryIds([
+        ...(initialCreationReplaySurface?.defaultReferenceMemoryIds ?? []),
+        ...(extractCuratedTaskReferenceMemoryIds(
+          defaultCuratedTaskReferenceEntries,
+        ) ?? []),
+      ]) ?? [],
+    [
+      defaultCuratedTaskReferenceEntries,
+      initialCreationReplaySurface?.defaultReferenceMemoryIds,
+    ],
+  );
+  const handleReviewCurrentSceneAppExecution = useCallback(() => {
+    const followUpAction = buildSceneAppExecutionReviewFollowUpAction({
+      referenceEntries: defaultCuratedTaskReferenceEntries,
+    });
+    if (!followUpAction) {
+      toast.error("当前还没有足够的项目结果基线，暂时无法直接进入下一步判断。");
+      return;
+    }
+
+    applyWorkbenchFollowUpActionPayload(followUpAction);
+  }, [applyWorkbenchFollowUpActionPayload, defaultCuratedTaskReferenceEntries]);
+  const handleContinueSceneAppReviewFeedback = useCallback(
+    (taskId: string) => {
+      const followUpAction = buildSceneAppExecutionCuratedTaskFollowUpAction({
+        referenceEntries: defaultCuratedTaskReferenceEntries,
+        taskId,
+      });
+      if (!followUpAction) {
+        toast.error("当前判断建议还缺少可继续的结果模板。");
+        return;
+      }
+
+      applyWorkbenchFollowUpActionPayload(followUpAction);
+    },
+    [applyWorkbenchFollowUpActionPayload, defaultCuratedTaskReferenceEntries],
+  );
+  const sceneAppExecutionContentPostEntries = useMemo(
+    () =>
+      buildSceneAppExecutionContentPostEntries({
+        taskFiles,
+        sessionFiles,
+        artifacts,
+      }),
+    [artifacts, sessionFiles, taskFiles],
+  );
+  const [
+    sceneAppReviewDecisionDialogOpen,
+    setSceneAppReviewDecisionDialogOpen,
+  ] = useState(false);
+  const [sceneAppReviewDecisionTemplate, setSceneAppReviewDecisionTemplate] =
+    useState<AgentRuntimeReviewDecisionTemplate | null>(null);
+  const [sceneAppReviewDecisionLoading, setSceneAppReviewDecisionLoading] =
+    useState(false);
+  const [sceneAppReviewDecisionSaving, setSceneAppReviewDecisionSaving] =
+    useState(false);
+  const sceneAppReviewTargetRunSummary =
+    sceneAppExecutionSummaryState?.reviewTargetRunSummary ?? null;
+  const sceneAppReviewTargetSessionId =
+    sceneAppReviewTargetRunSummary?.sessionId?.trim() || "";
+  const canOpenSceneAppExecutionHumanReview =
+    sceneAppReviewTargetSessionId.length > 0 &&
+    Boolean(
+      sceneAppReviewTargetRunSummary &&
+      ["success", "error", "canceled", "timeout"].includes(
+        sceneAppReviewTargetRunSummary.status,
+      ),
+    );
+  const sceneAppExecutionFailureSignal =
+    sceneAppExecutionSummaryState?.summary?.runtimeBackflow
+      ?.topFailureSignalLabel;
+  const resolveSceneAppExecutionReviewDecisionTemplate =
+    useCallback(async () => {
+      if (!sceneAppReviewTargetSessionId) {
+        return null;
+      }
+
+      if (
+        sceneAppReviewDecisionTemplate?.session_id ===
+        sceneAppReviewTargetSessionId
+      ) {
+        return sceneAppReviewDecisionTemplate;
+      }
+
+      setSceneAppReviewDecisionLoading(true);
+      try {
+        const template = await exportAgentRuntimeReviewDecisionTemplate(
+          sceneAppReviewTargetSessionId,
+        );
+        setSceneAppReviewDecisionTemplate(template);
+        return template;
+      } catch (error) {
+        toast.error(formatSceneAppErrorMessage(error));
+        return null;
+      } finally {
+        setSceneAppReviewDecisionLoading(false);
+      }
+    }, [sceneAppReviewDecisionTemplate, sceneAppReviewTargetSessionId]);
+  const persistSceneAppExecutionHumanReview = useCallback(
+    async (
+      request: AgentRuntimeSaveReviewDecisionRequest,
+      options?: {
+        closeDialog?: boolean;
+        successMessage?: string;
+      },
+    ) => {
+      setSceneAppReviewDecisionSaving(true);
+      try {
+        const template = await saveAgentRuntimeReviewDecision(request);
+        setSceneAppReviewDecisionTemplate(template);
+        recordCuratedTaskRecommendationSignalFromReviewDecision(request, {
+          projectId,
+          sessionId,
+          sceneTitle: sceneAppExecutionSummaryState?.summary?.title,
+        });
+        requestRefreshSceneAppExecutionSummary?.();
+        if (options?.closeDialog !== false) {
+          setSceneAppReviewDecisionDialogOpen(false);
+        }
+        toast.success(options?.successMessage ?? "已保存人工复核结果");
+      } catch (error) {
+        toast.error(formatSceneAppErrorMessage(error));
+      } finally {
+        setSceneAppReviewDecisionSaving(false);
+      }
+    },
+    [
+      projectId,
+      requestRefreshSceneAppExecutionSummary,
+      sceneAppExecutionSummaryState?.summary?.title,
+      sessionId,
+    ],
+  );
+  const handleOpenSceneAppExecutionHumanReview = useCallback(() => {
+    if (!sceneAppReviewTargetSessionId) {
+      toast.error("当前运行还没有关联会话，暂时无法填写人工复核。");
+      return;
+    }
+
+    void (async () => {
+      const template = await resolveSceneAppExecutionReviewDecisionTemplate();
+      if (template) {
+        setSceneAppReviewDecisionDialogOpen(true);
+      }
+    })();
+  }, [
+    resolveSceneAppExecutionReviewDecisionTemplate,
+    sceneAppReviewTargetSessionId,
+  ]);
+  const handleSaveSceneAppExecutionHumanReview = useCallback(
+    async (request: AgentRuntimeSaveReviewDecisionRequest) => {
+      await persistSceneAppExecutionHumanReview(request);
+    },
+    [persistSceneAppExecutionHumanReview],
+  );
+  const handleApplySceneAppExecutionQuickReview = useCallback(
+    (actionKey: (typeof SCENEAPP_QUICK_REVIEW_ACTIONS)[number]["key"]) => {
+      if (
+        !canOpenSceneAppExecutionHumanReview ||
+        !sceneAppReviewTargetSessionId
+      ) {
+        toast.error("当前运行还没有关联会话，暂时无法记录轻量反馈。");
+        return;
+      }
+
+      const action = SCENEAPP_QUICK_REVIEW_ACTIONS.find(
+        (item) => item.key === actionKey,
+      );
+      if (!action) {
+        return;
+      }
+
+      void (async () => {
+        const template = await resolveSceneAppExecutionReviewDecisionTemplate();
+        if (!template) {
+          return;
+        }
+
+        await persistSceneAppExecutionHumanReview(
+          buildSceneAppQuickReviewDecisionRequest({
+            template,
+            action,
+            sceneTitle: sceneAppExecutionSummaryState?.summary?.title,
+            failureSignal: sceneAppExecutionFailureSignal,
+            sourceLabel: "生成",
+          }),
+          {
+            closeDialog: false,
+            successMessage: `已记录「${action.label}」判断`,
+          },
+        );
+      })();
+    },
+    [
+      canOpenSceneAppExecutionHumanReview,
+      persistSceneAppExecutionHumanReview,
+      resolveSceneAppExecutionReviewDecisionTemplate,
+      sceneAppExecutionFailureSignal,
+      sceneAppExecutionSummaryState?.summary?.title,
+      sceneAppReviewTargetSessionId,
+    ],
+  );
+  const handleOpenSceneAppExecutionDetail = useCallback(() => {
+    if (!_onNavigate) {
+      return;
+    }
+
+    _onNavigate("agent-app-lab");
+  }, [_onNavigate]);
+  const handleOpenSceneAppExecutionGovernance = useCallback(() => {
+    if (!_onNavigate) {
+      return;
+    }
+
+    _onNavigate("agent-app-lab");
+  }, [_onNavigate]);
+  const handleOpenSceneAppExecutionContentPost = useCallback(
+    (entry: SceneAppExecutionContentPostEntry) => {
+      if (entry.source.kind === "task_file") {
+        handleTaskFileClick(entry.source.file);
+        return;
+      }
+
+      if (entry.source.kind === "artifact") {
+        handleArtifactClick(entry.source.artifact);
+        return;
+      }
+
+      void (async () => {
+        try {
+          const matchedTaskFile = taskFiles.find((file) =>
+            doesWorkspaceFileCandidateMatch(file.name, entry.pathLabel),
+          );
+          if (matchedTaskFile) {
+            handleTaskFileClick(matchedTaskFile);
+            return;
+          }
+
+          const matchedArtifact = artifacts.find((artifact) =>
+            doesWorkspaceFileCandidateMatch(
+              resolveArtifactProtocolFilePath(artifact),
+              entry.pathLabel,
+            ),
+          );
+          if (matchedArtifact) {
+            handleArtifactClick(matchedArtifact);
+            return;
+          }
+
+          const matchedSessionFile = sessionFiles.find((file) =>
+            doesWorkspaceFileCandidateMatch(file.name, entry.pathLabel),
+          );
+          if (!matchedSessionFile) {
+            toast.error("当前发布产物已不存在，暂时无法打开。");
+            return;
+          }
+
+          const content = await readSessionFile(matchedSessionFile.name);
+          if (typeof content !== "string" || !content.trim()) {
+            toast.info("该发布产物当前没有可直接预览的正文内容。");
+            return;
+          }
+
+          handleWorkspaceFileClick(matchedSessionFile.name, content);
+        } catch (error) {
+          console.error("[AgentChatPage] 打开发布产物失败:", error);
+          toast.error("打开发布产物失败，请稍后重试。");
+        }
+      })();
+    },
+    [
+      artifacts,
+      handleArtifactClick,
+      handleTaskFileClick,
+      handleWorkspaceFileClick,
+      readSessionFile,
+      sessionFiles,
+      taskFiles,
+    ],
+  );
+  const handleSaveSceneAppExecutionAsSkill = useCallback(() => {
+    if (!_onNavigate) {
+      toast.error("当前入口暂不支持直接跳转到 Skill 页面");
+      return;
+    }
+
+    const latestReviewSignal =
+      listCuratedTaskRecommendationSignals({
+        projectId,
+        sessionId,
+      })
+        .filter((signal) => signal.source === "review_feedback")
+        .sort((left, right) => right.createdAt - left.createdAt)[0] ?? null;
+
+    const nextPageParams = buildSkillsPageParamsFromSceneAppExecution(
+      sceneAppExecutionSummaryState?.summary,
+      {
+        projectId,
+        reviewSignal: latestReviewSignal,
+      },
+    );
+    if (!nextPageParams?.initialScaffoldDraft) {
+      toast.error("当前这轮结果还不足以沉淀为做法");
+      return;
+    }
+
+    _onNavigate("skills", nextPageParams);
+    toast.success("已带着这轮结果去整理做法");
+  }, [
+    _onNavigate,
+    projectId,
+    sceneAppExecutionSummaryState?.summary,
+    sessionId,
+  ]);
+  const [
+    curatedTaskRecommendationSignalsVersion,
+    setCuratedTaskRecommendationSignalsVersion,
+  ] = useState(0);
+  useEffect(() => {
+    return subscribeCuratedTaskRecommendationSignalsChanged(() => {
+      setCuratedTaskRecommendationSignalsVersion((previous) => previous + 1);
+    });
+  }, []);
+  const handleSaveSceneAppExecutionAsInspiration = useCallback(() => {
+    void saveSceneAppExecutionAsInspiration({
+      summary: sceneAppExecutionSummaryState?.summary,
+      projectId,
+      sessionId,
+    });
+  }, [projectId, sceneAppExecutionSummaryState?.summary, sessionId]);
+  const handleOpenInspirationLibrary = useCallback(() => {
+    if (!_onNavigate) {
+      toast.error("当前入口暂不支持直接打开灵感库");
+      return;
+    }
+
+    _onNavigate(
+      "memory",
+      buildSceneAppExecutionInspirationLibraryPageParams({
+        summary: sceneAppExecutionSummaryState?.summary,
+      }),
+    );
+  }, [_onNavigate, sceneAppExecutionSummaryState?.summary]);
+  const sceneAppExecutionSavedAsInspiration = useMemo(() => {
+    void curatedTaskRecommendationSignalsVersion;
+    return hasSavedSceneAppExecutionAsInspiration({
+      summary: sceneAppExecutionSummaryState?.summary,
+      projectId,
+      sessionId,
+    });
+  }, [
+    curatedTaskRecommendationSignalsVersion,
+    projectId,
+    sceneAppExecutionSummaryState?.summary,
+    sessionId,
+  ]);
+  const latestReviewFeedbackSignal =
+    listCuratedTaskRecommendationSignals({
+      projectId,
+      sessionId,
+    })
+      .filter((signal) => signal.source === "review_feedback")
+      .sort((left, right) => right.createdAt - left.createdAt)[0] ?? null;
+  const sceneAppExecutionSummaryCard = useMemo(
+    () =>
+      sceneAppExecutionSummaryState?.summary ? (
+        <SceneAppExecutionSummaryCard
+          summary={sceneAppExecutionSummaryState.summary}
+          latestReviewFeedbackSignal={latestReviewFeedbackSignal}
+          onContinueReviewFeedback={handleContinueSceneAppReviewFeedback}
+          onReviewCurrentProject={handleReviewCurrentSceneAppExecution}
+          savedAsInspiration={sceneAppExecutionSavedAsInspiration}
+          onSaveAsInspiration={handleSaveSceneAppExecutionAsInspiration}
+          onOpenInspirationLibrary={handleOpenInspirationLibrary}
+          onSaveAsSkill={handleSaveSceneAppExecutionAsSkill}
+          onOpenSceneAppDetail={handleOpenSceneAppExecutionDetail}
+          onOpenSceneAppGovernance={handleOpenSceneAppExecutionGovernance}
+          humanReviewAvailable={canOpenSceneAppExecutionHumanReview}
+          humanReviewLoading={sceneAppReviewDecisionLoading}
+          quickReviewActions={SCENEAPP_QUICK_REVIEW_ACTIONS}
+          quickReviewPending={
+            sceneAppReviewDecisionLoading || sceneAppReviewDecisionSaving
+          }
+          onOpenHumanReview={handleOpenSceneAppExecutionHumanReview}
+          onApplyQuickReview={handleApplySceneAppExecutionQuickReview}
+          contentPostEntries={sceneAppExecutionContentPostEntries}
+          onContentPostAction={handleOpenSceneAppExecutionContentPost}
+        />
+      ) : null,
+    [
+      canOpenSceneAppExecutionHumanReview,
+      handleApplySceneAppExecutionQuickReview,
+      handleContinueSceneAppReviewFeedback,
+      handleOpenSceneAppExecutionContentPost,
+      handleOpenSceneAppExecutionDetail,
+      handleOpenSceneAppExecutionHumanReview,
+      handleOpenSceneAppExecutionGovernance,
+      handleOpenInspirationLibrary,
+      handleReviewCurrentSceneAppExecution,
+      handleSaveSceneAppExecutionAsInspiration,
+      handleSaveSceneAppExecutionAsSkill,
+      latestReviewFeedbackSignal,
+      sceneAppExecutionSavedAsInspiration,
+      sceneAppReviewDecisionLoading,
+      sceneAppReviewDecisionSaving,
+      sceneAppExecutionContentPostEntries,
+      sceneAppExecutionSummaryState,
+    ],
+  );
+  const handleJumpToTimelineItem = useCallback((itemId: string) => {
+    const normalizedItemId = itemId.trim();
+    if (!normalizedItemId) {
+      return;
+    }
+
+    setLayoutMode((current) =>
+      current === "canvas" ? "chat-canvas" : current,
+    );
+    setFocusedTimelineItemId(normalizedItemId);
+    setTimelineFocusRequestKey((current) => current + 1);
+  }, []);
+  const triggerAIGuideRef = useRef(triggerAIGuide);
+  triggerAIGuideRef.current = triggerAIGuide;
+
+  useEffect(() => {
+    if (shouldUseCompactGeneralWorkbench) {
+      return;
+    }
+
+    const canvasEmpty = isCanvasStateEmpty(canvasState);
+    const pendingInitialPrompt = (initialUserPrompt || "").trim();
+    const pendingInitialImages = initialUserImages || [];
+    const defaultGuidePrompt =
+      contentId && canvasEmpty && !isThemeWorkbench
+        ? getDefaultGuidePromptByTheme(mappedTheme)
+        : undefined;
+
+    if (
+      !contentId ||
+      messages.length > 0 ||
+      !project ||
+      !systemPrompt ||
+      isSending ||
+      !canvasEmpty
+    ) {
+      return;
+    }
+
+    if (!initialDispatchKey && generalWorkbenchEntryCheckPending) {
+      return;
+    }
+
+    if (initialDispatchKey) {
+      if (
+        isThemeWorkbench &&
+        pendingInitialImages.length === 0 &&
+        !autoRunInitialPromptOnMount
+      ) {
+        return;
+      }
+      if (consumedInitialPromptRef.current === initialDispatchKey) {
+        return;
+      }
+
+      let disposed = false;
+      consumedInitialPromptRef.current = initialDispatchKey;
+      hasTriggeredGuide.current = true;
+      if (import.meta.env.MODE !== "test") {
+        console.log("[AgentChatPage] 自动发送首条创作意图消息");
+      }
+
+      void (async () => {
+        const started = await handleSend(
+          pendingInitialImages,
+          undefined,
+          undefined,
+          pendingInitialPrompt,
+          undefined,
+          undefined,
+          initialAutoSendRequestMetadata
+            ? {
+                requestMetadata: initialAutoSendRequestMetadata,
+              }
+            : undefined,
+        );
+        if (disposed) {
+          return;
+        }
+        if (!started) {
+          consumedInitialPromptRef.current = null;
+          return;
+        }
+        onInitialUserPromptConsumed?.();
+      })();
+
+      return () => {
+        disposed = true;
+      };
+    }
+
+    if (hasTriggeredGuide.current) {
+      return;
+    }
+
+    if (generalWorkbenchEntryPrompt?.kind === "resume") {
+      return;
+    }
+
+    if (defaultGuidePrompt) {
+      hasTriggeredGuide.current = true;
+      setInput((previous) => previous.trim() || defaultGuidePrompt);
+      return;
+    }
+
+    if (isThemeWorkbench) {
+      if (shouldSkipGeneralWorkbenchAutoGuideWithoutPrompt) {
+        return;
+      }
+
+      hasTriggeredGuide.current = true;
+      if (import.meta.env.MODE !== "test") {
+        console.log("[AgentChatPage] 工作区上下文：触发 AI 引导");
+      }
+      triggerAIGuideRef.current();
+      return;
+    }
+
+    hasTriggeredGuide.current = true;
+    if (import.meta.env.MODE !== "test") {
+      console.log("[AgentChatPage] 自动触发 AI 创作引导");
+    }
+    triggerAIGuideRef.current();
+  }, [
+    autoRunInitialPromptOnMount,
+    canvasState,
+    contentId,
+    generalWorkbenchEntryCheckPending,
+    generalWorkbenchEntryPrompt,
+    handleSend,
+    initialAutoSendRequestMetadata,
+    initialDispatchKey,
+    initialUserImages,
+    initialUserPrompt,
+    isSending,
+    isThemeWorkbench,
+    mappedTheme,
+    messages.length,
+    onInitialUserPromptConsumed,
+    project,
+    setInput,
+    shouldSkipGeneralWorkbenchAutoGuideWithoutPrompt,
+    shouldUseCompactGeneralWorkbench,
+    systemPrompt,
+  ]);
+
+  useEffect(() => {
+    const pendingInitialPrompt = (initialUserPrompt || "").trim();
+    const pendingInitialImages = initialUserImages || [];
+
+    if (
+      shouldUseCompactGeneralWorkbench ||
+      !initialDispatchKey ||
+      contentId ||
+      messages.length > 0 ||
+      isSending
+    ) {
+      return;
+    }
+
+    if (consumedInitialPromptRef.current === initialDispatchKey) {
+      return;
+    }
+
+    if (!autoRunInitialPromptOnMount) {
+      hasTriggeredGuide.current = true;
+      setInput((previous) => previous.trim() || pendingInitialPrompt);
+      return;
+    }
+
+    if (!projectId) {
+      return;
+    }
+
+    let disposed = false;
+    consumedInitialPromptRef.current = initialDispatchKey;
+
+    void (async () => {
+      const started = await handleSend(
+        pendingInitialImages,
+        undefined,
+        undefined,
+        pendingInitialPrompt,
+        undefined,
+        undefined,
+        {
+          ...(initialAutoSendRequestMetadata
+            ? { requestMetadata: initialAutoSendRequestMetadata }
+            : {}),
+          skipSessionRestore: true,
+        },
+      );
+      if (disposed) {
+        return;
+      }
+      if (!started) {
+        consumedInitialPromptRef.current = null;
+        return;
+      }
+      onInitialUserPromptConsumed?.();
+    })();
+
+    return () => {
+      disposed = true;
+    };
+  }, [
+    autoRunInitialPromptOnMount,
+    contentId,
+    handleSend,
+    initialAutoSendRequestMetadata,
+    initialDispatchKey,
+    initialUserImages,
+    initialUserPrompt,
+    isSending,
+    messages.length,
+    onInitialUserPromptConsumed,
+    projectId,
+    sessionId,
+    setInput,
+    shouldUseCompactGeneralWorkbench,
+  ]);
+
+  useEffect(() => {
+    hasTriggeredGuide.current = false;
+    consumedInitialPromptRef.current = null;
+  }, [contentId]);
+
+  useWorkspaceImageWorkbenchEventRuntime({
+    canvasState,
+    projectId,
+    contentId,
+    imageWorkbenchProviders,
+    setImageWorkbenchSelectedProviderId,
+    setImageWorkbenchSelectedModelId,
+    setImageWorkbenchSelectedSize,
+    setLayoutMode,
+    setCanvasState,
+    updateCurrentImageWorkbenchState,
+    handleImageWorkbenchCommand,
+  });
+
+  useWorkspaceImageTaskPreviewRuntime({
+    sessionId: imageWorkbenchSessionKey,
+    projectId,
+    contentId,
+    projectRootPath: project?.rootPath || null,
+    restoreFromWorkspace: shouldRestoreImageTasksFromWorkspace,
+    messages,
+    currentImageWorkbenchState,
+    canvasState,
+    setCanvasState,
+    setChatMessages,
+    updateCurrentImageWorkbenchState,
+  });
+  useWorkspaceVideoTaskPreviewRuntime({
+    projectRootPath: project?.rootPath || null,
+    messages,
+    setChatMessages,
+  });
+  useWorkspaceAudioTaskPreviewRuntime({
+    projectRootPath: project?.rootPath || null,
+    messages,
+    setChatMessages,
+  });
+  useWorkspaceTranscriptionTaskPreviewRuntime({
+    projectRootPath: project?.rootPath || null,
+    messages,
+    setChatMessages,
+  });
+  useWorkspaceVideoTaskActionRuntime({
+    projectRootPath: project?.rootPath || null,
+    projectId,
+    contentId,
+    setChatMessages,
+  });
+
+  const shellChromeRuntime = useMemo(() => {
+    const hasUnconsumedInitialDispatch =
+      !shouldUseCompactGeneralWorkbench && isBootstrapDispatchPending;
+    const shouldRenderTaskCenterHomeSurface =
+      shouldRenderTaskCenterEmbeddedHome ||
+      shouldSuppressTaskCenterDraftContent;
+    const hasConversationSessionForLayout =
+      Boolean(sessionId) &&
+      !shouldRenderTaskCenterHomeSurface &&
+      !(
+        agentEntry === "new-task" &&
+        shouldUseBrowserWorkspaceHomeChrome &&
+        !hasHomeConversationActivity &&
+        !normalizedInitialSessionId
+      );
+
+    const showChatLayout = shouldRenderTaskCenterHomeSurface
+      ? false
+      : shouldShowChatLayout({
+          agentEntry,
+          preferEmptyStateForFreshTaskCenterTab:
+            shouldRenderTaskCenterHomeSurface,
+          hasSession: hasConversationSessionForLayout,
+          hasDisplayMessages,
+          hasPendingA2UIForm,
+          hasCanvasContent: hasCanvasWorkbenchContent,
+          isThemeWorkbench,
+          hasUnconsumedInitialDispatch,
+          isPreparingSend:
+            isPreparingSend || Boolean(taskCenterDraftSendRequest),
+          isSending,
+          queuedTurnCount: queuedTurns.length,
+        });
+
+    const shouldHideGeneralWorkbenchInputForTheme =
+      shouldUseCompactGeneralWorkbench;
+    const shouldShowGeneralWorkbenchFloatingInputOverlay =
+      isThemeWorkbench &&
+      showChatLayout &&
+      !shouldHideGeneralWorkbenchInputForTheme;
+    const isWorkspaceCompactChrome = topBarChrome === "workspace-compact";
+    const shouldRenderBrandedEmptyState =
+      !showChatLayout && !shouldRenderTaskCenterHomeSurface;
+    const shouldRenderTopBar =
+      !hideTopBar &&
+      (!shouldRenderBrandedEmptyState || shouldUseBrowserWorkspaceHomeChrome);
+    const shouldRenderInlineA2UI = true;
+
+    const shouldUseSubagentsPrimaryChatPanelWidth =
+      layoutMode === "chat-canvas" &&
+      teamSessionRuntime.subagentsRuntimeVisible &&
+      (teamSessionRuntime.hasRuntimeSessions ||
+        Boolean(teamDispatchPreviewState));
+    return {
+      showChatLayout,
+      isWorkspaceCompactChrome,
+      workflowLayoutBottomSpacing: resolveWorkflowLayoutBottomSpacing({
+        contextWorkspaceEnabled: contextWorkspace.generalWorkbenchEnabled,
+        showFloatingInputOverlay:
+          shouldShowGeneralWorkbenchFloatingInputOverlay,
+        hasCanvasContent: layoutMode !== "chat",
+        workflowRunState: themeWorkbenchRunState,
+        gateStatus: currentGate.status,
+      }),
+      shouldHideGeneralWorkbenchInputForTheme,
+      shouldRenderTopBar,
+      layoutTransitionChatPanelWidth: shouldUseSubagentsPrimaryChatPanelWidth
+        ? TEAM_PRIMARY_CHAT_PANEL_WIDTH
+        : undefined,
+      layoutTransitionChatPanelMinWidth: shouldUseSubagentsPrimaryChatPanelWidth
+        ? TEAM_PRIMARY_CHAT_PANEL_MIN_WIDTH
+        : undefined,
+      shouldShowGeneralWorkbenchFloatingInputOverlay,
+      shouldRenderInlineA2UI,
+    };
+  }, [
+    agentEntry,
+    contextWorkspace.generalWorkbenchEnabled,
+    currentGate.status,
+    hasDisplayMessages,
+    hasHomeConversationActivity,
+    hasCanvasWorkbenchContent,
+    hasPendingA2UIForm,
+    hideTopBar,
+    isBootstrapDispatchPending,
+    isPreparingSend,
+    isSending,
+    isThemeWorkbench,
+    layoutMode,
+    normalizedInitialSessionId,
+    sessionId,
+    taskCenterDraftSendRequest,
+    queuedTurns.length,
+    shouldRenderTaskCenterEmbeddedHome,
+    shouldSuppressTaskCenterDraftContent,
+    shouldUseBrowserWorkspaceHomeChrome,
+    shouldUseCompactGeneralWorkbench,
+    teamDispatchPreviewState,
+    teamSessionRuntime.hasRuntimeSessions,
+    teamSessionRuntime.subagentsRuntimeVisible,
+    themeWorkbenchRunState,
+    topBarChrome,
+  ]);
+  const shouldShowGeneralWorkbenchSidebarForTheme =
+    !generalWorkbenchScaffoldRuntime.shouldUseCompactGeneralWorkbench;
+  const showGeneralWorkbenchSidebar =
+    effectiveShowChatPanel &&
+    showSidebar &&
+    !hasPendingA2UIForm &&
+    isThemeWorkbench &&
+    shouldShowGeneralWorkbenchSidebarForTheme &&
+    (!generalWorkbenchScaffoldRuntime.enableGeneralWorkbenchPanelCollapse ||
+      !generalWorkbenchScaffoldRuntime.generalWorkbenchSidebarCollapsed);
+  const showGeneralWorkbenchLeftExpandButton =
+    effectiveShowChatPanel &&
+    showSidebar &&
+    !hasPendingA2UIForm &&
+    isThemeWorkbench &&
+    shouldShowGeneralWorkbenchSidebarForTheme &&
+    generalWorkbenchScaffoldRuntime.enableGeneralWorkbenchPanelCollapse &&
+    generalWorkbenchScaffoldRuntime.generalWorkbenchSidebarCollapsed;
+  const handleDeleteGeneralWorkbenchVersion = useCallback(() => undefined, []);
+  const handleCollapseGeneralWorkbenchSidebar = useCallback(() => {
+    generalWorkbenchScaffoldRuntime.setGeneralWorkbenchSidebarCollapsed(true);
+  }, [generalWorkbenchScaffoldRuntime]);
+  const handleExpandGeneralWorkbenchSidebar = useCallback(() => {
+    generalWorkbenchScaffoldRuntime.setGeneralWorkbenchSidebarCollapsed(false);
+  }, [generalWorkbenchScaffoldRuntime]);
+  const handleApplyGeneralWorkbenchFollowUpAction =
+    applyWorkbenchFollowUpActionPayload;
+  const handleSubmitCodeFixPrompt = useCallback(
+    async (prompt: string) => {
+      const normalizedPrompt = prompt.trim();
+      if (!normalizedPrompt) {
+        return;
+      }
+
+      await handleSendRef.current(
+        [],
+        undefined,
+        undefined,
+        normalizedPrompt,
+        "react",
+        undefined,
+        {
+          skipSceneCommandRouting: true,
+          displayContent: normalizedPrompt,
+          requestMetadata: {
+            harness: {
+              code_fix: {
+                source: "failed_output",
+              },
+            },
+          },
+        },
+      );
+    },
+    [handleSendRef],
+  );
+  const effectiveInitialInputCapability = useMemo(
+    () =>
+      resolveEffectiveInitialInputCapability({
+        bootstrap: initialInputCapability,
+        runtime: runtimeInitialInputCapability,
+      }),
+    [initialInputCapability, runtimeInitialInputCapability],
+  );
+  const generalWorkbenchHarnessDialog = (
+    <GeneralWorkbenchHarnessDialogSection
+      enabled={
+        !suppressHomeNavbarUtilityActions &&
+        contextHarnessRuntime.workbenchEnabled &&
+        contextHarnessRuntime.isThemeWorkbench
+      }
+      open={
+        !suppressHomeNavbarUtilityActions &&
+        contextHarnessRuntime.harnessPanelVisible
+      }
+      onOpenChange={contextHarnessRuntime.setHarnessPanelVisible}
+      harnessState={harnessState}
+      environment={contextHarnessRuntime.harnessEnvironment}
+      childSubagentSessions={childSubagentSessions}
+      selectedTeamLabel={selectedTeamLabel}
+      selectedTeamSummary={selectedTeamSummary}
+      selectedTeamRoles={selectedTeam?.roles}
+      teamMemorySnapshot={resolvedTeamMemoryShadowSnapshot}
+      threadRead={threadRead}
+      turns={turns}
+      threadItems={effectiveThreadItems}
+      currentTurnId={currentTurnId}
+      pendingActions={pendingActions}
+      submittedActionsInFlight={submittedActionsInFlight}
+      onRespondToAction={handlePermissionResponse}
+      queuedTurns={queuedTurns}
+      canInterrupt={isSending}
+      onInterruptCurrentTurn={stopSending}
+      onResumeThread={resumeThread}
+      onReplayPendingRequest={
+        latestAssistantMessageId && replayPendingAction
+          ? (requestId: string) =>
+              replayPendingAction(requestId, latestAssistantMessageId)
+          : undefined
+      }
+      onPromoteQueuedTurn={promoteQueuedTurn}
+      onObjectiveChanged={async () => {
+        await refreshSessionReadModel(sessionId || undefined);
+      }}
+      messages={displayMessages}
+      diagnosticRuntimeContext={{
+        sessionId: sessionId || null,
+        workspaceId: projectId,
+        workingDir: project?.rootPath || null,
+        providerType:
+          activeExecutionRuntime?.provider_selector || providerType || null,
+        model: activeExecutionRuntime?.model_name || model || null,
+        executionStrategy: executionStrategy || null,
+        activeTheme: activeTheme || null,
+        selectedTeamLabel,
+      }}
+      toolInventory={harnessInventoryRuntime.toolInventory}
+      toolInventoryLoading={harnessInventoryRuntime.toolInventoryLoading}
+      toolInventoryError={harnessInventoryRuntime.toolInventoryError}
+      onRefreshToolInventory={harnessInventoryRuntime.refreshToolInventory}
+      onOpenSubagentSession={handleOpenSubagentSession}
+      onLoadFilePreview={handleHarnessLoadFilePreview}
+      onOpenFile={handleWorkspaceFileClick}
+      onSubmitCodeFixPrompt={handleSubmitCodeFixPrompt}
+    />
+  );
+  const generalWorkbenchSidebarNode = (
+    <WorkspaceGeneralWorkbenchSidebar
+      visible={showGeneralWorkbenchSidebar}
+      isThemeWorkbench={isThemeWorkbench}
+      enablePanelCollapse={
+        generalWorkbenchScaffoldRuntime.enableGeneralWorkbenchPanelCollapse
+      }
+      onRequestCollapse={handleCollapseGeneralWorkbenchSidebar}
+      generalWorkbenchHarnessSummary={
+        harnessInventoryRuntime.generalWorkbenchHarnessSummary
+      }
+      harnessPanelVisible={contextHarnessRuntime.harnessPanelVisible}
+      onToggleHarnessPanel={contextHarnessRuntime.handleToggleHarnessPanel}
+      workflow={{
+        projectId,
+        sessionId,
+        branchItems: generalWorkbenchScaffoldRuntime.branchItems,
+        onCreateVersionSnapshot: handleCreateVersionSnapshot,
+        onSwitchBranchVersion: handleSwitchBranchVersion,
+        onDeleteTopic: handleDeleteGeneralWorkbenchVersion,
+        onSetBranchStatus: handleSetBranchStatus,
+        workflowSteps:
+          generalWorkbenchSidebarRuntime.generalWorkbenchWorkflowSteps,
+        onAddImage: handleAddImage,
+        onImportDocument: handleImportDocument,
+        onApplyFollowUpAction: handleApplyGeneralWorkbenchFollowUpAction,
+        activityLogs:
+          generalWorkbenchSidebarRuntime.generalWorkbenchActivityLogs,
+        creationTaskEvents:
+          generalWorkbenchScaffoldRuntime.generalWorkbenchCreationTaskEvents,
+        onViewRunDetail:
+          generalWorkbenchSidebarRuntime.handleViewGeneralWorkbenchRunDetail,
+        activeRunDetail:
+          generalWorkbenchSidebarRuntime.selectedGeneralWorkbenchRunDetail,
+        activeRunDetailLoading:
+          generalWorkbenchSidebarRuntime.generalWorkbenchRunDetailLoading,
+      }}
+      contextWorkspace={contextHarnessRuntime.contextWorkspace}
+      onViewContextDetail={handleViewContextDetail}
+      history={{
+        hasMore: generalWorkbenchSidebarRuntime.generalWorkbenchHistoryHasMore,
+        loading: generalWorkbenchSidebarRuntime.generalWorkbenchHistoryLoading,
+        onLoadMore:
+          generalWorkbenchSidebarRuntime.handleLoadMoreGeneralWorkbenchHistory,
+        skillDetailMap:
+          generalWorkbenchSidebarRuntime.generalWorkbenchSkillDetailMap,
+        messages,
+      }}
+    />
+  );
+
+  const workflowProgressEnabled =
+    isSpecializedThemeMode && hasMessages && steps.length > 0;
+  const workflowProgressSignature = useMemo(() => {
+    if (!workflowProgressEnabled) {
+      return "hidden";
+    }
+
+    const stepSignature = steps
+      .map((step) => `${step.id}:${step.status}:${step.title}`)
+      .join("|");
+    return `${currentStepIndex}:${stepSignature}`;
+  }, [currentStepIndex, steps, workflowProgressEnabled]);
+  const lastWorkflowProgressSignatureRef = useRef<string>("");
+
+  useEffect(() => {
+    if (!onWorkflowProgressChange) {
+      return;
+    }
+
+    if (
+      lastWorkflowProgressSignatureRef.current === workflowProgressSignature
+    ) {
+      return;
+    }
+    lastWorkflowProgressSignatureRef.current = workflowProgressSignature;
+
+    if (!workflowProgressEnabled) {
+      onWorkflowProgressChange(null);
+      return;
+    }
+
+    onWorkflowProgressChange({
+      currentIndex: currentStepIndex,
+      steps: steps.map((step) => ({
+        id: step.id,
+        title: step.title,
+        status: step.status,
+      })),
+    });
+  }, [
+    currentStepIndex,
+    onWorkflowProgressChange,
+    steps,
+    workflowProgressEnabled,
+    workflowProgressSignature,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      onWorkflowProgressChange?.(null);
+    };
+  }, [onWorkflowProgressChange]);
+  const navigationActions = useWorkspaceNavigationActions({
+    applyProjectSelection,
+    compactSession,
+    dismissWorkspacePathError,
+    fixWorkspacePathAndRetry,
+    agentEntry,
+    externalProjectId,
+    onNavigate: _onNavigate,
+    projectId: projectId || undefined,
+    setEntryBannerVisible,
+    setWorkspaceHealthError,
+    workspacePathMissing,
+  });
+  const handleSaveMessageAsSkill = useCallback(
+    (source: { messageId: string; content: string }) => {
+      if (!_onNavigate) {
+        toast.error("当前入口暂不支持直接跳转到 Skill 页面");
+        return;
+      }
+
+      const nextPageParams = buildSkillsPageParamsFromMessage(source, {
+        creationProjectId: projectId,
+        creationReplay: initialCreationReplay,
+      });
+      if (!nextPageParams?.initialScaffoldDraft) {
+        toast.error("这条结果暂时还不足以生成技能草稿");
+        return;
+      }
+
+      _onNavigate("skills", nextPageParams);
+      toast.success("已带着这条结果去新建 Skill");
+    },
+    [_onNavigate, initialCreationReplay, projectId],
+  );
+  const persistInspirationDraft = useCallback(
+    (
+      draft: {
+        request: Parameters<typeof createUnifiedMemory>[0];
+        categoryLabel: string;
+        title: string;
+      },
+      options?: {
+        successMessage?: string;
+      },
+    ) => {
+      void createUnifiedMemory(draft.request)
+        .then((memory) => {
+          recordCuratedTaskRecommendationSignalFromMemory(memory, {
+            projectId,
+            sessionId,
+          });
+          toast.success(options?.successMessage ?? "已保存到灵感库", {
+            description: `${draft.categoryLabel} · ${draft.title}`,
+          });
+        })
+        .catch((error) => {
+          console.error("保存到灵感库失败:", error);
+          toast.error("保存到灵感库失败，请稍后重试");
+        });
+    },
+    [projectId, sessionId],
+  );
+  const handleSaveMessageAsInspiration = useCallback(
+    (source: { messageId: string; content: string }) => {
+      const draft = buildMessageInspirationDraft(
+        {
+          ...source,
+          sessionId,
+        },
+        {
+          creationReplay: initialCreationReplay,
+        },
+      );
+
+      if (!draft) {
+        toast.error("这条结果暂时还不足以沉淀为灵感");
+        return;
+      }
+
+      persistInspirationDraft(draft);
+    },
+    [initialCreationReplay, persistInspirationDraft, sessionId],
+  );
+
+  const fileManagerAvailable = true;
+  const handleToggleFileManagerSidebar = useCallback(() => {
+    if (!fileManagerAvailable) {
+      return;
+    }
+    handleSetFileManagerSidebarOpen(!fileManagerSidebarOpen);
+  }, [
+    fileManagerAvailable,
+    fileManagerSidebarOpen,
+    handleSetFileManagerSidebarOpen,
+  ]);
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (!fileManagerSidebarOpen) {
+      if (fileManagerAppSidebarCollapsedRef.current) {
+        fileManagerAppSidebarCollapsedRef.current = false;
+        window.dispatchEvent(
+          new CustomEvent(APP_SIDEBAR_COLLAPSE_EVENT, {
+            detail: { collapsed: false, source: "file-manager" },
+          }),
+        );
+      }
+      return;
+    }
+
+    fileManagerAppSidebarCollapsedRef.current = true;
+    window.dispatchEvent(
+      new CustomEvent(APP_SIDEBAR_COLLAPSE_EVENT, {
+        detail: { collapsed: true, source: "file-manager" },
+      }),
+    );
+    if (window.innerWidth <= FILE_MANAGER_NAV_COLLAPSE_BREAKPOINT_PX) {
+      setShowSidebar(false);
+    }
+    return () => {
+      if (!fileManagerAppSidebarCollapsedRef.current) {
+        return;
+      }
+      fileManagerAppSidebarCollapsedRef.current = false;
+      window.dispatchEvent(
+        new CustomEvent(APP_SIDEBAR_COLLAPSE_EVENT, {
+          detail: { collapsed: false, source: "file-manager" },
+        }),
+      );
+    };
+  }, [fileManagerSidebarOpen]);
+
+  const inputbarScene = useWorkspaceInputbarSceneRuntime({
+    contextVariant: agentEntry === "claw" ? "task-center" : "default",
+    setMentionedCharacters,
+    taskFiles,
+    taskFilesExpanded,
+    setTaskFilesExpanded,
+    selectedFileId,
+    isThemeWorkbench,
+    sessionId,
+    childSubagentSessions,
+    subagentParentContext,
+    selectedTeamLabel,
+    selectedTeamSummary,
+    teamMemorySnapshot: resolvedTeamMemoryShadowSnapshot,
+    currentSessionTitle: teamSessionRuntime.currentSessionTitle,
+    handleStopSending: teamSessionControlRuntime.handleStopSending,
+    handleOpenSubagentSession,
+    input,
+    setInput,
+    currentGate,
+    generalWorkbenchWorkflowSteps:
+      generalWorkbenchSidebarRuntime.generalWorkbenchWorkflowSteps,
+    steps,
+    workflowRunState: themeWorkbenchRunState,
+    handleSend,
+    isPreparingSend,
+    isSending,
+    providerType,
+    setProviderType,
+    model,
+    setModel,
+    reasoningEffort,
+    setReasoningEffort,
+    sessionExecutionRuntime: executionRuntime,
+    projectId: projectId ?? null,
+    openedProjects,
+    projectRootPath: project?.rootPath || null,
+    accessMode,
+    setAccessMode,
+    activeTheme,
+    navigationActions,
+    selectedTeam,
+    handleTaskFileClick,
+    characters: projectMemory?.characters || [],
+    skills,
+    serviceSkills: activeTheme === "general" ? serviceSkills : [],
+    serviceSkillGroups: activeTheme === "general" ? serviceSkillGroups : [],
+    skillsLoading: combinedSkillsLoading,
+    onSelectServiceSkill:
+      workspaceServiceSkillEntryActions.handleServiceSkillSelect,
+    initialInputCapability: effectiveInitialInputCapability,
+    initialKnowledgePackSelection,
+    setChatToolPreferences,
+    objectiveEnabled: inputbarObjectiveModeEnabled,
+    onObjectiveEnabledChange: setInputbarObjectiveModeEnabled,
+    handleNavigateToSkillSettings,
+    handleRefreshSkills,
+    soulArtifactVoiceGenerationBrief,
+    soulArtifactVoiceEnabledForTurn,
+    onSoulArtifactVoiceEnabledForTurnChange: setSoulArtifactVoiceEnabledForTurn,
+    turns,
+    threadItems: effectiveThreadItems,
+    currentTurnId,
+    threadRead,
+    activeExecutionRuntime,
+    pendingActions,
+    submittedActionsInFlight,
+    onRespondToAction: handlePermissionResponse,
+    messages: displayMessages,
+    queuedTurns,
+    resumeThread,
+    replayPendingAction,
+    promoteQueuedTurn,
+    onObjectiveChanged: async () => {
+      await refreshSessionReadModel(sessionId || undefined);
+    },
+    removeQueuedTurn,
+    latestAssistantMessageId,
+    sessionIdForDiagnostics: sessionId || null,
+    generalWorkbenchEntryPrompt,
+    handleRestartGeneralWorkbenchEntryPrompt,
+    handleContinueGeneralWorkbenchEntryPrompt,
+    generalWorkbenchEnabled:
+      generalHarnessEntryEnabled && !suppressHomeNavbarUtilityActions,
+    harnessPanelVisible:
+      !suppressHomeNavbarUtilityActions &&
+      contextHarnessRuntime.harnessPanelVisible,
+    setHarnessPanelVisible: contextHarnessRuntime.setHarnessPanelVisible,
+    harnessState,
+    harnessEnvironment: contextHarnessRuntime.harnessEnvironment,
+    toolInventory: harnessInventoryRuntime.toolInventory,
+    toolInventoryLoading: harnessInventoryRuntime.toolInventoryLoading,
+    toolInventoryError: harnessInventoryRuntime.toolInventoryError,
+    refreshToolInventory: harnessInventoryRuntime.refreshToolInventory,
+    mappedTheme,
+    activeRuntimeStatusTitle: contextHarnessRuntime.activeRuntimeStatusTitle,
+    handleHarnessLoadFilePreview,
+    handleFileClick: handleWorkspaceFileClick,
+    chatToolPreferences: effectiveChatToolPreferences,
+    defaultCuratedTaskReferenceMemoryIds: defaultCuratedTaskReferenceMemoryIds,
+    defaultCuratedTaskReferenceEntries: defaultCuratedTaskReferenceEntries,
+    pathReferences,
+    onAddPathReferences: handleAddPathReferences,
+    onRemovePathReference: handleRemovePathReference,
+    onClearPathReferences: handleClearPathReferences,
+    fileManagerOpen: fileManagerAvailable && fileManagerSidebarOpen,
+    onToggleFileManager: fileManagerAvailable
+      ? handleToggleFileManagerSidebar
+      : undefined,
+    inputCompletionEnabled,
+  });
+  const importTextAsKnowledge = inputbarScene.onImportTextAsKnowledge;
+  const handleSaveMessageAsKnowledge = useCallback(
+    (source: {
+      messageId: string;
+      content: string;
+      sourceName?: string;
+      description?: string | null;
+    }) => {
+      const sourceText = source.content.trim();
+      if (!sourceText) {
+        toast.error("这条结果暂时没有可沉淀的内容");
+        return;
+      }
+      if (!isUsableKnowledgeSourceText(sourceText)) {
+        toast.info("这条结果还不是可复用资料，请先补充原始内容后再沉淀。");
+        return;
+      }
+
+      const savePageParams = buildKnowledgeSavePageParams({
+        projectRootPath: project?.rootPath,
+        knowledgeSelectionWorkingDir:
+          inputbarScene.knowledgePackSelection?.workingDir,
+        selectedPackName: inputbarScene.knowledgePackSelection?.packName,
+        currentSessionTitle: teamSessionRuntime.currentSessionTitle,
+        source: {
+          ...source,
+          content: sourceText,
+        },
+      });
+      if (_onNavigate && savePageParams) {
+        _onNavigate("knowledge", savePageParams);
+        return;
+      }
+
+      importTextAsKnowledge({
+        sourceName:
+          source.sourceName?.trim() || `agent-output-${source.messageId}.md`,
+        sourceText,
+        description:
+          source.description?.trim() ||
+          teamSessionRuntime.currentSessionTitle ||
+          "对话结果资料",
+        packType: "custom",
+      });
+    },
+    [
+      _onNavigate,
+      importTextAsKnowledge,
+      inputbarScene.knowledgePackSelection?.workingDir,
+      inputbarScene.knowledgePackSelection?.packName,
+      project?.rootPath,
+      teamSessionRuntime.currentSessionTitle,
+    ],
+  );
+
+  const canvasScene = useWorkspaceCanvasSceneRuntime({
+    shouldBootstrapCanvasOnEntry,
+    normalizedEntryTheme,
+    mappedTheme,
+    canvasState,
+    resolvedCanvasState,
+    isInitialContentLoading,
+    initialContentLoadError,
+    imageWorkbenchGenerationRuntime,
+    imageWorkbenchActionRuntime,
+    inputbarScene,
+    projectRootPath: project?.rootPath || null,
+    generalCanvasState,
+    setGeneralCanvasState,
+    currentCanvasArtifact,
+    displayedCanvasArtifact,
+    artifactDisplayState,
+    artifactViewMode,
+    setArtifactViewMode: handleArtifactViewModeChange,
+    artifactPreviewSize,
+    setArtifactPreviewSize,
+    onSaveArtifactDocument: handleSaveArtifactDocument,
+    onArtifactBlockRewriteRun: handleArtifactBlockRewriteRun,
+    renderArtifactWorkbenchToolbarActions,
+    threadItems: effectiveThreadItems,
+    focusedBlockId: focusedArtifactBlockId,
+    blockFocusRequestKey: artifactBlockFocusRequestKey,
+    onJumpToTimelineItem: handleJumpToTimelineItem,
+    handleCloseCanvas,
+    currentImageWorkbenchState,
+    imageWorkbenchPreferenceSummary,
+    imageWorkbenchPreferenceWarning,
+    setCanvasState,
+    handleBackHome,
+    isSending,
+    handleCanvasSelectionTextChange,
+    projectId: projectId ?? null,
+    contentId: contentId ?? null,
+    imageGenerationSelectionReady,
+    imageGenerationSelectionWarning,
+    sourceThreadId: sessionId ?? null,
+    providerType,
+    setProviderType,
+    model,
+    setModel,
+    handleDocumentAutoContinueRun,
+    handleAddImage,
+    handleImportDocument,
+    handleDocumentContentReviewRun,
+    handleDocumentTextStylizeRun,
+    preferContentReviewInRightRail,
+  });
+
+  const handleSendFromEmptyState = useCallback<InputbarSendHandler>(
+    (payload = {}) => {
+      const text = payload.textOverride ?? input;
+      const images = payload.images ?? [];
+      const sendOptions = payload.sendOptions;
+      const normalizedText = text.trim();
+      setInput("");
+      const activeDraftTabId =
+        activeTaskCenterDraftTabIdRef.current ||
+        (agentEntry === "claw" && shouldRenderTaskCenterEmbeddedHome
+          ? openTaskCenterDraftTab()
+          : null);
+      if (
+        (agentEntry === "claw" || agentEntry === "new-task") &&
+        activeDraftTabId
+      ) {
+        const submittedAt = Date.now();
+        const requestId = createTaskCenterDraftSendRequestId();
+        recordAgentUiPerformanceMetric("homeInput.submit", {
+          hasDraftTab: true,
+          inputLength: normalizedText.length,
+          requestId,
+          sessionId: activeDraftTabId,
+          source: "task-center-empty-state",
+          workspaceId: taskCenterWorkspaceId,
+        });
+        if (
+          displayMessages.length > 0 ||
+          turns.length > 0 ||
+          effectiveThreadItems.length > 0
+        ) {
+          clearMessages({ showToast: false });
+        }
+        setTaskCenterDraftTabs((current) =>
+          markTaskCenterDraftTabRunning({
+            current,
+            draftTabId: activeDraftTabId,
+            title: resolveTaskCenterDraftSendTitle(text),
+          }),
+        );
+        const request: TaskCenterDraftSendRequest = {
+          id: requestId,
+          draftTabId: activeDraftTabId,
+          text,
+          images,
+          sendOptions,
+          submittedAt,
+          materializeDraft: true,
+          source: "task-center-empty-state",
+        };
+        setTaskCenterDraftSendRequest(request);
+        setHomePendingPreviewRequest(request);
+        recordAgentUiPerformanceMetric("homeInput.pendingShellApplied", {
+          durationMs: Date.now() - submittedAt,
+          requestId,
+          sessionId: activeDraftTabId,
+          source: "task-center-empty-state",
+          workspaceId: taskCenterWorkspaceId,
+        });
+        return;
+      }
+
+      const shouldQueueHomeSend =
+        !hasDisplayMessages &&
+        (agentEntry === "claw" || agentEntry === "new-task");
+      if (shouldQueueHomeSend) {
+        const submittedAt = Date.now();
+        const requestId = createTaskCenterDraftSendRequestId();
+        const requestSessionKey = sessionId ?? requestId;
+        recordAgentUiPerformanceMetric("homeInput.submit", {
+          hasDraftTab: false,
+          inputLength: normalizedText.length,
+          requestId,
+          sessionId: requestSessionKey,
+          source: "empty-state",
+          workspaceId: taskCenterWorkspaceId,
+        });
+        const request: TaskCenterDraftSendRequest = {
+          id: requestId,
+          draftTabId: requestSessionKey,
+          text,
+          images,
+          sendOptions,
+          submittedAt,
+          materializeDraft: false,
+          source: "empty-state",
+        };
+        setTaskCenterDraftSendRequest(request);
+        setHomePendingPreviewRequest(request);
+        recordAgentUiPerformanceMetric("homeInput.pendingShellApplied", {
+          durationMs: Date.now() - submittedAt,
+          requestId,
+          sessionId: requestSessionKey,
+          source: "empty-state",
+          workspaceId: taskCenterWorkspaceId,
+        });
+        return;
+      }
+
+      recordAgentUiPerformanceMetric("homeInput.submit", {
+        hasDraftTab: false,
+        inputLength: normalizedText.length,
+        sessionId: sessionId ?? null,
+        source: "empty-state",
+        workspaceId: taskCenterWorkspaceId,
+      });
+      void handleSend(
+        images,
+        undefined,
+        undefined,
+        text,
+        undefined,
+        undefined,
+        sendOptions,
+      );
+    },
+    [
+      agentEntry,
+      clearMessages,
+      displayMessages.length,
+      effectiveThreadItems.length,
+      activeTaskCenterDraftTabIdRef,
+      handleSend,
+      hasDisplayMessages,
+      input,
+      openTaskCenterDraftTab,
+      sessionId,
+      shouldRenderTaskCenterEmbeddedHome,
+      taskCenterWorkspaceId,
+      turns.length,
+    ],
+  );
+
+  useTaskCenterDraftSendDispatchRuntime({
+    taskCenterDraftSendRequest,
+    setTaskCenterDraftSendRequest,
+    setHomePendingPreviewRequest,
+    messagesLength: messages.length,
+    materializedSessionIdsRef: taskCenterDraftMaterializedSessionIdsRef,
+    materializeDraftTab: materializeTaskCenterDraftTab,
+    commitMaterializedDraftTab: commitMaterializedTaskCenterDraftTab,
+    sendRef: handleSendRef,
+    workspaceId: taskCenterWorkspaceId,
+  });
+
+  const shouldHideCurrentSessionContent =
+    taskCenterHomeSurfaceState.shouldHideCurrentSessionContent;
+  const sceneIsRestoringSession = taskCenterHomeSurfaceState.isRestoringSession;
+  const sceneDisplayMessages = shouldHideCurrentSessionContent
+    ? []
+    : displayMessages.length > 0
+      ? displayMessages
+      : homePendingPreviewMessages;
+  const sceneTurns = shouldHideCurrentSessionContent ? [] : turns;
+  const sceneThreadItems = shouldHideCurrentSessionContent
+    ? []
+    : effectiveThreadItems;
+  const sceneCurrentTurnId = shouldHideCurrentSessionContent
+    ? null
+    : currentTurnId;
+  const sceneThreadRead = shouldHideCurrentSessionContent ? null : threadRead;
+  const scenePendingActions = shouldHideCurrentSessionContent
+    ? []
+    : pendingActions;
+  const sceneSubmittedActionsInFlight = shouldHideCurrentSessionContent
+    ? []
+    : submittedActionsInFlight;
+  const sceneQueuedTurns = shouldHideCurrentSessionContent ? [] : queuedTurns;
+  const sceneIsPreparingSend = shouldHideCurrentSessionContent
+    ? false
+    : isPreparingSend || Boolean(taskCenterDraftSendRequest);
+  const sceneIsSending = shouldHideCurrentSessionContent ? false : isSending;
+  const sceneSessionId = taskCenterHomeSurfaceState.sceneSessionId;
+  const sceneMessageListEmptyStateVariant =
+    agentEntry === "claw" &&
+    !shouldRenderTaskCenterEmbeddedHome &&
+    !shouldSuppressTaskCenterDraftContent
+      ? "task-center"
+      : "default";
+  const sceneLayoutMode = shouldRenderTaskCenterEmbeddedHome
+    ? "chat"
+    : layoutMode;
+
+  const conversationSceneRuntime = useWorkspaceConversationSceneRuntime({
+    messageListEmptyStateVariant: sceneMessageListEmptyStateVariant,
+    navbarContextVariant:
+      agentEntry === "claw" || shouldUseBrowserWorkspaceHomeChrome
+        ? "task-center"
+        : "default",
+    navigationActions,
+    inputbarScene,
+    canvasScene,
+    handleSendFromEmptyState,
+    shellChromeRuntime,
+    generalWorkbenchHarnessDialog,
+    currentImageWorkbenchActive: currentImageWorkbenchState.active,
+    projectId: projectId ?? null,
+    openedProjects,
+    onCloseProject: handleCloseOpenedProject,
+    deferWorkspaceListLoad: shouldUseBrowserWorkspaceHomeChrome,
+    workspaceHintMessage: shouldUseBrowserWorkspaceHomeChrome
+      ? BROWSER_WORKSPACE_HOME_HINT_MESSAGE
+      : undefined,
+    workspaceHintVisible:
+      shouldUseBrowserWorkspaceHomeChrome && browserWorkspaceHintVisible,
+    onDismissWorkspaceHint: () => {
+      setBrowserWorkspaceHintVisible(false);
+    },
+    projectRootPath: project?.rootPath || null,
+    projectCharacters: projectMemory?.characters || [],
+    generalCanvasContent: generalCanvasState.content,
+    handleToggleHarnessPanel: contextHarnessRuntime.handleToggleHarnessPanel,
+    entryBannerVisible,
+    entryBannerMessage: effectiveEntryBannerMessage,
+    creationReplaySurface: initialCreationReplaySurface,
+    defaultCuratedTaskReferenceMemoryIds,
+    defaultCuratedTaskReferenceEntries,
+    pathReferences,
+    onAddPathReferences: handleAddPathReferences,
+    onImportPathReferenceAsKnowledge:
+      inputbarScene.onImportPathReferenceAsKnowledge,
+    onRemovePathReference: handleRemovePathReference,
+    onClearPathReferences: handleClearPathReferences,
+    fileManagerOpen: fileManagerAvailable && fileManagerSidebarOpen,
+    onToggleFileManager: fileManagerAvailable
+      ? handleToggleFileManagerSidebar
+      : undefined,
+    sceneAppExecutionSummaryCard,
+    serviceSkillExecutionCard,
+    contextWorkspaceEnabled: contextWorkspace.generalWorkbenchEnabled,
+    input,
+    setInput,
+    providerType,
+    setProviderType,
+    model,
+    setModel,
+    reasoningEffort,
+    setReasoningEffort,
+    accessMode,
+    setAccessMode,
+    chatToolPreferences: effectiveChatToolPreferences,
+    setChatToolPreferences,
+    objectiveEnabled: inputbarObjectiveModeEnabled,
+    onObjectiveEnabledChange: setInputbarObjectiveModeEnabled,
+    selectedTeam,
+    creationMode,
+    setCreationMode,
+    activeTheme,
+    setActiveTheme,
+    lockTheme,
+    artifacts,
+    resolvedCanvasState,
+    contentId,
+    selectedText,
+    handleRecommendationClick,
+    skills,
+    serviceSkills: activeTheme === "general" ? serviceSkills : [],
+    serviceSkillGroups: activeTheme === "general" ? serviceSkillGroups : [],
+    skillsLoading: combinedSkillsLoading,
+    onSelectServiceSkill:
+      workspaceServiceSkillEntryActions.handleServiceSkillSelect,
+    initialInputCapability: effectiveInitialInputCapability,
+    handleNavigateToSkillSettings,
+    handleRefreshSkills,
+    handleOpenBrowserAssistInCanvas: handleOpenBrowserRuntimeForBrowserAssist,
+    browserAssistLaunching,
+    recentSessionTitle: recentSessionTopic?.title ?? null,
+    recentSessionSummary: recentSessionTopic?.lastPreview ?? null,
+    recentSessionActionLabel,
+    handleResumeRecentSession,
+    projectConversationGroups,
+    handleOpenProjectConversation,
+    taskCenterTabsNode: shouldRenderTaskCenterTabStrip
+      ? taskCenterTabsNode
+      : browserWorkspaceHomeTabsNode,
+    suppressNavbarUtilityActions: suppressHomeNavbarUtilityActions,
+    topBarChrome,
+    onBackToProjectManagement,
+    fromResources,
+    handleBackHome,
+    showHarnessToggle: !suppressHomeNavbarUtilityActions && showHarnessToggle,
+    navbarHarnessPanelVisible:
+      !suppressHomeNavbarUtilityActions && navbarHarnessPanelVisible,
+    harnessPendingCount: suppressHomeNavbarUtilityActions
+      ? 0
+      : harnessPendingCount,
+    harnessAttentionLevel: suppressHomeNavbarUtilityActions
+      ? "idle"
+      : harnessAttentionLevel,
+    harnessToggleLabel: suppressHomeNavbarUtilityActions
+      ? undefined
+      : harnessToggleLabel,
+    isRestoringSession: sceneIsRestoringSession,
+    sessionId: sceneSessionId,
+    syncStatus,
+    pendingA2UIForm: effectivePendingA2UIForm,
+    pendingA2UISource: effectivePendingA2UISource,
+    a2uiSubmissionNotice,
+    handlePendingA2UISubmit,
+    handleToggleCanvas,
+    hideInlineStepProgress,
+    isSpecializedThemeMode,
+    hasMessages,
+    steps,
+    currentStepIndex,
+    goToStep,
+    displayMessages: sceneDisplayMessages,
+    turns: sceneTurns,
+    effectiveThreadItems: sceneThreadItems,
+    currentTurnId: sceneCurrentTurnId,
+    threadRead: sceneThreadRead,
+    pendingActions: scenePendingActions,
+    submittedActionsInFlight: sceneSubmittedActionsInFlight,
+    queuedTurns: sceneQueuedTurns,
+    sessionHistoryWindow,
+    loadFullSessionHistory: () => {
+      void loadFullSessionHistory();
+    },
+    isPreparingSend: sceneIsPreparingSend,
+    isSending: sceneIsSending,
+    stopSending,
+    resumeThread,
+    replayPendingAction,
+    promoteQueuedTurn,
+    deleteMessage,
+    editMessage,
+    handleA2UISubmit: handleMessageA2UISubmit,
+    handleWriteFile,
+    handleFileClick: handleWorkspaceFileClick,
+    handleOpenArtifactFromTimeline,
+    handleOpenSavedSiteContent,
+    handleArtifactClick: handleWorkspaceArtifactClick,
+    handleOpenMessagePreview,
+    handleSaveMessageAsSkill,
+    handleSaveMessageAsInspiration,
+    handleSaveMessageAsKnowledge,
+    handleOpenSubagentSession,
+    handlePermissionResponse,
+    pendingPromotedA2UIActionRequest,
+    shouldCollapseCodeBlocks,
+    shouldCollapseCodeBlockInChat,
+    handleCodeBlockClick,
+    layoutMode: sceneLayoutMode,
+    isThemeWorkbench,
+    settledWorkbenchArtifacts,
+    taskFiles,
+    selectedFileId,
+    handleHarnessLoadFilePreview,
+    setCanvasWorkbenchLayoutMode,
+    workspacePathMissing: Boolean(workspacePathMissing),
+    workspaceHealthError,
+    focusedTimelineItemId,
+    timelineFocusRequestKey,
+  });
+
+  const fileManagerNode =
+    fileManagerAvailable && fileManagerSidebarOpen ? (
+      <FileManagerSidebar
+        onClose={() => handleSetFileManagerSidebarOpen(false)}
+        onAddPathReferences={handleAddPathReferences}
+        onImportAsKnowledge={inputbarScene.onImportPathReferenceAsKnowledge}
+        onOpenFileInWorkspace={(entry) => {
+          void openProjectFilePreviewInCanvas({
+            absolutePath: entry.path,
+          });
+        }}
+        onInstallSkillPackage={
+          _onNavigate ? handleInstallSkillPackageFromFileManager : undefined
+        }
+        initialDirectory={project?.rootPath || null}
+      />
+    ) : null;
+  const expertInfoPanelNode = (
+    <ExpertInfoPanel
+      requestMetadata={expertPanelRequestMetadata}
+      localSkills={skills}
+      serviceSkills={serviceSkills}
+      skillsLoading={combinedSkillsLoading}
+      onSkillRefsChange={handleExpertSkillRefsChange}
+    />
+  );
+
+  return (
+    <>
+      <WorkspaceShellScene
+        compactChrome={shellChromeRuntime.isWorkspaceCompactChrome}
+        isThemeWorkbench={isThemeWorkbench}
+        generalWorkbenchSidebarNode={generalWorkbenchSidebarNode}
+        showGeneralWorkbenchLeftExpandButton={
+          showGeneralWorkbenchLeftExpandButton
+        }
+        onExpandGeneralWorkbenchSidebar={handleExpandGeneralWorkbenchSidebar}
+        fileManagerNode={fileManagerNode}
+        mainAreaNode={conversationSceneRuntime.mainAreaNode}
+        rightRailNode={expertInfoPanelNode}
+      />
+      <AutomationJobDialog
+        open={workspaceServiceSkillEntryActions.automationDialogOpen}
+        mode="create"
+        workspaces={workspaceServiceSkillEntryActions.automationWorkspaces}
+        initialValues={
+          workspaceServiceSkillEntryActions.automationDialogInitialValues
+        }
+        saving={workspaceServiceSkillEntryActions.automationJobSaving}
+        onOpenChange={
+          workspaceServiceSkillEntryActions.handleAutomationDialogOpenChange
+        }
+        onSubmit={
+          workspaceServiceSkillEntryActions.handleAutomationDialogSubmit
+        }
+      />
+      <RuntimeReviewDecisionDialog
+        open={sceneAppReviewDecisionDialogOpen}
+        template={sceneAppReviewDecisionTemplate}
+        saving={sceneAppReviewDecisionSaving}
+        onOpenChange={setSceneAppReviewDecisionDialogOpen}
+        onSave={handleSaveSceneAppExecutionHumanReview}
+      />
+    </>
+  );
+}

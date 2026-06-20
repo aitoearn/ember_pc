@@ -1,0 +1,826 @@
+import React from "react";
+import {
+  Box,
+  ChevronDown,
+  FolderOpen,
+  Home,
+  PanelRightClose,
+  PanelRightOpen,
+  Plus,
+  Settings,
+  Sparkles,
+  X,
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
+import { ProjectSelector } from "@/components/projects/ProjectSelector";
+import { cn } from "@/lib/utils";
+import {
+  buildFileNameTabTooltip,
+  resolveFileNameTabLabel,
+} from "../utils/tabFileDisplay";
+import { InputbarProjectContextBar } from "./Inputbar/components/InputbarProjectContextBar";
+import { buildInputbarCoreCopy } from "./Inputbar/components/inputbarCoreCopy";
+import { Navbar } from "../styles";
+import {
+  TASK_CENTER_CHROME_ACTIVE_TAB,
+  TASK_CENTER_CHROME_RAIL_SURFACE,
+} from "../workspace/taskCenterChromeTokens";
+
+interface ChatNavbarProps {
+  isRunning: boolean;
+  chrome?: "full" | "workspace-compact";
+  collapseChrome?: boolean;
+  contextVariant?: "default" | "task-center";
+  entryContextLabel?: string;
+  entryContextHint?: string;
+  onToggleFullscreen: () => void;
+  onBackToProjectManagement?: () => void;
+  onBackToResources?: () => void;
+  onToggleSettings?: () => void;
+  onBackHome?: () => void;
+  showCanvasToggle?: boolean;
+  isCanvasOpen?: boolean;
+  onToggleCanvas?: () => void;
+  projectId?: string | null;
+  openedProjects?: ChatNavbarOpenedProject[];
+  onProjectChange?: (projectId: string | null) => void;
+  onCloseProject?: (projectId: string) => void;
+  workspaceType?: string;
+  deferWorkspaceListLoad?: boolean;
+  workspaceHintMessage?: string;
+  workspaceHintVisible?: boolean;
+  onDismissWorkspaceHint?: () => void;
+  showHarnessToggle?: boolean;
+  harnessPanelVisible?: boolean;
+  onToggleHarnessPanel?: () => void;
+  harnessPendingCount?: number;
+  harnessAttentionLevel?: "idle" | "active" | "warning";
+  harnessToggleLabel?: string;
+  showContextCompactionAction?: boolean;
+  contextCompactionRunning?: boolean;
+  onCompactContext?: () => void;
+}
+
+interface ChatNavbarOpenedProject {
+  id: string;
+  name: string;
+  rootPath?: string | null;
+}
+
+const toolbarGroupClassName =
+  "flex items-center rounded-[20px] border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface-subtle)] p-1.5 shadow-sm shadow-slate-950/5 backdrop-blur-sm";
+
+const toolbarDividerClassName =
+  "mx-1.5 h-6 w-px shrink-0 bg-[color:var(--ember-surface-border)]";
+
+const toolbarEmbeddedButtonClassName =
+  "h-9 rounded-2xl border border-transparent px-3.5 text-xs shadow-none";
+
+const toolbarGhostIconButtonClassName =
+  "h-9 w-9 rounded-2xl text-[color:var(--ember-text-muted)] hover:bg-[color:var(--ember-surface-hover)] hover:text-[color:var(--ember-text)]";
+
+const toolbarTextButtonClassName =
+  "gap-1.5 text-[color:var(--ember-text)] hover:bg-[color:var(--ember-surface)] hover:text-[color:var(--ember-text-strong)]";
+
+const taskCenterTopRailClassName =
+  "relative flex h-[42px] w-full items-end overflow-visible bg-[color:var(--ember-chrome-rail)] px-4 pt-1";
+
+const taskCenterWorkspaceTabClassName =
+  "relative z-20 flex h-9 min-w-[148px] max-w-[224px] items-center rounded-t-[18px] rounded-b-none border border-b-0 border-[color:var(--ember-chrome-border)] bg-[color:var(--ember-chrome-tab-active-surface)] px-2 text-sm font-medium text-[color:var(--ember-chrome-text)] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:border-white/10 dark:bg-slate-900 dark:text-slate-300";
+
+const taskCenterWorkspaceInactiveTabShellClassName =
+  "group relative z-10 ml-1 flex h-8 min-w-[108px] max-w-[184px] items-center rounded-t-[15px] border border-b-0 border-transparent bg-transparent text-[color:var(--ember-chrome-muted)] transition hover:bg-[color:var(--ember-chrome-tab-hover)] hover:text-[color:var(--ember-chrome-text)]";
+
+const taskCenterWorkspaceInactiveTabButtonClassName =
+  "flex h-full min-w-0 flex-1 items-center gap-1.5 px-3 pb-0.5 text-left text-xs font-medium";
+
+const taskCenterWorkspaceTabCloseButtonClassName =
+  "mr-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[color:var(--ember-chrome-muted)] opacity-80 transition hover:bg-[color:var(--ember-chrome-tab-hover)] hover:text-[color:var(--ember-chrome-text)] focus-visible:opacity-100 group-hover:opacity-100";
+
+const taskCenterWorkspaceTabCurveClassName =
+  "pointer-events-none absolute bottom-0 h-[18px] w-[18px] bg-transparent";
+
+const taskCenterIconButtonClassName =
+  "h-7 w-7 rounded-[12px] border border-transparent bg-transparent text-[color:var(--ember-chrome-muted)] shadow-none transition-[background-color,color] hover:bg-[color:var(--ember-chrome-tab-hover)] hover:text-[color:var(--ember-chrome-text)]";
+
+const taskCenterPillButtonClassName =
+  "h-7 rounded-[12px] border border-transparent bg-transparent px-2 text-[11px] font-medium text-[color:var(--ember-chrome-text)] shadow-none transition-[background-color,color] hover:bg-[color:var(--ember-chrome-tab-hover)] hover:text-[color:var(--ember-text-strong)]";
+
+function normalizeProjectId(value?: string | null): string | null {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+}
+
+function resolveProjectDisplayName(project: ChatNavbarOpenedProject): string {
+  return resolveFileNameTabLabel(
+    project.rootPath?.trim() || project.name.trim() || project.id,
+    project.id,
+  );
+}
+
+function resolveProjectTooltip(project: ChatNavbarOpenedProject): string {
+  return buildFileNameTabTooltip({
+    label: resolveProjectDisplayName(project),
+    source: project.rootPath?.trim() || project.name.trim() || project.id,
+    fallback: project.id,
+  });
+}
+
+function resolveProjectNameFromId(projectId: string): string {
+  return projectId.split(/[\\/]/).filter(Boolean).pop()?.trim() || projectId;
+}
+
+function buildOpenedProjectTabs(
+  openedProjects: ChatNavbarOpenedProject[],
+): ChatNavbarOpenedProject[] {
+  const seen = new Set<string>();
+  return openedProjects.filter((project) => {
+    const projectId = normalizeProjectId(project.id);
+    if (!projectId || seen.has(projectId)) {
+      return false;
+    }
+    seen.add(projectId);
+    return true;
+  });
+}
+
+export const ChatNavbar: React.FC<ChatNavbarProps> = ({
+  isRunning: _isRunning,
+  chrome = "full",
+  collapseChrome = false,
+  contextVariant = "default",
+  entryContextLabel,
+  entryContextHint,
+  onToggleFullscreen: _onToggleFullscreen,
+  onBackToProjectManagement,
+  onBackToResources,
+  onToggleSettings,
+  onBackHome,
+  showCanvasToggle = false,
+  isCanvasOpen = false,
+  onToggleCanvas,
+  projectId = null,
+  openedProjects = [],
+  onProjectChange,
+  onCloseProject,
+  workspaceType,
+  deferWorkspaceListLoad,
+  workspaceHintMessage,
+  workspaceHintVisible = false,
+  onDismissWorkspaceHint,
+  showHarnessToggle = false,
+  harnessPanelVisible = false,
+  onToggleHarnessPanel,
+  harnessPendingCount = 0,
+  harnessAttentionLevel = "idle",
+  harnessToggleLabel = "Harness",
+  showContextCompactionAction = false,
+  contextCompactionRunning = false,
+  onCompactContext,
+}) => {
+  const { t } = useTranslation("agent");
+  const navText = (
+    key: string,
+    defaultValue: string,
+    options?: Record<string, unknown>,
+  ) =>
+    String(
+      t(
+        key as never,
+        {
+          defaultValue,
+          ...options,
+        } as never,
+      ),
+    );
+  const inputbarCoreCopy = React.useMemo(
+    () =>
+      buildInputbarCoreCopy((key, values) =>
+        String(t(key as never, (values ?? {}) as never)),
+      ),
+    [t],
+  );
+  const [workspaceSelectorOpen, setWorkspaceSelectorOpen] =
+    React.useState(false);
+  const isTaskCenterChrome = contextVariant === "task-center";
+  const isWorkspaceCompact = chrome === "workspace-compact";
+  const effectiveCollapseChrome = collapseChrome && !isTaskCenterChrome;
+  const groupClassName = cn(
+    toolbarGroupClassName,
+    (isWorkspaceCompact || effectiveCollapseChrome) && "rounded-[18px] p-1",
+    effectiveCollapseChrome &&
+      "border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface)] shadow-sm shadow-slate-950/5 backdrop-blur-0",
+  );
+  const dividerClassName = cn(
+    toolbarDividerClassName,
+    (isWorkspaceCompact || effectiveCollapseChrome) && "mx-1 h-5",
+  );
+  const embeddedButtonClassName = cn(
+    toolbarEmbeddedButtonClassName,
+    (isWorkspaceCompact || effectiveCollapseChrome) &&
+      "h-8 rounded-[18px] px-3",
+  );
+  const ghostIconButtonClassName = cn(
+    toolbarGhostIconButtonClassName,
+    (isWorkspaceCompact || effectiveCollapseChrome) && "h-8 w-8 rounded-[18px]",
+  );
+  const showStatusTools = showHarnessToggle || showContextCompactionAction;
+  const showNavigationTools =
+    !effectiveCollapseChrome &&
+    !isWorkspaceCompact &&
+    (Boolean(onBackHome) ||
+      Boolean(onBackToResources) ||
+      Boolean(onBackToProjectManagement));
+  const showWorkspaceTools = !effectiveCollapseChrome && showCanvasToggle;
+  const showProjectSelector = !isWorkspaceCompact && !isTaskCenterChrome;
+  const showCompactSettingsButton =
+    isWorkspaceCompact && !isTaskCenterChrome && Boolean(onToggleSettings);
+  const compactProjectSelectorClassName =
+    isWorkspaceCompact || effectiveCollapseChrome
+      ? "min-w-[184px] max-w-[248px]"
+      : "min-w-[196px] max-w-[280px]";
+  const showEntryContext = Boolean(entryContextLabel);
+  const shouldDeferWorkspaceListLoad =
+    deferWorkspaceListLoad ?? isTaskCenterChrome;
+  const normalizedProjectId = normalizeProjectId(projectId);
+  const openedProjectTabs = React.useMemo(
+    () => buildOpenedProjectTabs(openedProjects),
+    [openedProjects],
+  );
+  const openedProjectPickerItems = React.useMemo(
+    () =>
+      openedProjectTabs.map((project) => ({
+        ...project,
+        name: resolveProjectDisplayName(project),
+      })),
+    [openedProjectTabs],
+  );
+  const orderedOpenedProjectTabs = React.useMemo(() => {
+    if (!normalizedProjectId) {
+      return [{ id: "", name: "" }, ...openedProjectTabs];
+    }
+    const hasCurrentProject = openedProjectTabs.some(
+      (project) => normalizeProjectId(project.id) === normalizedProjectId,
+    );
+    return hasCurrentProject
+      ? openedProjectTabs
+      : [
+          ...openedProjectTabs,
+          {
+            id: normalizedProjectId,
+            name: resolveProjectNameFromId(normalizedProjectId),
+          },
+        ];
+  }, [normalizedProjectId, openedProjectTabs]);
+  const canCloseProjectTabs = Boolean(
+    onCloseProject && orderedOpenedProjectTabs.length > 1,
+  );
+
+  if (isTaskCenterChrome) {
+    return (
+      <Navbar
+        $compact
+        $collapsed={false}
+        $taskCenter
+        data-testid="task-center-workspace-bar"
+        style={{
+          padding: 0,
+          gap: 0,
+          alignItems: "stretch",
+          overflow: "visible",
+          zIndex: 8,
+        }}
+      >
+        <div
+          className={taskCenterTopRailClassName}
+          style={{ background: TASK_CENTER_CHROME_RAIL_SURFACE }}
+        >
+          <div className="flex min-w-0 items-center">
+            {orderedOpenedProjectTabs.map((project, index) => {
+              const isActiveProject = normalizedProjectId
+                ? normalizeProjectId(project.id) === normalizedProjectId
+                : project.id === "";
+              const projectName = resolveProjectDisplayName(project);
+              const projectTooltip = resolveProjectTooltip(project);
+              const closeProjectLabel = navText(
+                "agentChat.navbar.closeWorkspaceTab",
+                "关闭{{label}}",
+                { label: projectName },
+              );
+              if (isActiveProject) {
+                const canCloseActiveProject = Boolean(
+                  project.id && canCloseProjectTabs,
+                );
+                return (
+                  <div
+                    key={project.id || "__workspace-selector__"}
+                    className={cn(
+                      taskCenterWorkspaceTabClassName,
+                      index > 0 && "ml-1",
+                    )}
+                    data-testid="task-center-workspace-shell"
+                    data-project-id={project.id}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        taskCenterWorkspaceTabCurveClassName,
+                        "-left-4",
+                      )}
+                      style={{
+                        borderBottomRightRadius: 18,
+                        boxShadow: `5px 5px 0 5px ${TASK_CENTER_CHROME_ACTIVE_TAB}`,
+                      }}
+                    />
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        taskCenterWorkspaceTabCurveClassName,
+                        "-right-4",
+                      )}
+                      style={{
+                        borderBottomLeftRadius: 18,
+                        boxShadow: `-5px 5px 0 5px ${TASK_CENTER_CHROME_ACTIVE_TAB}`,
+                      }}
+                    />
+                    <InputbarProjectContextBar
+                      projectId={project.id || projectId}
+                      openedProjects={openedProjectPickerItems}
+                      onProjectChange={onProjectChange}
+                      projectOpen={workspaceSelectorOpen}
+                      onProjectOpenChange={setWorkspaceSelectorOpen}
+                      showModeControls={false}
+                      copy={inputbarCoreCopy.projectContext}
+                      className="min-w-0 flex-1 flex-nowrap"
+                      projectTriggerClassName={cn(
+                        "h-8 w-full max-w-none justify-start rounded-t-[16px] rounded-b-none bg-transparent px-2.5 pb-0.5 text-sm text-[color:var(--ember-chrome-text)] hover:bg-transparent hover:text-[color:var(--ember-chrome-text)] hover:shadow-none",
+                        canCloseActiveProject
+                          ? "max-w-[188px]"
+                          : "max-w-[224px]",
+                      )}
+                      projectTriggerContentClassName="text-left"
+                      projectMenuAlign="start"
+                      projectMenuSide="bottom"
+                      projectMenuSideOffset={8}
+                    />
+                    {canCloseActiveProject ? (
+                      <button
+                        type="button"
+                        className={taskCenterWorkspaceTabCloseButtonClassName}
+                        aria-label={closeProjectLabel}
+                        title={closeProjectLabel}
+                        data-testid={`task-center-opened-project-close-${project.id}`}
+                        onClick={() => onCloseProject?.(project.id)}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              }
+              return (
+                <div
+                  key={project.id}
+                  className={taskCenterWorkspaceInactiveTabShellClassName}
+                  data-project-id={project.id}
+                  title={projectTooltip}
+                >
+                  <button
+                    type="button"
+                    className={taskCenterWorkspaceInactiveTabButtonClassName}
+                    title={projectTooltip}
+                    data-testid="task-center-opened-project-tab"
+                    data-project-id={project.id}
+                    onClick={() => onProjectChange?.(project.id)}
+                  >
+                    <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+                    <span className="min-w-0 truncate">{projectName}</span>
+                  </button>
+                  {onCloseProject ? (
+                    <button
+                      type="button"
+                      className={taskCenterWorkspaceTabCloseButtonClassName}
+                      aria-label={closeProjectLabel}
+                      title={closeProjectLabel}
+                      data-testid={`task-center-opened-project-close-${project.id}`}
+                      onClick={() => onCloseProject(project.id)}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
+            <div className="relative ml-2 flex h-9 items-center pb-1">
+              {workspaceHintVisible && workspaceHintMessage ? (
+                <div
+                  className="absolute bottom-full left-1/2 z-40 mb-2 flex w-max max-w-[220px] -translate-x-1/2 items-center gap-2 rounded-2xl border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface)] px-3 py-2 text-xs font-medium text-[color:var(--ember-text)] shadow-lg shadow-slate-950/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  data-testid="task-center-workspace-hint"
+                  role="status"
+                >
+                  <span>{workspaceHintMessage}</span>
+                  <button
+                    type="button"
+                    className="rounded-full px-1 text-[color:var(--ember-text-muted)] transition hover:bg-[color:var(--ember-surface-hover)] hover:text-[color:var(--ember-text)] dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                    aria-label={navText(
+                      "agentChat.navbar.dismissWorkspaceHint",
+                      "关闭工作区提示",
+                    )}
+                    onClick={onDismissWorkspaceHint}
+                  >
+                    ×
+                  </button>
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface)] dark:border-slate-700 dark:bg-slate-900"
+                  />
+                </div>
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-[14px] bg-transparent text-[color:var(--ember-chrome-muted)] shadow-none hover:bg-[color:var(--ember-chrome-tab-hover)] hover:text-[color:var(--ember-chrome-text)] dark:text-slate-300 dark:hover:text-white"
+                onClick={() => {
+                  onDismissWorkspaceHint?.();
+                  setWorkspaceSelectorOpen((current) => !current);
+                }}
+                aria-label={
+                  workspaceSelectorOpen
+                    ? navText(
+                        "agentChat.navbar.collapseWorkspaceMenu",
+                        "收起工作区菜单",
+                      )
+                    : navText(
+                        "agentChat.navbar.expandWorkspaceMenu",
+                        "展开工作区菜单",
+                      )
+                }
+                aria-expanded={workspaceSelectorOpen}
+                title={
+                  workspaceSelectorOpen
+                    ? navText(
+                        "agentChat.navbar.collapseWorkspaceMenu",
+                        "收起工作区菜单",
+                      )
+                    : navText(
+                        "agentChat.navbar.expandWorkspaceMenu",
+                        "展开工作区菜单",
+                      )
+                }
+                data-testid="task-center-workspace-menu-trigger"
+              >
+                <Plus size={17} strokeWidth={1.7} />
+              </Button>
+            </div>
+          </div>
+
+          <div className="ml-auto flex h-9 shrink-0 items-center gap-1 pb-1">
+            {showContextCompactionAction ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={taskCenterIconButtonClassName}
+                onClick={onCompactContext}
+                disabled={contextCompactionRunning}
+                aria-label={
+                  contextCompactionRunning
+                    ? navText(
+                        "agentChat.navbar.compactContextRunning",
+                        "正在压缩上下文",
+                      )
+                    : navText("agentChat.navbar.compactContext", "压缩上下文")
+                }
+                title={
+                  contextCompactionRunning
+                    ? navText(
+                        "agentChat.navbar.compactContextRunning",
+                        "正在压缩上下文",
+                      )
+                    : navText("agentChat.navbar.compactContext", "压缩上下文")
+                }
+              >
+                <Box size={15} />
+              </Button>
+            ) : null}
+
+            {showHarnessToggle ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  taskCenterPillButtonClassName,
+                  "gap-1 px-2.5",
+                  harnessPanelVisible &&
+                    "bg-[color:var(--ember-chrome-tab-active-surface)] text-[color:var(--ember-text)]",
+                  harnessAttentionLevel === "warning" &&
+                    !harnessPanelVisible &&
+                    "bg-[color:var(--ember-warning-soft)] text-[color:var(--ember-warning)] hover:bg-[color:var(--ember-warning-soft)] hover:text-[color:var(--ember-warning)]",
+                )}
+                onClick={onToggleHarnessPanel}
+                aria-label={
+                  harnessPanelVisible
+                    ? navText(
+                        "agentChat.navbar.closeHarness",
+                        "关闭{{label}}",
+                        { label: harnessToggleLabel },
+                      )
+                    : navText("agentChat.navbar.openHarness", "打开{{label}}", {
+                        label: harnessToggleLabel,
+                      })
+                }
+                aria-expanded={harnessPanelVisible}
+                title={harnessToggleLabel}
+              >
+                <Sparkles size={12} />
+                <span>{harnessToggleLabel}</span>
+                {harnessPendingCount > 0 ? (
+                  <span className="rounded-full border border-[color:var(--ember-surface-border-strong)] bg-[color:var(--ember-surface)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-[color:var(--ember-brand-strong)]">
+                    {harnessPendingCount > 99 ? "99+" : harnessPendingCount}
+                  </span>
+                ) : null}
+                <ChevronDown
+                  className={cn(
+                    "h-3 w-3 transition-transform",
+                    harnessPanelVisible && "rotate-180",
+                  )}
+                />
+              </Button>
+            ) : null}
+
+            {onToggleSettings ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className={taskCenterIconButtonClassName}
+                onClick={onToggleSettings}
+                aria-label={navText(
+                  "agentChat.navbar.openSettings",
+                  "打开设置",
+                )}
+                title={navText("agentChat.navbar.openSettings", "打开设置")}
+              >
+                <Settings size={16} />
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </Navbar>
+    );
+  }
+
+  return (
+    <Navbar $compact={isWorkspaceCompact} $collapsed={effectiveCollapseChrome}>
+      <div className="flex items-center gap-2">
+        {showNavigationTools ? (
+          <div className={groupClassName}>
+            {onBackHome && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className={ghostIconButtonClassName}
+                onClick={onBackHome}
+                title={navText("agentChat.navbar.backHome", "返回新建任务")}
+                aria-label={navText(
+                  "agentChat.navbar.backHome",
+                  "返回新建任务",
+                )}
+              >
+                <Home size={18} />
+              </Button>
+            )}
+            {onBackHome && (onBackToResources || onBackToProjectManagement) ? (
+              <div className={dividerClassName} aria-hidden="true" />
+            ) : null}
+            {onBackToResources && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  embeddedButtonClassName,
+                  toolbarTextButtonClassName,
+                )}
+                onClick={onBackToResources}
+              >
+                <FolderOpen size={16} className="mr-0.5" />
+                {navText("agentChat.navbar.backResources", "返回资源")}
+              </Button>
+            )}
+            {onBackToResources && onBackToProjectManagement ? (
+              <div className={dividerClassName} aria-hidden="true" />
+            ) : null}
+            {onBackToProjectManagement && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  embeddedButtonClassName,
+                  toolbarTextButtonClassName,
+                )}
+                onClick={onBackToProjectManagement}
+              >
+                {navText("agentChat.navbar.projectManagement", "项目管理")}
+              </Button>
+            )}
+          </div>
+        ) : null}
+
+        {showWorkspaceTools ? (
+          <div className={groupClassName}>
+            {showCanvasToggle ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className={ghostIconButtonClassName}
+                onClick={onToggleCanvas}
+                aria-label={
+                  isCanvasOpen
+                    ? navText("agentChat.navbar.collapseCanvas", "折叠画布")
+                    : navText("agentChat.navbar.expandCanvas", "展开画布")
+                }
+                title={
+                  isCanvasOpen
+                    ? navText("agentChat.navbar.collapseCanvas", "折叠画布")
+                    : navText("agentChat.navbar.expandCanvas", "展开画布")
+                }
+              >
+                {isCanvasOpen ? (
+                  <PanelRightClose size={18} />
+                ) : (
+                  <PanelRightOpen size={18} />
+                )}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {showEntryContext ? (
+          <div
+            className={cn(
+              "ml-1 min-w-0",
+              isWorkspaceCompact ? "max-w-[180px]" : "max-w-[320px]",
+            )}
+          >
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="inline-flex w-fit items-center rounded-full border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface-muted)] px-3 py-1 text-[11px] font-medium text-[color:var(--ember-text-muted)]">
+                {entryContextLabel}
+              </span>
+              {!isWorkspaceCompact && entryContextHint ? (
+                <p className="truncate text-xs text-slate-500">
+                  {entryContextHint}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="flex-1" />
+
+      <div className="flex items-center gap-2">
+        {showProjectSelector ? (
+          <div className={groupClassName}>
+            <ProjectSelector
+              value={projectId}
+              onChange={(nextProjectId) => onProjectChange?.(nextProjectId)}
+              onOpenProjectContents={
+                onBackToResources ? () => onBackToResources() : undefined
+              }
+              workspaceType={workspaceType}
+              placeholder={navText(
+                "agentChat.navbar.projectPlaceholder",
+                "选择项目",
+              )}
+              dropdownSide="bottom"
+              dropdownAlign="end"
+              enableManagement={workspaceType === "general"}
+              density="compact"
+              chrome="embedded"
+              deferProjectListLoad={shouldDeferWorkspaceListLoad}
+              skipDefaultWorkspaceReadyCheck={shouldDeferWorkspaceListLoad}
+              className={compactProjectSelectorClassName}
+            />
+            {onToggleSettings ? (
+              <>
+                <div className={dividerClassName} aria-hidden="true" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={ghostIconButtonClassName}
+                  onClick={onToggleSettings}
+                  aria-label={navText(
+                    "agentChat.navbar.openSettings",
+                    "打开设置",
+                  )}
+                  title={navText("agentChat.navbar.openSettings", "打开设置")}
+                >
+                  <Settings size={18} />
+                </Button>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+
+        {showCompactSettingsButton ? (
+          <div className={groupClassName}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={ghostIconButtonClassName}
+              onClick={onToggleSettings}
+              aria-label={navText("agentChat.navbar.openSettings", "打开设置")}
+              title={navText("agentChat.navbar.openSettings", "打开设置")}
+            >
+              <Settings size={18} />
+            </Button>
+          </div>
+        ) : null}
+
+        {showStatusTools ? (
+          <div className={groupClassName}>
+            {showContextCompactionAction ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  embeddedButtonClassName,
+                  toolbarTextButtonClassName,
+                )}
+                onClick={onCompactContext}
+                disabled={contextCompactionRunning}
+                aria-label={navText(
+                  "agentChat.navbar.compactContext",
+                  "压缩上下文",
+                )}
+                title={navText("agentChat.navbar.compactContext", "压缩上下文")}
+              >
+                <Box size={14} />
+                <span>
+                  {contextCompactionRunning
+                    ? navText(
+                        "agentChat.navbar.compactContextShortRunning",
+                        "压缩中...",
+                      )
+                    : navText("agentChat.navbar.compactContext", "压缩上下文")}
+                </span>
+              </Button>
+            ) : null}
+
+            {showContextCompactionAction && showHarnessToggle ? (
+              <div className={dividerClassName} aria-hidden="true" />
+            ) : null}
+
+            {showHarnessToggle ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  embeddedButtonClassName,
+                  toolbarTextButtonClassName,
+                  harnessPanelVisible &&
+                    "bg-[color:var(--ember-surface-hover)] text-[color:var(--ember-text)]",
+                  harnessAttentionLevel === "warning" &&
+                    !harnessPanelVisible &&
+                    "border-[color:var(--ember-warning-border)] bg-[color:var(--ember-warning-soft)] text-[color:var(--ember-warning)] hover:bg-[color:var(--ember-warning-soft)] hover:text-[color:var(--ember-warning)]",
+                )}
+                onClick={onToggleHarnessPanel}
+                aria-label={
+                  harnessPanelVisible
+                    ? navText(
+                        "agentChat.navbar.closeHarness",
+                        "关闭{{label}}",
+                        { label: harnessToggleLabel },
+                      )
+                    : navText("agentChat.navbar.openHarness", "打开{{label}}", {
+                        label: harnessToggleLabel,
+                      })
+                }
+                aria-expanded={harnessPanelVisible}
+                title={harnessToggleLabel}
+              >
+                <Sparkles size={14} />
+                <span>{harnessToggleLabel}</span>
+                {harnessPendingCount > 0 ? (
+                  <span className="rounded-full border border-[color:var(--ember-surface-border-strong)] bg-[color:var(--ember-surface)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-[color:var(--ember-brand-strong)] shadow-sm shadow-slate-950/10">
+                    {harnessPendingCount > 99 ? "99+" : harnessPendingCount}
+                  </span>
+                ) : null}
+                <ChevronDown
+                  className={cn(
+                    "h-3.5 w-3.5 transition-transform",
+                    harnessPanelVisible && "rotate-180",
+                  )}
+                />
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </Navbar>
+  );
+};

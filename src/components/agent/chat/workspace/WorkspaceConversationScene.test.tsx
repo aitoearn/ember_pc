@@ -1,0 +1,373 @@
+import React from "react";
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { WorkspaceConversationScene } from "./WorkspaceConversationScene";
+
+const { mockWorkspaceMainArea, mockWorkspacePendingA2UIPanel } = vi.hoisted(
+  () => ({
+    mockWorkspaceMainArea: vi.fn(),
+    mockWorkspacePendingA2UIPanel: vi.fn(),
+  }),
+);
+
+vi.mock("../components/CanvasWorkbenchLayout", () => ({
+  CanvasWorkbenchLayout: () => <div data-testid="canvas-layout-stub" />,
+}));
+
+vi.mock("../components/ChatNavbar", () => ({
+  ChatNavbar: () => <div data-testid="chat-navbar-stub" />,
+}));
+
+vi.mock("../components/EmptyState", () => ({
+  EmptyState: () => <div data-testid="empty-state-stub" />,
+}));
+
+vi.mock("../components/MessageList", () => ({
+  MessageList: ({
+    leadingContent,
+    trailingContent,
+  }: {
+    leadingContent?: React.ReactNode;
+    trailingContent?: React.ReactNode;
+  }) => (
+    <div data-testid="message-list-stub">
+      {leadingContent}
+      {trailingContent}
+    </div>
+  ),
+}));
+
+vi.mock("./WorkspacePendingA2UIPanel", () => ({
+  WorkspacePendingA2UIPanel: (props: {
+    pendingA2UIForm?: { id?: string } | null;
+    placement?: string;
+  }) => {
+    mockWorkspacePendingA2UIPanel(props);
+    return (
+      <div
+        data-testid="workspace-pending-a2ui-panel"
+        data-placement={props.placement || "dock"}
+      >
+        {props.pendingA2UIForm?.id || ""}
+      </div>
+    );
+  },
+}));
+
+vi.mock("./WorkspaceMainArea", () => ({
+  WorkspaceMainArea: ({
+    navbarNode,
+    taskCenterTabsNode,
+    chatContent,
+    canvasContent,
+    ...rest
+  }: {
+    navbarNode?: React.ReactNode;
+    taskCenterTabsNode?: React.ReactNode;
+    chatContent?: React.ReactNode;
+    canvasContent?: React.ReactNode;
+    [key: string]: unknown;
+  }) => (
+    <div
+      data-testid="workspace-main-area-stub"
+      ref={() => {
+        mockWorkspaceMainArea({
+          navbarNode,
+          taskCenterTabsNode,
+          chatContent,
+          canvasContent,
+          ...rest,
+        });
+      }}
+    >
+      {navbarNode}
+      {taskCenterTabsNode}
+      {chatContent}
+      {canvasContent}
+    </div>
+  ),
+}));
+
+const mountedRoots: Array<{ root: Root; container: HTMLDivElement }> = [];
+
+function renderScene(
+  props?: Partial<React.ComponentProps<typeof WorkspaceConversationScene>>,
+) {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+
+  const defaultProps: React.ComponentProps<typeof WorkspaceConversationScene> =
+    {
+      entryBannerVisible: false,
+      entryBannerMessage: undefined,
+      onDismissEntryBanner: vi.fn(),
+      creationReplaySurface: null,
+      showChatLayout: true,
+      compactChrome: false,
+      contextWorkspaceEnabled: false,
+      messageListProps: {
+        messages: [],
+        turns: [],
+        threadItems: [],
+        currentTurnId: null,
+        threadRead: false,
+        pendingActions: [],
+        submittedActionsInFlight: [],
+        queuedTurns: [],
+        isSending: false,
+        onInterruptCurrentTurn: vi.fn(),
+      } as any,
+      workspaceAlertVisible: false,
+      onSelectWorkspaceDirectory: vi.fn(),
+      onDismissWorkspaceAlert: vi.fn(),
+      shouldHideGeneralWorkbenchInputForTheme: false,
+      inputbarNode: null,
+      input: "",
+      setInput: vi.fn(),
+      onSendMessage: vi.fn(),
+      emptyStateIsLoading: false,
+      emptyStateDisabled: false,
+      providerType: "openai",
+      setProviderType: vi.fn(),
+      model: "gpt-4.1",
+      setModel: vi.fn(),
+      executionStrategy: "react",
+      setExecutionStrategy: vi.fn(),
+      accessMode: "default" as any,
+      setAccessMode: vi.fn(),
+      onManageProviders: vi.fn(),
+      toolPreferences: {
+        task: false,
+        subagent: false,
+      },
+      onToolPreferenceChange: vi.fn(),
+      selectedTeam: null,
+      creationMode: "guided",
+      onCreationModeChange: vi.fn(),
+      activeTheme: "general",
+      onThemeChange: vi.fn(),
+      themeLocked: false,
+      artifactsCount: 0,
+      generalCanvasContent: "",
+      resolvedCanvasState: null,
+      selectedText: "",
+      onRecommendationClick: vi.fn(),
+      characters: [],
+      skills: [],
+      serviceSkills: [],
+      serviceSkillGroups: [],
+      isSkillsLoading: false,
+      onSelectServiceSkill: vi.fn(),
+      onNavigateToSettings: vi.fn(),
+      onRefreshSkills: vi.fn(),
+      onLaunchBrowserAssist: vi.fn(),
+      browserAssistLoading: false,
+      projectId: null,
+      onProjectChange: vi.fn(),
+      onOpenSettings: vi.fn(),
+      runtimeToolAvailability: null,
+      runtimeTaskCard: null,
+      onOpenMemoryWorkbench: vi.fn(),
+      onOpenChannels: vi.fn(),
+      onOpenChromeRelay: vi.fn(),
+      navbarVisible: false,
+      isRunning: false,
+      navbarChrome: "default" as any,
+      onBackToProjectManagement: undefined,
+      onBackToResources: undefined,
+      layoutMode: "chat" as any,
+      onToggleCanvas: vi.fn(),
+      onBackHome: vi.fn(),
+      showHarnessToggle: false,
+      harnessPanelVisible: false,
+      onToggleHarnessPanel: vi.fn(),
+      harnessPendingCount: 0,
+      harnessAttentionLevel: "idle" as any,
+      harnessToggleLabel: undefined,
+      showContextCompactionAction: false,
+      contextCompactionRunning: false,
+      onCompactContext: vi.fn(),
+      isThemeWorkbench: false,
+      contentId: undefined,
+      syncStatus: "idle",
+      hasLiveCanvasPreviewContent: false,
+      liveCanvasPreview: null,
+      currentImageWorkbenchActive: false,
+      shouldShowCanvasLoadingState: false,
+      canvasWorkbenchLayoutProps: {
+        artifacts: [],
+      } as any,
+      shellBottomInset: "0px",
+      chatPanelWidth: undefined,
+      chatPanelMinWidth: undefined,
+      generalWorkbenchDialog: null,
+      generalWorkbenchHarnessDialog: null,
+      showFloatingInputOverlay: false,
+      hasPendingA2UIForm: false,
+    } as any;
+
+  act(() => {
+    root.render(<WorkspaceConversationScene {...defaultProps} {...props} />);
+  });
+
+  mountedRoots.push({ root, container });
+  return container;
+}
+
+beforeEach(() => {
+  (
+    globalThis as typeof globalThis & {
+      IS_REACT_ACT_ENVIRONMENT?: boolean;
+    }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
+});
+
+afterEach(() => {
+  while (mountedRoots.length > 0) {
+    const mounted = mountedRoots.pop();
+    if (!mounted) {
+      break;
+    }
+    act(() => {
+      mounted.root.unmount();
+    });
+    mounted.container.remove();
+  }
+  vi.clearAllMocks();
+});
+
+describe("WorkspaceConversationScene", () => {
+  it("生成应显示当前带入的灵感横条", () => {
+    const container = renderScene({
+      creationReplaySurface: {
+        kind: "memory_entry",
+        eyebrow: "当前带入灵感",
+        badgeLabel: "参考",
+        title: "品牌风格样本",
+        summary: "保留轻盈但专业的表达。",
+        hint: "后续结果模板会默认把它一起带入。",
+        defaultReferenceMemoryIds: ["memory-1"],
+        defaultReferenceEntries: [
+          {
+            id: "memory-1",
+            title: "品牌风格样本",
+            summary: "保留轻盈但专业的表达。",
+            category: "context",
+            categoryLabel: "参考",
+            tags: ["品牌", "语气"],
+          },
+        ],
+      },
+    });
+
+    expect(container.textContent).toContain("当前带入灵感");
+    expect(container.textContent).toContain("品牌风格样本");
+    expect(container.textContent).toContain("后续结果模板会默认把它一起带入。");
+  });
+
+  it("任务中心场景应固定展示顶部导航，不再传入自动隐藏开关", () => {
+    renderScene({
+      navbarVisible: true,
+      navbarChrome: "workspace-compact",
+      navbarContextVariant: "task-center",
+      taskCenterTabsNode: <div data-testid="task-center-tabs-stub">tabs</div>,
+    });
+
+    expect(mockWorkspaceMainArea).toHaveBeenCalled();
+    expect(
+      mockWorkspaceMainArea.mock.calls.at(-1)?.[0]?.autoHideTaskCenterNavbar,
+    ).toBeUndefined();
+  });
+
+  it("有消息来源的 pending A2UI 不应再渲染底部补参面板", () => {
+    const container = renderScene({
+      pendingA2UIForm: {
+        id: "assistant-inline-a2ui",
+        root: "root",
+        components: [],
+      },
+      onPendingA2UISubmit: vi.fn(),
+      messageListProps: {
+        messages: [],
+        activePendingA2UISource: {
+          kind: "assistant_message",
+          messageId: "msg-assistant-a2ui",
+        },
+      } as any,
+    });
+
+    expect(
+      container.querySelector('[data-testid="workspace-pending-a2ui-panel"]'),
+    ).toBeNull();
+    expect(mockWorkspacePendingA2UIPanel).not.toHaveBeenCalled();
+  });
+
+  it("无消息来源的 pending A2UI 应作为消息列表尾部卡片渲染", () => {
+    const container = renderScene({
+      pendingA2UIForm: {
+        id: "service-skill-a2ui",
+        root: "root",
+        components: [],
+      },
+      onPendingA2UISubmit: vi.fn(),
+      messageListProps: {
+        messages: [],
+        activePendingA2UISource: {
+          kind: "service_skill",
+          skillId: "daily-trend-briefing",
+          requestKey: "req-1",
+          messageId: undefined,
+        },
+      } as any,
+    });
+
+    const pendingPanel = container.querySelector(
+      '[data-testid="workspace-pending-a2ui-panel"]',
+    );
+    expect(pendingPanel?.getAttribute("data-placement")).toBe("message");
+    expect(pendingPanel?.textContent).toContain("service-skill-a2ui");
+    expect(mockWorkspacePendingA2UIPanel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        placement: "message",
+        pendingA2UIForm: expect.objectContaining({
+          id: "service-skill-a2ui",
+        }),
+      }),
+    );
+  });
+
+  it("inline 输入区应留在聊天 flex 栈内，避免矮窗口被父级 overflow 裁切", () => {
+    const container = renderScene({
+      contextWorkspaceEnabled: false,
+      shouldHideGeneralWorkbenchInputForTheme: false,
+      showFloatingInputOverlay: false,
+      inputbarNode: (
+        <textarea
+          data-testid="workspace-inline-inputbar"
+          defaultValue="整理今天的国际新闻"
+        />
+      ),
+    });
+
+    const messageList = container.querySelector(
+      '[data-testid="message-list-stub"]',
+    );
+    const inputSlot = container.querySelector(
+      '[data-testid="workspace-inline-input-slot"]',
+    );
+    const inputbar = container.querySelector(
+      '[data-testid="workspace-inline-inputbar"]',
+    );
+
+    expect(messageList).not.toBeNull();
+    expect(inputSlot).not.toBeNull();
+    expect(inputbar).not.toBeNull();
+    expect(inputSlot?.parentElement?.contains(messageList)).toBe(true);
+    expect(inputSlot?.parentElement?.lastElementChild).toBe(inputSlot);
+    expect(
+      mockWorkspaceMainArea.mock.calls.at(-1)?.[0]?.showFloatingInputOverlay,
+    ).toBe(false);
+  });
+});

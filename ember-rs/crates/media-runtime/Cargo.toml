@@ -1,0 +1,21 @@
+[package]
+name = "ember-media-runtime"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+base64.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+thiserror.workspace = true
+image = { version = "0.25.9", default-features = false, features = ["png"] }
+reqwest.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+tempfile.workspace = true

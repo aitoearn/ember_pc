@@ -1,0 +1,88 @@
+{
+  "$defs": {
+    "TestCaseRunStep": {
+      "description": "执行过程中的一步观察。",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "observation": {
+          "default": "",
+          "type": "string"
+        },
+        "runId": {
+          "default": "",
+          "type": "string"
+        },
+        "screenshotPath": {
+          "default": "",
+          "type": "string"
+        },
+        "stepNo": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ts": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "stepNo"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "单条用例的一次执行记录。",
+  "properties": {
+    "caseId": {
+      "description": "关联的用例内部 id（test_cases.id）。",
+      "type": "string"
+    },
+    "deviceId": {
+      "default": "",
+      "type": "string"
+    },
+    "finishedAt": {
+      "default": "",
+      "description": "结束时间（RFC3339）；未结束为空串。",
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "instruction": {
+      "default": "",
+      "type": "string"
+    },
+    "result": {
+      "default": "",
+      "description": "判定结果：通过 / 失败 / 阻塞。",
+      "type": "string"
+    },
+    "startedAt": {
+      "default": "",
+      "type": "string"
+    },
+    "steps": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/TestCaseRunStep"
+      },
+      "type": "array"
+    },
+    "summary": {
+      "default": "",
+      "type": "string"
+    }
+  },
+  "required": [
+    "caseId",
+    "id"
+  ],
+  "title": "TestCaseRun",
+  "type": "object"
+}
