@@ -70,7 +70,7 @@
 4. `auto_continue` 仍只表示当前已有文稿续写的 prompt augmentation，不等同于 persistent objective。
 5. 如果用户有 queued input、pending elicitation、pause、budget limit 或 blocked 状态，不能自动续跑下一轮。
 
-详细路线图见 `internal/roadmap/managed-objective/README.md`。这里的固定边界只负责说明：任何 continuation turn 都必须回到 Query Loop 主链。
+Managed Objective 的 durable 后台推进边界已收敛到 Query Loop 主链；任何 continuation turn 都必须回到 Query Loop，不得自建 scheduler 或独立 run source。
 
 ## 代码入口地图
 

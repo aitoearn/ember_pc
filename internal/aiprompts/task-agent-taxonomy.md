@@ -63,7 +63,7 @@
 3. durable 后台推进仍归 `automation job`。
 4. objective state、completion audit、budget / pause / resume 只负责控制这些实体是否继续，不单独定义新的 run source、queue、scheduler 或 evidence。
 
-详细路线图见 `internal/roadmap/managed-objective/README.md`。本文件只定义 taxonomy 边界：Managed Objective 不是第四类执行实体。
+本文件只定义 taxonomy 边界：Managed Objective 不是第四类执行实体，只控制 agent turn / subagent turn / automation job 是否继续。
 
 ## 固定心智模型
 

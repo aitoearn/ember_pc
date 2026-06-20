@@ -587,7 +587,7 @@ describe("Electron current testing docs guard", () => {
     const agentUiDocs = [
       "internal/roadmap/agentui/README.md",
       "internal/roadmap/agentui/ember-agentui-target-architecture.md",
-      "internal/roadmap/agentui/ember-agentui-code-map.md",
+      "internal/roadmap/agentui/lime-agentui-code-map.md",
       "internal/roadmap/agentui/ember-agentui-backend-coordination.md",
       "internal/roadmap/agentui/ember-agentui-implementation-roadmap.md",
       "internal/roadmap/agentui/conversation-projection-implementation-plan.md",
@@ -608,46 +608,15 @@ describe("Electron current testing docs guard", () => {
     expect(targetArchitecture).toContain("CommandGateway --> RuntimeQueue");
 
     const codeMap = readFile(
-      "internal/roadmap/agentui/ember-agentui-code-map.md",
+      "internal/roadmap/agentui/lime-agentui-code-map.md",
     );
     expect(codeMap).toContain("## 5. Command Gateway 层");
     expect(codeMap).toContain("App Server");
     expect(codeMap).toContain("Electron Desktop Host");
     expectNoLegacyAgentUiCommandGatewayReference(
       codeMap,
-      "internal/roadmap/agentui/ember-agentui-code-map.md",
+      "internal/roadmap/agentui/lime-agentui-code-map.md",
     );
-  });
-
-  it("keeps i18n app metadata workflow on Electron Forge current sources", () => {
-    const evaluation = readFile(
-      "internal/roadmap/i18n/app-metadata-workflow-evaluation.md",
-    );
-    expect(evaluation).toContain("forge.config.mjs");
-    expect(evaluation).toContain("当前 Electron 发布元数据事实源");
-    expect(evaluation).toContain("Electron Forge / 平台发布链路");
-    expect(evaluation).toContain("已按 `dead` release / metadata surface 下线");
-    expect(evaluation).toContain(
-      "不是 current app metadata、installer、release、updater、签名或版本同步事实源",
-    );
-    expect(evaluation).toContain("不能作为 i18n evidence 输入回流");
-    expect(evaluation).not.toContain("Tauri file association");
-    expect(evaluation).not.toContain("真实 Tauri");
-    expect(evaluation).not.toContain("手工复制多份 Tauri 配置");
-
-    const progress = readFile(
-      "internal/roadmap/i18n/implementation-progress.md",
-    );
-    const currentSection = sectionBetween(
-      progress,
-      "## 2026-05-27：P0-P4 全路线图 readiness 审计",
-      "\n## 2026-05-27：P4 Chrome extension standard locale decision 收口",
-    );
-    expect(currentSection).toContain("Electron Forge / installer 配置");
-    expect(currentSection).toContain("forge.config.mjs");
-    expect(currentSection).toContain("Electron Forge 配置");
-    expect(currentSection).not.toContain("真实 Tauri");
-    expect(currentSection).not.toContain("tauri.conf");
   });
 
   it("keeps App Server protocol aligned with codex-rs initialize and in-process boundaries", () => {

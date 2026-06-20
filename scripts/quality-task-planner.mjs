@@ -158,7 +158,6 @@ const I18N_CHROME_EXTENSION_WORKFLOW_PREFIXES = [
 
 const I18N_APP_METADATA_WORKFLOW_FILES = new Set([
   "internal/roadmap/i18n/app-metadata-translation-scope.json",
-  "internal/roadmap/i18n/app-metadata-workflow-evaluation.md",
   "internal/roadmap/i18n/evidence/app-metadata-locale-build-manifest.json",
   "internal/roadmap/i18n/evidence/app-metadata-workflow-inventory.json",
   "package.json",
@@ -173,7 +172,6 @@ const I18N_APP_METADATA_WORKFLOW_FILES = new Set([
 
 const I18N_RTL_READINESS_FILES = new Set([
   "internal/roadmap/i18n/evidence/rtl-readiness-inventory.json",
-  "internal/roadmap/i18n/rtl-readiness-evaluation.md",
   "scripts/i18n/i18n-rtl-readiness-report.test.ts",
   "scripts/i18n/i18n-rtl-readiness-report.ts",
   "src/i18n/createI18n.ts",
@@ -186,14 +184,12 @@ const I18N_RTL_SMOKE_FILES = new Set([
 
 const I18N_P4_READINESS_FILES = new Set([
   "internal/roadmap/i18n/evidence/p4-readiness-report.json",
-  "internal/roadmap/i18n/prd.md",
   "scripts/i18n/i18n-p4-readiness-report.test.ts",
   "scripts/i18n/i18n-p4-readiness-report.ts",
 ]);
 
 const I18N_ROADMAP_READINESS_FILES = new Set([
   "internal/roadmap/i18n/evidence/roadmap-readiness-report.json",
-  "internal/roadmap/i18n/prd.md",
   "scripts/i18n/i18n-roadmap-readiness-report.test.ts",
   "scripts/i18n/i18n-roadmap-readiness-report.ts",
 ]);
@@ -572,12 +568,7 @@ function isI18nRoadmapReadinessChange(file) {
       "internal/roadmap/i18n/evidence/content-target-language-boundary-report.json" ||
     file ===
       "internal/roadmap/i18n/evidence/i18next-cli-parity-benchmark.json" ||
-    file === "internal/roadmap/i18n/glossary.md" ||
-    file === "internal/roadmap/i18n/implementation-progress.md" ||
-    file === "internal/roadmap/i18n/language-boundary-evaluation.md" ||
-    file ===
-      "internal/roadmap/i18n/response-language-injection-evaluation.md" ||
-    file === "internal/roadmap/i18n/toolchain-evaluation.md"
+    file === "internal/roadmap/i18n/glossary.md"
   );
 }
 

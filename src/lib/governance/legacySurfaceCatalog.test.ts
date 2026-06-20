@@ -120,8 +120,6 @@ describe("legacySurfaceCatalog", () => {
       "packages/agent-runtime-client",
       "internal/aiprompts/agent-ui-runtime-standard.md",
       "internal/aiprompts/playwright-e2e.md",
-      "internal/prd/next/implementation-roadmap.md",
-      "internal/roadmap/agentworkbench",
       "src/components/agent/chat/projection",
       "src/components/agent/chat/workspace",
       "src/i18n/resources",
