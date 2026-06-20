@@ -9,8 +9,8 @@ const KNOWLEDGE_MATCHERS = [
   exact("RELEASE_NOTES.md"),
   exact("docs/README.md"),
   exact("package.json"),
-  prefix("internal/roadmap/knowledge/"),
-  prefix("internal/knowledge/skills/"),
+  prefix("docs/roadmap/knowledge/"),
+  prefix("docs/knowledge/skills/"),
   prefix("scripts/knowledge-"),
   prefix("scripts/knowledge/"),
   prefix("ember-rs/crates/knowledge/"),
@@ -52,8 +52,8 @@ const KNOWLEDGE_MATCHERS = [
 ];
 
 const NON_KNOWLEDGE_MATCHERS = [
-  exact("internal/aiprompts/commands.md"),
-  prefix("internal/roadmap/ai-layered-design/"),
+  exact("docs/aiprompts/commands.md"),
+  prefix("docs/roadmap/ai-layered-design/"),
   prefix("scripts/benchmark-layered-design"),
   prefix("scripts/design-canvas"),
   prefix("scripts/layered-design"),

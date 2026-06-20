@@ -8,39 +8,26 @@ import process from "node:process";
 const repoRoot = process.cwd();
 const docsRoot = path.join(repoRoot, "docs");
 
-const internalOnlyDirectories = [
+const engineeringDirectories = [
   "aiprompts",
-  "bussniss",
-  "design",
   "develop",
   "exec-plans",
-  "gongzonghao",
-  "iteration-notes",
-  "knowledge",
-  "oem",
-  "prd",
-  "research",
+  "refactor",
   "roadmap",
-  "tech",
   "test",
   "testing",
   "tests",
 ];
 
-const requiredFiles = ["docs/README.md", "internal/README.md"];
+const publicDocsDirectories = ["images", "superpowers"];
+
+const requiredFiles = ["docs/README.md"];
 const requiredIgnoreRules = [
   "docs/.data/",
   "docs/.nuxt/",
   "docs/.output/",
-  "internal/prd/**",
-  "internal/exec-plans/",
-  "internal/roadmap/**",
-  "internal/gongzonghao/",
-  "internal/bussniss/",
-  "internal/oem/",
-  "internal/tech/",
-  "internal/knowledge",
-  "internal/research/**",
+  "docs/exec-plans/",
+  "docs/roadmap/**",
 ];
 const skippedDirectories = new Set([
   ".git",
@@ -96,19 +83,6 @@ function listRepoFiles() {
   }
 }
 
-function listTrackedIgnoredInternalFiles() {
-  try {
-    const output = execFileSync(
-      "git",
-      ["ls-files", "-ci", "--exclude-standard", "-z", "internal"],
-      { cwd: repoRoot, encoding: "utf8" },
-    );
-    return output.split("\0").filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-
 function listFilesRecursively(directoryPath) {
   const relativeDirectory = toRelativePath(directoryPath);
   if (isSkippedDirectory(relativeDirectory)) {
@@ -160,56 +134,78 @@ function shouldScanFile(relativePath) {
   return stat.size <= 2 * 1024 * 1024;
 }
 
+function listTrackedIgnoredEngineeringDocs() {
+  try {
+    const output = execFileSync(
+      "git",
+      ["ls-files", "-ci", "--exclude-standard", "-z", "docs"],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    return output
+      .split("\0")
+      .filter(Boolean)
+      .filter((filePath) =>
+        engineeringDirectories.some(
+          (directoryName) =>
+            filePath === `docs/${directoryName}` ||
+            filePath.startsWith(`docs/${directoryName}/`),
+        ),
+      );
+  } catch {
+    return [];
+  }
+}
+
 function main() {
   const failures = [];
 
   for (const relativePath of requiredFiles) {
     if (!fileExists(relativePath)) {
-      failures.push(`缺少边界入口文件: ${relativePath}`);
+      failures.push(`缺少文档入口文件: ${relativePath}`);
     }
   }
 
   if (!fs.existsSync(docsRoot)) {
-    failures.push("缺少 docs/ 文档站目录");
+    failures.push("缺少 docs/ 文档根目录");
   } else {
     const entries = fs.readdirSync(docsRoot, { withFileTypes: true });
-    const forbiddenDocsEntries = entries
-      .map((entry) => entry.name)
-      .filter((entryName) => internalOnlyDirectories.includes(entryName));
+    const entryNames = entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
 
-    for (const entryName of forbiddenDocsEntries) {
-      failures.push(
-        `docs/${entryName}/ 属于内部事实源，请迁移到 internal/${entryName}/`,
-      );
+    for (const directoryName of engineeringDirectories) {
+      if (!entryNames.includes(directoryName)) {
+        failures.push(`docs/${directoryName}/ 缺失，工程文档应统一落在 docs/ 下`);
+      }
     }
+
+    for (const directoryName of publicDocsDirectories) {
+      if (!entryNames.includes(directoryName)) {
+        failures.push(`docs/${directoryName}/ 缺失，产品资料目录应保留在 docs/ 下`);
+      }
+    }
+  }
+
+  if (fileExists("internal/README.md") || fs.existsSync(path.join(repoRoot, "internal"))) {
+    failures.push("internal/ 目录应已合并到 docs/，请删除残留 internal/ 入口");
   }
 
   if (fileExists(".gitignore")) {
     const gitignore = readText(".gitignore");
 
-    for (const directoryName of internalOnlyDirectories) {
-      const escapedDirectoryName = directoryName.replaceAll("-", "\\-");
-      const docsIgnoreRulePattern = new RegExp(
-        `(^|\\n)docs/${escapedDirectoryName}(/|\\*|\\n|$)`,
-      );
-      if (docsIgnoreRulePattern.test(gitignore)) {
-        failures.push(
-          `.gitignore 仍在忽略旧 docs/${directoryName} 路径，请改为 internal/${directoryName}`,
-        );
+    for (const ignoreRule of requiredIgnoreRules) {
+      if (!gitignore.includes(ignoreRule)) {
+        failures.push(`.gitignore 缺少工程文档忽略规则: ${ignoreRule}`);
       }
     }
 
-    for (const ignoreRule of requiredIgnoreRules) {
-      if (!gitignore.includes(ignoreRule)) {
-        failures.push(`.gitignore 缺少内部目录忽略规则: ${ignoreRule}`);
-      }
+    if (gitignore.includes("internal/")) {
+      failures.push(".gitignore 仍包含 internal/ 规则，请改为 docs/ 对应路径");
     }
   }
 
-  const oldDocsReferencePattern = new RegExp(
-    `docs/(?:${internalOnlyDirectories.join("|")})(?:/|\\b)`,
-  );
-  const filesWithOldReferences = [];
+  const staleInternalReferencePattern = /\binternal\/(?:aiprompts|exec-plans|roadmap|refactor|test|tests|testing|develop|prd|research)\b/;
+  const filesWithStaleReferences = [];
 
   for (const relativePath of listRepoFiles()) {
     if (!shouldScanFile(relativePath)) {
@@ -217,21 +213,21 @@ function main() {
     }
 
     const source = readText(relativePath);
-    if (oldDocsReferencePattern.test(source)) {
-      filesWithOldReferences.push(relativePath);
+    if (staleInternalReferencePattern.test(source)) {
+      filesWithStaleReferences.push(relativePath);
     }
   }
 
-  if (filesWithOldReferences.length > 0) {
+  if (filesWithStaleReferences.length > 0) {
     failures.push(
-      `发现旧内部文档路径引用，请改为 internal/: ${filesWithOldReferences.join(", ")}`,
+      `发现旧 internal/ 工程文档路径引用，请改为 docs/: ${filesWithStaleReferences.join(", ")}`,
     );
   }
 
-  const trackedIgnoredInternalFiles = listTrackedIgnoredInternalFiles();
-  if (trackedIgnoredInternalFiles.length > 0) {
+  const trackedIgnoredEngineeringDocs = listTrackedIgnoredEngineeringDocs();
+  if (trackedIgnoredEngineeringDocs.length > 0) {
     failures.push(
-      `发现已进入 Git 索引但应被忽略的 internal 文件: ${trackedIgnoredInternalFiles.join(", ")}`,
+      `发现已进入 Git 索引但应被忽略的 docs 工程文档: ${trackedIgnoredEngineeringDocs.join(", ")}`,
     );
   }
 

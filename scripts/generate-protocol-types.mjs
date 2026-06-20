@@ -5,7 +5,7 @@
  * 输入：ember-rs/crates/app-server-protocol/schema/json/app_server_protocol.schemas.json
  * 输出：packages/app-server-client/src/generated/protocol-types.ts
  *
- * 规则（参照 internal/refactor/progressive-refactor-plan.md R-10）：
+ * 规则（参照 docs/refactor/progressive-refactor-plan.md R-10）：
  *   1. 生成物头部 // @generated 标记，棘轮按生成代码豁免
  *   2. 生成后 git diff --exit-code 检查漂移（CI 守卫）
  *   3. 只生成类型定义，不生成方法常量和 helper 函数（这些保持手写）

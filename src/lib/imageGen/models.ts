@@ -1,7 +1,7 @@
 /**
  * 图片生成模型数据（从 components/image-gen/types 提取到 lib 层）
  *
- * 纯数据，无 UI 依赖。详见 internal/refactor/progressive-refactor-plan.md R-31。
+ * 纯数据，无 UI 依赖。详见 docs/refactor/progressive-refactor-plan.md R-31。
  */
 
 export interface ImageGenModel {

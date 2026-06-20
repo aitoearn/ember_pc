@@ -1304,17 +1304,17 @@ export default [
             {
               group: ["@/components/**"],
               message:
-                "lib 层禁止 import components 层。将纯逻辑下沉到 lib，或把 UI 留在 components 层消费 lib。详见 internal/refactor/progressive-refactor-plan.md R-30。",
+                "lib 层禁止 import components 层。将纯逻辑下沉到 lib，或把 UI 留在 components 层消费 lib。详见 docs/refactor/progressive-refactor-plan.md R-30。",
             },
             {
               group: ["@/features/**"],
               message:
-                "lib 层禁止 import features 层。将共享逻辑下沉到 lib，或用参数注入/类型契约解耦。详见 internal/refactor/progressive-refactor-plan.md R-30。",
+                "lib 层禁止 import features 层。将共享逻辑下沉到 lib，或用参数注入/类型契约解耦。详见 docs/refactor/progressive-refactor-plan.md R-30。",
             },
             {
               group: ["@/pages/**"],
               message:
-                "lib 层禁止 import pages 层。详见 internal/refactor/progressive-refactor-plan.md R-30。",
+                "lib 层禁止 import pages 层。详见 docs/refactor/progressive-refactor-plan.md R-30。",
             },
           ],
         },
@@ -1333,7 +1333,7 @@ export default [
             {
               group: ["@/components/**"],
               message:
-                "features 层禁止 import components 层。将 UI 组件下沉到共享层，或通过 contracts/类型契约解耦。详见 internal/refactor/progressive-refactor-plan.md R-30。",
+                "features 层禁止 import components 层。将 UI 组件下沉到共享层，或通过 contracts/类型契约解耦。详见 docs/refactor/progressive-refactor-plan.md R-30。",
             },
           ],
         },
@@ -1352,7 +1352,7 @@ export default [
             {
               group: ["@/lib/dev-bridge/**", "@/lib/dev-bridge"],
               message:
-                "业务代码禁止直接 import dev-bridge。请改用 lib/api/ 统一入口（如 lib/api/bridgeEvents.ts）。详见 internal/refactor/progressive-refactor-plan.md R-40。",
+                "业务代码禁止直接 import dev-bridge。请改用 lib/api/ 统一入口（如 lib/api/bridgeEvents.ts）。详见 docs/refactor/progressive-refactor-plan.md R-40。",
             },
           ],
         },

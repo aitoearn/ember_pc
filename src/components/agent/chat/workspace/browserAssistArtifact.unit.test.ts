@@ -74,7 +74,7 @@ describe("mergeMessageArtifactsIntoStore", () => {
       title: "需求草稿",
       content: "# 新内容",
       meta: {
-        filePath: "internal/prd.md",
+        filePath: "docs/prd.md",
       },
       createdAt: 3,
       updatedAt: 4,

@@ -202,13 +202,13 @@ function buildAgentQcCompletionAudit(facts) {
   const items = [
     createItem(
       "docs-tests-standard",
-      "internal/tests 下存在 Agent QC 人读测试文档",
+      "docs/tests 下存在 Agent QC 人读测试文档",
       facts.files?.agentOpsQc &&
         facts.files?.p0Scenarios &&
         facts.files?.emberRolloutPlan &&
         facts.files?.testsReadme,
-      "internal/tests/agent-ops-qc.md, internal/tests/agent-qc-p0-scenarios.md, internal/tests/ember-agent-qc-rollout-plan.md, internal/tests/README.md",
-      "缺少 internal/tests 测试体系文档。",
+      "docs/tests/agent-ops-qc.md, docs/tests/agent-qc-p0-scenarios.md, docs/tests/ember-agent-qc-rollout-plan.md, docs/tests/README.md",
+      "缺少 docs/tests 测试体系文档。",
     ),
     createItem(
       "scenario-manifest",
@@ -229,7 +229,7 @@ function buildAgentQcCompletionAudit(facts) {
       "evidence-schema",
       "Agent QC Evidence Pack schema 存在",
       facts.files?.evidenceSchema,
-      "internal/test/agent-qc-evidence.schema.json",
+      "docs/test/agent-qc-evidence.schema.json",
       "缺少 Evidence Pack schema。",
     ),
     createItem(
@@ -282,14 +282,14 @@ function buildAgentQcCompletionAudit(facts) {
       "qcloop-status-monitor",
       "可只读监控 qcloop 运行批次和 stale item",
       facts.files?.qcloopStatusScript && facts.files?.qcloopOperationsDoc,
-      "scripts/agent-qc/qcloop-status.mjs, internal/tests/ember-agent-qc-qcloop-operations.md",
+      "scripts/agent-qc/qcloop-status.mjs, docs/tests/ember-agent-qc-qcloop-operations.md",
       "缺少 qcloop 只读状态监控脚本或运维手册。",
     ),
     createItem(
       "gui-owner-check",
       "可在启动 GUI P0 前阻断并发 qcloop GUI owner",
       facts.files?.guiOwnerCheckScript && facts.files?.qcloopOperationsDoc,
-      "scripts/agent-qc/gui-owner-check.mjs, internal/tests/ember-agent-qc-qcloop-operations.md",
+      "scripts/agent-qc/gui-owner-check.mjs, docs/tests/ember-agent-qc-qcloop-operations.md",
       "缺少 GUI owner 并发检查脚本或运维手册。",
     ),
     createItem(

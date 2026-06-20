@@ -156,4 +156,4 @@ npm run heatmap:project
 
 完整流程见：
 
-- `internal/aiprompts/project-heatmap.md`
+- `docs/aiprompts/project-heatmap.md`

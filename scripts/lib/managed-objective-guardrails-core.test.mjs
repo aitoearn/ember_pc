@@ -51,7 +51,7 @@ describe("managed-objective-guardrails-core", () => {
     );
     writeFile(
       repoRoot,
-      "internal/roadmap.md",
+      "docs/roadmap.md",
       "文档允许讨论 objective_queue 为什么禁止。\n",
     );
 

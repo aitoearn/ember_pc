@@ -82,7 +82,7 @@ describe("resolveDefaultSelectedArtifact", () => {
       title: "需求草稿",
       content: "# 需求草稿",
       meta: {
-        filePath: "internal/prd.md",
+        filePath: "docs/prd.md",
       },
       createdAt: 1,
       updatedAt: 2,

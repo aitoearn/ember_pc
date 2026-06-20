@@ -49,7 +49,7 @@ describe("governance-graph-core", () => {
       "ember-rs/src/app/bootstrap.rs",
       "ember-rs/src/commands/mod.rs",
       "ember-rs/src/commands/agent_cmd.rs",
-      "ember-rs/src/commands/internal/helper.rs",
+      "ember-rs/src/commands/docs/helper.rs",
     ]);
 
     expect(
@@ -74,6 +74,6 @@ describe("governance-graph-core", () => {
         "commands::internal::helper",
         "self::helper",
       ),
-    ).toBe("ember-rs/src/commands/internal/helper.rs");
+    ).toBe("ember-rs/src/commands/docs/helper.rs");
   });
 });

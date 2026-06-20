@@ -48,7 +48,7 @@ function buildAgentQcPayloadCoverageReport({
   payload,
   processOwner,
   generatedAt = new Date().toISOString(),
-  manifestPath = "internal/test/agent-qc-scenarios.manifest.json",
+  manifestPath = "docs/test/agent-qc-scenarios.manifest.json",
   payloadPath = "",
 } = {}) {
   const manifestScenarioIds = p0ScenarioIdsFromManifest(manifest);

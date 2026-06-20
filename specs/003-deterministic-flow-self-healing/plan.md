@@ -47,7 +47,7 @@
 | i18n 双语 zh-CN/en-US | PASS | `deviceAutomation.flow.*` 新 key |
 | 前端测试分层（VM/projection 优先纯化） | PASS | 录制转写、流投影、回放状态机抽 `*.unit.test.ts`；`*.test.tsx` 仅接线 |
 | 代码体量边界（<800 预警，<1000 拆分） | PASS（计划） | 回放运行时按 `locator / waiter / healer / runner` 分模块；前端按组件/hook/projection 拆 |
-| 长任务落 exec-plan | PASS（计划） | 新建 `internal/exec-plans/deterministic-flow-self-healing-plan.md` |
+| 长任务落 exec-plan | PASS（计划） | 新建 `docs/exec-plans/deterministic-flow-self-healing-plan.md` |
 | 不扩展旧 Tauri command / legacy facade | PASS | 不新增 `lime-rs/src/commands/**`；能力落 App Server crates + Electron Host |
 
 无违反项，Complexity Tracking 留空。

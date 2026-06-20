@@ -1,13 +1,13 @@
 /**
  * 文件体量棘轮守卫
  *
- * 规则（参照 internal/refactor/progressive-refactor-plan.md R-60）：
+ * 规则（参照 docs/refactor/progressive-refactor-plan.md R-60）：
  *   1. 已在基线中的超线文件只许变小（±5% 容差，避免格式化/注释导致误报）
  *   2. 新文件不许超 800 行（AGENTS.md 基础约束 3 预警线）
  *   3. 生成代码（头部有 // @generated 标记）豁免
  *
  * 基线：governance/file-size-baseline.json
- * 规格：internal/refactor/file-size-ratchet-guard-spec.md
+ * 规格：docs/refactor/file-size-ratchet-guard-spec.md
  */
 
 import fs from "node:fs";
@@ -22,7 +22,7 @@ const BASELINE_PATH = path.join(
 function readBaseline() {
   if (!fs.existsSync(BASELINE_PATH)) {
     console.error(`❌ 基线文件不存在: ${BASELINE_PATH}`);
-    console.error("   请先运行 node -e \"...\" 生成基线（见 internal/refactor/file-size-ratchet-guard-spec.md）");
+    console.error("   请先运行 node -e \"...\" 生成基线（见 docs/refactor/file-size-ratchet-guard-spec.md）");
     process.exit(1);
   }
   const raw = fs.readFileSync(BASELINE_PATH, "utf8");
@@ -219,7 +219,7 @@ function main() {
       "提示: 如果你有意拆分了文件，请更新 governance/file-size-baseline.json",
     );
     console.error(
-      "规格: internal/refactor/file-size-ratchet-guard-spec.md",
+      "规格: docs/refactor/file-size-ratchet-guard-spec.md",
     );
     process.exit(1);
   } else {

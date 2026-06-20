@@ -69,12 +69,12 @@ const DEFAULT_REPO_ROOT = REPO_ROOT;
 
 const EVIDENCE_PATHS = {
   appMetadata:
-    "internal/roadmap/i18n/evidence/app-metadata-workflow-inventory.json",
+    "docs/roadmap/i18n/evidence/app-metadata-workflow-inventory.json",
   chromeExtension:
-    "internal/roadmap/i18n/evidence/chrome-extension-workflow-inventory.json",
+    "docs/roadmap/i18n/evidence/chrome-extension-workflow-inventory.json",
   releaseDocs:
-    "internal/roadmap/i18n/evidence/release-docs-workflow-inventory.json",
-  rtlReadiness: "internal/roadmap/i18n/evidence/rtl-readiness-inventory.json",
+    "docs/roadmap/i18n/evidence/release-docs-workflow-inventory.json",
+  rtlReadiness: "docs/roadmap/i18n/evidence/rtl-readiness-inventory.json",
 } as const;
 
 function normalizePath(filePath: string): string {

@@ -48,7 +48,7 @@ function resolveDisplayPath(path: string): string {
   if (srcIndex >= 0) {
     return normalized.slice(srcIndex + 1);
   }
-  const internalIndex = normalized.lastIndexOf("/internal/");
+  const internalIndex = normalized.lastIndexOf("/docs/");
   if (internalIndex >= 0) {
     return normalized.slice(internalIndex + 1);
   }

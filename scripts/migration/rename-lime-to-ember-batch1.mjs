@@ -18,7 +18,7 @@ const TARGET_DIRS = [
   "scripts/connect-deep-link-save-current-smoke.mjs",
   "scripts/agent-runtime",
   "scripts/smoke",
-  "internal/aiprompts/design-language.md",
+  "docs/aiprompts/design-language.md",
   "index.css",
   "index.html",
   "forge.config.mjs",

@@ -106,7 +106,7 @@
 - [x] T036 [P] 扩展 `src/features/device-automation/performance/components/PerformanceMonitorPanel.test.tsx`（模式切换、离开 Tab 确认）
 - [x] T037 [P] 扩展 `src/features/device-automation/DeviceAutomationWorkspace.test.tsx`（performance Tab 仍非占位）
 - [x] T038 运行 `node scripts/check-command-contracts.mjs` 与 `node scripts/check-app-server-client-contract.mjs`
-- [x] T039 按 `specs/002-device-performance-monitor/quickstart.md` § P2 完成真机人工验收并记录于 `internal/exec-plans/device-performance-monitor-plan.md`（自动化已验；真机清单已登记 exec-plan，待人工勾选）
+- [x] T039 按 `specs/002-device-performance-monitor/quickstart.md` § P2 完成真机人工验收并记录于 `docs/exec-plans/device-performance-monitor-plan.md`（自动化已验；真机清单已登记 exec-plan，待人工勾选）
 - [x] T040 [P] 同步 `specs/002-device-performance-monitor/p2-tasks.md` 勾选状态与 `plan.md` 进度日志
 
 ---

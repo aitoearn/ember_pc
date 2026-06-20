@@ -155,8 +155,8 @@ function expectNoLegacyAgentUiCommandGatewayReference(content, label) {
 describe("Electron current testing docs guard", () => {
   it("does not recommend retired dev host as a current GUI startup path", () => {
     const requiredDocs = [
-      "internal/testing/skills-e2e-testing.md",
-      "internal/tests/ember-agent-qc-rollout-plan.md",
+      "docs/testing/skills-e2e-testing.md",
+      "docs/tests/ember-agent-qc-rollout-plan.md",
     ];
     const optionalDocs = [
       ".codex/skills/ember-playwright-e2e/references/playwright-e2e.md",
@@ -171,7 +171,7 @@ describe("Electron current testing docs guard", () => {
     }
 
     const qcloopOperations = readFile(
-      "internal/tests/ember-agent-qc-qcloop-operations.md",
+      "docs/tests/ember-agent-qc-qcloop-operations.md",
     );
     const currentStartupSection = sectionBetween(
       qcloopOperations,
@@ -181,7 +181,7 @@ describe("Electron current testing docs guard", () => {
 
     expectNoRetiredGuiStartupReference(
       currentStartupSection,
-      "internal/tests/ember-agent-qc-qcloop-operations.md#qcloop-server-startup",
+      "docs/tests/ember-agent-qc-qcloop-operations.md#qcloop-server-startup",
     );
   });
 
@@ -207,7 +207,7 @@ describe("Electron current testing docs guard", () => {
   });
 
   it("keeps internal testing entrypoints on Electron and App Server current", () => {
-    const testingIndex = readFile("internal/test/README.md");
+    const testingIndex = readFile("docs/test/README.md");
     expect(testingIndex).toContain(
       "Electron Desktop Host + App Server JSON-RPC",
     );
@@ -218,17 +218,17 @@ describe("Electron current testing docs guard", () => {
     expect(testingIndex).toContain("测试用例需要全面更新事实源");
     expect(testingIndex).toContain("不得作为新功能可交付证据");
 
-    const p0Scenarios = readFile("internal/tests/agent-qc-p0-scenarios.md");
+    const p0Scenarios = readFile("docs/tests/agent-qc-p0-scenarios.md");
     expect(p0Scenarios).toContain("npm run test:contracts");
     expect(p0Scenarios).toContain("npm run verify:gui-smoke");
     expect(p0Scenarios).toContain("release / GUI startup smoke");
     expectNoRetiredGuiStartupReference(
       p0Scenarios,
-      "internal/tests/agent-qc-p0-scenarios.md",
+      "docs/tests/agent-qc-p0-scenarios.md",
     );
 
     const autonomousMatrix = readFile(
-      "internal/tests/ember-agent-autonomous-test-execution-matrix.md",
+      "docs/tests/ember-agent-autonomous-test-execution-matrix.md",
     );
     expect(autonomousMatrix).toContain("Electron dev host");
     expect(autonomousMatrix).toContain("npm run test:contracts");
@@ -237,7 +237,7 @@ describe("Electron current testing docs guard", () => {
   });
 
   it("keeps E2E and testing strategy current sections on Electron evidence", () => {
-    const e2eGuide = readFile("internal/test/e2e-tests.md");
+    const e2eGuide = readFile("docs/test/e2e-tests.md");
     const e2eCurrentSection = sectionBetween(
       e2eGuide,
       "### current",
@@ -249,10 +249,10 @@ describe("Electron current testing docs guard", () => {
     expect(e2eCurrentSection).toContain("Electron GUI");
     expectNoRetiredGuiStartupReference(
       e2eCurrentSection,
-      "internal/test/e2e-tests.md#current",
+      "docs/test/e2e-tests.md#current",
     );
 
-    const testingStrategy = readFile("internal/test/testing-strategy-2026.md");
+    const testingStrategy = readFile("docs/test/testing-strategy-2026.md");
     const strategyCurrentSection = sectionBetween(
       testingStrategy,
       "### current",
@@ -267,41 +267,41 @@ describe("Electron current testing docs guard", () => {
     expect(strategyCurrentSection).toContain("npm run verify:gui-smoke");
     expectNoRetiredGuiStartupReference(
       strategyCurrentSection,
-      "internal/test/testing-strategy-2026.md#current",
+      "docs/test/testing-strategy-2026.md#current",
     );
   });
 
   it("keeps high-weight current guidance free of retired host examples", () => {
     const currentGuides = [
       "AGENTS.md",
-      "internal/aiprompts/README.md",
-      "internal/aiprompts/commands.md",
-      "internal/aiprompts/governance.md",
-      "internal/aiprompts/hooks.md",
-      "internal/aiprompts/mcp.md",
-      "internal/aiprompts/overview.md",
-      "internal/aiprompts/performance-profiling.md",
-      "internal/aiprompts/playwright-e2e.md",
-      "internal/aiprompts/quality-workflow.md",
-      "internal/aiprompts/workspace.md",
+      "docs/aiprompts/README.md",
+      "docs/aiprompts/commands.md",
+      "docs/aiprompts/governance.md",
+      "docs/aiprompts/hooks.md",
+      "docs/aiprompts/mcp.md",
+      "docs/aiprompts/overview.md",
+      "docs/aiprompts/performance-profiling.md",
+      "docs/aiprompts/playwright-e2e.md",
+      "docs/aiprompts/quality-workflow.md",
+      "docs/aiprompts/workspace.md",
       ...existingFiles([
         ".codex/skills/ember-command-boundary/SKILL.md",
         ".codex/skills/ember-governance/SKILL.md",
         ".codex/skills/ember-quality-workflow/SKILL.md",
         ".codex/skills/ember-playwright-e2e/SKILL.md",
       ]),
-      "internal/roadmap/appserver/README.md",
-      "internal/roadmap/appserver/architecture.md",
-      "internal/roadmap/appserver/consumer-integration.md",
-      "internal/roadmap/appserver/flowcharts.md",
-      "internal/roadmap/appserver/frontend-electron-migration.md",
-      "internal/roadmap/appserver/frontend-integration-matrix.md",
-      "internal/roadmap/appserver/implementation-plan.md",
-      "internal/roadmap/appserver/prd.md",
-      "internal/roadmap/appserver/protocol.md",
-      "internal/roadmap/appserver/release-updater.md",
-      "internal/roadmap/appserver/sequences.md",
-      "internal/roadmap/appserver/service-extraction.md",
+      "docs/roadmap/appserver/README.md",
+      "docs/roadmap/appserver/architecture.md",
+      "docs/roadmap/appserver/consumer-integration.md",
+      "docs/roadmap/appserver/flowcharts.md",
+      "docs/roadmap/appserver/frontend-electron-migration.md",
+      "docs/roadmap/appserver/frontend-integration-matrix.md",
+      "docs/roadmap/appserver/implementation-plan.md",
+      "docs/roadmap/appserver/prd.md",
+      "docs/roadmap/appserver/protocol.md",
+      "docs/roadmap/appserver/release-updater.md",
+      "docs/roadmap/appserver/sequences.md",
+      "docs/roadmap/appserver/service-extraction.md",
       "index.html",
     ];
 
@@ -311,7 +311,7 @@ describe("Electron current testing docs guard", () => {
   });
 
   it("documents the codex-rs reference boundary without treating Codex CLI as Codex App UI", () => {
-    const roadmap = readFile("internal/roadmap/appserver/README.md");
+    const roadmap = readFile("docs/roadmap/appserver/README.md");
     expect(roadmap).toContain("/Users/coso/Documents/dev/rust/codex");
     expect(roadmap).toContain("codex-rs");
     expect(roadmap).toContain("Codex CLI");
@@ -319,7 +319,7 @@ describe("Electron current testing docs guard", () => {
     expect(roadmap).toContain("不得把它当作 Codex App UI");
     expect(roadmap).toContain("Electron shell、托盘、Dock、updater");
 
-    const architecture = readFile("internal/roadmap/appserver/architecture.md");
+    const architecture = readFile("docs/roadmap/appserver/architecture.md");
     expect(architecture).toContain("Codex CLI");
     expect(architecture).toContain("Codex CLI 版本代码");
     expect(architecture).toContain("codex-rs");
@@ -327,7 +327,7 @@ describe("Electron current testing docs guard", () => {
     expect(architecture).toContain("不参考 Codex App UI 或桌面壳实现");
 
     const implementationPlan = readFile(
-      "internal/roadmap/appserver/implementation-plan.md",
+      "docs/roadmap/appserver/implementation-plan.md",
     );
     expect(implementationPlan).toContain("Codex CLI");
     expect(implementationPlan).toContain("codex-rs");
@@ -337,7 +337,7 @@ describe("Electron current testing docs guard", () => {
     );
 
     const execPlan = readFile(
-      "internal/exec-plans/app-server-implementation-plan.md",
+      "docs/exec-plans/app-server-implementation-plan.md",
     );
     const referenceScope = sectionBetween(
       execPlan,
@@ -356,9 +356,9 @@ describe("Electron current testing docs guard", () => {
 
   it("blocks positive Codex App UI or desktop shell references in current docs", () => {
     const scannedFiles = [
-      ...listMarkdownFiles("internal/roadmap/appserver"),
-      ...listMarkdownFiles("internal/aiprompts"),
-      "internal/exec-plans/app-server-implementation-plan.md",
+      ...listMarkdownFiles("docs/roadmap/appserver"),
+      ...listMarkdownFiles("docs/aiprompts"),
+      "docs/exec-plans/app-server-implementation-plan.md",
       "scripts/electron/current-docs-guard.test.mjs",
     ];
 
@@ -369,7 +369,7 @@ describe("Electron current testing docs guard", () => {
 
   it("keeps Electron release and updater docs aligned with current packaging", () => {
     const releaseUpdater = readFile(
-      "internal/roadmap/appserver/release-updater.md",
+      "docs/roadmap/appserver/release-updater.md",
     );
     expect(releaseUpdater).toContain("forge.config.mjs");
     expect(releaseUpdater).toContain("Electron Forge");
@@ -407,7 +407,7 @@ describe("Electron current testing docs guard", () => {
     expect(releaseUpdater).toContain("不从 Codex App UI 推断");
     expectNoRetiredCurrentHostReference(
       releaseUpdater,
-      "internal/roadmap/appserver/release-updater.md",
+      "docs/roadmap/appserver/release-updater.md",
     );
 
     const forgeConfig = readFile("forge.config.mjs");
@@ -558,7 +558,7 @@ describe("Electron current testing docs guard", () => {
 
   it("keeps Electron frontend host docs as current contract, not a future migration", () => {
     const frontendHost = readFile(
-      "internal/roadmap/appserver/frontend-electron-migration.md",
+      "docs/roadmap/appserver/frontend-electron-migration.md",
     );
     expect(frontendHost).toContain("Electron Desktop Host Current");
     expect(frontendHost).toContain("已经由 Electron 全面接管");
@@ -575,22 +575,22 @@ describe("Electron current testing docs guard", () => {
     expect(frontendHost).toContain("npm run verify:gui-smoke");
     expectNoRetiredCurrentHostReference(
       frontendHost,
-      "internal/roadmap/appserver/frontend-electron-migration.md",
+      "docs/roadmap/appserver/frontend-electron-migration.md",
     );
 
-    const roadmap = readFile("internal/roadmap/appserver/README.md");
+    const roadmap = readFile("docs/roadmap/appserver/README.md");
     expect(roadmap).toContain("Electron Desktop Host current 契约");
     expect(roadmap).not.toContain("Ember 前端切换到 Electron Desktop Host");
   });
 
   it("keeps AgentUI docs on Electron and App Server command gateway", () => {
     const agentUiDocs = [
-      "internal/roadmap/agentui/README.md",
-      "internal/roadmap/agentui/ember-agentui-target-architecture.md",
-      "internal/roadmap/agentui/lime-agentui-code-map.md",
-      "internal/roadmap/agentui/ember-agentui-backend-coordination.md",
-      "internal/roadmap/agentui/ember-agentui-implementation-roadmap.md",
-      "internal/roadmap/agentui/conversation-projection-implementation-plan.md",
+      "docs/roadmap/agentui/README.md",
+      "docs/roadmap/agentui/ember-agentui-target-architecture.md",
+      "docs/roadmap/agentui/lime-agentui-code-map.md",
+      "docs/roadmap/agentui/ember-agentui-backend-coordination.md",
+      "docs/roadmap/agentui/ember-agentui-implementation-roadmap.md",
+      "docs/roadmap/agentui/conversation-projection-implementation-plan.md",
     ];
 
     for (const filePath of agentUiDocs) {
@@ -600,7 +600,7 @@ describe("Electron current testing docs guard", () => {
     }
 
     const targetArchitecture = readFile(
-      "internal/roadmap/agentui/ember-agentui-target-architecture.md",
+      "docs/roadmap/agentui/ember-agentui-target-architecture.md",
     );
     expect(targetArchitecture).toContain(
       "Electron Desktop Host bridge / App Server JSON-RPC",
@@ -608,19 +608,19 @@ describe("Electron current testing docs guard", () => {
     expect(targetArchitecture).toContain("CommandGateway --> RuntimeQueue");
 
     const codeMap = readFile(
-      "internal/roadmap/agentui/lime-agentui-code-map.md",
+      "docs/roadmap/agentui/lime-agentui-code-map.md",
     );
     expect(codeMap).toContain("## 5. Command Gateway 层");
     expect(codeMap).toContain("App Server");
     expect(codeMap).toContain("Electron Desktop Host");
     expectNoLegacyAgentUiCommandGatewayReference(
       codeMap,
-      "internal/roadmap/agentui/lime-agentui-code-map.md",
+      "docs/roadmap/agentui/lime-agentui-code-map.md",
     );
   });
 
   it("keeps App Server protocol aligned with codex-rs initialize and in-process boundaries", () => {
-    const protocol = readFile("internal/roadmap/appserver/protocol.md");
+    const protocol = readFile("docs/roadmap/appserver/protocol.md");
     expect(protocol).toContain("JSON-RPC-like");
     expect(protocol).toContain('不要求也不发送 `"jsonrpc":"2.0"` header');
     expect(protocol).toContain("experimentalApi");
@@ -630,18 +630,18 @@ describe("Electron current testing docs guard", () => {
     expect(protocol).not.toMatch(/"experimental"\s*:/);
 
     const consumerIntegration = readFile(
-      "internal/roadmap/appserver/consumer-integration.md",
+      "docs/roadmap/appserver/consumer-integration.md",
     );
     expect(consumerIntegration).toContain("experimentalApi");
     expect(consumerIntegration).toContain("optOutNotificationMethods");
     expect(consumerIntegration).not.toContain("eventMethods");
 
-    const architecture = readFile("internal/roadmap/appserver/architecture.md");
+    const architecture = readFile("docs/roadmap/appserver/architecture.md");
     expect(architecture).toContain("不引入第二响应合同");
     expect(architecture).toContain("App Server JSON-RPC result envelope");
 
     const frontendMatrix = readFile(
-      "internal/roadmap/appserver/frontend-integration-matrix.md",
+      "docs/roadmap/appserver/frontend-integration-matrix.md",
     );
     expect(frontendMatrix).toContain("不得引入第二响应合同");
     expect(frontendMatrix).toContain("不得引入第二响应合同、第二 read model");

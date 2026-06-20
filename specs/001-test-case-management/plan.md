@@ -46,7 +46,7 @@
 | 代码体量边界（#3 基础约束） | PASS | 页面拆 ModuleTree/Table/Drawer/Panel 子组件，ViewModel 拆纯函数文件 |
 | Rust crate 抗膨胀（#21） | PASS | 新建 `dao/test_case_dao.rs` + `local_data_source/test_cases.rs` 独立模块，不平铺进 core 中心文件 |
 | Rust 构建走 workspace manifest（工程硬规则#13） | PASS | 所有 cargo 命令带 `--manifest-path "ember-rs/Cargo.toml"` |
-| 长任务落执行计划（执行与路线图#6） | PASS（计划纳入） | 登记 `internal/exec-plans/`，分期进度日志 |
+| 长任务落执行计划（执行与路线图#6） | PASS（计划纳入） | 登记 `docs/exec-plans/`，分期进度日志 |
 
 无未豁免违规，门通过。
 
@@ -120,7 +120,7 @@ ember-rs/crates/app-server/src/processor/test_cases.rs（新）+ processor/mod.r
 scripts/check-app-server-client-contract.mjs
 
 # 执行计划
-internal/exec-plans/<test-case-management>.md
+docs/exec-plans/<test-case-management>.md
 ```
 
 **Structure Decision**: 沿用 ember 既有 feature-first 前端结构 + App Server 五层后端（protocol → processor → runtime → local_data_source → DAO/SQLite）。Electron host 复用 `app_server_handle_json_lines` 通用桥，无需新增 IPC channel。

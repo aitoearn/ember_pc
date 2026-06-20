@@ -57,7 +57,7 @@
 - [x] `node scripts/check-command-contracts.mjs` + `check-app-server-client-contract.mjs`
 - [x] 定向 vitest + `cargo test perf_trace`
 - [ ] quickstart P2 章节 **真机** 人工验收（自动化单测/契约已通过）
-- [x] 更新 `internal/exec-plans/device-performance-monitor-plan.md`
+- [x] 更新 `docs/exec-plans/device-performance-monitor-plan.md`
 
 ## 明确不做（P2 首版）
 

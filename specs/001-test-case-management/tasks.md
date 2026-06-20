@@ -22,7 +22,7 @@ description: "Task list for 测试用例管理 implementation"
 
 ## Phase 1: Setup（共享基础）
 
-- [ ] T001 在 `internal/exec-plans/test-case-management.md` 登记三期执行计划与进度日志入口
+- [ ] T001 在 `docs/exec-plans/test-case-management.md` 登记三期执行计划与进度日志入口
 - [ ] T002 [P] 核对 `src/features/test-case-management/types.ts` 与 `data-model.md` 字段一致，补齐缺失类型（TestCaseRun / TestCaseRunStep）
 
 ---
@@ -135,7 +135,7 @@ description: "Task list for 测试用例管理 implementation"
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T052 [P] 更新 `internal/exec-plans/test-case-management.md` 进度日志与完成度
+- [ ] T052 [P] 更新 `docs/exec-plans/test-case-management.md` 进度日志与完成度
 - [ ] T053 运行 `npm run verify:local` + 受影响 Rust 定向测试（`cargo test --manifest-path "ember-rs/Cargo.toml"`）
 - [ ] T054 运行 `npm run verify:gui-smoke`（GUI 改动）
 - [ ] T055 按 `quickstart.md` 跑三期端到端验收回归

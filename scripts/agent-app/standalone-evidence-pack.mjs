@@ -494,7 +494,7 @@ function buildEvidencePack({ flowSummaryPath, shellSummaryPath, hostSummaryPath 
     schemaVersion: "ember.agent-app.standalone-evidence-pack/v1",
     generatedAt: new Date().toISOString(),
     subject: {
-      roadmap: "internal/roadmap/agentapp/v2",
+      roadmap: "docs/roadmap/agentapp/v2",
       scope: "V2-P4 Content Factory standalone dogfood",
       appId: standalone.appId ?? "content-factory-app",
       launchMode: flow.launchMode ?? "",

@@ -5269,10 +5269,10 @@ const checks = [
   {
     name: "Agent UI Runtime standard document is the current package and host integration fact source",
     files: [
-      "internal/aiprompts/agent-ui-runtime-standard.md",
-      "internal/aiprompts/README.md",
-      "internal/aiprompts/agent-protocol-standards-map.md",
-      "internal/prd/next/implementation-roadmap.md",
+      "docs/aiprompts/agent-ui-runtime-standard.md",
+      "docs/aiprompts/README.md",
+      "docs/aiprompts/agent-protocol-standards-map.md",
+      "docs/prd/next/implementation-roadmap.md",
       "packages/agent-runtime-projection/README.md",
     ],
     snippets: [
@@ -5851,7 +5851,7 @@ const checks = [
   },
   {
     name: "Frontend integration matrix forbids legacy or mock turn lifecycle evidence",
-    file: "internal/roadmap/appserver/frontend-integration-matrix.md",
+    file: "docs/roadmap/appserver/frontend-integration-matrix.md",
     snippets: [
       "Frontend -> Electron Desktop Host bridge -> App Server JSON-RPC -> RuntimeCore / backend",
       "真正的后端事实源只有一个：App Server JSON-RPC",
@@ -5904,7 +5904,7 @@ const checks = [
   },
   {
     name: "Execution plan records Agent turn lifecycle as current-only after P3.122",
-    file: "internal/exec-plans/app-server-implementation-plan.md",
+    file: "docs/exec-plans/app-server-implementation-plan.md",
     snippets: [
       "P3.135 Agent turn lifecycle current-only 文档 / 契约守卫",
       "该诊断已由 P3.122 之后的 current-only 改造收口",
@@ -5920,7 +5920,7 @@ const checks = [
   },
   {
     name: "Execution plan records production mock and live-provider smoke gates",
-    file: "internal/exec-plans/app-server-implementation-plan.md",
+    file: "docs/exec-plans/app-server-implementation-plan.md",
     snippets: [
       "P3.137 production mock / live-provider gate 收口",
       "生产不能 mock，只有测试才 mock",
@@ -5933,7 +5933,7 @@ const checks = [
   },
   {
     name: "Execution plan records evidence pack export gateway as App Server current",
-    file: "internal/exec-plans/app-server-implementation-plan.md",
+    file: "docs/exec-plans/app-server-implementation-plan.md",
     snippets: [
       "P3.138 evidence pack UI gateway current 化",
       "`exportAgentRuntimeEvidencePack(sessionId)` 现在直接调用 `AppServerClient.exportEvidence({ sessionId, includeEvents: true, includeArtifacts: true, includeEvidencePack: true })`",

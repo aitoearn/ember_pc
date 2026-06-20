@@ -90,21 +90,21 @@ const __dirname = path.dirname(__filename);
 const DEFAULT_REPO_ROOT = path.resolve(__dirname, "../..");
 
 const EVIDENCE_PATHS = {
-  bundleStrategy: "internal/roadmap/i18n/evidence/bundle-strategy-report.json",
+  bundleStrategy: "docs/roadmap/i18n/evidence/bundle-strategy-report.json",
   contentTargetLanguageBoundary:
-    "internal/roadmap/i18n/evidence/content-target-language-boundary-report.json",
+    "docs/roadmap/i18n/evidence/content-target-language-boundary-report.json",
   i18nextCliParityBenchmark:
-    "internal/roadmap/i18n/evidence/i18next-cli-parity-benchmark.json",
+    "docs/roadmap/i18n/evidence/i18next-cli-parity-benchmark.json",
   languageBoundary:
-    "internal/roadmap/i18n/evidence/language-boundary-report.json",
-  p4Readiness: "internal/roadmap/i18n/evidence/p4-readiness-report.json",
+    "docs/roadmap/i18n/evidence/language-boundary-report.json",
+  p4Readiness: "docs/roadmap/i18n/evidence/p4-readiness-report.json",
   patchRetirementGate:
-    "internal/roadmap/i18n/evidence/patch-retirement-gate-report.json",
+    "docs/roadmap/i18n/evidence/patch-retirement-gate-report.json",
   sourceLocaleExport:
-    "internal/roadmap/i18n/evidence/source-locale-export.json",
+    "docs/roadmap/i18n/evidence/source-locale-export.json",
   translationCoverage:
-    "internal/roadmap/i18n/evidence/translation-coverage-report.json",
-  translationPrPack: "internal/roadmap/i18n/evidence/translation-pr-pack.json",
+    "docs/roadmap/i18n/evidence/translation-coverage-report.json",
+  translationPrPack: "docs/roadmap/i18n/evidence/translation-pr-pack.json",
 } as const;
 
 const SOURCE_PATHS = {
@@ -112,7 +112,7 @@ const SOURCE_PATHS = {
   appConfigTypes: "src/lib/api/appConfigTypes.ts",
   appearanceSettings: "src/components/settings-v2/general/appearance/index.tsx",
   createI18n: "src/i18n/createI18n.ts",
-  glossary: "internal/roadmap/i18n/glossary.md",
+  glossary: "docs/roadmap/i18n/glossary.md",
   legacyPatchProvider: "src/i18n/legacy-patch/I18nPatchProvider.tsx",
   loadNamespaceTest: "src/i18n/__tests__/loadNamespace.test.ts",
   locales: "src/i18n/locales.ts",

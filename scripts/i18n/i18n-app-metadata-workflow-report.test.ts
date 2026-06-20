@@ -96,7 +96,7 @@ describe("i18n app metadata workflow report", () => {
     );
     writeFile(
       root,
-      "internal/roadmap/i18n/evidence/app-metadata-locale-build-manifest.json",
+      "docs/roadmap/i18n/evidence/app-metadata-locale-build-manifest.json",
       JSON.stringify(
         {
           schemaVersion: "ember.i18n.appMetadataLocaleBuildManifest.v1",
@@ -116,7 +116,7 @@ describe("i18n app metadata workflow report", () => {
     );
     writeFile(
       root,
-      "internal/roadmap/i18n/app-metadata-translation-scope.json",
+      "docs/roadmap/i18n/app-metadata-translation-scope.json",
       JSON.stringify(
         {
           schemaVersion: "ember.i18n.appMetadataTranslationScope.v1",
@@ -283,7 +283,7 @@ describe("i18n app metadata workflow report", () => {
     );
     writeFile(
       root,
-      "internal/roadmap/i18n/app-metadata-translation-scope.json",
+      "docs/roadmap/i18n/app-metadata-translation-scope.json",
       JSON.stringify(
         {
           schemaVersion: "ember.i18n.appMetadataTranslationScope.v1",

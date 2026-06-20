@@ -118,10 +118,10 @@ export const options = {
     "scripts/quality-task-planner.mjs",
     "i18n:translation-pr-pack:json i18n:bundle-report:json i18n:p4-readiness-report:json\n",
   );
-  writeText(root, "internal/roadmap/i18n/glossary.md", "# glossary\n");
+  writeText(root, "docs/roadmap/i18n/glossary.md", "# glossary\n");
   writeText(root, ".github/pull_request_template.md", "namespace\n");
 
-  writeJson(root, "internal/roadmap/i18n/evidence/source-locale-export.json", {
+  writeJson(root, "docs/roadmap/i18n/evidence/source-locale-export.json", {
     namespaces: [
       {
         namespace: "common",
@@ -169,7 +169,7 @@ export const options = {
   });
   writeJson(
     root,
-    "internal/roadmap/i18n/evidence/translation-coverage-report.json",
+    "docs/roadmap/i18n/evidence/translation-coverage-report.json",
     {
       coverage: {
         summary: {
@@ -189,7 +189,7 @@ export const options = {
       },
     },
   );
-  writeJson(root, "internal/roadmap/i18n/evidence/translation-pr-pack.json", {
+  writeJson(root, "docs/roadmap/i18n/evidence/translation-pr-pack.json", {
     schemaVersion: "ember.i18n.translationPrPack.v1",
     summary: {
       localesWithGaps: 0,
@@ -199,7 +199,7 @@ export const options = {
   });
   writeJson(
     root,
-    "internal/roadmap/i18n/evidence/bundle-strategy-report.json",
+    "docs/roadmap/i18n/evidence/bundle-strategy-report.json",
     {
       schemaVersion: "ember.i18n.bundleStrategyReport.v1",
       summary: {
@@ -211,7 +211,7 @@ export const options = {
   );
   writeJson(
     root,
-    "internal/roadmap/i18n/evidence/language-boundary-report.json",
+    "docs/roadmap/i18n/evidence/language-boundary-report.json",
     {
       schemaVersion: "ember.i18n.languageBoundaryReport.v1",
       summary: {
@@ -226,7 +226,7 @@ export const options = {
   );
   writeJson(
     root,
-    "internal/roadmap/i18n/evidence/content-target-language-boundary-report.json",
+    "docs/roadmap/i18n/evidence/content-target-language-boundary-report.json",
     {
       schemaVersion: "ember.i18n.languageBoundaryReport.v1",
       summary: {
@@ -237,7 +237,7 @@ export const options = {
   );
   writeJson(
     root,
-    "internal/roadmap/i18n/evidence/i18next-cli-parity-benchmark.json",
+    "docs/roadmap/i18n/evidence/i18next-cli-parity-benchmark.json",
     {
       schemaVersion: "ember.i18n.i18nextCliParityBenchmark.v1",
       summary: {
@@ -247,7 +247,7 @@ export const options = {
   );
   writeJson(
     root,
-    "internal/roadmap/i18n/evidence/patch-retirement-gate-report.json",
+    "docs/roadmap/i18n/evidence/patch-retirement-gate-report.json",
     {
       legacy: {
         classificationDriftCandidateCount: 0,
@@ -261,7 +261,7 @@ export const options = {
       schemaVersion: "ember.i18n.patchRetirementGate.v1",
     },
   );
-  writeJson(root, "internal/roadmap/i18n/evidence/p4-readiness-report.json", {
+  writeJson(root, "docs/roadmap/i18n/evidence/p4-readiness-report.json", {
     knownGaps: [],
     schemaVersion: "ember.i18n.p4ReadinessReport.v1",
     summary: {
@@ -320,7 +320,7 @@ describe("i18n roadmap readiness report", () => {
   it("应在 P3 evidence source key 计数不一致时标记整体未完成", () => {
     const root = createTempDir();
     writeReadyRepo(root);
-    writeJson(root, "internal/roadmap/i18n/evidence/translation-pr-pack.json", {
+    writeJson(root, "docs/roadmap/i18n/evidence/translation-pr-pack.json", {
       schemaVersion: "ember.i18n.translationPrPack.v1",
       summary: {
         localesWithGaps: 0,

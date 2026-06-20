@@ -357,7 +357,7 @@ export function computeAllPerfSummaries(
 
 - [ ] **Step 2:** `npm run verify:local`
 
-- [ ] **Step 3:** 创建 `internal/exec-plans/device-performance-monitor-plan.md` 进度日志
+- [ ] **Step 3:** 创建 `docs/exec-plans/device-performance-monitor-plan.md` 进度日志
 
 - [ ] **Step 4:** 更新 design spec 状态为「P1 实现中/已完成」
 

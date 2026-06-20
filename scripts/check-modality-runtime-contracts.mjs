@@ -21,14 +21,14 @@ const HARNESS_HANDOFF_EXPORT_SECTION_PATH =
 const HARNESS_EVIDENCE_PACK_CARD_PATH =
   "src/components/agent/chat/components/HarnessEvidencePackCard.tsx";
 const REQUIRED_DOCS = [
-  "internal/roadmap/warp/runtime-fact-map.md",
-  "internal/roadmap/warp/contract-schema.md",
-  "internal/roadmap/warp/capability-matrix.md",
-  "internal/roadmap/warp/execution-profile.md",
-  "internal/roadmap/warp/artifact-graph.md",
-  "internal/roadmap/warp/entry-binding-inventory.md",
-  "internal/roadmap/warp/task-index-inventory.md",
-  "internal/roadmap/warp/evolution-guide.md",
+  "docs/roadmap/warp/runtime-fact-map.md",
+  "docs/roadmap/warp/contract-schema.md",
+  "docs/roadmap/warp/capability-matrix.md",
+  "docs/roadmap/warp/execution-profile.md",
+  "docs/roadmap/warp/artifact-graph.md",
+  "docs/roadmap/warp/entry-binding-inventory.md",
+  "docs/roadmap/warp/task-index-inventory.md",
+  "docs/roadmap/warp/evolution-guide.md",
 ];
 const REQUIRED_TASK_INDEX_PRESENTATION_EXPORTS = [
   "buildModalityTaskIndexFacets",

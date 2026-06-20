@@ -228,10 +228,10 @@ describe("Electron release workflow guard", () => {
 
   it("rejects retired builder updater metadata files in the repository", () => {
     const repositoryRoot = tempRepositoryRoot({
-      "internal/latest-mac.yml": "legacy mac updater metadata",
-      "internal/Ember.app.tar.gz": "legacy archive",
-      "internal/Ember.dmg.blockmap": "legacy blockmap",
-      "internal/Ember.sig": "legacy signature",
+      "docs/latest-mac.yml": "legacy mac updater metadata",
+      "docs/Ember.app.tar.gz": "legacy archive",
+      "docs/Ember.dmg.blockmap": "legacy blockmap",
+      "docs/Ember.sig": "legacy signature",
     });
 
     expect(() => validateReleaseWorkflow({ repositoryRoot })).toThrow(

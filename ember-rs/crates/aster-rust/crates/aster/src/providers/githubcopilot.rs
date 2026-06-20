@@ -54,7 +54,7 @@ const GITHUB_COPILOT_DOC_URL: &str =
 const GITHUB_COPILOT_CLIENT_ID: &str = "Iv1.b507a08c87ecfe98";
 const GITHUB_COPILOT_DEVICE_CODE_URL: &str = "https://github.com/login/device/code";
 const GITHUB_COPILOT_ACCESS_TOKEN_URL: &str = "https://github.com/login/oauth/access_token";
-const GITHUB_COPILOT_API_KEY_URL: &str = "https://api.github.com/copilot_internal/v2/token";
+const GITHUB_COPILOT_API_KEY_URL: &str = "https://api.github.com/copilot_docs/v2/token";
 
 #[derive(Debug, Deserialize)]
 struct DeviceCodeInfo {

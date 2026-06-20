@@ -26,7 +26,7 @@ function writeJson(root: string, relativePath: string, value: unknown): void {
 function writeReadyEvidence(root: string): void {
   writeJson(
     root,
-    "internal/roadmap/i18n/evidence/chrome-extension-workflow-inventory.json",
+    "docs/roadmap/i18n/evidence/chrome-extension-workflow-inventory.json",
     {
       schemaVersion: "ember.i18n.chromeExtensionWorkflowReport.v1",
       summary: {
@@ -48,7 +48,7 @@ function writeReadyEvidence(root: string): void {
   );
   writeJson(
     root,
-    "internal/roadmap/i18n/evidence/release-docs-workflow-inventory.json",
+    "docs/roadmap/i18n/evidence/release-docs-workflow-inventory.json",
     {
       releaseDocsTranslationQueue: {
         workflowStatus: "ready",
@@ -73,7 +73,7 @@ function writeReadyEvidence(root: string): void {
   );
   writeJson(
     root,
-    "internal/roadmap/i18n/evidence/rtl-readiness-inventory.json",
+    "docs/roadmap/i18n/evidence/rtl-readiness-inventory.json",
     {
       schemaVersion: "ember.i18n.rtlReadinessReport.v1",
       summary: {
@@ -88,7 +88,7 @@ function writeReadyEvidence(root: string): void {
   );
   writeJson(
     root,
-    "internal/roadmap/i18n/evidence/app-metadata-workflow-inventory.json",
+    "docs/roadmap/i18n/evidence/app-metadata-workflow-inventory.json",
     {
       schemaVersion: "ember.i18n.appMetadataWorkflowReport.v1",
       summary: {
@@ -162,7 +162,7 @@ describe("i18n P4 readiness report", () => {
     writeReadyEvidence(root);
     writeJson(
       root,
-      "internal/roadmap/i18n/evidence/chrome-extension-workflow-inventory.json",
+      "docs/roadmap/i18n/evidence/chrome-extension-workflow-inventory.json",
       {
         schemaVersion: "ember.i18n.chromeExtensionWorkflowReport.v1",
         summary: {
@@ -182,7 +182,7 @@ describe("i18n P4 readiness report", () => {
     );
     writeJson(
       root,
-      "internal/roadmap/i18n/evidence/release-docs-workflow-inventory.json",
+      "docs/roadmap/i18n/evidence/release-docs-workflow-inventory.json",
       {
         releaseDocsTranslationQueue: {
           workflowStatus: "blocked",
@@ -226,7 +226,7 @@ describe("i18n P4 readiness report", () => {
     writeReadyEvidence(root);
     writeJson(
       root,
-      "internal/roadmap/i18n/evidence/app-metadata-workflow-inventory.json",
+      "docs/roadmap/i18n/evidence/app-metadata-workflow-inventory.json",
       {
         schemaVersion: "ember.i18n.appMetadataWorkflowReport.v1",
         summary: {

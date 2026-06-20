@@ -27,7 +27,7 @@
 
 **Purpose**: 登记长任务计划、建模块骨架
 
-- [x] T001 在 `internal/exec-plans/deterministic-flow-self-healing-plan.md` 新建执行计划（登记 Phase 2-7 目标、进度日志、代码体量与拆分 blocker 退出条件入口）
+- [x] T001 在 `docs/exec-plans/deterministic-flow-self-healing-plan.md` 新建执行计划（登记 Phase 2-7 目标、进度日志、代码体量与拆分 blocker 退出条件入口）
 - [x] T002 [P] 创建前端特性域目录骨架 `src/features/device-automation/flow/{domain,hooks,components}/`（按 plan.md「Source Code（增量）」结构占位）
 - [x] T003 [P] 在 `src/i18n/resources/zh-CN/deviceAutomation.json` 与 `src/i18n/resources/en-US/deviceAutomation.json` 增加 `flow.*` 顶层节点骨架（仅 zh-CN/en-US，遵循规则 05）
 
@@ -181,7 +181,7 @@
 - [x] T059 [P] 运行 `cargo test --manifest-path "lime-rs/Cargo.toml"` 受影响 crate（core / app-server）通过
 - [x] T060 [P] 运行前端 `vitest`（projection/VM 单测 + 组件接线测试）通过
 - [ ] T061 按 `specs/003-deterministic-flow-self-healing/quickstart.md` 三场景端到端验证（录制 / 确定性回放 / 自愈）— 需真机 Android + Ember GUI
-- [x] T062 更新 `internal/exec-plans/deterministic-flow-self-healing-plan.md` 进度日志；残留拆分项登记 tech-debt-tracker
+- [x] T062 更新 `docs/exec-plans/deterministic-flow-self-healing-plan.md` 进度日志；残留拆分项登记 tech-debt-tracker
 - [ ] T063 运行 `npm run verify:local` 与 `npm run verify:gui-smoke`（高风险 GUI 改动最小冒烟）— 待 T061 真机验证后收口
 
 ---

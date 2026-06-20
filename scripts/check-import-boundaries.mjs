@@ -143,7 +143,7 @@ function checkBoundaries() {
       "新增违例不允许。请重构为正向依赖，或联系团队评估后加入 baseline。",
     );
     console.error(
-      "规格：internal/refactor/progressive-refactor-plan.md R-30",
+      "规格：docs/refactor/progressive-refactor-plan.md R-30",
     );
     process.exit(1);
   }

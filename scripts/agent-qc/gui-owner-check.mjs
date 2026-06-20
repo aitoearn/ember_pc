@@ -15,7 +15,7 @@ function parseArgs(argv) {
     check: false,
     format: "summary",
     help: false,
-    manifestPath: "internal/test/agent-qc-scenarios.manifest.json",
+    manifestPath: "docs/test/agent-qc-scenarios.manifest.json",
     maxActiveOwners: 0,
     outputPath: "",
     statusDir: ".ember/qc",
@@ -75,7 +75,7 @@ Ember Agent QC GUI Owner Check
   node scripts/agent-qc/gui-owner-check.mjs --format json --output ./.ember/qc/gui-owner-current.json
 
 选项:
-  --manifest PATH            scenario manifest，默认 internal/test/agent-qc-scenarios.manifest.json
+  --manifest PATH            scenario manifest，默认 docs/test/agent-qc-scenarios.manifest.json
   --status-dir PATH          qcloop status sidecar 目录，默认 .ember/qc
   --max-active-owners N      允许的 active GUI owner 数，默认 0
   --format FMT               summary | json

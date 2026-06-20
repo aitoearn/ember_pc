@@ -183,13 +183,13 @@ function containsAgentQcAction(value) {
 
 function loadFacts() {
   const scenarioManifest = readJson(
-    "internal/test/agent-qc-scenarios.manifest.json",
+    "docs/test/agent-qc-scenarios.manifest.json",
   );
   const guiFlowManifest = readJson(
-    "internal/test/agent-qc-gui-flows.manifest.json",
+    "docs/test/agent-qc-gui-flows.manifest.json",
   );
   const evidenceSchema = readJson(
-    "internal/test/agent-qc-evidence.schema.json",
+    "docs/test/agent-qc-evidence.schema.json",
   );
   const packageJson = readJson("package.json");
   const scenarioReport = createAgentQcReport({
@@ -226,9 +226,9 @@ function loadFacts() {
     ? readText("scripts/lib/agent-qc-gui-owner-core.mjs")
     : "";
   const staleOwnerInterventionDoc = exists(
-    "internal/tests/ember-agent-qc-stale-owner-intervention.md",
+    "docs/tests/ember-agent-qc-stale-owner-intervention.md",
   )
-    ? readText("internal/tests/ember-agent-qc-stale-owner-intervention.md")
+    ? readText("docs/tests/ember-agent-qc-stale-owner-intervention.md")
     : "";
   const nightly = exists(".github/workflows/harness-nightly.yml")
     ? readText(".github/workflows/harness-nightly.yml")
@@ -239,24 +239,24 @@ function loadFacts() {
 
   return {
     files: {
-      agentOpsQc: exists("internal/tests/agent-ops-qc.md"),
-      p0Scenarios: exists("internal/tests/agent-qc-p0-scenarios.md"),
-      limeRolloutPlan: exists("internal/tests/ember-agent-qc-rollout-plan.md"),
-      testsReadme: exists("internal/tests/README.md"),
-      evidenceSchema: exists("internal/test/agent-qc-evidence.schema.json"),
+      agentOpsQc: exists("docs/tests/agent-ops-qc.md"),
+      p0Scenarios: exists("docs/tests/agent-qc-p0-scenarios.md"),
+      limeRolloutPlan: exists("docs/tests/ember-agent-qc-rollout-plan.md"),
+      testsReadme: exists("docs/tests/README.md"),
+      evidenceSchema: exists("docs/test/agent-qc-evidence.schema.json"),
       qcloopJobScript: exists("scripts/agent-qc/qcloop-job.mjs"),
       payloadCoverageScript: exists("scripts/agent-qc/payload-coverage.mjs"),
       guiOwnerCheckScript: exists("scripts/agent-qc/gui-owner-check.mjs"),
       qcloopStatusScript: exists("scripts/agent-qc/qcloop-status.mjs"),
       qcloopPreflightScript: exists("scripts/agent-qc/qcloop-preflight.mjs"),
       qcloopOperationsDoc: exists(
-        "internal/tests/ember-agent-qc-qcloop-operations.md",
+        "docs/tests/ember-agent-qc-qcloop-operations.md",
       ),
       evidenceContractDoc: exists(
-        "internal/tests/ember-agent-qc-evidence-contract.md",
+        "docs/tests/ember-agent-qc-evidence-contract.md",
       ),
       staleOwnerInterventionDoc: exists(
-        "internal/tests/ember-agent-qc-stale-owner-intervention.md",
+        "docs/tests/ember-agent-qc-stale-owner-intervention.md",
       ),
       exportEvidenceScript: exists("scripts/agent-qc/export-evidence.mjs"),
       releaseSummaryScript: exists("scripts/agent-qc/release-summary.mjs"),

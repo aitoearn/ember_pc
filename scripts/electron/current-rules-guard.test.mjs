@@ -70,10 +70,10 @@ describe("Electron current repository rules guard", () => {
   it("keeps root and aiprompts rules on Electron/App Server current", () => {
     const docs = [
       "AGENTS.md",
-      "internal/aiprompts/README.md",
-      "internal/aiprompts/commands.md",
-      "internal/aiprompts/governance.md",
-      "internal/aiprompts/quality-workflow.md",
+      "docs/aiprompts/README.md",
+      "docs/aiprompts/commands.md",
+      "docs/aiprompts/governance.md",
+      "docs/aiprompts/quality-workflow.md",
     ];
 
     for (const filePath of docs) {
@@ -86,36 +86,36 @@ describe("Electron current repository rules guard", () => {
     expectNoBrandPrefixRule(readFile("AGENTS.md"), "AGENTS.md");
     expectAppServerAgentRule(readFile("AGENTS.md"), "AGENTS.md");
     expectNoBrandPrefixRule(
-      readFile("internal/aiprompts/README.md"),
-      "internal/aiprompts/README.md",
+      readFile("docs/aiprompts/README.md"),
+      "docs/aiprompts/README.md",
     );
     expectAppServerAgentRule(
-      readFile("internal/aiprompts/README.md"),
-      "internal/aiprompts/README.md",
+      readFile("docs/aiprompts/README.md"),
+      "docs/aiprompts/README.md",
     );
     expectRustCommandsCleanupRule(readFile("AGENTS.md"), "AGENTS.md");
     expectRustCommandsCleanupRule(
-      readFile("internal/aiprompts/README.md"),
-      "internal/aiprompts/README.md",
+      readFile("docs/aiprompts/README.md"),
+      "docs/aiprompts/README.md",
     );
     expectRustCommandsCleanupRule(
-      readFile("internal/aiprompts/commands.md"),
-      "internal/aiprompts/commands.md",
+      readFile("docs/aiprompts/commands.md"),
+      "docs/aiprompts/commands.md",
     );
     expectRustCommandsCleanupRule(
-      readFile("internal/README.md"),
-      "internal/README.md",
+      readFile("docs/README.md"),
+      "docs/README.md",
     );
   });
 
   it("keeps App Server roadmap aware that Rust commands are cleanup-only", () => {
     const docs = [
-      "internal/roadmap/appserver/README.md",
-      "internal/roadmap/appserver/architecture.md",
-      "internal/roadmap/appserver/frontend-electron-migration.md",
-      "internal/roadmap/appserver/service-extraction.md",
-      "internal/roadmap/appserver/testing-migration.md",
-      "internal/roadmap/appserver/implementation-plan.md",
+      "docs/roadmap/appserver/README.md",
+      "docs/roadmap/appserver/architecture.md",
+      "docs/roadmap/appserver/frontend-electron-migration.md",
+      "docs/roadmap/appserver/service-extraction.md",
+      "docs/roadmap/appserver/testing-migration.md",
+      "docs/roadmap/appserver/implementation-plan.md",
     ];
 
     for (const filePath of docs) {
@@ -125,10 +125,10 @@ describe("Electron current repository rules guard", () => {
 
   it("keeps execution plan entrypoints aware that Rust commands are cleanup-only", () => {
     const docs = [
-      "internal/exec-plans/README.md",
-      "internal/exec-plans/production-command-current-migration-plan.md",
-      "internal/exec-plans/tauri-wrapper-quick-cleanup-queue.md",
-      "internal/exec-plans/tauri-wrapper-command-inventory.md",
+      "docs/exec-plans/README.md",
+      "docs/exec-plans/production-command-current-migration-plan.md",
+      "docs/exec-plans/tauri-wrapper-quick-cleanup-queue.md",
+      "docs/exec-plans/tauri-wrapper-command-inventory.md",
     ];
 
     for (const filePath of docs) {
@@ -139,9 +139,9 @@ describe("Electron current repository rules guard", () => {
   it("keeps governance, quality, docs, and skill references aware of Rust commands cleanup", () => {
     const docs = [
       "docs/README.md",
-      "internal/aiprompts/governance.md",
-      "internal/aiprompts/quality-workflow.md",
-      "internal/aiprompts/commands.md",
+      "docs/aiprompts/governance.md",
+      "docs/aiprompts/quality-workflow.md",
+      "docs/aiprompts/commands.md",
       ...existingFiles([
         ".codex/skills/ember-command-boundary/references/commands.md",
         ".codex/skills/ember-governance/references/governance.md",
@@ -172,7 +172,7 @@ describe("Electron current repository rules guard", () => {
   });
 
   it("keeps testing rules on Electron current evidence", () => {
-    const content = readFile("internal/aiprompts/quality-workflow.md");
+    const content = readFile("docs/aiprompts/quality-workflow.md");
 
     expect(content).toContain("测试用例需要全面更新口径");
     expect(content).toContain("Electron Desktop Host");

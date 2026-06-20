@@ -59,13 +59,13 @@ describe("i18n release docs workflow report", () => {
     writeFile(root, "docs/content/02.user-guide/a.md", "# Guide\n");
     writeFile(
       root,
-      "internal/roadmap/i18n/companions/user-guide-a.en.md",
+      "docs/roadmap/i18n/companions/user-guide-a.en.md",
       "# Guide\n",
     );
     writeFile(root, "docs/content/08.open-platform/b.md", "# Open Platform\n");
     writeFile(
       root,
-      "internal/roadmap/i18n/evidence/docs-locale-build-manifest.json",
+      "docs/roadmap/i18n/evidence/docs-locale-build-manifest.json",
       JSON.stringify(
         {
           schemaVersion: "ember.i18n.docsLocaleBuildManifest.v1",
@@ -80,7 +80,7 @@ describe("i18n release docs workflow report", () => {
     );
     writeFile(
       root,
-      "internal/roadmap/i18n/release-docs-translation-scope.json",
+      "docs/roadmap/i18n/release-docs-translation-scope.json",
       JSON.stringify(
         {
           schemaVersion: "ember.i18n.releaseDocsTranslationScope.v1",
@@ -103,7 +103,7 @@ describe("i18n release docs workflow report", () => {
               path: "docs/content/02.user-guide/a.md",
               kind: "help-doc",
               priority: "pilot",
-              enUSPath: "internal/roadmap/i18n/companions/user-guide-a.en.md",
+              enUSPath: "docs/roadmap/i18n/companions/user-guide-a.en.md",
             },
             {
               path: "docs/content/08.open-platform/b.md",
@@ -156,7 +156,7 @@ describe("i18n release docs workflow report", () => {
       expect.objectContaining({
         blockingReason: null,
         generatedFromScopePath:
-          "internal/roadmap/i18n/release-docs-translation-scope.json",
+          "docs/roadmap/i18n/release-docs-translation-scope.json",
         itemCount: 1,
         missingSourceCount: 0,
         pilotCompanionMissingCount: 0,
@@ -184,7 +184,7 @@ describe("i18n release docs workflow report", () => {
       expect.objectContaining({
         existingEnglishCompanionCount: 3,
         itemCount: 4,
-        companionFiles: ["internal/roadmap/i18n/companions/user-guide-a.en.md"],
+        companionFiles: ["docs/roadmap/i18n/companions/user-guide-a.en.md"],
         missingEnglishCompanions: [],
         missingPilotEnglishCompanions: [],
         pilotCount: 1,
@@ -257,17 +257,17 @@ describe("i18n release docs workflow report", () => {
     writeFile(root, "docs/content/index.md", "# Docs\n");
     writeFile(
       root,
-      "internal/roadmap/i18n/companions/docs-content-index.en.md",
+      "docs/roadmap/i18n/companions/docs-content-index.en.md",
       "# Docs\n",
     );
     writeFile(
       root,
-      "internal/roadmap/i18n/companions/orphan.en.md",
+      "docs/roadmap/i18n/companions/orphan.en.md",
       "# Orphan\n",
     );
     writeFile(
       root,
-      "internal/roadmap/i18n/release-docs-translation-scope.json",
+      "docs/roadmap/i18n/release-docs-translation-scope.json",
       JSON.stringify(
         {
           schemaVersion: "ember.i18n.releaseDocsTranslationScope.v1",
@@ -291,7 +291,7 @@ describe("i18n release docs workflow report", () => {
               kind: "docs-home",
               priority: "pilot",
               enUSPath:
-                "internal/roadmap/i18n/companions/docs-content-index.en.md",
+                "docs/roadmap/i18n/companions/docs-content-index.en.md",
             },
           ],
         },
@@ -304,7 +304,7 @@ describe("i18n release docs workflow report", () => {
 
     expect(report.summary.releaseDocsOrphanCompanionCount).toBe(1);
     expect(report.releaseDocsTranslationScope.orphanEnglishCompanions).toEqual([
-      "internal/roadmap/i18n/companions/orphan.en.md",
+      "docs/roadmap/i18n/companions/orphan.en.md",
     ]);
   });
 
@@ -329,7 +329,7 @@ describe("i18n release docs workflow report", () => {
     writeFile(root, "docs/content/02.user-guide/untracked.md", "# Untracked\n");
     writeFile(
       root,
-      "internal/roadmap/i18n/release-docs-translation-scope.json",
+      "docs/roadmap/i18n/release-docs-translation-scope.json",
       JSON.stringify(
         {
           schemaVersion: "ember.i18n.releaseDocsTranslationScope.v1",
@@ -388,7 +388,7 @@ describe("i18n release docs workflow report", () => {
     writeFile(root, "docs/content/index.md", "# Docs\n");
     writeFile(
       root,
-      "internal/roadmap/i18n/release-docs-translation-scope.json",
+      "docs/roadmap/i18n/release-docs-translation-scope.json",
       JSON.stringify(
         {
           schemaVersion: "ember.i18n.releaseDocsTranslationScope.v1",
