@@ -6,7 +6,7 @@
 set -e
 
 VERSION=$1
-REPO="aiclientproxy/ember"
+REPO="aitoearn/ember_pc"
 CASK_FILE="$(dirname "$0")/../Casks/ember.rb"
 
 if [ -z "$VERSION" ]; then

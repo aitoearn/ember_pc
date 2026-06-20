@@ -10,10 +10,10 @@
 
 Desktop test design, regression planning, API/E2E validation, knowledge context, multi-model analysis, and device automation workflows.
 
-[简体中文](./README.md) · **English** · [Docs](./docs/README.md) · [Release Notes](./RELEASE_NOTES.en.md) · [Issues](https://github.com/embercloud/ember/issues)
+[简体中文](./README.md) · **English** · [Docs](./docs/README.md) · [Release Notes](./RELEASE_NOTES.en.md) · [Issues](https://github.com/aitoearn/ember_pc/issues)
 
 <p>
-  <a href="https://github.com/embercloud/ember/releases"><img src="https://img.shields.io/github/v/release/embercloud/ember?label=release" alt="Ember GitHub Release" /></a>
+  <a href="https://github.com/aitoearn/ember_pc/releases"><img src="https://img.shields.io/github/v/release/aitoearn/ember_pc?label=release" alt="Ember GitHub Release" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-246B45" alt="Ember supports macOS and Windows" />
   <img src="https://img.shields.io/badge/desktop-Electron-24C8DB" alt="Ember is an Electron desktop app" />
   <img src="https://img.shields.io/badge/license-GPLv3-2F4F4F" alt="Ember GPLv3 license" />
@@ -175,7 +175,7 @@ Ember works best when AI is a testing collaborator: you provide scope, context, 
 
 ### Download
 
-Get the installer from [Releases](https://github.com/embercloud/ember/releases).
+Get the installer from [Releases](https://github.com/aitoearn/ember_pc/releases).
 
 - macOS: `.dmg` or Homebrew
 - Windows: `Ember_*_x64-setup.exe`
@@ -185,7 +185,7 @@ Get the installer from [Releases](https://github.com/embercloud/ember/releases).
 Homebrew on macOS:
 
 ```bash
-brew tap aiclientproxy/tap
+brew tap aitoearn/tap
 brew install --cask ember
 ```
 

@@ -90,7 +90,7 @@ Media task runtime 继续收口：`audio_generate` 会把显式 `target_language
 
 ## 证据链接
 
-- [language-boundary-report.json](/Users/coso/Documents/dev/ai/aiclientproxy/ember/internal/roadmap/i18n/evidence/language-boundary-report.json)
-- [content-target-language-boundary-report.json](/Users/coso/Documents/dev/ai/aiclientproxy/ember/internal/roadmap/i18n/evidence/content-target-language-boundary-report.json)
-- [i18n-language-boundary-report.ts](/Users/coso/Documents/dev/ai/aiclientproxy/ember/scripts/i18n/i18n-language-boundary-report.ts)
-- [PRD](/Users/coso/Documents/dev/ai/aiclientproxy/ember/internal/roadmap/i18n/prd.md)
+- [language-boundary-report.json](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/internal/roadmap/i18n/evidence/language-boundary-report.json)
+- [content-target-language-boundary-report.json](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/internal/roadmap/i18n/evidence/content-target-language-boundary-report.json)
+- [i18n-language-boundary-report.ts](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/scripts/i18n/i18n-language-boundary-report.ts)
+- [PRD](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/internal/roadmap/i18n/prd.md)

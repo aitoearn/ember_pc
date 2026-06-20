@@ -39,16 +39,16 @@
 /Users/coso/Documents/dev/ai/embercloud/ember-agent-workbench/docs/**
 /Users/coso/Documents/dev/ai/embercloud/ember-agent-workbench/docs/.vitepress/config.mts
 /Users/coso/Documents/dev/ai/embercloud/ember-agent-workbench/README.md
-/Users/coso/Documents/dev/ai/aiclientproxy/ember/internal/roadmap/agentworkbench/**
+/Users/coso/Documents/dev/ai/aitoearn/ember_pc/internal/roadmap/agentworkbench/**
 ```
 
 谨慎写集：
 
 ```text
-/Users/coso/Documents/dev/ai/aiclientproxy/ember/packages/agent-runtime-client/**
-/Users/coso/Documents/dev/ai/aiclientproxy/ember/packages/agent-ui-contracts/**
-/Users/coso/Documents/dev/ai/aiclientproxy/ember/packages/agent-runtime-projection/**
-/Users/coso/Documents/dev/ai/aiclientproxy/ember/packages/agent-runtime-ui/**
+/Users/coso/Documents/dev/ai/aitoearn/ember_pc/packages/agent-runtime-client/**
+/Users/coso/Documents/dev/ai/aitoearn/ember_pc/packages/agent-ui-contracts/**
+/Users/coso/Documents/dev/ai/aitoearn/ember_pc/packages/agent-runtime-projection/**
+/Users/coso/Documents/dev/ai/aitoearn/ember_pc/packages/agent-runtime-ui/**
 ```
 
 谨慎写集需要先盘点当前 dirty diff，避免覆盖其他进程工作。
@@ -56,9 +56,9 @@
 本轮禁止顺手写集：
 
 ```text
-/Users/coso/Documents/dev/ai/aiclientproxy/ember/src/features/agent-app/**
-/Users/coso/Documents/dev/ai/aiclientproxy/ember/src/lib/dev-bridge/**
-/Users/coso/Documents/dev/ai/aiclientproxy/ember/ember-rs/**
+/Users/coso/Documents/dev/ai/aitoearn/ember_pc/src/features/agent-app/**
+/Users/coso/Documents/dev/ai/aitoearn/ember_pc/src/lib/dev-bridge/**
+/Users/coso/Documents/dev/ai/aitoearn/ember_pc/ember-rs/**
 ```
 
 除非另起实现分支并明确认领，否则不要在本次文档标准化任务里夹写这些生产代码。

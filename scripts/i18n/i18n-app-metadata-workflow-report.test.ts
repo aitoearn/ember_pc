@@ -77,7 +77,7 @@ describe("i18n app metadata workflow report", () => {
         'name = "ember"',
         'version = "1.47.0"',
         'description = "AI API Proxy Desktop App"',
-        'homepage = "https://github.com/aiclientproxy/ember"',
+        'homepage = "https://github.com/aitoearn/ember_pc"',
       ].join("\n"),
     );
     writeFile(root, "forge.config.mjs", forgeConfigFixture());

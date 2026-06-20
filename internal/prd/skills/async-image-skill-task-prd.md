@@ -1,6 +1,6 @@
 # Skills 异步图片任务与动态渲染 PRD
 
-> 说明：本文件已降级为历史背景文档，`@配图` current 主方案请以 [internal/prd/gongneng/peitu/prd.md](/Users/coso/Documents/dev/ai/aiclientproxy/ember/internal/prd/gongneng/peitu/prd.md) 与 [internal/aiprompts/command-runtime.md](/Users/coso/Documents/dev/ai/aiclientproxy/ember/internal/aiprompts/command-runtime.md) 为准。当前首发入口已经统一收敛到 `image_skill_launch -> Agent -> Skill(image_generate) -> task file` 主链，不再保留“前端快路径”作为 current 实现。
+> 说明：本文件已降级为历史背景文档，`@配图` current 主方案请以 [internal/prd/gongneng/peitu/prd.md](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/internal/prd/gongneng/peitu/prd.md) 与 [internal/aiprompts/command-runtime.md](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/internal/aiprompts/command-runtime.md) 为准。当前首发入口已经统一收敛到 `image_skill_launch -> Agent -> Skill(image_generate) -> task file` 主链，不再保留“前端快路径”作为 current 实现。
 
 > 文档版本：v1.0
 > 状态：Draft

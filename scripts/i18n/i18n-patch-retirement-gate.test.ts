@@ -56,7 +56,7 @@ describe("i18n patch retirement gate", () => {
       thresholds: {},
     });
     const legacyReportPath = writeJson(root, "legacy-report.json", {
-      repoRoot: "/Users/coso/Documents/dev/ai/aiclientproxy/ember",
+      repoRoot: "/Users/coso/Documents/dev/ai/aitoearn/ember_pc",
       summary: {
         classificationDriftCandidates: [],
         runtimeSourceCount: 1,

@@ -32,11 +32,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/aitoearn/lmtestplatform.git"
+    "url": "git+https://github.com/aitoearn/ember_pc.git"
   },
-  "homepage": "https://github.com/aitoearn/lmtestplatform",
+  "homepage": "https://github.com/aitoearn/ember_pc",
   "bugs": {
-    "url": "https://github.com/aitoearn/lmtestplatform/issues"
+    "url": "https://github.com/aitoearn/ember_pc/issues"
   },
   "scripts": {
     "generate:agent-runtime-clients": "node scripts/generate-agent-runtime-clients.mjs",

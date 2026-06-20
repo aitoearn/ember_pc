@@ -46,10 +46,10 @@
 
 ## 证据链接
 
-- [locales.ts](/Users/coso/Documents/dev/ai/aiclientproxy/ember/src/i18n/locales.ts)
-- [createI18n.ts](/Users/coso/Documents/dev/ai/aiclientproxy/ember/src/i18n/createI18n.ts)
-- [locales.test.ts](/Users/coso/Documents/dev/ai/aiclientproxy/ember/src/i18n/__tests__/locales.test.ts)
-- [rtl-readiness-inventory.json](/Users/coso/Documents/dev/ai/aiclientproxy/ember/internal/roadmap/i18n/evidence/rtl-readiness-inventory.json)
-- [rtl-screenshot-smoke-report.md](/Users/coso/Documents/dev/ai/aiclientproxy/ember/internal/roadmap/i18n/evidence/rtl-screenshot-smoke-report.md)
-- [rtl-playwright-smoke-report.json](/Users/coso/Documents/dev/ai/aiclientproxy/ember/internal/roadmap/i18n/evidence/rtl-playwright-smoke-report.json)
-- [PRD](/Users/coso/Documents/dev/ai/aiclientproxy/ember/internal/roadmap/i18n/prd.md)
+- [locales.ts](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/src/i18n/locales.ts)
+- [createI18n.ts](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/src/i18n/createI18n.ts)
+- [locales.test.ts](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/src/i18n/__tests__/locales.test.ts)
+- [rtl-readiness-inventory.json](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/internal/roadmap/i18n/evidence/rtl-readiness-inventory.json)
+- [rtl-screenshot-smoke-report.md](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/internal/roadmap/i18n/evidence/rtl-screenshot-smoke-report.md)
+- [rtl-playwright-smoke-report.json](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/internal/roadmap/i18n/evidence/rtl-playwright-smoke-report.json)
+- [PRD](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/internal/roadmap/i18n/prd.md)

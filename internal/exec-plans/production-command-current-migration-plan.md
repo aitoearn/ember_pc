@@ -5161,7 +5161,7 @@ MCP 使用测试流程：
   - 状态：`ready_for_review`；P16 Settings About 手动下载外链旁路已收口。P16 整组仍未 `done`：chrome relay browser-only、GeneralWorkbench / A2UI Text / Resource Manager opener / ArtifactToolbar 等剩余外链与内容预览路径仍需逐项分类或收口；P6 Session files App Server current method / GUI 工作台真实恢复保存链、P14 真实 voice runtime owner 仍是整体目标主缺口。
 - 2026-06-09 22:09 CST P16 Agent Skills 反馈外链旁路收口到 current 网关
   - 写集：`src/components/settings-v2/agent/skills/index.tsx`、`src/components/settings-v2/agent/skills/index.test.tsx`、`internal/exec-plans/production-command-current-migration-plan.md`；本刀只收 Agent Skills 设置页的 GitHub issue 反馈外链，不夹写 Skills App Server 管理链、P10 Skills、P6 session files、P14 voice、Electron Host / IPC、App Server protocol/runtime/client、Rust runner / dispatcher、`src/lib/dev-bridge/**` 或 `ember-rs/src/**`。
-  - 盘点结论：Agent Skills 设置页反馈链接直接渲染 `<a target="_blank">` 打开 `https://github.com/aiclientproxy/ember/issues`；这属于生产 GUI 外链入口，会绕过 `src/lib/api/externalUrl.ts -> open_external_url` current 网关。
+  - 盘点结论：Agent Skills 设置页反馈链接直接渲染 `<a target="_blank">` 打开 `https://github.com/aitoearn/ember_pc/issues`；这属于生产 GUI 外链入口，会绕过 `src/lib/api/externalUrl.ts -> open_external_url` current 网关。
   - 改动：反馈链接复用 `src/lib/markdown/externalLinks.ts` 的 `resolveHttpExternalHref` / `interceptHttpExternalLinkClick`；http/https 点击和中键点击进入 `openExternalUrlWithSystemBrowser -> open_external_url` current 网关，不再设置 `target="_blank"`。
   - 分类：`open_external_url` = `current Electron Desktop Host shell command`；Agent Skills 反馈链接 = `current GUI caller through gateway`；原 `target="_blank"` 反馈旁路 = `dead / removed local bypass`；测试 mock = `test-only API gateway fixture`。
   - 主线收益：P16 External URL 覆盖设置页 Agent Skills 入口，反馈链接不再绕过 Desktop Host externalUrl current 网关，避免 degraded 时静默成功。
@@ -5592,7 +5592,7 @@ MCP 使用测试流程：
   - 状态：`validation-blocked-by-disk`；GUI smoke 与 `npm run test:contracts` 已通过，但 `cargo test -p app-server --lib runtime` 仍无通过证据。下一轮若需要关闭 `RuntimeCore` Rust validation-limited 缺口，应先由用户确认可清理哪些构建缓存 / 临时 target，或在有足够磁盘空间的环境复跑同一命令。
 - 2026-06-10 08:14 CST `RuntimeCore` Rust 定向验证阻塞解除
   - 写集：`internal/exec-plans/production-command-current-migration-plan.md`；本 checkpoint 只补充验证事实，不夹写 App Server runtime / processor / local data source、前端 API、Electron Host / IPC、legacy runner / dispatcher、`src/lib/dev-bridge/**` 或 `ember-rs/src/commands/**`。
-  - 环境事实：复跑前 `df -h "/Users/coso/Documents/dev/ai/aiclientproxy/ember" /tmp` 显示当前卷约 `44GiB` 可用，07:59 CST 的磁盘空间阻塞条件已解除。
+  - 环境事实：复跑前 `df -h "/Users/coso/Documents/dev/ai/aitoearn/ember_pc" /tmp` 显示当前卷约 `44GiB` 可用，07:59 CST 的磁盘空间阻塞条件已解除。
   - 验证：`cargo test --manifest-path "ember-rs/Cargo.toml" -p app-server --lib runtime` 通过，`69 passed`、`0 failed`、`48 filtered out`，用时 `1m 24s` 编译 + `2.24s` 测试。该命令覆盖 `runtime::tests::*`、`runtime_backend::*`、`runtime_factory::*` 与 App Server session / turn / artifact / evidence / handoff / objective / capability current 回归。
   - 保留 warning：本次仍输出 `runtime.rs` 的 `8` 个 unused import warning，集中在 handoff / replay / review / evidence export response DTO 与 `std::fmt::Write`；这是 `RuntimeCore` 拆分后的 cleanup residual，不阻塞定向测试通过。按收尾边界，本 checkpoint 不修改 `runtime.rs` 清 warning，避免在并行写集里夹写共享实现文件。
   - 分类：`runtime.rs` 与 `runtime/**` = `current App Server RuntimeCore fact source`；`runtime/tests.rs` = `test-only RuntimeCore coverage module`；Rust 定向测试 = `current RuntimeCore validation evidence`。本条不新增 compat / deprecated 路径，不恢复旧 Tauri wrapper，不引入生产 mock fallback。

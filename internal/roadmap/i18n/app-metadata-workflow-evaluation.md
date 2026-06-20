@@ -54,10 +54,10 @@
 
 ## 证据链接
 
-- [app-metadata-translation-scope.json](/Users/coso/Documents/dev/ai/aiclientproxy/ember/internal/roadmap/i18n/app-metadata-translation-scope.json)
-- [app-metadata-locale-build-manifest.json](/Users/coso/Documents/dev/ai/aiclientproxy/ember/internal/roadmap/i18n/evidence/app-metadata-locale-build-manifest.json)
-- [app-metadata-workflow-inventory.json](/Users/coso/Documents/dev/ai/aiclientproxy/ember/internal/roadmap/i18n/evidence/app-metadata-workflow-inventory.json)
-- [package.json](/Users/coso/Documents/dev/ai/aiclientproxy/ember/package.json)
-- [ember-rs/Cargo.toml](/Users/coso/Documents/dev/ai/aiclientproxy/ember/ember-rs/Cargo.toml)
-- [forge.config.mjs](/Users/coso/Documents/dev/ai/aiclientproxy/ember/forge.config.mjs)
-- [ember-rs/capabilities/agent-app-shell.json](/Users/coso/Documents/dev/ai/aiclientproxy/ember/ember-rs/capabilities/agent-app-shell.json)
+- [app-metadata-translation-scope.json](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/internal/roadmap/i18n/app-metadata-translation-scope.json)
+- [app-metadata-locale-build-manifest.json](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/internal/roadmap/i18n/evidence/app-metadata-locale-build-manifest.json)
+- [app-metadata-workflow-inventory.json](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/internal/roadmap/i18n/evidence/app-metadata-workflow-inventory.json)
+- [package.json](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/package.json)
+- [ember-rs/Cargo.toml](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/ember-rs/Cargo.toml)
+- [forge.config.mjs](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/forge.config.mjs)
+- [ember-rs/capabilities/agent-app-shell.json](/Users/coso/Documents/dev/ai/aitoearn/ember_pc/ember-rs/capabilities/agent-app-shell.json)

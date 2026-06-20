@@ -51,10 +51,10 @@
 
 ## 证据链接
 
-- [chrome-extension-workflow-inventory.json](</Users/coso/Documents/dev/ai/aiclientproxy/ember/internal/roadmap/i18n/evidence/chrome-extension-workflow-inventory.json>)
-- [manifest.json](</Users/coso/Documents/dev/ai/aiclientproxy/ember/extensions/ember-chrome/manifest.json>)
-- [install-i18n.js](</Users/coso/Documents/dev/ai/aiclientproxy/ember/extensions/ember-chrome/pages/scripts/install-i18n.js>)
-- [options.html](</Users/coso/Documents/dev/ai/aiclientproxy/ember/extensions/ember-chrome/pages/options.html>)
-- [install-extension.html](</Users/coso/Documents/dev/ai/aiclientproxy/ember/extensions/ember-chrome/pages/install-extension.html>)
-- [compare-methods.html](</Users/coso/Documents/dev/ai/aiclientproxy/ember/extensions/ember-chrome/pages/compare-methods.html>)
-- [README.md](</Users/coso/Documents/dev/ai/aiclientproxy/ember/extensions/ember-chrome/README.md>)
+- [chrome-extension-workflow-inventory.json](</Users/coso/Documents/dev/ai/aitoearn/ember_pc/internal/roadmap/i18n/evidence/chrome-extension-workflow-inventory.json>)
+- [manifest.json](</Users/coso/Documents/dev/ai/aitoearn/ember_pc/extensions/ember-chrome/manifest.json>)
+- [install-i18n.js](</Users/coso/Documents/dev/ai/aitoearn/ember_pc/extensions/ember-chrome/pages/scripts/install-i18n.js>)
+- [options.html](</Users/coso/Documents/dev/ai/aitoearn/ember_pc/extensions/ember-chrome/pages/options.html>)
+- [install-extension.html](</Users/coso/Documents/dev/ai/aitoearn/ember_pc/extensions/ember-chrome/pages/install-extension.html>)
+- [compare-methods.html](</Users/coso/Documents/dev/ai/aitoearn/ember_pc/extensions/ember-chrome/pages/compare-methods.html>)
+- [README.md](</Users/coso/Documents/dev/ai/aitoearn/ember_pc/extensions/ember-chrome/README.md>)

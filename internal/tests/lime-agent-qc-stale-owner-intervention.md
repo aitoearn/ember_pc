@@ -112,7 +112,7 @@ npm run agent-qc:gui-owner-check -- --check
 
 npm run agent-qc:qcloop-job -- \
   --risk P0 \
-  --cwd "/Users/coso/Documents/dev/ai/aiclientproxy/ember" \
+  --cwd "/Users/coso/Documents/dev/ai/aitoearn/ember_pc" \
   --max-qc-rounds 1 \
   --max-executor-retries 0 \
   --output "./.ember/qc/qcloop-p0-structured-evidence-v1-payload.json" \

@@ -6,12 +6,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embercloud/ember.git",
+    "url": "git+https://github.com/aitoearn/ember_pc.git",
     "directory": "packages/agent-ui-contracts"
   },
-  "homepage": "https://github.com/embercloud/ember/tree/main/packages/agent-ui-contracts#readme",
+  "homepage": "https://github.com/aitoearn/ember_pc/tree/main/packages/agent-ui-contracts#readme",
   "bugs": {
-    "url": "https://github.com/embercloud/ember/issues"
+    "url": "https://github.com/aitoearn/ember_pc/issues"
   },
   "publishConfig": {
     "access": "public"

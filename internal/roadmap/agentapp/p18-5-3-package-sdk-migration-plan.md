@@ -134,7 +134,7 @@ nextAction=Confirm owner handoff before changing or rebuilding package artifacts
 
 | 命令 | 结果 | 覆盖范围 | 不能替代 |
 |---|---|---|---|
-| `/Users/coso/Documents/dev/ai/aiclientproxy/ember: npm test -- src/features/agent-app/sdk/publicSdkSurface.test.ts src/features/agent-app/sdk/hostBridgeClient.test.ts src/features/agent-app/sdk/contentFactorySdkRegression.test.ts src/features/agent-app/index.test.ts` | 4 files / 11 tests passed。 | Ember SDK-only public surface、Host Bridge client、内容工厂 SDK regression、feature public export seam。 | 外部 package verify。 |
+| `/Users/coso/Documents/dev/ai/aitoearn/ember_pc: npm test -- src/features/agent-app/sdk/publicSdkSurface.test.ts src/features/agent-app/sdk/hostBridgeClient.test.ts src/features/agent-app/sdk/contentFactorySdkRegression.test.ts src/features/agent-app/index.test.ts` | 4 files / 11 tests passed。 | Ember SDK-only public surface、Host Bridge client、内容工厂 SDK regression、feature public export seam。 | 外部 package verify。 |
 | `/Users/coso/Documents/dev/ai/embercloud/content-factory-app: npm test` | 46 tests passed。 | 外部 package 当前业务测试、Host Bridge task / stream / Host response / storage / artifact / evidence 写回。 | `dist/*` 构建产物验收与真实 Host 绑定。 |
 | `/Users/coso/Documents/dev/ai/embercloud/content-factory-app: npm run validate:app && npm run readiness:app` | `validate:app` passed，manifest hash `sha256:6ec3fed5f163739bcf0fd2b845c51a8e10d28aa856e8c6f90259fdab9edd1e48`；`readiness:app` needs-setup。 | APP manifest 标准与宿主依赖 readiness 语义。 | 会重建 `dist/*` 的 `npm run verify`。 |
 

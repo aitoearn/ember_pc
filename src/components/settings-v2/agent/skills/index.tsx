@@ -6,7 +6,7 @@ import {
 } from "@/lib/markdown/externalLinks";
 import { useTranslation } from "react-i18next";
 
-const FEEDBACK_URL = "https://github.com/aiclientproxy/ember/issues";
+const FEEDBACK_URL = "https://github.com/aitoearn/ember_pc/issues";
 
 export function ExtensionsSettings() {
   const { t } = useTranslation("settings");

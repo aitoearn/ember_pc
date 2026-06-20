@@ -1,5 +1,5 @@
 {
-  "name": "@embercloud/ember-cli",
+  "name": "@aitoearn/ember_pc-cli",
   "version": "1.0.0",
   "description": "Ember 官方任务 CLI",
   "bin": {
@@ -23,7 +23,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embercloud/ember.git"
+    "url": "git+https://github.com/aitoearn/ember_pc.git"
   },
   "license": "MIT",
   "files": [

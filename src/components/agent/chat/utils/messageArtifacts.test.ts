@@ -307,7 +307,7 @@ describe("messageArtifacts 路径归一", () => {
           title: "output_image.jpg",
           meta: {
             filePath:
-              "/Users/coso/Documents/dev/ai/aiclientproxy/ember/.ember/tasks/image/output_image.jpg",
+              "/Users/coso/Documents/dev/ai/aitoearn/ember_pc/.ember/tasks/image/output_image.jpg",
             filename: "output_image.jpg",
           },
         }),
@@ -342,7 +342,7 @@ describe("messageArtifacts 路径归一", () => {
         updatedAt: 3,
         meta: {
           filePath:
-            "/Users/coso/Documents/dev/ai/aiclientproxy/ember/.ember/tasks/image/output_image.jpg",
+            "/Users/coso/Documents/dev/ai/aitoearn/ember_pc/.ember/tasks/image/output_image.jpg",
           filename: "output_image.jpg",
         },
       }),
@@ -350,7 +350,7 @@ describe("messageArtifacts 路径归一", () => {
 
     expect(merged).toHaveLength(1);
     expect(merged[0]?.meta.filePath).toBe(
-      "/Users/coso/Documents/dev/ai/aiclientproxy/ember/.ember/tasks/image/output_image.jpg",
+      "/Users/coso/Documents/dev/ai/aitoearn/ember_pc/.ember/tasks/image/output_image.jpg",
     );
   });
 

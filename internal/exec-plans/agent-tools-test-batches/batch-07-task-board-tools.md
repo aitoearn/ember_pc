@@ -158,7 +158,7 @@ npm run bridge:health -- --timeout-ms 120000
 - 已执行验证：
   - `npm test -- "src/components/agent/chat/components/StreamingRenderer.test.tsx" "src/components/agent/chat/components/messageListItemProjection.unit.test.ts" "src/components/agent/chat/utils/toolProcessSummary.test.ts"`：3 files / 74 tests passed。
   - `npx eslint "src/components/agent/chat/components/StreamingRenderer.test.tsx" "src/components/agent/chat/components/messageListItemProjection.unit.test.ts" "src/components/agent/chat/components/InlineToolProcessStep.tsx"`：passed。
-  - `CARGO_TARGET_DIR="/Users/coso/Documents/dev/ai/aiclientproxy/ember/ember-rs/target" cargo test --manifest-path "ember-rs/crates/aster-rust/Cargo.toml" -p aster-core task_list_tools -- --nocapture`：`task_list_tools` 15 tests passed；其余 test targets 在同一 filter 下为 0 tests。
+  - `CARGO_TARGET_DIR="/Users/coso/Documents/dev/ai/aitoearn/ember_pc/ember-rs/target" cargo test --manifest-path "ember-rs/crates/aster-rust/Cargo.toml" -p aster-core task_list_tools -- --nocapture`：`task_list_tools` 15 tests passed；其余 test targets 在同一 filter 下为 0 tests。
 - GUI 截图/快照：本轮未跑 Playwright / GUI。原因是 Batch 07 的风险已由 deterministic contentParts fixture、历史 projection fixture 和 Rust task board 单测覆盖；真实 GUI 任务板工具需要安全 runtime fixture 或模型驱动触发，当前不应为了证据让模型真实创建/更新任务。
 - 控制台状态：未进入浏览器页面，因此无新增控制台 error / warning 采样。
 - 发现问题：

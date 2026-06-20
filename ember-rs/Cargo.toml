@@ -14,8 +14,8 @@ resolver = "2"
 version = "1.0.0"
 edition = "2021"
 authors = ["coso"]
-repository = "https://github.com/aiclientproxy/ember"
-homepage = "https://github.com/aiclientproxy/ember"
+repository = "https://github.com/aitoearn/ember_pc"
+homepage = "https://github.com/aitoearn/ember_pc"
 
 [workspace.dependencies]
 # 项目内 crate 依赖

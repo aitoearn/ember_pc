@@ -9,7 +9,7 @@
 ## 可复制提示词
 
 ```md
-你现在在 Ember 仓库工作：`/Users/coso/Documents/dev/ai/aiclientproxy/ember`。
+你现在在 Ember 仓库工作：`/Users/coso/Documents/dev/ai/aitoearn/ember_pc`。
 
 请执行一次 Agent Chat 工具渲染截图对齐测试。测试批次文档是：
 

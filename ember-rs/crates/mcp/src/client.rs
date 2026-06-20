@@ -91,7 +91,7 @@ impl ClientHandler for LimeMcpClient {
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 icons: None,
                 title: Some("Ember MCP Client".to_string()),
-                website_url: Some("https://github.com/aiclientproxy/ember".to_string()),
+                website_url: Some("https://github.com/aitoearn/ember_pc".to_string()),
             },
         }
     }

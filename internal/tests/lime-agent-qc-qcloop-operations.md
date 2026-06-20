@@ -8,7 +8,7 @@
 - **不覆盖官方 Evidence Pack**：只有 P0 批次覆盖全部 P0 scenario 且 `verdict.status=pass` 时，才写入 `.ember/qc/agent-qc-evidence.json`。
 - **sidecar 只用于排障**：`.ember/qc/agent-qc-evidence.*.json`、`.ember/qc/qcloop-status.*.json` 可以记录当前状态，但不能作为 release gate 证据。
 - **qcloop API 固定 IPv4 loopback**：本地调用使用 `http://127.0.0.1:8080`，避免 `localhost` 代理、IPv6 或浏览器环境差异。
-- **payload 必须显式 cwd**：qcloop 进程不一定从 Ember 仓库启动，生成 job 时必须传 `--cwd /Users/coso/Documents/dev/ai/aiclientproxy/ember`。
+- **payload 必须显式 cwd**：qcloop 进程不一定从 Ember 仓库启动，生成 job 时必须传 `--cwd /Users/coso/Documents/dev/ai/aitoearn/ember_pc`。
 
 ## 2. 只读状态检查
 
@@ -79,8 +79,8 @@ QCLOOP_CODEX_EXTRA_ARGS="--ephemeral -c 'mcp_servers.context7.command=\"\"' -c '
 QCLOOP_CODEX_BIN="/Users/coso/Library/PhpWebStudy/env/node/bin/codex" \
 QCLOOP_CODEX_SANDBOX=off \
 QCLOOP_CODEX_APPROVAL_POLICY=never \
-QCLOOP_CODEX_CWD="/Users/coso/Documents/dev/ai/aiclientproxy/ember" \
-./qcloop --db "/Users/coso/Documents/dev/ai/aiclientproxy/ember/.ember/qc/qcloop-isolated-worker-preflight.db" \
+QCLOOP_CODEX_CWD="/Users/coso/Documents/dev/ai/aitoearn/ember_pc" \
+./qcloop --db "/Users/coso/Documents/dev/ai/aitoearn/ember_pc/.ember/qc/qcloop-isolated-worker-preflight.db" \
   serve --addr "127.0.0.1:18080" --workers 1
 ```
 
@@ -167,7 +167,7 @@ sqlite3 -readonly ".ember/qc/qcloop-isolated-worker-preflight.db" \
 ```bash
 npm run agent-qc:qcloop-job -- \
   --scenario "tool-approval-sandbox-boundary" \
-  --cwd "/Users/coso/Documents/dev/ai/aiclientproxy/ember" \
+  --cwd "/Users/coso/Documents/dev/ai/aitoearn/ember_pc" \
   --base-url "http://127.0.0.1:8080" \
   --output "./.ember/qc/qcloop-tool-approval-sandbox-rerun-payload.json" \
   --check
@@ -178,7 +178,7 @@ npm run agent-qc:qcloop-job -- \
 ```bash
 npm run agent-qc:qcloop-job -- \
   --risk P0 \
-  --cwd "/Users/coso/Documents/dev/ai/aiclientproxy/ember" \
+  --cwd "/Users/coso/Documents/dev/ai/aitoearn/ember_pc" \
   --base-url "http://127.0.0.1:8080" \
   --output "./.ember/qc/qcloop-p0-rerun-payload.json" \
   --check

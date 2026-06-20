@@ -10,10 +10,10 @@
 
 AI test workspace for QA teams: test design, regression planning, API/E2E validation, knowledge context, multi-model analysis, and device automation workflows.
 
-**简体中文** · [English](./README.en.md) · [文档](./docs/README.md) · [发布记录](./RELEASE_NOTES.md) · [问题反馈](https://github.com/embercloud/ember/issues)
+**简体中文** · [English](./README.en.md) · [文档](./docs/README.md) · [发布记录](./RELEASE_NOTES.md) · [问题反馈](https://github.com/aitoearn/ember_pc/issues)
 
 <p>
-  <a href="https://github.com/embercloud/ember/releases"><img src="https://img.shields.io/github/v/release/embercloud/ember?label=release" alt="Ember GitHub Release" /></a>
+  <a href="https://github.com/aitoearn/ember_pc/releases"><img src="https://img.shields.io/github/v/release/aitoearn/ember_pc?label=release" alt="Ember GitHub Release" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-246B45" alt="Ember supports macOS and Windows" />
   <img src="https://img.shields.io/badge/desktop-Electron-24C8DB" alt="Ember is an Electron desktop app" />
   <img src="https://img.shields.io/badge/license-GPLv3-2F4F4F" alt="Ember GPLv3 license" />
@@ -175,7 +175,7 @@ Ember 更适合把 AI 当成测试协作伙伴的人：你提供范围、上下�
 
 ### 下载安装
 
-从 [Releases](https://github.com/embercloud/ember/releases) 下载对应平台安装包。
+从 [Releases](https://github.com/aitoearn/ember_pc/releases) 下载对应平台安装包。
 
 - macOS 用户下载 `.dmg` 或使用 Homebrew 安装
 - Windows 用户下载 `Ember_*_x64-setup.exe`
@@ -185,7 +185,7 @@ Ember 更适合把 AI 当成测试协作伙伴的人：你提供范围、上下�
 会使用 Homebrew 的 macOS 用户也可以运行：
 
 ```bash
-brew tap aiclientproxy/tap
+brew tap aitoearn/tap
 brew install --cask ember
 ```
 

@@ -87,6 +87,6 @@ You can:
 
 Project repository:
 
-- `https://github.com/aiclientproxy/ember`
+- `https://github.com/aitoearn/ember_pc`
 
 If you publish this policy via GitHub, use the public repository URL for this file in the Chrome Web Store listing.

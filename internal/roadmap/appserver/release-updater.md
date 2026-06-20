@@ -91,7 +91,7 @@ ember/stable/vX.Y.Z/<feed>/<asset>
 
 `RELEASES.json` / `RELEASES` 使用短缓存；installer、zip 与 nupkg 使用长缓存。GitHub Release 是归档和人工下载入口，客户端热路径直接读 **updates.aiearn.me**（ECS Nginx 或 OSS 回源）。
 
-### 3.1 ECS / aiearn.me 发布（lmtestplatform current）
+### 3.1 ECS / aiearn.me 发布（ember_pc current）
 
 | 项 | 值 |
 | --- | --- |

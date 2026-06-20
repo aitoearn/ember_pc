@@ -1,4 +1,4 @@
-# `@embercloud/ember-cli`
+# `@aitoearn/ember_pc-cli`
 
 Ember 的官方命令行入口，面向统一任务编排。
 
@@ -35,12 +35,12 @@ Ember 的官方命令行入口，面向统一任务编排。
 安装方式：
 
 ```bash
-npm install -g @embercloud/ember-cli
+npm install -g @aitoearn/ember_pc-cli
 ```
 
 说明：
 
-- npm wrapper 在 `postinstall` 阶段会从 `https://github.com/embercloud/ember/releases` 下载同版本预编译二进制。
+- npm wrapper 在 `postinstall` 阶段会从 `https://github.com/aitoearn/ember_pc/releases` 下载同版本预编译二进制。
 - 当前预编译 release asset 覆盖：`darwin/arm64`、`darwin/amd64`、`windows/amd64`、`linux/amd64`。
 - 若对应版本的 release asset 尚未发布，安装会失败，此时请先发布 GitHub release asset，或在本地直接编译 Rust 二进制使用。
 

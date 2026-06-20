@@ -17,7 +17,7 @@ AI content workspace for Chinese creators: desktop writing, research, prompt man
 ## Website
 
 ```text
-https://github.com/embercloud/ember
+https://github.com/aitoearn/ember_pc
 ```
 
 ## Topics

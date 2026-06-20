@@ -104,9 +104,9 @@ npx prettier --check "internal/exec-plans/agent-tools-test-batches/README.md" "i
 Rust 定向验证建议：
 
 ```bash
-CARGO_TARGET_DIR="/Users/coso/Documents/dev/ai/aiclientproxy/ember/ember-rs/target" cargo test --manifest-path "ember-rs/crates/aster-rust/Cargo.toml" -p aster-core view_image -- --nocapture
-CARGO_TARGET_DIR="/Users/coso/Documents/dev/ai/aiclientproxy/ember/ember-rs/target" cargo test --manifest-path "ember-rs/crates/aster-rust/Cargo.toml" -p aster-core test_native_tool_result_to_call_tool_result_attaches_model_visible_image -- --nocapture
-CARGO_TARGET_DIR="/Users/coso/Documents/dev/ai/aiclientproxy/ember/ember-rs/target" cargo test --manifest-path "ember-rs/crates/aster-rust/Cargo.toml" -p aster-core test_list_tools_excludes_legacy_agent_control_surface -- --nocapture
+CARGO_TARGET_DIR="/Users/coso/Documents/dev/ai/aitoearn/ember_pc/ember-rs/target" cargo test --manifest-path "ember-rs/crates/aster-rust/Cargo.toml" -p aster-core view_image -- --nocapture
+CARGO_TARGET_DIR="/Users/coso/Documents/dev/ai/aitoearn/ember_pc/ember-rs/target" cargo test --manifest-path "ember-rs/crates/aster-rust/Cargo.toml" -p aster-core test_native_tool_result_to_call_tool_result_attaches_model_visible_image -- --nocapture
+CARGO_TARGET_DIR="/Users/coso/Documents/dev/ai/aitoearn/ember_pc/ember-rs/target" cargo test --manifest-path "ember-rs/crates/aster-rust/Cargo.toml" -p aster-core test_list_tools_excludes_legacy_agent_control_surface -- --nocapture
 ```
 
 GUI / Playwright：本批次先用 deterministic projection + renderer DOM 测试锁住顺序和预览；如后续要做截图对齐，应复用 `cross-agent-screenshot-alignment-prompt.md`，用包含 `view_image` 的 fixture turn 做 Chrome 证据。

@@ -95,7 +95,7 @@ describe("ExtensionsSettings", () => {
 
     expect(link).toBeInstanceOf(HTMLAnchorElement);
     expect(link?.getAttribute("href")).toBe(
-      "https://github.com/aiclientproxy/ember/issues",
+      "https://github.com/aitoearn/ember_pc/issues",
     );
     expect(link?.getAttribute("target")).toBeNull();
     expect(link?.getAttribute("rel")).toBe("noreferrer noopener");
@@ -111,7 +111,7 @@ describe("ExtensionsSettings", () => {
 
     expect(clickEvent.defaultPrevented).toBe(true);
     expect(mockOpenExternalUrlWithSystemBrowser).toHaveBeenCalledWith(
-      "https://github.com/aiclientproxy/ember/issues",
+      "https://github.com/aitoearn/ember_pc/issues",
     );
   });
 });

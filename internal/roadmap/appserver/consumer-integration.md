@@ -270,7 +270,7 @@ packagerConfig: {
 推荐：
 
 ```bash
-APP_SERVER_BIN=/Users/coso/Documents/dev/ai/aiclientproxy/ember/ember-rs/target/debug/app-server
+APP_SERVER_BIN=/Users/coso/Documents/dev/ai/aitoearn/ember_pc/ember-rs/target/debug/app-server
 ```
 
 TS client 本地调试可以用：

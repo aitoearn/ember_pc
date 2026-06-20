@@ -35,14 +35,14 @@ jobs:
           
           # 下载 ARM64 DMG
           echo "下载 ARM64 DMG..."
-          curl -sL -o arm64.dmg "https://github.com/aiclientproxy/ember/releases/download/v${VERSION}/ember_${VERSION}_aarch64.dmg"
+          curl -sL -o arm64.dmg "https://github.com/aitoearn/ember_pc/releases/download/v${VERSION}/ember_${VERSION}_aarch64.dmg"
           ARM64_SHA=$(shasum -a 256 arm64.dmg | awk '{print $1}')
           echo "ARM64 SHA256: $ARM64_SHA"
           echo "arm64_sha=$ARM64_SHA" >> $GITHUB_OUTPUT
           
           # 下载 x64 DMG
           echo "下载 x64 DMG..."
-          curl -sL -o x64.dmg "https://github.com/aiclientproxy/ember/releases/download/v${VERSION}/ember_${VERSION}_x64.dmg"
+          curl -sL -o x64.dmg "https://github.com/aitoearn/ember_pc/releases/download/v${VERSION}/ember_${VERSION}_x64.dmg"
           X64_SHA=$(shasum -a 256 x64.dmg | awk '{print $1}')
           echo "x64 SHA256: $X64_SHA"
           echo "x64_sha=$X64_SHA" >> $GITHUB_OUTPUT
@@ -50,7 +50,7 @@ jobs:
       - name: Checkout homebrew-tap
         uses: actions/checkout@v4
         with:
-          repository: aiclientproxy/homebrew-tap
+          repository: aitoearn/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           path: homebrew-tap
 
@@ -66,17 +66,17 @@ jobs:
 
             on_arm do
               sha256 "$ARM64_SHA"
-              url "https://github.com/aiclientproxy/ember/releases/download/v#{version}/ember_#{version}_aarch64.dmg"
+              url "https://github.com/aitoearn/ember_pc/releases/download/v#{version}/ember_#{version}_aarch64.dmg"
             end
 
             on_intel do
               sha256 "$X64_SHA"
-              url "https://github.com/aiclientproxy/ember/releases/download/v#{version}/ember_#{version}_x64.dmg"
+              url "https://github.com/aitoearn/ember_pc/releases/download/v#{version}/ember_#{version}_x64.dmg"
             end
 
             name "Ember"
             desc "AI API 代理桌面应用 - 将 AI 客户端凭证转换为 OpenAI 兼容接口"
-            homepage "https://github.com/aiclientproxy/ember"
+            homepage "https://github.com/aitoearn/ember_pc"
 
             livecheck do
               url :url

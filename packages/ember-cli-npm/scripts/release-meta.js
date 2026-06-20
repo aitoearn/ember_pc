@@ -1,6 +1,6 @@
 const VERSION = require("../package.json").version;
 
-const REPO = "embercloud/ember";
+const REPO = "aitoearn/ember_pc";
 const NAME = "ember";
 
 const PLATFORM_MAP = {

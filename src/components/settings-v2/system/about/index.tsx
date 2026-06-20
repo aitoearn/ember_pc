@@ -26,7 +26,7 @@ import {
 } from "@/lib/markdown/externalLinks";
 import { cn } from "@/lib/utils";
 
-const FALLBACK_RELEASES_URL = "https://github.com/embercloud/ember/releases";
+const FALLBACK_RELEASES_URL = "https://github.com/aitoearn/ember_pc/releases";
 const PRIMARY_ACTION_BUTTON_CLASS =
   "inline-flex items-center gap-2 rounded-full border border-slate-900 bg-slate-950 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-slate-950/10 transition hover:bg-slate-800 disabled:opacity-50";
 const SECONDARY_ACTION_BUTTON_CLASS =

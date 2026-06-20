@@ -70,7 +70,7 @@ const TEXT_EXTENSIONS = new Set([
 const REPLACEMENTS = [
   ["com.embercloud.ember", "com.embercloud.ember"],
   ["updates.embercloud.com", "updates.embercloud.com"],
-  ["github.com/embercloud/ember", "github.com/embercloud/ember"],
+  ["github.com/aitoearn/ember_pc", "github.com/aitoearn/ember_pc"],
   ["@embercloud/", "@embercloud/"],
   ["extensions/ember-chrome", "extensions/ember-chrome"],
   ["packages/ember-cli-npm", "packages/ember-cli-npm"],

@@ -3,17 +3,17 @@ cask "ember" do
 
   on_arm do
     sha256 "REPLACE_WITH_ARM64_SHA256"
-    url "https://github.com/aiclientproxy/ember/releases/download/v#{version}/Ember_#{version}_aarch64.dmg"
+    url "https://github.com/aitoearn/ember_pc/releases/download/v#{version}/Ember_#{version}_aarch64.dmg"
   end
 
   on_intel do
     sha256 "REPLACE_WITH_X64_SHA256"
-    url "https://github.com/aiclientproxy/ember/releases/download/v#{version}/Ember_#{version}_x64.dmg"
+    url "https://github.com/aitoearn/ember_pc/releases/download/v#{version}/Ember_#{version}_x64.dmg"
   end
 
   name "Ember"
   desc "AI 代理服务桌面应用 - 多 Provider API Key 管理"
-  homepage "https://github.com/aiclientproxy/ember"
+  homepage "https://github.com/aitoearn/ember_pc"
 
   livecheck do
     url :url
