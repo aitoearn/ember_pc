@@ -62,6 +62,20 @@ import {
   type MonkeyStartParams,
 } from "./monkeyTest";
 import {
+  cancelStabilityAnalysis,
+  getStabilityAnalysisStatus,
+  getStabilityAnalysisToolStatus,
+  setStabilityAnalysisEventEmitter,
+  startStabilityAnalysis,
+  type StabilityAnalysisEventEmitter,
+  type StabilityAnalysisStartParams,
+} from "./stabilityAnalysis";
+import {
+  readStabilityLlmConfig,
+  saveStabilityLlmConfig,
+} from "./stabilityLlmConfig";
+import type { StabilityLlmConfig } from "../../src/features/device-automation/stability/types";
+import {
   analyzePerfTrace,
   cancelPerfTraceCapture,
   deletePerfTraceLocalFile,
@@ -201,6 +215,36 @@ export class DeviceAutomationRuntime {
 
   getMonkeyStatus() {
     return getMonkeyStatus();
+  }
+
+  setStabilityAnalysisEventEmitter(
+    emitter: StabilityAnalysisEventEmitter | null,
+  ): void {
+    setStabilityAnalysisEventEmitter(emitter);
+  }
+
+  getStabilityAnalysisToolStatus() {
+    return getStabilityAnalysisToolStatus();
+  }
+
+  startStabilityAnalysis(params: StabilityAnalysisStartParams) {
+    return startStabilityAnalysis(params);
+  }
+
+  cancelStabilityAnalysis(params: { runId: string }) {
+    return cancelStabilityAnalysis(params.runId);
+  }
+
+  getStabilityAnalysisStatus() {
+    return getStabilityAnalysisStatus();
+  }
+
+  readStabilityLlmConfig(): StabilityLlmConfig {
+    return readStabilityLlmConfig();
+  }
+
+  saveStabilityLlmConfig(config: StabilityLlmConfig) {
+    return saveStabilityLlmConfig(config);
   }
 
   setPerfTraceProgressEmitter(emitter: PerfTraceProgressEmitter | null): void {

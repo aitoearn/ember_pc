@@ -438,6 +438,24 @@ export class ElectronHostCommands {
         return deviceAutomationRuntime.stopMonkeyTest(readMonkeyStopParams(args));
       case "device_automation_monkey_get_status":
         return deviceAutomationRuntime.getMonkeyStatus();
+      case "device_automation_stability_analysis_get_tool_status":
+        return deviceAutomationRuntime.getStabilityAnalysisToolStatus();
+      case "device_automation_stability_analysis_start":
+        return deviceAutomationRuntime.startStabilityAnalysis(
+          readStabilityAnalysisStartParams(args),
+        );
+      case "device_automation_stability_analysis_cancel":
+        return deviceAutomationRuntime.cancelStabilityAnalysis(
+          readStabilityAnalysisCancelParams(args),
+        );
+      case "device_automation_stability_analysis_get_status":
+        return deviceAutomationRuntime.getStabilityAnalysisStatus();
+      case "device_automation_stability_llm_config_read":
+        return deviceAutomationRuntime.readStabilityLlmConfig();
+      case "device_automation_stability_llm_config_save":
+        return deviceAutomationRuntime.saveStabilityLlmConfig(
+          readStabilityLlmConfigSaveParams(args),
+        );
       case "device_automation_perf_trace_start":
         return deviceAutomationRuntime.startPerfTraceCapture(
           readPerfTraceStartParams(args),
@@ -3253,6 +3271,67 @@ function readMonkeyStartParams(args: HostArgs): {
 
 function readMonkeyStopParams(args: HostArgs): { sessionId: string } {
   return readPerfStopParams(args);
+}
+
+function readStabilityAnalysisStartParams(
+  args: HostArgs,
+): import("./deviceAutomation/stabilityAnalysis").StabilityAnalysisStartParams {
+  const record = toRecord(args) ?? {};
+  const promptModeRaw = record.promptMode;
+  const scopeRaw = record.scope;
+  const outputFormatRaw = record.outputFormat;
+  return {
+    crashLogPath:
+      typeof record.crashLogPath === "string"
+        ? record.crashLogPath.trim()
+        : undefined,
+    crashLogContent:
+      typeof record.crashLogContent === "string"
+        ? record.crashLogContent
+        : undefined,
+    libraryDir:
+      typeof record.libraryDir === "string"
+        ? record.libraryDir.trim()
+        : undefined,
+    codeRoots: readStringListOptional(record.codeRoots),
+    scope:
+      scopeRaw === "full" || scopeRaw === "parse_stack_only"
+        ? scopeRaw
+        : undefined,
+    promptMode: promptModeRaw === "analysis" ? promptModeRaw : undefined,
+    outputFormat:
+      outputFormatRaw === "markdown" ||
+      outputFormatRaw === "json" ||
+      outputFormatRaw === "text"
+        ? outputFormatRaw
+        : undefined,
+  };
+}
+
+function readStabilityAnalysisCancelParams(args: HostArgs): { runId: string } {
+  const record = toRecord(args) ?? {};
+  return { runId: readRequiredString(record, "runId") };
+}
+
+function readStabilityLlmConfigSaveParams(
+  args: HostArgs,
+): import("../src/features/device-automation/stability/types").StabilityLlmConfig {
+  const record = toRecord(args) ?? {};
+  const providerRaw = record.provider;
+  const provider =
+    providerRaw === "openai" ||
+    providerRaw === "deepseek" ||
+    providerRaw === "zhipu_bigmodel"
+      ? providerRaw
+      : "openai";
+  return {
+    provider,
+    baseUrl: readRequiredString(record, "baseUrl"),
+    model: readRequiredString(record, "model"),
+    apiKey: readRequiredString(record, "apiKey"),
+    configured:
+      typeof record.configured === "boolean" ? record.configured : false,
+  };
 }
 
 function readPerfTraceStartParams(args: HostArgs): {

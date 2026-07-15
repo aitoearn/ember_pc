@@ -19,7 +19,12 @@ import { deviceAutomationRuntime } from "./deviceAutomationSidecar";
 import { DEVICE_AUTOMATION_INVENTORY_CHANGED_EVENT } from "../src/features/device-automation/events";
 import { DEVICE_AUTOMATION_PERF_FRAME_EVENT } from "../src/features/device-automation/performance/events";
 import { DEVICE_AUTOMATION_MONKEY_EVENT } from "../src/features/device-automation/monkey/events";
+import { DEVICE_AUTOMATION_STABILITY_ANALYSIS_EVENT } from "../src/features/device-automation/stability/events";
 import { setMonkeyResultsRoot } from "./deviceAutomation/monkeyTest";
+import {
+  setStabilityAnalysisResultsRoot,
+} from "./deviceAutomation/stabilityAnalysis";
+import { setStabilityLlmConfigRoot } from "./deviceAutomation/stabilityLlmConfig";
 import { DEVICE_AUTOMATION_PERF_TRACE_PROGRESS_EVENT } from "../src/features/device-automation/performance/events";
 import { setTraceProcessorCacheRoot } from "./deviceAutomation/traceProcessorDownload";
 import { ElectronDevHttpBridge } from "./devHttpBridge";
@@ -92,6 +97,16 @@ deviceAutomationRuntime.setPerfFrameEmitter((payload) => {
 deviceAutomationRuntime.setMonkeyEventEmitter((payload) => {
   broadcast(DEVICE_AUTOMATION_MONKEY_EVENT, payload);
 });
+const stabilityAnalysisRoot = path.join(
+  app.getPath("userData"),
+  "device-automation",
+  "stability-analysis",
+);
+deviceAutomationRuntime.setStabilityAnalysisEventEmitter((payload) => {
+  broadcast(DEVICE_AUTOMATION_STABILITY_ANALYSIS_EVENT, payload);
+});
+setStabilityAnalysisResultsRoot(stabilityAnalysisRoot);
+setStabilityLlmConfigRoot(stabilityAnalysisRoot);
 setMonkeyResultsRoot(
   path.join(app.getPath("userData"), "device-automation", "monkey-results"),
 );
