@@ -105,7 +105,7 @@ describe("electron/preload", () => {
     const api = await loadPreloadApi();
 
     expect(exposeInMainWorld).toHaveBeenCalledWith("electronAPI", api);
-    expect(exposeInMainWorld).toHaveBeenCalledWith("__LIME_ELECTRON__", true);
+    expect(exposeInMainWorld).toHaveBeenCalledWith("__EMBER_ELECTRON__", true);
     expect(api.devBridgeFallback).toBe(false);
     expect(api.supportsCommand(ELECTRON_HOST_COMMANDS[0])).toBe(true);
     expect(api.supportsCommand("capability_draft_list_registered_skills")).toBe(

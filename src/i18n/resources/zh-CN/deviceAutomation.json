@@ -205,7 +205,7 @@
   "deviceAutomation.flow.editor.formatIncompatible": "流格式版本 {{version}} 与当前客户端不兼容，请升级应用或重新录制。",
   "deviceAutomation.flow.platform.unsupported": "确定性回放与录制首期仅支持在线 Android 设备。",
   "deviceAutomation.monkey.title": "Monkey 稳定性测试",
-  "deviceAutomation.monkey.subtitle": "支持 Fastbot 逐步模式（Kea2 对齐）与 adb System Monkey；可配置步数、节流、时长、覆盖率同步与截图。",
+  "deviceAutomation.monkey.subtitle": "支持 Fastbot 逐步模式（Kea2 对齐）与 adb System Monkey；可配置步数、节流、时长、覆盖率同步与截图。CRASH/ANR 后可点「分析崩溃」进入根因分析。",
   "deviceAutomation.monkey.toolbar.device": "测试设备",
   "deviceAutomation.monkey.toolbar.app": "被测应用",
   "deviceAutomation.monkey.toolbar.appPlaceholder": "选择应用包名",
