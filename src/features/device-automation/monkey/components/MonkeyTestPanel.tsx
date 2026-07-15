@@ -3,6 +3,7 @@ import { ExploreRunHistoryPanel } from "../../explore/components/ExploreRunHisto
 import { ExploreRulesPanel } from "../../explore/components/ExploreRulesPanel";
 import { useExploreProfile } from "../../explore/hooks/useExploreProfile";
 import { useExploreRuns } from "../../explore/hooks/useExploreRuns";
+import type { CrashAnalysisPrefill } from "../../stability/types";
 import type { DeviceAutomationCardModel } from "../../types";
 import { useMonkeyTest } from "../hooks/useMonkeyTest";
 import { MonkeyTestLogPanel } from "./MonkeyTestLogPanel";
@@ -10,9 +11,13 @@ import { MonkeyTestToolbar } from "./MonkeyTestToolbar";
 
 export interface MonkeyTestPanelProps {
   devices: DeviceAutomationCardModel[];
+  onOpenCrashAnalysis?: (prefill: CrashAnalysisPrefill) => void;
 }
 
-export function MonkeyTestPanel({ devices }: MonkeyTestPanelProps) {
+export function MonkeyTestPanel({
+  devices,
+  onOpenCrashAnalysis,
+}: MonkeyTestPanelProps) {
   const { t } = useTranslation("deviceAutomation");
   const explore = useExploreProfile();
   const exploreRuns = useExploreRuns(explore.workspaceId);
@@ -91,6 +96,7 @@ export function MonkeyTestPanel({ devices }: MonkeyTestPanelProps) {
           logs={monkey.viewState.logs}
           isRunning={monkey.isRunning}
           lastSummary={monkey.lastSummary}
+          onOpenCrashAnalysis={onOpenCrashAnalysis}
         />
       </div>
 

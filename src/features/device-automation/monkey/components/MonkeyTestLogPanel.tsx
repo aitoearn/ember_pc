@@ -1,24 +1,43 @@
-import { ExternalLink, FolderOpen } from "lucide-react";
+import { ExternalLink, FolderOpen, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { openPathWithDefaultApp } from "@/lib/api/fileSystem";
+import type { CrashAnalysisPrefill } from "../../stability/types";
 import type { MonkeyLogLine, MonkeySessionSummary } from "../types";
 
 interface MonkeyTestLogPanelProps {
   logs: MonkeyLogLine[];
   isRunning: boolean;
   lastSummary: MonkeySessionSummary | null;
+  onOpenCrashAnalysis?: (prefill: CrashAnalysisPrefill) => void;
 }
 
 export function MonkeyTestLogPanel({
   logs,
   isRunning,
   lastSummary,
+  onOpenCrashAnalysis,
 }: MonkeyTestLogPanelProps) {
   const { t } = useTranslation("deviceAutomation");
 
   const openPath = (path: string) => {
     void openPathWithDefaultApp(path);
+  };
+
+  const canAnalyzeCrash =
+    !isRunning &&
+    lastSummary &&
+    (lastSummary.conclusion === "crashed" || lastSummary.conclusion === "anr") &&
+    Boolean(lastSummary.crashLogPath?.trim());
+
+  const handleAnalyzeCrash = () => {
+    if (!lastSummary?.crashLogPath?.trim() || !onOpenCrashAnalysis) {
+      return;
+    }
+    onOpenCrashAnalysis({
+      crashLogPath: lastSummary.crashLogPath.trim(),
+      localResultDir: lastSummary.localResultDir?.trim(),
+    });
   };
 
   return (
@@ -30,9 +49,22 @@ export function MonkeyTestLogPanel({
         <h3 className="text-sm font-semibold text-neutral-900">
           {t("deviceAutomation.monkey.log.title")}
         </h3>
-        {lastSummary?.bugReportPath || lastSummary?.localResultDir ? (
+        {canAnalyzeCrash || lastSummary?.bugReportPath || lastSummary?.localResultDir ? (
           <div className="flex flex-wrap gap-2">
-            {lastSummary.bugReportPath ? (
+            {canAnalyzeCrash ? (
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                className="h-8"
+                onClick={handleAnalyzeCrash}
+                data-testid="monkey-analyze-crash-button"
+              >
+                <Search className="mr-1.5 size-3.5" />
+                {t("deviceAutomation.stability.crash.analyzeFromStressTest")}
+              </Button>
+            ) : null}
+            {lastSummary?.bugReportPath ? (
               <Button
                 type="button"
                 variant="outline"

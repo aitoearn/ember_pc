@@ -7,6 +7,42 @@ export type StabilityLlmConfig = {
   configured: boolean;
 };
 
+export type StabilityAssuranceMode = "stress-test" | "crash-analysis";
+
+export type StabilityAnalysisPhase = "idle" | "running" | "canceling";
+
+export type StabilityAnalysisScope = "full" | "parse_stack_only";
+
+export type CrashAnalysisPrefill = {
+  crashLogPath?: string;
+  localResultDir?: string;
+};
+
+export type StabilityAnalysisToolStatus = {
+  available: boolean;
+  toolRoot?: string;
+  cliEntry?: string;
+  pythonCommand?: string;
+  error?: string;
+};
+
+export type StabilityAnalysisStartParams = {
+  crashLogPath?: string;
+  crashLogContent?: string;
+  libraryDir?: string;
+  codeRoots?: string[];
+  scope?: StabilityAnalysisScope;
+  promptMode?: "analysis";
+  outputFormat?: "markdown" | "json" | "text";
+};
+
+export type StabilityAnalysisStartResult = {
+  runId: string;
+  startedAt: string;
+  toolRoot: string;
+  reportRoot: string;
+};
+
 export type StabilityAnalysisEventLine = {
   ts: number;
   type: "log" | "stderr" | "progress" | "done" | "error";
@@ -14,3 +50,9 @@ export type StabilityAnalysisEventLine = {
   reportDir?: string;
   primaryArtifactPath?: string;
 };
+
+export interface CrashAnalysisFormState {
+  crashLogPath: string;
+  libraryDir: string;
+  codeRoot: string;
+}

@@ -193,6 +193,7 @@ export function useMonkeyTest({
               bugReportPath: payload.line.bugReportPath,
               stepsLogPath: payload.line.stepsLogPath,
               stepsSummary: payload.line.stepsSummary,
+              crashLogPath: payload.line.crashLogPath,
             };
             setLastSummary(completedSummary);
             const currentWorkspaceId = workspaceIdRef.current;

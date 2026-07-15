@@ -199,7 +199,7 @@ export function DeviceAutomationWorkspace({
         ) : activeTab === "ui-auto-test" ? (
           <DeviceAutomationUiAutoTestPanel devices={devices} />
         ) : activeTab === "stability-assurance" ? (
-          <StabilityAssurancePanel />
+          <StabilityAssurancePanel devices={devices} />
         ) : (
           <DeviceAutomationPlaceholderPanel tab={activeTab} />
         )}
