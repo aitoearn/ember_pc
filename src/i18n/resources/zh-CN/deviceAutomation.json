@@ -288,6 +288,8 @@
   "deviceAutomation.stability.crash.openReport": "打开报告",
   "deviceAutomation.stability.crash.openReportDir": "打开报告目录",
   "deviceAutomation.stability.crash.analyzeFromStressTest": "分析崩溃",
+  "deviceAutomation.stability.crash.stressTestResultDirHint": "来自压测的结果目录（仅供参考，请单独选择符号库目录）",
+  "deviceAutomation.stability.crash.openStressTestResultDir": "打开压测结果目录",
   "deviceAutomation.stability.errors.toolUnavailableTitle": "sa-agent 工具未就绪",
   "deviceAutomation.stability.errors.toolUnavailableDescription": "请安装 stability-analysis-agent 或设置 STABILITY_ANALYSIS_AGENT_ROOT 环境变量后重试。",
   "deviceAutomation.stability.errors.llmNotConfigured": "请先配置并保存 LLM API Key",

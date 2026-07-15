@@ -21,6 +21,15 @@ export const initialStabilityAnalysisState: StabilityAnalysisViewState = {
 
 const MAX_LOG_LINES = 500;
 
+const CANCELED_ANALYSIS_MARKERS = ["已取消", "canceled", "cancelled"] as const;
+
+export function isCanceledAnalysisMessage(message: string): boolean {
+  const normalized = message.trim().toLowerCase();
+  return CANCELED_ANALYSIS_MARKERS.some((marker) =>
+    normalized.includes(marker.toLowerCase()),
+  );
+}
+
 export function appendStabilityAnalysisEvent(
   state: StabilityAnalysisViewState,
   payload: DeviceAutomationStabilityAnalysisEventPayload,
@@ -50,6 +59,15 @@ export function appendStabilityAnalysisEvent(
   }
 
   if (line.type === "error") {
+    if (isCanceledAnalysisMessage(line.message)) {
+      return {
+        ...state,
+        phase: "idle",
+        runId: null,
+        logs,
+        errorMessage: undefined,
+      };
+    }
     return {
       ...state,
       phase: "idle",

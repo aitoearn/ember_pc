@@ -9,6 +9,7 @@ import {
 } from "@/lib/api/deviceStabilityAnalysis";
 import { readFilePreview } from "@/lib/api/fileBrowser";
 import { safeListen } from "@/lib/dev-bridge";
+import { applyCrashAnalysisPrefill } from "../domain/crashAnalysisPrefill";
 import {
   appendStabilityAnalysisEvent,
   initialStabilityAnalysisState,
@@ -54,6 +55,9 @@ export function useCrashAnalysis({
   });
   const [toolLoading, setToolLoading] = useState(true);
   const [form, setForm] = useState<CrashAnalysisFormState>(EMPTY_FORM);
+  const [prefillLocalResultDir, setPrefillLocalResultDir] = useState<
+    string | undefined
+  >();
   const [viewState, setViewState] = useState(initialStabilityAnalysisState);
   const [reportMarkdown, setReportMarkdown] = useState("");
   const [reportLoading, setReportLoading] = useState(false);
@@ -88,11 +92,10 @@ export function useCrashAnalysis({
     if (!prefill) {
       return;
     }
-    setForm((prev) => ({
-      crashLogPath: prefill.crashLogPath?.trim() || prev.crashLogPath,
-      libraryDir: prefill.localResultDir?.trim() || prev.libraryDir,
-      codeRoot: prev.codeRoot,
-    }));
+    setForm((prev) => applyCrashAnalysisPrefill(prev, prefill).form);
+    setPrefillLocalResultDir(
+      prefill.localResultDir?.trim() || undefined,
+    );
   }, [prefill]);
 
   const loadReportPreview = useCallback(async (artifactPath: string) => {
@@ -269,6 +272,7 @@ export function useCrashAnalysis({
     toolStatus,
     toolLoading,
     form,
+    prefillLocalResultDir,
     updateForm,
     viewState,
     reportMarkdown,

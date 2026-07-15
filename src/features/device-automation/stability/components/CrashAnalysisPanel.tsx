@@ -31,6 +31,7 @@ export function CrashAnalysisPanel({ prefill }: CrashAnalysisPanelProps) {
       />
       <CrashAnalysisToolbar
         form={analysis.form}
+        prefillLocalResultDir={analysis.prefillLocalResultDir}
         toolAvailable={analysis.toolStatus.available}
         toolError={analysis.toolStatus.error}
         toolLoading={analysis.toolLoading}

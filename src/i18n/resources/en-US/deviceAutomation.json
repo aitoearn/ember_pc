@@ -288,6 +288,8 @@
   "deviceAutomation.stability.crash.openReport": "Open report",
   "deviceAutomation.stability.crash.openReportDir": "Open report folder",
   "deviceAutomation.stability.crash.analyzeFromStressTest": "Analyze crash",
+  "deviceAutomation.stability.crash.stressTestResultDirHint": "Stress-test result directory (context only — pick symbol library separately)",
+  "deviceAutomation.stability.crash.openStressTestResultDir": "Open stress-test results",
   "deviceAutomation.stability.errors.toolUnavailableTitle": "sa-agent tool not ready",
   "deviceAutomation.stability.errors.toolUnavailableDescription": "Install stability-analysis-agent or set STABILITY_ANALYSIS_AGENT_ROOT, then retry.",
   "deviceAutomation.stability.errors.llmNotConfigured": "Configure and save an LLM API key first",

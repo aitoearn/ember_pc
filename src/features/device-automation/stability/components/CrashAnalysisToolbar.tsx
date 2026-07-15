@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { open as openDialog } from "@/lib/desktop-host/plugin-dialog";
+import { openPathWithDefaultApp } from "@/lib/api/fileSystem";
 import type { CrashAnalysisFormState } from "../types";
 
 export interface CrashAnalysisToolbarProps {
   form: CrashAnalysisFormState;
+  prefillLocalResultDir?: string;
   toolAvailable: boolean;
   toolError?: string;
   toolLoading: boolean;
@@ -23,6 +25,7 @@ export interface CrashAnalysisToolbarProps {
 
 export function CrashAnalysisToolbar({
   form,
+  prefillLocalResultDir,
   toolAvailable,
   toolError,
   toolLoading,
@@ -115,6 +118,25 @@ export function CrashAnalysisToolbar({
             {toolError ||
               t("deviceAutomation.stability.errors.toolUnavailableDescription")}
           </p>
+        </div>
+      ) : null}
+
+      {prefillLocalResultDir ? (
+        <div
+          className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700"
+          data-testid="crash-analysis-stress-result-context"
+        >
+          <p>{t("deviceAutomation.stability.crash.stressTestResultDirHint")}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7"
+            onClick={() => void openPathWithDefaultApp(prefillLocalResultDir)}
+          >
+            <FolderOpen className="mr-1.5 size-3.5" />
+            {t("deviceAutomation.stability.crash.openStressTestResultDir")}
+          </Button>
         </div>
       ) : null}
 

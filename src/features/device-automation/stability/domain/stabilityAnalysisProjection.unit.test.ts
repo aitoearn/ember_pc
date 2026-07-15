@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { applyCrashAnalysisPrefill } from "./crashAnalysisPrefill";
 import {
   appendStabilityAnalysisEvent,
   initialStabilityAnalysisState,
+  isCanceledAnalysisMessage,
 } from "./stabilityAnalysisProjection";
 
 const RUN_ID = "run-001";
@@ -11,6 +13,35 @@ function buildPayload(
 ) {
   return { runId: RUN_ID, line };
 }
+
+describe("applyCrashAnalysisPrefill", () => {
+  it("仅预填 crashLogPath，不将压测 localResultDir 写入 libraryDir", () => {
+    const result = applyCrashAnalysisPrefill(
+      {
+        crashLogPath: "",
+        libraryDir: "/existing/symbols",
+        codeRoot: "/code",
+      },
+      {
+        crashLogPath: "/monkey/crash.log",
+        localResultDir: "/monkey/results/run-001",
+      },
+    );
+
+    expect(result.form.crashLogPath).toBe("/monkey/crash.log");
+    expect(result.form.libraryDir).toBe("/existing/symbols");
+    expect(result.form.codeRoot).toBe("/code");
+    expect(result.localResultDir).toBe("/monkey/results/run-001");
+  });
+});
+
+describe("isCanceledAnalysisMessage", () => {
+  it("识别取消类消息", () => {
+    expect(isCanceledAnalysisMessage("稳定性分析已取消")).toBe(true);
+    expect(isCanceledAnalysisMessage("Analysis canceled by user")).toBe(true);
+    expect(isCanceledAnalysisMessage("LLM 调用失败")).toBe(false);
+  });
+});
 
 describe("stabilityAnalysisProjection", () => {
   it("忽略非当前 runId 的事件", () => {
@@ -84,5 +115,26 @@ describe("stabilityAnalysisProjection", () => {
     expect(next.phase).toBe("idle");
     expect(next.runId).toBeNull();
     expect(next.errorMessage).toBe("LLM 调用失败");
+  });
+
+  it("取消类 error 事件按正常结束处理，不写入 errorMessage", () => {
+    const running = {
+      ...initialStabilityAnalysisState,
+      phase: "canceling" as const,
+      runId: RUN_ID,
+    };
+    const next = appendStabilityAnalysisEvent(
+      running,
+      buildPayload({
+        ts: 4,
+        type: "error",
+        message: "稳定性分析已取消",
+      }),
+      RUN_ID,
+    );
+    expect(next.phase).toBe("idle");
+    expect(next.runId).toBeNull();
+    expect(next.errorMessage).toBeUndefined();
+    expect(next.logs.at(-1)?.message).toBe("稳定性分析已取消");
   });
 });
