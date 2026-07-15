@@ -41,6 +41,7 @@ export interface MonkeySessionSummary {
   bugReportPath?: string;
   stepsLogPath?: string;
   stepsSummary?: MonkeyStepsLogSummary;
+  crashLogPath?: string;
 }
 
 export interface MonkeyLogLine {
@@ -52,4 +53,5 @@ export interface MonkeyLogLine {
   bugReportPath?: string;
   stepsLogPath?: string;
   stepsSummary?: MonkeyStepsLogSummary;
+  crashLogPath?: string;
 }

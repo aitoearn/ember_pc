@@ -4,6 +4,9 @@
 
 import { randomUUID } from "node:crypto";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import path from "node:path";
+import { captureAndroidLogcat } from "./captureDeviceLogcat";
+import { resolveMonkeySessionLocalDir } from "./fastbot/fastbotResultSyncer";
 import { deviceActivityLock } from "./deviceActivityLock";
 import { resolveAdbPath } from "./deviceInventoryWatcher";
 import {
@@ -62,6 +65,7 @@ export type MonkeyStopResult = {
   localResultDir?: string;
   bugReportPath?: string;
   stepsLogPath?: string;
+  crashLogPath?: string;
   stepsSummary?: {
     totalLines: number;
     monkeyStepCount: number;
@@ -248,6 +252,30 @@ function finalizeSession(
     }
   }
 
+  let crashLogPath: string | undefined;
+  const shouldCaptureLogcat =
+    conclusion === "crashed" ||
+    conclusion === "anr" ||
+    session.crashDetected ||
+    session.anrDetected;
+  if (shouldCaptureLogcat) {
+    const outputDir =
+      localResultDir ??
+      (monkeyResultsRoot
+        ? resolveMonkeySessionLocalDir(monkeyResultsRoot, session.sessionId)
+        : undefined);
+    if (outputDir) {
+      crashLogPath = captureAndroidLogcat({
+        deviceId: session.deviceId,
+        outputDir,
+        packageName: session.packageName,
+      });
+      if (!localResultDir) {
+        localResultDir = outputDir;
+      }
+    }
+  }
+
   emitLine(session.sessionId, {
     ts: Date.now(),
     type: "done",
@@ -257,6 +285,7 @@ function finalizeSession(
     bugReportPath,
     stepsLogPath,
     stepsSummary,
+    crashLogPath,
   });
   deviceActivityLock.release(session.deviceId, session.sessionId);
   activeSession = null;
@@ -268,6 +297,7 @@ function finalizeSession(
     bugReportPath,
     stepsLogPath,
     stepsSummary,
+    crashLogPath,
   };
 }
 
