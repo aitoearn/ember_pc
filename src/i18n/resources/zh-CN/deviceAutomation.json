@@ -3,7 +3,7 @@
   "deviceAutomation.tabs.placeholderDescription": "该模块正在建设中，后续将在此提供完整能力。",
   "deviceAutomation.tabs.ai-case-generation": "AI 用例生成",
   "deviceAutomation.tabs.ui-auto-test": "UI 自动测试",
-  "deviceAutomation.tabs.monkey-test": "Monkey 测试",
+  "deviceAutomation.tabs.stability-assurance": "稳定性保障",
   "deviceAutomation.tabs.performance": "性能监控",
   "deviceAutomation.tabs.startup-time": "启动耗时",
   "deviceAutomation.tabs.packet-capture": "抓包分析",

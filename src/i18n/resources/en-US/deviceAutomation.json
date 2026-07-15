@@ -3,7 +3,7 @@
   "deviceAutomation.tabs.placeholderDescription": "This module is under construction. Full capabilities will be available here in a future release.",
   "deviceAutomation.tabs.ai-case-generation": "AI Case Generation",
   "deviceAutomation.tabs.ui-auto-test": "UI Auto Test",
-  "deviceAutomation.tabs.monkey-test": "Monkey Test",
+  "deviceAutomation.tabs.stability-assurance": "Stability Assurance",
   "deviceAutomation.tabs.performance": "Performance Monitoring",
   "deviceAutomation.tabs.startup-time": "Startup Time",
   "deviceAutomation.tabs.packet-capture": "Packet Capture",

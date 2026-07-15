@@ -72,14 +72,14 @@ describe("DeviceAutomationTabNav", () => {
       );
     });
 
-    const monkeyTab = container.querySelector(
-      '[data-testid="device-automation-tab-monkey-test"]',
+    const stabilityTab = container.querySelector(
+      '[data-testid="device-automation-tab-stability-assurance"]',
     ) as HTMLButtonElement | null;
 
     await act(async () => {
-      monkeyTab?.click();
+      stabilityTab?.click();
     });
 
-    expect(onTabChange).toHaveBeenCalledWith("monkey-test");
+    expect(onTabChange).toHaveBeenCalledWith("stability-assurance");
   });
 });

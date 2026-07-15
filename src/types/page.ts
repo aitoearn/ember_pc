@@ -38,7 +38,7 @@ export type DeviceAutomationView = "list" | "debug";
 export type DeviceAutomationWorkspaceTab =
   | "ai-case-generation"
   | "ui-auto-test"
-  | "monkey-test"
+  | "stability-assurance"
   | "performance"
   | "startup-time"
   | "packet-capture"

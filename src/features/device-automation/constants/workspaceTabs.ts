@@ -5,7 +5,7 @@ export const DEVICE_AUTOMATION_WORKSPACE_TABS = [
   "devices",
   "ai-case-generation",
   "ui-auto-test",
-  "monkey-test",
+  "stability-assurance",
   "performance",
   "startup-time",
   "packet-capture",
@@ -14,11 +14,31 @@ export const DEVICE_AUTOMATION_WORKSPACE_TABS = [
 export type DeviceAutomationWorkspaceTabId =
   (typeof DEVICE_AUTOMATION_WORKSPACE_TABS)[number];
 
+/** 旧 Tab id → 当前 Tab id，用于深链接与历史路由兼容。 */
+export const LEGACY_TAB_ALIASES = {
+  "monkey-test": "stability-assurance",
+} as const satisfies Record<string, DeviceAutomationWorkspaceTabId>;
+
+export type DeviceAutomationWorkspaceTabLegacyId =
+  keyof typeof LEGACY_TAB_ALIASES;
+
 export function resolveDeviceAutomationWorkspaceTab(
-  tab: DeviceAutomationWorkspaceTab | undefined,
+  tab:
+    | DeviceAutomationWorkspaceTab
+    | DeviceAutomationWorkspaceTabLegacyId
+    | undefined,
 ): DeviceAutomationWorkspaceTabId {
-  if (tab && DEVICE_AUTOMATION_WORKSPACE_TABS.includes(tab)) {
-    return tab;
+  if (!tab) {
+    return "devices";
+  }
+  const normalized =
+    LEGACY_TAB_ALIASES[tab as DeviceAutomationWorkspaceTabLegacyId] ?? tab;
+  if (
+    DEVICE_AUTOMATION_WORKSPACE_TABS.includes(
+      normalized as DeviceAutomationWorkspaceTabId,
+    )
+  ) {
+    return normalized as DeviceAutomationWorkspaceTabId;
   }
   return "devices";
 }

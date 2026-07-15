@@ -20,7 +20,7 @@ import { DeviceAutomationListPage } from "./DeviceAutomationListPage";
 import { PerformanceMonitorPanel } from "./performance/components/PerformanceMonitorPanel";
 import { DeviceAutomationPlaceholderPanel } from "./components/DeviceAutomationPlaceholderPanel";
 import { DeviceAutomationUiAutoTestPanel } from "./components/DeviceAutomationUiAutoTestPanel";
-import { MonkeyTestPanel } from "./monkey/components/MonkeyTestPanel";
+import { StabilityAssurancePanel } from "./stability/components/StabilityAssurancePanel";
 import { DeviceAutomationTabNav } from "./components/DeviceAutomationTabNav";
 import { resolveDeviceAutomationWorkspaceTab } from "./constants/workspaceTabs";
 import type { DeviceAutomationCardModel } from "./types";
@@ -49,7 +49,7 @@ export function DeviceAutomationWorkspace({
     activeTab === "devices" ||
     activeTab === "performance" ||
     activeTab === "ui-auto-test" ||
-    activeTab === "monkey-test";
+    activeTab === "stability-assurance";
   const sessionCachedDevices = readCachedDeviceAutomationList();
   const [devices, setDevices] = useState<DeviceAutomationCardModel[]>(
     () => sessionCachedDevices ?? [],
@@ -198,8 +198,8 @@ export function DeviceAutomationWorkspace({
           />
         ) : activeTab === "ui-auto-test" ? (
           <DeviceAutomationUiAutoTestPanel devices={devices} />
-        ) : activeTab === "monkey-test" ? (
-          <MonkeyTestPanel devices={devices} />
+        ) : activeTab === "stability-assurance" ? (
+          <StabilityAssurancePanel />
         ) : (
           <DeviceAutomationPlaceholderPanel tab={activeTab} />
         )}
