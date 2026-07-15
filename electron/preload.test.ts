@@ -306,6 +306,21 @@ describe("electron/preload", () => {
     expect(api.supportsCommand("device_automation_monkey_get_status")).toBe(true);
   });
 
+  it("preload 白名单包含 device_automation_stability_analysis 命令", async () => {
+    const api = await loadPreloadApi();
+    for (const command of [
+      "device_automation_stability_analysis_get_tool_status",
+      "device_automation_stability_analysis_start",
+      "device_automation_stability_analysis_cancel",
+      "device_automation_stability_analysis_get_status",
+      "device_automation_stability_llm_config_read",
+      "device_automation_stability_llm_config_save",
+    ]) {
+      expect(ELECTRON_HOST_COMMANDS).toContain(command);
+      expect(api.supportsCommand(command)).toBe(true);
+    }
+  });
+
   it("preload 白名单包含 device_automation_perf_trace 命令", async () => {
     const api = await loadPreloadApi();
     for (const command of [
