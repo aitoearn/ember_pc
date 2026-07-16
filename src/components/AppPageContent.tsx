@@ -4,7 +4,7 @@
  * 负责根据当前页面类型渲染对应主内容，避免主入口继续膨胀。
  */
 
-import { lazy, useCallback } from "react";
+import { lazy, useCallback, useEffect } from "react";
 import styled from "styled-components";
 import type {
   AgentObservabilityPageParams,
@@ -79,10 +79,6 @@ const loadDeviceAutomationWorkspace = () =>
   import("@/features/device-automation/loadDeviceAutomationWorkspace").then(
     (module) => module.loadDeviceAutomationWorkspace(),
   );
-const loadTestCaseManagementPage = () =>
-  import("@/features/test-case-management").then((module) => ({
-    default: module.TestCaseManagementPage,
-  }));
 const loadAgentObservabilityWorkspace = () =>
   import("@/features/agent-observability/loadAgentObservabilityWorkspace").then(
     (module) => module.loadAgentObservabilityWorkspace(),
@@ -101,7 +97,6 @@ const PluginRuntimePage = lazy(loadPluginRuntimePage);
 const ExpertPlazaPage = lazy(loadExpertPlazaPage);
 const BrowserRuntimeWorkspace = lazy(loadBrowserRuntimeWorkspace);
 const DeviceAutomationWorkspace = lazy(loadDeviceAutomationWorkspace);
-const TestCaseManagementPage = lazy(loadTestCaseManagementPage);
 const AgentObservabilityWorkspace = lazy(loadAgentObservabilityWorkspace);
 const AgentChatPage = lazy(loadAgentChatPage);
 
@@ -159,6 +154,17 @@ export function AppPageContent({
     },
     [agentSessionWorkspaceId, onAgentSessionChange, onAgentSessionTargetChange],
   );
+
+  // 旧「测试用例」独立页入口：收敛到移动端测试 → AI用例生成
+  useEffect(() => {
+    if (activePage !== "test-case-management") {
+      return;
+    }
+    onNavigate("device-automation", {
+      view: "list",
+      tab: "ai-case-generation",
+    });
+  }, [activePage, onNavigate]);
 
   if (activePage === "automation") {
     return (
@@ -311,7 +317,10 @@ export function AppPageContent({
           overflow: "hidden",
         }}
       >
-        <TestCaseManagementPage onNavigate={onNavigate} />
+        <DeviceAutomationWorkspace
+          pageParams={{ view: "list", tab: "ai-case-generation" }}
+          onNavigate={onNavigate}
+        />
       </PageWrapper>
     );
   }

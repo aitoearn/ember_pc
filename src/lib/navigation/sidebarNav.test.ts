@@ -11,7 +11,6 @@ describe("sidebarNav", () => {
     expect(MAIN_SIDEBAR_NAV_ITEMS.map((item) => item.id)).toEqual([
       "home-general",
       "device-automation",
-      "test-case-management",
       "experts",
       "skills",
       "plugins",

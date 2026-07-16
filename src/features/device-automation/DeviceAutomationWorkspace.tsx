@@ -15,6 +15,7 @@ import {
   writeCachedDeviceAutomationList,
 } from "./deviceListSessionCache";
 import { scheduleScrcpyPrewarmForDevices } from "./scrcpy/scrcpyPrewarm";
+import { TestCaseManagementPage } from "@/features/test-case-management";
 import { DeviceAutomationDebugPage } from "./DeviceAutomationDebugPage";
 import { DeviceAutomationListPage } from "./DeviceAutomationListPage";
 import { PerformanceMonitorPanel } from "./performance/components/PerformanceMonitorPanel";
@@ -191,6 +192,8 @@ export function DeviceAutomationWorkspace({
             onRefresh={() => refreshDevices({ force: true })}
             onOpenDebug={openDebug}
           />
+        ) : activeTab === "ai-case-generation" ? (
+          <TestCaseManagementPage onNavigate={onNavigate} />
         ) : activeTab === "performance" ? (
           <PerformanceMonitorPanel
             devices={devices}

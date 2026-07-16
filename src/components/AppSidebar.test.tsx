@@ -199,7 +199,7 @@ describe("AppSidebar navigation", () => {
     expect(container.textContent).not.toContain("工作台");
     expect(container.textContent).not.toContain("生成");
     expect(container.textContent).toContain("移动端测试");
-    expect(container.textContent).toContain("测试用例");
+    expect(container.textContent).not.toContain("测试用例");
     expect(container.textContent).toContain("专家");
     expect(container.textContent).toContain("Skills");
     expect(container.textContent).toContain("插件");
@@ -227,7 +227,6 @@ describe("AppSidebar navigation", () => {
     expect(mainNavButtons).toEqual([
       "新建任务",
       "移动端测试",
-      "测试用例",
       "专家",
       "Skills",
       "插件",

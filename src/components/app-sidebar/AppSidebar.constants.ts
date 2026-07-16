@@ -25,7 +25,6 @@ export const SIDEBAR_NAV_LABEL_KEYS: Record<string, string> = {
   plugins: "navigation.sidebar.items.plugins",
   settings: "navigation.sidebar.items.settings",
   skills: "navigation.sidebar.items.skills",
-  "test-case-management": "navigation.sidebar.items.testCaseManagement",
 };
 
 export const APP_SIDEBAR_LANGUAGE_OPTIONS = UI_LOCALE_OPTIONS.map((option) => ({

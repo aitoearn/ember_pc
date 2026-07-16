@@ -15,6 +15,12 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
+vi.mock("@/features/test-case-management", () => ({
+  TestCaseManagementPage: () => (
+    <div data-testid="test-case-management-page" />
+  ),
+}));
+
 vi.mock("@/lib/api/deviceAutomation", () => ({
   listDeviceAutomationDevices: vi.fn(),
   listenDeviceAutomationInventoryChanged: vi.fn(),
@@ -180,6 +186,26 @@ describe("DeviceAutomationWorkspace", () => {
     expect(
       container.querySelector('[data-testid="device-automation-tab-ui-auto-test"]'),
     ).not.toBeNull();
+  });
+
+  it("AI用例生成 Tab 渲染测试用例管理页且不拉设备列表", async () => {
+    await act(async () => {
+      root.render(
+        <DeviceAutomationWorkspace
+          pageParams={{ tab: "ai-case-generation" }}
+        />,
+      );
+    });
+
+    expect(mockedListDevices).not.toHaveBeenCalled();
+    expect(
+      container.querySelector('[data-testid="test-case-management-page"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(
+        '[data-testid="device-automation-placeholder-ai-case-generation"]',
+      ),
+    ).toBeNull();
   });
 
   it("性能 Tab 加载设备列表并渲染监控面板", async () => {

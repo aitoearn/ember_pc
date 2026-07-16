@@ -2,7 +2,6 @@ import {
   BadgeCheck,
   BookOpen,
   Boxes,
-  ClipboardList,
   FlaskConical,
   MessageCircleMore,
   Plus,
@@ -69,14 +68,6 @@ const BASE_MAIN_SIDEBAR_NAV_ITEMS: SidebarNavItemDefinition[] = [
     page: "device-automation",
     params: { view: "list" } satisfies DeviceAutomationPageParams,
     isActive: (currentPage) => currentPage === "device-automation",
-    configurable: false,
-  },
-  {
-    id: "test-case-management",
-    label: "测试用例",
-    icon: ClipboardList,
-    page: "test-case-management",
-    isActive: (currentPage) => currentPage === "test-case-management",
     configurable: false,
   },
   {
@@ -147,7 +138,8 @@ export function buildMainSidebarNavItems(
 
   const items: SidebarNavItemDefinition[] = [...BASE_MAIN_SIDEBAR_NAV_ITEMS];
   if (agentObservabilityEnabled) {
-    items.splice(3, 0, AGENT_OBSERVABILITY_NAV_ITEM);
+    // 插在「移动端测试」之后、「专家」之前
+    items.splice(2, 0, AGENT_OBSERVABILITY_NAV_ITEM);
   }
   if (labEnabled) {
     items.push(PLUGIN_LAB_NAV_ITEM);
