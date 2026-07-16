@@ -1,10 +1,10 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Supreme Lime Gradient: Waxy Emerald Peel cascading into acidic vibrant juice pool -->
+    <!-- Supreme Ember Gradient: Waxy Emerald Peel cascading into acidic vibrant juice pool -->
     <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#064E3B" /> <!-- Deep Pine/Rind -->
       <stop offset="35%" stop-color="#10B981" /> <!-- Emerald Flesh -->
-      <stop offset="70%" stop-color="#84CC16" /> <!-- Lime Burst -->
+      <stop offset="70%" stop-color="#84CC16" /> <!-- Ember Burst -->
       <stop offset="100%" stop-color="#D9F99D" /> <!-- Acidic Juice Reflection -->
     </linearGradient>
 
@@ -42,7 +42,7 @@
 
     <mask id="ringMask">
       <rect width="512" height="512" fill="white" />
-      <!-- Sharp vector segment cuts (The Pith of the Lime) -->
+      <!-- Sharp vector segment cuts (The Pith of the Ember) -->
       <line x1="256" y1="256" x2="-20" y2="256" stroke="black" stroke-width="14" />
       <line x1="256" y1="256" x2="-20" y2="532" stroke="black" stroke-width="14" />
       <line x1="256" y1="256" x2="256" y2="532" stroke="black" stroke-width="14" />
@@ -82,7 +82,7 @@
              Q 356 156 356 92 Z" 
           fill="url(#starGrad)" />
 
-    <!-- Splashing Juice Dew / Secondary Sparks (Lime Context) -->
+    <!-- Splashing Juice Dew / Secondary Sparks (Ember Context) -->
     <circle cx="436" cy="62" r="10" fill="#D9F99D" />
     <circle cx="456" cy="100" r="5" fill="#84CC16" />
     

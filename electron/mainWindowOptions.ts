@@ -67,7 +67,7 @@ export function buildMainWindowStartupHtml({
   const escapedSlogan = escapeHtml(slogan ?? copy.slogan);
   const escapedSubtitle = escapeHtml(subtitle ?? copy.subtitle);
   const startupLogoSrc = resolveStartupLogoDataUrl(iconDataUrl);
-  const logoMarkup = `<img class="startup-logo" src="${escapeHtml(startupLogoSrc)}" alt="${escapedAppName}" data-lime-startup-logo />`;
+  const logoMarkup = `<img class="startup-logo" src="${escapeHtml(startupLogoSrc)}" alt="${escapedAppName}" data-ember-startup-logo />`;
 
   return `<!doctype html>
 <html lang="zh-CN">

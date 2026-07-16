@@ -240,7 +240,7 @@ describe("Electron current repository rules guard", () => {
 
     expect(content).toContain("data-lime-native-startup");
     expect(content).toContain("data-lime-startup-shell");
-    expect(content).toContain("data-lime-startup-logo");
+    expect(content).toContain("data-ember-startup-logo");
     expect(content).toContain('params.get("nativeStartup") === "1"');
     expect(content).toContain("index-startup-progress-shift");
     expect(content).toContain("animation: index-startup-progress-shift");

@@ -45,7 +45,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { LIME_BRAND_LOGO_SRC, LIME_BRAND_NAME } from "@/lib/branding";
+import { EMBER_BRAND_LOGO_SRC, resolveEmberBrandDisplayName } from "@/lib/branding";
 import { AppSidebarAccountMenu } from "@/components/app-sidebar/AppSidebarAccountMenu";
 import { AppSidebarAppearancePopover } from "@/components/app-sidebar/AppSidebarAppearancePopover";
 import { AppSidebarConversationShelf } from "@/components/app-sidebar/AppSidebarConversationShelf";
@@ -176,6 +176,7 @@ export function AppSidebar({
   onStartWindowDrag,
 }: AppSidebarProps) {
   const { t, i18n } = useTranslation("navigation");
+  const brandDisplayName = resolveEmberBrandDisplayName(i18n.language);
   const conversationUntitledLabel = t(
     "navigation.sidebar.conversations.untitled",
     "未命名对话",
@@ -982,10 +983,10 @@ export function AppSidebar({
     [accountEmail, accountTenantLabel].filter(Boolean).join(" · ") ||
     accountDisplayName;
   const inviteEntryVisible = inviteFeatureEnabled;
-  const homeLabel = t("navigation.sidebar.home.label", "Lime 首页");
+  const homeLabel = t("navigation.sidebar.home.label", "熠测首页");
   const homeAriaLabel = t(
     "navigation.sidebar.home.ariaLabel",
-    "返回 Lime 首页",
+    "返回 熠测首页",
   );
   const collapseNavigationLabel = t(
     "navigation.sidebar.actions.collapse",
@@ -1393,9 +1394,9 @@ export function AppSidebar({
                 data-testid="app-sidebar-home-button"
               >
                 <Avatar>
-                  <img src={LIME_BRAND_LOGO_SRC} alt={LIME_BRAND_NAME} />
+                  <img src={EMBER_BRAND_LOGO_SRC} alt={brandDisplayName} />
                 </Avatar>
-                <UserName $collapsed={collapsed}>{LIME_BRAND_NAME}</UserName>
+                <UserName $collapsed={collapsed}>{brandDisplayName}</UserName>
               </UserButton>,
               homeLabel,
             )}

@@ -1,12 +1,9 @@
-import { LIME_BRAND_LOGO_SRC, LIME_BRAND_NAME } from "@/lib/branding";
+import { EMBER_BRAND_LOGO_SRC, resolveEmberBrandDisplayName } from "@/lib/branding";
 import { useTranslation } from "react-i18next";
 
 export function StartupLoadingScreen() {
-  const { t: translate } = useTranslation("common");
-  const t = translate as unknown as (
-    key: string,
-    options?: Record<string, unknown>,
-  ) => string;
+  const { t, i18n } = useTranslation("common");
+  const brandDisplayName = resolveEmberBrandDisplayName(i18n.language);
 
   return (
     <div
@@ -31,8 +28,8 @@ export function StartupLoadingScreen() {
         }}
       >
         <img
-          src={LIME_BRAND_LOGO_SRC}
-          alt={LIME_BRAND_NAME}
+          src={EMBER_BRAND_LOGO_SRC}
+          alt={brandDisplayName}
           style={{
             width: "96px",
             height: "96px",
@@ -48,7 +45,7 @@ export function StartupLoadingScreen() {
             color: "#0f172a",
           }}
         >
-          {t("common.startupLoading.title", { brand: LIME_BRAND_NAME })}
+          {t("common.startupLoading.title", { brand: brandDisplayName })}
         </div>
         <div
           style={{

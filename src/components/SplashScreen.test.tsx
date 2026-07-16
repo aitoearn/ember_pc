@@ -56,7 +56,7 @@ describe("SplashScreen", () => {
       '[data-testid="splash-screen"]',
     ) as HTMLDivElement | null;
     const logo = container.querySelector(
-      'img[alt="Lime"]',
+      'img[alt="Ember"]',
     ) as HTMLImageElement | null;
     const logoStack = logo?.parentElement as HTMLDivElement | null;
     const stage = logoStack?.parentElement as HTMLDivElement | null;
@@ -70,16 +70,16 @@ describe("SplashScreen", () => {
     expect(logoStack?.style.display).toBe("flex");
     expect(logoStack?.style.alignItems).toBe("center");
     expect(logoStack?.style.justifyContent).toBe("center");
-    expect(logo?.hasAttribute("data-lime-startup-logo")).toBe(true);
+    expect(logo?.hasAttribute("data-ember-startup-logo")).toBe(true);
     expect(logo?.style.objectFit).toBe("contain");
   });
 
   it("启动画面文案应走 common namespace 英文资源", () => {
     const { container } = renderSplash();
 
-    expect(container.textContent).toContain("Tap Lime, inspiration arrives");
+    expect(container.textContent).toContain("Tap Ember, test every device");
     expect(container.textContent).toContain(
-      "From one thought to polished copy, images, videos, and finished work",
+      "From single-point tests to multi-device coverage",
     );
     expect(container.textContent).not.toContain("青柠一下");
     expect(container.textContent).not.toContain("成稿、成图");

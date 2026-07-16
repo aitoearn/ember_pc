@@ -351,7 +351,7 @@ async function waitForMainWindowStartupScreenVisible(
           const waitForPaint = () => {
             requestAnimationFrame(() => requestAnimationFrame(finish));
           };
-          const logo = document.querySelector("[data-lime-startup-logo]");
+          const logo = document.querySelector("[data-ember-startup-logo]");
           if (!logo || logo.tagName !== "IMG") {
             waitForPaint();
             return;

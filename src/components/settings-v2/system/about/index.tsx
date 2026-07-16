@@ -19,7 +19,7 @@ import {
   skillsApi,
   type SkillPackageFileAssociationStatus,
 } from "@/lib/api/skills";
-import { LIME_BRAND_LOGO_SRC, LIME_BRAND_NAME } from "@/lib/branding";
+import { EMBER_BRAND_LOGO_SRC, resolveEmberBrandDisplayName } from "@/lib/branding";
 import {
   interceptHttpExternalLinkClick,
   resolveHttpExternalHref,
@@ -27,7 +27,7 @@ import {
 import { getRuntimeAppVersion } from "@/lib/appVersion";
 import { cn } from "@/lib/utils";
 
-const FALLBACK_RELEASES_URL = "https://github.com/limecloud/lime/releases";
+const FALLBACK_RELEASES_URL = "https://github.com/aitoearn/ember_pc/releases";
 const PRIMARY_ACTION_BUTTON_CLASS =
   "inline-flex items-center gap-2 rounded-full border border-slate-900 bg-slate-950 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-slate-950/10 transition hover:bg-slate-800 disabled:opacity-50";
 const SECONDARY_ACTION_BUTTON_CLASS =
@@ -42,7 +42,8 @@ function normalizeAboutVersion(value?: string | null): string | null {
 }
 
 export function AboutSection() {
-  const { t } = useTranslation("settings");
+  const { t, i18n } = useTranslation("settings");
+  const brandDisplayName = resolveEmberBrandDisplayName(i18n.language);
   const runtimeAppVersion = useMemo(
     () => normalizeAboutVersion(getRuntimeAppVersion()),
     [],
@@ -373,19 +374,19 @@ export function AboutSection() {
       <section className="mx-auto max-w-[560px] rounded-[28px] border border-slate-200/80 bg-white px-6 py-9 text-center shadow-sm shadow-slate-950/5">
         <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[24px] border border-slate-200 bg-slate-50 shadow-sm shadow-slate-950/5">
           <img
-            src={LIME_BRAND_LOGO_SRC}
-            alt={LIME_BRAND_NAME}
+            src={EMBER_BRAND_LOGO_SRC}
+            alt={brandDisplayName}
             className="h-16 w-16 object-contain"
           />
         </div>
 
         <h2 className="mt-6 text-[28px] font-semibold tracking-tight text-slate-950">
-          {LIME_BRAND_NAME}
+          {brandDisplayName}
         </h2>
         <p className="mt-3 text-base text-slate-700">{versionLabel}</p>
         <p className="mt-2 text-sm text-slate-500">
           {t("settings.about.copyright", {
-            brand: LIME_BRAND_NAME,
+            brand: brandDisplayName,
           })}
         </p>
 

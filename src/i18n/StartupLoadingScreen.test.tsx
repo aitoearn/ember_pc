@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { LIME_BRAND_NAME } from "@/lib/branding";
+import { EMBER_BRAND_NAME } from "@/lib/branding";
 import { changeLimeLocale, limeI18nResources } from "./createI18n";
 import { StartupLoadingScreen } from "./StartupLoadingScreen";
 
@@ -55,10 +55,10 @@ describe("StartupLoadingScreen", () => {
         "common.startupLoading.description"
       ];
 
-    expect(container.textContent).toContain(`Starting ${LIME_BRAND_NAME}`);
+    expect(container.textContent).toContain(`Starting ${EMBER_BRAND_NAME}`);
     expect(container.textContent).toContain(expectedDescription);
     expect(container.querySelector("img")?.getAttribute("alt")).toBe(
-      LIME_BRAND_NAME,
+      EMBER_BRAND_NAME,
     );
     expect(container.textContent).not.toContain("正在启动");
     expect(container.textContent).not.toContain("语言配置");

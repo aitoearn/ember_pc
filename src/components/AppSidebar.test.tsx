@@ -13,7 +13,7 @@ import {
   resetAppSidebarTest,
 } from "./AppSidebar.testFixtures";
 import type { AgentPageParams } from "./AppSidebar.testFixtures";
-import { LIME_BRAND_LOGO_SRC } from "@/lib/branding";
+import { EMBER_BRAND_LOGO_SRC } from "@/lib/branding";
 import { LAST_PROJECT_ID_KEY } from "@/components/agent/chat/hooks/agentProjectStorage";
 
 describe("AppSidebar navigation", () => {
@@ -288,7 +288,7 @@ describe("AppSidebar navigation", () => {
     });
   });
 
-  it("Lime 首页入口应保持在左侧栏顶部，并在 macOS 预留系统按钮安全区", async () => {
+  it("熠测首页入口应保持在左侧栏顶部，并在 macOS 预留系统按钮安全区", async () => {
     vi.stubGlobal("navigator", {
       platform: "MacIntel",
       userAgent: "Mac OS X",
@@ -308,10 +308,10 @@ describe("AppSidebar navigation", () => {
       '[data-testid="app-sidebar-header"]',
     );
     const homeButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="返回 Lime 首页"]',
+      'button[aria-label="返回 熠测首页"]',
     );
     const homeLogo =
-      homeButton?.querySelector<HTMLImageElement>('img[alt="Lime"]');
+      homeButton?.querySelector<HTMLImageElement>('img[alt="熠测"]');
     const mainNav = container.querySelector(
       '[data-testid="app-sidebar-main-nav"]',
     );
@@ -319,7 +319,7 @@ describe("AppSidebar navigation", () => {
     expect(sidebar?.getAttribute("data-window-controls-reserved")).toBe("true");
     expect(header).not.toBeNull();
     expect(homeButton).not.toBeNull();
-    expect(homeLogo?.getAttribute("src")).toBe(LIME_BRAND_LOGO_SRC);
+    expect(homeLogo?.getAttribute("src")).toBe(EMBER_BRAND_LOGO_SRC);
     expect(header?.contains(homeButton)).toBe(true);
     expect(
       Boolean(

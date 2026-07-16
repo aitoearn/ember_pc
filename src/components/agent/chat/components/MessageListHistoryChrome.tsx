@@ -2,7 +2,7 @@ import React from "react";
 import { Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { formatNumber } from "@/i18n/format";
-import { LIME_BRAND_LOGO_SRC, LIME_BRAND_NAME } from "@/lib/branding";
+import { EMBER_BRAND_LOGO_SRC, EMBER_BRAND_NAME } from "@/lib/branding";
 
 function formatContentLength(value: number): string {
   return formatNumber(value);
@@ -134,8 +134,8 @@ export function TaskCenterEmptyState() {
         <div className="flex items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-slate-200/80 bg-slate-50/80">
             <img
-              src={LIME_BRAND_LOGO_SRC}
-              alt={LIME_BRAND_NAME}
+              src={EMBER_BRAND_LOGO_SRC}
+              alt={EMBER_BRAND_NAME}
               className="h-5 w-5 opacity-80"
             />
           </div>
