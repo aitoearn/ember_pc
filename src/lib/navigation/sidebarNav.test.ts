@@ -8,16 +8,18 @@ import {
 
 describe("sidebarNav", () => {
   it("应把主导航与底部系统入口收口为一级列表", () => {
-    expect(MAIN_SIDEBAR_NAV_ITEMS.map((item) => item.label)).toEqual([
-      "新建任务",
-      "专家",
-      "Skills",
-      "插件",
+    expect(MAIN_SIDEBAR_NAV_ITEMS.map((item) => item.id)).toEqual([
+      "home-general",
+      "device-automation",
+      "test-case-management",
+      "experts",
+      "skills",
+      "plugins",
+      "knowledge",
     ]);
 
     expect(FOOTER_SIDEBAR_NAV_ITEMS.map((item) => item.label)).toEqual([
       "设置",
-      "项目资料",
       "持续流程",
       "消息渠道",
     ]);

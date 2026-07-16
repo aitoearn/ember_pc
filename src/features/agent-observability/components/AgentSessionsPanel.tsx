@@ -2,7 +2,10 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2, MessageSquareText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { AsterSessionDetail, AsterSessionInfo } from "@/lib/api/agentRuntime/types";
+import type {
+  AgentSessionDetail,
+  AgentSessionInfo,
+} from "@/lib/api/agentRuntime/sessionTypes";
 import type { Page, PageParams } from "@/types/page";
 
 function formatTimestamp(value: number | undefined): string {
@@ -14,13 +17,13 @@ function formatTimestamp(value: number | undefined): string {
 }
 
 export interface AgentSessionsPanelProps {
-  sessions: AsterSessionInfo[];
+  sessions: AgentSessionInfo[];
   loading: boolean;
   error: string | null;
   selectedSessionId: string | null;
   onSelectSession: (sessionId: string) => void;
   onReload: () => void;
-  sessionDetail: AsterSessionDetail | null;
+  sessionDetail: AgentSessionDetail | null;
   detailLoading: boolean;
   detailError: string | null;
   onNavigate?: (page: Page, params?: PageParams) => void;

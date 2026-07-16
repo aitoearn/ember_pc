@@ -35,5 +35,5 @@ export function formatDeviceSpace(target?: string): string {
   if (normalized === "desktop") {
     return "桌面";
   }
-  return target.trim();
+  return (target ?? "").trim();
 }

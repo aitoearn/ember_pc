@@ -2,19 +2,19 @@ import { useCallback, useEffect, useState } from "react";
 import {
   getAgentRuntimeSession,
   listAgentRuntimeSessions,
-} from "@/lib/api/agentRuntime";
+} from "@/lib/api/agentRuntime/sessionClient";
 import type {
-  AsterSessionDetail,
-  AsterSessionInfo,
-} from "@/lib/api/agentRuntime/types";
+  AgentSessionDetail,
+  AgentSessionInfo,
+} from "@/lib/api/agentRuntime/sessionTypes";
 
 const SESSION_LIST_LIMIT = 80;
 
 export function useAgentObservabilitySessions(selectedSessionId: string | null) {
-  const [sessions, setSessions] = useState<AsterSessionInfo[]>([]);
+  const [sessions, setSessions] = useState<AgentSessionInfo[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
-  const [sessionDetail, setSessionDetail] = useState<AsterSessionDetail | null>(
+  const [sessionDetail, setSessionDetail] = useState<AgentSessionDetail | null>(
     null,
   );
   const [detailLoading, setDetailLoading] = useState(false);

@@ -38,7 +38,7 @@ const TEST_CHROME_COPY: HomeSurfaceChromeCopy = {
   guideCardsLabel: "首页引导帮助",
   moreSkillsDrawerLabel: "更多做法",
   galleryTitle: "你可以从这些任务开始",
-  secondScreenLabel: "Lime 可执行任务示例",
+  secondScreenLabel: "熠测 可执行测试任务示例",
   projectConversationsMoreLabel: (count) => `更多 ${count} 个对话`,
   recoverySessionTitle: (status, title) => {
     if (status === "waiting") {
