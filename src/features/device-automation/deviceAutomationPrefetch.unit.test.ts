@@ -4,6 +4,7 @@ import {
   prefetchDeviceAutomationWorkspaceChunk,
   preloadDeviceAutomationDeviceList,
   resetDeviceAutomationPrefetchStateForTests,
+  scheduleDeviceAutomationPrefetchAfterHome,
 } from "./deviceAutomationPrefetch";
 import { resetDeviceAutomationListSessionCacheForTests, writeCachedDeviceAutomationList } from "./deviceListSessionCache";
 
@@ -67,5 +68,34 @@ describe("deviceAutomationPrefetch", () => {
 
     expect(loadDeviceAutomationWorkspace).toHaveBeenCalledTimes(1);
     expect(listDeviceAutomationDevices).not.toHaveBeenCalled();
+  });
+
+  it("首页调度应在 idle/timeout 后触发 prefetch", async () => {
+    vi.useFakeTimers();
+    const idleCallbacks: Array<() => void> = [];
+    const requestIdleCallback = vi.fn(
+      (callback: IdleRequestCallback, options?: IdleRequestOptions) => {
+        idleCallbacks.push(() => callback({ didTimeout: true, timeRemaining: () => 0 }));
+        if (options?.timeout) {
+          window.setTimeout(() => {
+            const next = idleCallbacks.shift();
+            next?.();
+          }, options.timeout);
+        }
+        return 1;
+      },
+    );
+    vi.stubGlobal("requestIdleCallback", requestIdleCallback);
+
+    scheduleDeviceAutomationPrefetchAfterHome();
+    expect(listDeviceAutomationDevices).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(requestIdleCallback).toHaveBeenCalled();
+    expect(listDeviceAutomationDevices).toHaveBeenCalledTimes(1);
+
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 });

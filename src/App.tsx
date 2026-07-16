@@ -20,6 +20,7 @@ import { SplashScreen } from "./components/SplashScreen";
 import { AppSidebar } from "./components/AppSidebar";
 import { startupTracker } from "./lib/diagnostics/startupPerformance";
 import { preloadDefaultProject } from "./lib/api/project";
+import { scheduleDeviceAutomationPrefetchAfterHome } from "./features/device-automation/deviceAutomationPrefetch";
 import {
   ProjectType,
   createProject,
@@ -458,6 +459,8 @@ function AppContent() {
 
     // Splash 完成后立即预加载默认项目
     preloadDefaultProject();
+    // 首页出现后预热设备管理（列表 + 工作台 chunk）
+    scheduleDeviceAutomationPrefetchAfterHome();
   }, []);
 
   useEffect(() => {
@@ -475,6 +478,7 @@ function AppContent() {
 
     startupTracker.mark("Native startup screen: renderer ready");
     preloadDefaultProject();
+    scheduleDeviceAutomationPrefetchAfterHome();
   }, [nativeStartupScreenAvailable, showSplash]);
 
   const handleWindowDragStart = useCallback(

@@ -51,6 +51,25 @@ export function prefetchDeviceAutomationStartup(): void {
   preloadDeviceAutomationDeviceList();
 }
 
+/**
+ * 首页渲染后再预热：优先用 idle，超时仍强制启动，避免拖到用户点开设备管理才查。
+ */
+export function scheduleDeviceAutomationPrefetchAfterHome(): void {
+  const run = () => {
+    prefetchDeviceAutomationStartup();
+  };
+
+  if (
+    typeof window !== "undefined" &&
+    typeof window.requestIdleCallback === "function"
+  ) {
+    window.requestIdleCallback(() => run(), { timeout: 400 });
+    return;
+  }
+
+  window.setTimeout(run, 0);
+}
+
 /** 测试专用：重置 prefetch 进行中的 promise。 */
 export function resetDeviceAutomationPrefetchStateForTests(): void {
   workspaceChunkPrefetch = null;
