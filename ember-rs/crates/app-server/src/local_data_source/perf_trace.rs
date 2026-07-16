@@ -136,8 +136,14 @@ pub(crate) fn list_perf_monitor_traces(
     let conn = database::lock_db(db).map_err(data_error)?;
     let limit = params.limit.unwrap_or(50).max(1);
     let offset = params.offset.unwrap_or(0);
-    let records = PerfTraceDao::list_artifacts(&conn, &params.workspace_id, limit, offset)
-        .map_err(data_error)?;
+    let records = PerfTraceDao::list_artifacts(
+        &conn,
+        &params.workspace_id,
+        limit,
+        offset,
+        params.linked_session_id.as_deref(),
+    )
+    .map_err(data_error)?;
     let artifacts = records.into_iter().map(artifact_record_to_protocol).collect();
     Ok(PerfMonitorTraceListResponse { artifacts })
 }

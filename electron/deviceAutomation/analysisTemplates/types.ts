@@ -5,5 +5,10 @@ export type AnalysisTemplateContext = {
   analysisType: PerfTraceAnalysisType;
   packageName: string;
   timeRange?: { startNs: number; endNs: number };
+  frameTarget?: {
+    frameId?: number | null;
+    startTsNs?: number;
+    endTsNs?: number;
+  };
   runSql: (sql: string) => Promise<TraceQueryRow[]>;
 };

@@ -23,6 +23,7 @@ export async function analyzePerfTraceWithProcessor(
     analysisType: params.analysisType,
     packageName: params.packageName,
     timeRange: params.timeRange,
+    frameTarget: params.frameTarget,
   });
 
   return { result };

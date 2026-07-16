@@ -1,6 +1,9 @@
 import type { PerfTraceAnalysisType } from "../../../src/features/device-automation/performance/types";
+import { buildAnrSummaryResult } from "./anrSummary";
 import { buildCpuQuadrantResult } from "./cpuQuadrant";
+import { buildJankFrameDetailResult } from "./jankFrameDetail";
 import { buildJankSummaryResult } from "./jankSummary";
+import { buildMemorySummaryResult } from "./memorySummary";
 import { buildStartupSummaryResult } from "./startupSummary";
 import type { AnalysisTemplateContext } from "./types";
 
@@ -9,8 +12,11 @@ const TEMPLATE_BUILDERS: Record<
   (ctx: AnalysisTemplateContext) => Promise<Record<string, unknown>>
 > = {
   jank_summary: buildJankSummaryResult,
+  jank_frame_detail: buildJankFrameDetailResult,
   startup_summary: buildStartupSummaryResult,
   cpu_quadrant: buildCpuQuadrantResult,
+  memory_summary: buildMemorySummaryResult,
+  anr_summary: buildAnrSummaryResult,
 };
 
 export async function runAnalysisTemplate(

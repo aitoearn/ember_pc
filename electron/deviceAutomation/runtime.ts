@@ -70,6 +70,7 @@ import {
   type StabilityAnalysisEventEmitter,
   type StabilityAnalysisStartParams,
 } from "./stabilityAnalysis";
+import { getKea2ToolStatus } from "./kea2/kea2Tool";
 import {
   readStabilityLlmConfig,
   saveStabilityLlmConfig,
@@ -225,6 +226,10 @@ export class DeviceAutomationRuntime {
 
   getStabilityAnalysisToolStatus() {
     return getStabilityAnalysisToolStatus();
+  }
+
+  getKea2ToolStatus() {
+    return getKea2ToolStatus();
   }
 
   startStabilityAnalysis(params: StabilityAnalysisStartParams) {

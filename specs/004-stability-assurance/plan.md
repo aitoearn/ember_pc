@@ -340,3 +340,4 @@ type StabilityLlmConfig = {
 | 2026-07-16 | Plan | 需求 Spec D1–D7 整包采纳；待实现 |
 | 2026-07-16 | Phase 0–2 | Host 契约、Tab 路由、Electron logcat/sa-agent/LLM、Renderer 稳定性保障 UI 与压测联动 |
 | 2026-07-16 | Phase 3–4 | i18n 双语校对、monkey 压测文案稳定性语境、定向 vitest + command-contracts 守门；quickstart/tasks 勾选收口 |
+| 2026-07-16 | Kea2 侧车接入 | `python -m kea2 run` 引擎模式、工作区工程、Explore→Python codegen、工具状态 API |

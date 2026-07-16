@@ -21,6 +21,7 @@ import { DEVICE_AUTOMATION_PERF_FRAME_EVENT } from "../src/features/device-autom
 import { DEVICE_AUTOMATION_MONKEY_EVENT } from "../src/features/device-automation/monkey/events";
 import { DEVICE_AUTOMATION_STABILITY_ANALYSIS_EVENT } from "../src/features/device-automation/stability/events";
 import { setMonkeyResultsRoot } from "./deviceAutomation/monkeyTest";
+import { setKea2WorkspacesRoot } from "./deviceAutomation/kea2/kea2RunSession";
 import {
   setStabilityAnalysisResultsRoot,
 } from "./deviceAutomation/stabilityAnalysis";
@@ -109,6 +110,9 @@ setStabilityAnalysisResultsRoot(stabilityAnalysisRoot);
 setStabilityLlmConfigRoot(stabilityAnalysisRoot);
 setMonkeyResultsRoot(
   path.join(app.getPath("userData"), "device-automation", "monkey-results"),
+);
+setKea2WorkspacesRoot(
+  path.join(app.getPath("userData"), "device-automation", "kea2-workspaces"),
 );
 deviceAutomationRuntime.setPerfTraceProgressEmitter((payload) => {
   broadcast(DEVICE_AUTOMATION_PERF_TRACE_PROGRESS_EVENT, payload);

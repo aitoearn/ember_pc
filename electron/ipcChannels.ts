@@ -72,6 +72,7 @@ export const ELECTRON_HOST_COMMANDS = [
   "device_automation_monkey_stop",
   "device_automation_monkey_get_status",
   "device_automation_stability_analysis_get_tool_status",
+  "device_automation_kea2_get_tool_status",
   "device_automation_stability_analysis_start",
   "device_automation_stability_analysis_cancel",
   "device_automation_stability_analysis_get_status",

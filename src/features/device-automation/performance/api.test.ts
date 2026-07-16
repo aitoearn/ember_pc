@@ -132,7 +132,7 @@ describe("deviceAutomationPerformance api", () => {
     const artifact: PerformanceTraceArtifact = {
       id: "trace-1",
       workspaceId: "ws-1",
-      linkedSessionId: null,
+      linkedSessionId: "sess-apm-1",
       deviceId: "dev-1",
       devicePlatform: "android",
       packageName: "com.demo.app",
@@ -153,6 +153,40 @@ describe("deviceAutomationPerformance api", () => {
       workspaceId: "ws-1",
       limit: undefined,
       offset: undefined,
+    });
+    expect(artifacts).toEqual([artifact]);
+  });
+
+  it("listPerformanceTraceArtifacts 支持 linkedSessionId 过滤", async () => {
+    const artifact: PerformanceTraceArtifact = {
+      id: "trace-linked",
+      workspaceId: "ws-1",
+      linkedSessionId: "sess-apm-1",
+      deviceId: "dev-1",
+      devicePlatform: "android",
+      packageName: "com.demo.app",
+      presetId: "scroll_jank",
+      configJson: null,
+      localPath: "/tmp/trace-linked.perfetto-trace",
+      remotePath: null,
+      sizeBytes: 2048,
+      durationMs: 8000,
+      status: "ready",
+      errorMessage: null,
+      createdAt: "2026-06-17T00:00:00.000Z",
+      stoppedAt: "2026-06-17T00:00:10.000Z",
+    };
+    const { client, request } = makeClient({ artifacts: [artifact] });
+    const artifacts = await listPerformanceTraceArtifacts(
+      "ws-1",
+      { linkedSessionId: "sess-apm-1" },
+      client,
+    );
+    expect(request).toHaveBeenCalledWith("perfMonitor/trace/list", {
+      workspaceId: "ws-1",
+      limit: undefined,
+      offset: undefined,
+      linkedSessionId: "sess-apm-1",
     });
     expect(artifacts).toEqual([artifact]);
   });

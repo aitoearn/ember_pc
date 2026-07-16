@@ -12,6 +12,7 @@ import {
   listPerformanceTraceAnalyses,
   listPerformanceTraceArtifacts,
   openPerformanceTraceExternal,
+  readPerformanceSession,
   savePerformanceTraceAnalysis,
   savePerformanceTraceArtifact,
   startPerformanceTraceCapture,
@@ -20,15 +21,22 @@ import {
 import { safeListen, safeInvoke } from "@/lib/dev-bridge";
 import type { DeviceAutomationCardModel } from "../../types";
 import { DEFAULT_PERF_TRACE_PRESET_ID } from "../constants/tracePresets";
+import {
+  canLinkTraceToApmSession,
+  EMPTY_PERFORMANCE_APM_BRIDGE,
+  type PerformanceApmBridge,
+} from "../constants/apmTraceBridge";
 import { isAndroidPerfCollectionSupported } from "../constants/platformMatrix";
 import {
   DEVICE_AUTOMATION_PERF_TRACE_PROGRESS_EVENT,
   type DeviceAutomationPerfTraceProgressPayload,
 } from "../events";
 import type {
+  PerfTraceAnalysisOptions,
   PerfTraceAnalysisType,
   PerfTracePresetId,
   PerformanceInstalledApp,
+  PerformanceSession,
   PerformanceTraceAnalysis,
   PerformanceTraceArtifact,
 } from "../types";
@@ -37,6 +45,7 @@ export type PerfTracePhase = "idle" | "recording" | "stopping" | "pulling";
 
 export interface UsePerformanceTraceOptions {
   devices: DeviceAutomationCardModel[];
+  apmBridge?: PerformanceApmBridge;
 }
 
 function toMessage(error: unknown): string {
@@ -51,7 +60,10 @@ function buildTracesDir(rootPath: string): string {
   return `${normalized}/performance-traces`;
 }
 
-export function usePerformanceTrace({ devices }: UsePerformanceTraceOptions) {
+export function usePerformanceTrace({
+  devices,
+  apmBridge = EMPTY_PERFORMANCE_APM_BRIDGE,
+}: UsePerformanceTraceOptions) {
   const { t } = useTranslation("deviceAutomation");
   const [workspaceId, setWorkspaceId] = useState("");
   const [workspaceRootPath, setWorkspaceRootPath] = useState("");
@@ -60,6 +72,9 @@ export function usePerformanceTrace({ devices }: UsePerformanceTraceOptions) {
   const [appsLoading, setAppsLoading] = useState(false);
   const [packageName, setPackageName] = useState("");
   const [presetId, setPresetId] = useState<PerfTracePresetId>(DEFAULT_PERF_TRACE_PRESET_ID);
+  const [useCustomConfig, setUseCustomConfig] = useState(false);
+  const [customConfigOverride, setCustomConfigOverride] = useState("");
+  const [linkToApmSession, setLinkToApmSession] = useState(false);
   const [phase, setPhase] = useState<PerfTracePhase>("idle");
   const [activeCaptureId, setActiveCaptureId] = useState<string | null>(null);
   const [artifacts, setArtifacts] = useState<PerformanceTraceArtifact[]>([]);
@@ -69,6 +84,8 @@ export function usePerformanceTrace({ devices }: UsePerformanceTraceOptions) {
   const [analysesLoading, setAnalysesLoading] = useState(false);
   const [analyzingType, setAnalyzingType] = useState<PerfTraceAnalysisType | null>(null);
   const [progressPhase, setProgressPhase] = useState<string | null>(null);
+  const [linkedSession, setLinkedSession] = useState<PerformanceSession | null>(null);
+  const [linkedSessionLoading, setLinkedSessionLoading] = useState(false);
 
   const phaseRef = useRef<PerfTracePhase>("idle");
   phaseRef.current = phase;
@@ -85,6 +102,22 @@ export function usePerformanceTrace({ devices }: UsePerformanceTraceOptions) {
 
   const canRecord = isAndroidPerfCollectionSupported(selectedDevice?.platform);
   const isRecording = phase === "recording" || phase === "stopping" || phase === "pulling";
+
+  const canLinkApmSession = useMemo(
+    () => canLinkTraceToApmSession(apmBridge, selectedDeviceId, packageName),
+    [apmBridge, packageName, selectedDeviceId],
+  );
+
+  useEffect(() => {
+    if (canLinkApmSession) {
+      setLinkToApmSession(true);
+    } else {
+      setLinkToApmSession(false);
+    }
+  }, [canLinkApmSession]);
+
+  const resolvedLinkedSessionId =
+    linkToApmSession && canLinkApmSession ? apmBridge.sessionId : null;
 
   const selectedArtifact = useMemo(
     () => artifacts.find((item) => item.id === selectedArtifactId) ?? null,
@@ -168,6 +201,37 @@ export function usePerformanceTrace({ devices }: UsePerformanceTraceOptions) {
   }, [reloadAnalyses, selectedArtifactId]);
 
   useEffect(() => {
+    const sessionId = selectedArtifact?.linkedSessionId?.trim();
+    if (!sessionId) {
+      setLinkedSession(null);
+      setLinkedSessionLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLinkedSessionLoading(true);
+    void readPerformanceSession(sessionId)
+      .then((session) => {
+        if (!cancelled) {
+          setLinkedSession(session);
+        }
+      })
+      .catch((error) => {
+        console.error("加载关联 APM 会话失败:", error);
+        if (!cancelled) {
+          setLinkedSession(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLinkedSessionLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedArtifact?.linkedSessionId]);
+
+  useEffect(() => {
     if (selectedDeviceId && onlineDevices.some((device) => device.id === selectedDeviceId)) {
       return;
     }
@@ -175,7 +239,7 @@ export function usePerformanceTrace({ devices }: UsePerformanceTraceOptions) {
   }, [onlineDevices, selectedDeviceId]);
 
   const runAnalysis = useCallback(
-    async (analysisType: PerfTraceAnalysisType) => {
+    async (analysisType: PerfTraceAnalysisType, options?: PerfTraceAnalysisOptions) => {
       if (!selectedArtifact?.localPath || selectedArtifact.status !== "ready") {
         toast.error(t("deviceAutomation.performance.trace.analysis.noArtifact"));
         return;
@@ -186,13 +250,21 @@ export function usePerformanceTrace({ devices }: UsePerformanceTraceOptions) {
           localPath: selectedArtifact.localPath,
           analysisType,
           packageName: selectedArtifact.packageName,
+          ...(options?.timeRange ? { timeRange: options.timeRange } : {}),
+          ...(options?.frameTarget ? { frameTarget: options.frameTarget } : {}),
         });
         const analysis: PerformanceTraceAnalysis = {
           id: crypto.randomUUID(),
           artifactId: selectedArtifact.id,
           analysisType,
           packageName: selectedArtifact.packageName,
-          timeRangeJson: null,
+          timeRangeJson:
+            options?.timeRange || options?.frameTarget
+              ? JSON.stringify({
+                  timeRange: options.timeRange ?? null,
+                  frameTarget: options.frameTarget ?? null,
+                })
+              : null,
           resultJson: JSON.stringify(result),
           status: "done",
           createdAt: new Date().toISOString(),
@@ -284,11 +356,21 @@ export function usePerformanceTrace({ devices }: UsePerformanceTraceOptions) {
     }
     setPhase("recording");
     try {
+      const hasCustomConfig = useCustomConfig || customConfigOverride.trim().length > 0;
+      const effectivePresetId: PerfTracePresetId = hasCustomConfig ? "custom" : presetId;
+      const configOverride = hasCustomConfig ? customConfigOverride.trim() : undefined;
+      if (effectivePresetId === "custom" && !configOverride) {
+        toast.error(t("deviceAutomation.performance.trace.errors.customConfigRequired"));
+        setPhase("idle");
+        return;
+      }
       const result = await startPerformanceTraceCapture({
         deviceId: selectedDevice.id,
         packageName,
-        presetId,
+        presetId: effectivePresetId,
         localTracesDir: buildTracesDir(workspaceRootPath),
+        ...(configOverride ? { configOverride } : {}),
+        ...(resolvedLinkedSessionId ? { linkedSessionId: resolvedLinkedSessionId } : {}),
       });
       setActiveCaptureId(result.captureId);
       toast.success(t("deviceAutomation.performance.trace.toast.started"));
@@ -297,7 +379,16 @@ export function usePerformanceTrace({ devices }: UsePerformanceTraceOptions) {
       setActiveCaptureId(null);
       toast.error(toMessage(error));
     }
-  }, [packageName, presetId, selectedDevice, t, workspaceRootPath]);
+  }, [
+    customConfigOverride,
+    packageName,
+    presetId,
+    resolvedLinkedSessionId,
+    selectedDevice,
+    t,
+    useCustomConfig,
+    workspaceRootPath,
+  ]);
 
   const stopRecording = useCallback(async () => {
     if (!activeCaptureId || !workspaceId) {
@@ -309,7 +400,7 @@ export function usePerformanceTrace({ devices }: UsePerformanceTraceOptions) {
       const artifact: PerformanceTraceArtifact = {
         id: activeCaptureId,
         workspaceId,
-        linkedSessionId: null,
+        linkedSessionId: resolvedLinkedSessionId,
         deviceId: selectedDevice?.id ?? "",
         devicePlatform: "android",
         packageName,
@@ -339,6 +430,7 @@ export function usePerformanceTrace({ devices }: UsePerformanceTraceOptions) {
     packageName,
     presetId,
     reloadArtifacts,
+    resolvedLinkedSessionId,
     selectedDevice?.id,
     t,
     workspaceId,
@@ -398,7 +490,11 @@ export function usePerformanceTrace({ devices }: UsePerformanceTraceOptions) {
         if (result.url) {
           await safeInvoke("open_external_url", { url: result.url });
         }
-        toast.message(t("deviceAutomation.performance.trace.toast.openUiHint"));
+        if (result.pathCopied) {
+          toast.success(t("deviceAutomation.performance.trace.toast.openUiPathCopied"));
+        } else {
+          toast.message(t("deviceAutomation.performance.trace.toast.openUiHint"));
+        }
       } catch (error) {
         toast.error(toMessage(error));
       }
@@ -413,6 +509,26 @@ export function usePerformanceTrace({ devices }: UsePerformanceTraceOptions) {
     return window.confirm(t("deviceAutomation.performance.trace.leaveTabConfirm"));
   }, [isRecording, t]);
 
+  const focusArtifact = useCallback(
+    (artifactId: string) => {
+      const artifact = artifacts.find((item) => item.id === artifactId);
+      if (!artifact) {
+        void reloadArtifacts(workspaceId).then(() => {
+          setSelectedArtifactId(artifactId);
+        });
+        return;
+      }
+      setSelectedArtifactId(artifactId);
+      if (artifact.deviceId) {
+        setSelectedDeviceId(artifact.deviceId);
+      }
+      if (artifact.packageName) {
+        setPackageName(artifact.packageName);
+      }
+    },
+    [artifacts, reloadArtifacts, workspaceId],
+  );
+
   return {
     onlineDevices,
     selectedDeviceId,
@@ -426,6 +542,14 @@ export function usePerformanceTrace({ devices }: UsePerformanceTraceOptions) {
     setPackageName,
     presetId,
     setPresetId,
+    useCustomConfig,
+    setUseCustomConfig,
+    customConfigOverride,
+    setCustomConfigOverride,
+    linkToApmSession,
+    setLinkToApmSession,
+    canLinkApmSession,
+    resolvedLinkedSessionId,
     phase,
     isRecording,
     progressPhase,
@@ -444,5 +568,8 @@ export function usePerformanceTrace({ devices }: UsePerformanceTraceOptions) {
     analysesLoading,
     analyzingType,
     runAnalysis,
+    focusArtifact,
+    linkedSession,
+    linkedSessionLoading,
   };
 }

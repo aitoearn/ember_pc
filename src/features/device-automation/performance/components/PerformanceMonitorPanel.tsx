@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { readPerformanceSession } from "@/lib/api/deviceAutomationPerformance";
 import type { DeviceAutomationCardModel } from "../../types";
 import { PerfTracePanel } from "./PerfTracePanel";
 import { PerformanceLiveCharts } from "./PerformanceLiveCharts";
@@ -23,7 +24,23 @@ export function PerformanceMonitorPanel({
   const { t } = useTranslation("deviceAutomation");
   const [mode, setMode] = useState<PerformanceMonitorMode>("apm");
   const monitor = usePerformanceMonitor({ devices });
-  const trace = usePerformanceTrace({ devices });
+
+  const apmBridge = useMemo(
+    () => ({
+      sessionId: monitor.activeSessionId,
+      isRunning: monitor.isRunning,
+      deviceId: monitor.selectedDeviceId,
+      packageName: monitor.packageName,
+    }),
+    [
+      monitor.activeSessionId,
+      monitor.isRunning,
+      monitor.packageName,
+      monitor.selectedDeviceId,
+    ],
+  );
+
+  const trace = usePerformanceTrace({ devices, apmBridge });
 
   useEffect(() => {
     onTraceLeaveGuardChange?.(trace.confirmLeaveTab);
@@ -31,6 +48,70 @@ export function PerformanceMonitorPanel({
       onTraceLeaveGuardChange?.(null);
     };
   }, [onTraceLeaveGuardChange, trace.confirmLeaveTab]);
+
+  const handleModeChange = useCallback(
+    (next: PerformanceMonitorMode) => {
+      if (next === mode) {
+        return;
+      }
+      if (mode === "apm" && monitor.isRunning) {
+        const ok = window.confirm(t("deviceAutomation.performance.mode.leaveApmConfirm"));
+        if (!ok) {
+          return;
+        }
+      }
+      if (mode === "trace" && trace.isRecording) {
+        if (!trace.confirmLeaveTab()) {
+          return;
+        }
+      }
+      if (next === "trace") {
+        if (monitor.selectedDeviceId) {
+          trace.setSelectedDeviceId(monitor.selectedDeviceId);
+        }
+        if (monitor.packageName) {
+          trace.setPackageName(monitor.packageName);
+        }
+      }
+      if (next === "apm") {
+        if (trace.selectedDeviceId) {
+          monitor.setSelectedDeviceId(trace.selectedDeviceId);
+        }
+        if (trace.packageName) {
+          monitor.setPackageName(trace.packageName);
+        }
+      }
+      setMode(next);
+    },
+    [mode, monitor, t, trace],
+  );
+
+  const handleOpenLinkedTrace = useCallback(
+    (artifactId: string) => {
+      setMode("trace");
+      trace.focusArtifact(artifactId);
+    },
+    [trace],
+  );
+
+  const handleOpenLinkedApmSession = useCallback(
+    (sessionId: string) => {
+      setMode("apm");
+      const fromHistory = monitor.history.find((item) => item.id === sessionId);
+      if (fromHistory) {
+        monitor.setSelectedHistorySession(fromHistory);
+        return;
+      }
+      void readPerformanceSession(sessionId)
+        .then((session) => {
+          monitor.setSelectedHistorySession(session);
+        })
+        .catch((error) => {
+          console.error("打开关联 APM 会话失败:", error);
+        });
+    },
+    [monitor],
+  );
 
   return (
     <div
@@ -46,11 +127,11 @@ export function PerformanceMonitorPanel({
               : t("deviceAutomation.performance.trace.subtitle")}
           </p>
         </div>
-        <PerformanceModeSwitch mode={mode} onModeChange={setMode} />
+        <PerformanceModeSwitch mode={mode} onModeChange={handleModeChange} />
       </div>
 
       {mode === "trace" ? (
-        <PerfTracePanel trace={trace} />
+        <PerfTracePanel trace={trace} onOpenLinkedApmSession={handleOpenLinkedApmSession} />
       ) : (
         <>
           <PerformanceMonitorToolbar
@@ -97,17 +178,20 @@ export function PerformanceMonitorPanel({
           <PerformanceSessionHistory
             sessions={monitor.history}
             loading={monitor.historyLoading}
+            linkedTraceCountBySessionId={monitor.linkedTraceCountBySessionId}
             onSelectSession={monitor.setSelectedHistorySession}
           />
 
           <PerformanceSessionSummaryModal
             session={monitor.selectedHistorySession}
+            workspaceId={monitor.workspaceId}
             open={monitor.selectedHistorySession !== null}
             onOpenChange={(open) => {
               if (!open) {
                 monitor.setSelectedHistorySession(null);
               }
             }}
+            onOpenLinkedTrace={handleOpenLinkedTrace}
           />
         </>
       )}

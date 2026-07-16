@@ -1,6 +1,6 @@
 /** Monkey 稳定性测试会话状态（对齐 Kea2 Options 核心字段的子集）。 */
 
-export type MonkeyEngineMode = "system" | "fastbot";
+export type MonkeyEngineMode = "system" | "fastbot" | "kea2";
 
 export type MonkeySessionPhase = "idle" | "running" | "stopping";
 
@@ -20,6 +20,19 @@ export interface MonkeyStepsLogSummary {
   anrCount: number;
   killAppsCount: number;
   lastMonkeyStep?: number;
+}
+
+/** Kea2 对齐：crash-dump.log 结构化摘要。 */
+export interface MonkeyCrashDumpSummary {
+  crashDumpPath?: string;
+  crashEventCount: number;
+  anrEventCount: number;
+}
+
+export interface MonkeyDetectionSummary {
+  logicViolationCount: number;
+  widgetCoverageCount: number;
+  crashDump?: MonkeyCrashDumpSummary;
 }
 
 export interface MonkeySessionSummary {
@@ -42,6 +55,7 @@ export interface MonkeySessionSummary {
   stepsLogPath?: string;
   stepsSummary?: MonkeyStepsLogSummary;
   crashLogPath?: string;
+  detectionSummary?: MonkeyDetectionSummary;
 }
 
 export interface MonkeyLogLine {
@@ -54,4 +68,5 @@ export interface MonkeyLogLine {
   stepsLogPath?: string;
   stepsSummary?: MonkeyStepsLogSummary;
   crashLogPath?: string;
+  detectionSummary?: MonkeyDetectionSummary;
 }

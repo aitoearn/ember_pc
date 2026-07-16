@@ -110,6 +110,16 @@ export function MonkeyTestLogPanel({
           })}
         </p>
       ) : null}
+      {lastSummary?.detectionSummary ? (
+        <p className="mt-1 shrink-0 text-xs text-neutral-500">
+          {t("deviceAutomation.monkey.log.detectionSummary", {
+            logic: lastSummary.detectionSummary.logicViolationCount,
+            widgets: lastSummary.detectionSummary.widgetCoverageCount,
+            dumpCrash: lastSummary.detectionSummary.crashDump?.crashEventCount ?? 0,
+            dumpAnr: lastSummary.detectionSummary.crashDump?.anrEventCount ?? 0,
+          })}
+        </p>
+      ) : null}
       <div
         className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-lg border border-neutral-100 bg-neutral-50 p-3 font-mono text-[11px] leading-5 text-neutral-700"
       >

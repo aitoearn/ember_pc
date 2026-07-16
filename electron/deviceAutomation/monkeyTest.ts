@@ -18,6 +18,14 @@ import {
 import { FastbotU2Session } from "./fastbot/fastbotU2Session";
 import { generateFastbotBugReport } from "./fastbot/fastbotBugReport";
 import type { FastbotAgentKind } from "./fastbot/fastbotPush";
+import {
+  finalizeKea2Run,
+  mapKea2ExitCodeToConclusion,
+  prepareKea2Run,
+  startKea2Run,
+  stopKea2Run,
+  type Kea2RunHandle,
+} from "./kea2/kea2RunSession";
 import type { DeviceAutomationMonkeyEventPayload } from "../../src/features/device-automation/monkey/events";
 import type {
   MonkeySessionConclusion,
@@ -50,6 +58,8 @@ export type MonkeyStartParams = {
   deviceOutputRoot?: string;
   exploreRules?: import("../../src/features/device-automation/explore/types").ExploreRule[];
   exploreConfig?: import("../../src/features/device-automation/explore/types").ExploreConfig;
+  workspaceId?: string;
+  kea2PropertyScript?: string;
 };
 
 export type MonkeyStartResult = {
@@ -75,6 +85,7 @@ export type MonkeyStopResult = {
     killAppsCount: number;
     lastMonkeyStep?: number;
   };
+  detectionSummary?: import("../../src/features/device-automation/monkey/types").MonkeyDetectionSummary;
 };
 
 export type MonkeyStatusResult = {
@@ -98,6 +109,9 @@ type ActiveMonkeySession = {
   stopRequested: boolean;
   systemChild?: ChildProcessWithoutNullStreams;
   fastbot?: FastbotRunnerHandle;
+  kea2?: Kea2RunHandle;
+  kea2ExitCode?: number | null;
+  profilePeriod?: number;
 };
 
 let eventEmitter: MonkeyEventEmitter | null = null;
@@ -229,20 +243,70 @@ function finalizeSession(
   let bugReportPath: string | undefined;
   let stepsLogPath: string | undefined;
   let stepsSummary: MonkeyStopResult["stepsSummary"];
+  let detectionSummary: MonkeyStopResult["detectionSummary"];
 
-  if (session.mode === "fastbot" && session.fastbot?.localOutputDir) {
+  if (session.mode === "kea2" && session.kea2) {
     try {
-      const report = generateFastbotBugReport(session.fastbot.localOutputDir, {
+      const stoppedAtIso = stoppedAt;
+      const exitCode = session.kea2.child.exitCode;
+      const kea2Final = finalizeKea2Run(session.kea2, {
         sessionId: session.sessionId,
         packageName: session.packageName,
         startedAt: session.startedAt,
-        stoppedAt,
+        stoppedAt: stoppedAtIso,
         conclusion,
+        exitCode: session.kea2ExitCode ?? session.kea2.child.exitCode,
       });
+      localResultDir = kea2Final.localResultDir;
+      bugReportPath = kea2Final.bugReportPath;
+      stepsLogPath = kea2Final.stepsLogPath;
+      stepsSummary = kea2Final.stepsSummary;
+      detectionSummary = kea2Final.detectionSummary;
+    } catch (error) {
+      console.error(
+        "Kea2 结果汇总失败:",
+        error instanceof Error ? error.message : error,
+      );
+      localResultDir = session.kea2.sessionOutputDir;
+    }
+  }
+
+  if (session.mode === "fastbot" && session.fastbot?.localOutputDir) {
+    try {
+      const report = generateFastbotBugReport(
+        session.fastbot.localOutputDir,
+        {
+          sessionId: session.sessionId,
+          packageName: session.packageName,
+          startedAt: session.startedAt,
+          stoppedAt,
+          conclusion,
+          logicViolationCount: session.fastbot.logicViolationCount,
+        },
+        { profilePeriod: session.profilePeriod },
+      );
       localResultDir = session.fastbot.localOutputDir;
       bugReportPath = report.reportPath;
       stepsLogPath = report.stepsLogPath ?? undefined;
       stepsSummary = report.summary;
+      detectionSummary = {
+        logicViolationCount: session.fastbot.logicViolationCount,
+        widgetCoverageCount: report.widgetCoverage.uniqueWidgetCount,
+        crashDump: {
+          crashDumpPath: report.crashDumpPath ?? undefined,
+          crashEventCount: report.crashEvents.length,
+          anrEventCount: report.anrEvents.length,
+        },
+      };
+      if (
+        report.crashEvents.length > 0 &&
+        !session.crashDetected
+      ) {
+        session.crashDetected = true;
+      }
+      if (report.anrEvents.length > 0 && !session.anrDetected) {
+        session.anrDetected = true;
+      }
     } catch (error) {
       console.error(
         "生成 Fastbot 报告失败:",
@@ -286,6 +350,7 @@ function finalizeSession(
     stepsLogPath,
     stepsSummary,
     crashLogPath,
+    detectionSummary,
   });
   deviceActivityLock.release(session.deviceId, session.sessionId);
   activeSession = null;
@@ -298,6 +363,7 @@ function finalizeSession(
     stepsLogPath,
     stepsSummary,
     crashLogPath,
+    detectionSummary,
   };
 }
 
@@ -317,6 +383,10 @@ function scheduleDurationTimeout(
       void stopFastbotService(session.fastbot).finally(() => {
         finalizeSession(session, "timeout");
       });
+    }
+    if (session.mode === "kea2" && session.kea2) {
+      stopKea2Run(session.kea2);
+      finalizeSession(session, "timeout");
     }
   }, runningMinutes * 60 * 1000);
 }
@@ -375,6 +445,101 @@ function startSystemMonkey(
   });
 }
 
+function startKea2Monkey(
+  session: ActiveMonkeySession,
+  params: MonkeyStartParams,
+): void {
+  killExistingMonkey(session.deviceId);
+  const workspaceId = params.workspaceId?.trim() || "default";
+  const maxStep = Math.max(
+    1,
+    Math.floor(params.eventCount ?? MONKEY_DEFAULT_EVENT_COUNT),
+  );
+
+  let prepared: ReturnType<typeof prepareKea2Run>;
+  try {
+    prepared = prepareKea2Run({
+      sessionId: session.sessionId,
+      workspaceId,
+      deviceId: session.deviceId,
+      packageName: session.packageName,
+      runningMinutes:
+        params.runningMinutes ?? MONKEY_DEFAULT_RUNNING_MINUTES,
+      maxStep,
+      throttleMs: params.throttleMs ?? MONKEY_DEFAULT_THROTTLE_MS,
+      profilePeriod: params.profilePeriod ?? 25,
+      takeScreenshots: params.takeScreenshots ?? false,
+      fastbotAgent: params.fastbotAgent,
+      kea2PropertyScript: params.kea2PropertyScript,
+      exploreRules: params.exploreRules,
+      exploreConfig: params.exploreConfig,
+      onLogLine: (line) => {
+        if (line.type === "crash") {
+          session.crashDetected = true;
+        }
+        if (line.type === "anr") {
+          session.anrDetected = true;
+        }
+        emitLine(session.sessionId, line);
+      },
+    });
+  } catch (error) {
+    emitLine(session.sessionId, {
+      ts: Date.now(),
+      type: "error",
+      message: error instanceof Error ? error.message : String(error),
+    });
+    if (session.durationTimer) {
+      clearTimeout(session.durationTimer);
+    }
+    finalizeSession(session, "error");
+    return;
+  }
+
+  const handle = startKea2Run(
+    {
+      sessionId: session.sessionId,
+      workspaceId,
+      deviceId: session.deviceId,
+      packageName: session.packageName,
+      runningMinutes:
+        params.runningMinutes ?? MONKEY_DEFAULT_RUNNING_MINUTES,
+      maxStep,
+      throttleMs: params.throttleMs ?? MONKEY_DEFAULT_THROTTLE_MS,
+      profilePeriod: params.profilePeriod ?? 25,
+      takeScreenshots: params.takeScreenshots ?? false,
+      fastbotAgent: params.fastbotAgent,
+      kea2PropertyScript: params.kea2PropertyScript,
+      exploreRules: params.exploreRules,
+      exploreConfig: params.exploreConfig,
+      onLogLine: (line) => {
+        if (line.type === "crash") {
+          session.crashDetected = true;
+        }
+        if (line.type === "anr") {
+          session.anrDetected = true;
+        }
+        emitLine(session.sessionId, line);
+      },
+    },
+    prepared,
+  );
+  session.kea2 = handle;
+  session.profilePeriod = params.profilePeriod;
+
+  handle.child.on("close", (code) => {
+    if (session.durationTimer) {
+      clearTimeout(session.durationTimer);
+    }
+    if (activeSession?.sessionId !== session.sessionId) {
+      return;
+    }
+    session.kea2ExitCode = code;
+    const conclusion = mapKea2ExitCodeToConclusion(code, handle);
+    finalizeSession(session, conclusion);
+  });
+}
+
 function startFastbotMonkey(
   session: ActiveMonkeySession,
   params: MonkeyStartParams,
@@ -397,8 +562,10 @@ function startFastbotMonkey(
     takeScreenshots: params.takeScreenshots,
     deviceOutputRoot: params.deviceOutputRoot,
     monkeyResultsRoot: monkeyResultsRoot ?? undefined,
+    profilePeriod: params.profilePeriod,
     exploreRules: params.exploreRules,
     exploreConfig: params.exploreConfig,
+    kea2BuiltinInvariants: true,
     onLogLine: (line: MonkeyLogLine) => {
       if (line.type === "crash") {
         session.crashDetected = true;
@@ -522,10 +689,13 @@ export function startMonkeyTest(params: MonkeyStartParams): MonkeyStartResult {
     anrDetected: false,
     stopRequested: false,
   };
+  session.profilePeriod = params.profilePeriod;
   activeSession = session;
   scheduleDurationTimeout(session, runningMinutes);
 
-  if (mode === "fastbot") {
+  if (mode === "kea2") {
+    startKea2Monkey(session, params);
+  } else if (mode === "fastbot") {
     startFastbotMonkey(session, params);
   } else {
     startSystemMonkey(session, params);
@@ -546,6 +716,15 @@ export function stopMonkeyTest(params: { sessionId: string }): MonkeyStopResult 
   session.stopRequested = true;
   if (session.durationTimer) {
     clearTimeout(session.durationTimer);
+  }
+
+  if (session.mode === "kea2" && session.kea2) {
+    stopKea2Run(session.kea2);
+    return {
+      conclusion: "stopped",
+      stoppedAt: new Date().toISOString(),
+      eventsInjected: session.eventsInjected,
+    };
   }
 
   if (session.mode === "fastbot" && session.fastbot) {

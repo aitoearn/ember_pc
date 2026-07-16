@@ -24,7 +24,13 @@ import {
   listFailedExploreChecks,
   runExploreRuleChecks,
 } from "../../../src/features/device-automation/explore/exploreRuleEngine";
+import { runKea2UiDumpHeuristics } from "../../../src/features/device-automation/explore/domain/uiDumpHeuristics";
 import type { MonkeyLogLine } from "../../../src/features/device-automation/monkey/types";
+import {
+  createFastbotLogParserState,
+  parseFastbotProcessLine,
+  type FastbotLogParserState,
+} from "./fastbotLogParser";
 
 export const FASTBOT_DEFAULT_DEVICE_OUTPUT_ROOT = "/sdcard/.ember-fastbot";
 
@@ -41,6 +47,8 @@ export interface FastbotRunnerParams {
   deviceOutputRoot?: string;
   /** 工作区探索规则（property / invariant）。 */
   exploreRules?: ExploreRule[];
+  /** 启用 Kea2 内置 UI 启发式（空树 / 无文案 / RN 空白页）。 */
+  kea2BuiltinInvariants?: boolean;
   exploreConfig?: ExploreConfig;
   /** 本地结果根目录（userData/device-automation/monkey-results）。 */
   monkeyResultsRoot?: string;
@@ -57,6 +65,8 @@ export interface FastbotRunnerHandle {
   eventsInjected?: number;
   crashDetected: boolean;
   anrDetected: boolean;
+  logicViolationCount: number;
+  logParserState: FastbotLogParserState;
   deviceOutputDir?: string;
   localOutputDir?: string;
   resultSyncer?: FastbotResultSyncer;
@@ -75,27 +85,43 @@ function spawnFastbotShell(
   });
 }
 
-function parseFastbotLogLine(
-  raw: string,
+function syncHandleFromLogState(handle: FastbotRunnerHandle): void {
+  handle.crashDetected = handle.logParserState.crashDetected;
+  handle.anrDetected = handle.logParserState.anrDetected;
+}
+
+function emitExploreFailures(
+  failed: Array<{
+    kind: string;
+    ruleName: string;
+    reason?: string;
+    state: string;
+    startStepsCount: number;
+  }>,
   handle: FastbotRunnerHandle,
-  onLogLine: (line: MonkeyLogLine) => void,
+  params: FastbotRunnerParams,
 ): void {
-  const line = raw.trim();
-  if (!line) {
-    return;
+  for (const failedResult of failed) {
+    params.onLogLine({
+      ts: Date.now(),
+      type: failedResult.kind === "invariant" ? "error" : "crash",
+      message: `[${failedResult.kind}] ${failedResult.ruleName}：${failedResult.reason ?? failedResult.state}`,
+    });
+    handle.logicViolationCount += 1;
+    try {
+      void handle.http.logScript({
+        propName: failedResult.ruleName,
+        startStepsCount: failedResult.startStepsCount,
+        kind: failedResult.kind as "invariant" | "property",
+        state: failedResult.state as "fail" | "error",
+      });
+    } catch {
+      // Fastbot 可能已退出
+    }
   }
-  const upper = line.toUpperCase();
-  if (upper.includes("ANR")) {
-    handle.anrDetected = true;
-    onLogLine({ ts: Date.now(), type: "anr", message: line });
-    return;
-  }
-  if (upper.includes("CRASH")) {
+  if (failed.some((item) => item.kind === "invariant")) {
     handle.crashDetected = true;
-    onLogLine({ ts: Date.now(), type: "crash", message: line });
-    return;
   }
-  onLogLine({ ts: Date.now(), type: "log", message: line });
 }
 
 export function startFastbotService(
@@ -149,6 +175,8 @@ export function startFastbotService(
     stepsCount: 0,
     crashDetected: false,
     anrDetected: false,
+    logicViolationCount: 0,
+    logParserState: createFastbotLogParserState(),
     localOutputDir:
       params.monkeyResultsRoot
         ? resolveMonkeySessionLocalDir(params.monkeyResultsRoot, params.sessionId)
@@ -158,7 +186,22 @@ export function startFastbotService(
   const onData = (chunk: Buffer | string) => {
     const text = chunk.toString();
     for (const part of text.split(/\r?\n/)) {
-      parseFastbotLogLine(part, handle, params.onLogLine);
+      const line = part.trim();
+      if (!line) {
+        continue;
+      }
+      const prevCrashCount = handle.logParserState.crashCount;
+      const prevAnrCount = handle.logParserState.anrCount;
+      parseFastbotProcessLine(part, handle.logParserState, params.onLogLine);
+      syncHandleFromLogState(handle);
+      const emittedStructured =
+        handle.logParserState.crashCount > prevCrashCount ||
+        handle.logParserState.anrCount > prevAnrCount ||
+        line.includes("Internal error") ||
+        line.includes("App appears");
+      if (!emittedStructured) {
+        params.onLogLine({ ts: Date.now(), type: "log", message: line });
+      }
     }
   };
   child.stdout.on("data", onData);
@@ -211,6 +254,7 @@ export async function runFastbotStepLoop(
 
     const profilePeriod = Math.max(0, Math.floor(params.profilePeriod ?? 0));
     const exploreRules = params.exploreRules ?? [];
+    const kea2BuiltinInvariants = params.kea2BuiltinInvariants !== false;
     const exploreConfig = params.exploreConfig;
     const blockWidgets = exploreConfig?.blockWidgetXpaths ?? [];
     const blockTrees = exploreConfig?.blockTreeXpaths ?? [];
@@ -235,37 +279,39 @@ export async function runFastbotStepLoop(
         eventsInjected: handle.stepsCount,
       });
 
-      if (xml.trim() && exploreRules.length > 0) {
-        const checkResults = runExploreRuleChecks(
-          xml,
-          exploreRules,
-          handle.stepsCount,
-        );
-        const failed = listFailedExploreChecks(checkResults);
-        for (const failedResult of failed) {
-          params.onLogLine({
-            ts: Date.now(),
-            type: failedResult.kind === "invariant" ? "error" : "crash",
-            message: `[${failedResult.kind}] ${failedResult.ruleName}：${failedResult.reason ?? failedResult.state}`,
-          });
-          try {
-            await handle.http.logScript({
-              propName: failedResult.ruleName,
-              startStepsCount: failedResult.startStepsCount,
-              kind: failedResult.kind,
-              state: failedResult.state,
-            });
-          } catch {
-            // Fastbot 可能已退出
+      if (xml.trim()) {
+        const heuristicFailed =
+          kea2BuiltinInvariants
+            ? runKea2UiDumpHeuristics(xml, handle.stepsCount)
+            : [];
+        if (heuristicFailed.length > 0) {
+          emitExploreFailures(heuristicFailed, handle, params);
+        }
+
+        if (exploreRules.length > 0) {
+          const checkResults = runExploreRuleChecks(
+            xml,
+            exploreRules,
+            handle.stepsCount,
+          );
+          const failed = listFailedExploreChecks(checkResults);
+          if (failed.length > 0) {
+            emitExploreFailures(failed, handle, params);
           }
         }
-        if (failed.some((item) => item.kind === "invariant")) {
-          handle.anrDetected = false;
-          handle.crashDetected = true;
+      } else if (kea2BuiltinInvariants) {
+        const emptyFailed = runKea2UiDumpHeuristics("", handle.stepsCount);
+        if (emptyFailed.length > 0) {
+          emitExploreFailures(emptyFailed, handle, params);
         }
+        params.onLogLine({
+          ts: Date.now(),
+          type: "log",
+          message: "本步 UI 树为空，已跳过",
+        });
       }
 
-      if (!xml.trim()) {
+      if (!xml.trim() && !kea2BuiltinInvariants) {
         params.onLogLine({
           ts: Date.now(),
           type: "log",

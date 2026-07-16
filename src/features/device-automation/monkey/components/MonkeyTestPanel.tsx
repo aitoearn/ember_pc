@@ -8,6 +8,7 @@ import type { DeviceAutomationCardModel } from "../../types";
 import { useMonkeyTest } from "../hooks/useMonkeyTest";
 import { MonkeyTestLogPanel } from "./MonkeyTestLogPanel";
 import { MonkeyTestToolbar } from "./MonkeyTestToolbar";
+import { Kea2ToolStatusBanner } from "./Kea2ToolStatusBanner";
 
 export interface MonkeyTestPanelProps {
   devices: DeviceAutomationCardModel[];
@@ -59,11 +60,15 @@ export function MonkeyTestPanel({
         seed={monkey.seed}
         onSeedChange={monkey.setSeed}
         exploreRulesCount={monkey.exploreRulesCount}
+        kea2PropertyScript={monkey.kea2PropertyScript}
+        onKea2PropertyScriptChange={monkey.setKea2PropertyScript}
         canRun={monkey.canRun}
         isRunning={monkey.isRunning}
         onStart={() => void monkey.start()}
         onStop={() => void monkey.stop()}
       />
+
+      {monkey.engineMode === "kea2" ? <Kea2ToolStatusBanner /> : null}
 
       {!monkey.canRun && monkey.selectedDevice ? (
         <div

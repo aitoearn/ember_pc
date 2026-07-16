@@ -5,6 +5,7 @@ import { requireDefaultProjectId } from "@/lib/api/project";
 import {
   listPerformanceApps,
   listPerformanceSessions,
+  listPerformanceTraceArtifacts,
   savePerformanceSession,
   startPerformanceCollection,
   stopPerformanceCollection,
@@ -21,6 +22,7 @@ import {
   createEmptyPerfBuffers,
   type PerfSeriesBuffers,
 } from "../domain/perfBuffer";
+import { buildLinkedTraceCountBySessionId } from "../domain/linkedTraceCounts";
 import { DEVICE_AUTOMATION_PERF_FRAME_EVENT } from "../events";
 import type {
   PerfMetricId,
@@ -59,6 +61,9 @@ export function usePerformanceMonitor({ devices }: UsePerformanceMonitorOptions)
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedHistorySession, setSelectedHistorySession] =
     useState<PerformanceSession | null>(null);
+  const [linkedTraceCountBySessionId, setLinkedTraceCountBySessionId] = useState<
+    Record<string, number>
+  >({});
 
   const activeSessionRef = useRef<string | null>(null);
   const phaseRef = useRef<PerfMonitorPhase>("idle");
@@ -84,8 +89,12 @@ export function usePerformanceMonitor({ devices }: UsePerformanceMonitorOptions)
     }
     setHistoryLoading(true);
     try {
-      const sessions = await listPerformanceSessions(workspace);
+      const [sessions, artifacts] = await Promise.all([
+        listPerformanceSessions(workspace),
+        listPerformanceTraceArtifacts(workspace),
+      ]);
       setHistory(sessions);
+      setLinkedTraceCountBySessionId(buildLinkedTraceCountBySessionId(artifacts));
     } catch (error) {
       console.error("加载性能会话历史失败:", error);
       toast.error(toMessage(error));
@@ -346,5 +355,8 @@ export function usePerformanceMonitor({ devices }: UsePerformanceMonitorOptions)
     selectedHistorySession,
     setSelectedHistorySession,
     reloadHistory,
+    activeSessionId,
+    activeStartedAt,
+    linkedTraceCountBySessionId,
   };
 }

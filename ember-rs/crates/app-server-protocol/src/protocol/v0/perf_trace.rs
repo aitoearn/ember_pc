@@ -75,6 +75,9 @@ pub struct PerfMonitorTraceListParams {
     pub limit: Option<u32>,
     #[serde(default)]
     pub offset: Option<u32>,
+    /// 可选：仅返回关联到指定 P1 APM 会话的 trace。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub linked_session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]

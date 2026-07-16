@@ -27,12 +27,18 @@ describe("buildJankSummaryResult", () => {
             { frame_ms: 40, ts: 3000, jank_type: "Jank", process_name: "com.example.app" },
           ];
         }
+        if (sql.includes("ember_scrolling_jank_frames")) {
+          return [
+            { frame_ms: 20, ts: 2000, jank_type: "Jank", process_name: "com.example.app", frame_id: 2 },
+            { frame_ms: 40, ts: 3000, jank_type: "Jank", process_name: "com.example.app", frame_id: 3 },
+          ];
+        }
         return [];
       }),
     );
 
     expect(result.dataStatus).toBe("ok");
-    expect(result.dataSource).toBe("actual_frame_timeline_slice");
+    expect(result.dataSource).toBe("ember_scrolling_jank_frames");
     expect(result.totalFrames).toBe(3);
     expect(result.jankFrames).toBe(2);
     expect(result.p99FrameMs).toBe(20);

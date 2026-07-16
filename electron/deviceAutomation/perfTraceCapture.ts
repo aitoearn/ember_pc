@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { clipboard, shell } from "electron";
 import type { DeviceAutomationPerfTraceProgressPayload } from "../../src/features/device-automation/performance/events";
 import type {
   PerfTraceAnalysisType,
@@ -50,6 +51,11 @@ export type PerfTraceAnalyzeParams = {
   analysisType: PerfTraceAnalysisType;
   packageName: string;
   timeRange?: { startNs: number; endNs: number };
+  frameTarget?: {
+    frameId?: number | null;
+    startTsNs?: number;
+    endTsNs?: number;
+  };
 };
 
 type ActiveCapture = {
@@ -436,7 +442,12 @@ export function analyzePerfTrace(
 export function openPerfTraceExternal(params: {
   localPath: string;
   target: "perfetto_ui";
-}): { opened: boolean; url?: string } {
+}): {
+  opened: boolean;
+  url?: string;
+  pathCopied?: boolean;
+  revealedInFolder?: boolean;
+} {
   const localPath = params.localPath.trim();
   if (!localPath) {
     throw new Error("localPath 不能为空");
@@ -446,9 +457,15 @@ export function openPerfTraceExternal(params: {
   } catch {
     throw new Error("trace 文件不存在");
   }
+
+  clipboard.writeText(localPath);
+  shell.showItemInFolder(localPath);
+
   return {
     opened: true,
     url: "https://ui.perfetto.dev",
+    pathCopied: true,
+    revealedInFolder: true,
   };
 }
 

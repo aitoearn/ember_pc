@@ -1,3 +1,5 @@
+import { buildJankFramesViewSql } from "./sql/jankFramesSql";
+import { classifyJankRootCause } from "./jankRootCause";
 import type { AnalysisTemplateContext } from "./types";
 import { escapeSqlLiteral, packageGlob, runSqlSafe } from "./sqlUtils";
 
@@ -13,25 +15,14 @@ function percentile(values: number[], ratio: number): number {
   return sorted[index] ?? 0;
 }
 
-function isJankRow(
-  row: Record<string, string | number | null>,
-  jankThresholdMs: number,
-): boolean {
-  const jankType = row.jank_type;
-  if (jankType != null && String(jankType) !== "" && String(jankType) !== "None") {
-    return true;
-  }
-  const frameMs = Number(row.frame_ms);
-  return Number.isFinite(frameMs) && frameMs > jankThresholdMs;
-}
-
 export async function buildJankSummaryResult(
   ctx: AnalysisTemplateContext,
 ): Promise<Record<string, unknown>> {
   const pkg = escapeSqlLiteral(ctx.packageName);
   const pkgGlob = packageGlob(ctx.packageName);
-  const jankThresholdMs = 16.7;
   const severeThresholdMs = 32;
+
+  await runSqlSafe(ctx.runSql, buildJankFramesViewSql());
 
   const timelineCheckSql = `
 SELECT CASE WHEN EXISTS (
@@ -43,25 +34,50 @@ SELECT CASE WHEN EXISTS (
   const hasFrameTimeline = Number(checkRows[0]?.has_frame_timeline) === 1;
 
   let dataSource = "none";
-  let rows: Record<string, string | number | null>[] = [];
+  let allFrameRows: Record<string, string | number | null>[] = [];
+  let jankRows: Record<string, string | number | null>[] = [];
 
   if (hasFrameTimeline) {
-    const frameTimelineSql = `
-SELECT a.dur/1e6 AS frame_ms, a.ts, a.jank_type, p.name AS process_name
-FROM actual_frame_timeline_slice a
+    const allFramesSql = `
+WITH actual_dedup AS (
+  SELECT
+    upid,
+    name AS frame_id_str,
+    MIN(ts) AS ts,
+    MAX(dur) AS dur_ns,
+    MIN(jank_type) AS jank_type
+  FROM actual_frame_timeline_slice
+  WHERE COALESCE(display_frame_token, surface_frame_token) IS NOT NULL
+  GROUP BY upid, name
+)
+SELECT
+  a.dur_ns / 1e6 AS frame_ms,
+  a.ts,
+  a.jank_type,
+  p.name AS process_name
+FROM actual_dedup a
 LEFT JOIN process p ON a.upid = p.upid
 WHERE (p.name GLOB '${pkgGlob}' OR '${pkg}' = '')
-  AND COALESCE(a.display_frame_token, a.surface_frame_token) IS NOT NULL
 ORDER BY a.ts
 LIMIT 5000;
 `.trim();
-    rows = await runSqlSafe(ctx.runSql, frameTimelineSql);
-    if (rows.length > 0) {
-      dataSource = "actual_frame_timeline_slice";
+    allFrameRows = await runSqlSafe(ctx.runSql, allFramesSql);
+
+    const jankSql = `
+SELECT frame_ms, start_ts AS ts, jank_type, process_name, frame_id
+FROM ember_scrolling_jank_frames
+WHERE (process_name GLOB '${pkgGlob}' OR '${pkg}' = '')
+ORDER BY start_ts
+LIMIT 5000;
+`.trim();
+    jankRows = await runSqlSafe(ctx.runSql, jankSql);
+
+    if (allFrameRows.length > 0 || jankRows.length > 0) {
+      dataSource = "ember_scrolling_jank_frames";
     }
   }
 
-  if (rows.length === 0) {
+  if (allFrameRows.length === 0 && jankRows.length === 0) {
     const fallbackSql = `
 SELECT dur/1e6 AS frame_ms, ts, NULL AS jank_type, name AS process_name
 FROM slice
@@ -70,34 +86,37 @@ WHERE (name GLOB '*DrawFrame*' OR name GLOB '*Choreographer*')
 ORDER BY ts
 LIMIT 5000;
 `.trim();
-    rows = await runSqlSafe(ctx.runSql, fallbackSql);
-    if (rows.length > 0) {
+    allFrameRows = await runSqlSafe(ctx.runSql, fallbackSql);
+    jankRows = allFrameRows.filter((row) => Number(row.frame_ms) > 16.7);
+    if (allFrameRows.length > 0) {
       dataSource = "slice_drawframe_fallback";
     }
   }
 
-  const frameMsValues = rows
+  const frameMsValues = allFrameRows
     .map((row) => Number(row.frame_ms))
     .filter((value) => Number.isFinite(value) && value > 0);
 
-  const jankRows = rows.filter((row) => isJankRow(row, jankThresholdMs));
   const severeJankRows = jankRows.filter((row) => {
     const frameMs = Number(row.frame_ms);
     return Number.isFinite(frameMs) && frameMs > severeThresholdMs;
   });
 
-  const highlights = jankRows
-    .slice(0, 5)
-    .map((row) => {
-      const frameMsValue = Number(row.frame_ms);
-      return {
-        tsNs: Number(row.ts ?? 0),
-        frameMs: frameMsValue,
-        reason:
-          frameMsValue > severeThresholdMs ? "severe_jank" : "jank",
-        jankType: row.jank_type ?? null,
-      };
-    });
+  const highlights = jankRows.slice(0, 8).map((row) => {
+    const frameMsValue = Number(row.frame_ms);
+    const rootCause = classifyJankRootCause(
+      row.jank_type != null ? String(row.jank_type) : null,
+      frameMsValue,
+    );
+    return {
+      tsNs: Number(row.ts ?? 0),
+      frameMs: frameMsValue,
+      frameId: row.frame_id ?? null,
+      reason: rootCause.code,
+      rootCauseSummary: rootCause.summary,
+      jankType: row.jank_type ?? null,
+    };
+  });
 
   const dataStatus = frameMsValues.length > 0 ? "ok" : "empty";
   let note: string | undefined;
@@ -106,8 +125,7 @@ LIMIT 5000;
       note =
         "trace 中无 Frame Timeline 表，请使用 scroll_jank 预设并在录制期间滑动界面";
     } else {
-      note =
-        `未在 Frame Timeline 中找到包 ${ctx.packageName} 的帧数据；请确认录制期间有滑动/动画，且包名正确`;
+      note = `未在 Frame Timeline 中找到包 ${ctx.packageName} 的帧数据；请确认录制期间有滑动/动画，且包名正确`;
     }
   }
 
@@ -117,7 +135,10 @@ LIMIT 5000;
     dataSource,
     traceDurationMs:
       frameMsValues.length > 0
-        ? Math.round(frameMsValues.length * jankThresholdMs)
+        ? Math.round(
+            Number(allFrameRows.at(-1)?.ts ?? 0) / 1e6 -
+              Number(allFrameRows[0]?.ts ?? 0) / 1e6,
+          )
         : 0,
     totalFrames: frameMsValues.length,
     jankFrames: jankRows.length,

@@ -21,6 +21,8 @@ export type StartMonkeyTestParams = {
   deviceOutputRoot?: string;
   exploreRules?: import("@/features/device-automation/explore/types").ExploreRule[];
   exploreConfig?: import("@/features/device-automation/explore/types").ExploreConfig;
+  workspaceId?: string;
+  kea2PropertyScript?: string;
 };
 
 export type StartMonkeyTestResult = {

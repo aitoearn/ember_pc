@@ -42,6 +42,13 @@ export type PerfTracePresetId =
   | "scroll_jank"
   | "cold_start"
   | "cpu_sched"
+  | "memory"
+  | "anr"
+  | "overview"
+  | "camera"
+  | "game"
+  | "power"
+  | "full"
   | "custom";
 
 /** P2 · Trace artifact 生命周期状态 */
@@ -50,8 +57,11 @@ export type PerfTraceArtifactStatus = "recording" | "ready" | "failed";
 /** P2 · L1 分析模板类型 */
 export type PerfTraceAnalysisType =
   | "jank_summary"
+  | "jank_frame_detail"
   | "startup_summary"
-  | "cpu_quadrant";
+  | "cpu_quadrant"
+  | "memory_summary"
+  | "anr_summary";
 
 /** P2 · 分析任务状态 */
 export type PerfTraceAnalysisStatus = "pending" | "done" | "failed";
@@ -74,6 +84,19 @@ export interface PerformanceTraceArtifact {
   errorMessage: string | null;
   createdAt: string;
   stoppedAt: string | null;
+}
+
+/** P2 · 单帧根因分析目标（来自卡顿摘要 highlights 或 UI 指定） */
+export interface PerfTraceFrameTarget {
+  frameId?: number | null;
+  startTsNs?: number;
+  endTsNs?: number;
+}
+
+/** P2 · Trace L1 分析请求扩展参数 */
+export interface PerfTraceAnalysisOptions {
+  timeRange?: { startNs: number; endNs: number };
+  frameTarget?: PerfTraceFrameTarget;
 }
 
 /** P2 · Trace L1 分析结果 */

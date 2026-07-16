@@ -12,6 +12,13 @@ const PRESET_FILE_NAMES: Record<Exclude<PerfTracePresetId, "custom">, string> = 
   scroll_jank: "scroll_jank.txt",
   cold_start: "cold_start.txt",
   cpu_sched: "cpu_sched.txt",
+  memory: "memory.txt",
+  anr: "anr.txt",
+  overview: "overview.txt",
+  camera: "camera.txt",
+  game: "game.txt",
+  power: "power.txt",
+  full: "full.txt",
 };
 
 /** 按优先级列出 Perfetto 文本预设目录候选路径（开发态、dist 与打包态）。 */

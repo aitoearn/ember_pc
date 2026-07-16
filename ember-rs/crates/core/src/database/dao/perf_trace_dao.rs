@@ -191,7 +191,28 @@ impl PerfTraceDao {
         workspace_id: &str,
         limit: u32,
         offset: u32,
+        linked_session_id: Option<&str>,
     ) -> Result<Vec<PerformanceTraceArtifactRecord>, String> {
+        if let Some(session_id) = linked_session_id.filter(|id| !id.trim().is_empty()) {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT id, workspace_id, linked_session_id, device_id, device_platform,
+                            package_name, preset_id, config_json, local_path, remote_path,
+                            size_bytes, duration_ms, status, error_message, created_at, stopped_at
+                     FROM performance_trace_artifacts
+                     WHERE workspace_id = ?1 AND linked_session_id = ?2
+                     ORDER BY created_at DESC
+                     LIMIT ?3 OFFSET ?4",
+                )
+                .map_err(db_err)?;
+            let rows = stmt
+                .query_map(params![workspace_id, session_id, limit, offset], row_to_artifact)
+                .map_err(db_err)?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(db_err)?;
+            return Ok(rows);
+        }
+
         let mut stmt = conn
             .prepare(
                 "SELECT id, workspace_id, linked_session_id, device_id, device_platform,
@@ -392,9 +413,81 @@ mod tests {
             stopped_at: Some(now_millis()),
         };
         PerfTraceDao::save_artifact(&conn, record).expect("保存 artifact");
-        let artifacts = PerfTraceDao::list_artifacts(&conn, "ws-1", 50, 0).expect("列出 artifact");
+        let artifacts =
+            PerfTraceDao::list_artifacts(&conn, "ws-1", 50, 0, None).expect("列出 artifact");
         assert_eq!(artifacts.len(), 1);
         assert_eq!(artifacts[0].preset_id, "scroll_jank");
+    }
+
+    #[test]
+    fn list_artifacts_by_linked_session() {
+        use crate::database::dao::perf_monitor_dao::{PerfMonitorDao, PerformanceSessionRecord};
+
+        let conn = open_test_db();
+        PerfMonitorDao::save_session(
+            &conn,
+            PerformanceSessionRecord {
+                id: "sess-apm-1".to_string(),
+                workspace_id: "ws-1".to_string(),
+                device_id: "dev-1".to_string(),
+                device_platform: "android".to_string(),
+                package_name: "com.example.app".to_string(),
+                metrics_json: r#"["cpu"]"#.to_string(),
+                interval_ms: 1000,
+                status: "stopped".to_string(),
+                started_at: now_millis(),
+                stopped_at: Some(now_millis()),
+                summary_json: None,
+            },
+        )
+        .expect("保存 APM 会话");
+
+        let linked = PerformanceTraceArtifactRecord {
+            id: "trace-linked".to_string(),
+            workspace_id: "ws-1".to_string(),
+            linked_session_id: Some("sess-apm-1".to_string()),
+            device_id: "dev-1".to_string(),
+            device_platform: "android".to_string(),
+            package_name: "com.example.app".to_string(),
+            preset_id: "scroll_jank".to_string(),
+            config_json: None,
+            local_path: Some("/tmp/linked.perfetto-trace".to_string()),
+            remote_path: None,
+            size_bytes: Some(2048),
+            duration_ms: Some(8000),
+            status: "ready".to_string(),
+            error_message: None,
+            created_at: now_millis(),
+            stopped_at: Some(now_millis()),
+        };
+        let unlinked = PerformanceTraceArtifactRecord {
+            id: "trace-solo".to_string(),
+            workspace_id: "ws-1".to_string(),
+            linked_session_id: None,
+            device_id: "dev-1".to_string(),
+            device_platform: "android".to_string(),
+            package_name: "com.example.app".to_string(),
+            preset_id: "overview".to_string(),
+            config_json: None,
+            local_path: None,
+            remote_path: None,
+            size_bytes: None,
+            duration_ms: None,
+            status: "ready".to_string(),
+            error_message: None,
+            created_at: now_millis(),
+            stopped_at: None,
+        };
+        PerfTraceDao::save_artifact(&conn, linked).expect("保存关联 artifact");
+        PerfTraceDao::save_artifact(&conn, unlinked).expect("保存未关联 artifact");
+
+        let filtered = PerfTraceDao::list_artifacts(&conn, "ws-1", 50, 0, Some("sess-apm-1"))
+            .expect("按 linked_session 过滤");
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].id, "trace-linked");
+
+        let all = PerfTraceDao::list_artifacts(&conn, "ws-1", 50, 0, None).expect("列出全部");
+        assert_eq!(all.len(), 2);
     }
 
     #[test]

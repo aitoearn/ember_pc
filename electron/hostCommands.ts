@@ -440,6 +440,8 @@ export class ElectronHostCommands {
         return deviceAutomationRuntime.getMonkeyStatus();
       case "device_automation_stability_analysis_get_tool_status":
         return deviceAutomationRuntime.getStabilityAnalysisToolStatus();
+      case "device_automation_kea2_get_tool_status":
+        return deviceAutomationRuntime.getKea2ToolStatus();
       case "device_automation_stability_analysis_start":
         return deviceAutomationRuntime.startStabilityAnalysis(
           readStabilityAnalysisStartParams(args),
@@ -3201,7 +3203,7 @@ function readExploreRulesOptional(
 function readMonkeyStartParams(args: HostArgs): {
   deviceId: string;
   packageName: string;
-  mode?: "system" | "fastbot";
+  mode?: "system" | "fastbot" | "kea2";
   eventCount?: number;
   throttleMs?: number;
   seed?: number;
@@ -3214,6 +3216,8 @@ function readMonkeyStartParams(args: HostArgs): {
   deviceOutputRoot?: string;
   exploreRules?: import("../src/features/device-automation/explore/types").ExploreRule[];
   exploreConfig?: import("../src/features/device-automation/explore/types").ExploreConfig;
+  workspaceId?: string;
+  kea2PropertyScript?: string;
 } {
   const record = toRecord(args) ?? {};
   const eventCountRaw = record.eventCount;
@@ -3227,7 +3231,9 @@ function readMonkeyStartParams(args: HostArgs): {
     deviceId: readRequiredString(record, "deviceId"),
     packageName: readRequiredString(record, "packageName"),
     mode:
-      modeRaw === "system" || modeRaw === "fastbot" ? modeRaw : undefined,
+      modeRaw === "system" || modeRaw === "fastbot" || modeRaw === "kea2"
+        ? modeRaw
+        : undefined,
     eventCount:
       typeof eventCountRaw === "number" && Number.isFinite(eventCountRaw)
         ? eventCountRaw
@@ -3266,6 +3272,12 @@ function readMonkeyStartParams(args: HostArgs): {
         : undefined,
     exploreRules: readExploreRulesOptional(record.exploreRules),
     exploreConfig: readExploreConfigOptional(record.exploreConfig),
+    workspaceId:
+      typeof record.workspaceId === "string" ? record.workspaceId.trim() : undefined,
+    kea2PropertyScript:
+      typeof record.kea2PropertyScript === "string"
+        ? record.kea2PropertyScript.trim()
+        : undefined,
   };
 }
 
@@ -3373,17 +3385,32 @@ function readPerfTraceCaptureIdParams(args: HostArgs): { captureId: string } {
 
 function readPerfTraceAnalyzeParams(args: HostArgs): {
   localPath: string;
-  analysisType: "jank_summary" | "startup_summary" | "cpu_quadrant";
+  analysisType:
+    | "jank_summary"
+    | "jank_frame_detail"
+    | "startup_summary"
+    | "cpu_quadrant"
+    | "memory_summary"
+    | "anr_summary";
   packageName: string;
   timeRange?: { startNs: number; endNs: number };
+  frameTarget?: {
+    frameId?: number | null;
+    startTsNs?: number;
+    endTsNs?: number;
+  };
 } {
   const record = toRecord(args) ?? {};
   const analysisType = readRequiredString(record, "analysisType");
-  if (
-    analysisType !== "jank_summary" &&
-    analysisType !== "startup_summary" &&
-    analysisType !== "cpu_quadrant"
-  ) {
+  const allowedTypes = [
+    "jank_summary",
+    "jank_frame_detail",
+    "startup_summary",
+    "cpu_quadrant",
+    "memory_summary",
+    "anr_summary",
+  ] as const;
+  if (!allowedTypes.includes(analysisType as (typeof allowedTypes)[number])) {
     throw new Error("analysisType 非法");
   }
   const timeRangeRaw = record.timeRange;
@@ -3396,11 +3423,35 @@ function readPerfTraceAnalyzeParams(args: HostArgs): {
       timeRange = { startNs, endNs };
     }
   }
+  const frameTargetRaw = record.frameTarget;
+  let frameTarget:
+    | { frameId?: number | null; startTsNs?: number; endTsNs?: number }
+    | undefined;
+  if (frameTargetRaw && typeof frameTargetRaw === "object") {
+    const targetRecord = frameTargetRaw as Record<string, unknown>;
+    const frameId = targetRecord.frameId;
+    const startTsNs = targetRecord.startTsNs;
+    const endTsNs = targetRecord.endTsNs;
+    frameTarget = {
+      ...(typeof frameId === "number" ? { frameId } : {}),
+      ...(frameId === null ? { frameId: null } : {}),
+      ...(typeof startTsNs === "number" ? { startTsNs } : {}),
+      ...(typeof endTsNs === "number" ? { endTsNs } : {}),
+    };
+    if (
+      frameTarget.frameId == null &&
+      frameTarget.startTsNs == null &&
+      frameTarget.endTsNs == null
+    ) {
+      frameTarget = undefined;
+    }
+  }
   return {
     localPath: readRequiredString(record, "localPath"),
-    analysisType,
+    analysisType: analysisType as (typeof allowedTypes)[number],
     packageName: readRequiredString(record, "packageName"),
     ...(timeRange ? { timeRange } : {}),
+    ...(frameTarget ? { frameTarget } : {}),
   };
 }
 

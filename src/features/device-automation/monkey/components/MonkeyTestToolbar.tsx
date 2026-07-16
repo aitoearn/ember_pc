@@ -48,6 +48,8 @@ export interface MonkeyTestToolbarProps {
   onStart: () => void;
   onStop: () => void;
   exploreRulesCount?: number;
+  kea2PropertyScript?: string;
+  onKea2PropertyScriptChange?: (value: string) => void;
 }
 
 export function MonkeyTestToolbar({
@@ -78,11 +80,14 @@ export function MonkeyTestToolbar({
   onStart,
   onStop,
   exploreRulesCount = 0,
+  kea2PropertyScript = "",
+  onKea2PropertyScriptChange,
 }: MonkeyTestToolbarProps) {
   const { t } = useTranslation("deviceAutomation");
   const startDisabled =
     !canRun || isRunning || !selectedDeviceId || !packageName.trim();
-  const isFastbot = engineMode === "fastbot";
+  const isFastbot = engineMode === "fastbot" || engineMode === "kea2";
+  const isKea2 = engineMode === "kea2";
 
   return (
     <div
@@ -283,6 +288,25 @@ export function MonkeyTestToolbar({
           </div>
         ) : null}
 
+        {isKea2 ? (
+          <div className="space-y-2 lg:col-span-2">
+            <label className="text-xs font-medium text-neutral-600">
+              {t("deviceAutomation.monkey.kea2.propertyScript")}
+            </label>
+            <Input
+              value={kea2PropertyScript}
+              onChange={(e) => onKea2PropertyScriptChange?.(e.target.value)}
+              placeholder={t("deviceAutomation.monkey.kea2.propertyScriptPlaceholder")}
+              disabled={isRunning}
+              className="h-9"
+              data-testid="monkey-kea2-property-script"
+            />
+            <p className="text-[11px] text-neutral-500">
+              {t("deviceAutomation.monkey.kea2.propertyScriptHint")}
+            </p>
+          </div>
+        ) : null}
+
         <div className="space-y-2">
           <label className="text-xs font-medium text-neutral-600">
             {t("deviceAutomation.monkey.toolbar.seed")}
@@ -291,7 +315,7 @@ export function MonkeyTestToolbar({
             value={seed}
             onChange={(e) => onSeedChange(e.target.value)}
             placeholder={t("deviceAutomation.monkey.toolbar.seedPlaceholder")}
-            disabled={isRunning}
+            disabled={isRunning || isKea2}
             className="h-9"
           />
         </div>

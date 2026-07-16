@@ -33,15 +33,22 @@ export function appendMonkeyEvent(
 export function countMonkeyIncidents(logs: MonkeyLogLine[]): {
   crashCount: number;
   anrCount: number;
+  logicViolationCount: number;
 } {
   let crashCount = 0;
   let anrCount = 0;
+  let logicViolationCount = 0;
   for (const line of logs) {
     if (line.type === "crash") {
       crashCount += 1;
     } else if (line.type === "anr") {
       anrCount += 1;
+    } else if (
+      line.type === "error" &&
+      (line.message.includes("[invariant]") || line.message.includes("[property]"))
+    ) {
+      logicViolationCount += 1;
     }
   }
-  return { crashCount, anrCount };
+  return { crashCount, anrCount, logicViolationCount };
 }

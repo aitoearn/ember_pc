@@ -35,6 +35,9 @@ const mockMonitor = {
   selectedHistorySession: null,
   setSelectedHistorySession: vi.fn(),
   reloadHistory: vi.fn(),
+  activeSessionId: null,
+  activeStartedAt: null,
+  linkedTraceCountBySessionId: {},
 };
 
 vi.mock("react-i18next", () => ({
@@ -60,6 +63,14 @@ const mockTrace = {
   setPackageName: vi.fn(),
   presetId: "scroll_jank" as const,
   setPresetId: vi.fn(),
+  useCustomConfig: false,
+  setUseCustomConfig: vi.fn(),
+  customConfigOverride: "",
+  setCustomConfigOverride: vi.fn(),
+  linkToApmSession: false,
+  setLinkToApmSession: vi.fn(),
+  canLinkApmSession: false,
+  resolvedLinkedSessionId: null,
   phase: "idle" as const,
   isRecording: false,
   progressPhase: null,
@@ -78,6 +89,9 @@ const mockTrace = {
   analysesLoading: false,
   analyzingType: null,
   runAnalysis: vi.fn(),
+  focusArtifact: vi.fn(),
+  linkedSession: null,
+  linkedSessionLoading: false,
 };
 
 vi.mock("../hooks/usePerformanceTrace", () => ({

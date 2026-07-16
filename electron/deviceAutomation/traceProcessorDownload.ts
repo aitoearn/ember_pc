@@ -1,12 +1,26 @@
-import { chmodSync, createWriteStream, existsSync, mkdirSync } from "node:fs";
+import {
+  chmodSync,
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+} from "node:fs";
+import { createHash } from "node:crypto";
 import { access } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import https from "node:https";
+import os from "node:os";
 import path from "node:path";
+import {
+  detectTraceProcessorPlatform,
+  resolveTraceProcessorDownloadUrl,
+  TRACE_PROCESSOR_PIN,
+} from "./traceProcessorPin";
 
-/** 与 SmartPerfetto 对齐的 pin 版本（按需下载 URL 带版本目录） */
-export const PERFETTO_TRACE_PROCESSOR_PIN = "v52.0";
-
-const DOWNLOAD_BASE = "https://get.perfetto.dev/trace_processor";
+/** @deprecated 保留常量供测试引用；实际版本见 TRACE_PROCESSOR_PIN.version */
+export const PERFETTO_TRACE_PROCESSOR_PIN = TRACE_PROCESSOR_PIN.version;
 
 let cacheRootDir: string | null = null;
 
@@ -15,19 +29,31 @@ export function setTraceProcessorCacheRoot(dir: string | null): void {
 }
 
 export function getTraceProcessorEnvOverride(): string | null {
-  const value = process.env.PERFETTO_TRACE_PROCESSOR_PATH?.trim();
-  return value || null;
+  const candidates = [
+    process.env.PERFETTO_TRACE_PROCESSOR_PATH?.trim(),
+    process.env.TRACE_PROCESSOR_PATH?.trim(),
+  ];
+  for (const value of candidates) {
+    if (value) {
+      return value;
+    }
+  }
+  return null;
 }
 
-function resolveBinaryFileName(): string {
-  if (process.platform === "win32") {
-    return "trace_processor.exe";
-  }
-  return "trace_processor";
+function resolveBinaryFileName(platform = detectTraceProcessorPlatform()): string {
+  return platform.startsWith("windows-")
+    ? "trace_processor_shell.exe"
+    : "trace_processor_shell";
 }
 
 function resolveCachedBinaryPath(rootDir: string): string {
-  return path.join(rootDir, "perfetto", resolveBinaryFileName());
+  return path.join(
+    rootDir,
+    "perfetto",
+    TRACE_PROCESSOR_PIN.version,
+    resolveBinaryFileName(),
+  );
 }
 
 async function isExecutable(filePath: string): Promise<boolean> {
@@ -37,6 +63,10 @@ async function isExecutable(filePath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function sha256File(filePath: string): string {
+  return createHash("sha256").update(readFileSync(filePath)).digest("hex");
 }
 
 function downloadToFile(url: string, destination: string): Promise<void> {
@@ -55,12 +85,12 @@ function downloadToFile(url: string, destination: string): Promise<void> {
             return;
           }
           if (status < 200 || status >= 300) {
-            reject(new Error(`下载 trace_processor 失败: HTTP ${status}`));
+            reject(new Error(`下载 trace_processor_shell 失败: HTTP ${status}`));
             response.resume();
             return;
           }
           mkdirSync(path.dirname(destination), { recursive: true });
-          const file = createWriteStream(destination);
+          const file = createWriteStream(destination, { mode: 0o755 });
           response.pipe(file);
           file.on("finish", () => {
             file.close(() => resolve());
@@ -71,6 +101,51 @@ function downloadToFile(url: string, destination: string): Promise<void> {
     };
     request(url);
   });
+}
+
+async function installTraceProcessorBinary(destination: string): Promise<void> {
+  const platform = detectTraceProcessorPlatform();
+  const expectedSha = TRACE_PROCESSOR_PIN.sha256ByPlatform[platform];
+  const url = resolveTraceProcessorDownloadUrl(platform);
+  const tmpSuffix = platform.startsWith("windows-") ? ".exe" : "";
+  const tmp = path.join(
+    os.tmpdir(),
+    `ember-trace_processor_shell-${process.pid}-${Date.now()}${tmpSuffix}`,
+  );
+
+  try {
+    console.log("[perf-trace] 开始下载 trace_processor_shell…", url);
+    await downloadToFile(url, tmp);
+    const actualSha = sha256File(tmp);
+    if (actualSha !== expectedSha) {
+      throw new Error(
+        `trace_processor_shell SHA256 校验失败。\n期望: ${expectedSha}\n实际: ${actualSha}`,
+      );
+    }
+    if (process.platform !== "win32") {
+      chmodSync(tmp, 0o755);
+    }
+    const smoke = spawnSync(tmp, ["--version"], { stdio: "ignore" });
+    if (smoke.status !== 0) {
+      throw new Error("下载的 trace_processor_shell 未通过 --version 冒烟测试");
+    }
+    mkdirSync(path.dirname(destination), { recursive: true });
+    if (existsSync(destination)) {
+      rmSync(destination, { force: true });
+    }
+    renameSync(tmp, destination);
+    if (process.platform !== "win32") {
+      chmodSync(destination, 0o755);
+    }
+    console.log("[perf-trace] trace_processor_shell 下载完成:", destination);
+  } catch (error) {
+    try {
+      rmSync(tmp, { force: true });
+    } catch {
+      // ignore cleanup failure
+    }
+    throw error;
+  }
 }
 
 export async function resolveTraceProcessorBinary(options?: {
@@ -100,15 +175,10 @@ export async function resolveTraceProcessorBinary(options?: {
   }
 
   if (options?.downloadIfMissing === false) {
-    throw new Error("trace_processor 尚未下载，请先触发 L1 分析以下载");
+    throw new Error("trace_processor_shell 尚未下载，请先触发 L1 分析以下载");
   }
 
-  console.log("[perf-trace] 开始下载 trace_processor…", DOWNLOAD_BASE);
-  await downloadToFile(DOWNLOAD_BASE, binaryPath);
-  if (process.platform !== "win32") {
-    chmodSync(binaryPath, 0o755);
-  }
-  console.log("[perf-trace] trace_processor 下载完成:", binaryPath);
+  await installTraceProcessorBinary(binaryPath);
   return binaryPath;
 }
 

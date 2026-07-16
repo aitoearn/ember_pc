@@ -25,6 +25,7 @@ import type {
   PerformanceTraceArtifact,
   PerfMetricId,
   PerfMetricSummaryMap,
+  PerfTraceAnalysisOptions,
   PerfTraceAnalysisType,
   PerfTracePresetId,
 } from "@/features/device-automation/performance/types";
@@ -146,7 +147,7 @@ export async function savePerformanceTraceArtifact(
 
 export async function listPerformanceTraceArtifacts(
   workspaceId: string,
-  options?: { limit?: number; offset?: number },
+  options?: { limit?: number; offset?: number; linkedSessionId?: string },
   client?: PerfAppServerClient,
 ): Promise<PerformanceTraceArtifact[]> {
   const response = await requestPerfAppServer<PerfTraceListResponse>(
@@ -155,6 +156,7 @@ export async function listPerformanceTraceArtifacts(
       workspaceId,
       limit: options?.limit,
       offset: options?.offset,
+      linkedSessionId: options?.linkedSessionId,
     },
     client,
   );
@@ -252,15 +254,19 @@ export async function analyzePerformanceTrace(params: {
   localPath: string;
   analysisType: PerfTraceAnalysisType;
   packageName: string;
-  timeRange?: { startNs: number; endNs: number };
-}): Promise<{ result: Record<string, unknown> }> {
+} & PerfTraceAnalysisOptions): Promise<{ result: Record<string, unknown> }> {
   return safeInvoke("device_automation_perf_trace_analyze", params);
 }
 
 export async function openPerformanceTraceExternal(params: {
   localPath: string;
   target: "perfetto_ui";
-}): Promise<{ opened: boolean; url?: string }> {
+}): Promise<{
+  opened: boolean;
+  url?: string;
+  pathCopied?: boolean;
+  revealedInFolder?: boolean;
+}> {
   return safeInvoke("device_automation_perf_trace_open_external", params);
 }
 

@@ -21,3 +21,29 @@ export async function runSqlSafe(
     return [];
   }
 }
+
+export function rowsToRecords(
+  columns: string[],
+  rows: unknown[][],
+): Record<string, string | number | null>[] {
+  return rows.map((row) => {
+    const record: Record<string, string | number | null> = {};
+    columns.forEach((column, index) => {
+      const value = row[index];
+      if (value == null) {
+        record[column] = null;
+        return;
+      }
+      if (typeof value === "number" || typeof value === "string") {
+        record[column] = value;
+        return;
+      }
+      if (typeof value === "boolean") {
+        record[column] = value ? 1 : 0;
+        return;
+      }
+      record[column] = String(value);
+    });
+    return record;
+  });
+}

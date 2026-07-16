@@ -1,6 +1,7 @@
 import type { PerfTracePresetId } from "../../../../src/features/device-automation/performance/types";
 import {
   buildPerfTracePresetConfig,
+  resolvePerfTracePresetDurationMs,
   type BuildPerfTracePresetOptions,
 } from "./buildPresetConfig";
 
@@ -25,6 +26,8 @@ export function loadPerfTracePresetConfig(
   }
   return buildPerfTracePresetConfig(presetId, {
     packageName: options.packageName,
-    durationMs: options.durationMs,
+    durationMs:
+      options.durationMs ??
+      resolvePerfTracePresetDurationMs(presetId),
   });
 }

@@ -1,7 +1,7 @@
 /** 默认引擎：Fastbot 逐步模式（Kea2 对齐）。 */
 export const MONKEY_DEFAULT_ENGINE_MODE = "fastbot" as const;
 
-export const MONKEY_ENGINE_MODES = ["fastbot", "system"] as const;
+export const MONKEY_ENGINE_MODES = ["fastbot", "kea2", "system"] as const;
 
 /** 默认覆盖率同步周期（Kea2 profile-period）。 */
 export const MONKEY_DEFAULT_PROFILE_PERIOD = 25;

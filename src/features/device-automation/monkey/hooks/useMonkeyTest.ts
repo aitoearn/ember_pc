@@ -78,6 +78,7 @@ export function useMonkeyTest({
     MONKEY_DEFAULT_PROFILE_PERIOD,
   );
   const [takeScreenshots, setTakeScreenshots] = useState(false);
+  const [kea2PropertyScript, setKea2PropertyScript] = useState("");
   const [seed, setSeed] = useState("");
   const [viewState, setViewState] = useState<MonkeySessionViewState>(
     initialMonkeySessionState,
@@ -194,6 +195,7 @@ export function useMonkeyTest({
               stepsLogPath: payload.line.stepsLogPath,
               stepsSummary: payload.line.stepsSummary,
               crashLogPath: payload.line.crashLogPath,
+              detectionSummary: payload.line.detectionSummary,
             };
             setLastSummary(completedSummary);
             const currentWorkspaceId = workspaceIdRef.current;
@@ -257,11 +259,23 @@ export function useMonkeyTest({
         runningMinutes,
         seed:
           seedNum !== undefined && Number.isFinite(seedNum) ? seedNum : undefined,
-        profilePeriod: engineMode === "fastbot" ? profilePeriod : undefined,
-        takeScreenshots: engineMode === "fastbot" ? takeScreenshots : undefined,
-        exploreRules: engineMode === "fastbot" ? exploreRules : undefined,
+        profilePeriod:
+          engineMode === "fastbot" || engineMode === "kea2" ? profilePeriod : undefined,
+        takeScreenshots:
+          engineMode === "fastbot" || engineMode === "kea2"
+            ? takeScreenshots
+            : undefined,
+        exploreRules:
+          engineMode === "fastbot" || engineMode === "kea2" ? exploreRules : undefined,
         exploreConfig:
-          engineMode === "fastbot" ? exploreConfig : undefined,
+          engineMode === "fastbot" || engineMode === "kea2"
+            ? exploreConfig
+            : undefined,
+        workspaceId: engineMode === "kea2" ? workspaceId : undefined,
+        kea2PropertyScript:
+          engineMode === "kea2" && kea2PropertyScript.trim()
+            ? kea2PropertyScript.trim()
+            : undefined,
       });
       activeSessionRef.current = result.sessionId;
       setViewState((prev) => ({
@@ -291,6 +305,7 @@ export function useMonkeyTest({
     canRun,
     engineMode,
     eventCount,
+    kea2PropertyScript,
     packageName,
     profilePeriod,
     runningMinutes,
@@ -300,6 +315,7 @@ export function useMonkeyTest({
     throttleMs,
     exploreRules,
     exploreConfig,
+    workspaceId,
     t,
   ]);
 
@@ -340,6 +356,8 @@ export function useMonkeyTest({
     setProfilePeriod,
     takeScreenshots,
     setTakeScreenshots,
+    kea2PropertyScript,
+    setKea2PropertyScript,
     seed,
     setSeed,
     viewState,

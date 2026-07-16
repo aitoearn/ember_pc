@@ -1,4 +1,5 @@
 import type { AnalysisTemplateContext } from "./types";
+import { buildStartupMainThreadSlicesSql } from "./sql/cpuAnalysisSql";
 import { escapeSqlLiteral, packageGlob, runSqlSafe } from "./sqlUtils";
 
 type StartupRow = Record<string, string | number | null>;
@@ -76,6 +77,18 @@ LIMIT 50;
   const ttidMs = Number(primaryStartup?.ttid_ms);
   const durMs = Number(primaryStartup?.dur_ms);
 
+  let mainThreadTopSlices: { sliceName: string; durMs: number }[] = [];
+  if (startupRows.length > 0) {
+    const sliceRows = await runSqlSafe(
+      ctx.runSql,
+      buildStartupMainThreadSlicesSql(pkgGlob),
+    );
+    mainThreadTopSlices = sliceRows.map((row) => ({
+      sliceName: String(row.slice_name ?? "unknown"),
+      durMs: Math.round(Number(row.dur_ms ?? 0)),
+    }));
+  }
+
   let timeToDisplayMs = 0;
   if (Number.isFinite(ttfdMs) && ttfdMs > 0) {
     timeToDisplayMs = Math.round(ttfdMs);
@@ -115,6 +128,7 @@ LIMIT 50;
     ttidMs: Number.isFinite(ttidMs) ? Math.round(ttidMs) : null,
     ttfdMs: Number.isFinite(ttfdMs) ? Math.round(ttfdMs) : null,
     breakdown,
+    mainThreadTopSlices,
     note,
   };
 }

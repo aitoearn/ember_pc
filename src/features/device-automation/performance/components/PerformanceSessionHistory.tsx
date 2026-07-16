@@ -12,6 +12,7 @@ import type { PerformanceSession } from "../types";
 export interface PerformanceSessionHistoryProps {
   sessions: PerformanceSession[];
   loading: boolean;
+  linkedTraceCountBySessionId?: Record<string, number>;
   onSelectSession: (session: PerformanceSession) => void;
 }
 
@@ -29,6 +30,7 @@ function formatTime(value: string | null): string {
 export function PerformanceSessionHistory({
   sessions,
   loading,
+  linkedTraceCountBySessionId = {},
   onSelectSession,
 }: PerformanceSessionHistoryProps) {
   const { t } = useTranslation("deviceAutomation");
@@ -72,7 +74,9 @@ export function PerformanceSessionHistory({
             </p>
           ) : (
             <div className="grid gap-2">
-              {sessions.map((session) => (
+              {sessions.map((session) => {
+                const linkedTraceCount = linkedTraceCountBySessionId[session.id] ?? 0;
+                return (
                 <button
                   key={session.id}
                   type="button"
@@ -83,7 +87,17 @@ export function PerformanceSessionHistory({
                     <span className="text-sm font-medium text-neutral-900">
                       {session.packageName}
                     </span>
-                    <span className="text-xs text-neutral-500">
+                    <span className="flex items-center gap-1.5 text-xs text-neutral-500">
+                      {linkedTraceCount > 0 ? (
+                        <span
+                          className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700"
+                          data-testid={`performance-session-trace-count-${session.id}`}
+                        >
+                          {t("deviceAutomation.performance.history.linkedTraceBadge", {
+                            count: linkedTraceCount,
+                          })}
+                        </span>
+                      ) : null}
                       {t(`deviceAutomation.performance.session.status.${session.status}`)}
                     </span>
                   </div>
@@ -91,7 +105,8 @@ export function PerformanceSessionHistory({
                     {session.deviceId} · {formatTime(session.startedAt)}
                   </div>
                 </button>
-              ))}
+              );
+              })}
             </div>
           )}
         </CollapsibleContent>
