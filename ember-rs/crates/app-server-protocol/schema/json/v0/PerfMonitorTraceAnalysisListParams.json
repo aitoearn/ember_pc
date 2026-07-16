@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "artifactId": {
+      "type": "string"
+    },
+    "limit": {
+      "default": null,
+      "format": "uint32",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "artifactId"
+  ],
+  "title": "PerfMonitorTraceAnalysisListParams",
+  "type": "object"
+}

@@ -1,0 +1,42 @@
+{
+  "$defs": {
+    "DeviceExploreProfile": {
+      "properties": {
+        "config": {
+          "default": null
+        },
+        "rules": {
+          "default": [],
+          "items": true,
+          "type": "array"
+        },
+        "updatedAt": {
+          "default": "",
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "profile": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DeviceExploreProfile"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "title": "DeviceExploreReadResponse",
+  "type": "object"
+}

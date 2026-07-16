@@ -241,8 +241,8 @@ export function useOemEmberHubProviderSync() {
   const { t } = useTranslation("common");
   const copy = useMemo<ManagedEmberHubProviderSyncCopy>(
     () => ({
-      managedKeyAlias: t("common.oemEmberHubProviderSync.managedKeyAlias"),
-      cloudTokenName: t("common.oemEmberHubProviderSync.cloudTokenName"),
+      managedKeyAlias: t("common.oemLimeHubProviderSync.managedKeyAlias"),
+      cloudTokenName: t("common.oemLimeHubProviderSync.cloudTokenName"),
     }),
     [t],
   );

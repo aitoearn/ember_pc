@@ -136,7 +136,7 @@ export class ScrcpyDirectClient {
     }
 
     const nodeBridge = getScrcpyNodeBridge();
-    const server = nodeBridge.createServer((socket) => {
+    const server = nodeBridge.createServer((socket: ScrcpyPreloadSocket) => {
       this.#handleIncomingSocket(socket);
     });
     const port = await server.listen(reversed.port);

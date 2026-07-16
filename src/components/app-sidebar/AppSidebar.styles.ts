@@ -118,6 +118,31 @@ export const Container = styled.aside<{
     position: relative;
     z-index: 1;
   }
+
+  -webkit-app-region: drag;
+  app-region: drag;
+
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  summary,
+  [contenteditable="true"],
+  [role="button"],
+  [role="checkbox"],
+  [role="combobox"],
+  [role="link"],
+  [role="menuitem"],
+  [role="option"],
+  [role="radio"],
+  [role="slider"],
+  [role="switch"],
+  [tabindex]:not([tabindex="-1"]),
+  [data-lime-no-window-drag] {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
 `;
 
 export const HeaderArea = styled.div<{ $collapsed?: boolean }>`

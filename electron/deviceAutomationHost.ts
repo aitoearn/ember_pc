@@ -18,53 +18,13 @@ import type { StabilityLlmConfig } from "../src/features/device-automation/stabi
 
 type HostArgs = Record<string, unknown> | null | undefined;
 type HostEventEmitter = (event: string, payload?: unknown) => void;
+import {
+  DEVICE_AUTOMATION_COMMANDS,
+  type DeviceAutomationCommand,
+} from "./deviceAutomationCommands";
 
-export const DEVICE_AUTOMATION_COMMANDS = [
-  "device_automation_ensure_sidecar",
-  "device_automation_get_sidecar_status",
-  "device_automation_list_devices",
-  "device_automation_capture_screenshot",
-  "device_automation_send_navigation",
-  "device_automation_send_tap",
-  "device_automation_send_swipe",
-  "device_automation_ensure_ai_sidecar",
-  "device_automation_prepare_ai_session",
-  "device_automation_submit_ai_task",
-  "device_automation_poll_ai_task",
-  "device_automation_cancel_ai_task",
-  "device_automation_scrcpy_prepare_reverse",
-  "device_automation_scrcpy_reverse_tcp",
-  "device_automation_scrcpy_start",
-  "device_automation_scrcpy_stop",
-  "device_automation_scrcpy_teardown",
-  "device_automation_scrcpy_launch",
-  "device_automation_scrcpy_prewarm",
-  "device_automation_scrcpy_connect",
-  "device_automation_monkey_start",
-  "device_automation_monkey_stop",
-  "device_automation_monkey_get_status",
-  "device_automation_kea2_get_tool_status",
-  "device_automation_stability_analysis_get_tool_status",
-  "device_automation_stability_analysis_start",
-  "device_automation_stability_analysis_cancel",
-  "device_automation_stability_analysis_get_status",
-  "device_automation_stability_llm_config_read",
-  "device_automation_stability_llm_config_save",
-  "device_automation_perf_list_apps",
-  "device_automation_perf_start",
-  "device_automation_perf_stop",
-  "device_automation_perf_get_status",
-  "device_automation_perf_trace_start",
-  "device_automation_perf_trace_stop",
-  "device_automation_perf_trace_cancel",
-  "device_automation_perf_trace_get_status",
-  "device_automation_perf_trace_analyze",
-  "device_automation_perf_trace_open_external",
-  "device_automation_perf_trace_delete_local",
-] as const;
-
-export type DeviceAutomationCommand = (typeof DEVICE_AUTOMATION_COMMANDS)[number];
-
+export type { DeviceAutomationCommand } from "./deviceAutomationCommands";
+export { DEVICE_AUTOMATION_COMMANDS } from "./deviceAutomationCommands";
 const deviceAutomationCommandSet = new Set<string>(DEVICE_AUTOMATION_COMMANDS);
 
 export function isDeviceAutomationCommand(

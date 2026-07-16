@@ -1,0 +1,57 @@
+{
+  "$defs": {
+    "PerformanceTraceAnalysis": {
+      "description": "Trace L1 分析结果。",
+      "properties": {
+        "analysisType": {
+          "type": "string"
+        },
+        "artifactId": {
+          "type": "string"
+        },
+        "createdAt": {
+          "default": "",
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "packageName": {
+          "type": "string"
+        },
+        "resultJson": {
+          "default": "",
+          "type": "string"
+        },
+        "status": {
+          "default": "",
+          "type": "string"
+        },
+        "timeRangeJson": {
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      },
+      "required": [
+        "analysisType",
+        "artifactId",
+        "id",
+        "packageName"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "analysis": {
+      "$ref": "#/$defs/PerformanceTraceAnalysis"
+    }
+  },
+  "required": [
+    "analysis"
+  ],
+  "title": "PerfMonitorTraceAnalysisSaveParams",
+  "type": "object"
+}

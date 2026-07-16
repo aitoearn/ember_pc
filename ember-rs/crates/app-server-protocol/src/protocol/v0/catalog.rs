@@ -1048,7 +1048,8 @@ impl AppServerRequestMethod {
             Self::DeviceExploreSave => METHOD_DEVICE_EXPLORE_SAVE,
             Self::DeviceExploreRunSave => METHOD_DEVICE_EXPLORE_RUN_SAVE,
             Self::DeviceExploreRunList => METHOD_DEVICE_EXPLORE_RUN_LIST,
-            Self::DeviceExploreRunRead => METHOD_DEVICE_EXPLORE_RUN_READ,            Self::WorkflowRead => METHOD_WORKFLOW_READ,
+            Self::DeviceExploreRunRead => METHOD_DEVICE_EXPLORE_RUN_READ,
+            Self::WorkflowRead => METHOD_WORKFLOW_READ,
             Self::WorkflowCancel => METHOD_WORKFLOW_CANCEL,
             Self::WorkflowRetry => METHOD_WORKFLOW_RETRY,
             Self::WorkflowRespond => METHOD_WORKFLOW_RESPOND,
@@ -1412,7 +1413,8 @@ impl AppServerRequestMethod {
             METHOD_DEVICE_EXPLORE_SAVE => Some(Self::DeviceExploreSave),
             METHOD_DEVICE_EXPLORE_RUN_SAVE => Some(Self::DeviceExploreRunSave),
             METHOD_DEVICE_EXPLORE_RUN_LIST => Some(Self::DeviceExploreRunList),
-            METHOD_DEVICE_EXPLORE_RUN_READ => Some(Self::DeviceExploreRunRead),            METHOD_WORKFLOW_READ => Some(Self::WorkflowRead),
+            METHOD_DEVICE_EXPLORE_RUN_READ => Some(Self::DeviceExploreRunRead),
+            METHOD_WORKFLOW_READ => Some(Self::WorkflowRead),
             METHOD_WORKFLOW_CANCEL => Some(Self::WorkflowCancel),
             METHOD_WORKFLOW_RETRY => Some(Self::WorkflowRetry),
             METHOD_WORKFLOW_RESPOND => Some(Self::WorkflowRespond),
@@ -2641,6 +2643,138 @@ pub const APP_SERVER_METHODS: &[AppServerMethodSpec] = &[
     },
     AppServerMethodSpec {
         method: METHOD_AGENT_SESSION_RUNTIME_EVENTS_APPEND,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_TEST_CASE_LIST,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_TEST_CASE_READ,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_TEST_CASE_SAVE,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_TEST_CASE_DELETE,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_TEST_CASE_MODULE_LIST,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_TEST_CASE_MODULE_SAVE,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_TEST_CASE_MODULE_DELETE,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_TEST_CASE_RUN_SAVE,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_TEST_CASE_RUN_LIST,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_PERF_MONITOR_SESSION_SAVE,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_PERF_MONITOR_SESSION_LIST,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_PERF_MONITOR_SESSION_READ,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_PERF_MONITOR_TRACE_SAVE,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_PERF_MONITOR_TRACE_LIST,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_PERF_MONITOR_TRACE_READ,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_PERF_MONITOR_TRACE_DELETE,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_PERF_MONITOR_TRACE_ANALYSIS_SAVE,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_PERF_MONITOR_TRACE_ANALYSIS_LIST,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_DEVICE_FLOW_LIST,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_DEVICE_FLOW_READ,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_DEVICE_FLOW_SAVE,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_DEVICE_FLOW_DELETE,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_DEVICE_FLOW_RUN_SAVE,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_DEVICE_FLOW_RUN_LIST,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_DEVICE_FLOW_RUN_READ,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_DEVICE_FLOW_HEALING_LIST,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_DEVICE_FLOW_HEALING_SAVE,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_DEVICE_FLOW_HEALING_RESOLVE,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_DEVICE_EXPLORE_READ,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_DEVICE_EXPLORE_SAVE,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_DEVICE_EXPLORE_RUN_SAVE,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_DEVICE_EXPLORE_RUN_LIST,
+        kind: AppServerMethodKind::Request,
+    },
+    AppServerMethodSpec {
+        method: METHOD_DEVICE_EXPLORE_RUN_READ,
         kind: AppServerMethodKind::Request,
     },
     AppServerMethodSpec {

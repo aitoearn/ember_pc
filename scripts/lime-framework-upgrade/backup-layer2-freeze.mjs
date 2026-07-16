@@ -5,7 +5,7 @@
  *
  * 用法：
  *   node scripts/lime-framework-upgrade/backup-layer2-freeze.mjs
- *   node scripts/lime-framework-upgrade/backup-layer2-freeze.mjs --output docs/exec-plans/artifacts/layer2-freeze-2026-07-16.tar.gz
+ *   node scripts/lime-framework-upgrade/backup-layer2-freeze.mjs --output internal/exec-plans/artifacts/layer2-freeze-2026-07-16.tar.gz
  */
 
 import fs from "node:fs";
@@ -17,7 +17,7 @@ import { loadFreezeManifest } from "./lib/freeze-manifest.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = process.cwd();
-const DEFAULT_OUTPUT_DIR = path.join(REPO_ROOT, "docs/exec-plans/artifacts");
+const DEFAULT_OUTPUT_DIR = path.join(REPO_ROOT, "internal/exec-plans/artifacts");
 
 function parseArgs(argv) {
   const options = { output: null };

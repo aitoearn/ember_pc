@@ -1,4 +1,4 @@
-import { DEVICE_AUTOMATION_COMMANDS } from "./deviceAutomationHost";
+import { DEVICE_AUTOMATION_COMMANDS } from "./deviceAutomationCommands";
 
 export const IPC_INVOKE_CHANNEL = "app:invoke";
 export const IPC_EMIT_CHANNEL = "app:emit";

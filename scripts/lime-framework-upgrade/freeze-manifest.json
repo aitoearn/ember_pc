@@ -14,7 +14,7 @@
     "m0_5_hostWiring": {
       "blocking": true,
       "beforeBatch": "A",
-      "auditDoc": "docs/exec-plans/lime-framework-upgrade-host-wiring-audit.md",
+      "auditDoc": "internal/exec-plans/lime-framework-upgrade-host-wiring-audit.md",
       "summary": "device_automation_* 未注册 ipcChannels/hostCommands，Batch A 前必须接线"
     }
   },
@@ -169,7 +169,7 @@
       "path": "src/features/test-case-management/aiGeneration.ts",
       "reason": "asterChatRequest 在 lime v1.90+ 已删除，Batch C 必须迁移到 canonical startTurn",
       "batch": "C",
-      "designDoc": "docs/exec-plans/lime-framework-upgrade-aster-migration.md"
+      "designDoc": "internal/exec-plans/lime-framework-upgrade-aster-migration.md"
     }
   ],
   "highConflictLegacyToRemove": [

@@ -11,6 +11,8 @@ export const CORE_NAMESPACES = [
 ] as const;
 
 export type EmberNamespace = (typeof CORE_NAMESPACES)[number];
+/** @deprecated 迁移期别名，与 EmberNamespace 相同 */
+export type LimeNamespace = EmberNamespace;
 
 export const BUNDLED_NAMESPACE_RESOURCE_PARTS = {
   agent: [

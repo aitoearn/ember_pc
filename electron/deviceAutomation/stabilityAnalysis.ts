@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -62,7 +62,7 @@ export type StabilityAnalysisStatusResult = {
 type ActiveStabilityRun = {
   runId: string;
   startedAt: string;
-  child: ChildProcessWithoutNullStreams;
+  child: ChildProcess;
   tempCrashLogPath?: string;
   cliReportsRoot: string;
 };

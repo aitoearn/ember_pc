@@ -1,0 +1,134 @@
+{
+  "$defs": {
+    "ExploreRun": {
+      "properties": {
+        "anrCount": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "bugReportPath": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "conclusion": {
+          "default": "",
+          "type": "string"
+        },
+        "crashCount": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "deviceId": {
+          "default": "",
+          "type": "string"
+        },
+        "engineMode": {
+          "default": "",
+          "type": "string"
+        },
+        "eventCount": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "eventsInjected": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "exploreRulesCount": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "finishedAt": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "localResultDir": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "packageName": {
+          "default": "",
+          "type": "string"
+        },
+        "ruleFailuresCount": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "runningMinutes": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "seed": {
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "sessionId": {
+          "default": "",
+          "type": "string"
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "stepsLogPath": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "stepsSummary": true,
+        "summary": {
+          "default": "",
+          "type": "string"
+        },
+        "throttleMs": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "startedAt",
+        "workspaceId"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "run": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExploreRun"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "title": "DeviceExploreRunReadResponse",
+  "type": "object"
+}

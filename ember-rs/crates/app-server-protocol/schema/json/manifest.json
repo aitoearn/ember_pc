@@ -260,6 +260,66 @@
     },
     {
       "kind": "request",
+      "method": "deviceExplore/read"
+    },
+    {
+      "kind": "request",
+      "method": "deviceExplore/save"
+    },
+    {
+      "kind": "request",
+      "method": "deviceExploreRun/list"
+    },
+    {
+      "kind": "request",
+      "method": "deviceExploreRun/read"
+    },
+    {
+      "kind": "request",
+      "method": "deviceExploreRun/save"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlow/delete"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlow/list"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlow/read"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlow/save"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlowHealing/list"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlowHealing/resolve"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlowHealing/save"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlowRun/list"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlowRun/read"
+    },
+    {
+      "kind": "request",
+      "method": "deviceFlowRun/save"
+    },
+    {
+      "kind": "request",
       "method": "diagnostics/logStorage/read"
     },
     {
@@ -748,6 +808,42 @@
     },
     {
       "kind": "request",
+      "method": "perfMonitor/session/list"
+    },
+    {
+      "kind": "request",
+      "method": "perfMonitor/session/read"
+    },
+    {
+      "kind": "request",
+      "method": "perfMonitor/session/save"
+    },
+    {
+      "kind": "request",
+      "method": "perfMonitor/trace/delete"
+    },
+    {
+      "kind": "request",
+      "method": "perfMonitor/trace/list"
+    },
+    {
+      "kind": "request",
+      "method": "perfMonitor/trace/read"
+    },
+    {
+      "kind": "request",
+      "method": "perfMonitor/trace/save"
+    },
+    {
+      "kind": "request",
+      "method": "perfMonitor/traceAnalysis/list"
+    },
+    {
+      "kind": "request",
+      "method": "perfMonitor/traceAnalysis/save"
+    },
+    {
+      "kind": "request",
       "method": "pluginHostLifecycle/list"
     },
     {
@@ -1017,6 +1113,42 @@
     {
       "kind": "request",
       "method": "telegramChannel/probe"
+    },
+    {
+      "kind": "request",
+      "method": "testCase/delete"
+    },
+    {
+      "kind": "request",
+      "method": "testCase/list"
+    },
+    {
+      "kind": "request",
+      "method": "testCase/read"
+    },
+    {
+      "kind": "request",
+      "method": "testCase/save"
+    },
+    {
+      "kind": "request",
+      "method": "testCaseModule/delete"
+    },
+    {
+      "kind": "request",
+      "method": "testCaseModule/list"
+    },
+    {
+      "kind": "request",
+      "method": "testCaseModule/save"
+    },
+    {
+      "kind": "request",
+      "method": "testCaseRun/list"
+    },
+    {
+      "kind": "request",
+      "method": "testCaseRun/save"
     },
     {
       "kind": "request",
@@ -1508,6 +1640,37 @@
       "ConversationImportThreadPreviewParams",
       "ConversationImportThreadPreviewResponse",
       "ConversationImportThreadStatus",
+      "DeviceExploreProfile",
+      "DeviceExploreReadParams",
+      "DeviceExploreReadResponse",
+      "DeviceExploreRunListParams",
+      "DeviceExploreRunListResponse",
+      "DeviceExploreRunReadParams",
+      "DeviceExploreRunReadResponse",
+      "DeviceExploreRunSaveParams",
+      "DeviceExploreRunSaveResponse",
+      "DeviceExploreSaveParams",
+      "DeviceExploreSaveResponse",
+      "DeviceFlowDeleteParams",
+      "DeviceFlowDeleteResponse",
+      "DeviceFlowHealingListParams",
+      "DeviceFlowHealingListResponse",
+      "DeviceFlowHealingResolveParams",
+      "DeviceFlowHealingResolveResponse",
+      "DeviceFlowHealingSaveParams",
+      "DeviceFlowHealingSaveResponse",
+      "DeviceFlowListParams",
+      "DeviceFlowListResponse",
+      "DeviceFlowReadParams",
+      "DeviceFlowReadResponse",
+      "DeviceFlowRunListParams",
+      "DeviceFlowRunListResponse",
+      "DeviceFlowRunReadParams",
+      "DeviceFlowRunReadResponse",
+      "DeviceFlowRunSaveParams",
+      "DeviceFlowRunSaveResponse",
+      "DeviceFlowSaveParams",
+      "DeviceFlowSaveResponse",
       "DiagnosticsCapabilityRoutingMetricsSnapshot",
       "DiagnosticsIdempotencyDiagnostics",
       "DiagnosticsMetricConfig",
@@ -1541,6 +1704,7 @@
       "ExecutionProcessStatus",
       "ExecutionProcessStatusResponse",
       "ExecutionProcessWriteStdinParams",
+      "ExploreRun",
       "FileSystemCreateDirectoryParams",
       "FileSystemCreateFileParams",
       "FileSystemDeleteFileParams",
@@ -1551,6 +1715,15 @@
       "FileSystemMutationResponse",
       "FileSystemReadFilePreviewParams",
       "FileSystemRenameFileParams",
+      "FlowAssertResult",
+      "FlowAssertion",
+      "FlowLocator",
+      "FlowLocatorRef",
+      "FlowRun",
+      "FlowRunStep",
+      "FlowStep",
+      "FlowVlmAnchor",
+      "FlowWaitPolicy",
       "FramingKind",
       "GalleryMaterial",
       "GalleryMaterialDeleteResponse",
@@ -1576,6 +1749,7 @@
       "GatewayTunnelStatusResponse",
       "GatewayTunnelSyncWebhookUrlParams",
       "GatewayTunnelSyncWebhookUrlResponse",
+      "HealingRevision",
       "ImageStoryboardSlotInput",
       "ImportedThreadSummary",
       "InitializeParams",
@@ -1724,6 +1898,28 @@
       "ModelTaskRequest",
       "ModelTaskSource",
       "OpenDeepLinkPayload",
+      "PerfMetricSummary",
+      "PerfMonitorSessionListParams",
+      "PerfMonitorSessionListResponse",
+      "PerfMonitorSessionReadParams",
+      "PerfMonitorSessionReadResponse",
+      "PerfMonitorSessionSaveParams",
+      "PerfMonitorSessionSaveResponse",
+      "PerfMonitorTraceAnalysisListParams",
+      "PerfMonitorTraceAnalysisListResponse",
+      "PerfMonitorTraceAnalysisSaveParams",
+      "PerfMonitorTraceAnalysisSaveResponse",
+      "PerfMonitorTraceDeleteParams",
+      "PerfMonitorTraceDeleteResponse",
+      "PerfMonitorTraceListParams",
+      "PerfMonitorTraceListResponse",
+      "PerfMonitorTraceReadParams",
+      "PerfMonitorTraceReadResponse",
+      "PerfMonitorTraceSaveParams",
+      "PerfMonitorTraceSaveResponse",
+      "PerformanceSession",
+      "PerformanceTraceAnalysis",
+      "PerformanceTraceArtifact",
       "PlatformInfo",
       "PluginArticleWorkspaceContract",
       "PluginArticleWorkspaceObject",
@@ -1896,6 +2092,30 @@
       "SupportBundleExportParams",
       "SupportBundleExportResponse",
       "SupportBundleTraceExportSelection",
+      "TestCase",
+      "TestCaseDeleteParams",
+      "TestCaseDeleteResponse",
+      "TestCaseListParams",
+      "TestCaseListResponse",
+      "TestCaseModule",
+      "TestCaseModuleDeleteParams",
+      "TestCaseModuleDeleteResponse",
+      "TestCaseModuleListParams",
+      "TestCaseModuleListResponse",
+      "TestCaseModuleSaveParams",
+      "TestCaseModuleSaveResponse",
+      "TestCaseReadParams",
+      "TestCaseReadResponse",
+      "TestCaseRun",
+      "TestCaseRunListParams",
+      "TestCaseRunListResponse",
+      "TestCaseRunSaveParams",
+      "TestCaseRunSaveResponse",
+      "TestCaseRunStep",
+      "TestCaseSaveParams",
+      "TestCaseSaveResponse",
+      "TestCaseStep",
+      "TestFlow",
       "TextPosition",
       "TextRange",
       "ThreadItemsListParams",

@@ -61,13 +61,14 @@ export function PerfTracePanel({ trace, onOpenLinkedApmSession }: PerfTracePanel
     return PERF_TRACE_PRESET_DURATION_SEC[trace.presetId];
   }, [trace.presetId]);
 
-  const startDisabled =
+  const startDisabled = Boolean(
     !trace.canRecord ||
-    trace.isRecording ||
-    !trace.selectedDeviceId ||
-    !trace.packageName ||
-    ((trace.useCustomConfig || trace.customConfigOverride.trim()) &&
-      !trace.customConfigOverride.trim());
+      trace.isRecording ||
+      !trace.selectedDeviceId ||
+      !trace.packageName ||
+      ((trace.useCustomConfig || trace.customConfigOverride.trim()) &&
+        !trace.customConfigOverride.trim()),
+  );
 
   return (
     <div className="flex flex-col gap-4" data-testid="perf-trace-panel">

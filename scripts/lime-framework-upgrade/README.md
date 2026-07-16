@@ -1,6 +1,6 @@
 # Lime 框架升级 · 合入对齐脚本
 
-配合 `docs/exec-plans/lime-framework-upgrade-*.md` 使用。
+配合 `internal/exec-plans/lime-framework-upgrade-*.md` 使用。
 
 ## 脚本
 
@@ -49,4 +49,4 @@ npm run lime-framework:apply-patch -- --batch A --dirs packages,scripts --apply
 
 ## 事实源
 
-`docs/exec-plans/lime-framework-upgrade-freeze-manifest.json`
+`scripts/lime-framework-upgrade/freeze-manifest.json`

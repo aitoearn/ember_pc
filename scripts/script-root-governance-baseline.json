@@ -14,7 +14,10 @@
     "scripts/lib",
     "scripts/mcp",
     "scripts/playwright",
-    "scripts/smoke"
+    "scripts/smoke",
+    "scripts/branding",
+    "scripts/device-automation",
+    "scripts/lime-framework-upgrade"
   ],
   "ignoredLocalDirectories": ["scripts/__pycache__"],
   "allowedRootFiles": [

@@ -562,7 +562,6 @@ function startFastbotMonkey(
     takeScreenshots: params.takeScreenshots,
     deviceOutputRoot: params.deviceOutputRoot,
     monkeyResultsRoot: monkeyResultsRoot ?? undefined,
-    profilePeriod: params.profilePeriod,
     exploreRules: params.exploreRules,
     exploreConfig: params.exploreConfig,
     kea2BuiltinInvariants: true,

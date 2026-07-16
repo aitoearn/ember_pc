@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "断言：`type` ∈ {hard,soft}，`expr` 结构随类型而定（保真往返）。",
+  "properties": {
+    "expr": {
+      "default": null
+    },
+    "type": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "type"
+  ],
+  "title": "FlowAssertion",
+  "type": "object"
+}

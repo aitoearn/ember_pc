@@ -91,6 +91,21 @@ export const METHOD_CONVERSATION_IMPORT_THREAD_COMMIT =
   "conversationImport/thread/commit";
 export const METHOD_CONVERSATION_IMPORT_THREAD_PREVIEW =
   "conversationImport/thread/preview";
+export const METHOD_DEVICE_EXPLORE_READ = "deviceExplore/read";
+export const METHOD_DEVICE_EXPLORE_SAVE = "deviceExplore/save";
+export const METHOD_DEVICE_EXPLORE_RUN_LIST = "deviceExploreRun/list";
+export const METHOD_DEVICE_EXPLORE_RUN_READ = "deviceExploreRun/read";
+export const METHOD_DEVICE_EXPLORE_RUN_SAVE = "deviceExploreRun/save";
+export const METHOD_DEVICE_FLOW_DELETE = "deviceFlow/delete";
+export const METHOD_DEVICE_FLOW_LIST = "deviceFlow/list";
+export const METHOD_DEVICE_FLOW_READ = "deviceFlow/read";
+export const METHOD_DEVICE_FLOW_SAVE = "deviceFlow/save";
+export const METHOD_DEVICE_FLOW_HEALING_LIST = "deviceFlowHealing/list";
+export const METHOD_DEVICE_FLOW_HEALING_RESOLVE = "deviceFlowHealing/resolve";
+export const METHOD_DEVICE_FLOW_HEALING_SAVE = "deviceFlowHealing/save";
+export const METHOD_DEVICE_FLOW_RUN_LIST = "deviceFlowRun/list";
+export const METHOD_DEVICE_FLOW_RUN_READ = "deviceFlowRun/read";
+export const METHOD_DEVICE_FLOW_RUN_SAVE = "deviceFlowRun/save";
 export const METHOD_DIAGNOSTICS_LOG_STORAGE_READ =
   "diagnostics/logStorage/read";
 export const METHOD_DIAGNOSTICS_SERVER_READ = "diagnostics/server/read";
@@ -243,6 +258,17 @@ export const METHOD_MODEL_PROVIDER_UI_STATE_READ = "modelProviderUiState/read";
 export const METHOD_MODEL_PROVIDER_UI_STATE_WRITE =
   "modelProviderUiState/write";
 export const METHOD_MODEL_SYNC_STATE_READ = "modelSyncState/read";
+export const METHOD_PERF_MONITOR_SESSION_LIST = "perfMonitor/session/list";
+export const METHOD_PERF_MONITOR_SESSION_READ = "perfMonitor/session/read";
+export const METHOD_PERF_MONITOR_SESSION_SAVE = "perfMonitor/session/save";
+export const METHOD_PERF_MONITOR_TRACE_DELETE = "perfMonitor/trace/delete";
+export const METHOD_PERF_MONITOR_TRACE_LIST = "perfMonitor/trace/list";
+export const METHOD_PERF_MONITOR_TRACE_READ = "perfMonitor/trace/read";
+export const METHOD_PERF_MONITOR_TRACE_SAVE = "perfMonitor/trace/save";
+export const METHOD_PERF_MONITOR_TRACE_ANALYSIS_LIST =
+  "perfMonitor/traceAnalysis/list";
+export const METHOD_PERF_MONITOR_TRACE_ANALYSIS_SAVE =
+  "perfMonitor/traceAnalysis/save";
 export const METHOD_PLUGIN_HOST_LIFECYCLE_LIST = "pluginHostLifecycle/list";
 export const METHOD_PLUGIN_INSTALLED_DISABLED_SET =
   "pluginInstalled/disabled/set";
@@ -318,6 +344,15 @@ export const METHOD_SOUL_STYLE_PACK_LIST = "soulStylePack/list";
 export const METHOD_SOUL_STYLE_PACK_STATUS_SET = "soulStylePack/status/set";
 export const METHOD_SOUL_STYLE_PACK_UNINSTALL = "soulStylePack/uninstall";
 export const METHOD_TELEGRAM_CHANNEL_PROBE = "telegramChannel/probe";
+export const METHOD_TEST_CASE_DELETE = "testCase/delete";
+export const METHOD_TEST_CASE_LIST = "testCase/list";
+export const METHOD_TEST_CASE_READ = "testCase/read";
+export const METHOD_TEST_CASE_SAVE = "testCase/save";
+export const METHOD_TEST_CASE_MODULE_DELETE = "testCaseModule/delete";
+export const METHOD_TEST_CASE_MODULE_LIST = "testCaseModule/list";
+export const METHOD_TEST_CASE_MODULE_SAVE = "testCaseModule/save";
+export const METHOD_TEST_CASE_RUN_LIST = "testCaseRun/list";
+export const METHOD_TEST_CASE_RUN_SAVE = "testCaseRun/save";
 export const METHOD_THREAD_ITEMS_LIST = "thread/items/list";
 export const METHOD_THREAD_LIST = "thread/list";
 export const METHOD_THREAD_READ = "thread/read";
@@ -632,6 +667,66 @@ export const GENERATED_APP_SERVER_METHODS = [
   {
     kind: "request",
     method: "conversationImport/thread/preview",
+  },
+  {
+    kind: "request",
+    method: "deviceExplore/read",
+  },
+  {
+    kind: "request",
+    method: "deviceExplore/save",
+  },
+  {
+    kind: "request",
+    method: "deviceExploreRun/list",
+  },
+  {
+    kind: "request",
+    method: "deviceExploreRun/read",
+  },
+  {
+    kind: "request",
+    method: "deviceExploreRun/save",
+  },
+  {
+    kind: "request",
+    method: "deviceFlow/delete",
+  },
+  {
+    kind: "request",
+    method: "deviceFlow/list",
+  },
+  {
+    kind: "request",
+    method: "deviceFlow/read",
+  },
+  {
+    kind: "request",
+    method: "deviceFlow/save",
+  },
+  {
+    kind: "request",
+    method: "deviceFlowHealing/list",
+  },
+  {
+    kind: "request",
+    method: "deviceFlowHealing/resolve",
+  },
+  {
+    kind: "request",
+    method: "deviceFlowHealing/save",
+  },
+  {
+    kind: "request",
+    method: "deviceFlowRun/list",
+  },
+  {
+    kind: "request",
+    method: "deviceFlowRun/read",
+  },
+  {
+    kind: "request",
+    method: "deviceFlowRun/save",
   },
   {
     kind: "request",
@@ -1123,6 +1218,42 @@ export const GENERATED_APP_SERVER_METHODS = [
   },
   {
     kind: "request",
+    method: "perfMonitor/session/list",
+  },
+  {
+    kind: "request",
+    method: "perfMonitor/session/read",
+  },
+  {
+    kind: "request",
+    method: "perfMonitor/session/save",
+  },
+  {
+    kind: "request",
+    method: "perfMonitor/trace/delete",
+  },
+  {
+    kind: "request",
+    method: "perfMonitor/trace/list",
+  },
+  {
+    kind: "request",
+    method: "perfMonitor/trace/read",
+  },
+  {
+    kind: "request",
+    method: "perfMonitor/trace/save",
+  },
+  {
+    kind: "request",
+    method: "perfMonitor/traceAnalysis/list",
+  },
+  {
+    kind: "request",
+    method: "perfMonitor/traceAnalysis/save",
+  },
+  {
+    kind: "request",
     method: "pluginHostLifecycle/list",
   },
   {
@@ -1392,6 +1523,42 @@ export const GENERATED_APP_SERVER_METHODS = [
   {
     kind: "request",
     method: "telegramChannel/probe",
+  },
+  {
+    kind: "request",
+    method: "testCase/delete",
+  },
+  {
+    kind: "request",
+    method: "testCase/list",
+  },
+  {
+    kind: "request",
+    method: "testCase/read",
+  },
+  {
+    kind: "request",
+    method: "testCase/save",
+  },
+  {
+    kind: "request",
+    method: "testCaseModule/delete",
+  },
+  {
+    kind: "request",
+    method: "testCaseModule/list",
+  },
+  {
+    kind: "request",
+    method: "testCaseModule/save",
+  },
+  {
+    kind: "request",
+    method: "testCaseRun/list",
+  },
+  {
+    kind: "request",
+    method: "testCaseRun/save",
   },
   {
     kind: "request",
@@ -3880,6 +4047,171 @@ export type AppServerClientRequest =
     }
   | {
       id: number | string;
+      method: "testCase/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "testCase/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "testCase/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "testCase/delete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "testCaseModule/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "testCaseModule/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "testCaseModule/delete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "testCaseRun/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "testCaseRun/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "perfMonitor/session/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "perfMonitor/session/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "perfMonitor/session/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "perfMonitor/trace/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "perfMonitor/trace/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "perfMonitor/trace/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "perfMonitor/trace/delete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "perfMonitor/traceAnalysis/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "perfMonitor/traceAnalysis/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "deviceFlow/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "deviceFlow/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "deviceFlow/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "deviceFlow/delete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "deviceFlowRun/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "deviceFlowRun/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "deviceFlowRun/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "deviceFlowHealing/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "deviceFlowHealing/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "deviceFlowHealing/resolve";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "deviceExplore/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "deviceExplore/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "deviceExploreRun/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "deviceExploreRun/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "deviceExploreRun/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
       method: "workflow/read";
       params?: unknown;
     }
@@ -3981,6 +4313,21 @@ export type AppServerRequestMethod =
   | "conversationImport/source/scan"
   | "conversationImport/thread/commit"
   | "conversationImport/thread/preview"
+  | "deviceExplore/read"
+  | "deviceExplore/save"
+  | "deviceExploreRun/list"
+  | "deviceExploreRun/read"
+  | "deviceExploreRun/save"
+  | "deviceFlow/delete"
+  | "deviceFlow/list"
+  | "deviceFlow/read"
+  | "deviceFlow/save"
+  | "deviceFlowHealing/list"
+  | "deviceFlowHealing/resolve"
+  | "deviceFlowHealing/save"
+  | "deviceFlowRun/list"
+  | "deviceFlowRun/read"
+  | "deviceFlowRun/save"
   | "diagnostics/logStorage/read"
   | "diagnostics/server/read"
   | "diagnostics/supportBundle/export"
@@ -4101,6 +4448,15 @@ export type AppServerRequestMethod =
   | "modelProviderUiState/read"
   | "modelProviderUiState/write"
   | "modelSyncState/read"
+  | "perfMonitor/session/list"
+  | "perfMonitor/session/read"
+  | "perfMonitor/session/save"
+  | "perfMonitor/trace/delete"
+  | "perfMonitor/trace/list"
+  | "perfMonitor/trace/read"
+  | "perfMonitor/trace/save"
+  | "perfMonitor/traceAnalysis/list"
+  | "perfMonitor/traceAnalysis/save"
   | "pluginHostLifecycle/list"
   | "pluginInstalled/disabled/set"
   | "pluginInstalled/list"
@@ -4168,6 +4524,15 @@ export type AppServerRequestMethod =
   | "soulStylePack/status/set"
   | "soulStylePack/uninstall"
   | "telegramChannel/probe"
+  | "testCase/delete"
+  | "testCase/list"
+  | "testCase/read"
+  | "testCase/save"
+  | "testCaseModule/delete"
+  | "testCaseModule/list"
+  | "testCaseModule/save"
+  | "testCaseRun/list"
+  | "testCaseRun/save"
   | "thread/items/list"
   | "thread/list"
   | "thread/read"
@@ -4748,6 +5113,142 @@ export type ConversationImportThreadStatus =
   | "imported"
   | "not_imported";
 
+export interface DeviceExploreProfile {
+  config?: unknown;
+  rules?: unknown[];
+  updatedAt?: string;
+  workspaceId: string;
+}
+
+export interface DeviceExploreReadParams {
+  workspaceId: string;
+}
+
+export interface DeviceExploreReadResponse {
+  profile?: DeviceExploreProfile | null;
+}
+
+export interface DeviceExploreRunListParams {
+  limit?: number | null;
+  offset?: number | null;
+  workspaceId: string;
+}
+
+export interface DeviceExploreRunListResponse {
+  runs?: ExploreRun[];
+}
+
+export interface DeviceExploreRunReadParams {
+  runId: string;
+}
+
+export interface DeviceExploreRunReadResponse {
+  run?: ExploreRun | null;
+}
+
+export interface DeviceExploreRunSaveParams {
+  run: ExploreRun;
+}
+
+export interface DeviceExploreRunSaveResponse {
+  runId: string;
+}
+
+export interface DeviceExploreSaveParams {
+  profile: DeviceExploreProfile;
+}
+
+export interface DeviceExploreSaveResponse {
+  profile: DeviceExploreProfile;
+}
+
+export interface DeviceFlowDeleteParams {
+  ids?: string[];
+}
+
+export interface DeviceFlowDeleteResponse {
+  deleted: number;
+}
+
+export interface DeviceFlowHealingListParams {
+  flowId: string;
+  status?: null | string;
+}
+
+export interface DeviceFlowHealingListResponse {
+  revisions?: HealingRevision[];
+}
+
+export interface DeviceFlowHealingResolveParams {
+  id: string;
+  resolution: string;
+}
+
+export interface DeviceFlowHealingResolveResponse {
+  flow?: TestFlow | null;
+  revision: HealingRevision;
+}
+
+export interface DeviceFlowHealingSaveParams {
+  revision: HealingRevision;
+}
+
+export interface DeviceFlowHealingSaveResponse {
+  id: string;
+}
+
+export interface DeviceFlowListParams {
+  workspaceId: string;
+}
+
+export interface DeviceFlowListResponse {
+  flows?: TestFlow[];
+}
+
+export interface DeviceFlowReadParams {
+  id: string;
+}
+
+export interface DeviceFlowReadResponse {
+  flow?: TestFlow | null;
+}
+
+export interface DeviceFlowRunListParams {
+  flowId: string;
+  limit?: number | null;
+  offset?: number | null;
+}
+
+export interface DeviceFlowRunListResponse {
+  runs?: FlowRun[];
+}
+
+export interface DeviceFlowRunReadParams {
+  runId: string;
+}
+
+export interface DeviceFlowRunReadResponse {
+  run?: FlowRun | null;
+  steps?: FlowRunStep[];
+}
+
+export interface DeviceFlowRunSaveParams {
+  run: FlowRun;
+  steps?: FlowRunStep[];
+}
+
+export interface DeviceFlowRunSaveResponse {
+  runId: string;
+}
+
+export interface DeviceFlowSaveParams {
+  flow: TestFlow;
+}
+
+export interface DeviceFlowSaveResponse {
+  flow: TestFlow;
+}
+
 export interface DiagnosticsCapabilityRoutingMetricsSnapshot {
   allCandidatesExcludedTotal: number;
   filterEvalTotal: number;
@@ -5017,6 +5518,32 @@ export interface ExecutionProcessWriteStdinParams {
   processId: string;
 }
 
+export interface ExploreRun {
+  anrCount?: number;
+  bugReportPath?: null | string;
+  conclusion?: string;
+  crashCount?: number;
+  deviceId?: string;
+  engineMode?: string;
+  eventCount?: number;
+  eventsInjected?: number;
+  exploreRulesCount?: number;
+  finishedAt?: null | string;
+  id: string;
+  localResultDir?: null | string;
+  packageName?: string;
+  ruleFailuresCount?: number;
+  runningMinutes?: number;
+  seed?: number | null;
+  sessionId?: string;
+  startedAt: string;
+  stepsLogPath?: null | string;
+  stepsSummary?: unknown;
+  summary?: string;
+  throttleMs?: number;
+  workspaceId: string;
+}
+
 export interface FileSystemCreateDirectoryParams {
   path: string;
 }
@@ -5074,6 +5601,72 @@ export interface FileSystemReadFilePreviewParams {
 export interface FileSystemRenameFileParams {
   newPath: string;
   oldPath: string;
+}
+
+export interface FlowAssertResult {
+  ok: boolean;
+  reason?: null | string;
+}
+
+export interface FlowAssertion {
+  expr?: unknown;
+  type: string;
+}
+
+export interface FlowLocator {
+  kind: string;
+  match?: null | string;
+  value?: string;
+  vlmAnchor?: FlowVlmAnchor | null;
+}
+
+export interface FlowLocatorRef {
+  kind: string;
+  value: string;
+}
+
+export interface FlowRun {
+  conclusion?: string;
+  deviceId?: string;
+  finishedAt?: null | string;
+  flowId: string;
+  healingTriggered?: boolean;
+  id: string;
+  llmTokenUsed?: number;
+  startedAt?: string;
+  summary?: string;
+  workspaceId: string;
+}
+
+export interface FlowRunStep {
+  assertResult?: FlowAssertResult | null;
+  durationMs?: number;
+  index: number;
+  locatorUsed?: FlowLocatorRef | null;
+  op?: string;
+  runId: string;
+  screenshotPath?: null | string;
+  status?: string;
+}
+
+export interface FlowStep {
+  args?: unknown;
+  assert?: FlowAssertion | null;
+  index: number;
+  intent?: null | string;
+  locators?: FlowLocator[] | null;
+  op: string;
+  wait?: FlowWaitPolicy | null;
+}
+
+export interface FlowVlmAnchor {
+  xNorm: number;
+  yNorm: number;
+}
+
+export interface FlowWaitPolicy {
+  stabilizeMs: number;
+  timeoutMs: number;
 }
 
 export type FramingKind = "json" | "ndjson" | "sse";
@@ -5269,6 +5862,18 @@ export interface GatewayTunnelSyncWebhookUrlResponse {
   publicBaseUrl: string;
   webhookPath: string;
   webhookUrl: string;
+}
+
+export interface HealingRevision {
+  createdAt?: string;
+  evidenceScreenshotPath?: null | string;
+  flowId: string;
+  healedLocator?: FlowLocator;
+  id: string;
+  originalLocators?: FlowLocator[];
+  runId: string;
+  status?: string;
+  stepIndex: number;
 }
 
 export interface ImageStoryboardSlotInput {
@@ -6371,6 +6976,134 @@ export interface OpenDeepLinkPayload {
   slug: string;
   source?: null | string;
   version?: null | string;
+}
+
+export interface PerfMetricSummary {
+  avg: number;
+  max: number;
+  min: number;
+}
+
+export interface PerfMonitorSessionListParams {
+  limit?: number | null;
+  offset?: number | null;
+  workspaceId: string;
+}
+
+export interface PerfMonitorSessionListResponse {
+  sessions?: PerformanceSession[];
+}
+
+export interface PerfMonitorSessionReadParams {
+  id: string;
+}
+
+export interface PerfMonitorSessionReadResponse {
+  session?: PerformanceSession | null;
+}
+
+export interface PerfMonitorSessionSaveParams {
+  session: PerformanceSession;
+}
+
+export interface PerfMonitorSessionSaveResponse {
+  session: PerformanceSession;
+}
+
+export interface PerfMonitorTraceAnalysisListParams {
+  artifactId: string;
+  limit?: number | null;
+}
+
+export interface PerfMonitorTraceAnalysisListResponse {
+  analyses?: PerformanceTraceAnalysis[];
+}
+
+export interface PerfMonitorTraceAnalysisSaveParams {
+  analysis: PerformanceTraceAnalysis;
+}
+
+export interface PerfMonitorTraceAnalysisSaveResponse {
+  id: string;
+}
+
+export interface PerfMonitorTraceDeleteParams {
+  id: string;
+}
+
+export interface PerfMonitorTraceDeleteResponse {
+  deleted: boolean;
+}
+
+export interface PerfMonitorTraceListParams {
+  limit?: number | null;
+  linkedSessionId?: null | string;
+  offset?: number | null;
+  workspaceId: string;
+}
+
+export interface PerfMonitorTraceListResponse {
+  artifacts?: PerformanceTraceArtifact[];
+}
+
+export interface PerfMonitorTraceReadParams {
+  id: string;
+}
+
+export interface PerfMonitorTraceReadResponse {
+  artifact?: PerformanceTraceArtifact | null;
+}
+
+export interface PerfMonitorTraceSaveParams {
+  artifact: PerformanceTraceArtifact;
+}
+
+export interface PerfMonitorTraceSaveResponse {
+  id: string;
+}
+
+export interface PerformanceSession {
+  deviceId: string;
+  devicePlatform: string;
+  id: string;
+  intervalMs?: number;
+  metrics?: string[];
+  packageName: string;
+  startedAt?: string;
+  status?: string;
+  stoppedAt?: null | string;
+  summary?: null | Record<string, unknown>;
+  workspaceId: string;
+}
+
+export interface PerformanceTraceAnalysis {
+  analysisType: string;
+  artifactId: string;
+  createdAt?: string;
+  id: string;
+  packageName: string;
+  resultJson?: string;
+  status?: string;
+  timeRangeJson?: null | string;
+}
+
+export interface PerformanceTraceArtifact {
+  configJson?: null | string;
+  createdAt?: string;
+  deviceId: string;
+  devicePlatform: string;
+  durationMs?: number | null;
+  errorMessage?: null | string;
+  id: string;
+  linkedSessionId?: null | string;
+  localPath?: null | string;
+  packageName: string;
+  presetId: string;
+  remotePath?: null | string;
+  sizeBytes?: number | null;
+  status?: string;
+  stoppedAt?: null | string;
+  workspaceId: string;
 }
 
 export interface PlatformInfo {
@@ -7556,6 +8289,151 @@ export interface SupportBundleExportResponse {
 export interface SupportBundleTraceExportSelection {
   sessionId: string;
   traceId: string;
+}
+
+export interface TestCase {
+  assertions?: string[];
+  caseId: string;
+  caseType?: string;
+  createdAt?: string;
+  execResult?: string;
+  id: string;
+  moduleId?: string;
+  precondition?: string;
+  priority?: string;
+  remark?: string;
+  source?: string;
+  status?: string;
+  steps?: TestCaseStep[];
+  tags?: string[];
+  title: string;
+  updatedAt?: string;
+}
+
+export interface TestCaseDeleteParams {
+  ids?: string[];
+}
+
+export interface TestCaseDeleteResponse {
+  deleted: number;
+}
+
+export interface TestCaseListParams {
+  moduleId?: null | string;
+  workspaceId: string;
+}
+
+export interface TestCaseListResponse {
+  cases?: TestCase[];
+}
+
+export interface TestCaseModule {
+  id: string;
+  name: string;
+  orderIndex?: number;
+  parentId?: null | string;
+}
+
+export interface TestCaseModuleDeleteParams {
+  id: string;
+  workspaceId: string;
+}
+
+export interface TestCaseModuleDeleteResponse {
+  deleted: boolean;
+}
+
+export interface TestCaseModuleListParams {
+  workspaceId: string;
+}
+
+export interface TestCaseModuleListResponse {
+  modules?: TestCaseModule[];
+}
+
+export interface TestCaseModuleSaveParams {
+  module: TestCaseModule;
+  workspaceId: string;
+}
+
+export interface TestCaseModuleSaveResponse {
+  module: TestCaseModule;
+}
+
+export interface TestCaseReadParams {
+  id: string;
+}
+
+export interface TestCaseReadResponse {
+  case?: TestCase | null;
+}
+
+export interface TestCaseRun {
+  caseId: string;
+  deviceId?: string;
+  finishedAt?: string;
+  id: string;
+  instruction?: string;
+  result?: string;
+  startedAt?: string;
+  steps?: TestCaseRunStep[];
+  summary?: string;
+}
+
+export interface TestCaseRunListParams {
+  caseId: string;
+  workspaceId: string;
+}
+
+export interface TestCaseRunListResponse {
+  runs?: TestCaseRun[];
+}
+
+export interface TestCaseRunSaveParams {
+  run: TestCaseRun;
+  workspaceId: string;
+}
+
+export interface TestCaseRunSaveResponse {
+  run: TestCaseRun;
+}
+
+export interface TestCaseRunStep {
+  id: string;
+  observation?: string;
+  runId?: string;
+  screenshotPath?: string;
+  stepNo: number;
+  ts?: string;
+}
+
+export interface TestCaseSaveParams {
+  case: TestCase;
+  workspaceId: string;
+}
+
+export interface TestCaseSaveResponse {
+  case: TestCase;
+}
+
+export interface TestCaseStep {
+  action?: string;
+  expected?: string;
+  stepNo: number;
+}
+
+export interface TestFlow {
+  appPackage: string;
+  createdAt?: string;
+  formatVersion: number;
+  id: string;
+  name: string;
+  platform?: string;
+  selfHealingEnabled?: boolean;
+  source?: string;
+  steps?: FlowStep[];
+  updatedAt?: string;
+  workspaceId: string;
 }
 
 export interface TextPosition {

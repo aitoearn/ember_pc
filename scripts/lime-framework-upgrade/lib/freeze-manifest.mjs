@@ -3,7 +3,7 @@ import path from "node:path";
 
 const DEFAULT_MANIFEST_PATH = path.join(
   process.cwd(),
-  "docs/exec-plans/lime-framework-upgrade-freeze-manifest.json",
+  "scripts/lime-framework-upgrade/freeze-manifest.json",
 );
 
 /**

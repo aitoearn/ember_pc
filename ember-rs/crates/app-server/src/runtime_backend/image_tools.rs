@@ -45,6 +45,8 @@ mod tests {
     use crate::{GatewayAppDataSource, KnowledgeAppDataSource, McpAppDataSource};
     use crate::{MediaAppDataSource, MemoryAppDataSource, ModelProviderAppDataSource};
     use crate::{RightSurfaceAppDataSource, SessionAppDataSource, SkillAppDataSource};
+    use crate::{TestCasesAppDataSource, PerfMonitorAppDataSource, PerfTraceAppDataSource};
+    use crate::{DeviceFlowAppDataSource, DeviceExploreAppDataSource};
     use crate::{UsageStatsAppDataSource, VoiceAppDataSource, WorkspaceAppDataSource};
     use app_server_protocol::{MediaTaskArtifactImageCreateParams, MediaTaskArtifactResponse};
     use async_trait::async_trait;

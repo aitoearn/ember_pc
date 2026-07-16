@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "回放步骤实际使用的定位（精简引用）。",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "value": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "value"
+  ],
+  "title": "FlowLocatorRef",
+  "type": "object"
+}

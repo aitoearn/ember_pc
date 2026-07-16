@@ -13517,6 +13517,633 @@
               "$ref": "#/$defs/RequestId"
             },
             "method": {
+              "const": "testCase/list",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "testCase/read",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "testCase/save",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "testCase/delete",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "testCaseModule/list",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "testCaseModule/save",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "testCaseModule/delete",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "testCaseRun/save",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "testCaseRun/list",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "perfMonitor/session/save",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "perfMonitor/session/list",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "perfMonitor/session/read",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "perfMonitor/trace/save",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "perfMonitor/trace/list",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "perfMonitor/trace/read",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "perfMonitor/trace/delete",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "perfMonitor/traceAnalysis/save",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "perfMonitor/traceAnalysis/list",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "deviceFlow/list",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "deviceFlow/read",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "deviceFlow/save",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "deviceFlow/delete",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "deviceFlowRun/save",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "deviceFlowRun/list",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "deviceFlowRun/read",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "deviceFlowHealing/list",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "deviceFlowHealing/save",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "deviceFlowHealing/resolve",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "deviceExplore/read",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "deviceExplore/save",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "deviceExploreRun/save",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "deviceExploreRun/list",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
+              "const": "deviceExploreRun/read",
+              "type": "string"
+            },
+            "params": {
+              "default": null
+            }
+          },
+          "required": [
+            "id",
+            "method"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/RequestId"
+            },
+            "method": {
               "const": "workflow/read",
               "type": "string"
             },
@@ -13737,6 +14364,21 @@
         "conversationImport/source/scan",
         "conversationImport/thread/commit",
         "conversationImport/thread/preview",
+        "deviceExplore/read",
+        "deviceExplore/save",
+        "deviceExploreRun/list",
+        "deviceExploreRun/read",
+        "deviceExploreRun/save",
+        "deviceFlow/delete",
+        "deviceFlow/list",
+        "deviceFlow/read",
+        "deviceFlow/save",
+        "deviceFlowHealing/list",
+        "deviceFlowHealing/resolve",
+        "deviceFlowHealing/save",
+        "deviceFlowRun/list",
+        "deviceFlowRun/read",
+        "deviceFlowRun/save",
         "diagnostics/logStorage/read",
         "diagnostics/server/read",
         "diagnostics/supportBundle/export",
@@ -13857,6 +14499,15 @@
         "modelProviderUiState/read",
         "modelProviderUiState/write",
         "modelSyncState/read",
+        "perfMonitor/session/list",
+        "perfMonitor/session/read",
+        "perfMonitor/session/save",
+        "perfMonitor/trace/delete",
+        "perfMonitor/trace/list",
+        "perfMonitor/trace/read",
+        "perfMonitor/trace/save",
+        "perfMonitor/traceAnalysis/list",
+        "perfMonitor/traceAnalysis/save",
         "pluginHostLifecycle/list",
         "pluginInstalled/disabled/set",
         "pluginInstalled/list",
@@ -13924,6 +14575,15 @@
         "soulStylePack/status/set",
         "soulStylePack/uninstall",
         "telegramChannel/probe",
+        "testCase/delete",
+        "testCase/list",
+        "testCase/read",
+        "testCase/save",
+        "testCaseModule/delete",
+        "testCaseModule/list",
+        "testCaseModule/save",
+        "testCaseRun/list",
+        "testCaseRun/save",
         "thread/items/list",
         "thread/list",
         "thread/read",
@@ -19472,6 +20132,2558 @@
       "title": "ConversationImportThreadStatus",
       "type": "string"
     },
+    "DeviceExploreProfile": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "config": {
+          "default": null
+        },
+        "rules": {
+          "default": [],
+          "items": true,
+          "type": "array"
+        },
+        "updatedAt": {
+          "default": "",
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId"
+      ],
+      "title": "DeviceExploreProfile",
+      "type": "object"
+    },
+    "DeviceExploreReadParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId"
+      ],
+      "title": "DeviceExploreReadParams",
+      "type": "object"
+    },
+    "DeviceExploreReadResponse": {
+      "$defs": {
+        "DeviceExploreProfile": {
+          "properties": {
+            "config": {
+              "default": null
+            },
+            "rules": {
+              "default": [],
+              "items": true,
+              "type": "array"
+            },
+            "updatedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "profile": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DeviceExploreProfile"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "title": "DeviceExploreReadResponse",
+      "type": "object"
+    },
+    "DeviceExploreRunListParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "limit": {
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "offset": {
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId"
+      ],
+      "title": "DeviceExploreRunListParams",
+      "type": "object"
+    },
+    "DeviceExploreRunListResponse": {
+      "$defs": {
+        "ExploreRun": {
+          "properties": {
+            "anrCount": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "bugReportPath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "conclusion": {
+              "default": "",
+              "type": "string"
+            },
+            "crashCount": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "deviceId": {
+              "default": "",
+              "type": "string"
+            },
+            "engineMode": {
+              "default": "",
+              "type": "string"
+            },
+            "eventCount": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "eventsInjected": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "exploreRulesCount": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "finishedAt": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "localResultDir": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "packageName": {
+              "default": "",
+              "type": "string"
+            },
+            "ruleFailuresCount": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "runningMinutes": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "seed": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "sessionId": {
+              "default": "",
+              "type": "string"
+            },
+            "startedAt": {
+              "type": "string"
+            },
+            "stepsLogPath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "stepsSummary": true,
+            "summary": {
+              "default": "",
+              "type": "string"
+            },
+            "throttleMs": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "startedAt",
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "runs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ExploreRun"
+          },
+          "type": "array"
+        }
+      },
+      "title": "DeviceExploreRunListResponse",
+      "type": "object"
+    },
+    "DeviceExploreRunReadParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "title": "DeviceExploreRunReadParams",
+      "type": "object"
+    },
+    "DeviceExploreRunReadResponse": {
+      "$defs": {
+        "ExploreRun": {
+          "properties": {
+            "anrCount": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "bugReportPath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "conclusion": {
+              "default": "",
+              "type": "string"
+            },
+            "crashCount": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "deviceId": {
+              "default": "",
+              "type": "string"
+            },
+            "engineMode": {
+              "default": "",
+              "type": "string"
+            },
+            "eventCount": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "eventsInjected": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "exploreRulesCount": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "finishedAt": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "localResultDir": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "packageName": {
+              "default": "",
+              "type": "string"
+            },
+            "ruleFailuresCount": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "runningMinutes": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "seed": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "sessionId": {
+              "default": "",
+              "type": "string"
+            },
+            "startedAt": {
+              "type": "string"
+            },
+            "stepsLogPath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "stepsSummary": true,
+            "summary": {
+              "default": "",
+              "type": "string"
+            },
+            "throttleMs": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "startedAt",
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "run": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExploreRun"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "title": "DeviceExploreRunReadResponse",
+      "type": "object"
+    },
+    "DeviceExploreRunSaveParams": {
+      "$defs": {
+        "ExploreRun": {
+          "properties": {
+            "anrCount": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "bugReportPath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "conclusion": {
+              "default": "",
+              "type": "string"
+            },
+            "crashCount": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "deviceId": {
+              "default": "",
+              "type": "string"
+            },
+            "engineMode": {
+              "default": "",
+              "type": "string"
+            },
+            "eventCount": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "eventsInjected": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "exploreRulesCount": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "finishedAt": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "localResultDir": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "packageName": {
+              "default": "",
+              "type": "string"
+            },
+            "ruleFailuresCount": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "runningMinutes": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "seed": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "sessionId": {
+              "default": "",
+              "type": "string"
+            },
+            "startedAt": {
+              "type": "string"
+            },
+            "stepsLogPath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "stepsSummary": true,
+            "summary": {
+              "default": "",
+              "type": "string"
+            },
+            "throttleMs": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "startedAt",
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/ExploreRun"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "title": "DeviceExploreRunSaveParams",
+      "type": "object"
+    },
+    "DeviceExploreRunSaveResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "title": "DeviceExploreRunSaveResponse",
+      "type": "object"
+    },
+    "DeviceExploreSaveParams": {
+      "$defs": {
+        "DeviceExploreProfile": {
+          "properties": {
+            "config": {
+              "default": null
+            },
+            "rules": {
+              "default": [],
+              "items": true,
+              "type": "array"
+            },
+            "updatedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "profile": {
+          "$ref": "#/$defs/DeviceExploreProfile"
+        }
+      },
+      "required": [
+        "profile"
+      ],
+      "title": "DeviceExploreSaveParams",
+      "type": "object"
+    },
+    "DeviceExploreSaveResponse": {
+      "$defs": {
+        "DeviceExploreProfile": {
+          "properties": {
+            "config": {
+              "default": null
+            },
+            "rules": {
+              "default": [],
+              "items": true,
+              "type": "array"
+            },
+            "updatedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "profile": {
+          "$ref": "#/$defs/DeviceExploreProfile"
+        }
+      },
+      "required": [
+        "profile"
+      ],
+      "title": "DeviceExploreSaveResponse",
+      "type": "object"
+    },
+    "DeviceFlowDeleteParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "title": "DeviceFlowDeleteParams",
+      "type": "object"
+    },
+    "DeviceFlowDeleteResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "deleted": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "deleted"
+      ],
+      "title": "DeviceFlowDeleteResponse",
+      "type": "object"
+    },
+    "DeviceFlowHealingListParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "flowId": {
+          "type": "string"
+        },
+        "status": {
+          "description": "pending / accepted / flagged_defect；缺省返回全部。",
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      },
+      "required": [
+        "flowId"
+      ],
+      "title": "DeviceFlowHealingListParams",
+      "type": "object"
+    },
+    "DeviceFlowHealingListResponse": {
+      "$defs": {
+        "FlowLocator": {
+          "description": "多策略定位中的单条定位。",
+          "properties": {
+            "kind": {
+              "description": "resource_id / text / accessibility_id / ui_tree_path / vlm_anchor。",
+              "type": "string"
+            },
+            "match": {
+              "description": "文案匹配：exact / contains。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "value": {
+              "default": "",
+              "type": "string"
+            },
+            "vlmAnchor": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowVlmAnchor"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        "FlowVlmAnchor": {
+          "description": "归一化视觉锚点坐标（0–1000 体系，与既有 UI Agent 归一化坐标一致）。",
+          "properties": {
+            "xNorm": {
+              "format": "double",
+              "type": "number"
+            },
+            "yNorm": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "xNorm",
+            "yNorm"
+          ],
+          "type": "object"
+        },
+        "HealingRevision": {
+          "description": "一次自愈产生的待确认修订。",
+          "properties": {
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "evidenceScreenshotPath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "flowId": {
+              "type": "string"
+            },
+            "healedLocator": {
+              "$ref": "#/$defs/FlowLocator",
+              "default": {
+                "kind": "",
+                "value": ""
+              }
+            },
+            "id": {
+              "type": "string"
+            },
+            "originalLocators": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/FlowLocator"
+              },
+              "type": "array"
+            },
+            "runId": {
+              "type": "string"
+            },
+            "status": {
+              "default": "",
+              "description": "pending / accepted / flagged_defect。",
+              "type": "string"
+            },
+            "stepIndex": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "flowId",
+            "id",
+            "runId",
+            "stepIndex"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "revisions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/HealingRevision"
+          },
+          "type": "array"
+        }
+      },
+      "title": "DeviceFlowHealingListResponse",
+      "type": "object"
+    },
+    "DeviceFlowHealingResolveParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "resolution": {
+          "description": "accepted / flagged_defect。",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "resolution"
+      ],
+      "title": "DeviceFlowHealingResolveParams",
+      "type": "object"
+    },
+    "DeviceFlowHealingResolveResponse": {
+      "$defs": {
+        "FlowAssertion": {
+          "description": "断言：`type` ∈ {hard,soft}，`expr` 结构随类型而定（保真往返）。",
+          "properties": {
+            "expr": {
+              "default": null
+            },
+            "type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        "FlowLocator": {
+          "description": "多策略定位中的单条定位。",
+          "properties": {
+            "kind": {
+              "description": "resource_id / text / accessibility_id / ui_tree_path / vlm_anchor。",
+              "type": "string"
+            },
+            "match": {
+              "description": "文案匹配：exact / contains。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "value": {
+              "default": "",
+              "type": "string"
+            },
+            "vlmAnchor": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowVlmAnchor"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        "FlowStep": {
+          "description": "结构化流步骤。",
+          "properties": {
+            "args": true,
+            "assert": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowAssertion"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "index": {
+              "description": "步骤序号，从 0 起连续。",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "intent": {
+              "description": "自然语言意图，自愈时喂给 VLM。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "locators": {
+              "items": {
+                "$ref": "#/$defs/FlowLocator"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "op": {
+              "type": "string"
+            },
+            "wait": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowWaitPolicy"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "index",
+            "op"
+          ],
+          "type": "object"
+        },
+        "FlowVlmAnchor": {
+          "description": "归一化视觉锚点坐标（0–1000 体系，与既有 UI Agent 归一化坐标一致）。",
+          "properties": {
+            "xNorm": {
+              "format": "double",
+              "type": "number"
+            },
+            "yNorm": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "xNorm",
+            "yNorm"
+          ],
+          "type": "object"
+        },
+        "FlowWaitPolicy": {
+          "description": "单步等待策略。",
+          "properties": {
+            "stabilizeMs": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "timeoutMs": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "stabilizeMs",
+            "timeoutMs"
+          ],
+          "type": "object"
+        },
+        "HealingRevision": {
+          "description": "一次自愈产生的待确认修订。",
+          "properties": {
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "evidenceScreenshotPath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "flowId": {
+              "type": "string"
+            },
+            "healedLocator": {
+              "$ref": "#/$defs/FlowLocator",
+              "default": {
+                "kind": "",
+                "value": ""
+              }
+            },
+            "id": {
+              "type": "string"
+            },
+            "originalLocators": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/FlowLocator"
+              },
+              "type": "array"
+            },
+            "runId": {
+              "type": "string"
+            },
+            "status": {
+              "default": "",
+              "description": "pending / accepted / flagged_defect。",
+              "type": "string"
+            },
+            "stepIndex": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "flowId",
+            "id",
+            "runId",
+            "stepIndex"
+          ],
+          "type": "object"
+        },
+        "TestFlow": {
+          "description": "一条可确定性回放的测试流。",
+          "properties": {
+            "appPackage": {
+              "type": "string"
+            },
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "formatVersion": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "platform": {
+              "default": "",
+              "type": "string"
+            },
+            "selfHealingEnabled": {
+              "default": false,
+              "type": "boolean"
+            },
+            "source": {
+              "default": "",
+              "type": "string"
+            },
+            "steps": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/FlowStep"
+              },
+              "type": "array"
+            },
+            "updatedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "appPackage",
+            "formatVersion",
+            "id",
+            "name",
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "flow": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TestFlow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "accepted 并入定位后回传新流；flagged_defect 为 null。"
+        },
+        "revision": {
+          "$ref": "#/$defs/HealingRevision"
+        }
+      },
+      "required": [
+        "revision"
+      ],
+      "title": "DeviceFlowHealingResolveResponse",
+      "type": "object"
+    },
+    "DeviceFlowHealingSaveParams": {
+      "$defs": {
+        "FlowLocator": {
+          "description": "多策略定位中的单条定位。",
+          "properties": {
+            "kind": {
+              "description": "resource_id / text / accessibility_id / ui_tree_path / vlm_anchor。",
+              "type": "string"
+            },
+            "match": {
+              "description": "文案匹配：exact / contains。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "value": {
+              "default": "",
+              "type": "string"
+            },
+            "vlmAnchor": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowVlmAnchor"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        "FlowVlmAnchor": {
+          "description": "归一化视觉锚点坐标（0–1000 体系，与既有 UI Agent 归一化坐标一致）。",
+          "properties": {
+            "xNorm": {
+              "format": "double",
+              "type": "number"
+            },
+            "yNorm": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "xNorm",
+            "yNorm"
+          ],
+          "type": "object"
+        },
+        "HealingRevision": {
+          "description": "一次自愈产生的待确认修订。",
+          "properties": {
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "evidenceScreenshotPath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "flowId": {
+              "type": "string"
+            },
+            "healedLocator": {
+              "$ref": "#/$defs/FlowLocator",
+              "default": {
+                "kind": "",
+                "value": ""
+              }
+            },
+            "id": {
+              "type": "string"
+            },
+            "originalLocators": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/FlowLocator"
+              },
+              "type": "array"
+            },
+            "runId": {
+              "type": "string"
+            },
+            "status": {
+              "default": "",
+              "description": "pending / accepted / flagged_defect。",
+              "type": "string"
+            },
+            "stepIndex": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "flowId",
+            "id",
+            "runId",
+            "stepIndex"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "revision": {
+          "$ref": "#/$defs/HealingRevision"
+        }
+      },
+      "required": [
+        "revision"
+      ],
+      "title": "DeviceFlowHealingSaveParams",
+      "type": "object"
+    },
+    "DeviceFlowHealingSaveResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "DeviceFlowHealingSaveResponse",
+      "type": "object"
+    },
+    "DeviceFlowListParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId"
+      ],
+      "title": "DeviceFlowListParams",
+      "type": "object"
+    },
+    "DeviceFlowListResponse": {
+      "$defs": {
+        "FlowAssertion": {
+          "description": "断言：`type` ∈ {hard,soft}，`expr` 结构随类型而定（保真往返）。",
+          "properties": {
+            "expr": {
+              "default": null
+            },
+            "type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        "FlowLocator": {
+          "description": "多策略定位中的单条定位。",
+          "properties": {
+            "kind": {
+              "description": "resource_id / text / accessibility_id / ui_tree_path / vlm_anchor。",
+              "type": "string"
+            },
+            "match": {
+              "description": "文案匹配：exact / contains。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "value": {
+              "default": "",
+              "type": "string"
+            },
+            "vlmAnchor": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowVlmAnchor"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        "FlowStep": {
+          "description": "结构化流步骤。",
+          "properties": {
+            "args": true,
+            "assert": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowAssertion"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "index": {
+              "description": "步骤序号，从 0 起连续。",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "intent": {
+              "description": "自然语言意图，自愈时喂给 VLM。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "locators": {
+              "items": {
+                "$ref": "#/$defs/FlowLocator"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "op": {
+              "type": "string"
+            },
+            "wait": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowWaitPolicy"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "index",
+            "op"
+          ],
+          "type": "object"
+        },
+        "FlowVlmAnchor": {
+          "description": "归一化视觉锚点坐标（0–1000 体系，与既有 UI Agent 归一化坐标一致）。",
+          "properties": {
+            "xNorm": {
+              "format": "double",
+              "type": "number"
+            },
+            "yNorm": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "xNorm",
+            "yNorm"
+          ],
+          "type": "object"
+        },
+        "FlowWaitPolicy": {
+          "description": "单步等待策略。",
+          "properties": {
+            "stabilizeMs": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "timeoutMs": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "stabilizeMs",
+            "timeoutMs"
+          ],
+          "type": "object"
+        },
+        "TestFlow": {
+          "description": "一条可确定性回放的测试流。",
+          "properties": {
+            "appPackage": {
+              "type": "string"
+            },
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "formatVersion": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "platform": {
+              "default": "",
+              "type": "string"
+            },
+            "selfHealingEnabled": {
+              "default": false,
+              "type": "boolean"
+            },
+            "source": {
+              "default": "",
+              "type": "string"
+            },
+            "steps": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/FlowStep"
+              },
+              "type": "array"
+            },
+            "updatedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "appPackage",
+            "formatVersion",
+            "id",
+            "name",
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "flows": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TestFlow"
+          },
+          "type": "array"
+        }
+      },
+      "title": "DeviceFlowListResponse",
+      "type": "object"
+    },
+    "DeviceFlowReadParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "DeviceFlowReadParams",
+      "type": "object"
+    },
+    "DeviceFlowReadResponse": {
+      "$defs": {
+        "FlowAssertion": {
+          "description": "断言：`type` ∈ {hard,soft}，`expr` 结构随类型而定（保真往返）。",
+          "properties": {
+            "expr": {
+              "default": null
+            },
+            "type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        "FlowLocator": {
+          "description": "多策略定位中的单条定位。",
+          "properties": {
+            "kind": {
+              "description": "resource_id / text / accessibility_id / ui_tree_path / vlm_anchor。",
+              "type": "string"
+            },
+            "match": {
+              "description": "文案匹配：exact / contains。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "value": {
+              "default": "",
+              "type": "string"
+            },
+            "vlmAnchor": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowVlmAnchor"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        "FlowStep": {
+          "description": "结构化流步骤。",
+          "properties": {
+            "args": true,
+            "assert": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowAssertion"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "index": {
+              "description": "步骤序号，从 0 起连续。",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "intent": {
+              "description": "自然语言意图，自愈时喂给 VLM。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "locators": {
+              "items": {
+                "$ref": "#/$defs/FlowLocator"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "op": {
+              "type": "string"
+            },
+            "wait": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowWaitPolicy"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "index",
+            "op"
+          ],
+          "type": "object"
+        },
+        "FlowVlmAnchor": {
+          "description": "归一化视觉锚点坐标（0–1000 体系，与既有 UI Agent 归一化坐标一致）。",
+          "properties": {
+            "xNorm": {
+              "format": "double",
+              "type": "number"
+            },
+            "yNorm": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "xNorm",
+            "yNorm"
+          ],
+          "type": "object"
+        },
+        "FlowWaitPolicy": {
+          "description": "单步等待策略。",
+          "properties": {
+            "stabilizeMs": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "timeoutMs": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "stabilizeMs",
+            "timeoutMs"
+          ],
+          "type": "object"
+        },
+        "TestFlow": {
+          "description": "一条可确定性回放的测试流。",
+          "properties": {
+            "appPackage": {
+              "type": "string"
+            },
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "formatVersion": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "platform": {
+              "default": "",
+              "type": "string"
+            },
+            "selfHealingEnabled": {
+              "default": false,
+              "type": "boolean"
+            },
+            "source": {
+              "default": "",
+              "type": "string"
+            },
+            "steps": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/FlowStep"
+              },
+              "type": "array"
+            },
+            "updatedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "appPackage",
+            "formatVersion",
+            "id",
+            "name",
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "flow": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TestFlow"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "title": "DeviceFlowReadResponse",
+      "type": "object"
+    },
+    "DeviceFlowRunListParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "flowId": {
+          "type": "string"
+        },
+        "limit": {
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "offset": {
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "flowId"
+      ],
+      "title": "DeviceFlowRunListParams",
+      "type": "object"
+    },
+    "DeviceFlowRunListResponse": {
+      "$defs": {
+        "FlowRun": {
+          "description": "一次确定性回放的留痕。",
+          "properties": {
+            "conclusion": {
+              "default": "",
+              "description": "passed / failed / blocked。",
+              "type": "string"
+            },
+            "deviceId": {
+              "default": "",
+              "type": "string"
+            },
+            "finishedAt": {
+              "default": null,
+              "description": "结束时间（RFC3339）；未结束为 null。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "flowId": {
+              "type": "string"
+            },
+            "healingTriggered": {
+              "default": false,
+              "type": "boolean"
+            },
+            "id": {
+              "type": "string"
+            },
+            "llmTokenUsed": {
+              "default": 0,
+              "description": "大模型 token 消耗；纯确定性回放应为 0，自愈步另计。",
+              "format": "int64",
+              "type": "integer"
+            },
+            "startedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "summary": {
+              "default": "",
+              "type": "string"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "flowId",
+            "id",
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "runs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FlowRun"
+          },
+          "type": "array"
+        }
+      },
+      "title": "DeviceFlowRunListResponse",
+      "type": "object"
+    },
+    "DeviceFlowRunReadParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "title": "DeviceFlowRunReadParams",
+      "type": "object"
+    },
+    "DeviceFlowRunReadResponse": {
+      "$defs": {
+        "FlowAssertResult": {
+          "description": "回放步骤断言判定结果。",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [
+            "ok"
+          ],
+          "type": "object"
+        },
+        "FlowLocatorRef": {
+          "description": "回放步骤实际使用的定位（精简引用）。",
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "type": "object"
+        },
+        "FlowRun": {
+          "description": "一次确定性回放的留痕。",
+          "properties": {
+            "conclusion": {
+              "default": "",
+              "description": "passed / failed / blocked。",
+              "type": "string"
+            },
+            "deviceId": {
+              "default": "",
+              "type": "string"
+            },
+            "finishedAt": {
+              "default": null,
+              "description": "结束时间（RFC3339）；未结束为 null。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "flowId": {
+              "type": "string"
+            },
+            "healingTriggered": {
+              "default": false,
+              "type": "boolean"
+            },
+            "id": {
+              "type": "string"
+            },
+            "llmTokenUsed": {
+              "default": 0,
+              "description": "大模型 token 消耗；纯确定性回放应为 0，自愈步另计。",
+              "format": "int64",
+              "type": "integer"
+            },
+            "startedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "summary": {
+              "default": "",
+              "type": "string"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "flowId",
+            "id",
+            "workspaceId"
+          ],
+          "type": "object"
+        },
+        "FlowRunStep": {
+          "description": "回放过程中的一步留痕。",
+          "properties": {
+            "assertResult": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowAssertResult"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "durationMs": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "index": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "locatorUsed": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowLocatorRef"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "op": {
+              "default": "",
+              "type": "string"
+            },
+            "runId": {
+              "type": "string"
+            },
+            "screenshotPath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "status": {
+              "default": "",
+              "description": "passed / failed / blocked / healed。",
+              "type": "string"
+            }
+          },
+          "required": [
+            "index",
+            "runId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "run": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowRun"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "steps": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FlowRunStep"
+          },
+          "type": "array"
+        }
+      },
+      "title": "DeviceFlowRunReadResponse",
+      "type": "object"
+    },
+    "DeviceFlowRunSaveParams": {
+      "$defs": {
+        "FlowAssertResult": {
+          "description": "回放步骤断言判定结果。",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [
+            "ok"
+          ],
+          "type": "object"
+        },
+        "FlowLocatorRef": {
+          "description": "回放步骤实际使用的定位（精简引用）。",
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "type": "object"
+        },
+        "FlowRun": {
+          "description": "一次确定性回放的留痕。",
+          "properties": {
+            "conclusion": {
+              "default": "",
+              "description": "passed / failed / blocked。",
+              "type": "string"
+            },
+            "deviceId": {
+              "default": "",
+              "type": "string"
+            },
+            "finishedAt": {
+              "default": null,
+              "description": "结束时间（RFC3339）；未结束为 null。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "flowId": {
+              "type": "string"
+            },
+            "healingTriggered": {
+              "default": false,
+              "type": "boolean"
+            },
+            "id": {
+              "type": "string"
+            },
+            "llmTokenUsed": {
+              "default": 0,
+              "description": "大模型 token 消耗；纯确定性回放应为 0，自愈步另计。",
+              "format": "int64",
+              "type": "integer"
+            },
+            "startedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "summary": {
+              "default": "",
+              "type": "string"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "flowId",
+            "id",
+            "workspaceId"
+          ],
+          "type": "object"
+        },
+        "FlowRunStep": {
+          "description": "回放过程中的一步留痕。",
+          "properties": {
+            "assertResult": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowAssertResult"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "durationMs": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "index": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "locatorUsed": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowLocatorRef"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "op": {
+              "default": "",
+              "type": "string"
+            },
+            "runId": {
+              "type": "string"
+            },
+            "screenshotPath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "status": {
+              "default": "",
+              "description": "passed / failed / blocked / healed。",
+              "type": "string"
+            }
+          },
+          "required": [
+            "index",
+            "runId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/FlowRun"
+        },
+        "steps": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FlowRunStep"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "title": "DeviceFlowRunSaveParams",
+      "type": "object"
+    },
+    "DeviceFlowRunSaveResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "runId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "title": "DeviceFlowRunSaveResponse",
+      "type": "object"
+    },
+    "DeviceFlowSaveParams": {
+      "$defs": {
+        "FlowAssertion": {
+          "description": "断言：`type` ∈ {hard,soft}，`expr` 结构随类型而定（保真往返）。",
+          "properties": {
+            "expr": {
+              "default": null
+            },
+            "type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        "FlowLocator": {
+          "description": "多策略定位中的单条定位。",
+          "properties": {
+            "kind": {
+              "description": "resource_id / text / accessibility_id / ui_tree_path / vlm_anchor。",
+              "type": "string"
+            },
+            "match": {
+              "description": "文案匹配：exact / contains。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "value": {
+              "default": "",
+              "type": "string"
+            },
+            "vlmAnchor": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowVlmAnchor"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        "FlowStep": {
+          "description": "结构化流步骤。",
+          "properties": {
+            "args": true,
+            "assert": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowAssertion"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "index": {
+              "description": "步骤序号，从 0 起连续。",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "intent": {
+              "description": "自然语言意图，自愈时喂给 VLM。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "locators": {
+              "items": {
+                "$ref": "#/$defs/FlowLocator"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "op": {
+              "type": "string"
+            },
+            "wait": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowWaitPolicy"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "index",
+            "op"
+          ],
+          "type": "object"
+        },
+        "FlowVlmAnchor": {
+          "description": "归一化视觉锚点坐标（0–1000 体系，与既有 UI Agent 归一化坐标一致）。",
+          "properties": {
+            "xNorm": {
+              "format": "double",
+              "type": "number"
+            },
+            "yNorm": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "xNorm",
+            "yNorm"
+          ],
+          "type": "object"
+        },
+        "FlowWaitPolicy": {
+          "description": "单步等待策略。",
+          "properties": {
+            "stabilizeMs": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "timeoutMs": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "stabilizeMs",
+            "timeoutMs"
+          ],
+          "type": "object"
+        },
+        "TestFlow": {
+          "description": "一条可确定性回放的测试流。",
+          "properties": {
+            "appPackage": {
+              "type": "string"
+            },
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "formatVersion": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "platform": {
+              "default": "",
+              "type": "string"
+            },
+            "selfHealingEnabled": {
+              "default": false,
+              "type": "boolean"
+            },
+            "source": {
+              "default": "",
+              "type": "string"
+            },
+            "steps": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/FlowStep"
+              },
+              "type": "array"
+            },
+            "updatedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "appPackage",
+            "formatVersion",
+            "id",
+            "name",
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "flow": {
+          "$ref": "#/$defs/TestFlow"
+        }
+      },
+      "required": [
+        "flow"
+      ],
+      "title": "DeviceFlowSaveParams",
+      "type": "object"
+    },
+    "DeviceFlowSaveResponse": {
+      "$defs": {
+        "FlowAssertion": {
+          "description": "断言：`type` ∈ {hard,soft}，`expr` 结构随类型而定（保真往返）。",
+          "properties": {
+            "expr": {
+              "default": null
+            },
+            "type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        "FlowLocator": {
+          "description": "多策略定位中的单条定位。",
+          "properties": {
+            "kind": {
+              "description": "resource_id / text / accessibility_id / ui_tree_path / vlm_anchor。",
+              "type": "string"
+            },
+            "match": {
+              "description": "文案匹配：exact / contains。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "value": {
+              "default": "",
+              "type": "string"
+            },
+            "vlmAnchor": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowVlmAnchor"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        "FlowStep": {
+          "description": "结构化流步骤。",
+          "properties": {
+            "args": true,
+            "assert": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowAssertion"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "index": {
+              "description": "步骤序号，从 0 起连续。",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "intent": {
+              "description": "自然语言意图，自愈时喂给 VLM。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "locators": {
+              "items": {
+                "$ref": "#/$defs/FlowLocator"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "op": {
+              "type": "string"
+            },
+            "wait": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowWaitPolicy"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "index",
+            "op"
+          ],
+          "type": "object"
+        },
+        "FlowVlmAnchor": {
+          "description": "归一化视觉锚点坐标（0–1000 体系，与既有 UI Agent 归一化坐标一致）。",
+          "properties": {
+            "xNorm": {
+              "format": "double",
+              "type": "number"
+            },
+            "yNorm": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "xNorm",
+            "yNorm"
+          ],
+          "type": "object"
+        },
+        "FlowWaitPolicy": {
+          "description": "单步等待策略。",
+          "properties": {
+            "stabilizeMs": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "timeoutMs": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "stabilizeMs",
+            "timeoutMs"
+          ],
+          "type": "object"
+        },
+        "TestFlow": {
+          "description": "一条可确定性回放的测试流。",
+          "properties": {
+            "appPackage": {
+              "type": "string"
+            },
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "formatVersion": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "platform": {
+              "default": "",
+              "type": "string"
+            },
+            "selfHealingEnabled": {
+              "default": false,
+              "type": "boolean"
+            },
+            "source": {
+              "default": "",
+              "type": "string"
+            },
+            "steps": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/FlowStep"
+              },
+              "type": "array"
+            },
+            "updatedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "appPackage",
+            "formatVersion",
+            "id",
+            "name",
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "flow": {
+          "$ref": "#/$defs/TestFlow"
+        }
+      },
+      "required": [
+        "flow"
+      ],
+      "title": "DeviceFlowSaveResponse",
+      "type": "object"
+    },
     "DiagnosticsCapabilityRoutingMetricsSnapshot": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "properties": {
@@ -21792,6 +25004,123 @@
       "title": "ExecutionProcessWriteStdinParams",
       "type": "object"
     },
+    "ExploreRun": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "anrCount": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "bugReportPath": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "conclusion": {
+          "default": "",
+          "type": "string"
+        },
+        "crashCount": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "deviceId": {
+          "default": "",
+          "type": "string"
+        },
+        "engineMode": {
+          "default": "",
+          "type": "string"
+        },
+        "eventCount": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "eventsInjected": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "exploreRulesCount": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "finishedAt": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "localResultDir": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "packageName": {
+          "default": "",
+          "type": "string"
+        },
+        "ruleFailuresCount": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "runningMinutes": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "seed": {
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "sessionId": {
+          "default": "",
+          "type": "string"
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "stepsLogPath": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "stepsSummary": true,
+        "summary": {
+          "default": "",
+          "type": "string"
+        },
+        "throttleMs": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "startedAt",
+        "workspaceId"
+      ],
+      "title": "ExploreRun",
+      "type": "object"
+    },
     "FileSystemCreateDirectoryParams": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "properties": {
@@ -22108,6 +25437,455 @@
         "oldPath"
       ],
       "title": "FileSystemRenameFileParams",
+      "type": "object"
+    },
+    "FlowAssertResult": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "回放步骤断言判定结果。",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "title": "FlowAssertResult",
+      "type": "object"
+    },
+    "FlowAssertion": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "断言：`type` ∈ {hard,soft}，`expr` 结构随类型而定（保真往返）。",
+      "properties": {
+        "expr": {
+          "default": null
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "FlowAssertion",
+      "type": "object"
+    },
+    "FlowLocator": {
+      "$defs": {
+        "FlowVlmAnchor": {
+          "description": "归一化视觉锚点坐标（0–1000 体系，与既有 UI Agent 归一化坐标一致）。",
+          "properties": {
+            "xNorm": {
+              "format": "double",
+              "type": "number"
+            },
+            "yNorm": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "xNorm",
+            "yNorm"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "多策略定位中的单条定位。",
+      "properties": {
+        "kind": {
+          "description": "resource_id / text / accessibility_id / ui_tree_path / vlm_anchor。",
+          "type": "string"
+        },
+        "match": {
+          "description": "文案匹配：exact / contains。",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "value": {
+          "default": "",
+          "type": "string"
+        },
+        "vlmAnchor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowVlmAnchor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "FlowLocator",
+      "type": "object"
+    },
+    "FlowLocatorRef": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "回放步骤实际使用的定位（精简引用）。",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "FlowLocatorRef",
+      "type": "object"
+    },
+    "FlowRun": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "一次确定性回放的留痕。",
+      "properties": {
+        "conclusion": {
+          "default": "",
+          "description": "passed / failed / blocked。",
+          "type": "string"
+        },
+        "deviceId": {
+          "default": "",
+          "type": "string"
+        },
+        "finishedAt": {
+          "default": null,
+          "description": "结束时间（RFC3339）；未结束为 null。",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "flowId": {
+          "type": "string"
+        },
+        "healingTriggered": {
+          "default": false,
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "llmTokenUsed": {
+          "default": 0,
+          "description": "大模型 token 消耗；纯确定性回放应为 0，自愈步另计。",
+          "format": "int64",
+          "type": "integer"
+        },
+        "startedAt": {
+          "default": "",
+          "type": "string"
+        },
+        "summary": {
+          "default": "",
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "flowId",
+        "id",
+        "workspaceId"
+      ],
+      "title": "FlowRun",
+      "type": "object"
+    },
+    "FlowRunStep": {
+      "$defs": {
+        "FlowAssertResult": {
+          "description": "回放步骤断言判定结果。",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [
+            "ok"
+          ],
+          "type": "object"
+        },
+        "FlowLocatorRef": {
+          "description": "回放步骤实际使用的定位（精简引用）。",
+          "properties": {
+            "kind": {
+              "type": "string"
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "回放过程中的一步留痕。",
+      "properties": {
+        "assertResult": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowAssertResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "durationMs": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "index": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "locatorUsed": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowLocatorRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "op": {
+          "default": "",
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "screenshotPath": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "status": {
+          "default": "",
+          "description": "passed / failed / blocked / healed。",
+          "type": "string"
+        }
+      },
+      "required": [
+        "index",
+        "runId"
+      ],
+      "title": "FlowRunStep",
+      "type": "object"
+    },
+    "FlowStep": {
+      "$defs": {
+        "FlowAssertion": {
+          "description": "断言：`type` ∈ {hard,soft}，`expr` 结构随类型而定（保真往返）。",
+          "properties": {
+            "expr": {
+              "default": null
+            },
+            "type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        "FlowLocator": {
+          "description": "多策略定位中的单条定位。",
+          "properties": {
+            "kind": {
+              "description": "resource_id / text / accessibility_id / ui_tree_path / vlm_anchor。",
+              "type": "string"
+            },
+            "match": {
+              "description": "文案匹配：exact / contains。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "value": {
+              "default": "",
+              "type": "string"
+            },
+            "vlmAnchor": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowVlmAnchor"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        "FlowVlmAnchor": {
+          "description": "归一化视觉锚点坐标（0–1000 体系，与既有 UI Agent 归一化坐标一致）。",
+          "properties": {
+            "xNorm": {
+              "format": "double",
+              "type": "number"
+            },
+            "yNorm": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "xNorm",
+            "yNorm"
+          ],
+          "type": "object"
+        },
+        "FlowWaitPolicy": {
+          "description": "单步等待策略。",
+          "properties": {
+            "stabilizeMs": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "timeoutMs": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "stabilizeMs",
+            "timeoutMs"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "结构化流步骤。",
+      "properties": {
+        "args": true,
+        "assert": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowAssertion"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "index": {
+          "description": "步骤序号，从 0 起连续。",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "intent": {
+          "description": "自然语言意图，自愈时喂给 VLM。",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "locators": {
+          "items": {
+            "$ref": "#/$defs/FlowLocator"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "op": {
+          "type": "string"
+        },
+        "wait": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowWaitPolicy"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "index",
+        "op"
+      ],
+      "title": "FlowStep",
+      "type": "object"
+    },
+    "FlowVlmAnchor": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "归一化视觉锚点坐标（0–1000 体系，与既有 UI Agent 归一化坐标一致）。",
+      "properties": {
+        "xNorm": {
+          "format": "double",
+          "type": "number"
+        },
+        "yNorm": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "xNorm",
+        "yNorm"
+      ],
+      "title": "FlowVlmAnchor",
+      "type": "object"
+    },
+    "FlowWaitPolicy": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "单步等待策略。",
+      "properties": {
+        "stabilizeMs": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "timeoutMs": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "stabilizeMs",
+        "timeoutMs"
+      ],
+      "title": "FlowWaitPolicy",
       "type": "object"
     },
     "FramingKind": {
@@ -23764,6 +27542,117 @@
         "webhookUrl"
       ],
       "title": "GatewayTunnelSyncWebhookUrlResponse",
+      "type": "object"
+    },
+    "HealingRevision": {
+      "$defs": {
+        "FlowLocator": {
+          "description": "多策略定位中的单条定位。",
+          "properties": {
+            "kind": {
+              "description": "resource_id / text / accessibility_id / ui_tree_path / vlm_anchor。",
+              "type": "string"
+            },
+            "match": {
+              "description": "文案匹配：exact / contains。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "value": {
+              "default": "",
+              "type": "string"
+            },
+            "vlmAnchor": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowVlmAnchor"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        "FlowVlmAnchor": {
+          "description": "归一化视觉锚点坐标（0–1000 体系，与既有 UI Agent 归一化坐标一致）。",
+          "properties": {
+            "xNorm": {
+              "format": "double",
+              "type": "number"
+            },
+            "yNorm": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "xNorm",
+            "yNorm"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "一次自愈产生的待确认修订。",
+      "properties": {
+        "createdAt": {
+          "default": "",
+          "type": "string"
+        },
+        "evidenceScreenshotPath": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "flowId": {
+          "type": "string"
+        },
+        "healedLocator": {
+          "$ref": "#/$defs/FlowLocator",
+          "default": {
+            "kind": "",
+            "value": ""
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "originalLocators": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FlowLocator"
+          },
+          "type": "array"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "status": {
+          "default": "",
+          "description": "pending / accepted / flagged_defect。",
+          "type": "string"
+        },
+        "stepIndex": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "flowId",
+        "id",
+        "runId",
+        "stepIndex"
+      ],
+      "title": "HealingRevision",
       "type": "object"
     },
     "ImageStoryboardSlotInput": {
@@ -31075,6 +34964,1270 @@
         "slug"
       ],
       "title": "OpenDeepLinkPayload",
+      "type": "object"
+    },
+    "PerfMetricSummary": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "单指标摘要（AVG/MAX/MIN）。",
+      "properties": {
+        "avg": {
+          "format": "double",
+          "type": "number"
+        },
+        "max": {
+          "format": "double",
+          "type": "number"
+        },
+        "min": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "avg",
+        "max",
+        "min"
+      ],
+      "title": "PerfMetricSummary",
+      "type": "object"
+    },
+    "PerfMonitorSessionListParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "limit": {
+          "default": null,
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "offset": {
+          "default": null,
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId"
+      ],
+      "title": "PerfMonitorSessionListParams",
+      "type": "object"
+    },
+    "PerfMonitorSessionListResponse": {
+      "$defs": {
+        "PerfMetricSummary": {
+          "description": "单指标摘要（AVG/MAX/MIN）。",
+          "properties": {
+            "avg": {
+              "format": "double",
+              "type": "number"
+            },
+            "max": {
+              "format": "double",
+              "type": "number"
+            },
+            "min": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "avg",
+            "max",
+            "min"
+          ],
+          "type": "object"
+        },
+        "PerformanceSession": {
+          "description": "一次性能采集会话。",
+          "properties": {
+            "deviceId": {
+              "type": "string"
+            },
+            "devicePlatform": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "intervalMs": {
+              "default": 1000,
+              "format": "int64",
+              "type": "integer"
+            },
+            "metrics": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "packageName": {
+              "type": "string"
+            },
+            "startedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "status": {
+              "default": "",
+              "type": "string"
+            },
+            "stoppedAt": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "summary": {
+              "additionalProperties": {
+                "$ref": "#/$defs/PerfMetricSummary"
+              },
+              "type": [
+                "null",
+                "object"
+              ]
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "deviceId",
+            "devicePlatform",
+            "id",
+            "packageName",
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "sessions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PerformanceSession"
+          },
+          "type": "array"
+        }
+      },
+      "title": "PerfMonitorSessionListResponse",
+      "type": "object"
+    },
+    "PerfMonitorSessionReadParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "PerfMonitorSessionReadParams",
+      "type": "object"
+    },
+    "PerfMonitorSessionReadResponse": {
+      "$defs": {
+        "PerfMetricSummary": {
+          "description": "单指标摘要（AVG/MAX/MIN）。",
+          "properties": {
+            "avg": {
+              "format": "double",
+              "type": "number"
+            },
+            "max": {
+              "format": "double",
+              "type": "number"
+            },
+            "min": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "avg",
+            "max",
+            "min"
+          ],
+          "type": "object"
+        },
+        "PerformanceSession": {
+          "description": "一次性能采集会话。",
+          "properties": {
+            "deviceId": {
+              "type": "string"
+            },
+            "devicePlatform": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "intervalMs": {
+              "default": 1000,
+              "format": "int64",
+              "type": "integer"
+            },
+            "metrics": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "packageName": {
+              "type": "string"
+            },
+            "startedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "status": {
+              "default": "",
+              "type": "string"
+            },
+            "stoppedAt": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "summary": {
+              "additionalProperties": {
+                "$ref": "#/$defs/PerfMetricSummary"
+              },
+              "type": [
+                "null",
+                "object"
+              ]
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "deviceId",
+            "devicePlatform",
+            "id",
+            "packageName",
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "session": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PerformanceSession"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "title": "PerfMonitorSessionReadResponse",
+      "type": "object"
+    },
+    "PerfMonitorSessionSaveParams": {
+      "$defs": {
+        "PerfMetricSummary": {
+          "description": "单指标摘要（AVG/MAX/MIN）。",
+          "properties": {
+            "avg": {
+              "format": "double",
+              "type": "number"
+            },
+            "max": {
+              "format": "double",
+              "type": "number"
+            },
+            "min": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "avg",
+            "max",
+            "min"
+          ],
+          "type": "object"
+        },
+        "PerformanceSession": {
+          "description": "一次性能采集会话。",
+          "properties": {
+            "deviceId": {
+              "type": "string"
+            },
+            "devicePlatform": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "intervalMs": {
+              "default": 1000,
+              "format": "int64",
+              "type": "integer"
+            },
+            "metrics": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "packageName": {
+              "type": "string"
+            },
+            "startedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "status": {
+              "default": "",
+              "type": "string"
+            },
+            "stoppedAt": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "summary": {
+              "additionalProperties": {
+                "$ref": "#/$defs/PerfMetricSummary"
+              },
+              "type": [
+                "null",
+                "object"
+              ]
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "deviceId",
+            "devicePlatform",
+            "id",
+            "packageName",
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "session": {
+          "$ref": "#/$defs/PerformanceSession"
+        }
+      },
+      "required": [
+        "session"
+      ],
+      "title": "PerfMonitorSessionSaveParams",
+      "type": "object"
+    },
+    "PerfMonitorSessionSaveResponse": {
+      "$defs": {
+        "PerfMetricSummary": {
+          "description": "单指标摘要（AVG/MAX/MIN）。",
+          "properties": {
+            "avg": {
+              "format": "double",
+              "type": "number"
+            },
+            "max": {
+              "format": "double",
+              "type": "number"
+            },
+            "min": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "avg",
+            "max",
+            "min"
+          ],
+          "type": "object"
+        },
+        "PerformanceSession": {
+          "description": "一次性能采集会话。",
+          "properties": {
+            "deviceId": {
+              "type": "string"
+            },
+            "devicePlatform": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "intervalMs": {
+              "default": 1000,
+              "format": "int64",
+              "type": "integer"
+            },
+            "metrics": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "packageName": {
+              "type": "string"
+            },
+            "startedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "status": {
+              "default": "",
+              "type": "string"
+            },
+            "stoppedAt": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "summary": {
+              "additionalProperties": {
+                "$ref": "#/$defs/PerfMetricSummary"
+              },
+              "type": [
+                "null",
+                "object"
+              ]
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "deviceId",
+            "devicePlatform",
+            "id",
+            "packageName",
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "session": {
+          "$ref": "#/$defs/PerformanceSession"
+        }
+      },
+      "required": [
+        "session"
+      ],
+      "title": "PerfMonitorSessionSaveResponse",
+      "type": "object"
+    },
+    "PerfMonitorTraceAnalysisListParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "artifactId": {
+          "type": "string"
+        },
+        "limit": {
+          "default": null,
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "artifactId"
+      ],
+      "title": "PerfMonitorTraceAnalysisListParams",
+      "type": "object"
+    },
+    "PerfMonitorTraceAnalysisListResponse": {
+      "$defs": {
+        "PerformanceTraceAnalysis": {
+          "description": "Trace L1 分析结果。",
+          "properties": {
+            "analysisType": {
+              "type": "string"
+            },
+            "artifactId": {
+              "type": "string"
+            },
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "packageName": {
+              "type": "string"
+            },
+            "resultJson": {
+              "default": "",
+              "type": "string"
+            },
+            "status": {
+              "default": "",
+              "type": "string"
+            },
+            "timeRangeJson": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [
+            "analysisType",
+            "artifactId",
+            "id",
+            "packageName"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "analyses": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PerformanceTraceAnalysis"
+          },
+          "type": "array"
+        }
+      },
+      "title": "PerfMonitorTraceAnalysisListResponse",
+      "type": "object"
+    },
+    "PerfMonitorTraceAnalysisSaveParams": {
+      "$defs": {
+        "PerformanceTraceAnalysis": {
+          "description": "Trace L1 分析结果。",
+          "properties": {
+            "analysisType": {
+              "type": "string"
+            },
+            "artifactId": {
+              "type": "string"
+            },
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "packageName": {
+              "type": "string"
+            },
+            "resultJson": {
+              "default": "",
+              "type": "string"
+            },
+            "status": {
+              "default": "",
+              "type": "string"
+            },
+            "timeRangeJson": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [
+            "analysisType",
+            "artifactId",
+            "id",
+            "packageName"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "analysis": {
+          "$ref": "#/$defs/PerformanceTraceAnalysis"
+        }
+      },
+      "required": [
+        "analysis"
+      ],
+      "title": "PerfMonitorTraceAnalysisSaveParams",
+      "type": "object"
+    },
+    "PerfMonitorTraceAnalysisSaveResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "PerfMonitorTraceAnalysisSaveResponse",
+      "type": "object"
+    },
+    "PerfMonitorTraceDeleteParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "PerfMonitorTraceDeleteParams",
+      "type": "object"
+    },
+    "PerfMonitorTraceDeleteResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deleted"
+      ],
+      "title": "PerfMonitorTraceDeleteResponse",
+      "type": "object"
+    },
+    "PerfMonitorTraceListParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "limit": {
+          "default": null,
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "linkedSessionId": {
+          "description": "可选：仅返回关联到指定 P1 APM 会话的 trace。",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "offset": {
+          "default": null,
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId"
+      ],
+      "title": "PerfMonitorTraceListParams",
+      "type": "object"
+    },
+    "PerfMonitorTraceListResponse": {
+      "$defs": {
+        "PerformanceTraceArtifact": {
+          "description": "Perfetto trace 文件元数据。",
+          "properties": {
+            "configJson": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "deviceId": {
+              "type": "string"
+            },
+            "devicePlatform": {
+              "type": "string"
+            },
+            "durationMs": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "errorMessage": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "linkedSessionId": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "localPath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "packageName": {
+              "type": "string"
+            },
+            "presetId": {
+              "type": "string"
+            },
+            "remotePath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "sizeBytes": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "status": {
+              "default": "",
+              "type": "string"
+            },
+            "stoppedAt": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "deviceId",
+            "devicePlatform",
+            "id",
+            "packageName",
+            "presetId",
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "artifacts": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PerformanceTraceArtifact"
+          },
+          "type": "array"
+        }
+      },
+      "title": "PerfMonitorTraceListResponse",
+      "type": "object"
+    },
+    "PerfMonitorTraceReadParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "PerfMonitorTraceReadParams",
+      "type": "object"
+    },
+    "PerfMonitorTraceReadResponse": {
+      "$defs": {
+        "PerformanceTraceArtifact": {
+          "description": "Perfetto trace 文件元数据。",
+          "properties": {
+            "configJson": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "deviceId": {
+              "type": "string"
+            },
+            "devicePlatform": {
+              "type": "string"
+            },
+            "durationMs": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "errorMessage": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "linkedSessionId": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "localPath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "packageName": {
+              "type": "string"
+            },
+            "presetId": {
+              "type": "string"
+            },
+            "remotePath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "sizeBytes": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "status": {
+              "default": "",
+              "type": "string"
+            },
+            "stoppedAt": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "deviceId",
+            "devicePlatform",
+            "id",
+            "packageName",
+            "presetId",
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "artifact": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PerformanceTraceArtifact"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "title": "PerfMonitorTraceReadResponse",
+      "type": "object"
+    },
+    "PerfMonitorTraceSaveParams": {
+      "$defs": {
+        "PerformanceTraceArtifact": {
+          "description": "Perfetto trace 文件元数据。",
+          "properties": {
+            "configJson": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "deviceId": {
+              "type": "string"
+            },
+            "devicePlatform": {
+              "type": "string"
+            },
+            "durationMs": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "errorMessage": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "linkedSessionId": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "localPath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "packageName": {
+              "type": "string"
+            },
+            "presetId": {
+              "type": "string"
+            },
+            "remotePath": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "sizeBytes": {
+              "format": "int64",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "status": {
+              "default": "",
+              "type": "string"
+            },
+            "stoppedAt": {
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "deviceId",
+            "devicePlatform",
+            "id",
+            "packageName",
+            "presetId",
+            "workspaceId"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/PerformanceTraceArtifact"
+        }
+      },
+      "required": [
+        "artifact"
+      ],
+      "title": "PerfMonitorTraceSaveParams",
+      "type": "object"
+    },
+    "PerfMonitorTraceSaveResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "PerfMonitorTraceSaveResponse",
+      "type": "object"
+    },
+    "PerformanceSession": {
+      "$defs": {
+        "PerfMetricSummary": {
+          "description": "单指标摘要（AVG/MAX/MIN）。",
+          "properties": {
+            "avg": {
+              "format": "double",
+              "type": "number"
+            },
+            "max": {
+              "format": "double",
+              "type": "number"
+            },
+            "min": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "avg",
+            "max",
+            "min"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "一次性能采集会话。",
+      "properties": {
+        "deviceId": {
+          "type": "string"
+        },
+        "devicePlatform": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "intervalMs": {
+          "default": 1000,
+          "format": "int64",
+          "type": "integer"
+        },
+        "metrics": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "packageName": {
+          "type": "string"
+        },
+        "startedAt": {
+          "default": "",
+          "type": "string"
+        },
+        "status": {
+          "default": "",
+          "type": "string"
+        },
+        "stoppedAt": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "summary": {
+          "additionalProperties": {
+            "$ref": "#/$defs/PerfMetricSummary"
+          },
+          "type": [
+            "null",
+            "object"
+          ]
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviceId",
+        "devicePlatform",
+        "id",
+        "packageName",
+        "workspaceId"
+      ],
+      "title": "PerformanceSession",
+      "type": "object"
+    },
+    "PerformanceTraceAnalysis": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "Trace L1 分析结果。",
+      "properties": {
+        "analysisType": {
+          "type": "string"
+        },
+        "artifactId": {
+          "type": "string"
+        },
+        "createdAt": {
+          "default": "",
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "packageName": {
+          "type": "string"
+        },
+        "resultJson": {
+          "default": "",
+          "type": "string"
+        },
+        "status": {
+          "default": "",
+          "type": "string"
+        },
+        "timeRangeJson": {
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      },
+      "required": [
+        "analysisType",
+        "artifactId",
+        "id",
+        "packageName"
+      ],
+      "title": "PerformanceTraceAnalysis",
+      "type": "object"
+    },
+    "PerformanceTraceArtifact": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "Perfetto trace 文件元数据。",
+      "properties": {
+        "configJson": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "createdAt": {
+          "default": "",
+          "type": "string"
+        },
+        "deviceId": {
+          "type": "string"
+        },
+        "devicePlatform": {
+          "type": "string"
+        },
+        "durationMs": {
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "errorMessage": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "linkedSessionId": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "localPath": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "packageName": {
+          "type": "string"
+        },
+        "presetId": {
+          "type": "string"
+        },
+        "remotePath": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "sizeBytes": {
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "status": {
+          "default": "",
+          "type": "string"
+        },
+        "stoppedAt": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviceId",
+        "devicePlatform",
+        "id",
+        "packageName",
+        "presetId",
+        "workspaceId"
+      ],
+      "title": "PerformanceTraceArtifact",
       "type": "object"
     },
     "PlatformInfo": {
@@ -41729,6 +46882,1535 @@
       "title": "SupportBundleTraceExportSelection",
       "type": "object"
     },
+    "TestCase": {
+      "$defs": {
+        "TestCaseStep": {
+          "description": "结构化测试步骤：步骤号 + 操作 + 预期。",
+          "properties": {
+            "action": {
+              "default": "",
+              "type": "string"
+            },
+            "expected": {
+              "default": "",
+              "type": "string"
+            },
+            "stepNo": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "stepNo"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "单条测试用例。",
+      "properties": {
+        "assertions": {
+          "default": [],
+          "description": "断言/通过条件（与步骤分离的独立验证项）。",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "caseId": {
+          "type": "string"
+        },
+        "caseType": {
+          "default": "",
+          "type": "string"
+        },
+        "createdAt": {
+          "default": "",
+          "type": "string"
+        },
+        "execResult": {
+          "default": "",
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "moduleId": {
+          "default": "",
+          "type": "string"
+        },
+        "precondition": {
+          "default": "",
+          "type": "string"
+        },
+        "priority": {
+          "default": "",
+          "type": "string"
+        },
+        "remark": {
+          "default": "",
+          "type": "string"
+        },
+        "source": {
+          "default": "",
+          "type": "string"
+        },
+        "status": {
+          "default": "",
+          "type": "string"
+        },
+        "steps": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TestCaseStep"
+          },
+          "type": "array"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "title": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "caseId",
+        "id",
+        "title"
+      ],
+      "title": "TestCase",
+      "type": "object"
+    },
+    "TestCaseDeleteParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "title": "TestCaseDeleteParams",
+      "type": "object"
+    },
+    "TestCaseDeleteResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "deleted": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "deleted"
+      ],
+      "title": "TestCaseDeleteResponse",
+      "type": "object"
+    },
+    "TestCaseListParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "moduleId": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId"
+      ],
+      "title": "TestCaseListParams",
+      "type": "object"
+    },
+    "TestCaseListResponse": {
+      "$defs": {
+        "TestCase": {
+          "description": "单条测试用例。",
+          "properties": {
+            "assertions": {
+              "default": [],
+              "description": "断言/通过条件（与步骤分离的独立验证项）。",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "caseId": {
+              "type": "string"
+            },
+            "caseType": {
+              "default": "",
+              "type": "string"
+            },
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "execResult": {
+              "default": "",
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "moduleId": {
+              "default": "",
+              "type": "string"
+            },
+            "precondition": {
+              "default": "",
+              "type": "string"
+            },
+            "priority": {
+              "default": "",
+              "type": "string"
+            },
+            "remark": {
+              "default": "",
+              "type": "string"
+            },
+            "source": {
+              "default": "",
+              "type": "string"
+            },
+            "status": {
+              "default": "",
+              "type": "string"
+            },
+            "steps": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TestCaseStep"
+              },
+              "type": "array"
+            },
+            "tags": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": {
+              "type": "string"
+            },
+            "updatedAt": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "caseId",
+            "id",
+            "title"
+          ],
+          "type": "object"
+        },
+        "TestCaseStep": {
+          "description": "结构化测试步骤：步骤号 + 操作 + 预期。",
+          "properties": {
+            "action": {
+              "default": "",
+              "type": "string"
+            },
+            "expected": {
+              "default": "",
+              "type": "string"
+            },
+            "stepNo": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "stepNo"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "cases": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TestCase"
+          },
+          "type": "array"
+        }
+      },
+      "title": "TestCaseListResponse",
+      "type": "object"
+    },
+    "TestCaseModule": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "树形测试模块节点。",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "orderIndex": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "parentId": {
+          "default": null,
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "TestCaseModule",
+      "type": "object"
+    },
+    "TestCaseModuleDeleteParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "workspaceId"
+      ],
+      "title": "TestCaseModuleDeleteParams",
+      "type": "object"
+    },
+    "TestCaseModuleDeleteResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deleted"
+      ],
+      "title": "TestCaseModuleDeleteResponse",
+      "type": "object"
+    },
+    "TestCaseModuleListParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspaceId"
+      ],
+      "title": "TestCaseModuleListParams",
+      "type": "object"
+    },
+    "TestCaseModuleListResponse": {
+      "$defs": {
+        "TestCaseModule": {
+          "description": "树形测试模块节点。",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "orderIndex": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "parentId": {
+              "default": null,
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "modules": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TestCaseModule"
+          },
+          "type": "array"
+        }
+      },
+      "title": "TestCaseModuleListResponse",
+      "type": "object"
+    },
+    "TestCaseModuleSaveParams": {
+      "$defs": {
+        "TestCaseModule": {
+          "description": "树形测试模块节点。",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "orderIndex": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "parentId": {
+              "default": null,
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "module": {
+          "$ref": "#/$defs/TestCaseModule"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "module",
+        "workspaceId"
+      ],
+      "title": "TestCaseModuleSaveParams",
+      "type": "object"
+    },
+    "TestCaseModuleSaveResponse": {
+      "$defs": {
+        "TestCaseModule": {
+          "description": "树形测试模块节点。",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "orderIndex": {
+              "default": 0,
+              "format": "int64",
+              "type": "integer"
+            },
+            "parentId": {
+              "default": null,
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "name"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "module": {
+          "$ref": "#/$defs/TestCaseModule"
+        }
+      },
+      "required": [
+        "module"
+      ],
+      "title": "TestCaseModuleSaveResponse",
+      "type": "object"
+    },
+    "TestCaseReadParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "TestCaseReadParams",
+      "type": "object"
+    },
+    "TestCaseReadResponse": {
+      "$defs": {
+        "TestCase": {
+          "description": "单条测试用例。",
+          "properties": {
+            "assertions": {
+              "default": [],
+              "description": "断言/通过条件（与步骤分离的独立验证项）。",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "caseId": {
+              "type": "string"
+            },
+            "caseType": {
+              "default": "",
+              "type": "string"
+            },
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "execResult": {
+              "default": "",
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "moduleId": {
+              "default": "",
+              "type": "string"
+            },
+            "precondition": {
+              "default": "",
+              "type": "string"
+            },
+            "priority": {
+              "default": "",
+              "type": "string"
+            },
+            "remark": {
+              "default": "",
+              "type": "string"
+            },
+            "source": {
+              "default": "",
+              "type": "string"
+            },
+            "status": {
+              "default": "",
+              "type": "string"
+            },
+            "steps": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TestCaseStep"
+              },
+              "type": "array"
+            },
+            "tags": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": {
+              "type": "string"
+            },
+            "updatedAt": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "caseId",
+            "id",
+            "title"
+          ],
+          "type": "object"
+        },
+        "TestCaseStep": {
+          "description": "结构化测试步骤：步骤号 + 操作 + 预期。",
+          "properties": {
+            "action": {
+              "default": "",
+              "type": "string"
+            },
+            "expected": {
+              "default": "",
+              "type": "string"
+            },
+            "stepNo": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "stepNo"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "case": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TestCase"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "title": "TestCaseReadResponse",
+      "type": "object"
+    },
+    "TestCaseRun": {
+      "$defs": {
+        "TestCaseRunStep": {
+          "description": "执行过程中的一步观察。",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "observation": {
+              "default": "",
+              "type": "string"
+            },
+            "runId": {
+              "default": "",
+              "type": "string"
+            },
+            "screenshotPath": {
+              "default": "",
+              "type": "string"
+            },
+            "stepNo": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "ts": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "stepNo"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "单条用例的一次执行记录。",
+      "properties": {
+        "caseId": {
+          "description": "关联的用例内部 id（test_cases.id）。",
+          "type": "string"
+        },
+        "deviceId": {
+          "default": "",
+          "type": "string"
+        },
+        "finishedAt": {
+          "default": "",
+          "description": "结束时间（RFC3339）；未结束为空串。",
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "instruction": {
+          "default": "",
+          "type": "string"
+        },
+        "result": {
+          "default": "",
+          "description": "判定结果：通过 / 失败 / 阻塞。",
+          "type": "string"
+        },
+        "startedAt": {
+          "default": "",
+          "type": "string"
+        },
+        "steps": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TestCaseRunStep"
+          },
+          "type": "array"
+        },
+        "summary": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "caseId",
+        "id"
+      ],
+      "title": "TestCaseRun",
+      "type": "object"
+    },
+    "TestCaseRunListParams": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "caseId": {
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "caseId",
+        "workspaceId"
+      ],
+      "title": "TestCaseRunListParams",
+      "type": "object"
+    },
+    "TestCaseRunListResponse": {
+      "$defs": {
+        "TestCaseRun": {
+          "description": "单条用例的一次执行记录。",
+          "properties": {
+            "caseId": {
+              "description": "关联的用例内部 id（test_cases.id）。",
+              "type": "string"
+            },
+            "deviceId": {
+              "default": "",
+              "type": "string"
+            },
+            "finishedAt": {
+              "default": "",
+              "description": "结束时间（RFC3339）；未结束为空串。",
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "instruction": {
+              "default": "",
+              "type": "string"
+            },
+            "result": {
+              "default": "",
+              "description": "判定结果：通过 / 失败 / 阻塞。",
+              "type": "string"
+            },
+            "startedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "steps": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TestCaseRunStep"
+              },
+              "type": "array"
+            },
+            "summary": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "caseId",
+            "id"
+          ],
+          "type": "object"
+        },
+        "TestCaseRunStep": {
+          "description": "执行过程中的一步观察。",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "observation": {
+              "default": "",
+              "type": "string"
+            },
+            "runId": {
+              "default": "",
+              "type": "string"
+            },
+            "screenshotPath": {
+              "default": "",
+              "type": "string"
+            },
+            "stepNo": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "ts": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "stepNo"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "runs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TestCaseRun"
+          },
+          "type": "array"
+        }
+      },
+      "title": "TestCaseRunListResponse",
+      "type": "object"
+    },
+    "TestCaseRunSaveParams": {
+      "$defs": {
+        "TestCaseRun": {
+          "description": "单条用例的一次执行记录。",
+          "properties": {
+            "caseId": {
+              "description": "关联的用例内部 id（test_cases.id）。",
+              "type": "string"
+            },
+            "deviceId": {
+              "default": "",
+              "type": "string"
+            },
+            "finishedAt": {
+              "default": "",
+              "description": "结束时间（RFC3339）；未结束为空串。",
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "instruction": {
+              "default": "",
+              "type": "string"
+            },
+            "result": {
+              "default": "",
+              "description": "判定结果：通过 / 失败 / 阻塞。",
+              "type": "string"
+            },
+            "startedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "steps": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TestCaseRunStep"
+              },
+              "type": "array"
+            },
+            "summary": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "caseId",
+            "id"
+          ],
+          "type": "object"
+        },
+        "TestCaseRunStep": {
+          "description": "执行过程中的一步观察。",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "observation": {
+              "default": "",
+              "type": "string"
+            },
+            "runId": {
+              "default": "",
+              "type": "string"
+            },
+            "screenshotPath": {
+              "default": "",
+              "type": "string"
+            },
+            "stepNo": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "ts": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "stepNo"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/TestCaseRun"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "run",
+        "workspaceId"
+      ],
+      "title": "TestCaseRunSaveParams",
+      "type": "object"
+    },
+    "TestCaseRunSaveResponse": {
+      "$defs": {
+        "TestCaseRun": {
+          "description": "单条用例的一次执行记录。",
+          "properties": {
+            "caseId": {
+              "description": "关联的用例内部 id（test_cases.id）。",
+              "type": "string"
+            },
+            "deviceId": {
+              "default": "",
+              "type": "string"
+            },
+            "finishedAt": {
+              "default": "",
+              "description": "结束时间（RFC3339）；未结束为空串。",
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "instruction": {
+              "default": "",
+              "type": "string"
+            },
+            "result": {
+              "default": "",
+              "description": "判定结果：通过 / 失败 / 阻塞。",
+              "type": "string"
+            },
+            "startedAt": {
+              "default": "",
+              "type": "string"
+            },
+            "steps": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TestCaseRunStep"
+              },
+              "type": "array"
+            },
+            "summary": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "caseId",
+            "id"
+          ],
+          "type": "object"
+        },
+        "TestCaseRunStep": {
+          "description": "执行过程中的一步观察。",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "observation": {
+              "default": "",
+              "type": "string"
+            },
+            "runId": {
+              "default": "",
+              "type": "string"
+            },
+            "screenshotPath": {
+              "default": "",
+              "type": "string"
+            },
+            "stepNo": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "ts": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "stepNo"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/TestCaseRun"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "title": "TestCaseRunSaveResponse",
+      "type": "object"
+    },
+    "TestCaseRunStep": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "执行过程中的一步观察。",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "observation": {
+          "default": "",
+          "type": "string"
+        },
+        "runId": {
+          "default": "",
+          "type": "string"
+        },
+        "screenshotPath": {
+          "default": "",
+          "type": "string"
+        },
+        "stepNo": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "ts": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "stepNo"
+      ],
+      "title": "TestCaseRunStep",
+      "type": "object"
+    },
+    "TestCaseSaveParams": {
+      "$defs": {
+        "TestCase": {
+          "description": "单条测试用例。",
+          "properties": {
+            "assertions": {
+              "default": [],
+              "description": "断言/通过条件（与步骤分离的独立验证项）。",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "caseId": {
+              "type": "string"
+            },
+            "caseType": {
+              "default": "",
+              "type": "string"
+            },
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "execResult": {
+              "default": "",
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "moduleId": {
+              "default": "",
+              "type": "string"
+            },
+            "precondition": {
+              "default": "",
+              "type": "string"
+            },
+            "priority": {
+              "default": "",
+              "type": "string"
+            },
+            "remark": {
+              "default": "",
+              "type": "string"
+            },
+            "source": {
+              "default": "",
+              "type": "string"
+            },
+            "status": {
+              "default": "",
+              "type": "string"
+            },
+            "steps": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TestCaseStep"
+              },
+              "type": "array"
+            },
+            "tags": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": {
+              "type": "string"
+            },
+            "updatedAt": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "caseId",
+            "id",
+            "title"
+          ],
+          "type": "object"
+        },
+        "TestCaseStep": {
+          "description": "结构化测试步骤：步骤号 + 操作 + 预期。",
+          "properties": {
+            "action": {
+              "default": "",
+              "type": "string"
+            },
+            "expected": {
+              "default": "",
+              "type": "string"
+            },
+            "stepNo": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "stepNo"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "case": {
+          "$ref": "#/$defs/TestCase"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "case",
+        "workspaceId"
+      ],
+      "title": "TestCaseSaveParams",
+      "type": "object"
+    },
+    "TestCaseSaveResponse": {
+      "$defs": {
+        "TestCase": {
+          "description": "单条测试用例。",
+          "properties": {
+            "assertions": {
+              "default": [],
+              "description": "断言/通过条件（与步骤分离的独立验证项）。",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "caseId": {
+              "type": "string"
+            },
+            "caseType": {
+              "default": "",
+              "type": "string"
+            },
+            "createdAt": {
+              "default": "",
+              "type": "string"
+            },
+            "execResult": {
+              "default": "",
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "moduleId": {
+              "default": "",
+              "type": "string"
+            },
+            "precondition": {
+              "default": "",
+              "type": "string"
+            },
+            "priority": {
+              "default": "",
+              "type": "string"
+            },
+            "remark": {
+              "default": "",
+              "type": "string"
+            },
+            "source": {
+              "default": "",
+              "type": "string"
+            },
+            "status": {
+              "default": "",
+              "type": "string"
+            },
+            "steps": {
+              "default": [],
+              "items": {
+                "$ref": "#/$defs/TestCaseStep"
+              },
+              "type": "array"
+            },
+            "tags": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": {
+              "type": "string"
+            },
+            "updatedAt": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "caseId",
+            "id",
+            "title"
+          ],
+          "type": "object"
+        },
+        "TestCaseStep": {
+          "description": "结构化测试步骤：步骤号 + 操作 + 预期。",
+          "properties": {
+            "action": {
+              "default": "",
+              "type": "string"
+            },
+            "expected": {
+              "default": "",
+              "type": "string"
+            },
+            "stepNo": {
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "stepNo"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "case": {
+          "$ref": "#/$defs/TestCase"
+        }
+      },
+      "required": [
+        "case"
+      ],
+      "title": "TestCaseSaveResponse",
+      "type": "object"
+    },
+    "TestCaseStep": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "结构化测试步骤：步骤号 + 操作 + 预期。",
+      "properties": {
+        "action": {
+          "default": "",
+          "type": "string"
+        },
+        "expected": {
+          "default": "",
+          "type": "string"
+        },
+        "stepNo": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "stepNo"
+      ],
+      "title": "TestCaseStep",
+      "type": "object"
+    },
+    "TestFlow": {
+      "$defs": {
+        "FlowAssertion": {
+          "description": "断言：`type` ∈ {hard,soft}，`expr` 结构随类型而定（保真往返）。",
+          "properties": {
+            "expr": {
+              "default": null
+            },
+            "type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "type": "object"
+        },
+        "FlowLocator": {
+          "description": "多策略定位中的单条定位。",
+          "properties": {
+            "kind": {
+              "description": "resource_id / text / accessibility_id / ui_tree_path / vlm_anchor。",
+              "type": "string"
+            },
+            "match": {
+              "description": "文案匹配：exact / contains。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "value": {
+              "default": "",
+              "type": "string"
+            },
+            "vlmAnchor": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowVlmAnchor"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        "FlowStep": {
+          "description": "结构化流步骤。",
+          "properties": {
+            "args": true,
+            "assert": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowAssertion"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "index": {
+              "description": "步骤序号，从 0 起连续。",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "intent": {
+              "description": "自然语言意图，自愈时喂给 VLM。",
+              "type": [
+                "null",
+                "string"
+              ]
+            },
+            "locators": {
+              "items": {
+                "$ref": "#/$defs/FlowLocator"
+              },
+              "type": [
+                "array",
+                "null"
+              ]
+            },
+            "op": {
+              "type": "string"
+            },
+            "wait": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/FlowWaitPolicy"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "index",
+            "op"
+          ],
+          "type": "object"
+        },
+        "FlowVlmAnchor": {
+          "description": "归一化视觉锚点坐标（0–1000 体系，与既有 UI Agent 归一化坐标一致）。",
+          "properties": {
+            "xNorm": {
+              "format": "double",
+              "type": "number"
+            },
+            "yNorm": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "xNorm",
+            "yNorm"
+          ],
+          "type": "object"
+        },
+        "FlowWaitPolicy": {
+          "description": "单步等待策略。",
+          "properties": {
+            "stabilizeMs": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "timeoutMs": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "stabilizeMs",
+            "timeoutMs"
+          ],
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "description": "一条可确定性回放的测试流。",
+      "properties": {
+        "appPackage": {
+          "type": "string"
+        },
+        "createdAt": {
+          "default": "",
+          "type": "string"
+        },
+        "formatVersion": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "platform": {
+          "default": "",
+          "type": "string"
+        },
+        "selfHealingEnabled": {
+          "default": false,
+          "type": "boolean"
+        },
+        "source": {
+          "default": "",
+          "type": "string"
+        },
+        "steps": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FlowStep"
+          },
+          "type": "array"
+        },
+        "updatedAt": {
+          "default": "",
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "appPackage",
+        "formatVersion",
+        "id",
+        "name",
+        "workspaceId"
+      ],
+      "title": "TestFlow",
+      "type": "object"
+    },
     "TextPosition": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "properties": {
@@ -50291,6 +56973,21 @@
               "conversationImport/source/scan",
               "conversationImport/thread/commit",
               "conversationImport/thread/preview",
+              "deviceExplore/read",
+              "deviceExplore/save",
+              "deviceExploreRun/list",
+              "deviceExploreRun/read",
+              "deviceExploreRun/save",
+              "deviceFlow/delete",
+              "deviceFlow/list",
+              "deviceFlow/read",
+              "deviceFlow/save",
+              "deviceFlowHealing/list",
+              "deviceFlowHealing/resolve",
+              "deviceFlowHealing/save",
+              "deviceFlowRun/list",
+              "deviceFlowRun/read",
+              "deviceFlowRun/save",
               "diagnostics/logStorage/read",
               "diagnostics/server/read",
               "diagnostics/supportBundle/export",
@@ -50411,6 +57108,15 @@
               "modelProviderUiState/read",
               "modelProviderUiState/write",
               "modelSyncState/read",
+              "perfMonitor/session/list",
+              "perfMonitor/session/read",
+              "perfMonitor/session/save",
+              "perfMonitor/trace/delete",
+              "perfMonitor/trace/list",
+              "perfMonitor/trace/read",
+              "perfMonitor/trace/save",
+              "perfMonitor/traceAnalysis/list",
+              "perfMonitor/traceAnalysis/save",
               "pluginHostLifecycle/list",
               "pluginInstalled/disabled/set",
               "pluginInstalled/list",
@@ -50478,6 +57184,15 @@
               "soulStylePack/status/set",
               "soulStylePack/uninstall",
               "telegramChannel/probe",
+              "testCase/delete",
+              "testCase/list",
+              "testCase/read",
+              "testCase/save",
+              "testCaseModule/delete",
+              "testCaseModule/list",
+              "testCaseModule/save",
+              "testCaseRun/list",
+              "testCaseRun/save",
               "thread/items/list",
               "thread/list",
               "thread/read",

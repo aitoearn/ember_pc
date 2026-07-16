@@ -2,10 +2,12 @@ use super::*;
 use crate::runtime::RuntimeCoreError;
 use crate::{
     AutomationManagementAppDataSource, AutomationOverviewAppDataSource, ConnectAppDataSource,
-    DiagnosticsAppDataSource, GatewayAppDataSource, KnowledgeAppDataSource, McpAppDataSource,
-    MediaAppDataSource, MemoryAppDataSource, ModelProviderAppDataSource, PluginDataSource,
-    RightSurfaceAppDataSource, SessionAppDataSource, SkillAppDataSource, UsageStatsAppDataSource,
-    VoiceAppDataSource, WorkspaceAppDataSource, WorkspaceSkillBindingAppDataSource,
+    DeviceExploreAppDataSource, DeviceFlowAppDataSource, DiagnosticsAppDataSource,
+    GatewayAppDataSource, KnowledgeAppDataSource, McpAppDataSource, MediaAppDataSource,
+    MemoryAppDataSource, ModelProviderAppDataSource, PerfMonitorAppDataSource,
+    PerfTraceAppDataSource, PluginDataSource, RightSurfaceAppDataSource, SessionAppDataSource,
+    SkillAppDataSource, TestCasesAppDataSource, UsageStatsAppDataSource, VoiceAppDataSource,
+    WorkspaceAppDataSource, WorkspaceSkillBindingAppDataSource,
 };
 use app_server_protocol::{
     AgentInput, AgentSession, AgentSessionStatus, AgentTurn, AgentTurnStatus, RuntimeOptions,

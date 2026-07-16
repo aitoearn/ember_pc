@@ -36,7 +36,7 @@ export function resolveKea2ToolRoot(): string | null {
   }
 
   try {
-    const { app } = require("../electronRuntime") as typeof import("../electronRuntime");
+    const { app } = require("../../electronRuntime") as typeof import("../../electronRuntime");
     const appPath = app.getAppPath();
     const nested = path.resolve(appPath, "..", KEA2_TOOL_SIBLING_NESTED);
     if (existsSync(nested)) {

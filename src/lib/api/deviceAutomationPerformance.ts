@@ -255,7 +255,9 @@ export async function analyzePerformanceTrace(params: {
   analysisType: PerfTraceAnalysisType;
   packageName: string;
 } & PerfTraceAnalysisOptions): Promise<{ result: Record<string, unknown> }> {
-  return safeInvoke("device_automation_perf_trace_analyze", params);
+  return safeInvoke("device_automation_perf_trace_analyze", {
+    ...params,
+  } as Record<string, unknown>);
 }
 
 export async function openPerformanceTraceExternal(params: {

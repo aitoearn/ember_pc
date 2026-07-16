@@ -19,5 +19,6 @@
     "types": ["node", "electron"],
     "noEmit": true
   },
-  "include": ["electron/**/*.ts", "packages/app-server-client/src/**/*.ts"]
+  "include": ["electron/**/*.ts", "packages/app-server-client/src/**/*.ts"],
+  "exclude": ["electron/**/*.test.ts"]
 }

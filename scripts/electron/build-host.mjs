@@ -43,7 +43,6 @@ async function buildMain() {
 async function buildPreload() {
   await build({
     configFile: false,
-    ssr: ssrBundleRuntimeDependencies,
     build: {
       target: "node22",
       ssr: "electron/preload.ts",

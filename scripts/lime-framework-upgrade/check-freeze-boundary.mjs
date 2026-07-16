@@ -3,7 +3,7 @@
  * Lime 框架升级 · 冻结边界守卫
  *
  * 合入 Lime patch 或提交前，断言变更路径未触碰 Layer 2 冻结区。
- * 事实源：docs/exec-plans/lime-framework-upgrade-freeze-manifest.json
+ * 事实源：scripts/lime-framework-upgrade/freeze-manifest.json
  *
  * 用法：
  *   node scripts/lime-framework-upgrade/check-freeze-boundary.mjs --git-diff
@@ -141,7 +141,7 @@ function reportViolations(violations) {
   }
   console.error("");
   console.error(
-    "修复：从 Lime patch 排除该路径，或合入后从 Layer2 备份 restore。清单见 docs/exec-plans/lime-framework-upgrade-freeze-manifest.json",
+    "修复：从 Lime patch 排除该路径，或合入后从 Layer2 备份 restore。清单见 scripts/lime-framework-upgrade/freeze-manifest.json",
   );
 }
 

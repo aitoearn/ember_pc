@@ -94,8 +94,7 @@ const MainContent = styled.main<{ $withSidebarGap?: boolean }>`
   background: var(--lime-app-bg, hsl(var(--background)));
 `;
 
-const WINDOW_DRAG_TOP_HEIGHT = 30;
-const WINDOW_DRAG_TOP_HANDLE_WIDTH = 360;
+const WINDOW_DRAG_TOP_HEIGHT = 48;
 const WINDOW_DRAG_EDGE_WIDTH = 8;
 const WINDOW_DRAG_DEFAULT_SAFE_LEFT = 160;
 const WINDOW_DRAG_MAC_SAFE_LEFT = 92;
@@ -114,7 +113,7 @@ const WindowTopDragRegion = styled.div<{ $reserveMacWindowControls?: boolean }>`
     $reserveMacWindowControls
       ? `${WINDOW_DRAG_MAC_SAFE_LEFT}px`
       : `${WINDOW_DRAG_DEFAULT_SAFE_LEFT}px`};
-  width: ${WINDOW_DRAG_TOP_HANDLE_WIDTH}px;
+  right: 0;
   height: ${WINDOW_DRAG_TOP_HEIGHT}px;
   pointer-events: auto;
   user-select: none;
@@ -461,13 +460,20 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
+    if (showSplash) {
+      return;
+    }
+
+    hideNativeStartupOverlayWhenReady();
+  }, [showSplash]);
+
+  useEffect(() => {
     if (showSplash || !nativeStartupScreenAvailable) {
       return;
     }
 
     startupTracker.mark("Native startup screen: renderer ready");
     preloadDefaultProject();
-    hideNativeStartupOverlayWhenReady();
   }, [nativeStartupScreenAvailable, showSplash]);
 
   const handleWindowDragStart = useCallback(

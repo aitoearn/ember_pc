@@ -1,0 +1,105 @@
+{
+  "$defs": {
+    "PerformanceTraceArtifact": {
+      "description": "Perfetto trace 文件元数据。",
+      "properties": {
+        "configJson": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "createdAt": {
+          "default": "",
+          "type": "string"
+        },
+        "deviceId": {
+          "type": "string"
+        },
+        "devicePlatform": {
+          "type": "string"
+        },
+        "durationMs": {
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "errorMessage": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "linkedSessionId": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "localPath": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "packageName": {
+          "type": "string"
+        },
+        "presetId": {
+          "type": "string"
+        },
+        "remotePath": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "sizeBytes": {
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "status": {
+          "default": "",
+          "type": "string"
+        },
+        "stoppedAt": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviceId",
+        "devicePlatform",
+        "id",
+        "packageName",
+        "presetId",
+        "workspaceId"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "artifact": {
+      "$ref": "#/$defs/PerformanceTraceArtifact"
+    }
+  },
+  "required": [
+    "artifact"
+  ],
+  "title": "PerfMonitorTraceSaveParams",
+  "type": "object"
+}
