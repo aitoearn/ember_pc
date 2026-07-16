@@ -495,6 +495,7 @@ export function TaskCenterUtilityToolbar({
         "ml-auto flex min-w-0 shrink flex-wrap items-center justify-end gap-x-2 gap-y-1 overflow-visible",
         isWorkbenchHeaderPlacement ? "min-h-8" : "min-h-9 pb-1",
       )}
+      data-lime-no-window-drag
       data-testid="task-center-utility-toolbar"
       data-placement={placement}
     >

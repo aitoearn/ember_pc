@@ -158,6 +158,7 @@ export function WorkspaceMainArea({
           : "relative z-20 shrink-0 overflow-visible bg-[color:var(--lime-chrome-rail)] dark:bg-slate-900"
       }
       data-testid="task-center-chrome-shell"
+      data-lime-no-window-drag
       data-layout={taskCenterChromeLayout}
       data-split-left-width={
         shouldSplitTaskCenterChrome ? splitTaskCenterChromeWidth : undefined

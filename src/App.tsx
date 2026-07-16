@@ -95,6 +95,7 @@ const MainContent = styled.main<{ $withSidebarGap?: boolean }>`
 `;
 
 const WINDOW_DRAG_TOP_HEIGHT = 48;
+const WINDOW_DRAG_TOP_HANDLE_WIDTH = 360;
 const WINDOW_DRAG_EDGE_WIDTH = 8;
 const WINDOW_DRAG_DEFAULT_SAFE_LEFT = 160;
 const WINDOW_DRAG_MAC_SAFE_LEFT = 92;
@@ -113,7 +114,7 @@ const WindowTopDragRegion = styled.div<{ $reserveMacWindowControls?: boolean }>`
     $reserveMacWindowControls
       ? `${WINDOW_DRAG_MAC_SAFE_LEFT}px`
       : `${WINDOW_DRAG_DEFAULT_SAFE_LEFT}px`};
-  right: 0;
+  width: ${WINDOW_DRAG_TOP_HANDLE_WIDTH}px;
   height: ${WINDOW_DRAG_TOP_HEIGHT}px;
   pointer-events: auto;
   user-select: none;
