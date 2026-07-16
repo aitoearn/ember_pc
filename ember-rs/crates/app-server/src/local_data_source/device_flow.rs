@@ -15,12 +15,12 @@ use app_server_protocol::{
     FlowAssertResult, FlowLocator, FlowLocatorRef, FlowRun, FlowRunStep, FlowStep, HealingRevision,
     TestFlow,
 };
-use ember_core::database;
-use ember_core::database::dao::device_flow_dao::{
+use lime_core::database;
+use lime_core::database::dao::device_flow_dao::{
     DeviceFlowDao, DeviceFlowHealingRevisionRecord, DeviceFlowRecord, DeviceFlowRunRecord,
     DeviceFlowRunStepRecord,
 };
-use ember_core::database::DbConnection;
+use lime_core::database::DbConnection;
 
 // ----------------------------------------------------------------------------
 // 流映射
@@ -353,7 +353,7 @@ mod tests {
     //! 在真实临时 SQLite 上驱动，验证协议边界的 JSON 列互转与自愈处置业务逻辑。
     use super::*;
     use app_server_protocol::FlowWaitPolicy;
-    use ember_core::database::schema;
+    use lime_core::database::schema;
     use rusqlite::Connection;
     use std::sync::{Arc, Mutex};
 

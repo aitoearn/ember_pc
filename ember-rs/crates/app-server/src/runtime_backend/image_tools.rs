@@ -66,6 +66,11 @@ mod tests {
     impl McpAppDataSource for ImageToolTestDataSource {}
     impl AutomationManagementAppDataSource for ImageToolTestDataSource {}
     impl MemoryAppDataSource for ImageToolTestDataSource {}
+    impl TestCasesAppDataSource for ImageToolTestDataSource {}
+    impl PerfMonitorAppDataSource for ImageToolTestDataSource {}
+    impl PerfTraceAppDataSource for ImageToolTestDataSource {}
+    impl DeviceFlowAppDataSource for ImageToolTestDataSource {}
+    impl DeviceExploreAppDataSource for ImageToolTestDataSource {}
     impl DiagnosticsAppDataSource for ImageToolTestDataSource {}
     impl UsageStatsAppDataSource for ImageToolTestDataSource {}
     impl ModelProviderAppDataSource for ImageToolTestDataSource {}

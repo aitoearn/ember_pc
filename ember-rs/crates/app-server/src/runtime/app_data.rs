@@ -67,7 +67,8 @@ pub trait AppDataSource:
     + PerfMonitorAppDataSource
     + PerfTraceAppDataSource
     + DeviceFlowAppDataSource
-    + DeviceExploreAppDataSource    + DiagnosticsAppDataSource
+    + DeviceExploreAppDataSource
+    + DiagnosticsAppDataSource
     + UsageStatsAppDataSource
     + ModelProviderAppDataSource
     + ConnectAppDataSource
@@ -91,6 +92,11 @@ impl<T> AppDataSource for T where
         + McpAppDataSource
         + AutomationManagementAppDataSource
         + MemoryAppDataSource
+        + TestCasesAppDataSource
+        + PerfMonitorAppDataSource
+        + PerfTraceAppDataSource
+        + DeviceFlowAppDataSource
+        + DeviceExploreAppDataSource
         + DiagnosticsAppDataSource
         + UsageStatsAppDataSource
         + ModelProviderAppDataSource

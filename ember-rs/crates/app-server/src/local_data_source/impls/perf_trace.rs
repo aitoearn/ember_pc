@@ -1,4 +1,5 @@
 use super::super::*;
+use app_server_protocol::*;
 use async_trait::async_trait;
 
 #[async_trait]

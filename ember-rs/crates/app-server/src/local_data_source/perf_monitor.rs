@@ -8,9 +8,9 @@ use app_server_protocol::{
     PerfMonitorSessionSaveResponse, PerformanceSession,
 };
 use chrono::DateTime;
-use ember_core::database;
-use ember_core::database::dao::perf_monitor_dao::{PerfMonitorDao, PerformanceSessionRecord};
-use ember_core::database::DbConnection;
+use lime_core::database;
+use lime_core::database::dao::perf_monitor_dao::{PerfMonitorDao, PerformanceSessionRecord};
+use lime_core::database::DbConnection;
 use std::collections::HashMap;
 
 fn millis_to_rfc3339(millis: i64) -> String {

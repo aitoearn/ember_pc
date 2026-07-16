@@ -85,6 +85,11 @@ impl AutomationOverviewAppDataSource for ImageCommandTestDataSource {}
 impl McpAppDataSource for ImageCommandTestDataSource {}
 impl AutomationManagementAppDataSource for ImageCommandTestDataSource {}
 impl MemoryAppDataSource for ImageCommandTestDataSource {}
+impl TestCasesAppDataSource for ImageCommandTestDataSource {}
+impl PerfMonitorAppDataSource for ImageCommandTestDataSource {}
+impl PerfTraceAppDataSource for ImageCommandTestDataSource {}
+impl DeviceFlowAppDataSource for ImageCommandTestDataSource {}
+impl DeviceExploreAppDataSource for ImageCommandTestDataSource {}
 impl DiagnosticsAppDataSource for ImageCommandTestDataSource {}
 impl UsageStatsAppDataSource for ImageCommandTestDataSource {}
 impl ModelProviderAppDataSource for ImageCommandTestDataSource {}

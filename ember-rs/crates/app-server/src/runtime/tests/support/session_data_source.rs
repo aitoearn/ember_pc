@@ -371,6 +371,11 @@ impl DiagnosticsAppDataSource for TestSessionDataSource {}
 impl UsageStatsAppDataSource for TestSessionDataSource {}
 impl ModelProviderAppDataSource for TestSessionDataSource {}
 impl ConnectAppDataSource for TestSessionDataSource {}
+impl TestCasesAppDataSource for TestSessionDataSource {}
+impl PerfMonitorAppDataSource for TestSessionDataSource {}
+impl PerfTraceAppDataSource for TestSessionDataSource {}
+impl DeviceFlowAppDataSource for TestSessionDataSource {}
+impl DeviceExploreAppDataSource for TestSessionDataSource {}
 
 #[async_trait]
 impl RightSurfaceAppDataSource for TestSessionDataSource {

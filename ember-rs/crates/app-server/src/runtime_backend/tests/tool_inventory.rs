@@ -62,6 +62,11 @@ impl KnowledgeAppDataSource for TestMcpInventoryDataSource {}
 impl AutomationOverviewAppDataSource for TestMcpInventoryDataSource {}
 impl AutomationManagementAppDataSource for TestMcpInventoryDataSource {}
 impl MemoryAppDataSource for TestMcpInventoryDataSource {}
+impl TestCasesAppDataSource for TestMcpInventoryDataSource {}
+impl PerfMonitorAppDataSource for TestMcpInventoryDataSource {}
+impl PerfTraceAppDataSource for TestMcpInventoryDataSource {}
+impl DeviceFlowAppDataSource for TestMcpInventoryDataSource {}
+impl DeviceExploreAppDataSource for TestMcpInventoryDataSource {}
 impl DiagnosticsAppDataSource for TestMcpInventoryDataSource {}
 impl UsageStatsAppDataSource for TestMcpInventoryDataSource {}
 impl ModelProviderAppDataSource for TestMcpInventoryDataSource {}

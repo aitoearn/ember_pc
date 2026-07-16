@@ -11,11 +11,11 @@ use app_server_protocol::{
     PerformanceTraceArtifact,
 };
 use chrono::DateTime;
-use ember_core::database;
-use ember_core::database::dao::perf_trace_dao::{
+use lime_core::database;
+use lime_core::database::dao::perf_trace_dao::{
     PerfTraceDao, PerformanceTraceAnalysisRecord, PerformanceTraceArtifactRecord,
 };
-use ember_core::database::DbConnection;
+use lime_core::database::DbConnection;
 
 fn millis_to_rfc3339(millis: i64) -> String {
     DateTime::from_timestamp_millis(millis)

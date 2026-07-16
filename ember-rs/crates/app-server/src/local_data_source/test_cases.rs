@@ -13,11 +13,11 @@ use app_server_protocol::{
     TestCaseRunStep, TestCaseSaveParams, TestCaseSaveResponse, TestCaseStep,
 };
 use chrono::DateTime;
-use ember_core::database;
-use ember_core::database::dao::test_case_dao::{
+use lime_core::database;
+use lime_core::database::dao::test_case_dao::{
     TestCaseDao, TestCaseModuleRecord, TestCaseRecord, TestCaseRunRecord, TestCaseRunStepRecord,
 };
-use ember_core::database::DbConnection;
+use lime_core::database::DbConnection;
 
 fn millis_to_rfc3339(millis: i64) -> String {
     DateTime::from_timestamp_millis(millis)

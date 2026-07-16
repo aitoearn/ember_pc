@@ -8,12 +8,12 @@ use app_server_protocol::{
     DeviceExploreRunReadResponse, DeviceExploreRunSaveParams, DeviceExploreRunSaveResponse,
     DeviceExploreSaveParams, DeviceExploreSaveResponse, ExploreRun,
 };
-use ember_core::database;
-use ember_core::database::dao::device_explore_dao::{DeviceExploreDao, DeviceExploreProfileRecord};
-use ember_core::database::dao::device_explore_run_dao::{
+use lime_core::database;
+use lime_core::database::dao::device_explore_dao::{DeviceExploreDao, DeviceExploreProfileRecord};
+use lime_core::database::dao::device_explore_run_dao::{
     DeviceExploreRunDao, DeviceExploreRunRecord,
 };
-use ember_core::database::DbConnection;
+use lime_core::database::DbConnection;
 
 fn record_to_protocol(record: DeviceExploreProfileRecord) -> DeviceExploreProfile {
     let rules: Vec<serde_json::Value> =
