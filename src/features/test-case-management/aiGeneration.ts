@@ -12,6 +12,7 @@ import {
   type AppServerAgentSessionReadResponse,
   type AppServerJsonRpcNotification,
 } from "@/lib/api/appServer";
+import { createRuntimeRequest } from "@embercloud/app-server-client";
 import { TEST_CASE_TYPES, type TestCaseType } from "./types";
 
 const GENERATION_SESSION_PREFIX = "__ember_test_case_generate__";
@@ -154,27 +155,13 @@ export async function generateTestCases(
     input: { text: prompt },
     runtimeOptions: {
       stream: true,
-      providerPreference: providerType,
-      modelPreference: model,
-      metadata,
-      hostOptions: {
-        asterChatRequest: {
-          message: prompt,
-          session_id: sessionId,
-          workspace_id: workspaceId,
-          provider_preference: providerType,
-          model_preference: model,
-          system_prompt: systemPrompt,
-          turn_id: turnId,
-          metadata,
-          turn_config: {
-            provider_preference: providerType,
-            model_preference: model,
-            system_prompt: systemPrompt,
-            metadata,
-          },
-        },
-      },
+      runtimeRequest: createRuntimeRequest({
+        workspaceId,
+        providerPreference: providerType,
+        modelPreference: model,
+        systemPrompt,
+        metadata,
+      }),
     },
     queueIfBusy: false,
     skipPreSubmitResume: true,

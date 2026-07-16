@@ -1,6 +1,5 @@
 import {
   BadgeCheck,
-  BrainCircuit,
   BookOpen,
   Boxes,
   ClipboardList,
@@ -22,7 +21,8 @@ import { CURRENT_SIDEBAR_NAV_SCHEMA_VERSION } from "@/lib/api/appConfigTypes";
 import { type AgentPageParams, type Page, type PageParams } from "@/types/page";
 import { SettingsTabs } from "@/types/settings";
 import { isAgentObservabilityEnabled } from "../../features/agent-observability/featureFlag";
-import { resolveAgentAppHostFlags } from "../../features/agent-app/featureFlag";
+import { resolvePluginHostFlags } from "../../features/plugin/featureFlag";
+import type { PluginHostFlags } from "../../features/plugin/types";
 import { buildHomeAgentParams } from "@/lib/workspace/navigation";
 
 export { CURRENT_SIDEBAR_NAV_SCHEMA_VERSION };
@@ -96,11 +96,11 @@ const BASE_MAIN_SIDEBAR_NAV_ITEMS: SidebarNavItemDefinition[] = [
     configurable: false,
   },
   {
-    id: "agent-apps",
-    label: "Agent Apps",
+    id: "plugins",
+    label: "插件",
     icon: Boxes,
-    page: "agent-apps",
-    isActive: (currentPage) => currentPage === "agent-apps",
+    page: "plugins",
+    isActive: (currentPage) => currentPage === "plugins",
     configurable: false,
   },
   {
@@ -123,12 +123,12 @@ const AGENT_OBSERVABILITY_NAV_ITEM: SidebarNavItemDefinition = {
   configurable: false,
 };
 
-const AGENT_APP_LAB_NAV_ITEM: SidebarNavItemDefinition = {
-  id: "agent-app-lab",
-  label: "Agent App Lab",
+const PLUGIN_LAB_NAV_ITEM: SidebarNavItemDefinition = {
+  id: "plugin-lab",
+  label: "Plugin Lab",
   icon: FlaskConical,
-  page: "agent-app-lab",
-  isActive: (currentPage) => currentPage === "agent-app-lab",
+  page: "plugin-lab",
+  isActive: (currentPage) => currentPage === "plugin-lab",
   configurable: false,
 };
 
@@ -141,7 +141,7 @@ export function buildMainSidebarNavItems(
   options: MainSidebarNavBuildOptions = {},
 ): SidebarNavItemDefinition[] {
   const labEnabled =
-    options.labEnabled ?? resolveAgentAppHostFlags().labEnabled;
+    options.labEnabled ?? resolvePluginHostFlags().labEnabled;
   const agentObservabilityEnabled =
     options.agentObservabilityEnabled ?? isAgentObservabilityEnabled();
 
@@ -150,7 +150,7 @@ export function buildMainSidebarNavItems(
     items.splice(3, 0, AGENT_OBSERVABILITY_NAV_ITEM);
   }
   if (labEnabled) {
-    items.push(AGENT_APP_LAB_NAV_ITEM);
+    items.push(PLUGIN_LAB_NAV_ITEM);
   }
   return items;
 }
@@ -168,14 +168,6 @@ export const FOOTER_SIDEBAR_NAV_ITEMS: SidebarNavItemDefinition[] = [
       tab: SettingsTabs.Home,
     },
     isActive: (currentPage) => currentPage === "settings",
-    configurable: false,
-  },
-  {
-    id: "memory",
-    label: "灵感",
-    icon: BrainCircuit,
-    page: "memory",
-    isActive: (currentPage) => currentPage === "memory",
     configurable: false,
   },
   {
