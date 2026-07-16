@@ -9,6 +9,7 @@
 
 import type { SettingsTabs } from "./settings";
 import type { SkillScaffoldTarget } from "@/lib/api/skills";
+import type { MemoryCategory } from "@/lib/api/unifiedMemory";
 import type { SceneAppExecutionSummaryViewModel } from "@/lib/agent/legacySceneAppExecutionSummary";
 import type { InputCapabilitySendRoute } from "@/components/agent/chat/skill-selection/inputCapabilitySelection";
 
@@ -18,15 +19,44 @@ export type Page =
   | "agent"
   | "experts"
   | "skills"
-  | "plugin"
-  | "plugins"
-  | "plugin-lab"
+  | "agent-app"
+  | "agent-apps"
+  | "agent-app-lab"
   | "knowledge"
   | "automation"
   | "channels"
   | "resources"
   | "browser-runtime"
-  | "settings";
+  | "device-automation"
+  | "agent-observability"
+  | "test-case-management"
+  | "settings"
+  | "memory";
+
+export type DeviceAutomationView = "list" | "debug";
+
+export type DeviceAutomationWorkspaceTab =
+  | "ai-case-generation"
+  | "ui-auto-test"
+  | "stability-assurance"
+  | "performance"
+  | "startup-time"
+  | "packet-capture"
+  | "devices";
+
+export interface DeviceAutomationPageParams {
+  view?: DeviceAutomationView;
+  deviceId?: string;
+  tab?: DeviceAutomationWorkspaceTab;
+}
+
+export type AgentObservabilityTab = "tracing" | "sessions";
+
+export interface AgentObservabilityPageParams {
+  tab?: AgentObservabilityTab;
+  sessionId?: string;
+  phoenixBaseUrl?: string;
+}
 
 export interface AgentPendingServiceSkillLaunchParams {
   skillId: string;
@@ -107,25 +137,21 @@ export interface AgentPageParams {
   initialProjectFileOpenTarget?: AgentProjectFileOpenTarget;
   /** 首页点击触发的新会话标记（时间戳） */
   newChatAt?: number;
-  /** 专家入口身份，只作为当前 Thread 的 profile / metadata 来源 */
+  /** 专家 Agent 入口身份，用于恢复或创建该专家的稳定会话 */
   expertAgentLaunch?: ExpertAgentLaunchParams;
 }
 
-export interface ExpertsPageParams {
-  /** 专家广场启动专家时优先使用的当前项目作用域 */
-  projectId?: string;
-  currentProjectId?: string;
-}
+export type ExpertAgentLaunchMode = "resume_or_create" | "new_thread";
 
 export interface ExpertAgentLaunchParams {
   tenantId: string;
-  projectId?: string;
   expertId: string;
   releaseId: string;
   agentInstanceKey: string;
-  launchMode: "new_thread";
+  launchMode: ExpertAgentLaunchMode;
   catalogVersion?: string;
   title?: string;
+  latestSessionId?: string;
   skillRefsOverride?: string[];
 }
 
@@ -134,31 +160,31 @@ export interface ExpertAgentLaunchParams {
  */
 export type SettingsProviderView = "settings" | "cloud";
 
-export interface ProviderSettingsFocusContext {
-  providerId?: string;
-  modelId?: string;
-  reasonCode?: string;
-  recoveryAction?: string;
-  requestKey?: number;
-}
-
-export type ExecutionPolicyFocusSection = "workspace" | "shell" | "network";
-export type ExecutionPolicyFocusTarget = "command" | "host" | "url";
-
-export interface ExecutionPolicyFocusContext {
-  section: ExecutionPolicyFocusSection;
-  ruleId?: string;
-  target?: ExecutionPolicyFocusTarget;
-  value?: string;
-  reasonCode?: string;
-  requestKey?: number;
-}
-
 export interface SettingsPageParams {
   tab?: SettingsTabs;
   providerView?: SettingsProviderView;
-  providerFocus?: ProviderSettingsFocusContext;
-  executionPolicyFocus?: ExecutionPolicyFocusContext;
+}
+
+export type MemoryPageSection =
+  | "home"
+  | "rules"
+  | "working"
+  | "durable"
+  | "team"
+  | "compaction"
+  | "identity"
+  | "context"
+  | "preference"
+  | "experience"
+  | "activity";
+
+export interface MemoryPageParams {
+  section?: MemoryPageSection;
+  focusMemoryTitle?: string;
+  focusMemoryCategory?: MemoryCategory;
+  runtimeSessionId?: string;
+  runtimeWorkingDir?: string;
+  runtimeUserMessage?: string;
 }
 
 export interface SkillScaffoldDraft extends Record<string, unknown> {
@@ -181,41 +207,25 @@ export interface SkillsPageParams {
   initialSkillPackagePath?: string;
   initialSkillPackageName?: string;
   initialSkillPackageRequestKey?: number;
-  /** 进入技能工作台后预填搜索词，用于从专家技能恢复动作定位目标。 */
-  initialSearchQuery?: string;
-  initialSearchRequestKey?: number;
   creationProjectId?: string;
   highlightCapabilityDraftId?: string;
   initialView?: "store" | "builtin" | "installed" | "discover" | "manage";
 }
 
-export interface PluginLabPageParams {
+export interface AgentAppLabPageParams {
   source?: "fixture";
 }
 
-export interface PluginsPageParams {
-  query?: string;
-  category?: string;
-  selectedPluginId?: string;
-  projectId?: string;
-  launchPluginEntryKey?: string;
+export interface AgentAppsPageParams {
+  selectedAgentAppId?: string;
+  launchAgentAppEntryKey?: string;
   launchRequestKey?: number;
-  statusFilter?:
-    | "all"
-    | "installed"
-    | "installable"
-    | "activatable"
-    | "attention";
 }
 
-export interface PluginPageParams {
+export interface AgentAppPageParams {
   appId?: string;
   entryKey?: string;
-  projectId?: string;
   launchRequestKey?: number;
-  rightSurfaceTarget?:
-    | import("@/features/plugin/ui/pluginRightSurfaceLaunch").PluginRightSurfaceLaunchTarget
-    | null;
 }
 
 export interface KnowledgePageParams {
@@ -236,9 +246,6 @@ export type AutomationWorkspaceTab = "tasks" | "overview";
 export interface AutomationPageParams {
   selectedJobId?: string;
   workspaceTab?: AutomationWorkspaceTab;
-  projectId?: string;
-  sessionId?: string;
-  threadId?: string;
 }
 
 export interface BrowserRuntimePageParams {
@@ -270,7 +277,7 @@ export interface AgentSiteSkillLaunchParams {
   profileKey?: string;
   targetId?: string;
   requireAttachedSession?: boolean;
-  preferredBackend?: "lime_extension_bridge" | "cdp_direct";
+  preferredBackend?: "ember_extension_bridge" | "cdp_direct";
   autoLaunch?: boolean;
   saveTitle?: string;
   skillTitle?: string;
@@ -288,12 +295,14 @@ export type PageParams =
   | AgentPageParams
   | AutomationPageParams
   | BrowserRuntimePageParams
-  | ExpertsPageParams
+  | DeviceAutomationPageParams
+  | AgentObservabilityPageParams
   | ResourcesPageParams
   | SettingsPageParams
   | SkillsPageParams
-  | PluginsPageParams
-  | PluginPageParams
-  | PluginLabPageParams
+  | AgentAppPageParams
+  | AgentAppLabPageParams
+  | AgentAppsPageParams
   | KnowledgePageParams
+  | MemoryPageParams
   | Record<string, unknown>;

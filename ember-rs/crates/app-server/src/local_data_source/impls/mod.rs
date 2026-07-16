@@ -1,6 +1,11 @@
 mod automation_management;
 mod automation_overview;
 mod connect;
+mod device_explore;
+mod device_flow;
+mod perf_monitor;
+mod perf_trace;
+mod test_cases;
 mod diagnostics;
 mod gateway;
 mod knowledge;

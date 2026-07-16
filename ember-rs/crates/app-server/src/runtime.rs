@@ -106,6 +106,11 @@ mod usage_stats;
 mod value_fields;
 mod voice;
 pub(crate) mod workflow;
+mod device_explore;
+mod device_flow;
+mod perf_monitor;
+mod perf_trace;
+mod test_cases;
 mod workspaces;
 
 use crate::execution_process::ExecutionProcessServer;

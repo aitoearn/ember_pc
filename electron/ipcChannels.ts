@@ -1,3 +1,5 @@
+import { DEVICE_AUTOMATION_COMMANDS } from "./deviceAutomationHost";
+
 export const IPC_INVOKE_CHANNEL = "app:invoke";
 export const IPC_EMIT_CHANNEL = "app:emit";
 export const IPC_DIALOG_OPEN_CHANNEL = "app:dialog:open";
@@ -91,6 +93,7 @@ export const ELECTRON_HOST_COMMANDS = [
   "workspace_get_projects_root",
   "workspace_list",
   "workspace_resolve_project_path",
+  ...DEVICE_AUTOMATION_COMMANDS,
   "check_for_updates",
   "close_update_window",
   "dismiss_update_notification",

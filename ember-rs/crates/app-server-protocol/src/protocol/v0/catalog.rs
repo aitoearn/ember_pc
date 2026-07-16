@@ -636,7 +636,73 @@ pub enum AppServerRequestMethod {
     AgentSessionActionRespond,
     #[serde(rename = "agentSession/runtimeEvents/append")]
     AgentSessionRuntimeEventsAppend,
-    #[serde(rename = "workflow/read")]
+
+    #[serde(rename = "testCase/list")]
+    TestCaseList,
+    #[serde(rename = "testCase/read")]
+    TestCaseRead,
+    #[serde(rename = "testCase/save")]
+    TestCaseSave,
+    #[serde(rename = "testCase/delete")]
+    TestCaseDelete,
+    #[serde(rename = "testCaseModule/list")]
+    TestCaseModuleList,
+    #[serde(rename = "testCaseModule/save")]
+    TestCaseModuleSave,
+    #[serde(rename = "testCaseModule/delete")]
+    TestCaseModuleDelete,
+    #[serde(rename = "testCaseRun/save")]
+    TestCaseRunSave,
+    #[serde(rename = "testCaseRun/list")]
+    TestCaseRunList,
+    #[serde(rename = "perfMonitor/session/save")]
+    PerfMonitorSessionSave,
+    #[serde(rename = "perfMonitor/session/list")]
+    PerfMonitorSessionList,
+    #[serde(rename = "perfMonitor/session/read")]
+    PerfMonitorSessionRead,
+    #[serde(rename = "perfMonitor/trace/save")]
+    PerfMonitorTraceSave,
+    #[serde(rename = "perfMonitor/trace/list")]
+    PerfMonitorTraceList,
+    #[serde(rename = "perfMonitor/trace/read")]
+    PerfMonitorTraceRead,
+    #[serde(rename = "perfMonitor/trace/delete")]
+    PerfMonitorTraceDelete,
+    #[serde(rename = "perfMonitor/traceAnalysis/save")]
+    PerfMonitorTraceAnalysisSave,
+    #[serde(rename = "perfMonitor/traceAnalysis/list")]
+    PerfMonitorTraceAnalysisList,
+    #[serde(rename = "deviceFlow/list")]
+    DeviceFlowList,
+    #[serde(rename = "deviceFlow/read")]
+    DeviceFlowRead,
+    #[serde(rename = "deviceFlow/save")]
+    DeviceFlowSave,
+    #[serde(rename = "deviceFlow/delete")]
+    DeviceFlowDelete,
+    #[serde(rename = "deviceFlowRun/save")]
+    DeviceFlowRunSave,
+    #[serde(rename = "deviceFlowRun/list")]
+    DeviceFlowRunList,
+    #[serde(rename = "deviceFlowRun/read")]
+    DeviceFlowRunRead,
+    #[serde(rename = "deviceFlowHealing/list")]
+    DeviceFlowHealingList,
+    #[serde(rename = "deviceFlowHealing/save")]
+    DeviceFlowHealingSave,
+    #[serde(rename = "deviceFlowHealing/resolve")]
+    DeviceFlowHealingResolve,
+    #[serde(rename = "deviceExplore/read")]
+    DeviceExploreRead,
+    #[serde(rename = "deviceExplore/save")]
+    DeviceExploreSave,
+    #[serde(rename = "deviceExploreRun/save")]
+    DeviceExploreRunSave,
+    #[serde(rename = "deviceExploreRun/list")]
+    DeviceExploreRunList,
+    #[serde(rename = "deviceExploreRun/read")]
+    DeviceExploreRunRead,    #[serde(rename = "workflow/read")]
     WorkflowRead,
     #[serde(rename = "workflow/cancel")]
     WorkflowCancel,
@@ -949,7 +1015,40 @@ impl AppServerRequestMethod {
             Self::AgentSessionActionReplay => METHOD_AGENT_SESSION_ACTION_REPLAY,
             Self::AgentSessionActionRespond => METHOD_AGENT_SESSION_ACTION_RESPOND,
             Self::AgentSessionRuntimeEventsAppend => METHOD_AGENT_SESSION_RUNTIME_EVENTS_APPEND,
-            Self::WorkflowRead => METHOD_WORKFLOW_READ,
+
+            Self::TestCaseList => METHOD_TEST_CASE_LIST,
+            Self::TestCaseRead => METHOD_TEST_CASE_READ,
+            Self::TestCaseSave => METHOD_TEST_CASE_SAVE,
+            Self::TestCaseDelete => METHOD_TEST_CASE_DELETE,
+            Self::TestCaseModuleList => METHOD_TEST_CASE_MODULE_LIST,
+            Self::TestCaseModuleSave => METHOD_TEST_CASE_MODULE_SAVE,
+            Self::TestCaseModuleDelete => METHOD_TEST_CASE_MODULE_DELETE,
+            Self::TestCaseRunSave => METHOD_TEST_CASE_RUN_SAVE,
+            Self::TestCaseRunList => METHOD_TEST_CASE_RUN_LIST,
+            Self::PerfMonitorSessionSave => METHOD_PERF_MONITOR_SESSION_SAVE,
+            Self::PerfMonitorSessionList => METHOD_PERF_MONITOR_SESSION_LIST,
+            Self::PerfMonitorSessionRead => METHOD_PERF_MONITOR_SESSION_READ,
+            Self::PerfMonitorTraceSave => METHOD_PERF_MONITOR_TRACE_SAVE,
+            Self::PerfMonitorTraceList => METHOD_PERF_MONITOR_TRACE_LIST,
+            Self::PerfMonitorTraceRead => METHOD_PERF_MONITOR_TRACE_READ,
+            Self::PerfMonitorTraceDelete => METHOD_PERF_MONITOR_TRACE_DELETE,
+            Self::PerfMonitorTraceAnalysisSave => METHOD_PERF_MONITOR_TRACE_ANALYSIS_SAVE,
+            Self::PerfMonitorTraceAnalysisList => METHOD_PERF_MONITOR_TRACE_ANALYSIS_LIST,
+            Self::DeviceFlowList => METHOD_DEVICE_FLOW_LIST,
+            Self::DeviceFlowRead => METHOD_DEVICE_FLOW_READ,
+            Self::DeviceFlowSave => METHOD_DEVICE_FLOW_SAVE,
+            Self::DeviceFlowDelete => METHOD_DEVICE_FLOW_DELETE,
+            Self::DeviceFlowRunSave => METHOD_DEVICE_FLOW_RUN_SAVE,
+            Self::DeviceFlowRunList => METHOD_DEVICE_FLOW_RUN_LIST,
+            Self::DeviceFlowRunRead => METHOD_DEVICE_FLOW_RUN_READ,
+            Self::DeviceFlowHealingList => METHOD_DEVICE_FLOW_HEALING_LIST,
+            Self::DeviceFlowHealingSave => METHOD_DEVICE_FLOW_HEALING_SAVE,
+            Self::DeviceFlowHealingResolve => METHOD_DEVICE_FLOW_HEALING_RESOLVE,
+            Self::DeviceExploreRead => METHOD_DEVICE_EXPLORE_READ,
+            Self::DeviceExploreSave => METHOD_DEVICE_EXPLORE_SAVE,
+            Self::DeviceExploreRunSave => METHOD_DEVICE_EXPLORE_RUN_SAVE,
+            Self::DeviceExploreRunList => METHOD_DEVICE_EXPLORE_RUN_LIST,
+            Self::DeviceExploreRunRead => METHOD_DEVICE_EXPLORE_RUN_READ,            Self::WorkflowRead => METHOD_WORKFLOW_READ,
             Self::WorkflowCancel => METHOD_WORKFLOW_CANCEL,
             Self::WorkflowRetry => METHOD_WORKFLOW_RETRY,
             Self::WorkflowRespond => METHOD_WORKFLOW_RESPOND,
@@ -1280,7 +1379,40 @@ impl AppServerRequestMethod {
             METHOD_AGENT_SESSION_RUNTIME_EVENTS_APPEND => {
                 Some(Self::AgentSessionRuntimeEventsAppend)
             }
-            METHOD_WORKFLOW_READ => Some(Self::WorkflowRead),
+
+            METHOD_TEST_CASE_LIST => Some(Self::TestCaseList),
+            METHOD_TEST_CASE_READ => Some(Self::TestCaseRead),
+            METHOD_TEST_CASE_SAVE => Some(Self::TestCaseSave),
+            METHOD_TEST_CASE_DELETE => Some(Self::TestCaseDelete),
+            METHOD_TEST_CASE_MODULE_LIST => Some(Self::TestCaseModuleList),
+            METHOD_TEST_CASE_MODULE_SAVE => Some(Self::TestCaseModuleSave),
+            METHOD_TEST_CASE_MODULE_DELETE => Some(Self::TestCaseModuleDelete),
+            METHOD_TEST_CASE_RUN_SAVE => Some(Self::TestCaseRunSave),
+            METHOD_TEST_CASE_RUN_LIST => Some(Self::TestCaseRunList),
+            METHOD_PERF_MONITOR_SESSION_SAVE => Some(Self::PerfMonitorSessionSave),
+            METHOD_PERF_MONITOR_SESSION_LIST => Some(Self::PerfMonitorSessionList),
+            METHOD_PERF_MONITOR_SESSION_READ => Some(Self::PerfMonitorSessionRead),
+            METHOD_PERF_MONITOR_TRACE_SAVE => Some(Self::PerfMonitorTraceSave),
+            METHOD_PERF_MONITOR_TRACE_LIST => Some(Self::PerfMonitorTraceList),
+            METHOD_PERF_MONITOR_TRACE_READ => Some(Self::PerfMonitorTraceRead),
+            METHOD_PERF_MONITOR_TRACE_DELETE => Some(Self::PerfMonitorTraceDelete),
+            METHOD_PERF_MONITOR_TRACE_ANALYSIS_SAVE => Some(Self::PerfMonitorTraceAnalysisSave),
+            METHOD_PERF_MONITOR_TRACE_ANALYSIS_LIST => Some(Self::PerfMonitorTraceAnalysisList),
+            METHOD_DEVICE_FLOW_LIST => Some(Self::DeviceFlowList),
+            METHOD_DEVICE_FLOW_READ => Some(Self::DeviceFlowRead),
+            METHOD_DEVICE_FLOW_SAVE => Some(Self::DeviceFlowSave),
+            METHOD_DEVICE_FLOW_DELETE => Some(Self::DeviceFlowDelete),
+            METHOD_DEVICE_FLOW_RUN_SAVE => Some(Self::DeviceFlowRunSave),
+            METHOD_DEVICE_FLOW_RUN_LIST => Some(Self::DeviceFlowRunList),
+            METHOD_DEVICE_FLOW_RUN_READ => Some(Self::DeviceFlowRunRead),
+            METHOD_DEVICE_FLOW_HEALING_LIST => Some(Self::DeviceFlowHealingList),
+            METHOD_DEVICE_FLOW_HEALING_SAVE => Some(Self::DeviceFlowHealingSave),
+            METHOD_DEVICE_FLOW_HEALING_RESOLVE => Some(Self::DeviceFlowHealingResolve),
+            METHOD_DEVICE_EXPLORE_READ => Some(Self::DeviceExploreRead),
+            METHOD_DEVICE_EXPLORE_SAVE => Some(Self::DeviceExploreSave),
+            METHOD_DEVICE_EXPLORE_RUN_SAVE => Some(Self::DeviceExploreRunSave),
+            METHOD_DEVICE_EXPLORE_RUN_LIST => Some(Self::DeviceExploreRunList),
+            METHOD_DEVICE_EXPLORE_RUN_READ => Some(Self::DeviceExploreRunRead),            METHOD_WORKFLOW_READ => Some(Self::WorkflowRead),
             METHOD_WORKFLOW_CANCEL => Some(Self::WorkflowCancel),
             METHOD_WORKFLOW_RETRY => Some(Self::WorkflowRetry),
             METHOD_WORKFLOW_RESPOND => Some(Self::WorkflowRespond),

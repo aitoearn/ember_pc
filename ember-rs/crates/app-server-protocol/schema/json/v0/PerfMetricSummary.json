@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "单指标摘要（AVG/MAX/MIN）。",
+  "properties": {
+    "avg": {
+      "format": "double",
+      "type": "number"
+    },
+    "max": {
+      "format": "double",
+      "type": "number"
+    },
+    "min": {
+      "format": "double",
+      "type": "number"
+    }
+  },
+  "required": [
+    "avg",
+    "max",
+    "min"
+  ],
+  "title": "PerfMetricSummary",
+  "type": "object"
+}

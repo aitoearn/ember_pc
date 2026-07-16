@@ -1,0 +1,169 @@
+{
+  "$defs": {
+    "FlowAssertResult": {
+      "description": "回放步骤断言判定结果。",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": [
+            "null",
+            "string"
+          ]
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "FlowLocatorRef": {
+      "description": "回放步骤实际使用的定位（精简引用）。",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "type": "object"
+    },
+    "FlowRun": {
+      "description": "一次确定性回放的留痕。",
+      "properties": {
+        "conclusion": {
+          "default": "",
+          "description": "passed / failed / blocked。",
+          "type": "string"
+        },
+        "deviceId": {
+          "default": "",
+          "type": "string"
+        },
+        "finishedAt": {
+          "default": null,
+          "description": "结束时间（RFC3339）；未结束为 null。",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "flowId": {
+          "type": "string"
+        },
+        "healingTriggered": {
+          "default": false,
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "llmTokenUsed": {
+          "default": 0,
+          "description": "大模型 token 消耗；纯确定性回放应为 0，自愈步另计。",
+          "format": "int64",
+          "type": "integer"
+        },
+        "startedAt": {
+          "default": "",
+          "type": "string"
+        },
+        "summary": {
+          "default": "",
+          "type": "string"
+        },
+        "workspaceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "flowId",
+        "id",
+        "workspaceId"
+      ],
+      "type": "object"
+    },
+    "FlowRunStep": {
+      "description": "回放过程中的一步留痕。",
+      "properties": {
+        "assertResult": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowAssertResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "durationMs": {
+          "default": 0,
+          "format": "int64",
+          "type": "integer"
+        },
+        "index": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "locatorUsed": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowLocatorRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "op": {
+          "default": "",
+          "type": "string"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "screenshotPath": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "status": {
+          "default": "",
+          "description": "passed / failed / blocked / healed。",
+          "type": "string"
+        }
+      },
+      "required": [
+        "index",
+        "runId"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "run": {
+      "$ref": "#/$defs/FlowRun"
+    },
+    "steps": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/FlowRunStep"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "run"
+  ],
+  "title": "DeviceFlowRunSaveParams",
+  "type": "object"
+}

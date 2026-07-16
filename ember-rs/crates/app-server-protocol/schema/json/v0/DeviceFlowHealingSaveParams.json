@@ -1,0 +1,122 @@
+{
+  "$defs": {
+    "FlowLocator": {
+      "description": "多策略定位中的单条定位。",
+      "properties": {
+        "kind": {
+          "description": "resource_id / text / accessibility_id / ui_tree_path / vlm_anchor。",
+          "type": "string"
+        },
+        "match": {
+          "description": "文案匹配：exact / contains。",
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "value": {
+          "default": "",
+          "type": "string"
+        },
+        "vlmAnchor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowVlmAnchor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "FlowVlmAnchor": {
+      "description": "归一化视觉锚点坐标（0–1000 体系，与既有 UI Agent 归一化坐标一致）。",
+      "properties": {
+        "xNorm": {
+          "format": "double",
+          "type": "number"
+        },
+        "yNorm": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "xNorm",
+        "yNorm"
+      ],
+      "type": "object"
+    },
+    "HealingRevision": {
+      "description": "一次自愈产生的待确认修订。",
+      "properties": {
+        "createdAt": {
+          "default": "",
+          "type": "string"
+        },
+        "evidenceScreenshotPath": {
+          "type": [
+            "null",
+            "string"
+          ]
+        },
+        "flowId": {
+          "type": "string"
+        },
+        "healedLocator": {
+          "$ref": "#/$defs/FlowLocator",
+          "default": {
+            "kind": "",
+            "value": ""
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "originalLocators": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/FlowLocator"
+          },
+          "type": "array"
+        },
+        "runId": {
+          "type": "string"
+        },
+        "status": {
+          "default": "",
+          "description": "pending / accepted / flagged_defect。",
+          "type": "string"
+        },
+        "stepIndex": {
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "flowId",
+        "id",
+        "runId",
+        "stepIndex"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "revision": {
+      "$ref": "#/$defs/HealingRevision"
+    }
+  },
+  "required": [
+    "revision"
+  ],
+  "title": "DeviceFlowHealingSaveParams",
+  "type": "object"
+}

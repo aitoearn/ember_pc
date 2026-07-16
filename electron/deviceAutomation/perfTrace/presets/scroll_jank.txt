@@ -1,0 +1,32 @@
+# 参考用静态片段（当前录制走 buildPresetConfig.ts 代码生成）
+# 对齐 SmartPerfetto scrolling 预设；勿在同一 data_sources 内重复 config 块
+
+duration_ms: 30000
+
+buffers {
+  size_kb: 65536
+  fill_policy: RING_BUFFER
+}
+
+data_sources {
+  config {
+    name: "android.surfaceflinger.frametimeline"
+  }
+}
+
+data_sources {
+  config {
+    name: "android.input.inputevent"
+  }
+}
+
+data_sources {
+  config {
+    name: "linux.ftrace"
+    ftrace_config {
+      atrace_categories: "gfx"
+      atrace_categories: "view"
+      atrace_apps: "*"
+    }
+  }
+}

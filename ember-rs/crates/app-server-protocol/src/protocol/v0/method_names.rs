@@ -304,6 +304,49 @@ pub const METHOD_AGENT_SESSION_ACTION_REPLAY: &str = "agentSession/action/replay
 pub const METHOD_AGENT_SESSION_ACTION_RESPOND: &str = "agentSession/action/respond";
 pub const METHOD_AGENT_SESSION_RUNTIME_EVENTS_APPEND: &str = "agentSession/runtimeEvents/append";
 pub const METHOD_AGENT_SESSION_EVENT: &str = "agentSession/event";
+
+// 测试用例管理（testCase / testCaseModule）
+pub const METHOD_TEST_CASE_LIST: &str = "testCase/list";
+pub const METHOD_TEST_CASE_READ: &str = "testCase/read";
+pub const METHOD_TEST_CASE_SAVE: &str = "testCase/save";
+pub const METHOD_TEST_CASE_DELETE: &str = "testCase/delete";
+pub const METHOD_TEST_CASE_MODULE_LIST: &str = "testCaseModule/list";
+pub const METHOD_TEST_CASE_MODULE_SAVE: &str = "testCaseModule/save";
+pub const METHOD_TEST_CASE_MODULE_DELETE: &str = "testCaseModule/delete";
+pub const METHOD_TEST_CASE_RUN_SAVE: &str = "testCaseRun/save";
+pub const METHOD_TEST_CASE_RUN_LIST: &str = "testCaseRun/list";
+
+// 移动端性能监控（perfMonitor/session/*）
+pub const METHOD_PERF_MONITOR_SESSION_SAVE: &str = "perfMonitor/session/save";
+pub const METHOD_PERF_MONITOR_SESSION_LIST: &str = "perfMonitor/session/list";
+pub const METHOD_PERF_MONITOR_SESSION_READ: &str = "perfMonitor/session/read";
+
+// Perfetto trace artifact 与分析
+pub const METHOD_PERF_MONITOR_TRACE_SAVE: &str = "perfMonitor/trace/save";
+pub const METHOD_PERF_MONITOR_TRACE_LIST: &str = "perfMonitor/trace/list";
+pub const METHOD_PERF_MONITOR_TRACE_READ: &str = "perfMonitor/trace/read";
+pub const METHOD_PERF_MONITOR_TRACE_DELETE: &str = "perfMonitor/trace/delete";
+pub const METHOD_PERF_MONITOR_TRACE_ANALYSIS_SAVE: &str = "perfMonitor/traceAnalysis/save";
+pub const METHOD_PERF_MONITOR_TRACE_ANALYSIS_LIST: &str = "perfMonitor/traceAnalysis/list";
+
+// 确定性可复现测试流与自愈回放
+pub const METHOD_DEVICE_FLOW_LIST: &str = "deviceFlow/list";
+pub const METHOD_DEVICE_FLOW_READ: &str = "deviceFlow/read";
+pub const METHOD_DEVICE_FLOW_SAVE: &str = "deviceFlow/save";
+pub const METHOD_DEVICE_FLOW_DELETE: &str = "deviceFlow/delete";
+pub const METHOD_DEVICE_FLOW_RUN_SAVE: &str = "deviceFlowRun/save";
+pub const METHOD_DEVICE_FLOW_RUN_LIST: &str = "deviceFlowRun/list";
+pub const METHOD_DEVICE_FLOW_RUN_READ: &str = "deviceFlowRun/read";
+pub const METHOD_DEVICE_FLOW_HEALING_LIST: &str = "deviceFlowHealing/list";
+pub const METHOD_DEVICE_FLOW_HEALING_SAVE: &str = "deviceFlowHealing/save";
+pub const METHOD_DEVICE_FLOW_HEALING_RESOLVE: &str = "deviceFlowHealing/resolve";
+
+pub const METHOD_DEVICE_EXPLORE_READ: &str = "deviceExplore/read";
+pub const METHOD_DEVICE_EXPLORE_SAVE: &str = "deviceExplore/save";
+pub const METHOD_DEVICE_EXPLORE_RUN_SAVE: &str = "deviceExploreRun/save";
+pub const METHOD_DEVICE_EXPLORE_RUN_LIST: &str = "deviceExploreRun/list";
+pub const METHOD_DEVICE_EXPLORE_RUN_READ: &str = "deviceExploreRun/read";
+
 pub const METHOD_WORKFLOW_READ: &str = "workflow/read";
 pub const METHOD_WORKFLOW_CANCEL: &str = "workflow/cancel";
 pub const METHOD_WORKFLOW_RETRY: &str = "workflow/retry";

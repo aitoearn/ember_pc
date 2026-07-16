@@ -22,6 +22,12 @@ import {
 import { ElectronDevHttpBridge } from "./devHttpBridge";
 import { ElectronHostCommands } from "./hostCommands";
 import {
+  bootstrapDeviceAutomationHost,
+  ElectronDeviceAutomationHost,
+  isDeviceAutomationCommand,
+  type DeviceAutomationHostBootstrap,
+} from "./deviceAutomationHost";
+import {
   buildMainWindowChromeOptions,
   buildMainWindowStartupHtml,
   buildMainWindowStartupOptions,
@@ -77,6 +83,8 @@ const updateHost = new ElectronUpdateHost(broadcast, {
   open: openUpdateNotificationWindow,
   close: closeUpdateNotificationWindow,
 });
+const deviceAutomationHost = new ElectronDeviceAutomationHost();
+let deviceAutomationBootstrap: DeviceAutomationHostBootstrap | null = null;
 let devHttpBridge: ElectronDevHttpBridge | null = null;
 const pendingDeepLinks: string[] = [];
 const pendingSkillPackageOpenPaths: string[] = [];
@@ -1031,6 +1039,9 @@ async function handleHostInvoke(
   if (isElectronUpdateCommand(command)) {
     return await updateHost.invoke(command, args);
   }
+  if (isDeviceAutomationCommand(command)) {
+    return await deviceAutomationHost.invoke(command, args);
+  }
   return await hostCommands.invoke(command, args);
 }
 
@@ -1376,6 +1387,7 @@ if (isWindowsSquirrelStartup) {
       getMainWindow: () => mainWindow,
     });
     registerIpcHandlers();
+    deviceAutomationBootstrap = bootstrapDeviceAutomationHost(broadcast);
     devHttpBridge = startDevHttpBridge();
     tray = createTray();
     void warmupAppServer();
@@ -1398,6 +1410,8 @@ app.on("activate", () => {
 app.on("before-quit", () => {
   isQuitting = true;
   globalShortcut.unregisterAll();
+  deviceAutomationBootstrap?.dispose();
+  deviceAutomationBootstrap = null;
   hostCommands.disposeProjectShellSessionsForShutdown();
   tray?.destroy();
   tray = null;

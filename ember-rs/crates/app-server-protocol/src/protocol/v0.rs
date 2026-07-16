@@ -30,6 +30,11 @@ mod skills;
 mod soul;
 mod thread;
 mod voice;
+mod device_explore;
+mod device_flow;
+mod perf_monitor;
+mod perf_trace;
+mod test_cases;
 mod workflow;
 mod workspaces;
 
@@ -65,6 +70,11 @@ pub use skills::*;
 pub use soul::*;
 pub use thread::*;
 pub use voice::*;
+pub use device_explore::*;
+pub use device_flow::*;
+pub use perf_monitor::*;
+pub use perf_trace::*;
+pub use test_cases::*;
 pub use workflow::*;
 pub use workspaces::*;
 

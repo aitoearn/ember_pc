@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "workspaceId": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "workspaceId"
+  ],
+  "title": "DeviceFlowListParams",
+  "type": "object"
+}

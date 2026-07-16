@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "结构化测试步骤：步骤号 + 操作 + 预期。",
+  "properties": {
+    "action": {
+      "default": "",
+      "type": "string"
+    },
+    "expected": {
+      "default": "",
+      "type": "string"
+    },
+    "stepNo": {
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "stepNo"
+  ],
+  "title": "TestCaseStep",
+  "type": "object"
+}

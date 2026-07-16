@@ -252,6 +252,7 @@ const APP_SERVER_CURRENT_METHODS = new Set([
   "conversationImport/source/scan",
   "conversationImport/thread/preview",
   "conversationImport/thread/commit",
+  "conversationImport/thread/runtimeEvents/read",
   "projectGit/status",
   "projectGit/diff",
   "projectGit/commits/list",
@@ -277,8 +278,13 @@ const bridgeTruthEventPrefixes = [
   "voice-model-download-progress",
   "agent_stream_",
   "embedded-browser-view-",
+  "device_automation_",
   "mcp:",
 ];
+
+function isElectronHostDeviceAutomationCommand(command: string): boolean {
+  return command.startsWith("device_automation_");
+}
 
 export function isBridgeTruthCommand(command: string): boolean {
   return bridgeTruthCommands.has(command);
@@ -288,7 +294,8 @@ export function shouldDisallowMockFallbackCommand(command: string): boolean {
   return (
     isBridgeTruthCommand(command) ||
     noMockFallbackCompatCommands.has(command) ||
-    electronHostNoMockFallbackCommands.has(command)
+    electronHostNoMockFallbackCommands.has(command) ||
+    isElectronHostDeviceAutomationCommand(command)
   );
 }
 
@@ -381,6 +388,9 @@ export function resolveDevBridgeCommandTimeoutProfile(
   }
   if (electronHostLayeredDesignProjectCommands.has(command)) {
     return "layered-design-project";
+  }
+  if (isElectronHostDeviceAutomationCommand(command)) {
+    return "app-server-long-running";
   }
   if (isBridgeTruthCommand(command)) {
     return "truth";

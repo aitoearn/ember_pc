@@ -1,5 +1,10 @@
 mod automation;
 mod connect;
+mod device_explore;
+mod device_flow;
+mod perf_monitor;
+mod perf_trace;
+mod test_cases;
 mod diagnostics;
 mod gateway;
 mod knowledge;
@@ -18,6 +23,11 @@ mod workspaces;
 pub use automation::AutomationManagementAppDataSource;
 pub use automation::AutomationOverviewAppDataSource;
 pub use connect::ConnectAppDataSource;
+pub use device_explore::DeviceExploreAppDataSource;
+pub use device_flow::DeviceFlowAppDataSource;
+pub use perf_monitor::PerfMonitorAppDataSource;
+pub use perf_trace::PerfTraceAppDataSource;
+pub use test_cases::TestCasesAppDataSource;
 pub use diagnostics::DiagnosticsAppDataSource;
 pub use gateway::GatewayAppDataSource;
 pub use knowledge::KnowledgeAppDataSource;
@@ -53,7 +63,11 @@ pub trait AppDataSource:
     + McpAppDataSource
     + AutomationManagementAppDataSource
     + MemoryAppDataSource
-    + DiagnosticsAppDataSource
+    + TestCasesAppDataSource
+    + PerfMonitorAppDataSource
+    + PerfTraceAppDataSource
+    + DeviceFlowAppDataSource
+    + DeviceExploreAppDataSource    + DiagnosticsAppDataSource
     + UsageStatsAppDataSource
     + ModelProviderAppDataSource
     + ConnectAppDataSource
