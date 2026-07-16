@@ -185,7 +185,7 @@ pub(super) fn runtime_export_root(
 ) -> (String, PathBuf) {
     let relative_root = format!("{HANDOFF_BUNDLE_RELATIVE_ROOT}/{session_id}/{child}");
     let absolute_root = workspace_root
-        .join(".ember")
+        .join(".lime")
         .join("harness")
         .join("sessions")
         .join(session_id)

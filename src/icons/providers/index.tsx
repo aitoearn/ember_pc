@@ -43,7 +43,6 @@ import NebiusIcon from "./nebius.svg?react";
 import nanoGptIconUrl from "./nano-gpt.png?url";
 import MorphIcon from "./morph.svg?react";
 import OpenaiIcon from "./openai.svg?react";
-import opencodeIconUrl from "./opencode.png?url";
 import OvhcloudIcon from "./ovhcloud.svg?react";
 import AlibabaIcon from "./alibaba.svg?react";
 import CopilotIcon from "./copilot.svg?react";
@@ -58,8 +57,8 @@ import KimiIcon from "./kimi.svg?react";
 import MinimaxIcon from "./minimax.svg?react";
 import DoubaoIcon from "./doubao.svg?react";
 import AzureIcon from "./azure.svg?react";
-import LimeIcon from "./ember.svg?react";
-import EmberHubIcon from "./ember-hub.svg?react";
+import LimeIcon from "./lime.svg?react";
+import LimeHubIcon from "./lime-hub.svg?react";
 import MetaIcon from "./meta.svg?react";
 import UpstageIcon from "./upstage.svg?react";
 import V0Icon from "./v0.svg?react";
@@ -190,7 +189,6 @@ const LucidqueryIcon = createImageIconComponent(
 const IoNetIcon = createImageIconComponent(ioNetIconUrl, "IO.net");
 const NanoGptIcon = createImageIconComponent(nanoGptIconUrl, "NanoGPT");
 const NewapiIcon = createImageIconComponent(newapiIconUrl, "New API");
-const OpencodeIcon = createImageIconComponent(opencodeIconUrl, "OpenCode");
 const RequestyIcon = createImageIconComponent(requestyIconUrl, "Requesty");
 const SubmodelIcon = createImageIconComponent(submodelIconUrl, "Submodel");
 const VeniceIcon = createImageIconComponent(veniceIconUrl, "Venice");
@@ -231,7 +229,6 @@ const iconComponents: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   nebius: NebiusIcon,
   "nano-gpt": NanoGptIcon,
   openai: OpenaiIcon,
-  opencode: OpencodeIcon,
   ovhcloud: OvhcloudIcon,
   alibaba: AlibabaIcon,
   copilot: CopilotIcon,
@@ -247,8 +244,8 @@ const iconComponents: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   doubao: DoubaoIcon,
   azure: AzureIcon,
   cloudflare: CloudflareIcon,
-  ember: LimeIcon,
-  "ember-hub": EmberHubIcon,
+  lime: LimeIcon,
+  "lime-hub": LimeHubIcon,
   meta: MetaIcon,
   upstage: UpstageIcon,
   v0: V0Icon,

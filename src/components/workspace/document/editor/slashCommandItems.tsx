@@ -14,7 +14,7 @@ import {
   Table,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { initEmberI18n } from "@/i18n/createI18n";
+import { initLimeI18n } from "@/i18n/createI18n";
 
 export type SlashCommandItemId =
   | "heading1"
@@ -52,7 +52,7 @@ interface SlashCommandItemTemplate {
 const SLASH_COMMAND_I18N_PREFIX = "workspace.document.editor.slashCommand";
 
 function getWorkspaceTranslator(): WorkspaceTranslator {
-  const instance = i18next.isInitialized ? i18next : initEmberI18n();
+  const instance = i18next.isInitialized ? i18next : initLimeI18n();
   const t = instance.getFixedT(instance.language, "workspace");
   return (key: string) => String(t(key as never));
 }

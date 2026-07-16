@@ -17,7 +17,7 @@ function parseArgs(argv) {
     help: false,
     outputPath: "",
     redact: false,
-    root: ".ember/qc",
+    root: ".lime/qc",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -53,14 +53,14 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Agent QC secret scan
+Lime Agent QC secret scan
 
 用法:
   npm run agent-qc:secret-scan -- --check
-  node scripts/agent-qc/secret-scan.mjs --root .ember/qc --redact --check
+  node scripts/agent-qc/secret-scan.mjs --root .lime/qc --redact --check
 
 选项:
-  --root PATH       扫描根目录，默认 .ember/qc
+  --root PATH       扫描根目录，默认 .lime/qc
   --format FMT      summary | json，默认 summary
   --output PATH     写入扫描报告；默认 stdout
   --redact          将命中内容替换为脱敏占位符

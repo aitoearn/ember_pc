@@ -245,9 +245,9 @@ interface NormalizedServiceSkillCatalogInput {
   baseSetupSnapshot: StoredBaseSetupPackageSnapshot | null;
 }
 
-const SERVICE_SKILL_CATALOG_STORAGE_KEY = "ember:service-skill-catalog:v1";
+const SERVICE_SKILL_CATALOG_STORAGE_KEY = "lime:service-skill-catalog:v1";
 const SERVICE_SKILL_CATALOG_CHANGED_EVENT =
-  "ember:service-skill-catalog-changed";
+  "lime:service-skill-catalog-changed";
 
 const SERVICE_SKILL_SURFACE_SCOPES: ServiceSkillSurfaceScope[] = [
   "home",
@@ -318,34 +318,34 @@ function toServiceSkillBundleMetadata(
   const executorBinding = resolveCurrentServiceSkillExecutorBinding(item);
 
   const candidates: Record<string, string | undefined> = {
-    Ember_skill_type: skillType,
-    Ember_category: trimToUndefined(item.category),
-    Ember_runner_type: item.runnerType,
-    Ember_execution_location: executionLocation,
-    Ember_executor_binding: executorBinding,
-    Ember_output_destination: trimToUndefined(outputDestination),
-    Ember_output_hint: trimToUndefined(item.outputHint),
-    Ember_entry_hint: trimToUndefined(item.entryHint),
-    Ember_prompt_template_key: item.promptTemplateKey,
-    Ember_theme_target: trimToUndefined(item.themeTarget),
-    Ember_site_adapter: trimToUndefined(item.siteCapabilityBinding?.adapterName),
-    Ember_site_label: trimToUndefined(item.siteCapabilityBinding?.siteLabel),
-    Ember_site_adapter_match_url_arg: trimToUndefined(
+    Lime_skill_type: skillType,
+    Lime_category: trimToUndefined(item.category),
+    Lime_runner_type: item.runnerType,
+    Lime_execution_location: executionLocation,
+    Lime_executor_binding: executorBinding,
+    Lime_output_destination: trimToUndefined(outputDestination),
+    Lime_output_hint: trimToUndefined(item.outputHint),
+    Lime_entry_hint: trimToUndefined(item.entryHint),
+    Lime_prompt_template_key: item.promptTemplateKey,
+    Lime_theme_target: trimToUndefined(item.themeTarget),
+    Lime_site_adapter: trimToUndefined(item.siteCapabilityBinding?.adapterName),
+    Lime_site_label: trimToUndefined(item.siteCapabilityBinding?.siteLabel),
+    Lime_site_adapter_match_url_arg: trimToUndefined(
       item.siteCapabilityBinding?.adapterMatch?.urlArgName,
     ),
-    Ember_site_adapter_match_capabilities:
+    Lime_site_adapter_match_capabilities:
       item.siteCapabilityBinding?.adapterMatch?.requiredCapabilities &&
       item.siteCapabilityBinding.adapterMatch.requiredCapabilities.length > 0
         ? JSON.stringify(
             item.siteCapabilityBinding.adapterMatch.requiredCapabilities,
           )
         : undefined,
-    Ember_site_adapter_match_host_aliases:
+    Lime_site_adapter_match_host_aliases:
       item.siteCapabilityBinding?.adapterMatch?.hostAliases &&
       item.siteCapabilityBinding.adapterMatch.hostAliases.length > 0
         ? JSON.stringify(item.siteCapabilityBinding.adapterMatch.hostAliases)
         : undefined,
-    Ember_surface_scopes:
+    Lime_surface_scopes:
       item.surfaceScopes && item.surfaceScopes.length > 0
         ? JSON.stringify(item.surfaceScopes)
         : undefined,
@@ -402,7 +402,7 @@ function buildDerivedServiceSkillCompatibility(
     "readinessRequirements" | "executionLocation" | "defaultExecutorBinding"
   >,
 ): string {
-  const parts = ["适用于 Ember 客户端技能目录"];
+  const parts = ["适用于 Lime 客户端技能目录"];
 
   if (item.readinessRequirements?.requiresModel) {
     parts.push("需要已启用模型");

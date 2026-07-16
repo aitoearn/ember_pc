@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { cwd } from "node:process";
 import { describe, expect, it } from "vitest";
+import { readAppServerApiSources } from "../../test/appServerApiSources";
 
 const GATEWAY_TUNNEL_FACADE_COMMANDS = [
   "gateway_tunnel_probe",
@@ -73,7 +74,7 @@ function expectStringLiteralsAbsent(source: string, literals: string[]): void {
 describe("gateway tunnel current boundary", () => {
   it("gateway tunnel 已有 App Server current method，不能再被判为 current-missing 协议缺口", () => {
     const appServerSources = [
-      readRepoFile("src/lib/api/appServer.ts"),
+      readAppServerApiSources(),
       readRepoFile("packages/app-server-client/src/protocol.ts"),
       readRepoFile("packages/app-server-client/src/index.ts"),
       readRepoFile(
@@ -82,7 +83,8 @@ describe("gateway tunnel current boundary", () => {
       readRepoFile(
         "ember-rs/crates/app-server-protocol/src/protocol/v0/channels.rs",
       ),
-      readRepoFile("ember-rs/crates/app-server/src/processor.rs"),
+      readRepoFile("ember-rs/crates/app-server/src/processor/mod.rs"),
+      readRepoFile("ember-rs/crates/app-server/src/processor/gateway.rs"),
       readRepoFile("ember-rs/crates/app-server/src/runtime.rs"),
     ].join("\n");
 
@@ -125,7 +127,7 @@ describe("gateway tunnel current boundary", () => {
     expect(productionSources).not.toContain("commands::gateway_tunnel_cmd::");
     expect(productionSources).not.toContain("pub mod gateway_tunnel_cmd;");
     expect(productionSources).not.toContain("GatewayTunnelState");
-    expect(productionSources).not.toContain("ember_gateway::tunnel::");
+    expect(productionSources).not.toContain("lime_gateway::tunnel::");
     expect(existsSync(resolve(cwd(), "ember-rs/src/app/runner.rs"))).toBe(
       false,
     );

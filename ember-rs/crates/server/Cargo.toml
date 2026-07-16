@@ -1,20 +1,19 @@
 [package]
-name = "ember-server"
+name = "lime-server"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-ember-core.workspace = true
-ember-config.workspace = true
-ember-infra.workspace = true
-ember-providers.workspace = true
-ember-services.workspace = true
-ember-websocket.workspace = true
-ember-processor.workspace = true
-ember-server-utils.workspace = true
-ember-scheduler.workspace = true
-ember-agent.workspace = true
-aster.workspace = true
+lime-core.workspace = true
+lime-config.workspace = true
+lime-infra.workspace = true
+lime-providers.workspace = true
+lime-services.workspace = true
+lime-websocket.workspace = true
+lime-processor.workspace = true
+lime-server-utils.workspace = true
+lime-agent.workspace = true
+agent-protocol.workspace = true
 
 serde.workspace = true
 serde_json.workspace = true

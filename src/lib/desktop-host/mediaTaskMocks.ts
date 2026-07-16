@@ -31,7 +31,7 @@ function normalizeMockMediaTaskId(
   return normalized || fallbackTaskId;
 }
 
-function buildMockEmberCorePolicySnapshot(refs: string[]) {
+function buildMockLimeCorePolicySnapshot(refs: string[]) {
   return {
     status: "local_defaults_evaluated",
     decision: "allow",
@@ -47,7 +47,7 @@ function buildMockEmberCorePolicySnapshot(refs: string[]) {
       ref_key: refKey,
       status: "declared_only",
       source: "modality_runtime_contract",
-      value_source: "embercore_pending",
+      value_source: "limecore_pending",
     })),
     pending_hit_refs: [...refs],
     policy_value_hits: [],
@@ -91,7 +91,7 @@ function resolveMockMediaTaskProtocol(
     requestedTaskRef.includes("audio_generate");
 
   if (isTranscription) {
-    const embercorePolicyRefs = [
+    const limecorePolicyRefs = [
       "model_catalog",
       "provider_offer",
       "tenant_feature_flags",
@@ -119,15 +119,15 @@ function resolveMockMediaTaskProtocol(
         executor_adapter: {
           adapter_key: "skill:transcription_generate",
         },
-        embercore_policy_refs: embercorePolicyRefs,
-        embercore_policy_snapshot:
-          buildMockEmberCorePolicySnapshot(embercorePolicyRefs),
+        limecore_policy_refs: limecorePolicyRefs,
+        limecore_policy_snapshot:
+          buildMockLimeCorePolicySnapshot(limecorePolicyRefs),
       },
     };
   }
 
   if (isAudio) {
-    const embercorePolicyRefs = [
+    const limecorePolicyRefs = [
       "client_scenes",
       "tenant_feature_flags",
       "provider_offer",
@@ -145,24 +145,20 @@ function resolveMockMediaTaskProtocol(
         modality: "audio",
         required_capabilities: ["text_generation", "voice_generation"],
         routing_slot: "voice_generation_model",
-        executor_binding: {
-          executor_kind: "service_skill",
-          binding_key: "voice_runtime",
-        },
+        route_execution_status: "metadata_only",
+        route_execution_exit_condition:
+          "audio worker or RuntimeCore provider protocol mapper consumes ResolvedModelRoute and writes model_route_execution for voice_generation",
         execution_profile: {
           profile_key: "voice_generation_profile",
         },
-        executor_adapter: {
-          adapter_key: "service_skill:voice_runtime",
-        },
-        embercore_policy_refs: embercorePolicyRefs,
-        embercore_policy_snapshot:
-          buildMockEmberCorePolicySnapshot(embercorePolicyRefs),
+        limecore_policy_refs: limecorePolicyRefs,
+        limecore_policy_snapshot:
+          buildMockLimeCorePolicySnapshot(limecorePolicyRefs),
       },
     };
   }
 
-  const embercorePolicyRefs = [
+  const limecorePolicyRefs = [
     "model_catalog",
     "provider_offer",
     "tenant_feature_flags",
@@ -198,9 +194,9 @@ function resolveMockMediaTaskProtocol(
       executor_adapter: {
         adapter_key: "skill:image_generate",
       },
-      embercore_policy_refs: embercorePolicyRefs,
-      embercore_policy_snapshot:
-        buildMockEmberCorePolicySnapshot(embercorePolicyRefs),
+      limecore_policy_refs: limecorePolicyRefs,
+      limecore_policy_snapshot:
+        buildMockLimeCorePolicySnapshot(limecorePolicyRefs),
     },
   };
 }
@@ -248,7 +244,7 @@ function buildMockMediaTaskOutput(
       ? overrides.current_attempt_id
       : `attempt-${attemptCount}`;
   const createdAt = "2026-04-04T00:00:00.000Z";
-  const path = `.ember/tasks/${protocol.taskType}/${taskId}.json`;
+  const path = `.lime/tasks/${protocol.taskType}/${taskId}.json`;
   const runtimeContract =
     request.runtimeContract ??
     request.runtime_contract ??
@@ -469,7 +465,7 @@ function buildMockCompletedAudioTaskOutput(args: any) {
     request.audioUrl ??
     request.audio_url ??
     payload.audio_path ??
-    "/mock/workspace/.ember/runtime/audio/task-audio-mock-1.mp3";
+    "/mock/workspace/.lime/runtime/audio/task-audio-mock-1.mp3";
   const mimeType =
     request.mimeType ?? request.mime_type ?? payload.mime_type ?? "audio/mpeg";
   const durationMs =
@@ -687,100 +683,100 @@ function buildMediaTaskContractSnapshot(item: MockMediaTaskOutput) {
     (executorKind === "skill" || executorKind === "service_skill"
       ? executorBindingKey
       : null);
-  const embercorePolicySnapshot = (runtimeContract?.embercore_policy_snapshot ??
-    runtimeContract?.embercorePolicySnapshot) as
+  const limecorePolicySnapshot = (runtimeContract?.limecore_policy_snapshot ??
+    runtimeContract?.limecorePolicySnapshot) as
     | Record<string, any>
     | null
     | undefined;
-  const embercorePolicyRefs = [
+  const limecorePolicyRefs = [
     ...new Set(
       [
-        ...(Array.isArray(payload?.embercore_policy_refs)
-          ? payload.embercore_policy_refs
+        ...(Array.isArray(payload?.limecore_policy_refs)
+          ? payload.limecore_policy_refs
           : []),
-        ...(Array.isArray(payload?.embercorePolicyRefs)
-          ? payload.embercorePolicyRefs
+        ...(Array.isArray(payload?.limecorePolicyRefs)
+          ? payload.limecorePolicyRefs
           : []),
-        ...(Array.isArray(runtimeContract?.embercore_policy_refs)
-          ? runtimeContract.embercore_policy_refs
+        ...(Array.isArray(runtimeContract?.limecore_policy_refs)
+          ? runtimeContract.limecore_policy_refs
           : []),
-        ...(Array.isArray(runtimeContract?.embercorePolicyRefs)
-          ? runtimeContract.embercorePolicyRefs
+        ...(Array.isArray(runtimeContract?.limecorePolicyRefs)
+          ? runtimeContract.limecorePolicyRefs
           : []),
-        ...(Array.isArray(embercorePolicySnapshot?.refs)
-          ? embercorePolicySnapshot.refs
+        ...(Array.isArray(limecorePolicySnapshot?.refs)
+          ? limecorePolicySnapshot.refs
           : []),
       ].filter(
         (candidate): candidate is string => typeof candidate === "string",
       ),
     ),
   ];
-  const embercorePolicyValueHits = Array.isArray(
-    embercorePolicySnapshot?.policy_value_hits,
+  const limecorePolicyValueHits = Array.isArray(
+    limecorePolicySnapshot?.policy_value_hits,
   )
-    ? embercorePolicySnapshot.policy_value_hits
-    : Array.isArray(embercorePolicySnapshot?.policyValueHits)
-      ? embercorePolicySnapshot.policyValueHits
+    ? limecorePolicySnapshot.policy_value_hits
+    : Array.isArray(limecorePolicySnapshot?.policyValueHits)
+      ? limecorePolicySnapshot.policyValueHits
       : [];
   const resolvedPolicyHitRefs = new Set(
-    embercorePolicyValueHits
+    limecorePolicyValueHits
       .filter((hit) => hit?.status === "resolved")
       .map((hit) => hit.ref_key ?? hit.refKey ?? hit.ref)
       .filter((refKey): refKey is string => typeof refKey === "string"),
   );
-  const pendingPolicyRefs = embercorePolicyRefs.filter(
+  const pendingPolicyRefs = limecorePolicyRefs.filter(
     (refKey) => !resolvedPolicyHitRefs.has(refKey),
   );
-  const embercorePolicyMissingInputs = Array.isArray(
-    embercorePolicySnapshot?.missing_inputs,
+  const limecorePolicyMissingInputs = Array.isArray(
+    limecorePolicySnapshot?.missing_inputs,
   )
-    ? embercorePolicySnapshot.missing_inputs
-    : Array.isArray(embercorePolicySnapshot?.missingInputs)
-      ? embercorePolicySnapshot.missingInputs
-      : Array.isArray(embercorePolicySnapshot?.unresolved_refs)
-        ? embercorePolicySnapshot.unresolved_refs
-        : Array.isArray(embercorePolicySnapshot?.unresolvedRefs)
-          ? embercorePolicySnapshot.unresolvedRefs
+    ? limecorePolicySnapshot.missing_inputs
+    : Array.isArray(limecorePolicySnapshot?.missingInputs)
+      ? limecorePolicySnapshot.missingInputs
+      : Array.isArray(limecorePolicySnapshot?.unresolved_refs)
+        ? limecorePolicySnapshot.unresolved_refs
+        : Array.isArray(limecorePolicySnapshot?.unresolvedRefs)
+          ? limecorePolicySnapshot.unresolvedRefs
           : pendingPolicyRefs;
-  const embercorePolicyPendingHitRefs = Array.isArray(
-    embercorePolicySnapshot?.pending_hit_refs,
+  const limecorePolicyPendingHitRefs = Array.isArray(
+    limecorePolicySnapshot?.pending_hit_refs,
   )
-    ? embercorePolicySnapshot.pending_hit_refs
-    : Array.isArray(embercorePolicySnapshot?.pendingHitRefs)
-      ? embercorePolicySnapshot.pendingHitRefs
-      : embercorePolicyMissingInputs;
-  const embercorePolicyValueHitCount =
-    typeof embercorePolicySnapshot?.policy_value_hit_count === "number"
-      ? embercorePolicySnapshot.policy_value_hit_count
-      : typeof embercorePolicySnapshot?.policyValueHitCount === "number"
-        ? embercorePolicySnapshot.policyValueHitCount
-        : embercorePolicyValueHits.length;
-  const embercorePolicyEvaluation = (embercorePolicySnapshot?.policy_evaluation ??
-    embercorePolicySnapshot?.policyEvaluation) as
+    ? limecorePolicySnapshot.pending_hit_refs
+    : Array.isArray(limecorePolicySnapshot?.pendingHitRefs)
+      ? limecorePolicySnapshot.pendingHitRefs
+      : limecorePolicyMissingInputs;
+  const limecorePolicyValueHitCount =
+    typeof limecorePolicySnapshot?.policy_value_hit_count === "number"
+      ? limecorePolicySnapshot.policy_value_hit_count
+      : typeof limecorePolicySnapshot?.policyValueHitCount === "number"
+        ? limecorePolicySnapshot.policyValueHitCount
+        : limecorePolicyValueHits.length;
+  const limecorePolicyEvaluation = (limecorePolicySnapshot?.policy_evaluation ??
+    limecorePolicySnapshot?.policyEvaluation) as
     | Record<string, any>
     | null
     | undefined;
-  const embercorePolicyEvaluationBlockingRefs = Array.isArray(
-    embercorePolicyEvaluation?.blocking_refs,
+  const limecorePolicyEvaluationBlockingRefs = Array.isArray(
+    limecorePolicyEvaluation?.blocking_refs,
   )
-    ? embercorePolicyEvaluation.blocking_refs
-    : Array.isArray(embercorePolicyEvaluation?.blockingRefs)
-      ? embercorePolicyEvaluation.blockingRefs
+    ? limecorePolicyEvaluation.blocking_refs
+    : Array.isArray(limecorePolicyEvaluation?.blockingRefs)
+      ? limecorePolicyEvaluation.blockingRefs
       : [];
-  const embercorePolicyEvaluationAskRefs = Array.isArray(
-    embercorePolicyEvaluation?.ask_refs,
+  const limecorePolicyEvaluationAskRefs = Array.isArray(
+    limecorePolicyEvaluation?.ask_refs,
   )
-    ? embercorePolicyEvaluation.ask_refs
-    : Array.isArray(embercorePolicyEvaluation?.askRefs)
-      ? embercorePolicyEvaluation.askRefs
-      : embercorePolicyPendingHitRefs;
-  const embercorePolicyEvaluationPendingRefs = Array.isArray(
-    embercorePolicyEvaluation?.pending_refs,
+    ? limecorePolicyEvaluation.ask_refs
+    : Array.isArray(limecorePolicyEvaluation?.askRefs)
+      ? limecorePolicyEvaluation.askRefs
+      : limecorePolicyPendingHitRefs;
+  const limecorePolicyEvaluationPendingRefs = Array.isArray(
+    limecorePolicyEvaluation?.pending_refs,
   )
-    ? embercorePolicyEvaluation.pending_refs
-    : Array.isArray(embercorePolicyEvaluation?.pendingRefs)
-      ? embercorePolicyEvaluation.pendingRefs
-      : embercorePolicyPendingHitRefs;
+    ? limecorePolicyEvaluation.pending_refs
+    : Array.isArray(limecorePolicyEvaluation?.pendingRefs)
+      ? limecorePolicyEvaluation.pendingRefs
+      : limecorePolicyPendingHitRefs;
 
   return {
     task_id: item.task_id,
@@ -816,67 +812,67 @@ function buildMediaTaskContractSnapshot(item: MockMediaTaskOutput) {
       null,
     executor_kind: executorKind,
     executor_binding_key: executorBindingKey,
-    embercore_policy_refs: embercorePolicyRefs,
-    embercore_policy_snapshot_status:
-      embercorePolicySnapshot?.status ??
-      (embercorePolicyRefs.length > 0 ? "local_defaults_evaluated" : null),
-    embercore_policy_decision:
-      embercorePolicySnapshot?.decision ??
-      (embercorePolicyRefs.length > 0 ? "allow" : null),
-    embercore_policy_decision_source:
-      embercorePolicySnapshot?.decision_source ??
-      embercorePolicySnapshot?.decisionSource ??
-      (embercorePolicyRefs.length > 0 ? "local_default_policy" : null),
-    embercore_policy_decision_scope:
-      embercorePolicySnapshot?.decision_scope ??
-      embercorePolicySnapshot?.decisionScope ??
-      (embercorePolicyRefs.length > 0 ? "local_defaults_only" : null),
-    embercore_policy_decision_reason:
-      embercorePolicySnapshot?.decision_reason ??
-      embercorePolicySnapshot?.decisionReason ??
-      (embercorePolicyRefs.length > 0
+    limecore_policy_refs: limecorePolicyRefs,
+    limecore_policy_snapshot_status:
+      limecorePolicySnapshot?.status ??
+      (limecorePolicyRefs.length > 0 ? "local_defaults_evaluated" : null),
+    limecore_policy_decision:
+      limecorePolicySnapshot?.decision ??
+      (limecorePolicyRefs.length > 0 ? "allow" : null),
+    limecore_policy_decision_source:
+      limecorePolicySnapshot?.decision_source ??
+      limecorePolicySnapshot?.decisionSource ??
+      (limecorePolicyRefs.length > 0 ? "local_default_policy" : null),
+    limecore_policy_decision_scope:
+      limecorePolicySnapshot?.decision_scope ??
+      limecorePolicySnapshot?.decisionScope ??
+      (limecorePolicyRefs.length > 0 ? "local_defaults_only" : null),
+    limecore_policy_decision_reason:
+      limecorePolicySnapshot?.decision_reason ??
+      limecorePolicySnapshot?.decisionReason ??
+      (limecorePolicyRefs.length > 0
         ? "declared_policy_refs_with_no_local_deny_rule"
         : null),
-    embercore_policy_unresolved_refs: Array.isArray(
-      embercorePolicySnapshot?.unresolved_refs,
+    limecore_policy_unresolved_refs: Array.isArray(
+      limecorePolicySnapshot?.unresolved_refs,
     )
-      ? embercorePolicySnapshot.unresolved_refs
-      : Array.isArray(embercorePolicySnapshot?.unresolvedRefs)
-        ? embercorePolicySnapshot.unresolvedRefs
+      ? limecorePolicySnapshot.unresolved_refs
+      : Array.isArray(limecorePolicySnapshot?.unresolvedRefs)
+        ? limecorePolicySnapshot.unresolvedRefs
         : pendingPolicyRefs,
-    embercore_policy_missing_inputs: embercorePolicyMissingInputs,
-    embercore_policy_pending_hit_refs: embercorePolicyPendingHitRefs,
-    embercore_policy_value_hits: embercorePolicyValueHits,
-    embercore_policy_value_hit_count: embercorePolicyValueHitCount,
-    embercore_policy_evaluation_status:
-      embercorePolicyEvaluation?.status ??
-      (embercorePolicyPendingHitRefs.length > 0 ? "input_gap" : null),
-    embercore_policy_evaluation_decision:
-      embercorePolicyEvaluation?.decision ??
-      (embercorePolicyPendingHitRefs.length > 0 ? "ask" : null),
-    embercore_policy_evaluation_decision_source:
-      embercorePolicyEvaluation?.decision_source ??
-      embercorePolicyEvaluation?.decisionSource ??
-      (embercorePolicyPendingHitRefs.length > 0
+    limecore_policy_missing_inputs: limecorePolicyMissingInputs,
+    limecore_policy_pending_hit_refs: limecorePolicyPendingHitRefs,
+    limecore_policy_value_hits: limecorePolicyValueHits,
+    limecore_policy_value_hit_count: limecorePolicyValueHitCount,
+    limecore_policy_evaluation_status:
+      limecorePolicyEvaluation?.status ??
+      (limecorePolicyPendingHitRefs.length > 0 ? "input_gap" : null),
+    limecore_policy_evaluation_decision:
+      limecorePolicyEvaluation?.decision ??
+      (limecorePolicyPendingHitRefs.length > 0 ? "ask" : null),
+    limecore_policy_evaluation_decision_source:
+      limecorePolicyEvaluation?.decision_source ??
+      limecorePolicyEvaluation?.decisionSource ??
+      (limecorePolicyPendingHitRefs.length > 0
         ? "policy_input_evaluator"
         : null),
-    embercore_policy_evaluation_decision_scope:
-      embercorePolicyEvaluation?.decision_scope ??
-      embercorePolicyEvaluation?.decisionScope ??
-      (embercorePolicyPendingHitRefs.length > 0
+    limecore_policy_evaluation_decision_scope:
+      limecorePolicyEvaluation?.decision_scope ??
+      limecorePolicyEvaluation?.decisionScope ??
+      (limecorePolicyPendingHitRefs.length > 0
         ? "pending_policy_inputs"
         : null),
-    embercore_policy_evaluation_decision_reason:
-      embercorePolicyEvaluation?.decision_reason ??
-      embercorePolicyEvaluation?.decisionReason ??
-      (embercorePolicyPendingHitRefs.length > 0
+    limecore_policy_evaluation_decision_reason:
+      limecorePolicyEvaluation?.decision_reason ??
+      limecorePolicyEvaluation?.decisionReason ??
+      (limecorePolicyPendingHitRefs.length > 0
         ? "declared_policy_refs_missing_inputs"
         : null),
-    embercore_policy_evaluation_blocking_refs:
-      embercorePolicyEvaluationBlockingRefs,
-    embercore_policy_evaluation_ask_refs: embercorePolicyEvaluationAskRefs,
-    embercore_policy_evaluation_pending_refs:
-      embercorePolicyEvaluationPendingRefs,
+    limecore_policy_evaluation_blocking_refs:
+      limecorePolicyEvaluationBlockingRefs,
+    limecore_policy_evaluation_ask_refs: limecorePolicyEvaluationAskRefs,
+    limecore_policy_evaluation_pending_refs:
+      limecorePolicyEvaluationPendingRefs,
     routing_event:
       payload?.modality_contract_key === "voice_generation" ||
       payload?.modality_contract_key === "audio_transcription"
@@ -935,19 +931,19 @@ function listMockMediaTaskArtifacts(args: any) {
   const snapshots = tasks.map(buildMediaTaskContractSnapshot);
   const audioOutputStatuses = countByStatus(snapshots, "audio_output_status");
   const transcriptStatuses = countByStatus(snapshots, "transcript_status");
-  const embercorePolicySnapshotStatuses = countByStatus(
+  const limecorePolicySnapshotStatuses = countByStatus(
     snapshots,
-    "embercore_policy_snapshot_status",
+    "limecore_policy_snapshot_status",
   );
-  const embercorePolicyEvaluationStatuses = countByStatus(
+  const limecorePolicyEvaluationStatuses = countByStatus(
     snapshots,
-    "embercore_policy_evaluation_status",
+    "limecore_policy_evaluation_status",
   );
 
   return {
     success: true,
     workspace_root: request.projectRootPath ?? "/mock/workspace",
-    artifact_root: `${request.projectRootPath ?? "/mock/workspace"}/.ember/tasks`,
+    artifact_root: `${request.projectRootPath ?? "/mock/workspace"}/.lime/tasks`,
     filters: {
       status: request.status ?? null,
       task_family: requestedTaskFamily ?? null,
@@ -1019,86 +1015,86 @@ function listMockMediaTaskArtifacts(args: any) {
           snapshots.map((item) => item.executor_binding_key).filter(Boolean),
         ),
       ],
-      embercore_policy_refs: [
-        ...new Set(snapshots.flatMap((item) => item.embercore_policy_refs)),
+      limecore_policy_refs: [
+        ...new Set(snapshots.flatMap((item) => item.limecore_policy_refs)),
       ],
-      embercore_policy_snapshot_count: snapshots.filter(
-        (item) => item.embercore_policy_refs.length > 0,
+      limecore_policy_snapshot_count: snapshots.filter(
+        (item) => item.limecore_policy_refs.length > 0,
       ).length,
-      embercore_policy_snapshot_statuses: embercorePolicySnapshotStatuses,
-      embercore_policy_decisions: [
+      limecore_policy_snapshot_statuses: limecorePolicySnapshotStatuses,
+      limecore_policy_decisions: [
         ...new Set(
           snapshots
-            .map((item) => item.embercore_policy_decision)
+            .map((item) => item.limecore_policy_decision)
             .filter(Boolean),
         ),
       ],
-      embercore_policy_decision_sources: [
+      limecore_policy_decision_sources: [
         ...new Set(
           snapshots
-            .map((item) => item.embercore_policy_decision_source)
+            .map((item) => item.limecore_policy_decision_source)
             .filter(Boolean),
         ),
       ],
-      embercore_policy_evaluation_statuses: embercorePolicyEvaluationStatuses,
-      embercore_policy_evaluation_decisions: [
+      limecore_policy_evaluation_statuses: limecorePolicyEvaluationStatuses,
+      limecore_policy_evaluation_decisions: [
         ...new Set(
           snapshots
-            .map((item) => item.embercore_policy_evaluation_decision)
+            .map((item) => item.limecore_policy_evaluation_decision)
             .filter(Boolean),
         ),
       ],
-      embercore_policy_evaluation_decision_sources: [
+      limecore_policy_evaluation_decision_sources: [
         ...new Set(
           snapshots
-            .map((item) => item.embercore_policy_evaluation_decision_source)
+            .map((item) => item.limecore_policy_evaluation_decision_source)
             .filter(Boolean),
         ),
       ],
-      embercore_policy_evaluation_blocking_refs: [
+      limecore_policy_evaluation_blocking_refs: [
         ...new Set(
           snapshots.flatMap(
-            (item) => item.embercore_policy_evaluation_blocking_refs ?? [],
+            (item) => item.limecore_policy_evaluation_blocking_refs ?? [],
           ),
         ),
       ],
-      embercore_policy_evaluation_ask_refs: [
+      limecore_policy_evaluation_ask_refs: [
         ...new Set(
           snapshots.flatMap(
-            (item) => item.embercore_policy_evaluation_ask_refs ?? [],
+            (item) => item.limecore_policy_evaluation_ask_refs ?? [],
           ),
         ),
       ],
-      embercore_policy_evaluation_pending_refs: [
+      limecore_policy_evaluation_pending_refs: [
         ...new Set(
           snapshots.flatMap(
-            (item) => item.embercore_policy_evaluation_pending_refs ?? [],
+            (item) => item.limecore_policy_evaluation_pending_refs ?? [],
           ),
         ),
       ],
-      embercore_policy_unresolved_refs: [
+      limecore_policy_unresolved_refs: [
         ...new Set(
           snapshots.flatMap(
-            (item) => item.embercore_policy_unresolved_refs ?? [],
+            (item) => item.limecore_policy_unresolved_refs ?? [],
           ),
         ),
       ],
-      embercore_policy_missing_inputs: [
+      limecore_policy_missing_inputs: [
         ...new Set(
           snapshots.flatMap(
-            (item) => item.embercore_policy_missing_inputs ?? [],
+            (item) => item.limecore_policy_missing_inputs ?? [],
           ),
         ),
       ],
-      embercore_policy_pending_hit_refs: [
+      limecore_policy_pending_hit_refs: [
         ...new Set(
           snapshots.flatMap(
-            (item) => item.embercore_policy_pending_hit_refs ?? [],
+            (item) => item.limecore_policy_pending_hit_refs ?? [],
           ),
         ),
       ],
-      embercore_policy_value_hit_count: snapshots.reduce(
-        (count, item) => count + (item.embercore_policy_value_hit_count ?? 0),
+      limecore_policy_value_hit_count: snapshots.reduce(
+        (count, item) => count + (item.limecore_policy_value_hit_count ?? 0),
         0,
       ),
       blocked_count: snapshots.filter(
@@ -1132,7 +1128,10 @@ function listMockMediaTaskArtifacts(args: any) {
   };
 }
 
-export function createMediaTaskMockHandlers(): Record<string, (args: any) => any> {
+export function createMediaTaskMockHandlers(): Record<
+  string,
+  (args: any) => any
+> {
   return {
     create_image_generation_task_artifact: (args: any) =>
       buildMockMediaTaskOutput(args),

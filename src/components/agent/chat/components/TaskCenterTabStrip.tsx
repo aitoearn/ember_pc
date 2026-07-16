@@ -27,23 +27,27 @@ const TASK_CENTER_TAB_STATUS_META: Record<
 > = {
   draft: {
     label: "待补充",
-    iconClassName: "text-[color:var(--ember-text-muted)]",
+    iconClassName: "text-[color:var(--lime-text-muted)]",
   },
   running: {
     label: "进行中",
-    iconClassName: "text-[color:var(--ember-info)]",
+    iconClassName: "text-[color:var(--lime-info)]",
+  },
+  queued: {
+    label: "排队中",
+    iconClassName: "text-sky-600 dark:text-sky-300",
   },
   waiting: {
     label: "待继续",
-    iconClassName: "text-[color:var(--ember-warning)]",
+    iconClassName: "text-[color:var(--lime-warning)]",
   },
   done: {
     label: "已完成",
-    iconClassName: "text-[color:var(--ember-brand-strong)]",
+    iconClassName: "text-[color:var(--lime-brand-strong)]",
   },
   failed: {
     label: "有异常",
-    iconClassName: "text-[color:var(--ember-danger)]",
+    iconClassName: "text-[color:var(--lime-danger)]",
   },
 };
 
@@ -68,6 +72,7 @@ interface TaskCenterTabStripProps {
   showWorkbenchToggle?: boolean;
   workbenchVisible?: boolean;
   onWorkbenchToggle?: () => void;
+  embedded?: boolean;
 }
 
 function formatTaskTabTitle(
@@ -87,19 +92,19 @@ const conversationTabShellClassName =
   "group flex h-[28px] items-center gap-0 rounded-[14px] border border-transparent px-1 transition-[background-color,border-color,box-shadow,color] duration-150 ease-out";
 
 const activeConversationTabClassName =
-  "border-[color:var(--ember-chrome-divider)] bg-[color:var(--ember-chrome-tab-hover)] text-[color:var(--ember-text-strong)] shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] dark:bg-slate-700 dark:text-slate-100";
+  "border-[color:var(--lime-chrome-divider)] bg-[color:var(--lime-chrome-tab-hover)] text-[color:var(--lime-text-strong)] shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] dark:bg-slate-700 dark:text-slate-100";
 
 const inactiveConversationTabClassName =
-  "bg-transparent text-[color:var(--ember-chrome-muted)] hover:bg-[color:var(--ember-chrome-tab-hover)] hover:text-[color:var(--ember-text)] dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200";
+  "bg-transparent text-[color:var(--lime-chrome-muted)] hover:bg-[color:var(--lime-chrome-tab-hover)] hover:text-[color:var(--lime-text)] dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200";
 
 const conversationTabButtonClassName =
   "flex h-full min-w-0 items-center gap-1 rounded-[13px] px-1.5 text-left";
 
 const tabUtilityButtonClassName =
-  "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[14px] bg-transparent text-[color:var(--ember-chrome-muted)] transition-colors hover:bg-[color:var(--ember-chrome-tab-hover)] hover:text-[color:var(--ember-text)] dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-200";
+  "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[14px] bg-transparent text-[color:var(--lime-chrome-muted)] transition-colors hover:bg-[color:var(--lime-chrome-tab-hover)] hover:text-[color:var(--lime-text)] dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-200";
 
 const tabWorkbenchButtonClassName =
-  "inline-flex h-7 shrink-0 items-center gap-1 rounded-[14px] border border-transparent px-2 text-[11px] font-medium text-[color:var(--ember-text-muted)] transition-[background-color,border-color,box-shadow,color] hover:bg-[color:var(--ember-chrome-tab-hover)] hover:text-[color:var(--ember-text)] dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-100";
+  "inline-flex h-7 shrink-0 items-center gap-1 rounded-[14px] border border-transparent px-2 text-[11px] font-medium text-[color:var(--lime-text-muted)] transition-[background-color,border-color,box-shadow,color] hover:bg-[color:var(--lime-chrome-tab-hover)] hover:text-[color:var(--lime-text)] dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-100";
 
 const taskCenterTabStripStyle = {
   "--task-center-tab-strip-background": TASK_CENTER_CHROME_STAGE_BLEND,
@@ -107,7 +112,7 @@ const taskCenterTabStripStyle = {
   background: "var(--task-center-tab-strip-background)",
   borderBottomColor: "var(--task-center-tab-strip-seam)",
   boxShadow:
-    "inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 12px 24px -34px var(--ember-shadow-color)",
+    "inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 12px 24px -34px var(--lime-shadow-color)",
 } as CSSProperties;
 
 export function TaskCenterTabStrip({
@@ -119,28 +124,39 @@ export function TaskCenterTabStrip({
   showWorkbenchToggle = false,
   workbenchVisible = false,
   onWorkbenchToggle,
+  embedded = false,
 }: TaskCenterTabStripProps) {
-  const { t } = useTranslation("navigation");
+  const { t: tNavigation } = useTranslation("navigation");
+  const { t: tAgent } = useTranslation("agent");
   const showToolbarActions = showWorkbenchToggle;
-  const renameActionLabel = t("navigation.sidebar.conversations.menu.rename");
-  const createConversationLabel = t(
+  const renameActionLabel = tNavigation(
+    "navigation.sidebar.conversations.menu.rename",
+  );
+  const createConversationLabel = tNavigation(
     "navigation.sidebar.conversations.newConversation",
   );
   const closeTabLabel = (label: string) =>
-    t("navigation.sidebar.conversations.closeTab", {
+    tNavigation("navigation.sidebar.conversations.closeTab", {
       label,
       defaultValue: "关闭 {{label}}",
     });
-  const workbenchLabel = t("navigation.sidebar.conversations.workbench.label");
+  const workbenchLabel = tNavigation(
+    "navigation.sidebar.conversations.workbench.label",
+  );
   const workbenchToggleLabel = workbenchVisible
-    ? t("navigation.sidebar.conversations.workbench.collapse")
-    : t("navigation.sidebar.conversations.workbench.expand");
+    ? tNavigation("navigation.sidebar.conversations.workbench.collapse")
+    : tNavigation("navigation.sidebar.conversations.workbench.expand");
+  const openChatLabel = tAgent("agentChat.navbar.openChat");
 
   return (
     <section
-      className="relative z-10 min-h-[42px] shrink-0 border-b border-[color:var(--ember-chrome-divider)] bg-[color:var(--ember-chrome-tab-active-surface)] px-4 pb-2 pt-1.5"
+      className={cn(
+        "relative z-10 min-h-[42px] shrink-0 bg-[color:var(--lime-chrome-tab-active-surface)] px-4 pb-2 pt-1.5",
+        !embedded && "border-b border-[color:var(--lime-chrome-divider)]",
+      )}
       data-testid="task-center-tab-strip"
-      style={taskCenterTabStripStyle}
+      role="tablist"
+      style={embedded ? undefined : taskCenterTabStripStyle}
     >
       <div className="flex items-center gap-1">
         <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]">
@@ -149,7 +165,8 @@ export function TaskCenterTabStrip({
               const statusMeta =
                 TASK_CENTER_TAB_STATUS_META[item.status] ??
                 TASK_CENTER_TAB_STATUS_META.done;
-              const displayTitle = resolveFileNameTabLabel(item.title);
+              const displayTitle =
+                resolveFileNameTabLabel(item.title) || openChatLabel;
               const tabTitle = formatTaskTabTitle(item, displayTitle);
               const closeLabel = closeTabLabel(displayTitle);
 
@@ -168,7 +185,8 @@ export function TaskCenterTabStrip({
                   <button
                     type="button"
                     className={conversationTabButtonClassName}
-                    aria-current={item.isActive ? "page" : undefined}
+                    role="tab"
+                    aria-selected={item.isActive ? "true" : "false"}
                     title={tabTitle}
                     onClick={() => {
                       void onSelectTask(item.id);
@@ -197,14 +215,14 @@ export function TaskCenterTabStrip({
                     </span>
                     {item.hasUnread ? (
                       <span
-                        className="h-2 w-2 shrink-0 rounded-full bg-[color:var(--ember-brand)]"
+                        className="h-2 w-2 shrink-0 rounded-full bg-[color:var(--lime-brand)]"
                         data-testid={`task-center-tab-unread-${item.id}`}
                         aria-hidden="true"
                       />
                     ) : null}
                     {item.isPinned ? (
                       <Pin
-                        className="h-2.5 w-2.5 shrink-0 text-[color:var(--ember-text-muted)]"
+                        className="h-2.5 w-2.5 shrink-0 text-[color:var(--lime-text-muted)]"
                         aria-hidden="true"
                       />
                     ) : null}
@@ -213,7 +231,7 @@ export function TaskCenterTabStrip({
                     <button
                       type="button"
                       className={cn(
-                        "rounded-full p-1 text-[color:var(--ember-text-muted)] transition hover:bg-[color:var(--ember-chrome-tab-hover)] hover:text-[color:var(--ember-text)] focus-visible:text-[color:var(--ember-text)] dark:hover:bg-white/10 dark:hover:text-slate-200",
+                        "rounded-full p-1 text-[color:var(--lime-text-muted)] transition hover:bg-[color:var(--lime-chrome-tab-hover)] hover:text-[color:var(--lime-text)] focus-visible:text-[color:var(--lime-text)] dark:hover:bg-white/10 dark:hover:text-slate-200",
                         item.isActive
                           ? "opacity-100"
                           : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
@@ -233,7 +251,7 @@ export function TaskCenterTabStrip({
                     <button
                       type="button"
                       className={cn(
-                        "mr-1 rounded-full p-1 text-[color:var(--ember-text-muted)] transition hover:bg-[color:var(--ember-chrome-tab-hover)] hover:text-[color:var(--ember-text)] focus-visible:text-[color:var(--ember-text)] dark:hover:bg-white/10 dark:hover:text-slate-200",
+                        "mr-1 rounded-full p-1 text-[color:var(--lime-text-muted)] transition hover:bg-[color:var(--lime-chrome-tab-hover)] hover:text-[color:var(--lime-text)] focus-visible:text-[color:var(--lime-text)] dark:hover:bg-white/10 dark:hover:text-slate-200",
                         item.isActive
                           ? "opacity-100"
                           : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
@@ -268,7 +286,7 @@ export function TaskCenterTabStrip({
 
         {showToolbarActions ? (
           <div
-            className="flex shrink-0 items-center gap-1 border-l border-[color:var(--ember-chrome-divider)] pl-1.5 dark:border-slate-700/80"
+            className="flex shrink-0 items-center gap-1 border-l border-[color:var(--lime-chrome-divider)] pl-1.5 dark:border-slate-700/80"
             data-testid="task-center-tab-toolbar"
           >
             {showWorkbenchToggle ? (
@@ -277,7 +295,7 @@ export function TaskCenterTabStrip({
                 className={cn(
                   tabWorkbenchButtonClassName,
                   workbenchVisible &&
-                    "border-[color:var(--ember-chrome-border)] bg-[color:var(--ember-chrome-tab-active-surface)] text-[color:var(--ember-text)] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:bg-slate-700 dark:text-slate-100",
+                    "border-[color:var(--lime-chrome-border)] bg-[color:var(--lime-chrome-tab-active-surface)] text-[color:var(--lime-text)] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:bg-slate-700 dark:text-slate-100",
                 )}
                 data-testid="task-center-tab-workbench"
                 aria-label={workbenchToggleLabel}

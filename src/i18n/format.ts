@@ -1,4 +1,4 @@
-import { getEmberI18n } from "./createI18n";
+import { getLimeI18n } from "./createI18n";
 import { normalizeLocale, type SupportedLocale } from "./locales";
 
 export type LocaleScopedOptions = {
@@ -34,7 +34,7 @@ function splitLocaleOption<TOptions extends LocaleScopedOptions>(
   options?: TOptions,
 ): [SupportedLocale, Omit<TOptions, "locale">] {
   const { locale, ...intlOptions } = options ?? ({} as TOptions);
-  const currentLocale = locale || getEmberI18n().language;
+  const currentLocale = locale || getLimeI18n().language;
   return [normalizeLocale(currentLocale), intlOptions];
 }
 
@@ -44,7 +44,7 @@ function toValidDate(value: Date | number | string): Date | null {
 }
 
 export function resolveFormatLocale(locale?: string | null): SupportedLocale {
-  return normalizeLocale(locale || getEmberI18n().language);
+  return normalizeLocale(locale || getLimeI18n().language);
 }
 
 export function formatDate(

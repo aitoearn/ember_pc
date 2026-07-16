@@ -12,21 +12,21 @@ use axum::{
     response::IntoResponse,
 };
 use futures::{SinkExt, StreamExt as FuturesStreamExt};
-use ember_core::database::dao::api_key_provider::ApiProviderType;
+use lime_core::database::dao::api_key_provider::ApiProviderType;
 use serde::Deserialize;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::AppState;
-use ember_core::errors::GatewayErrorCode;
-use ember_core::models::anthropic::AnthropicMessagesRequest;
-use ember_core::models::openai::ChatCompletionRequest;
-use ember_core::models::{RuntimeCredentialData, RuntimeProviderCredential};
-use ember_core::websocket::WsErrorCode;
-use ember_processor::RequestContext;
-use ember_providers::converter::anthropic_to_openai::convert_anthropic_to_openai;
-use ember_providers::providers::{ClaudeCustomProvider, OpenAICustomProvider, PromptCacheMode};
-use ember_websocket::{
+use lime_core::errors::GatewayErrorCode;
+use lime_core::models::anthropic::AnthropicMessagesRequest;
+use lime_core::models::openai::ChatCompletionRequest;
+use lime_core::models::{RuntimeCredentialData, RuntimeProviderCredential};
+use lime_core::websocket::WsErrorCode;
+use lime_processor::RequestContext;
+use lime_providers::converter::anthropic_to_openai::convert_anthropic_to_openai;
+use lime_providers::providers::{ClaudeCustomProvider, OpenAICustomProvider, PromptCacheMode};
+use lime_websocket::{
     WsApiRequest, WsApiResponse, WsEndpoint, WsError, WsMessage as WsProtoMessage,
 };
 
@@ -533,7 +533,7 @@ pub async fn call_provider_openai_for_ws(
             );
             let prompt_cache_mode = if matches!(
                 credential.effective_prompt_cache_mode(),
-                Some(ember_core::models::ProviderPromptCacheMode::Automatic)
+                Some(lime_core::models::ProviderPromptCacheMode::Automatic)
             ) {
                 PromptCacheMode::Automatic
             } else {
@@ -594,7 +594,7 @@ pub async fn call_provider_anthropic_for_ws(
             );
             let prompt_cache_mode = if matches!(
                 credential.effective_prompt_cache_mode(),
-                Some(ember_core::models::ProviderPromptCacheMode::Automatic)
+                Some(lime_core::models::ProviderPromptCacheMode::Automatic)
             ) {
                 PromptCacheMode::Automatic
             } else {

@@ -1,20 +1,23 @@
 import type {
-  AsterExecutionStrategy,
-  AsterSessionExecutionRuntime,
-  AsterSubagentParentContext,
-  AsterSubagentSessionInfo,
+  AgentExecutionStrategy,
+  AgentSessionExecutionRuntime,
+} from "@/lib/api/agentExecutionRuntime";
+import type {
   AgentRuntimeThreadReadModel,
-  AsterTodoItem,
-  QueuedTurnSnapshot,
-} from "@/lib/api/agentRuntime";
-import { normalizeQueuedTurnSnapshots } from "@/lib/api/queuedTurn";
-import { resolveRestorableSessionId } from "@/lib/asterSessionRecovery";
+  AgentTodoItem,
+} from "@/lib/api/agentRuntime/sessionTypes";
+import {
+  normalizeQueuedTurnSnapshots,
+  type QueuedTurnSnapshot,
+} from "@/lib/api/queuedTurn";
+import { resolveRestorableSessionId } from "@/lib/agentSessionRecovery";
 import type { AgentThreadItem, AgentThreadTurn, Message } from "../types";
 import type { Topic } from "./agentChatShared";
 import type { AgentSessionCachedSnapshot } from "./agentSessionScopedStorage";
 import { normalizeLegacyThreadItems } from "@/lib/api/agentTextNormalization";
 import {
   hydrateSessionDetailMessages,
+  mergeThreadItemReasoningIntoMessages,
   mergeHydratedMessagesWithLocalState,
   normalizeHistoricalTopicSnapshotMessages,
   shouldCompactCompletedSessionHistory,
@@ -24,30 +27,349 @@ import {
   mergeThreadItems,
   mergeThreadTurns,
 } from "../utils/threadTimelineView";
+import {
+  mergeRuntimeSyncThreadItems,
+  hasTerminalDetailTimeline,
+  normalizeAgentSessionDetailMergeMode,
+  resolveAgentSessionTimelineMergeDecision,
+  shouldPreserveDetachedLocalSnapshot,
+  type AgentSessionDetailMergeMode,
+} from "./agentSessionTimelineMergePolicy";
+import { collectDetailThreadItems } from "./agentChatHistoryThreadItems";
 import { createExecutionRuntimeFromSessionDetail } from "../utils/sessionExecutionRuntime";
 import { normalizeExecutionStrategy } from "./agentChatCoreUtils";
 import type { AgentRuntimeAdapter } from "./agentRuntimeAdapter";
 import { isAuxiliaryAgentSessionId } from "@/lib/api/agentRuntime/sessionIdentity";
+import {
+  hasRunningThreadReadActivity,
+  hasRunningTurnRecordActivity,
+} from "../projection/threadReadActivity";
+import {
+  buildInterruptedMessageContentPatch,
+  markInterruptedAgentMessageThreadItems,
+  messageHasInterruptedPlaceholder,
+} from "./agentInterruptedMessageContent";
+import { consumeLocallyInterruptedAgentStreamBinding } from "./agentStreamResumeBinding";
 
 export interface AgentSessionSnapshot {
   sessionId: string | null;
+  workingDir: string | null;
   messages: Message[];
   threadTurns: AgentThreadTurn[];
   threadItems: AgentThreadItem[];
   currentTurnId: string | null;
   queuedTurns: QueuedTurnSnapshot[];
   threadRead: AgentRuntimeThreadReadModel | null;
-  executionRuntime: AsterSessionExecutionRuntime | null;
-  todoItems: AsterTodoItem[];
-  childSubagentSessions: AsterSubagentSessionInfo[];
-  subagentParentContext: AsterSubagentParentContext | null;
+  executionRuntime: AgentSessionExecutionRuntime | null;
+  todoItems: AgentTodoItem[];
+}
+
+export type { AgentSessionDetailMergeMode } from "./agentSessionTimelineMergePolicy";
+
+function normalizeTimelineStatus(value: unknown): string {
+  return typeof value === "string"
+    ? value
+        .trim()
+        .toLowerCase()
+        .replace(/[\s-]+/g, "_")
+    : "";
+}
+
+function isInterruptedTimelineStatus(value: unknown): boolean {
+  const status = normalizeTimelineStatus(value);
+  return (
+    status === "canceled" ||
+    status === "cancelled" ||
+    status === "aborted" ||
+    status === "interrupted"
+  );
+}
+
+function readTimelineRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function readTimelineString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function readTimelineTurnId(value: unknown): string {
+  const record = readTimelineRecord(value);
+  if (!record) {
+    return "";
+  }
+  return (
+    readTimelineString(record.id) ||
+    readTimelineString(record.turn_id) ||
+    readTimelineString(record.turnId)
+  );
+}
+
+function readTimelineItemTurnId(value: unknown): string {
+  const record = readTimelineRecord(value);
+  if (!record) {
+    return "";
+  }
+  return (
+    readTimelineString(record.turn_id) || readTimelineString(record.turnId)
+  );
+}
+
+function readTimelineTurnStatus(value: unknown): unknown {
+  const record = readTimelineRecord(value);
+  if (!record) {
+    return undefined;
+  }
+  return record.status ?? record.native_status ?? record.nativeStatus;
+}
+
+function collectInterruptedTurnIds(options: {
+  items?: readonly unknown[];
+  threadRead?: AgentRuntimeThreadReadModel | null;
+  turns?: readonly unknown[];
+}): Set<string> {
+  const interruptedTurnIds = new Set<string>();
+
+  for (const turn of options.turns || []) {
+    if (!isInterruptedTimelineStatus(readTimelineTurnStatus(turn))) {
+      continue;
+    }
+    const turnId = readTimelineTurnId(turn);
+    if (turnId) {
+      interruptedTurnIds.add(turnId);
+    }
+  }
+
+  for (const turn of options.threadRead?.turns || []) {
+    if (!isInterruptedTimelineStatus(readTimelineTurnStatus(turn))) {
+      continue;
+    }
+    const turnId = readTimelineTurnId(turn);
+    if (turnId) {
+      interruptedTurnIds.add(turnId);
+    }
+  }
+
+  const activeTurnId = readTimelineString(options.threadRead?.active_turn_id);
+  if (
+    activeTurnId &&
+    (isInterruptedTimelineStatus(options.threadRead?.status) ||
+      isInterruptedTimelineStatus(options.threadRead?.profile_status) ||
+      isInterruptedTimelineStatus(
+        options.threadRead?.diagnostics?.latest_turn_status,
+      ))
+  ) {
+    interruptedTurnIds.add(activeTurnId);
+  }
+
+  if (
+    interruptedTurnIds.size === 0 &&
+    (isInterruptedTimelineStatus(options.threadRead?.status) ||
+      isInterruptedTimelineStatus(options.threadRead?.profile_status))
+  ) {
+    for (const item of options.items || []) {
+      const turnId = readTimelineItemTurnId(item);
+      if (turnId) {
+        interruptedTurnIds.add(turnId);
+      }
+    }
+  }
+
+  return interruptedTurnIds;
+}
+
+function collectLocalInterruptedCandidateTurnIds(options: {
+  currentTurnId?: string | null;
+  items?: readonly unknown[];
+  threadRead?: AgentRuntimeThreadReadModel | null;
+  turns?: readonly unknown[];
+}): string[] {
+  const candidateTurnIds: string[] = [];
+  const seen = new Set<string>();
+  const pushTurnId = (value: unknown) => {
+    const turnId = readTimelineString(value);
+    if (!turnId || turnId.startsWith("pending-turn:") || seen.has(turnId)) {
+      return;
+    }
+    seen.add(turnId);
+    candidateTurnIds.push(turnId);
+  };
+
+  pushTurnId(options.currentTurnId);
+  pushTurnId(options.threadRead?.active_turn_id);
+
+  for (let index = (options.turns?.length ?? 0) - 1; index >= 0; index -= 1) {
+    pushTurnId(readTimelineTurnId(options.turns?.[index]));
+  }
+
+  const threadReadTurns = options.threadRead?.turns ?? [];
+  for (let index = threadReadTurns.length - 1; index >= 0; index -= 1) {
+    pushTurnId(readTimelineTurnId(threadReadTurns[index]));
+  }
+
+  for (let index = (options.items?.length ?? 0) - 1; index >= 0; index -= 1) {
+    pushTurnId(readTimelineItemTurnId(options.items?.[index]));
+  }
+
+  return candidateTurnIds;
+}
+
+function collectLocallyInterruptedTurnIds(options: {
+  candidateTurnIds: readonly string[];
+  sessionId: string;
+  threadId?: string | null;
+}): Set<string> {
+  const interruptedTurnIds = new Set<string>();
+  const sessionId = readTimelineString(options.sessionId);
+  if (!sessionId) {
+    return interruptedTurnIds;
+  }
+
+  const threadId = readTimelineString(options.threadId) || sessionId;
+  for (const turnId of options.candidateTurnIds) {
+    if (
+      consumeLocallyInterruptedAgentStreamBinding({
+        eventName: `agentSession/event/${sessionId}`,
+        sessionId,
+        threadId,
+        turnId,
+      })
+    ) {
+      interruptedTurnIds.add(turnId);
+      return interruptedTurnIds;
+    }
+  }
+
+  return interruptedTurnIds;
+}
+
+function collectLocalInterruptedMarkerTurnIds(options: {
+  currentMessages: readonly Message[];
+  fallbackTurnId?: string | null;
+  incomingItems?: readonly unknown[];
+}): Set<string> {
+  const interruptedTurnIds = new Set<string>();
+  const pushTurnId = (value: unknown) => {
+    const turnId = readTimelineString(value);
+    if (!turnId || turnId.startsWith("pending-turn:")) {
+      return;
+    }
+    interruptedTurnIds.add(turnId);
+  };
+
+  const hasLocalInterruptedMarker = options.currentMessages.some(
+    (message) =>
+      message.role === "assistant" && messageHasInterruptedPlaceholder(message),
+  );
+  if (!hasLocalInterruptedMarker) {
+    return interruptedTurnIds;
+  }
+
+  for (const message of options.currentMessages) {
+    if (
+      message.role === "assistant" &&
+      messageHasInterruptedPlaceholder(message)
+    ) {
+      pushTurnId(message.runtimeTurnId);
+    }
+  }
+
+  pushTurnId(options.fallbackTurnId);
+  for (
+    let index = (options.incomingItems?.length ?? 0) - 1;
+    index >= 0;
+    index -= 1
+  ) {
+    pushTurnId(readTimelineItemTurnId(options.incomingItems?.[index]));
+  }
+
+  return interruptedTurnIds;
+}
+
+function markInterruptedAssistantMessages(
+  messages: Message[],
+  interruptedTurnIds: Set<string>,
+  options?: {
+    fallbackTurnId?: string | null;
+  },
+): Message[] {
+  if (interruptedTurnIds.size === 0) {
+    return messages;
+  }
+  let hasMarkedMessage = false;
+  const nextMessages = messages.map((message) => {
+    if (
+      message.role !== "assistant" ||
+      !message.runtimeTurnId ||
+      !interruptedTurnIds.has(message.runtimeTurnId)
+    ) {
+      return message;
+    }
+    hasMarkedMessage = true;
+    return {
+      ...message,
+      ...buildInterruptedMessageContentPatch(message),
+      isThinking: false,
+      runtimeStatus:
+        message.runtimeStatus?.phase === "cancelled"
+          ? message.runtimeStatus
+          : undefined,
+    };
+  });
+  const fallbackTurnId = readTimelineString(options?.fallbackTurnId);
+  if (
+    hasMarkedMessage ||
+    !fallbackTurnId ||
+    !interruptedTurnIds.has(fallbackTurnId)
+  ) {
+    return nextMessages;
+  }
+
+  let fallbackAssistantIndex = -1;
+  for (let index = nextMessages.length - 1; index >= 0; index -= 1) {
+    if (nextMessages[index]?.role === "assistant") {
+      fallbackAssistantIndex = index;
+      break;
+    }
+  }
+  if (fallbackAssistantIndex < 0) {
+    return nextMessages;
+  }
+
+  return nextMessages.map((message, index) =>
+    index === fallbackAssistantIndex
+      ? {
+          ...message,
+          ...buildInterruptedMessageContentPatch(message),
+          isThinking: false,
+          runtimeTurnId: message.runtimeTurnId?.startsWith("pending-turn:")
+            ? fallbackTurnId
+            : (message.runtimeTurnId ?? fallbackTurnId),
+          runtimeStatus:
+            message.runtimeStatus?.phase === "cancelled"
+              ? message.runtimeStatus
+              : undefined,
+        }
+      : message,
+  );
+}
+
+function markInterruptedThreadItems(
+  items: AgentThreadItem[],
+  interruptedTurnIds: Set<string>,
+): AgentThreadItem[] {
+  return markInterruptedAgentMessageThreadItems(items, interruptedTurnIds);
 }
 
 export function createEmptyAgentSessionSnapshot(options?: {
-  executionRuntime?: AsterSessionExecutionRuntime | null;
+  executionRuntime?: AgentSessionExecutionRuntime | null;
+  workingDir?: string | null;
 }): AgentSessionSnapshot {
   return {
     sessionId: null,
+    workingDir: options?.workingDir?.trim() || null,
     messages: [],
     threadTurns: [],
     threadItems: [],
@@ -56,94 +378,48 @@ export function createEmptyAgentSessionSnapshot(options?: {
     threadRead: null,
     executionRuntime: options?.executionRuntime ?? null,
     todoItems: [],
-    childSubagentSessions: [],
-    subagentParentContext: null,
   };
 }
 
-function normalizeConversationText(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
-}
-
-function firstUserMessageText(messages: Message[]): string {
-  return normalizeConversationText(
-    messages.find((message) => message.role === "user")?.content || "",
-  );
-}
-
-function userMessageTexts(messages: Message[]): string[] {
-  return messages
-    .filter((message) => message.role === "user")
-    .map((message) => normalizeConversationText(message.content || ""));
-}
-
-function areConversationTextsCompatible(left: string, right: string): boolean {
-  if (!left || !right) {
-    return true;
-  }
-
-  return left === right || left.includes(right) || right.includes(left);
-}
-
-function isLocalTimelineCompatibleWithHydratedMessages(params: {
-  hydratedMessages: Message[];
-  localMessages: Message[];
-}): boolean {
-  const hydratedUserTexts = userMessageTexts(params.hydratedMessages);
-  const localUserTexts = userMessageTexts(params.localMessages);
-  if (hydratedUserTexts.length === 0 || localUserTexts.length === 0) {
-    return true;
-  }
-
-  const compareCount = Math.min(hydratedUserTexts.length, localUserTexts.length);
-  for (let index = 0; index < compareCount; index += 1) {
-    if (
-      !areConversationTextsCompatible(
-        localUserTexts[index] || "",
-        hydratedUserTexts[index] || "",
-      )
-    ) {
-      return false;
+function resolveCurrentTurnIdFromTimeline(params: {
+  turns: AgentThreadTurn[];
+  items: AgentThreadItem[];
+  preferredTurns?: AgentThreadTurn[];
+  preferredItems?: AgentThreadItem[];
+}): string | null {
+  for (
+    let index = (params.preferredTurns?.length ?? 0) - 1;
+    index >= 0;
+    index -= 1
+  ) {
+    const turnId = params.preferredTurns?.[index]?.id;
+    if (typeof turnId === "string" && turnId.trim().length > 0) {
+      return turnId;
     }
   }
-
-  return true;
-}
-
-function hasAssistantProcessSnapshot(messages: Message[]): boolean {
-  return messages.some(
-    (message) =>
-      message.role === "assistant" &&
-      (Boolean(message.thinkingContent?.trim()) ||
-        Boolean(message.contentParts?.some((part) => part.type !== "text")) ||
-        Boolean(message.runtimeTurnId?.trim().startsWith("skill-exec-")) ||
-        message.inlineProcessRetention === "skill"),
-  );
-}
-
-function shouldPreserveDetachedLocalSnapshot(params: {
-  hydratedMessages: Message[];
-  localMessages: Message[];
-  sessionId: string | null;
-}): boolean {
-  if (
-    params.sessionId !== null ||
-    !hasAssistantProcessSnapshot(params.localMessages)
+  for (
+    let index = (params.preferredItems?.length ?? 0) - 1;
+    index >= 0;
+    index -= 1
   ) {
-    return false;
+    const turnId = params.preferredItems?.[index]?.turn_id;
+    if (typeof turnId === "string" && turnId.trim().length > 0) {
+      return turnId;
+    }
   }
-
-  const localUserText = firstUserMessageText(params.localMessages);
-  const hydratedUserText = firstUserMessageText(params.hydratedMessages);
-  if (!localUserText || !hydratedUserText) {
-    return false;
+  for (let index = params.items.length - 1; index >= 0; index -= 1) {
+    const turnId = params.items[index]?.turn_id;
+    if (typeof turnId === "string" && turnId.trim().length > 0) {
+      return turnId;
+    }
   }
-
-  return (
-    localUserText === hydratedUserText ||
-    localUserText.includes(hydratedUserText) ||
-    hydratedUserText.includes(localUserText)
-  );
+  for (let index = params.turns.length - 1; index >= 0; index -= 1) {
+    const turnId = params.turns[index]?.id;
+    if (typeof turnId === "string" && turnId.trim().length > 0) {
+      return turnId;
+    }
+  }
+  return null;
 }
 
 export function hasSessionHydrationActivity(options: {
@@ -157,6 +433,104 @@ export function hasSessionHydrationActivity(options: {
     options.threadTurnsCount > 0 ||
     options.threadItemsCount > 0 ||
     options.queuedTurnsCount > 0
+  );
+}
+
+export function shouldPreserveActiveLocalSessionDuringBackgroundRestoreInitialization(options: {
+  activeStreamingTimeline: boolean;
+  messagesCount: number;
+  sessionId: string | null | undefined;
+  shouldRestoreSessionInForeground: boolean;
+  threadItemsCount: number;
+  threadTurnsCount: number;
+}): boolean {
+  if (options.shouldRestoreSessionInForeground) {
+    return false;
+  }
+
+  if (!options.sessionId?.trim()) {
+    return false;
+  }
+
+  return (
+    options.messagesCount > 0 ||
+    options.threadTurnsCount > 0 ||
+    options.threadItemsCount > 0 ||
+    options.activeStreamingTimeline
+  );
+}
+
+export function hasActiveRuntimeTurn(options: {
+  currentTurnId?: string | null;
+  queuedTurnsCount: number;
+  threadRead?: AgentRuntimeThreadReadModel | null;
+  threadReadStatus?: string | null;
+  turns: readonly AgentThreadTurn[];
+}): boolean {
+  if (options.queuedTurnsCount > 0) {
+    return true;
+  }
+
+  const normalizedThreadReadStatus =
+    options.threadReadStatus?.trim().toLowerCase() ?? null;
+  const normalizedProfileStatus =
+    options.threadRead?.profile_status?.trim().toLowerCase() ?? null;
+  if (
+    isExplicitTerminalRuntimeStatus(normalizedThreadReadStatus) ||
+    isExplicitTerminalRuntimeStatus(normalizedProfileStatus)
+  ) {
+    return false;
+  }
+  if (options.threadRead) {
+    const readModelReportsRunning =
+      normalizedThreadReadStatus === "running" ||
+      normalizedProfileStatus === "running";
+    const readModelReportsQueued =
+      normalizedThreadReadStatus === "queued" ||
+      normalizedProfileStatus === "queued";
+    const readModelQueuedTurnsCount =
+      options.threadRead.queued_turns?.length ?? 0;
+    const hasAuthoritativeReadModelStatus = Boolean(
+      normalizedThreadReadStatus || normalizedProfileStatus,
+    );
+    if (
+      hasAuthoritativeReadModelStatus &&
+      !readModelReportsRunning &&
+      !(readModelReportsQueued && readModelQueuedTurnsCount > 0)
+    ) {
+      return false;
+    }
+    if (
+      hasRunningThreadReadActivity(options.threadRead, {
+        allowThreadStatusWithoutTurn: true,
+      })
+    ) {
+      return true;
+    }
+    if (readModelReportsQueued && readModelQueuedTurnsCount > 0) {
+      return true;
+    }
+    if (readModelReportsRunning) {
+      return Boolean(options.threadRead.active_turn_id?.trim());
+    }
+  } else if (normalizedThreadReadStatus === "running") {
+    return true;
+  }
+
+  if (options.turns.some((turn) => hasRunningTurnRecordActivity(turn))) {
+    return true;
+  }
+
+  return false;
+}
+
+function isExplicitTerminalRuntimeStatus(status: string | null): boolean {
+  return (
+    status === "completed" ||
+    status === "failed" ||
+    status === "canceled" ||
+    status === "cancelled" ||
+    status === "aborted"
   );
 }
 
@@ -195,6 +569,48 @@ export function shouldDeferSessionDetailHydration(options: {
   );
 }
 
+export function shouldSkipAlreadyHydratedSession(options: {
+  hydratedSessionId: string | null;
+  sessionId: string;
+  currentTurnId: string | null;
+  messagesCount: number;
+  queuedTurnsCount: number;
+  threadReadStatus?: string | null;
+  threadItemsCount: number;
+  threadTurnsCount: number;
+  selectedTopic?: Pick<Topic, "messagesCount" | "status"> | null;
+}): boolean {
+  if (options.hydratedSessionId !== options.sessionId) {
+    return false;
+  }
+
+  const hasLocalSessionContent =
+    options.messagesCount > 0 ||
+    hasSessionHydrationActivity({
+      currentTurnId: options.currentTurnId,
+      queuedTurnsCount: options.queuedTurnsCount,
+      threadItemsCount: options.threadItemsCount,
+      threadTurnsCount: options.threadTurnsCount,
+    });
+  const normalizedThreadReadStatus = (options.threadReadStatus || "")
+    .trim()
+    .toLowerCase();
+  const hasRuntimeReadModelActivity =
+    normalizedThreadReadStatus === "queued" ||
+    normalizedThreadReadStatus === "running" ||
+    normalizedThreadReadStatus === "waiting_request";
+  if (hasLocalSessionContent || hasRuntimeReadModelActivity) {
+    return true;
+  }
+
+  const topicMessagesCount = options.selectedTopic?.messagesCount ?? 0;
+  const topicStatus = options.selectedTopic?.status ?? "draft";
+  const topicExpectsRemoteDetail =
+    topicMessagesCount > 0 || topicStatus !== "draft";
+
+  return !topicExpectsRemoteDetail;
+}
+
 export type MissingSessionFromTopicsAction =
   | {
       kind: "none";
@@ -216,6 +632,8 @@ export function resolveMissingSessionFromTopicsAction(options: {
   currentTurnId: string | null;
   detachedSessionId: string | null | undefined;
   queuedTurnsCount: number;
+  remoteConfirmed?: boolean;
+  restoreCandidateMayLagTopics?: boolean;
   sessionId: string | null | undefined;
   threadItemsCount: number;
   threadTurnsCount: number;
@@ -241,12 +659,15 @@ export function resolveMissingSessionFromTopicsAction(options: {
     return { kind: "clear_auxiliary" };
   }
 
-  const shouldVerifyMissingSession = hasSessionHydrationActivity({
-    currentTurnId: options.currentTurnId,
-    threadTurnsCount: options.threadTurnsCount,
-    threadItemsCount: options.threadItemsCount,
-    queuedTurnsCount: options.queuedTurnsCount,
-  });
+  const shouldVerifyMissingSession =
+    hasSessionHydrationActivity({
+      currentTurnId: options.currentTurnId,
+      threadTurnsCount: options.threadTurnsCount,
+      threadItemsCount: options.threadItemsCount,
+      queuedTurnsCount: options.queuedTurnsCount,
+    }) ||
+    options.remoteConfirmed === true ||
+    options.restoreCandidateMayLagTopics === true;
 
   return shouldVerifyMissingSession
     ? { kind: "verify_remote" }
@@ -290,8 +711,8 @@ interface BuildHydratedAgentSessionSnapshotOptions {
   currentMessages: Message[];
   currentThreadTurns: AgentThreadTurn[];
   currentThreadItems: AgentThreadItem[];
-  currentExecutionRuntime: AsterSessionExecutionRuntime | null;
-  currentExecutionStrategy: AsterExecutionStrategy;
+  currentExecutionRuntime: AgentSessionExecutionRuntime | null;
+  currentExecutionStrategy: AgentExecutionStrategy;
   topics: Topic[];
   localSnapshotOverride?: {
     sessionId: string;
@@ -300,14 +721,15 @@ interface BuildHydratedAgentSessionSnapshotOptions {
     threadItems: AgentThreadItem[];
   } | null;
   syncSessionId?: boolean;
-  executionStrategyOverride?: AsterExecutionStrategy;
+  executionStrategyOverride?: AgentExecutionStrategy;
   preserveExecutionStrategyOnMissingDetail?: boolean;
+  detailMergeMode?: AgentSessionDetailMergeMode;
 }
 
 export function buildHydratedAgentSessionSnapshot(
   options: BuildHydratedAgentSessionSnapshotOptions,
 ): {
-  executionStrategy: AsterExecutionStrategy;
+  executionStrategy: AgentExecutionStrategy;
   snapshot: AgentSessionSnapshot;
 } {
   const {
@@ -324,7 +746,10 @@ export function buildHydratedAgentSessionSnapshot(
     syncSessionId = false,
     executionStrategyOverride,
     preserveExecutionStrategyOnMissingDetail = false,
+    detailMergeMode,
   } = options;
+  const normalizedDetailMergeMode =
+    normalizeAgentSessionDetailMergeMode(detailMergeMode);
   const effectiveCurrentSessionId =
     localSnapshotOverride?.sessionId ?? currentSessionId;
   const effectiveCurrentMessages = localSnapshotOverride
@@ -334,6 +759,17 @@ export function buildHydratedAgentSessionSnapshot(
     localSnapshotOverride?.threadTurns ?? currentThreadTurns;
   const effectiveCurrentThreadItems =
     localSnapshotOverride?.threadItems ?? currentThreadItems;
+  const incomingTurns = detail.turns || [];
+  const incomingItems = normalizeLegacyThreadItems(
+    collectDetailThreadItems(detail),
+  );
+  const hasIncomingTerminalTimeline = hasTerminalDetailTimeline({
+    thread_read: detail.thread_read,
+    turns: incomingTurns,
+  });
+  const shouldReconcileTerminalRuntimeDetail =
+    hasIncomingTerminalTimeline &&
+    normalizedDetailMergeMode !== "history_hydrate";
   const mayPreserveExistingTimelineBySession =
     effectiveCurrentSessionId === topicId ||
     (effectiveCurrentSessionId === null &&
@@ -347,36 +783,41 @@ export function buildHydratedAgentSessionSnapshot(
     {
       compactCompletedHistory: shouldCompactCompletedSessionHistory(detail),
       includeTimelineFallback:
+        shouldReconcileTerminalRuntimeDetail ||
         !mayPreserveExistingTimelineBySession ||
         effectiveCurrentMessages.length === 0,
+      includeTimelineFallbackUsers: shouldReconcileTerminalRuntimeDetail,
     },
   );
   const hydratedMessagesForCompatibility =
-    mayPreserveExistingTimelineBySession &&
-    effectiveCurrentMessages.length > 0
+    mayPreserveExistingTimelineBySession && effectiveCurrentMessages.length > 0
       ? hydrateSessionDetailMessages(detail, topicId, {
           compactCompletedHistory: shouldCompactCompletedSessionHistory(detail),
           includeTimelineFallback: true,
+          includeTimelineFallbackUsers: shouldReconcileTerminalRuntimeDetail,
         })
       : hydratedMessagesForCurrentMode;
-  const shouldPreserveExistingTimelineBySession =
-    mayPreserveExistingTimelineBySession &&
-    isLocalTimelineCompatibleWithHydratedMessages({
-      hydratedMessages: hydratedMessagesForCompatibility,
-      localMessages: effectiveCurrentMessages,
-    });
-  const hydratedMessages = shouldPreserveExistingTimelineBySession
-    ? hydratedMessagesForCurrentMode
-    : hydratedMessagesForCompatibility;
+  const timelineMergeDecision = resolveAgentSessionTimelineMergeDecision({
+    mode: normalizedDetailMergeMode,
+    mayPreserveExistingTimelineBySession,
+    hydratedMessagesForCompatibility,
+    localMessages: effectiveCurrentMessages,
+    threadRead: detail.thread_read,
+    incomingTurns,
+  });
+  const hydratedMessages =
+    timelineMergeDecision.shouldIgnoreIncompatibleHydratedMessages
+      ? []
+      : timelineMergeDecision.shouldPreserveBySession
+        ? hydratedMessagesForCurrentMode
+        : hydratedMessagesForCompatibility;
   const shouldPreserveExistingTimeline =
-    shouldPreserveExistingTimelineBySession ||
+    timelineMergeDecision.shouldPreserveBySession ||
     shouldPreserveDetachedLocalSnapshot({
       hydratedMessages,
       localMessages: effectiveCurrentMessages,
       sessionId: effectiveCurrentSessionId,
     });
-  const incomingTurns = detail.turns || [];
-  const incomingItems = normalizeLegacyThreadItems(detail.items || []);
   const shouldPreserveExecutionRuntimeOnMissingDetail =
     shouldPreserveExistingTimeline;
   const nextExecutionRuntime = createExecutionRuntimeFromSessionDetail(detail);
@@ -392,10 +833,14 @@ export function buildHydratedAgentSessionSnapshot(
     ? mergeThreadTurns(effectiveCurrentThreadTurns, incomingTurns)
     : mergeThreadTurns(incomingTurns);
   const nextThreadItems = shouldPreserveExistingTimeline
-    ? filterConversationThreadItems(
-        mergeThreadItems(effectiveCurrentThreadItems, incomingItems),
-      )
+    ? timelineMergeDecision.shouldPreserveByRuntimeSync
+      ? mergeRuntimeSyncThreadItems(effectiveCurrentThreadItems, incomingItems)
+      : filterConversationThreadItems(
+          mergeThreadItems(effectiveCurrentThreadItems, incomingItems),
+        )
     : filterConversationThreadItems(incomingItems);
+  const visibleIncomingTurns = mergeThreadTurns(incomingTurns);
+  const visibleIncomingItems = mergeThreadItems(incomingItems);
   const nextMessages =
     shouldPreserveExistingTimeline && hydratedMessages.length === 0
       ? effectiveCurrentMessages
@@ -403,29 +848,74 @@ export function buildHydratedAgentSessionSnapshot(
         ? mergeHydratedMessagesWithLocalState(
             effectiveCurrentMessages,
             hydratedMessages,
+            {
+              preferHydratedAssistantOutput:
+                shouldReconcileTerminalRuntimeDetail,
+            },
           )
         : hydratedMessages;
+  const nextCurrentTurnId = resolveCurrentTurnIdFromTimeline({
+    turns: nextThreadTurns,
+    items: nextThreadItems,
+    preferredTurns: visibleIncomingTurns,
+    preferredItems: visibleIncomingItems,
+  });
+  const interruptedTurnIds = collectInterruptedTurnIds({
+    items: incomingItems,
+    threadRead: detail.thread_read,
+    turns: incomingTurns,
+  });
+  for (const turnId of collectLocallyInterruptedTurnIds({
+    candidateTurnIds: collectLocalInterruptedCandidateTurnIds({
+      currentTurnId: nextCurrentTurnId,
+      items: incomingItems,
+      threadRead: detail.thread_read,
+      turns: incomingTurns,
+    }),
+    sessionId: topicId,
+    threadId: detail.thread_id ?? detail.thread_read?.thread_id ?? topicId,
+  })) {
+    interruptedTurnIds.add(turnId);
+  }
+  for (const turnId of collectLocalInterruptedMarkerTurnIds({
+    currentMessages: effectiveCurrentMessages,
+    fallbackTurnId: nextCurrentTurnId,
+    incomingItems,
+  })) {
+    interruptedTurnIds.add(turnId);
+  }
+  const nextThreadItemsWithTerminalMarkers = markInterruptedThreadItems(
+    nextThreadItems,
+    interruptedTurnIds,
+  );
+  const nextMessagesWithThreadReasoning = mergeThreadItemReasoningIntoMessages(
+    nextMessages,
+    nextThreadItemsWithTerminalMarkers,
+  );
+  const nextMessagesWithTerminalMarkers = markInterruptedAssistantMessages(
+    nextMessagesWithThreadReasoning,
+    interruptedTurnIds,
+    { fallbackTurnId: nextCurrentTurnId },
+  );
 
   return {
     executionStrategy: normalizeExecutionStrategy(nextExecutionStrategy),
     snapshot: {
       sessionId: syncSessionId ? topicId : currentSessionId,
-      messages: nextMessages,
+      workingDir: detail.working_dir?.trim() || null,
+      messages: nextMessagesWithTerminalMarkers,
       threadTurns: nextThreadTurns,
-      threadItems: nextThreadItems,
-      currentTurnId:
-        nextThreadTurns.length > 0
-          ? nextThreadTurns[nextThreadTurns.length - 1]?.id || null
-          : null,
-      queuedTurns: normalizeQueuedTurnSnapshots(detail.queued_turns),
+      threadItems: nextThreadItemsWithTerminalMarkers,
+      currentTurnId: nextCurrentTurnId,
+      queuedTurns: normalizeQueuedTurnSnapshots(
+        detail.queued_turns ?? detail.thread_read?.queued_turns,
+      ),
       threadRead: detail.thread_read ?? null,
       executionRuntime:
         shouldPreserveExecutionRuntimeOnMissingDetail && !nextExecutionRuntime
           ? currentExecutionRuntime
           : nextExecutionRuntime,
       todoItems: detail.todo_items ?? [],
-      childSubagentSessions: detail.child_subagent_sessions ?? [],
-      subagentParentContext: detail.subagent_parent_context ?? null,
     },
   };
 }

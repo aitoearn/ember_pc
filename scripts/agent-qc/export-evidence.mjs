@@ -22,7 +22,7 @@ function parseArgs(argv) {
     jobJson: "",
     outputPath: "",
     ref: "",
-    repo: "ember",
+    repo: "lime",
     riskTags: [],
   };
 
@@ -97,10 +97,10 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Agent QC Evidence Export
+Lime Agent QC Evidence Export
 
 用法:
-  npm run agent-qc:export-evidence -- --job-id "qcloop-job-id" --output ./.ember/qc/evidence.json
+  npm run agent-qc:export-evidence -- --job-id "qcloop-job-id" --output ./.lime/qc/evidence.json
   node scripts/agent-qc/export-evidence.mjs --job-json ./job.json --items-json ./items.json --check
 
 选项:
@@ -109,7 +109,7 @@ Ember Agent QC Evidence Export
   --job-json PATH      离线 job JSON 文件
   --items-json PATH    离线 items JSON 文件
   --output PATH        写入 Evidence Pack；默认 stdout
-  --repo NAME          subject.repo，默认 ember
+  --repo NAME          subject.repo，默认 lime
   --ref REF            subject.ref
   --diff-base REF      subject.diffBase
   --changed-file PATH  追加 changedFiles，可重复

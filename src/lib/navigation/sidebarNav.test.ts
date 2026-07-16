@@ -10,20 +10,20 @@ describe("sidebarNav", () => {
   it("应把主导航与底部系统入口收口为一级列表", () => {
     expect(MAIN_SIDEBAR_NAV_ITEMS.map((item) => item.label)).toEqual([
       "新建任务",
-      "端自动化",
-      "测试用例",
       "专家",
       "Skills",
-      "Agent Apps",
-      "项目资料",
+      "插件",
     ]);
 
     expect(FOOTER_SIDEBAR_NAV_ITEMS.map((item) => item.label)).toEqual([
       "设置",
-      "灵感",
+      "项目资料",
       "持续流程",
       "消息渠道",
     ]);
+    expect(FOOTER_SIDEBAR_NAV_ITEMS.map((item) => item.id)).not.toContain(
+      "memory",
+    );
   });
 
   it("恢复导航设置时应过滤固定系统入口和已下线 companion", () => {
@@ -51,28 +51,15 @@ describe("sidebarNav", () => {
     expect(resolveEnabledSidebarNavItems(["companion"], 2)).toEqual([]);
   });
 
-  it("Agent App Lab 只在实验开关开启时进入左侧栏", () => {
+  it("Plugin Lab 只在实验开关开启时进入左侧栏", () => {
     expect(
       buildMainSidebarNavItems({ labEnabled: false }).map((item) => item.id),
-    ).toContain("agent-apps");
+    ).toContain("plugins");
     expect(
       buildMainSidebarNavItems({ labEnabled: true }).map((item) => item.id),
-    ).toContain("agent-app-lab");
+    ).toContain("plugin-lab");
     expect(
       buildMainSidebarNavItems({ labEnabled: false }).map((item) => item.id),
-    ).not.toContain("agent-app-lab");
-  });
-
-  it("Agent 观测默认隐藏，实验开关开启后才进入左侧栏", () => {
-    expect(
-      buildMainSidebarNavItems({ agentObservabilityEnabled: false }).map(
-        (item) => item.id,
-      ),
-    ).not.toContain("agent-observability");
-    expect(
-      buildMainSidebarNavItems({ agentObservabilityEnabled: true }).map(
-        (item) => item.id,
-      ),
-    ).toContain("agent-observability");
+    ).not.toContain("plugin-lab");
   });
 });

@@ -1,7 +1,7 @@
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { ArtifactRenderer } from "./ArtifactRenderer";
 import { ArtifactDocumentRenderer } from "./renderers/ArtifactDocumentRenderer";
 import {
@@ -82,7 +82,7 @@ beforeEach(async () => {
     registerLightweightRenderers();
   }
 
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 afterEach(async () => {
@@ -97,7 +97,7 @@ afterEach(async () => {
     mounted.container.remove();
   }
 
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("ArtifactRenderer 空内容态", () => {
@@ -126,7 +126,7 @@ describe("ArtifactRenderer 空内容态", () => {
   });
 
   it("应通过 workspace namespace 渲染英文空内容态和未知类型回退", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
 
     const writingContainer = renderArtifact(
       createArtifact({
@@ -253,7 +253,7 @@ describe("ArtifactRenderer 空内容态", () => {
           updatedAt: "2026-05-08T00:00:00.000Z",
         }),
         meta: {
-          filePath: ".ember/layered-designs/demo.layered-design/design.json",
+          filePath: ".lime/layered-designs/demo.layered-design/design.json",
           filename: "design.json",
         },
       }),
@@ -342,7 +342,7 @@ describe("ArtifactRenderer 空内容态", () => {
           updatedAt: "2026-05-08T00:00:00.000Z",
         }),
         meta: {
-          filePath: ".ember/layered-designs/full.layered-design/design.json",
+          filePath: ".lime/layered-designs/full.layered-design/design.json",
           filename: "design.json",
         },
       }),
@@ -480,7 +480,7 @@ describe("ArtifactRenderer 空内容态", () => {
         content: "",
         status: "complete",
         meta: {
-          filePath: ".ember/artifacts/thread-1/report.artifact.json",
+          filePath: ".lime/artifacts/thread-1/report.artifact.json",
           filename: "report.artifact.json",
           artifactSchema: "artifact_document.v1",
           artifactDocument: {
@@ -524,6 +524,245 @@ describe("ArtifactRenderer 空内容态", () => {
     expect(container.textContent).toContain("落盘结构化周报");
     expect(container.textContent).toContain("落盘后的正文内容");
     expect(container.textContent).toContain("主题 通用");
+  });
+
+  it("source-backed 图片 preview artifact 应用媒体视图渲染", () => {
+    const container = renderArtifact(
+      createArtifact({
+        type: "document",
+        title: "hero.png",
+        content: "asset:///tmp/lime/images/hero.png",
+        status: "complete",
+        meta: {
+          previewArtifact: true,
+          isSourceBacked: true,
+          contentKind: "image",
+          renderMode: "media",
+          previewUrl: "asset:///tmp/lime/images/hero.png",
+          filePath: "/tmp/lime/images/hero.png",
+          filename: "hero.png",
+        },
+      }),
+    );
+
+    const image = container.querySelector<HTMLImageElement>(
+      '[data-testid="preview-artifact-image"]',
+    );
+
+    expect(image).not.toBeNull();
+    expect(image?.getAttribute("src")).toBe(
+      "asset:///tmp/lime/images/hero.png",
+    );
+    expect(image?.getAttribute("alt")).toBe("hero.png");
+    expect(container.textContent).not.toContain("<figure");
+    expect(
+      container.querySelector('[data-testid="artifact-empty-surface"]'),
+    ).toBeNull();
+  });
+
+  it("system_open preview artifact 应渲染统一兜底面而不是空内容文档", () => {
+    const container = renderArtifact(
+      createArtifact({
+        type: "document",
+        title: "deck.pdf",
+        content: "该文档暂不支持在工作台内嵌预览。\n\n/tmp/lime/deck.pdf",
+        status: "complete",
+        meta: {
+          previewArtifact: true,
+          isSourceBacked: true,
+          contentKind: "document",
+          renderMode: "system_open",
+          sourcePath: "/tmp/lime/deck.pdf",
+          filePath: "/tmp/lime/deck.pdf",
+          filename: "deck.pdf",
+          mimeType: "application/pdf",
+          capabilities: {
+            preview: false,
+            systemOpen: true,
+            reveal: true,
+          },
+        },
+      }),
+    );
+
+    const surface = container.querySelector(
+      '[data-testid="preview-artifact-fallback-surface"]',
+    );
+
+    expect(surface).not.toBeNull();
+    expect(surface?.getAttribute("data-preview-render-mode")).toBe(
+      "system_open",
+    );
+    expect(container.textContent).toContain("请用系统应用打开");
+    expect(container.textContent).toContain("deck.pdf");
+    expect(container.textContent).toContain("/tmp/lime/deck.pdf");
+    expect(container.textContent).toContain("类型：application/pdf");
+    expect(
+      container.querySelector('[data-testid="artifact-empty-surface"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('[data-testid="artifact-document-renderer"]'),
+    ).toBeNull();
+    expect(container.textContent).not.toContain("写入已结束");
+  });
+
+  it("unsupported preview artifact 应渲染不可内嵌说明并保留来源错误", () => {
+    const container = renderArtifact(
+      createArtifact({
+        type: "document",
+        title: "unknown.bin",
+        content: "无法预览该文件。\n\n缺少安全渲染器",
+        status: "error",
+        error: "缺少安全渲染器",
+        meta: {
+          previewArtifact: true,
+          isSourceBacked: true,
+          contentKind: "unsupported",
+          renderMode: "unsupported",
+          sourcePath: "/tmp/lime/unknown.bin",
+          filePath: "/tmp/lime/unknown.bin",
+          filename: "unknown.bin",
+          previewError: "缺少安全渲染器",
+          capabilities: {
+            preview: false,
+            systemOpen: false,
+            reveal: true,
+          },
+        },
+      }),
+    );
+
+    const surface = container.querySelector(
+      '[data-testid="preview-artifact-fallback-surface"]',
+    );
+
+    expect(surface).not.toBeNull();
+    expect(surface?.getAttribute("data-preview-render-mode")).toBe(
+      "unsupported",
+    );
+    expect(container.textContent).toContain("暂不支持内嵌预览");
+    expect(container.textContent).toContain("unknown.bin");
+    expect(container.textContent).toContain("/tmp/lime/unknown.bin");
+    expect(container.textContent).toContain("缺少安全渲染器");
+    expect(
+      container.querySelector('[data-testid="artifact-empty-surface"]'),
+    ).toBeNull();
+    expect(container.textContent).not.toContain("写入未完成");
+  });
+
+  it("URL preview artifact 应渲染来源摘要面而不是普通文档", () => {
+    const container = renderArtifact(
+      createArtifact({
+        type: "document",
+        title: "在线报告",
+        content: "导入时保留的网页摘要。",
+        status: "complete",
+        meta: {
+          previewArtifact: true,
+          isSourceBacked: true,
+          source: "url",
+          sourceRef: "https://example.com/report",
+          sourcePath: "https://example.com/report",
+          filePath: "https://example.com/report",
+          filename: "report",
+          contentKind: "markdown",
+          renderMode: "inline",
+        },
+      }),
+    );
+
+    const surface = container.querySelector(
+      '[data-testid="preview-source-summary-renderer"]',
+    );
+
+    expect(surface).not.toBeNull();
+    expect(surface?.getAttribute("data-preview-source")).toBe("url");
+    expect(surface?.getAttribute("data-preview-content-kind")).toBe(
+      "markdown",
+    );
+    expect(container.textContent).toContain("网页来源");
+    expect(container.textContent).toContain("在线报告");
+    expect(container.textContent).toContain("https://example.com/report");
+    expect(container.textContent).toContain("导入时保留的网页摘要。");
+    expect(
+      container.querySelector('[data-testid="artifact-empty-surface"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('[data-testid="artifact-document-renderer"]'),
+    ).toBeNull();
+  });
+
+  it("database_record preview artifact 应渲染记录摘要面", () => {
+    const container = renderArtifact(
+      createArtifact({
+        type: "document",
+        title: "素材记录",
+        content: "这条素材来自导入会话的工具输出。",
+        status: "complete",
+        meta: {
+          previewArtifact: true,
+          isSourceBacked: true,
+          source: "database_record",
+          sourceRef: "material:123",
+          sourcePath: "material:123",
+          recordId: "123",
+          contentKind: "text",
+          renderMode: "inline",
+        },
+      }),
+    );
+
+    const surface = container.querySelector(
+      '[data-testid="preview-source-summary-renderer"]',
+    );
+
+    expect(surface).not.toBeNull();
+    expect(surface?.getAttribute("data-preview-source")).toBe(
+      "database_record",
+    );
+    expect(container.textContent).toContain("数据记录");
+    expect(container.textContent).toContain("素材记录");
+    expect(container.textContent).toContain("material:123");
+    expect(container.textContent).toContain("123");
+    expect(container.textContent).toContain("这条素材来自导入会话的工具输出。");
+  });
+
+  it("app_shell preview artifact 应渲染应用入口摘要面", () => {
+    const container = renderArtifact(
+      createArtifact({
+        type: "document",
+        title: "研究工作台",
+        content: "",
+        status: "complete",
+        meta: {
+          previewArtifact: true,
+          isSourceBacked: true,
+          source: "app",
+          sourceRef: "plugin:research",
+          sourcePath: "plugin:research",
+          appId: "research",
+          contentKind: "app_shell",
+          renderMode: "inline",
+        },
+      }),
+    );
+
+    const surface = container.querySelector(
+      '[data-testid="preview-source-summary-renderer"]',
+    );
+
+    expect(surface).not.toBeNull();
+    expect(surface?.getAttribute("data-preview-source")).toBe("app");
+    expect(surface?.getAttribute("data-preview-content-kind")).toBe(
+      "app_shell",
+    );
+    expect(container.textContent).toContain("应用入口");
+    expect(container.textContent).toContain("研究工作台");
+    expect(container.textContent).toContain("plugin:research");
+    expect(container.textContent).toContain("当前来源没有可展示的摘要内容。");
+    expect(
+      container.querySelector('[data-testid="artifact-empty-surface"]'),
+    ).toBeNull();
   });
 
   it("结构化阅读面应渲染摘要卡、统计卡与来源附录", async () => {

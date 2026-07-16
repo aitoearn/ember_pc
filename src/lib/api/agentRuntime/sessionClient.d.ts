@@ -2,15 +2,17 @@ import type {
   AppServerSessionClient,
   AppServerSessionRpcClient,
 } from "./appServerSessionClient";
+import type { AgentExecutionStrategy } from "../agentExecutionRuntime";
 import type {
-  AsterExecutionStrategy,
-  AsterSessionDetail,
-  AsterSessionInfo,
   AgentRuntimeCreateSessionOptions,
-  AgentRuntimeListSessionsOptions,
   AgentRuntimeGetSessionOptions,
   AgentRuntimeUpdateSessionRequest,
-} from "./types";
+} from "./requestTypes";
+import type {
+  AgentRuntimeListSessionsOptions,
+  AgentSessionDetail,
+  AgentSessionInfo,
+} from "./sessionTypes";
 export interface AgentRuntimeSessionClientDeps {
   appServerClient?: AppServerSessionRpcClient;
   appServerSessionClient?: AppServerSessionClient;
@@ -20,43 +22,43 @@ export declare function createSessionClient({
   appServerSessionClient,
 }?: AgentRuntimeSessionClientDeps): {
   createAgentRuntimeSession: (
-    workspaceId: string,
+    workspaceId?: string,
     name?: string,
-    executionStrategy?: AsterExecutionStrategy,
+    executionStrategy?: AgentExecutionStrategy,
     options?: AgentRuntimeCreateSessionOptions,
   ) => Promise<string>;
   deleteAgentRuntimeSession: (sessionId: string) => Promise<void>;
   getAgentRuntimeSession: (
     sessionId: string,
     options?: AgentRuntimeGetSessionOptions,
-  ) => Promise<AsterSessionDetail>;
+  ) => Promise<AgentSessionDetail>;
   listAgentRuntimeSessions: (
     options?: AgentRuntimeListSessionsOptions,
-  ) => Promise<AsterSessionInfo[]>;
+  ) => Promise<AgentSessionInfo[]>;
   archiveManyAgentRuntimeSessions: (
     sessionIds: string[],
-  ) => Promise<AsterSessionInfo[]>;
+  ) => Promise<AgentSessionInfo[]>;
   updateAgentRuntimeSession: (
     request: AgentRuntimeUpdateSessionRequest,
   ) => Promise<void>;
 };
 export declare const archiveManyAgentRuntimeSessions: (
     sessionIds: string[],
-  ) => Promise<AsterSessionInfo[]>,
+  ) => Promise<AgentSessionInfo[]>,
   createAgentRuntimeSession: (
-    workspaceId: string,
+    workspaceId?: string,
     name?: string,
-    executionStrategy?: AsterExecutionStrategy,
+    executionStrategy?: AgentExecutionStrategy,
     options?: AgentRuntimeCreateSessionOptions,
   ) => Promise<string>,
   deleteAgentRuntimeSession: (sessionId: string) => Promise<void>,
   getAgentRuntimeSession: (
     sessionId: string,
     options?: AgentRuntimeGetSessionOptions,
-  ) => Promise<AsterSessionDetail>,
+  ) => Promise<AgentSessionDetail>,
   listAgentRuntimeSessions: (
     options?: AgentRuntimeListSessionsOptions,
-  ) => Promise<AsterSessionInfo[]>,
+  ) => Promise<AgentSessionInfo[]>,
   updateAgentRuntimeSession: (
     request: AgentRuntimeUpdateSessionRequest,
   ) => Promise<void>;

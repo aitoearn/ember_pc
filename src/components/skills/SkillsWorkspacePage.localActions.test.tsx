@@ -45,10 +45,10 @@ describe("SkillsWorkspacePage local actions", () => {
     mocks.localSkills = [
       ...mocks.localSkills,
       {
-        key: "project:article-image-cheatsheet",
-        name: "article-image-cheatsheet",
+        key: "project:article-image-plan",
+        name: "article-image-plan",
         description: "项目保存技能",
-        directory: "article-image-cheatsheet",
+        directory: "article-image-plan",
         installed: true,
         sourceKind: "other",
         catalogSource: "project",
@@ -61,7 +61,7 @@ describe("SkillsWorkspacePage local actions", () => {
     });
 
     expect(
-      findLocalSkillRow(container, "article-image-cheatsheet"),
+      findLocalSkillRow(container, "article-image-plan"),
     ).toBeUndefined();
     openLocalSkillMenu(container, "writer");
     expect(container.textContent).toContain("卸载");
@@ -94,7 +94,7 @@ describe("SkillsWorkspacePage local actions", () => {
     expect(mocks.exportLocalSkillPackage).toHaveBeenCalledWith(
       "writer",
       "/Users/demo/writer.skills",
-      "ember",
+      "lime",
     );
     expect(mocks.toastSuccess).toHaveBeenCalledWith("已导出「写作助手」安装包");
   });
@@ -124,7 +124,7 @@ describe("SkillsWorkspacePage local actions", () => {
     expect(mocks.renameLocalSkill).toHaveBeenCalledWith(
       "writer",
       "writer-renamed",
-      "ember",
+      "lime",
     );
     expect(mocks.refreshLocalSkills).toHaveBeenCalled();
 
@@ -149,7 +149,7 @@ describe("SkillsWorkspacePage local actions", () => {
     expect(mocks.replaceLocalSkillPackage).toHaveBeenCalledWith(
       "writer",
       "/Users/demo/writer.skills",
-      "ember",
+      "lime",
     );
 
     openLocalSkillMenu(container);
@@ -158,7 +158,7 @@ describe("SkillsWorkspacePage local actions", () => {
       await Promise.resolve();
     });
 
-    expect(mocks.revealLocalSkill).toHaveBeenCalledWith("writer", "ember");
+    expect(mocks.revealLocalSkill).toHaveBeenCalledWith("writer", "lime");
     expect(onNavigate).not.toHaveBeenCalled();
     promptSpy.mockRestore();
   });
@@ -189,7 +189,7 @@ describe("SkillsWorkspacePage local actions", () => {
     expect(mocks.importLocalSkill).not.toHaveBeenCalled();
     expect(mocks.inspectLocalSkillPackage).toHaveBeenCalledWith(
       "/Users/demo/article-typesetting-master.skills",
-      "ember",
+      "lime",
     );
     expect(container.textContent).toContain(
       "把「article-typesetting-master」添加到你的技能库？",
@@ -212,7 +212,7 @@ describe("SkillsWorkspacePage local actions", () => {
     });
     expect(container.textContent).toContain("浏览技能");
     expect(container.textContent).toContain("创建技能");
-    expect(container.textContent).toContain("通过 Ember 创建");
+    expect(container.textContent).toContain("通过 Lime 创建");
     expect(container.textContent).toContain("编写技能说明");
     expect(container.textContent).toContain("上传技能");
 
@@ -245,7 +245,7 @@ describe("SkillsWorkspacePage local actions", () => {
     });
     expect(mocks.inspectLocalSkillPackage).toHaveBeenCalledWith(
       "/Users/demo/article-typesetting-master.skill",
-      "ember",
+      "lime",
     );
   });
 
@@ -264,7 +264,7 @@ describe("SkillsWorkspacePage local actions", () => {
 
     expect(mocks.inspectLocalSkillPackage).toHaveBeenCalledWith(
       "/Users/demo/article-typesetting-master.skill",
-      "ember",
+      "lime",
     );
     expect(container.textContent).toContain(
       "把「article-typesetting-master」添加到你的技能库？",
@@ -287,7 +287,7 @@ describe("SkillsWorkspacePage local actions", () => {
 
     expect(mocks.installLocalSkillPackage).toHaveBeenCalledWith(
       "/Users/demo/article-typesetting-master.skill",
-      "ember",
+      "lime",
     );
     expect(mocks.refreshLocalSkills).toHaveBeenCalled();
     expect(mocks.toastSuccess).toHaveBeenCalledWith(

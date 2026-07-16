@@ -2,7 +2,7 @@ import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { TokenUsageDisplay } from "./TokenUsageDisplay";
 
 const mountedRoots: Array<{ container: HTMLDivElement; root: Root }> = [];
@@ -13,7 +13,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 afterEach(async () => {
@@ -27,7 +27,7 @@ afterEach(async () => {
     });
     mounted.container.remove();
   }
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 describe("TokenUsageDisplay", () => {
@@ -48,7 +48,7 @@ describe("TokenUsageDisplay", () => {
       );
     });
 
-    expect(container.textContent).toContain("共 31.0K");
+    expect(container.textContent).toContain("31.0K Tokens");
   });
 
   it("应在不同数量级下渲染紧凑 token 文案", () => {
@@ -82,9 +82,9 @@ describe("TokenUsageDisplay", () => {
       );
     });
 
-    expect(container.textContent).toContain("共 999");
-    expect(container.textContent).toContain("共 1.2K");
-    expect(container.textContent).toContain("共 1.2M");
+    expect(container.textContent).toContain("999 Tokens");
+    expect(container.textContent).toContain("1.2K Tokens");
+    expect(container.textContent).toContain("1.2M Tokens");
   });
 
   it("存在缓存命中时应在总 token 旁边展示缓存 token", () => {
@@ -105,7 +105,7 @@ describe("TokenUsageDisplay", () => {
       );
     });
 
-    expect(container.textContent).toContain("共 31.0K");
+    expect(container.textContent).toContain("31.0K Tokens");
     expect(container.textContent).toContain("缓存 8.0K");
   });
 
@@ -128,7 +128,7 @@ describe("TokenUsageDisplay", () => {
       );
     });
 
-    expect(container.textContent).toContain("共 31.0K");
+    expect(container.textContent).toContain("31.0K Tokens");
     expect(container.textContent).toContain("缓存 9.2K");
     expect(container.textContent).toContain("读 8.0K / 写 1.2K");
   });
@@ -151,7 +151,7 @@ describe("TokenUsageDisplay", () => {
       );
     });
 
-    expect(container.textContent).toContain("共 31.0K");
+    expect(container.textContent).toContain("31.0K Tokens");
     expect(container.textContent).toContain("缓存 0");
   });
 
@@ -207,7 +207,7 @@ describe("TokenUsageDisplay", () => {
       );
     });
 
-    expect(container.textContent).toContain("共 31.0K");
+    expect(container.textContent).toContain("31.0K Tokens");
     expect(container.textContent).toContain("未声明自动缓存");
     expect(container.firstElementChild?.getAttribute("title")).toContain(
       "未声明支持自动 Prompt Cache",
@@ -233,7 +233,7 @@ describe("TokenUsageDisplay", () => {
       );
     });
 
-    expect(container.textContent).toContain("共 31.0K");
+    expect(container.textContent).toContain("31.0K Tokens");
     expect(container.textContent).toContain("缓存 8.0K");
   });
 });

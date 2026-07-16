@@ -1,5 +1,5 @@
 [package]
-name = "ember-knowledge"
+name = "lime-knowledge"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

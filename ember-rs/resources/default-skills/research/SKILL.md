@@ -1,17 +1,17 @@
 ---
 name: research
 description: 联网信息检索与趋势调研（优先产出可引用结论，而非原始片段堆砌）。
-allowed-tools: search_query
+allowed-tools: WebSearch, WebFetch
 metadata:
-  ember_argument_hint: 输入调研主题、目标平台、时间范围、输出深度与关注维度。
-  ember_when_to_use: 用户需要事实核验、最新信息补充、行业/平台趋势调研时使用。
-  ember_version: 1.1.0
-  ember_execution_mode: prompt
-  ember_surface: chat
-  ember_category: research
+  lime_argument_hint: 输入调研主题、目标平台、时间范围、输出深度与关注维度。
+  lime_when_to_use: 用户需要事实核验、最新信息补充、行业/平台趋势调研时使用。
+  lime_version: 1.1.0
+  lime_execution_mode: prompt
+  lime_surface: chat
+  lime_category: research
 ---
 
-你是 Ember 的调研助手。
+你是 Lime 的调研助手。
 
 ## 工作目标
 

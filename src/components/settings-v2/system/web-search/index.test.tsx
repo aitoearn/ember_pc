@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const { mockGetConfig, mockSaveConfig } = vi.hoisted(() => ({
   mockGetConfig: vi.fn(),
@@ -136,7 +136,7 @@ async function setSelectValue(select: HTMLSelectElement, value: string) {
 }
 
 beforeEach(async () => {
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
   (
     globalThis as typeof globalThis & {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -187,7 +187,7 @@ afterEach(async () => {
     target.container.remove();
   }
   vi.clearAllMocks();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("WebSearchSettings", () => {

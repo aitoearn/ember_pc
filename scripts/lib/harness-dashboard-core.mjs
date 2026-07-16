@@ -229,7 +229,7 @@ export function renderHarnessDashboardHtml({
   summaryReport,
   trendReport,
   cleanupReport,
-  title = "Ember Harness Dashboard",
+  title = "Lime Harness Dashboard",
 }) {
   const summaryTotals =
     summaryReport && typeof summaryReport === "object" && summaryReport.totals

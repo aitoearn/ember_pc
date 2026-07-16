@@ -1,7 +1,7 @@
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { AutomationJobDetailsDialog } from "./AutomationJobDetailsDialog";
 
 const mountedRoots: Array<{ root: Root; container: HTMLDivElement }> = [];
@@ -12,7 +12,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 afterEach(async () => {
@@ -27,7 +27,7 @@ afterEach(async () => {
     mounted.container.remove();
   }
   vi.clearAllMocks();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 async function renderDialog(
@@ -65,7 +65,7 @@ async function renderDialog(
             delivery: {
               mode: "announce",
               channel: "local_file",
-              target: "/tmp/ember/browser-output.json",
+              target: "/tmp/lime/browser-output.json",
               best_effort: false,
               output_schema: "json",
               output_format: "json",
@@ -85,7 +85,7 @@ async function renderDialog(
               success: false,
               message: "写入本地文件失败: permission denied",
               channel: "local_file",
-              target: "/tmp/ember/browser-output.json",
+              target: "/tmp/lime/browser-output.json",
               output_kind: "json",
               output_schema: "json",
               output_format: "json",
@@ -224,6 +224,8 @@ describe("AutomationJobDetailsDialog", () => {
         payload: {
           kind: "agent_turn",
           prompt: "请生成摘要",
+          session_id: "session-agent-1",
+          thread_id: "thread-agent-1",
           system_prompt: null,
           web_search: false,
           content_id: null,
@@ -276,6 +278,8 @@ describe("AutomationJobDetailsDialog", () => {
         payload: {
           kind: "agent_turn",
           prompt: "Continue the managed objective.",
+          session_id: "session-objective-1",
+          thread_id: "thread-objective-1",
           system_prompt: null,
           web_search: false,
           content_id: null,
@@ -294,7 +298,7 @@ describe("AutomationJobDetailsDialog", () => {
                 completion_audit: "artifact_or_evidence_required",
                 last_audit_summary: "Latest audit needs more evidence.",
                 last_evidence_pack_ref:
-                  ".ember/harness/job-objective-1/evidence",
+                  ".lime/harness/job-objective-1/evidence",
                 last_artifact_refs: [
                   "content-posts/daily.md",
                   "content-posts/daily-checklist.md",
@@ -351,7 +355,7 @@ describe("AutomationJobDetailsDialog", () => {
     expect(details?.textContent).toContain("Latest audit needs more evidence.");
     expect(details?.textContent).toContain("Evidence pack");
     expect(details?.textContent).toContain(
-      ".ember/harness/job-objective-1/evidence",
+      ".lime/harness/job-objective-1/evidence",
     );
     expect(details?.textContent).toContain("Artifact refs (2)");
     expect(details?.textContent).toContain("content-posts/daily.md");
@@ -373,6 +377,8 @@ describe("AutomationJobDetailsDialog", () => {
         payload: {
           kind: "agent_turn",
           prompt: "Continue the managed objective.",
+          session_id: "session-objective-1",
+          thread_id: "thread-objective-1",
           system_prompt: null,
           web_search: false,
           content_id: null,
@@ -445,6 +451,8 @@ describe("AutomationJobDetailsDialog", () => {
         payload: {
           kind: "agent_turn",
           prompt: "Continue the managed objective.",
+          session_id: "session-objective-1",
+          thread_id: "thread-objective-1",
           system_prompt: null,
           web_search: false,
           content_id: null,
@@ -458,7 +466,7 @@ describe("AutomationJobDetailsDialog", () => {
                 success_criteria: ["Create a Markdown artifact"],
                 state: "active",
                 last_evidence_pack_ref:
-                  ".ember/harness/job-objective-1/evidence",
+                  ".lime/harness/job-objective-1/evidence",
                 last_artifact_refs: ["content-posts/daily.md"],
               },
             },
@@ -503,7 +511,7 @@ describe("AutomationJobDetailsDialog", () => {
     });
 
     expect(onOpenManagedObjectiveReference).toHaveBeenCalledWith(
-      "/workspace/root/.ember/harness/job-objective-1/evidence",
+      "/workspace/root/.lime/harness/job-objective-1/evidence",
     );
     expect(onRevealManagedObjectiveReference).toHaveBeenCalledWith(
       "/workspace/root/content-posts/daily.md",

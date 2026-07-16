@@ -58,7 +58,7 @@ describe("SkillsWorkspacePage marketplace", () => {
 
     expect(mocks.installOfficialMarketplaceSkill).toHaveBeenCalledWith(
       "analysis",
-      "ember",
+      "lime",
     );
     expect(mocks.refreshLocalSkills).toHaveBeenCalled();
     expect(mocks.toastSuccess).toHaveBeenCalledWith("已安装「数据分析」");
@@ -176,13 +176,12 @@ describe("SkillsWorkspacePage marketplace", () => {
     mocks.officialMarketplaceSkills = [];
     mocks.officialMarketplaceError = "network unavailable";
     const { container, onNavigate } = renderPage();
-    const card = findMarketplaceCard(container, "兼容性测试");
+    const card = findMarketplaceCard(container, "深度研究");
 
     expect(container.textContent).toContain(
       "官方技能市场暂时不可用，已先显示本地可用技能。",
     );
     expect(card).toBeTruthy();
-    expect(container.textContent).not.toContain("个人 IP 知识库生成器");
 
     act(() => {
       findButtonIn(card!, "打开")?.click();
@@ -194,7 +193,7 @@ describe("SkillsWorkspacePage marketplace", () => {
         agentEntry: "new-task",
         theme: "general",
         initialPendingServiceSkillLaunch: expect.objectContaining({
-          skillId: "carousel-post-replication",
+          skillId: "service-skill-research",
           requestKey: expect.any(Number),
         }),
       }),

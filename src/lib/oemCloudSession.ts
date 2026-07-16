@@ -1,9 +1,9 @@
 import { cacheOemCloudReferralStateFromBootstrap } from "@/lib/oemCloudReferralCache";
 
-const OEM_CLOUD_SESSION_STORAGE_KEY = "ember:oem-cloud-session:v1";
-export const OEM_CLOUD_SESSION_CHANGED_EVENT = "ember:oem-cloud-session-changed";
+const OEM_CLOUD_SESSION_STORAGE_KEY = "lime:oem-cloud-session:v1";
+export const OEM_CLOUD_SESSION_CHANGED_EVENT = "lime:oem-cloud-session-changed";
 export const OEM_CLOUD_BOOTSTRAP_CHANGED_EVENT =
-  "ember:oem-cloud-bootstrap-changed";
+  "lime:oem-cloud-bootstrap-changed";
 
 export interface OemCloudTenantLike {
   id: string;
@@ -46,9 +46,9 @@ export interface OemCloudStoredSessionState {
 
 declare global {
   interface Window {
-    __EMBER_BOOTSTRAP__?: unknown;
-    __EMBER_OEM_CLOUD__?: unknown;
-    __EMBER_SESSION_TOKEN__?: unknown;
+    __LIME_BOOTSTRAP__?: unknown;
+    __LIME_OEM_CLOUD__?: unknown;
+    __LIME_SESSION_TOKEN__?: unknown;
   }
 }
 
@@ -200,17 +200,17 @@ function applySessionGlobals(state: OemCloudStoredSessionState | null) {
   }
 
   if (!state) {
-    delete window.__EMBER_SESSION_TOKEN__;
-    delete window.__EMBER_BOOTSTRAP__;
+    delete window.__LIME_SESSION_TOKEN__;
+    delete window.__LIME_BOOTSTRAP__;
     return;
   }
 
-  window.__EMBER_SESSION_TOKEN__ = state.token;
+  window.__LIME_SESSION_TOKEN__ = state.token;
 
-  const currentRuntime = isRecord(window.__EMBER_OEM_CLOUD__)
-    ? window.__EMBER_OEM_CLOUD__
+  const currentRuntime = isRecord(window.__LIME_OEM_CLOUD__)
+    ? window.__LIME_OEM_CLOUD__
     : {};
-  window.__EMBER_OEM_CLOUD__ = {
+  window.__LIME_OEM_CLOUD__ = {
     ...currentRuntime,
     tenantId: state.session.tenant.id,
   };
@@ -298,7 +298,7 @@ export function setOemCloudBootstrapSnapshot(payload: unknown): void {
     return;
   }
 
-  window.__EMBER_BOOTSTRAP__ = payload;
+  window.__LIME_BOOTSTRAP__ = payload;
   if (payload) {
     cacheOemCloudReferralStateFromBootstrap(payload);
   }
@@ -308,12 +308,12 @@ export function setOemCloudBootstrapSnapshot(payload: unknown): void {
 export function getOemCloudBootstrapSnapshot<T = unknown>(): T | null {
   if (
     typeof window === "undefined" ||
-    window.__EMBER_BOOTSTRAP__ === undefined
+    window.__LIME_BOOTSTRAP__ === undefined
   ) {
     return null;
   }
 
-  return window.__EMBER_BOOTSTRAP__ as T;
+  return window.__LIME_BOOTSTRAP__ as T;
 }
 
 export function clearOemCloudBootstrapSnapshot(): void {
@@ -321,7 +321,7 @@ export function clearOemCloudBootstrapSnapshot(): void {
     return;
   }
 
-  delete window.__EMBER_BOOTSTRAP__;
+  delete window.__LIME_BOOTSTRAP__;
   emitBootstrapChanged(null);
 }
 

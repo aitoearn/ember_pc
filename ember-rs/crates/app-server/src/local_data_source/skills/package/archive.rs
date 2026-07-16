@@ -2,7 +2,7 @@ use crate::local_data_source::skills::common::validate_skill_package_directory;
 use app_server_protocol::SkillPackageLocalInspectResponse;
 use app_server_protocol::SkillPackageLocalInstallResponse;
 use app_server_protocol::SkillPackageLocalReplaceResponse;
-use ember_services::skill_service::SkillService;
+use lime_services::skill_service::SkillService;
 use serde_json::json;
 use serde_json::Value;
 use std::collections::BTreeSet;
@@ -271,7 +271,7 @@ fn build_skill_package_file_entries(package: &SkillZipPackage) -> Result<Vec<Val
                     return Err(format!(
                         "Invalid skill zip entry path: {}",
                         relative_path.display()
-                    ))
+                    ));
                 }
             }
         }

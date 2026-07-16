@@ -7,7 +7,7 @@ import {
   setupReactActEnvironment,
   type MountedRoot,
 } from "@/components/workspace/hooks/testUtils";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import "@/i18n/config";
 
 const { mockGetConfig, mockHasDesktopHostInvokeCapability } = vi.hoisted(() => ({
@@ -36,7 +36,7 @@ describe("withI18nPatch", () => {
   beforeEach(async () => {
     setupReactActEnvironment();
     vi.clearAllMocks();
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
     vi.useFakeTimers();
     vi.stubGlobal("requestAnimationFrame", ((
       callback: (time: number) => void,
@@ -64,7 +64,7 @@ describe("withI18nPatch", () => {
     const mounted = mountHarness(PatchedComponent, {}, mountedRoots);
 
     await flushEffects(2);
-    expect(mounted.container.textContent).toContain("正在启动 Ember");
+    expect(mounted.container.textContent).toContain("正在启动 Lime");
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2600);
@@ -91,7 +91,7 @@ describe("withI18nPatch", () => {
     await flushEffects(2);
 
     expect(mounted.container.textContent).toContain("应用已就绪");
-    expect(mounted.container.textContent).not.toContain("正在启动 Ember");
+    expect(mounted.container.textContent).not.toContain("正在启动 Lime");
     expect(mounted.container.textContent).not.toContain("正在准备界面语言配置");
   });
 });

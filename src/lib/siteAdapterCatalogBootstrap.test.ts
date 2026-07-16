@@ -35,7 +35,7 @@ function buildCatalogPayload() {
         read_only: true,
         capabilities: ["search"],
         args: [],
-        example: 'github/search {"query":"ember"}',
+        example: 'github/search {"query":"lime"}',
         entry: {
           kind: "fixed_url",
           url: "https://github.com/search",
@@ -49,13 +49,13 @@ function buildCatalogPayload() {
 
 describe("siteAdapterCatalogBootstrap", () => {
   beforeEach(() => {
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_SITE_ADAPTER_CATALOG__;
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_SITE_ADAPTER_CATALOG__;
     mockSiteApplyAdapterCatalogBootstrap.mockResolvedValue({
       exists: true,
       source_kind: "server_synced",
       registry_version: 1,
-      directory: "/tmp/ember/site-adapters/server-synced",
+      directory: "/tmp/lime/site-adapters/server-synced",
       catalog_version: "tenant-sync-1",
       tenant_id: "tenant-demo",
       synced_at: "2026-03-25T12:00:00.000Z",
@@ -65,14 +65,14 @@ describe("siteAdapterCatalogBootstrap", () => {
       exists: false,
       source_kind: "server_synced",
       registry_version: 1,
-      directory: "/tmp/ember/site-adapters/server-synced",
+      directory: "/tmp/lime/site-adapters/server-synced",
       adapter_count: 0,
     });
   });
 
   afterEach(() => {
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_SITE_ADAPTER_CATALOG__;
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_SITE_ADAPTER_CATALOG__;
     vi.clearAllMocks();
   });
 
@@ -92,10 +92,10 @@ describe("siteAdapterCatalogBootstrap", () => {
 
   it("启动时应在专用全局快照无效时回退读取 bootstrap payload", async () => {
     const catalog = buildCatalogPayload();
-    window.__EMBER_SITE_ADAPTER_CATALOG__ = {
+    window.__LIME_SITE_ADAPTER_CATALOG__ = {
       invalid: true,
     };
-    window.__EMBER_BOOTSTRAP__ = {
+    window.__LIME_BOOTSTRAP__ = {
       siteAdapterCatalog: catalog,
     };
 

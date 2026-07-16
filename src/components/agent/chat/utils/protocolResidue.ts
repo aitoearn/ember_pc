@@ -1,5 +1,5 @@
 import { shouldSuppressImageWorkbenchStatusText } from "./imageWorkbenchStatusText";
-import { isLimeTaskProtocolFailureResidue } from "./emberTaskProtocolNoise";
+import { isLimeTaskProtocolFailureResidue } from "./limeTaskProtocolNoise";
 
 const TOOL_PROTOCOL_BLOCK_RE =
   /<tool_(call|result)\b[^>]*>[\s\S]*?<\/tool_\1>/gi;

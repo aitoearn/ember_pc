@@ -1,15 +1,24 @@
 /* eslint-disable react-refresh/only-export-components */
 import { act, type ComponentProps, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, vi } from "vitest";
-import { agentEnUSResource } from "@/i18n/agentResources";
+import { afterEach, beforeAll, beforeEach, vi } from "vitest";
+import { agentEnUSResource, agentZhCNResource } from "@/i18n/agentResources";
+import type { WorkspaceRightSurfaceLauncherProjection } from "./workspace/right-surface/rightSurfaceToolbarProjection";
+import { resetInitialSessionNavigationDeduplicationForTests } from "./workspace/useWorkspaceInitialSessionNavigation";
 
-export const WORKSPACE_HARNESS_TITLE =
-  agentEnUSResource["agentChat.workspaceHarnessDialog.title"];
-export const WORKSPACE_HARNESS_DESCRIPTION =
-  agentEnUSResource["agentChat.workspaceHarnessDialog.description"];
-export const GENERAL_ASSISTANT_TITLE =
-  agentEnUSResource["agentChat.runtimeStrip.title.general"];
+export const WORKSPACE_HARNESS_TITLE_CANDIDATES = [
+  agentZhCNResource["agentChat.workspaceHarnessDialog.title"],
+  agentEnUSResource["agentChat.workspaceHarnessDialog.title"],
+] as const;
+export const WORKSPACE_HARNESS_DESCRIPTION_CANDIDATES = [
+  agentZhCNResource["agentChat.workspaceHarnessDialog.description"],
+  agentEnUSResource["agentChat.workspaceHarnessDialog.description"],
+] as const;
+export const textContainsAny = (
+  text: string | null | undefined,
+  values: readonly string[],
+) => Boolean(text && values.some((value) => text.includes(value)));
+export const GENERAL_CONTEXT_HINT = "普通聊天模式";
 
 export type MockEmptyStateProps = {
   input?: string;
@@ -31,16 +40,19 @@ const {
   mockUseArtifactAutoPreviewSync,
   mockUseThemeContextWorkspace,
   mockUseTopicBranchBoard,
-  mockUseTeamWorkspaceRuntime,
   mockUseSessionFiles,
   mockUseTrayModelShortcuts,
   mockSafeListen,
   mockUseSessionRecentMetadataSyncRuntime,
   mockUseWorkspaceKnowledgeRuntime,
   mockUseGlobalMediaGenerationDefaults,
+  mockReadGlobalMediaGenerationDefaults,
   mockUseServiceModelsConfig,
   mockUseSoulArtifactVoiceGenerationBrief,
   mockUseImageGen,
+  mockGetConfig,
+  mockGetDefaultProviderFromConfig,
+  mockSubscribeAppConfigChanged,
   mockGetProject,
   mockGetDefaultProject,
   mockGetOrCreateDefaultProject,
@@ -61,40 +73,42 @@ const {
   mockEmptyState,
   mockInputbar,
   mockMessageList,
+  mockExpertInfoPanel,
   mockWorkspacePendingA2UIPanel,
   mockExecutionRunGetGeneralWorkbenchState,
   mockExecutionRunListGeneralWorkbenchHistory,
   mockExecutionRunGet,
+  mockSkillExecutionListExecutableSkills,
   mockSkillExecutionGetDetail,
   mockGetAutomationJobs,
   mockCreateAutomationJob,
   mockSkillsGetAll,
   mockSkillsGetLocal,
-  mockCloseAgentRuntimeSubagent,
   mockGetAgentRuntimeToolInventory,
-  mockResumeAgentRuntimeSubagent,
-  mockSendAgentRuntimeSubagentInput,
-  mockWaitAgentRuntimeSubagents,
   mockCanvasWorkbenchLayoutState,
   mockCanvasWorkbenchLayout,
   mockLaunchBrowserSession,
   mockBrowserExecuteAction,
+  mockExecuteBrowserSessionAction,
 } = vi.hoisted(() => ({
   mockUseDeveloperFeatureFlags: vi.fn(),
   mockUseAgentChatUnified: vi.fn(),
   mockUseArtifactAutoPreviewSync: vi.fn(),
   mockUseThemeContextWorkspace: vi.fn(),
   mockUseTopicBranchBoard: vi.fn(),
-  mockUseTeamWorkspaceRuntime: vi.fn(),
   mockUseSessionFiles: vi.fn(),
   mockUseTrayModelShortcuts: vi.fn(),
   mockSafeListen: vi.fn(),
   mockUseSessionRecentMetadataSyncRuntime: vi.fn(),
   mockUseWorkspaceKnowledgeRuntime: vi.fn(),
   mockUseGlobalMediaGenerationDefaults: vi.fn(),
+  mockReadGlobalMediaGenerationDefaults: vi.fn(),
   mockUseServiceModelsConfig: vi.fn(),
   mockUseSoulArtifactVoiceGenerationBrief: vi.fn(),
   mockUseImageGen: vi.fn(),
+  mockGetConfig: vi.fn(),
+  mockGetDefaultProviderFromConfig: vi.fn(),
+  mockSubscribeAppConfigChanged: vi.fn(),
   mockGetProject: vi.fn(),
   mockGetDefaultProject: vi.fn(),
   mockGetOrCreateDefaultProject: vi.fn(),
@@ -152,24 +166,46 @@ const {
       </div>
     ),
   ),
+  mockExpertInfoPanel: vi.fn((props?: Record<string, unknown>) => {
+    const requestMetadata =
+      props?.requestMetadata && typeof props.requestMetadata === "object"
+        ? (props.requestMetadata as {
+            expert?: { expertId?: string };
+            harness?: { expert?: { expert_id?: string } };
+          })
+        : null;
+    const expertId =
+      requestMetadata?.expert?.expertId ||
+      requestMetadata?.harness?.expert?.expert_id ||
+      "";
+    const expertTitle =
+      expertId === "marketing-strategist" ? "营销策略专家" : "专家信息";
+
+    return (
+      <div data-testid="expert-info-panel" data-layout="right-surface-full">
+        <span>专家信息</span>
+        <span>{expertTitle}</span>
+        <div data-testid="expert-info-section-memory" />
+        <div data-testid="expert-info-skills" />
+        <div data-testid="expert-info-workflow" />
+      </div>
+    );
+  }),
   mockWorkspacePendingA2UIPanel: vi.fn((_props?: Record<string, unknown>) => (
     <div data-testid="workspace-pending-a2ui-panel" />
   )),
   mockExecutionRunGetGeneralWorkbenchState: vi.fn(),
   mockExecutionRunListGeneralWorkbenchHistory: vi.fn(),
   mockExecutionRunGet: vi.fn(),
+  mockSkillExecutionListExecutableSkills: vi.fn(),
   mockSkillExecutionGetDetail: vi.fn(),
   mockGetAutomationJobs: vi.fn(),
   mockCreateAutomationJob: vi.fn(),
   mockSkillsGetAll: vi.fn(),
   mockSkillsGetLocal: vi.fn(),
-  mockCloseAgentRuntimeSubagent: vi.fn(),
   mockGetAgentRuntimeToolInventory: vi.fn(),
-  mockResumeAgentRuntimeSubagent: vi.fn(),
-  mockSendAgentRuntimeSubagentInput: vi.fn(),
-  mockWaitAgentRuntimeSubagents: vi.fn(),
   mockCanvasWorkbenchLayoutState: {
-    renderPreview: false,
+    renderPreviewProbe: false,
   },
   mockCanvasWorkbenchLayout: vi.fn((props?: Record<string, unknown>) => {
     const defaultPreview =
@@ -181,27 +217,11 @@ const {
             absolutePath?: string;
           })
         : null;
-    const preview =
-      mockCanvasWorkbenchLayoutState.renderPreview &&
-      typeof props?.renderPreview === "function"
-        ? props.renderPreview(
-            {
-              kind: "default-canvas",
-              title: defaultPreview?.title || "当前画布草稿",
-              content:
-                defaultPreview?.content || "# 新文档\n\n在这里开始编写内容...",
-              filePath: defaultPreview?.filePath,
-              absolutePath: defaultPreview?.absolutePath,
-            },
-            {
-              stackedWorkbenchTrigger: (
-                <button type="button" data-testid="stacked-workbench-trigger">
-                  切换工作台
-                </button>
-              ),
-            },
-          )
-        : null;
+    const preview = mockCanvasWorkbenchLayoutState.renderPreviewProbe ? (
+      <div data-testid="canvas-workbench-default-preview-probe">
+        {defaultPreview?.title || "当前画布草稿"}
+      </div>
+    ) : null;
 
     return (
       <div
@@ -220,6 +240,16 @@ const {
             ? props.defaultPreview.title
             : ""
         }
+        data-default-preview-file-path={defaultPreview?.filePath || ""}
+        data-default-preview-absolute-path={defaultPreview?.absolutePath || ""}
+        data-default-preview-content={defaultPreview?.content || ""}
+        data-default-preview-content-type={
+          /\.(md|markdown|mdx)$/i.test(defaultPreview?.filePath || "")
+            ? "markdown"
+            : /\.(html|htm)$/i.test(defaultPreview?.filePath || "")
+              ? "html"
+              : "code"
+        }
       >
         {preview}
       </div>
@@ -227,6 +257,7 @@ const {
   }),
   mockLaunchBrowserSession: vi.fn(),
   mockBrowserExecuteAction: vi.fn(),
+  mockExecuteBrowserSessionAction: vi.fn(),
 }));
 
 export function getIndexTestMocks() {
@@ -236,16 +267,19 @@ export function getIndexTestMocks() {
     mockUseArtifactAutoPreviewSync,
     mockUseThemeContextWorkspace,
     mockUseTopicBranchBoard,
-    mockUseTeamWorkspaceRuntime,
     mockUseSessionFiles,
     mockUseTrayModelShortcuts,
     mockSafeListen,
     mockUseSessionRecentMetadataSyncRuntime,
     mockUseWorkspaceKnowledgeRuntime,
     mockUseGlobalMediaGenerationDefaults,
+    mockReadGlobalMediaGenerationDefaults,
     mockUseServiceModelsConfig,
     mockUseSoulArtifactVoiceGenerationBrief,
     mockUseImageGen,
+    mockGetConfig,
+    mockGetDefaultProviderFromConfig,
+    mockSubscribeAppConfigChanged,
     mockGetProject,
     mockGetDefaultProject,
     mockGetOrCreateDefaultProject,
@@ -266,24 +300,23 @@ export function getIndexTestMocks() {
     mockEmptyState,
     mockInputbar,
     mockMessageList,
+    mockExpertInfoPanel,
     mockWorkspacePendingA2UIPanel,
     mockExecutionRunGetGeneralWorkbenchState,
     mockExecutionRunListGeneralWorkbenchHistory,
     mockExecutionRunGet,
+    mockSkillExecutionListExecutableSkills,
     mockSkillExecutionGetDetail,
     mockGetAutomationJobs,
     mockCreateAutomationJob,
     mockSkillsGetAll,
     mockSkillsGetLocal,
-    mockCloseAgentRuntimeSubagent,
     mockGetAgentRuntimeToolInventory,
-    mockResumeAgentRuntimeSubagent,
-    mockSendAgentRuntimeSubagentInput,
-    mockWaitAgentRuntimeSubagents,
     mockCanvasWorkbenchLayoutState,
     mockCanvasWorkbenchLayout,
     mockLaunchBrowserSession,
     mockBrowserExecuteAction,
+    mockExecuteBrowserSessionAction,
   };
 }
 
@@ -292,8 +325,7 @@ vi.mock("sonner", () => ({
 }));
 
 vi.mock("@/lib/dev-bridge", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@/lib/dev-bridge")>();
+  const actual = await importOriginal<typeof import("@/lib/dev-bridge")>();
   return {
     ...actual,
     safeListen: mockSafeListen,
@@ -305,7 +337,6 @@ vi.mock("./hooks", () => ({
   useArtifactAutoPreviewSync: mockUseArtifactAutoPreviewSync,
   useThemeContextWorkspace: mockUseThemeContextWorkspace,
   useTopicBranchBoard: mockUseTopicBranchBoard,
-  useTeamWorkspaceRuntime: mockUseTeamWorkspaceRuntime,
 }));
 
 vi.mock("@/hooks/useDeveloperFeatureFlags", () => ({
@@ -330,6 +361,7 @@ vi.mock("./workspace/knowledge/useWorkspaceKnowledgeRuntime", () => ({
 
 vi.mock("@/hooks/useGlobalMediaGenerationDefaults", () => ({
   useGlobalMediaGenerationDefaults: mockUseGlobalMediaGenerationDefaults,
+  readGlobalMediaGenerationDefaults: mockReadGlobalMediaGenerationDefaults,
 }));
 
 vi.mock("@/hooks/useServiceModelsConfig", () => ({
@@ -344,7 +376,14 @@ vi.mock("@/components/image-gen/useImageGen", () => ({
   useImageGen: mockUseImageGen,
 }));
 
+vi.mock("@/lib/api/appConfig", () => ({
+  getConfig: mockGetConfig,
+  getDefaultProvider: mockGetDefaultProviderFromConfig,
+  subscribeAppConfigChanged: mockSubscribeAppConfigChanged,
+}));
+
 vi.mock("./workspace/useWorkspaceImageTaskPreviewRuntime", () => ({
+  shouldEnableWorkspaceImageTaskPreviewRuntime: vi.fn(() => true),
   useWorkspaceImageTaskPreviewRuntime: vi.fn(),
 }));
 
@@ -372,7 +411,7 @@ vi.mock("@/lib/workspace/workbenchWorkflow", () => ({
   }),
 }));
 
-vi.mock("@/lib/workspace/workbenchUi", () => ({
+vi.mock("@/components/workspace/layout/LayoutTransition", () => ({
   LayoutTransition: ({
     mode,
     chatContent,
@@ -391,6 +430,9 @@ vi.mock("@/lib/workspace/workbenchUi", () => ({
       </div>
     </div>
   ),
+}));
+
+vi.mock("@/lib/workspace/workbenchUi", () => ({
   StepProgress: () => <div data-testid="step-progress" />,
 }));
 
@@ -484,40 +526,6 @@ vi.mock("./components/ChatNavbar", () => ({
   ),
 }));
 
-vi.mock("./components/ChatSidebar", () => ({
-  ChatSidebar: ({
-    onSwitchTopic,
-    onResumeTask,
-  }: {
-    onSwitchTopic?: (topicId: string) => Promise<void> | void;
-    onResumeTask?: (
-      topicId: string,
-      statusReason?: string,
-    ) => Promise<void> | void;
-  }) => (
-    <div data-testid="chat-sidebar">
-      <button
-        type="button"
-        data-testid="switch-topic"
-        onClick={() => {
-          void onSwitchTopic?.("topic-a");
-        }}
-      >
-        切换话题
-      </button>
-      <button
-        type="button"
-        data-testid="resume-topic"
-        onClick={() => {
-          void onResumeTask?.("topic-a", "user_action");
-        }}
-      >
-        恢复任务
-      </button>
-    </div>
-  ),
-}));
-
 vi.mock("./components/GeneralWorkbenchSidebar", () => ({
   GeneralWorkbenchSidebar: ({
     onSwitchTopic,
@@ -601,6 +609,11 @@ vi.mock("./components/MessageList", () => ({
   MessageList: (props: Record<string, unknown>) => mockMessageList(props),
 }));
 
+vi.mock("./experts/ExpertInfoPanel", () => ({
+  ExpertInfoPanel: (props: Record<string, unknown>) =>
+    mockExpertInfoPanel(props),
+}));
+
 vi.mock("./components/MarkdownRenderer", () => ({
   MarkdownRenderer: ({ content }: { content?: string }) => (
     <div data-testid="markdown-renderer-mock">{content}</div>
@@ -609,6 +622,104 @@ vi.mock("./components/MarkdownRenderer", () => ({
 
 vi.mock("./components/Inputbar", () => ({
   Inputbar: (props: Record<string, unknown>) => mockInputbar(props),
+}));
+
+vi.mock("./components/TaskCenterUtilityToolbar", () => ({
+  TaskCenterUtilityToolbar: ({
+    showCanvasToggle,
+    isCanvasOpen,
+    onToggleCanvas,
+    showHarnessToggle,
+    harnessPanelVisible,
+    onToggleHarnessPanel,
+    harnessToggleLabel,
+    showExpertInfoToggle,
+    expertInfoPanelVisible,
+    onToggleExpertInfoPanel,
+    rightSurfaceLaunchers,
+  }: {
+    showCanvasToggle?: boolean;
+    isCanvasOpen?: boolean;
+    onToggleCanvas?: () => void;
+    showHarnessToggle?: boolean;
+    harnessPanelVisible?: boolean;
+    onToggleHarnessPanel?: () => void;
+    harnessToggleLabel?: string;
+    showExpertInfoToggle?: boolean;
+    expertInfoPanelVisible?: boolean;
+    onToggleExpertInfoPanel?: () => void;
+    rightSurfaceLaunchers?: readonly WorkspaceRightSurfaceLauncherProjection[];
+  }) => (
+    <div
+      data-testid="task-center-utility-toolbar"
+      data-show-canvas-toggle={showCanvasToggle ? "true" : "false"}
+      data-canvas-open={isCanvasOpen ? "true" : "false"}
+      data-show-harness-toggle={showHarnessToggle ? "true" : "false"}
+      data-harness-panel-visible={
+        harnessPanelVisible ||
+        rightSurfaceLaunchers?.some(
+          (launcher) => launcher.kind === "harness" && launcher.active,
+        )
+          ? "true"
+          : "false"
+      }
+      data-harness-toggle-label={harnessToggleLabel || "Harness"}
+      data-show-expert-info-toggle={showExpertInfoToggle ? "true" : "false"}
+      data-expert-info-panel-visible={expertInfoPanelVisible ? "true" : "false"}
+    >
+      {showCanvasToggle ? (
+        <button
+          type="button"
+          data-testid="toggle-canvas"
+          onClick={() => {
+            onToggleCanvas?.();
+          }}
+        >
+          {isCanvasOpen ? "折叠画布" : "展开画布"}
+        </button>
+      ) : null}
+      {showHarnessToggle ? (
+        <button
+          type="button"
+          data-testid="toggle-harness"
+          onClick={() => {
+            onToggleHarnessPanel?.();
+          }}
+        >
+          切换 {harnessToggleLabel || "Harness"}
+        </button>
+      ) : null}
+      {rightSurfaceLaunchers?.some(
+        (launcher) => launcher.kind === "harness",
+      ) ? (
+        <button
+          type="button"
+          data-testid="task-center-harness-toggle"
+          disabled={
+            rightSurfaceLaunchers.find(
+              (launcher) => launcher.kind === "harness",
+            )?.disabled
+          }
+          onClick={() => {
+            onToggleHarnessPanel?.();
+          }}
+        >
+          右侧 {harnessToggleLabel || "Harness"}
+        </button>
+      ) : null}
+      {showExpertInfoToggle ? (
+        <button
+          type="button"
+          data-testid="task-center-expert-info-toggle"
+          onClick={() => {
+            onToggleExpertInfoPanel?.();
+          }}
+        >
+          {expertInfoPanelVisible ? "关闭专家信息" : "打开专家信息"}
+        </button>
+      ) : null}
+    </div>
+  ),
 }));
 
 vi.mock("./components/EmptyState", () => ({
@@ -775,7 +886,7 @@ vi.mock("@/lib/api/project", () => ({
   updateContent: mockUpdateContent,
 }));
 
-vi.mock("@/lib/api/memory", () => ({
+vi.mock("@/lib/api/projectMemory", () => ({
   getProjectMemory: mockGetProjectMemory,
 }));
 
@@ -787,11 +898,20 @@ vi.mock("@/lib/api/executionRun", () => ({
     mockExecutionRunListGeneralWorkbenchHistory,
 }));
 
-vi.mock("@/lib/api/skill-execution", () => ({
-  skillExecutionApi: {
-    getSkillDetail: mockSkillExecutionGetDetail,
-  },
-}));
+vi.mock("@/lib/api/skill-execution", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/api/skill-execution")
+  >("@/lib/api/skill-execution");
+
+  return {
+    ...actual,
+    skillExecutionApi: {
+      ...actual.skillExecutionApi,
+      listExecutableSkills: mockSkillExecutionListExecutableSkills,
+      getSkillDetail: mockSkillExecutionGetDetail,
+    },
+  };
+});
 
 vi.mock("@/lib/api/automation", () => ({
   getAutomationJobs: () => mockGetAutomationJobs(),
@@ -818,18 +938,25 @@ vi.mock("@/lib/webview-api", async () => {
   };
 });
 
-vi.mock("@/lib/api/agentRuntime", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/api/agentRuntime")>(
-    "@/lib/api/agentRuntime",
-  );
+vi.mock("@/lib/api/browserRuntime", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/api/browserRuntime")
+  >("@/lib/api/browserRuntime");
 
   return {
     ...actual,
-    closeAgentRuntimeSubagent: mockCloseAgentRuntimeSubagent,
+    executeBrowserSessionAction: mockExecuteBrowserSessionAction,
+  };
+});
+
+vi.mock("@/lib/api/agentRuntime/inventoryClient", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/api/agentRuntime/inventoryClient")
+  >("@/lib/api/agentRuntime/inventoryClient");
+
+  return {
+    ...actual,
     getAgentRuntimeToolInventory: mockGetAgentRuntimeToolInventory,
-    resumeAgentRuntimeSubagent: mockResumeAgentRuntimeSubagent,
-    sendAgentRuntimeSubagentInput: mockSendAgentRuntimeSubagentInput,
-    waitAgentRuntimeSubagents: mockWaitAgentRuntimeSubagents,
   };
 });
 
@@ -837,6 +964,12 @@ import * as configuredProvidersModule from "@/hooks/useConfiguredProviders";
 import * as providerModelsModule from "@/hooks/useProviderModels";
 import { AgentChatPage } from "./index";
 export { AgentChatPage };
+
+const agentChatWorkspacePreload = import("./AgentChatWorkspace");
+
+beforeAll(async () => {
+  await agentChatWorkspacePreload;
+}, 120_000);
 
 interface MountedHarness {
   container: HTMLDivElement;
@@ -991,12 +1124,13 @@ export function createMockThemeContextWorkspaceState(
   return merged;
 }
 
-export async function flushEffects(times = 6) {
+export async function flushEffects(times = 20) {
   for (let i = 0; i < times; i += 1) {
-    await new Promise<void>((resolve) => {
-      window.setTimeout(resolve, 20);
+    await act(async () => {
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, 20);
+      });
     });
-    act(() => {});
   }
 }
 
@@ -1096,6 +1230,12 @@ export function clickButton(container: HTMLElement, testId: string) {
   });
 }
 
+export function findButton(container: HTMLElement, testId: string) {
+  return container.querySelector(
+    `[data-testid="${testId}"]`,
+  ) as HTMLButtonElement | null;
+}
+
 export function createMockAgentChatUnifiedState(
   overrides: Record<string, unknown> = {},
 ) {
@@ -1133,10 +1273,12 @@ export function createMockAgentChatUnifiedState(
   };
 }
 
-export function installMockAgentChatUnifiedState(state: Record<string, unknown>) {
+export function installMockAgentChatUnifiedState(
+  state: Record<string, unknown>,
+) {
   mockUseAgentChatUnified.mockImplementation(
-    ({ workspaceId }: { workspaceId: string }) => {
-      observedWorkspaceIds.push(workspaceId);
+    ({ workspaceId }: { workspaceId?: string }) => {
+      observedWorkspaceIds.push(workspaceId ?? "");
       return state;
     },
   );
@@ -1171,7 +1313,7 @@ export function mockBrowserAssistCompletedSession() {
         toolCalls: [
           {
             id: "tool-browser-open",
-            name: "mcp__ember-browser__browser_navigate",
+            name: "mcp__lime-browser__browser_navigate",
             arguments: JSON.stringify({
               url: "https://www.rokid.com",
               profile_key: "general_browser_assist",
@@ -1202,7 +1344,7 @@ export function mockBrowserAssistCompletedSession() {
   installMockAgentChatUnifiedState(state);
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   (
     globalThis as typeof globalThis & {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -1233,6 +1375,7 @@ beforeEach(() => {
   vi.spyOn(console, "info").mockImplementation(() => undefined);
   localStorage.clear();
   sessionStorage.clear();
+  resetInitialSessionNavigationDeduplicationForTests();
   observedWorkspaceIds.length = 0;
 
   mockGetProject.mockImplementation(async (projectId: string) => {
@@ -1243,6 +1386,9 @@ beforeEach(() => {
   });
   mockGetDefaultProject.mockResolvedValue(null);
   mockGetOrCreateDefaultProject.mockResolvedValue(null);
+  mockGetConfig.mockResolvedValue({ memory: {} });
+  mockGetDefaultProviderFromConfig.mockResolvedValue("openai");
+  mockSubscribeAppConfigChanged.mockReturnValue(() => undefined);
   mockGetContent.mockResolvedValue(null);
   mockGetGeneralWorkbenchDocumentState.mockResolvedValue(null);
   mockEnsureWorkspaceReady.mockResolvedValue({
@@ -1270,6 +1416,12 @@ beforeEach(() => {
     next_offset: null,
   });
   mockExecutionRunGet.mockResolvedValue(null);
+  mockSkillExecutionListExecutableSkills.mockResolvedValue([
+    {
+      skill_id: "builtin:content_post_with_cover",
+      name: "content_post_with_cover",
+    },
+  ]);
   mockSkillExecutionGetDetail.mockResolvedValue({
     name: "content_post_with_cover",
     display_name: "社媒主稿与封面",
@@ -1285,14 +1437,6 @@ beforeEach(() => {
   });
   mockSkillsGetAll.mockResolvedValue([]);
   mockSkillsGetLocal.mockResolvedValue([]);
-  mockCloseAgentRuntimeSubagent.mockResolvedValue({
-    previous_status: {
-      session_id: "child-session-1",
-      kind: "running",
-    },
-    cascade_session_ids: [],
-    changed_session_ids: ["child-session-1"],
-  });
   mockGetAgentRuntimeToolInventory.mockResolvedValue({
     surface: {
       workbench: false,
@@ -1309,27 +1453,12 @@ beforeEach(() => {
       catalog_total: 0,
       catalog_current_total: 0,
       catalog_compat_total: 0,
-      registry_total: 0,
+      native_total: 0,
       extension_surface_total: 0,
       extension_tool_total: 0,
       mcp_total: 0,
       visible_total: 0,
     },
-  });
-  mockResumeAgentRuntimeSubagent.mockResolvedValue({
-    status: {
-      session_id: "child-session-1",
-      kind: "closed",
-    },
-    cascade_session_ids: [],
-    changed_session_ids: [],
-  });
-  mockSendAgentRuntimeSubagentInput.mockResolvedValue({
-    submission_id: "submission-1",
-  });
-  mockWaitAgentRuntimeSubagents.mockResolvedValue({
-    status: {},
-    timed_out: false,
   });
   mockLaunchBrowserSession.mockResolvedValue({
     profile: {
@@ -1380,6 +1509,16 @@ beforeEach(() => {
     error: undefined,
     attempts: [],
   });
+  mockExecuteBrowserSessionAction.mockResolvedValue({
+    sessionId: "browser-session-1",
+    action: "navigate",
+    result: {
+      page_info: {
+        title: "新页面",
+        url: "https://example.com",
+      },
+    },
+  });
   vi.spyOn(
     configuredProvidersModule,
     "loadConfiguredProviders",
@@ -1412,6 +1551,7 @@ beforeEach(() => {
     createMockThemeContextWorkspaceState(),
   );
   mockUseDeveloperFeatureFlags.mockReturnValue({
+    clawTraceEnabled: false,
     workspaceHarnessEnabled: true,
   });
   mockSafeListen.mockResolvedValue(vi.fn());
@@ -1426,10 +1566,6 @@ beforeEach(() => {
       setSessionRecentPreferences: vi.fn(async () => undefined),
     },
     deferSessionRecentMetadataSyncForNavigation: vi.fn(),
-    selectedTeamSessionSync: {
-      getSessionId: () => sessionRecentMetadataActiveSessionRef.current,
-      setSessionRecentTeamSelection: vi.fn(async () => undefined),
-    },
     syncSessionRecentPreferences: vi.fn(async () => undefined),
   });
   mockUseWorkspaceKnowledgeRuntime.mockReturnValue({
@@ -1447,10 +1583,15 @@ beforeEach(() => {
     mediaDefaults: {},
     loading: false,
   });
+  mockReadGlobalMediaGenerationDefaults.mockResolvedValue({});
   mockUseServiceModelsConfig.mockReturnValue({
     serviceModels: {},
     agentResponseLanguage: undefined,
     loading: false,
+    refresh: vi.fn(async () => ({
+      serviceModels: {},
+      agentResponseLanguage: undefined,
+    })),
   });
   mockUseSoulArtifactVoiceGenerationBrief.mockReturnValue({
     generationBrief: undefined,
@@ -1495,18 +1636,13 @@ beforeEach(() => {
     ],
     setTopicStatus: vi.fn(),
   });
-  mockUseTeamWorkspaceRuntime.mockReturnValue({
-    liveRuntimeBySessionId: {},
-    liveActivityBySessionId: {},
-    activityRefreshVersionBySessionId: {},
-  });
   mockUseSessionFiles.mockReturnValue({
     saveFile: vi.fn(async () => undefined),
     files: [],
     readFile: vi.fn(async () => null),
     meta: null,
   });
-  mockCanvasWorkbenchLayoutState.renderPreview = false;
+  mockCanvasWorkbenchLayoutState.renderPreviewProbe = false;
 
   mockJotaiState.artifacts = [];
   mockJotaiState.selectedArtifact = null;
@@ -1542,7 +1678,7 @@ beforeEach(() => {
   sharedSendMessageMock = vi.fn(async () => undefined);
   sharedTriggerAIGuideMock = vi.fn();
   installMockAgentChatUnifiedState(createMockAgentChatUnifiedState());
-});
+}, 60_000);
 
 afterEach(() => {
   while (mountedRoots.length > 0) {

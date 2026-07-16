@@ -9,7 +9,7 @@ const tempRoots: string[] = [];
 
 function createTempRoot() {
   const tempRoot = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ember-harness-review-evals-"),
+    path.join(os.tmpdir(), "lime-harness-review-evals-"),
   );
   tempRoots.push(tempRoot);
   return tempRoot;
@@ -69,7 +69,7 @@ function createWorkspaceSessionArtifacts(tempRoot: string, sessionId: string) {
   const workspaceRoot = path.join(tempRoot, "workspace");
   const sessionRoot = path.join(
     workspaceRoot,
-    ".ember",
+    ".lime",
     "harness",
     "sessions",
     sessionId,
@@ -149,11 +149,11 @@ function createWorkspaceSessionArtifacts(tempRoot: string, sessionId: string) {
     },
     linkedArtifacts: {
       handoffBundle: {
-        relativeRoot: `.ember/harness/sessions/${sessionId}/handoff`,
+        relativeRoot: `.lime/harness/sessions/${sessionId}/handoff`,
         absoluteRoot: handoffRoot,
       },
       evidencePack: {
-        relativeRoot: `.ember/harness/sessions/${sessionId}/evidence`,
+        relativeRoot: `.lime/harness/sessions/${sessionId}/evidence`,
         absoluteRoot: evidenceRoot,
       },
     },
@@ -172,25 +172,25 @@ function createWorkspaceSessionArtifacts(tempRoot: string, sessionId: string) {
   };
   const evidencePayload = {
     handoffBundle: {
-      relativeRoot: `.ember/harness/sessions/${sessionId}/handoff`,
+      relativeRoot: `.lime/harness/sessions/${sessionId}/handoff`,
       absoluteRoot: handoffRoot,
     },
     evidencePack: {
-      relativeRoot: `.ember/harness/sessions/${sessionId}/evidence`,
+      relativeRoot: `.lime/harness/sessions/${sessionId}/evidence`,
       absoluteRoot: evidenceRoot,
     },
     observabilitySummary: inputPayload.observability,
   };
   const reviewDecisionPayload = {
     schemaVersion: "v1",
-    contractShape: "ember_review_decision_template",
+    contractShape: "lime_review_decision_template",
     decision: {
       decisionStatus: "accepted",
       decisionSummary: "确认该失败应沉淀为长期回归样本。",
       chosenFixStrategy: "继续把人工审核结果挂到 replay/eval 主链。",
       riskLevel: "high",
       riskTags: ["runtime", "eval"],
-      humanReviewer: "Ember Maintainer",
+      humanReviewer: "Lime Maintainer",
       reviewedAt: "2026-03-27T12:00:00Z",
       followupActions: ["补 trend 汇总"],
       regressionRequirements: ["npm run harness:eval"],
@@ -297,12 +297,12 @@ describe("Harness review decision / eval integration", () => {
 
     expect(result.reviewDecisionStatus).toBe("accepted");
     expect(promotedReviewJson.decision.decisionStatus).toBe("accepted");
-    expect(promotedReviewJson.decision.notes).toContain("/workspace/ember");
-    expect(promotedReviewMarkdown).toContain("/workspace/ember");
+    expect(promotedReviewJson.decision.notes).toContain("/workspace/lime");
+    expect(promotedReviewMarkdown).toContain("/workspace/lime");
     expect(caseEntry.reviewDecision).toMatchObject({
       decisionStatus: "accepted",
       riskLevel: "high",
-      humanReviewer: "Ember Maintainer",
+      humanReviewer: "Lime Maintainer",
     });
   });
 
@@ -326,7 +326,7 @@ describe("Harness review decision / eval integration", () => {
                 id: "workspace-session-replays",
                 title: "工作区会话 Replay 样本",
                 source: "workspace_replay_discovery",
-                root: ".ember/harness/sessions",
+                root: ".lime/harness/sessions",
                 allowZeroMatches: false,
                 tags: ["workspace", "replay"],
               },
@@ -427,7 +427,7 @@ describe("Harness review decision / eval integration", () => {
     expect(summary.suites[0].cases[0]).toMatchObject({
       reviewDecisionStatus: "accepted",
       reviewRiskLevel: "high",
-      reviewHumanReviewer: "Ember Maintainer",
+      reviewHumanReviewer: "Lime Maintainer",
       observabilityGapCount: 1,
       observabilityVerificationOutcomes: expect.arrayContaining([
         "artifactValidator:issues_present",

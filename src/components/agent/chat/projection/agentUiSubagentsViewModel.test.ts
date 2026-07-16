@@ -7,7 +7,7 @@ describe("agentUiSubagentsViewModel", () => {
     const events: AgentUiProjectionEvent[] = [
       {
         type: "agent.changed",
-        sourceType: "team_formation_projection",
+        sourceType: "item_completed",
         sequence: 1,
         sessionId: "session-team-1",
         agentId: "member-1",
@@ -22,7 +22,7 @@ describe("agentUiSubagentsViewModel", () => {
       },
       {
         type: "task.changed",
-        sourceType: "team_formation_projection",
+        sourceType: "item_completed",
         sequence: 2,
         sessionId: "session-team-1",
         taskId: "work-1",
@@ -73,7 +73,7 @@ describe("agentUiSubagentsViewModel", () => {
         runtimeStatus: "needs_input",
         payload: {
           remoteTaskId: "remote-task-1",
-          agentCardProvider: "embercloud",
+          agentCardProvider: "limecloud",
         },
       },
       {
@@ -155,7 +155,7 @@ describe("agentUiSubagentsViewModel", () => {
         payload: {
           remoteTaskId: "remote-task-1",
           inputSummary: "需要授权 token",
-          agentCardProvider: "embercloud",
+          agentCardProvider: "limecloud",
           artifactCount: 1,
           primaryArtifactId: "remote-artifact-1",
           primaryArtifactContentRef: "remote-blob://artifact-1",
@@ -199,7 +199,7 @@ describe("agentUiSubagentsViewModel", () => {
     expect(remote).toMatchObject({
       title: "远端审校员",
       subtitle:
-        "远端任务：remote-task-1 / 来源：embercloud / 输入：需要授权 token / Artifact：1 / 交付物：remote-artifact-1 / 内容：remote-blob://artifact-1 / 类型：text/markdown / 校验：sha256:remote-artifact-1 / 预览：远端交付物预览",
+        "远端任务：remote-task-1 / 来源：limecloud / 输入：需要授权 token / Artifact：1 / 交付物：remote-artifact-1 / 内容：remote-blob://artifact-1 / 类型：text/markdown / 校验：sha256:remote-artifact-1 / 预览：远端交付物预览",
       attention: true,
       action: {
         control: "answer",
@@ -215,7 +215,7 @@ describe("agentUiSubagentsViewModel", () => {
         "external_task",
         "needs_input",
         "补充输入",
-        "embercloud",
+        "limecloud",
         "Artifact 1",
         "远端内容",
         "text/markdown",
@@ -227,7 +227,7 @@ describe("agentUiSubagentsViewModel", () => {
     const model = buildAgentUiSubagentsViewModel([
       {
         type: "agent.changed",
-        sourceType: "subagent_status_changed",
+        sourceType: "item_completed",
         sequence: 1,
         sessionId: "session-team-1",
         taskId: "child-1",
@@ -474,12 +474,12 @@ describe("agentUiSubagentsViewModel", () => {
           executionSummaryPreview: "已重新导出 evidence pack。",
           executionResultRef: resultRef,
           executionArtifactPaths: [
-            ".ember/harness/sessions/session-team-1/evidence/runtime.json",
+            ".lime/harness/sessions/session-team-1/evidence/runtime.json",
           ],
         },
         refs: {
           artifactPaths: [
-            ".ember/harness/sessions/session-team-1/evidence/runtime.json",
+            ".lime/harness/sessions/session-team-1/evidence/runtime.json",
           ],
         },
       },
@@ -500,7 +500,7 @@ describe("agentUiSubagentsViewModel", () => {
         evidenceId: undefined,
         resultRef,
         artifactPaths: [
-          ".ember/harness/sessions/session-team-1/evidence/runtime.json",
+          ".lime/harness/sessions/session-team-1/evidence/runtime.json",
         ],
       },
     });
@@ -518,7 +518,7 @@ describe("agentUiSubagentsViewModel", () => {
     const model = buildAgentUiSubagentsViewModel([
       {
         type: "worker.notification",
-        sourceType: "subagent_status_changed",
+        sourceType: "item_completed",
         sequence: 1,
         sessionId: "session-team-1",
         taskId: "child-1",
@@ -627,7 +627,7 @@ describe("agentUiSubagentsViewModel", () => {
       [
         {
           type: "task.changed",
-          sourceType: "team_formation_projection",
+          sourceType: "item_completed",
           sequence: 1,
           sessionId: "session-team-1",
           taskId: "work-1",

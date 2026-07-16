@@ -3,7 +3,7 @@ import type { ActionRequired, ActionRequestGovernanceMeta } from "../types";
 type SchemaRecord = Record<string, unknown>;
 
 const SINGLE_TURN_SINGLE_QUESTION_STRATEGY = "single_turn_single_question";
-const ASK_USER_QUESTIONS_SCHEMA_KEY = "x-ember-ask-user-questions";
+const ASK_USER_QUESTIONS_SCHEMA_KEY = "x-lime-ask-user-questions";
 
 function buildGovernanceMeta(
   source: ActionRequestGovernanceMeta["source"],

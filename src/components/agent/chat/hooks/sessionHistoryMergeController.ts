@@ -1,4 +1,4 @@
-import type { AsterSessionDetail } from "@/lib/api/agentRuntime";
+import type { AgentSessionDetail } from "@/lib/api/agentRuntime/sessionTypes";
 import { normalizeLegacyThreadItems } from "@/lib/api/agentTextNormalization";
 import type { AgentThreadItem, AgentThreadTurn, Message } from "../types";
 import {
@@ -11,6 +11,7 @@ import {
   mergeHydratedMessagesWithLocalState,
   shouldCompactCompletedSessionHistory,
 } from "./agentChatHistory";
+import { collectDetailThreadItems } from "./agentChatHistoryThreadItems";
 
 export interface SessionHistoryMergePlan {
   currentTurnId: string | null;
@@ -25,7 +26,7 @@ export function buildSessionHistoryMergePlan(params: {
   currentThreadItems: AgentThreadItem[];
   currentThreadTurns: AgentThreadTurn[];
   currentTurnId: string | null;
-  detail: AsterSessionDetail;
+  detail: AgentSessionDetail;
   sessionId: string;
 }): SessionHistoryMergePlan {
   const incomingMessages = hydrateSessionDetailMessages(
@@ -48,7 +49,7 @@ export function buildSessionHistoryMergePlan(params: {
   const mergedThreadItems = filterConversationThreadItems(
     mergeThreadItems(
       params.currentThreadItems,
-      normalizeLegacyThreadItems(params.detail.items || []),
+      normalizeLegacyThreadItems(collectDetailThreadItems(params.detail)),
     ),
   );
 

@@ -232,7 +232,7 @@ export function analyzeI18nBundleReport(
     coreNamespaces: CORE_NAMESPACES,
     localeCount: locales.length,
     resourcesDir,
-    schemaVersion: "ember.i18n.bundleStrategyReport.v1",
+    schemaVersion: "lime.i18n.bundleStrategyReport.v1",
     sourceLocale,
     summary: {
       coreGroupCount: CORE_NAMESPACES.length,

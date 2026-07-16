@@ -4,8 +4,8 @@
 
 use super::traits::{PipelineStep, StepError};
 use async_trait::async_trait;
-use ember_core::processor::RequestContext;
-use ember_infra::Injector;
+use lime_core::processor::RequestContext;
+use lime_infra::Injector;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -73,7 +73,7 @@ impl PipelineStep for InjectionStep {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ember_infra::InjectionRule;
+    use lime_infra::InjectionRule;
 
     #[tokio::test]
     async fn test_injection_step_execute() {

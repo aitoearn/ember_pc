@@ -37,7 +37,7 @@ function printHelp() {
   node packages/ember-cli-npm/scripts/build-release.js [options]
 
 Options:
-  --binary <path>         Explicit ember binary path
+  --binary <path>         Explicit lime binary path
   --target-triple <triple> Rust target triple, e.g. x86_64-apple-darwin
   --platform <platform>   Host platform fallback, e.g. darwin/linux/win32
   --arch <arch>           Host arch fallback, e.g. x64/arm64
@@ -111,7 +111,7 @@ function createZip(archivePath, stagedBinaryPath) {
 }
 
 function createArchive(meta, binaryPath, outDir) {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ember-cli-release-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "lime-cli-release-"));
   try {
     const stagedBinaryPath = path.join(tempDir, meta.binaryName);
     fs.copyFileSync(binaryPath, stagedBinaryPath);
@@ -151,7 +151,7 @@ function main() {
   const binaryPath = resolveBinaryPath(
     meta,
     args["target-triple"],
-    args.binary || process.env.EMBER_CLI_BINARY_PATH,
+    args.binary || process.env.LIME_CLI_BINARY_PATH,
   );
   const archivePath = createArchive(meta, binaryPath, outputDir);
   const result = {
@@ -175,6 +175,6 @@ function main() {
 try {
   main();
 } catch (error) {
-  console.error(`[ember-cli release] ${error.message}`);
+  console.error(`[lime-cli release] ${error.message}`);
   process.exit(1);
 }

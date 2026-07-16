@@ -1,15 +1,15 @@
 [package]
-name = "ember-skills"
+name = "lime-skills"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
 
 [dependencies]
-ember-core.workspace = true
-ember-providers.workspace = true
-ember-services.workspace = true
-ember-server-utils.workspace = true
+lime-core.workspace = true
+lime-providers.workspace = true
+lime-services.workspace = true
+lime-server-utils.workspace = true
 
 serde.workspace = true
 serde_json.workspace = true
@@ -18,6 +18,8 @@ async-trait.workspace = true
 tracing.workspace = true
 regex.workspace = true
 dirs.workspace = true
+urlencoding.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+tokio.workspace = true

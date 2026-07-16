@@ -4,8 +4,8 @@
 
 use super::traits::{PipelineStep, StepError};
 use async_trait::async_trait;
-use ember_core::plugin::PluginManager;
-use ember_core::processor::RequestContext;
+use lime_core::plugin::PluginManager;
+use lime_core::processor::RequestContext;
 use std::sync::Arc;
 
 /// 插件前置钩子步骤
@@ -113,7 +113,7 @@ impl PipelineStep for PluginPostStep {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ember_core::ProviderType;
+    use lime_core::ProviderType;
 
     #[tokio::test]
     async fn test_plugin_pre_step_execute() {

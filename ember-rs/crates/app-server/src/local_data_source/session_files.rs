@@ -11,8 +11,8 @@ use app_server_protocol::SessionFileReadResponse;
 use app_server_protocol::SessionFileResolvePathResponse;
 use app_server_protocol::SessionFileSaveParams;
 use app_server_protocol::SessionFileUpdateMetaParams;
-use ember_core::session_files;
-use ember_core::session_files::SessionFileStorage;
+use lime_core::session_files;
+use lime_core::session_files::SessionFileStorage;
 
 pub(crate) async fn get_or_create_session_file(
     params: SessionFileGetOrCreateParams,

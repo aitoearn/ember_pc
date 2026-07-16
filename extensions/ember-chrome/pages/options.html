@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ember Browser Bridge</title>
+    <title>Lime Browser Bridge</title>
     <link rel="stylesheet" href="styles/options.css" />
   </head>
   <body>
@@ -15,8 +15,8 @@
             <img src="../icons/icon128.png" alt="" />
           </div>
           <div class="header-text">
-            <h1 data-i18n="page_title_text">Ember Browser Bridge</h1>
-            <p data-i18n="page_subtitle">Connect your browser to Ember.</p>
+            <h1 data-i18n="page_title_text">Lime Browser Bridge</h1>
+            <p data-i18n="page_subtitle">Connect your browser to Lime.</p>
           </div>
         </div>
         <label class="language-switch">
@@ -62,9 +62,9 @@
         <div class="collapsible-body">
           <div class="card">
             <ol class="steps">
-              <li data-i18n="quick_start_1">Make sure <strong>Ember</strong> is running with browser control enabled.</li>
+              <li data-i18n="quick_start_1">Make sure <strong>Lime</strong> is running with browser control enabled.</li>
               <li data-i18n="quick_start_2">The relay connects automatically — a green dot on the icon means ready.</li>
-              <li data-i18n="quick_start_3">Ask Ember a browser-related question — it can now see and control your tabs.</li>
+              <li data-i18n="quick_start_3">Ask Lime a browser-related question — it can now see and control your tabs.</li>
             </ol>
           </div>
         </div>
@@ -79,7 +79,7 @@
         <div class="collapsible-body">
           <div class="card">
             <div class="card-title" data-i18n="how_always_on_title">Always-on relay</div>
-            <div class="card-body" data-i18n="how_always_on_body">The relay is enabled by default and connects automatically when Ember is running. Use the toggle above to pause if needed. Agent-opened tabs are grouped under an <strong>"Ember Agent"</strong> tab group.</div>
+            <div class="card-body" data-i18n="how_always_on_body">The relay is enabled by default and connects automatically when Lime is running. Use the toggle above to pause if needed. Agent-opened tabs are grouped under an <strong>"Lime Agent"</strong> tab group.</div>
           </div>
           <div class="card">
             <div class="card-title" data-i18n="how_auto_reconnect_title">Auto-reconnect</div>
@@ -104,7 +104,7 @@
               <span class="indicator-dot indicator-dot--green"></span>
               <span class="badge-text" data-i18n="indicator_connected">Connected — agent can control your tabs</span>
               <span class="indicator-dot indicator-dot--red"></span>
-              <span class="badge-text" data-i18n="indicator_setup_required">Setup required — sync config from Ember or paste config in the toolbar popup</span>
+              <span class="badge-text" data-i18n="indicator_setup_required">Setup required — sync config from Lime or paste config in the toolbar popup</span>
               <span class="indicator-dot indicator-dot--yellow"></span>
               <span class="badge-text" data-i18n="indicator_connecting">Connecting / reconnecting to local relay server</span>
               <span class="indicator-dot indicator-dot--dim"></span>
@@ -123,11 +123,11 @@
         <div class="collapsible-body">
           <div class="card">
             <div class="card-title" data-i18n="troubleshooting_setup_title">Shows setup required</div>
-            <div class="card-body" data-i18n="troubleshooting_setup_body">This extension does not have <code>serverUrl</code> / <code>bridgeKey</code> yet. Load the exported <code>Ember Browser Connector</code> folder from Ember, or open the toolbar popup and paste the config copied from Ember.</div>
+            <div class="card-body" data-i18n="troubleshooting_setup_body">This extension does not have <code>serverUrl</code> / <code>bridgeKey</code> yet. Load the exported <code>Lime Browser Connector</code> folder from Lime, or open the toolbar popup and paste the config copied from Lime.</div>
           </div>
           <div class="card">
             <div class="card-title" data-i18n="troubleshooting_connecting_title">Stays on yellow dot (connecting)</div>
-            <div class="card-body" data-i18n="troubleshooting_connecting_body">Relay server not reachable. Ensure Ember is running with browser control enabled.</div>
+            <div class="card-body" data-i18n="troubleshooting_connecting_body">Relay server not reachable. Ensure Lime is running with browser control enabled.</div>
           </div>
           <div class="card">
             <div class="card-title" data-i18n="troubleshooting_pages_title">Pages not responding</div>
@@ -146,7 +146,7 @@
           <div class="card">
             <div class="card-title" data-i18n="settings_tab_group_title">Tab Group Behavior</div>
             <div class="setting-row">
-              <span class="setting-label" data-i18n="settings_tab_group_label">Close "Ember Agent" tab group when relay is disabled</span>
+              <span class="setting-label" data-i18n="settings_tab_group_label">Close "Lime Agent" tab group when relay is disabled</span>
               <label class="mini-toggle">
                 <input type="checkbox" id="closeGroupOnDisable" />
                 <span class="mini-toggle-track"></span>
@@ -155,7 +155,7 @@
           </div>
           <div class="card">
             <div class="card-title" data-i18n="settings_control_port_title">Control Port</div>
-            <div class="card-body" data-i18n="settings_control_port_body">Only change if you use a custom port in Ember config.</div>
+            <div class="card-body" data-i18n="settings_control_port_body">Only change if you use a custom port in Lime config.</div>
             <div class="port-row">
               <input id="port" inputmode="numeric" pattern="[0-9]*" placeholder="9234" />
               <button id="save" type="button" data-i18n="settings_save">Save</button>

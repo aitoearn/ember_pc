@@ -1,6 +1,6 @@
 import type { UnlistenFn } from "@/lib/desktop-host/event";
 import {
-  createSubmitTurnRequestFromAgentOp,
+  createAgentSessionTurnStartParamsFromUserInputOp,
   type AgentEvent,
   type AgentOp,
 } from "@/lib/api/agentProtocol";
@@ -8,26 +8,35 @@ import {
   listenAgentRuntimeEvent,
   type AgentRuntimeEventListener,
 } from "@/lib/api/agentRuntimeEvents";
+import type { AgentExecutionStrategy } from "@/lib/api/agentExecutionRuntime";
 import {
   createAgentRuntimeClient,
-  type AgentRuntimeCreateSessionOptions,
-  type AgentRuntimeGetSessionOptions,
-  type AgentRuntimeListSessionsOptions,
-  type AgentRuntimeReplayedActionRequiredView,
   type AgentRuntimeClient,
-  type AsterAgentStatus,
-  type AsterExecutionStrategy,
-  type AsterSessionDetail,
-  type AsterSessionInfo,
-} from "@/lib/api/agentRuntime";
+} from "@/lib/api/agentRuntime/clientFactory";
+import type {
+  AgentRuntimeCreateSessionOptions,
+  AgentRuntimeGetSessionOptions,
+  AgentRuntimeReplayedActionRequiredView,
+} from "@/lib/api/agentRuntime/requestTypes";
+import type {
+  AgentRuntimeListSessionsOptions,
+  AgentSessionDetail,
+  AgentSessionInfo,
+  RuntimeProviderSelection,
+} from "@/lib/api/agentRuntime/sessionTypes";
 import type { AgentAccessMode } from "./agentChatStorage";
-import type { ActionRequiredScope } from "../types";
+import type { ActionRequiredScope, ApprovalDecision } from "../types";
+import {
+  projectChatRuntimeQueueControl,
+  type ChatRuntimeQueueControlProjection,
+} from "../projection/chatRuntimeQueueControlProjection";
 
 export interface AgentRuntimeActionResponse {
   sessionId: string;
   requestId: string;
   actionType: "tool_confirmation" | "ask_user" | "elicitation";
-  confirmed: boolean;
+  confirmed?: boolean;
+  decision?: ApprovalDecision;
   response?: string;
   userData?: unknown;
   metadata?: Record<string, unknown>;
@@ -39,27 +48,30 @@ export interface AgentSessionMetadataPatch {
   accessMode?: AgentAccessMode;
   providerType?: string;
   model?: string;
-  executionStrategy?: AsterExecutionStrategy;
+  executionStrategy?: AgentExecutionStrategy;
 }
 
 export interface AgentRuntimeAdapter {
-  init(): Promise<AsterAgentStatus>;
+  getRuntimeProviderSelection(): Promise<RuntimeProviderSelection>;
   createSession(
-    workspaceId: string,
+    workspaceId?: string,
     name?: string,
-    executionStrategy?: AsterExecutionStrategy,
+    executionStrategy?: AgentExecutionStrategy,
     options?: AgentRuntimeCreateSessionOptions,
   ): Promise<string>;
   listSessions(
     options?: AgentRuntimeListSessionsOptions,
-  ): Promise<AsterSessionInfo[]>;
+  ): Promise<AgentSessionInfo[]>;
   getSession(
     sessionId: string,
     options?: AgentRuntimeGetSessionOptions,
-  ): Promise<AsterSessionDetail>;
+  ): Promise<AgentSessionDetail>;
   getSessionReadModel(
     sessionId: string,
-  ): Promise<AsterSessionDetail["thread_read"]>;
+  ): Promise<AgentSessionDetail["thread_read"]>;
+  getThreadQueueControl(
+    threadId: string,
+  ): Promise<ChatRuntimeQueueControlProjection>;
   replayRequest(
     sessionId: string,
     requestId: string,
@@ -68,7 +80,7 @@ export interface AgentRuntimeAdapter {
   deleteSession(sessionId: string): Promise<void>;
   setSessionExecutionStrategy(
     sessionId: string,
-    executionStrategy: AsterExecutionStrategy,
+    executionStrategy: AgentExecutionStrategy,
   ): Promise<void>;
   setSessionAccessMode?(
     sessionId: string,
@@ -94,15 +106,11 @@ export interface AgentRuntimeAdapter {
     turnId?: string,
     eventName?: string,
   ): Promise<boolean>;
-  resumeThread(sessionId: string): Promise<boolean>;
+  resumeThread(sessionId: string, turnId?: string): Promise<boolean>;
   promoteQueuedTurn(sessionId: string, queuedTurnId: string): Promise<boolean>;
   removeQueuedTurn(sessionId: string, queuedTurnId: string): Promise<boolean>;
   respondToAction(request: AgentRuntimeActionResponse): Promise<void>;
   listenToTurnEvents(
-    eventName: string,
-    handler: (event: { payload: AgentEvent | unknown }) => void,
-  ): Promise<UnlistenFn>;
-  listenToTeamEvents(
     eventName: string,
     handler: (event: { payload: AgentEvent | unknown }) => void,
   ): Promise<UnlistenFn>;
@@ -117,7 +125,8 @@ export interface AgentRuntimeAdapterDeps {
     | "generateAgentRuntimeSessionTitle"
     | "getAgentRuntimeSession"
     | "getAgentRuntimeThreadRead"
-    | "initAsterAgent"
+    | "readAgentRuntimeThread"
+    | "getRuntimeProviderSelection"
     | "interruptAgentRuntimeTurn"
     | "listAgentRuntimeSessions"
     | "promoteAgentRuntimeQueuedTurn"
@@ -131,13 +140,28 @@ export interface AgentRuntimeAdapterDeps {
   listenRuntimeEvent?: AgentRuntimeEventListener;
 }
 
+function buildGetSessionRequestKey(
+  sessionId: string,
+  options?: AgentRuntimeGetSessionOptions,
+): string {
+  return JSON.stringify({
+    sessionId,
+    historyBeforeMessageId: options?.historyBeforeMessageId ?? null,
+    historyLimit: options?.historyLimit ?? null,
+    historyOffset: options?.historyOffset ?? null,
+    resumeSessionStartHooks: options?.resumeSessionStartHooks === true,
+  });
+}
+
 export function createAgentRuntimeAdapter({
   client = createAgentRuntimeClient(),
   listenRuntimeEvent = listenAgentRuntimeEvent,
 }: AgentRuntimeAdapterDeps = {}): AgentRuntimeAdapter {
+  const getSessionInFlight = new Map<string, Promise<AgentSessionDetail>>();
+
   return {
-    async init() {
-      return client.initAsterAgent();
+    async getRuntimeProviderSelection() {
+      return client.getRuntimeProviderSelection();
     },
     async createSession(workspaceId, name, executionStrategy, options) {
       return client.createAgentRuntimeSession(
@@ -151,10 +175,38 @@ export function createAgentRuntimeAdapter({
       return client.listAgentRuntimeSessions(options);
     },
     async getSession(sessionId, options) {
-      return client.getAgentRuntimeSession(sessionId, options);
+      const key = buildGetSessionRequestKey(sessionId, options);
+      const existing = getSessionInFlight.get(key);
+      if (existing) {
+        return existing;
+      }
+
+      const request = client
+        .getAgentRuntimeSession(sessionId, options)
+        .finally(() => {
+          if (getSessionInFlight.get(key) === request) {
+            getSessionInFlight.delete(key);
+          }
+        });
+      getSessionInFlight.set(key, request);
+      return request;
     },
     async getSessionReadModel(sessionId) {
       return client.getAgentRuntimeThreadRead(sessionId);
+    },
+    async getThreadQueueControl(threadId) {
+      const result = projectChatRuntimeQueueControl(
+        await client.readAgentRuntimeThread(threadId),
+      );
+      if (!result.ok) {
+        throw new Error(
+          `canonical queue-control projection rejected: ${result.reason}`,
+        );
+      }
+      if (result.projection.threadId !== threadId.trim()) {
+        throw new Error("canonical queue-control thread identity mismatch");
+      }
+      return result.projection;
     },
     async replayRequest(sessionId, requestId) {
       return client.replayAgentRuntimeRequest({
@@ -217,7 +269,7 @@ export function createAgentRuntimeAdapter({
       switch (op.type) {
         case "user_input":
           await client.submitAgentRuntimeTurn(
-            createSubmitTurnRequestFromAgentOp(op),
+            createAgentSessionTurnStartParamsFromUserInputOp(op),
           );
           return;
         default:
@@ -237,9 +289,10 @@ export function createAgentRuntimeAdapter({
         ...(eventName ? { event_name: eventName } : {}),
       });
     },
-    async resumeThread(sessionId) {
+    async resumeThread(sessionId, turnId) {
       return client.resumeAgentRuntimeThread({
         session_id: sessionId,
+        ...(turnId ? { turn_id: turnId } : {}),
       });
     },
     async promoteQueuedTurn(sessionId, queuedTurnId) {
@@ -260,6 +313,7 @@ export function createAgentRuntimeAdapter({
         request_id: request.requestId,
         action_type: request.actionType,
         confirmed: request.confirmed,
+        decision: request.decision,
         response: request.response,
         user_data: request.userData,
         metadata: request.metadata,
@@ -276,9 +330,6 @@ export function createAgentRuntimeAdapter({
       });
     },
     async listenToTurnEvents(eventName, handler) {
-      return listenRuntimeEvent(eventName, handler);
-    },
-    async listenToTeamEvents(eventName, handler) {
       return listenRuntimeEvent(eventName, handler);
     },
   };

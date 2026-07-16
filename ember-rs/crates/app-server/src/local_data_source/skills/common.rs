@@ -1,4 +1,4 @@
-use ember_core::app_paths;
+use lime_core::app_paths;
 use std::fs;
 use std::path::Component;
 use std::path::Path;
@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SkillPackageApp {
-    Ember,
+    Lime,
     Claude,
     Codex,
     Gemini,
@@ -14,7 +14,7 @@ pub(crate) enum SkillPackageApp {
 
 pub(crate) fn parse_skill_package_app(value: &str) -> Result<SkillPackageApp, String> {
     match value.trim().to_ascii_lowercase().as_str() {
-        "ember" => Ok(SkillPackageApp::Ember),
+        "lime" => Ok(SkillPackageApp::Lime),
         "claude" => Ok(SkillPackageApp::Claude),
         "codex" => Ok(SkillPackageApp::Codex),
         "gemini" => Ok(SkillPackageApp::Gemini),
@@ -24,12 +24,12 @@ pub(crate) fn parse_skill_package_app(value: &str) -> Result<SkillPackageApp, St
 
 pub(crate) fn skill_package_app_to_core_app(
     app: SkillPackageApp,
-) -> ember_core::models::app_type::AppType {
+) -> lime_core::models::app_type::AppType {
     match app {
-        SkillPackageApp::Ember => ember_core::models::app_type::AppType::Ember,
-        SkillPackageApp::Claude => ember_core::models::app_type::AppType::Claude,
-        SkillPackageApp::Codex => ember_core::models::app_type::AppType::Codex,
-        SkillPackageApp::Gemini => ember_core::models::app_type::AppType::Gemini,
+        SkillPackageApp::Lime => lime_core::models::app_type::AppType::Lime,
+        SkillPackageApp::Claude => lime_core::models::app_type::AppType::Claude,
+        SkillPackageApp::Codex => lime_core::models::app_type::AppType::Codex,
+        SkillPackageApp::Gemini => lime_core::models::app_type::AppType::Gemini,
     }
 }
 
@@ -39,7 +39,7 @@ pub(crate) fn skill_state_key(app: SkillPackageApp, directory: &str) -> String {
 
 pub(crate) fn skill_package_app_root(app: SkillPackageApp) -> Result<PathBuf, String> {
     match app {
-        SkillPackageApp::Ember => app_paths::resolve_skills_dir(),
+        SkillPackageApp::Lime => app_paths::resolve_skills_dir(),
         SkillPackageApp::Claude => home_skill_root(".claude"),
         SkillPackageApp::Codex => home_skill_root(".codex"),
         SkillPackageApp::Gemini => home_skill_root(".gemini"),
@@ -48,7 +48,7 @@ pub(crate) fn skill_package_app_root(app: SkillPackageApp) -> Result<PathBuf, St
 
 pub(crate) fn skill_package_app_lookup_roots(app: SkillPackageApp) -> Result<Vec<PathBuf>, String> {
     match app {
-        SkillPackageApp::Ember => app_paths::resolve_ember_skill_roots(),
+        SkillPackageApp::Lime => app_paths::resolve_lime_skill_roots(),
         _ => Ok(vec![skill_package_app_root(app)?]),
     }
 }
@@ -103,7 +103,7 @@ pub(crate) fn resolve_skill_package_dir(
 
 fn skill_package_app_key_prefix(app: SkillPackageApp) -> &'static str {
     match app {
-        SkillPackageApp::Ember => "ember",
+        SkillPackageApp::Lime => "lime",
         SkillPackageApp::Claude => "claude",
         SkillPackageApp::Codex => "codex",
         SkillPackageApp::Gemini => "gemini",

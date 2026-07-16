@@ -16,7 +16,6 @@ import {
   prepareIsolatedPackageDir,
   prepareIsolatedMakeDir,
 } from "./make-zip-local-feed.mjs";
-import { macPackageDirName, PRODUCT_DISPLAY_NAME } from "./productIdentity.mjs";
 
 function listen(server) {
   return new Promise((resolve, reject) => {
@@ -105,7 +104,7 @@ describe("Electron Forge macOS ZIP local feed helper", () => {
 
   it("serves a deterministic RELEASES.json for MakerZIP manifest generation", async () => {
     const server = createLocalReleasesServer({
-      feedPath: "/ember/stable/darwin-arm64",
+      feedPath: "/lime/stable/darwin-arm64",
       releasesManifest: {
         currentRelease: "1.58.0",
         releases: [{ version: "1.58.0" }],
@@ -117,7 +116,7 @@ describe("Electron Forge macOS ZIP local feed helper", () => {
       const address = server.address();
       const port = typeof address === "object" && address ? address.port : 0;
       const response = await getJson(
-        `http://127.0.0.1:${port}/ember/stable/darwin-arm64/RELEASES.json`,
+        `http://127.0.0.1:${port}/lime/stable/darwin-arm64/RELEASES.json`,
       );
 
       expect(response.statusCode).toBe(200);
@@ -140,10 +139,10 @@ describe("Electron Forge macOS ZIP local feed helper", () => {
   });
 
   it("links the existing package into the isolated Forge outDir", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ember-forge-zip-link-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lime-forge-zip-link-"));
     const packageRoot = path.join(root, "release-electron");
     const outDir = path.join(root, ".tmp", "electron-forge-local-feed");
-    fs.mkdirSync(path.join(packageRoot, macPackageDirName("arm64")), {
+    fs.mkdirSync(path.join(packageRoot, "Lime-darwin-arm64"), {
       recursive: true,
     });
 
@@ -155,7 +154,7 @@ describe("Electron Forge macOS ZIP local feed helper", () => {
     });
 
     expect(result.relativeSource).toBe(
-      path.join("release-electron", macPackageDirName("arm64")),
+      path.join("release-electron", "Lime-darwin-arm64"),
     );
     expect(fs.lstatSync(result.destination).isSymbolicLink()).toBe(true);
     expect(fs.realpathSync(result.destination)).toBe(
@@ -164,14 +163,11 @@ describe("Electron Forge macOS ZIP local feed helper", () => {
   });
 
   it("cleans the isolated make output before generating a new ZIP", () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), "ember-forge-zip-make-"));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lime-forge-zip-make-"));
     const outDir = path.join(root, ".tmp", "electron-forge-local-feed");
     const makeDir = path.join(outDir, "make", "zip", "darwin", "arm64");
     fs.mkdirSync(makeDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(makeDir, `${PRODUCT_DISPLAY_NAME}-darwin-arm64-1.59.0.zip`),
-      "",
-    );
+    fs.writeFileSync(path.join(makeDir, "Lime-darwin-arm64-1.59.0.zip"), "");
 
     expect(prepareIsolatedMakeDir({ arch: "arm64", outDir })).toBe(makeDir);
     expect(fs.existsSync(makeDir)).toBe(false);
@@ -179,16 +175,10 @@ describe("Electron Forge macOS ZIP local feed helper", () => {
 
   it("rejects stale ZIP versions in local feed evidence", () => {
     const root = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ember-forge-zip-stale-"),
+      path.join(os.tmpdir(), "lime-forge-zip-stale-"),
     );
-    fs.writeFileSync(
-      path.join(root, `${PRODUCT_DISPLAY_NAME}-darwin-arm64-1.59.0.zip`),
-      "",
-    );
-    fs.writeFileSync(
-      path.join(root, `${PRODUCT_DISPLAY_NAME}-darwin-arm64-1.60.0.zip`),
-      "",
-    );
+    fs.writeFileSync(path.join(root, "Lime-darwin-arm64-1.59.0.zip"), "");
+    fs.writeFileSync(path.join(root, "Lime-darwin-arm64-1.60.0.zip"), "");
 
     expect(() =>
       assertSingleCurrentVersionZip({
@@ -197,14 +187,12 @@ describe("Electron Forge macOS ZIP local feed helper", () => {
       }),
     ).toThrow(/exactly one current 1\.60\.0 zip/);
 
-    fs.rmSync(
-      path.join(root, `${PRODUCT_DISPLAY_NAME}-darwin-arm64-1.59.0.zip`),
-    );
+    fs.rmSync(path.join(root, "Lime-darwin-arm64-1.59.0.zip"));
     expect(
       assertSingleCurrentVersionZip({
         makeDir: root,
         packageVersion: "1.60.0",
       }).map((filePath) => path.basename(filePath)),
-    ).toEqual([`${PRODUCT_DISPLAY_NAME}-darwin-arm64-1.60.0.zip`]);
+    ).toEqual(["Lime-darwin-arm64-1.60.0.zip"]);
   });
 });

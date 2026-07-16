@@ -17,7 +17,7 @@ const SCANNED_EXTENSIONS = new Set([
 ]);
 const SKIPPED_DIRS = new Set([
   ".git",
-  ".ember",
+  ".lime",
   ".next",
   "dist",
   "node_modules",
@@ -47,10 +47,8 @@ const SKIPPED_FILE_SUFFIXES = [
   ".spec.tsx",
 ];
 const DEFAULT_TOOL_SURFACE_PATHS = [
-  "ember-rs/src/agent_tools",
-  "ember-rs/src/commands/aster_agent_cmd/tool_runtime.rs",
-  "ember-rs/src/commands/aster_agent_cmd/tool_runtime",
-  "ember-rs/src/commands/aster_agent_cmd/command_api/runtime_api.rs",
+  "ember-rs/crates/agent/src/agent_tools",
+  "ember-rs/crates/tool-runtime/src",
 ];
 
 export function managedObjectiveForbiddenSurfaceTokens() {

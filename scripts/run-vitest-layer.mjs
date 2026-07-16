@@ -142,12 +142,12 @@ export function buildLayerPoolArgs(
 
   return [
     "--pool",
-    normalizeUnitPoolEnv(env.EMBER_VITEST_UNIT_POOL) || "threads",
+    normalizeUnitPoolEnv(env.LIME_VITEST_UNIT_POOL) || "threads",
   ];
 }
 
 export function shouldUseSingleFork(layer, options = {}, env = process.env) {
-  if (options.singleFork || isTruthyEnvFlag(env.EMBER_VITEST_SINGLE_FORK)) {
+  if (options.singleFork || isTruthyEnvFlag(env.LIME_VITEST_SINGLE_FORK)) {
     return true;
   }
 

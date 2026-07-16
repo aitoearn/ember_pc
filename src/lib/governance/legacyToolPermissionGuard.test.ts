@@ -14,7 +14,7 @@ const EXCLUDED_RUST_FILES = new Set([
   "ember-rs/crates/agent/src/tool_permissions.rs",
   "ember-rs/crates/agent/src/shell_security.rs",
 ]);
-const EXCLUDED_RUST_DIRS = new Set(["target", "aster-rust"]);
+const EXCLUDED_RUST_DIRS = new Set(["target", "agent-rust"]);
 
 function collectRustFiles(dir: string): string[] {
   const entries = readdirSync(dir);
@@ -43,7 +43,7 @@ function collectRustFiles(dir: string): string[] {
 }
 
 describe("legacy tool permission guard", () => {
-  it("ember-agent 不应继续把旧权限模块挂回 lib.rs 编译图", () => {
+  it("lime-agent 不应继续把旧权限模块挂回 lib.rs 编译图", () => {
     const content = readFileSync(AGENT_LIB_RS, "utf8");
     expect(content).not.toContain("pub mod shell_security;");
     expect(content).not.toContain("pub mod tool_permissions;");
@@ -65,11 +65,11 @@ describe("legacy tool permission guard", () => {
   it("上层 Rust 模块不应依赖 dead-candidate 旧权限表面", () => {
     const offenders: string[] = [];
     const patterns = [
-      "ember_agent::shell_security::",
-      "ember_agent::tool_permissions::",
-      "ember_agent::ShellSecurityChecker",
-      "ember_agent::DynamicPermissionCheck",
-      "ember_agent::PermissionBehavior",
+      "lime_agent::shell_security::",
+      "lime_agent::tool_permissions::",
+      "lime_agent::ShellSecurityChecker",
+      "lime_agent::DynamicPermissionCheck",
+      "lime_agent::PermissionBehavior",
     ];
 
     for (const root of RUST_SCAN_ROOTS) {

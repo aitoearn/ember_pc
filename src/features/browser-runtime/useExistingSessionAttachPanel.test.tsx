@@ -100,7 +100,7 @@ const ATTACH_PANEL_COPY: ExistingSessionAttachPanelCopy = {
       },
       waiting: {
         label: "Waiting for bridge",
-        description: "Connect the Ember Browser Bridge extension first.",
+        description: "Connect the Lime Browser Bridge extension first.",
       },
       reading: {
         label: "Reading page",
@@ -116,7 +116,7 @@ const ATTACH_PANEL_COPY: ExistingSessionAttachPanelCopy = {
         "Attach current Chrome can take over a live session when available.",
       checking: "Checking the current Chrome bridge connection...",
       waiting:
-        "Install and connect Ember Browser Bridge in the current browser.",
+        "Install and connect Lime Browser Bridge in the current browser.",
       reading: "Reading the current Chrome page summary...",
     },
     actions: {
@@ -132,11 +132,11 @@ const ATTACH_PANEL_COPY: ExistingSessionAttachPanelCopy = {
     hint: {
       embedded: {
         connected: "Attach mode is connected.",
-        waiting: "Connect Ember Browser Bridge first.",
+        waiting: "Connect Lime Browser Bridge first.",
       },
       live: {
         connected: "Attach mode can take over the live view when available.",
-        waiting: "Connect Ember Browser Bridge first.",
+        waiting: "Connect Lime Browser Bridge first.",
       },
     },
   },

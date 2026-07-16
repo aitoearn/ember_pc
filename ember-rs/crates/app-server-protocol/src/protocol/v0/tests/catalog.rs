@@ -1,13 +1,15 @@
 use super::super::*;
 
 #[test]
-fn app_server_method_catalog_keeps_request_and_notification_methods_together() {
+fn app_server_method_catalog_keeps_all_method_kinds_together() {
     let methods: Vec<&str> = APP_SERVER_METHODS.iter().map(|spec| spec.method).collect();
     assert_eq!(
         methods,
         vec![
             METHOD_INITIALIZE,
             METHOD_INITIALIZED,
+            METHOD_CONFIG_WARNING,
+            METHOD_SERVER_REQUEST_RESOLVED,
             METHOD_CAPABILITY_LIST,
             METHOD_ARTIFACT_READ,
             METHOD_FILE_SYSTEM_LIST_DIRECTORY,
@@ -17,9 +19,22 @@ fn app_server_method_catalog_keeps_request_and_notification_methods_together() {
             METHOD_FILE_SYSTEM_RENAME_FILE,
             METHOD_FILE_SYSTEM_DELETE_FILE,
             METHOD_PROJECT_GIT_STATUS,
+            METHOD_PROJECT_GIT_DIFF,
+            METHOD_PROJECT_GIT_COMMITS_LIST,
             METHOD_PROJECT_GIT_BRANCH_CHECKOUT,
             METHOD_PROJECT_GIT_BRANCH_CREATE,
             METHOD_PROJECT_GIT_WORKTREE_CREATE,
+            METHOD_PROJECT_SHELL_SESSION_START,
+            METHOD_PROJECT_SHELL_SESSION_WRITE,
+            METHOD_PROJECT_SHELL_SESSION_RESIZE,
+            METHOD_PROJECT_SHELL_SESSION_KILL,
+            METHOD_PROJECT_SHELL_SESSION_DRAIN_EVENTS,
+            METHOD_EXECUTION_PROCESS_START,
+            METHOD_EXECUTION_PROCESS_WRITE_STDIN,
+            METHOD_EXECUTION_PROCESS_INTERRUPT,
+            METHOD_EXECUTION_PROCESS_TERMINATE,
+            METHOD_EXECUTION_PROCESS_STATUS,
+            METHOD_EXECUTION_PROCESS_DRAIN_OUTPUT,
             METHOD_EVIDENCE_EXPORT,
             METHOD_AGENT_SESSION_HANDOFF_BUNDLE_EXPORT,
             METHOD_AGENT_SESSION_REPLAY_CASE_EXPORT,
@@ -27,8 +42,13 @@ fn app_server_method_catalog_keeps_request_and_notification_methods_together() {
             METHOD_AGENT_SESSION_REVIEW_DECISION_TEMPLATE_EXPORT,
             METHOD_AGENT_SESSION_REVIEW_DECISION_SAVE,
             METHOD_AGENT_SESSION_LIST,
+            METHOD_THREAD_READ,
+            METHOD_THREAD_LIST,
+            METHOD_THREAD_TURNS_LIST,
+            METHOD_THREAD_ITEMS_LIST,
             METHOD_AGENT_SESSION_UPDATE,
             METHOD_AGENT_SESSION_ARCHIVE_MANY,
+            METHOD_AGENT_SESSION_DELETE,
             METHOD_AGENT_SESSION_OBJECTIVE_READ,
             METHOD_AGENT_SESSION_OBJECTIVE_SET,
             METHOD_AGENT_SESSION_OBJECTIVE_STATUS_UPDATE,
@@ -43,6 +63,7 @@ fn app_server_method_catalog_keeps_request_and_notification_methods_together() {
             METHOD_AGENT_SESSION_FILE_CHECKPOINT_GET,
             METHOD_AGENT_SESSION_FILE_CHECKPOINT_DIFF,
             METHOD_AGENT_SESSION_FILE_CHECKPOINT_RESTORE,
+            METHOD_AGENT_SESSION_TOOL_INVENTORY_READ,
             METHOD_SESSION_FILE_GET_OR_CREATE,
             METHOD_SESSION_FILE_UPDATE_META,
             METHOD_SESSION_FILE_SAVE,
@@ -107,6 +128,7 @@ fn app_server_method_catalog_keeps_request_and_notification_methods_together() {
             METHOD_MEDIA_TASK_ARTIFACT_IMAGE_CREATE,
             METHOD_MEDIA_TASK_ARTIFACT_AUDIO_CREATE,
             METHOD_MEDIA_TASK_ARTIFACT_VIDEO_CREATE,
+            METHOD_MEDIA_TASK_ARTIFACT_IMAGE_COMPLETE,
             METHOD_MEDIA_TASK_ARTIFACT_AUDIO_COMPLETE,
             METHOD_MEDIA_TASK_ARTIFACT_GET,
             METHOD_MEDIA_TASK_ARTIFACT_LIST,
@@ -138,19 +160,38 @@ fn app_server_method_catalog_keeps_request_and_notification_methods_together() {
             METHOD_VOICE_INSTRUCTION_DELETE,
             METHOD_VOICE_MODEL_DEFAULT_SET,
             METHOD_VOICE_MODEL_TEST_TRANSCRIBE_FILE,
+            METHOD_VOICE_TRANSCRIPTION_TRANSCRIBE_AUDIO,
+            METHOD_VOICE_TRANSCRIPTION_POLISH_TEXT,
             METHOD_WORKSPACE_SKILL_BINDINGS_LIST,
             METHOD_WORKSPACE_REGISTERED_SKILLS_LIST,
-            METHOD_AGENT_APP_LOCAL_PACKAGE_INSPECT,
-            METHOD_AGENT_APP_PACKAGE_FETCH_CLOUD,
-            METHOD_AGENT_APP_INSTALLED_SAVE,
-            METHOD_AGENT_APP_INSTALLED_LIST,
-            METHOD_AGENT_APP_INSTALLED_DISABLED_SET,
-            METHOD_AGENT_APP_INSTALLED_UNINSTALL_REHEARSAL,
-            METHOD_AGENT_APP_INSTALLED_UNINSTALL,
-            METHOD_AGENT_APP_SHELL_PREPARE,
-            METHOD_AGENT_APP_UI_RUNTIME_START,
-            METHOD_AGENT_APP_UI_RUNTIME_STATUS,
-            METHOD_AGENT_APP_UI_RUNTIME_STOP,
+            METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST,
+            METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_LIST,
+            METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CONSUME,
+            METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_DISMISS,
+            METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED,
+            METHOD_BROWSER_SESSION_TARGET_LIST,
+            METHOD_BROWSER_SESSION_OPEN,
+            METHOD_BROWSER_SESSION_READ,
+            METHOD_BROWSER_SESSION_CLOSE,
+            METHOD_BROWSER_SESSION_EVENT_LIST,
+            METHOD_BROWSER_SESSION_ACTION_EXECUTE,
+            METHOD_PLUGIN_LOCAL_PACKAGE_INSPECT,
+            METHOD_PLUGIN_LOCAL_PACKAGE_EXPORT,
+            METHOD_PLUGIN_PACKAGE_FETCH_CLOUD,
+            METHOD_PLUGIN_INSTALLED_SAVE,
+            METHOD_PLUGIN_INSTALLED_LIST,
+            METHOD_PLUGIN_INSTALLED_DISABLED_SET,
+            METHOD_PLUGIN_INSTALLED_UNINSTALL_REHEARSAL,
+            METHOD_PLUGIN_INSTALLED_UNINSTALL,
+            METHOD_PLUGIN_HOST_LIFECYCLE_LIST,
+            METHOD_PLUGIN_SHELL_PREPARE,
+            METHOD_PLUGIN_UI_RUNTIME_START,
+            METHOD_PLUGIN_UI_RUNTIME_STATUS,
+            METHOD_PLUGIN_UI_RUNTIME_STOP,
+            METHOD_SOUL_STYLE_PACK_INSTALL,
+            METHOD_SOUL_STYLE_PACK_LIST,
+            METHOD_SOUL_STYLE_PACK_STATUS_SET,
+            METHOD_SOUL_STYLE_PACK_UNINSTALL,
             METHOD_KNOWLEDGE_PACK_LIST,
             METHOD_KNOWLEDGE_PACK_READ,
             METHOD_KNOWLEDGE_SOURCE_IMPORT,
@@ -180,8 +221,10 @@ fn app_server_method_catalog_keeps_request_and_notification_methods_together() {
             METHOD_MCP_SERVER_ENABLED_SET,
             METHOD_MCP_SERVER_IMPORT_FROM_APP,
             METHOD_MCP_SERVER_SYNC_ALL_TO_LIVE,
+            METHOD_MCP_SERVER_OAUTH_LOGIN,
             METHOD_MCP_SERVER_START,
             METHOD_MCP_SERVER_STOP,
+            METHOD_MCP_SERVER_ELICITATION_REQUEST,
             METHOD_MCP_TOOL_LIST,
             METHOD_MCP_TOOL_LIST_FOR_CONTEXT,
             METHOD_MCP_TOOL_SEARCH,
@@ -191,17 +234,19 @@ fn app_server_method_catalog_keeps_request_and_notification_methods_together() {
             METHOD_MCP_PROMPT_GET,
             METHOD_MCP_RESOURCE_LIST,
             METHOD_MCP_RESOURCE_READ,
+            METHOD_MCP_RESOURCE_SUBSCRIBE,
+            METHOD_MCP_RESOURCE_UNSUBSCRIBE,
             METHOD_PROJECT_MEMORY_READ,
-            METHOD_UNIFIED_MEMORY_LIST,
-            METHOD_UNIFIED_MEMORY_GET,
-            METHOD_UNIFIED_MEMORY_CREATE,
-            METHOD_UNIFIED_MEMORY_UPDATE,
-            METHOD_UNIFIED_MEMORY_DELETE,
-            METHOD_UNIFIED_MEMORY_SEARCH,
-            METHOD_UNIFIED_MEMORY_STATS,
-            METHOD_UNIFIED_MEMORY_ANALYZE,
-            METHOD_UNIFIED_MEMORY_SEMANTIC_SEARCH,
-            METHOD_UNIFIED_MEMORY_HYBRID_SEARCH,
+            METHOD_MEMORY_STORE_LIST,
+            METHOD_MEMORY_STORE_READ,
+            METHOD_MEMORY_STORE_SEARCH,
+            METHOD_MEMORY_STORE_ADD_NOTE,
+            METHOD_MEMORY_STORE_CONSOLIDATE,
+            METHOD_MEMORY_STORE_REVIEW_LIST,
+            METHOD_MEMORY_STORE_REVIEW_RESOLVE,
+            METHOD_MEMORY_STORE_HEALTH,
+            METHOD_MEMORY_STORE_RESET,
+            METHOD_MEMORY_STORE_INDEX_REBUILD,
             METHOD_LOG_LIST,
             METHOD_LOG_PERSISTED_TAIL,
             METHOD_LOG_CLEAR,
@@ -210,6 +255,9 @@ fn app_server_method_catalog_keeps_request_and_notification_methods_together() {
             METHOD_DIAGNOSTICS_SUPPORT_BUNDLE_EXPORT,
             METHOD_DIAGNOSTICS_SERVER_READ,
             METHOD_DIAGNOSTICS_WINDOWS_STARTUP_READ,
+            METHOD_DIAGNOSTICS_TRACE_LIST,
+            METHOD_DIAGNOSTICS_TRACE_READ,
+            METHOD_DIAGNOSTICS_TRACE_EXPORT,
             METHOD_USAGE_STATS_READ,
             METHOD_USAGE_STATS_MODEL_RANKING_LIST,
             METHOD_USAGE_STATS_DAILY_TRENDS_LIST,
@@ -242,49 +290,39 @@ fn app_server_method_catalog_keeps_request_and_notification_methods_together() {
             METHOD_CONNECT_OPEN_DEEP_LINK_RESOLVE,
             METHOD_CONNECT_RELAY_API_KEY_SAVE,
             METHOD_CONNECT_CALLBACK_SEND,
+            METHOD_CONVERSATION_IMPORT_SOURCE_SCAN,
+            METHOD_CONVERSATION_IMPORT_THREAD_PREVIEW,
+            METHOD_CONVERSATION_IMPORT_THREAD_COMMIT,
             METHOD_AGENT_SESSION_START,
             METHOD_AGENT_SESSION_READ,
+            METHOD_AGENT_SESSION_MEDIA_READ,
             METHOD_AGENT_SESSION_TURN_START,
             METHOD_AGENT_SESSION_TURN_CANCEL,
             METHOD_AGENT_SESSION_ACTION_REPLAY,
             METHOD_AGENT_SESSION_ACTION_RESPOND,
+            METHOD_AGENT_SESSION_RUNTIME_EVENTS_APPEND,
+            METHOD_WORKFLOW_READ,
+            METHOD_WORKFLOW_CANCEL,
+            METHOD_WORKFLOW_RETRY,
+            METHOD_WORKFLOW_RESPOND,
             METHOD_AGENT_SESSION_EVENT,
-            METHOD_TEST_CASE_LIST,
-            METHOD_TEST_CASE_READ,
-            METHOD_TEST_CASE_SAVE,
-            METHOD_TEST_CASE_DELETE,
-            METHOD_TEST_CASE_MODULE_LIST,
-            METHOD_TEST_CASE_MODULE_SAVE,
-            METHOD_TEST_CASE_MODULE_DELETE,
-            METHOD_TEST_CASE_RUN_SAVE,
-            METHOD_TEST_CASE_RUN_LIST,
-            METHOD_PERF_MONITOR_SESSION_SAVE,
-            METHOD_PERF_MONITOR_SESSION_LIST,
-            METHOD_PERF_MONITOR_SESSION_READ,
-            METHOD_DEVICE_FLOW_LIST,
-            METHOD_DEVICE_FLOW_READ,
-            METHOD_DEVICE_FLOW_SAVE,
-            METHOD_DEVICE_FLOW_DELETE,
-            METHOD_DEVICE_FLOW_RUN_SAVE,
-            METHOD_DEVICE_FLOW_RUN_LIST,
-            METHOD_DEVICE_FLOW_RUN_READ,
-            METHOD_DEVICE_FLOW_HEALING_LIST,
-            METHOD_DEVICE_FLOW_HEALING_SAVE,
-            METHOD_DEVICE_FLOW_HEALING_RESOLVE,
-            METHOD_PERF_MONITOR_TRACE_SAVE,
-            METHOD_PERF_MONITOR_TRACE_LIST,
-            METHOD_PERF_MONITOR_TRACE_READ,
-            METHOD_PERF_MONITOR_TRACE_DELETE,
-            METHOD_PERF_MONITOR_TRACE_ANALYSIS_SAVE,
-            METHOD_PERF_MONITOR_TRACE_ANALYSIS_LIST,
         ]
     );
 
     let unique_methods = methods.iter().collect::<std::collections::HashSet<_>>();
     assert_eq!(unique_methods.len(), methods.len());
-    assert!(is_app_server_request_method(METHOD_DEVICE_FLOW_SAVE));
-    assert!(is_app_server_request_method(
-        METHOD_DEVICE_FLOW_HEALING_RESOLVE
+    assert_eq!(
+        APP_SERVER_METHODS
+            .iter()
+            .find(|spec| spec.method == METHOD_MCP_SERVER_ELICITATION_REQUEST)
+            .map(|spec| spec.kind),
+        Some(AppServerMethodKind::ServerRequest)
+    );
+    assert!(!is_app_server_request_method(
+        METHOD_MCP_SERVER_ELICITATION_REQUEST
+    ));
+    assert!(!is_app_server_notification_method(
+        METHOD_MCP_SERVER_ELICITATION_REQUEST
     ));
     assert!(is_app_server_request_method(METHOD_INITIALIZE));
     assert!(is_app_server_request_method(METHOD_EVIDENCE_EXPORT));
@@ -316,12 +354,134 @@ fn app_server_method_catalog_keeps_request_and_notification_methods_together() {
     assert!(is_app_server_request_method(
         METHOD_AGENT_SESSION_TURN_START
     ));
+    assert!(is_app_server_request_method(METHOD_WORKFLOW_READ));
+    assert!(is_app_server_request_method(METHOD_WORKFLOW_CANCEL));
+    assert!(is_app_server_request_method(METHOD_WORKFLOW_RETRY));
+    assert!(is_app_server_request_method(METHOD_WORKFLOW_RESPOND));
     assert!(!is_app_server_request_method(METHOD_INITIALIZED));
     assert!(is_app_server_notification_method(METHOD_INITIALIZED));
+    assert!(is_app_server_notification_method(METHOD_CONFIG_WARNING));
+    assert!(is_app_server_notification_method(
+        METHOD_SERVER_REQUEST_RESOLVED
+    ));
     assert!(is_app_server_notification_method(
         METHOD_AGENT_SESSION_EVENT
+    ));
+    assert!(is_app_server_notification_method(
+        METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED
+    ));
+    assert!(is_app_server_request_method(
+        METHOD_BROWSER_SESSION_TARGET_LIST
+    ));
+    assert!(is_app_server_request_method(METHOD_BROWSER_SESSION_OPEN));
+    assert!(is_app_server_request_method(METHOD_BROWSER_SESSION_READ));
+    assert!(is_app_server_request_method(METHOD_BROWSER_SESSION_CLOSE));
+    assert!(is_app_server_request_method(
+        METHOD_BROWSER_SESSION_EVENT_LIST
+    ));
+    assert!(is_app_server_request_method(
+        METHOD_BROWSER_SESSION_ACTION_EXECUTE
+    ));
+    assert!(is_app_server_request_method(
+        METHOD_VOICE_TRANSCRIPTION_TRANSCRIBE_AUDIO
+    ));
+    assert!(is_app_server_request_method(
+        METHOD_VOICE_TRANSCRIPTION_POLISH_TEXT
+    ));
+    assert!(!is_app_server_request_method(
+        METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED
     ));
     assert!(!is_app_server_notification_method(
         METHOD_AGENT_SESSION_START
     ));
+}
+
+#[test]
+fn app_server_request_serialization_scope_covers_high_risk_methods() {
+    for spec in APP_SERVER_REQUEST_SERIALIZATION_SCOPES {
+        assert!(
+            is_app_server_request_method(spec.method),
+            "serialization scope must point at a request method: {}",
+            spec.method
+        );
+        assert!(
+            !is_app_server_notification_method(spec.method),
+            "serialization scope cannot point at a notification method: {}",
+            spec.method
+        );
+    }
+
+    assert_eq!(
+        app_server_request_serialization_scope(METHOD_AGENT_SESSION_TURN_START),
+        Some(AppServerRequestSerializationScope::Thread)
+    );
+    assert_eq!(
+        app_server_request_serialization_scope(METHOD_AGENT_SESSION_TURN_CANCEL),
+        Some(AppServerRequestSerializationScope::Thread)
+    );
+    assert_eq!(
+        app_server_request_serialization_scope(METHOD_AGENT_SESSION_THREAD_RESUME),
+        Some(AppServerRequestSerializationScope::Thread)
+    );
+    assert_eq!(
+        app_server_request_serialization_scope(METHOD_EXECUTION_PROCESS_START),
+        Some(AppServerRequestSerializationScope::ExecutionProcess)
+    );
+    assert_eq!(
+        app_server_request_serialization_scope(METHOD_EXECUTION_PROCESS_TERMINATE),
+        Some(AppServerRequestSerializationScope::ExecutionProcess)
+    );
+    assert_eq!(
+        app_server_request_serialization_scope(METHOD_PROJECT_SHELL_SESSION_START),
+        Some(AppServerRequestSerializationScope::ProjectShellSession)
+    );
+    assert_eq!(
+        app_server_request_serialization_scope(METHOD_PROJECT_SHELL_SESSION_KILL),
+        Some(AppServerRequestSerializationScope::ProjectShellSession)
+    );
+    assert_eq!(
+        app_server_request_serialization_scope(METHOD_MCP_SERVER_OAUTH_LOGIN),
+        Some(AppServerRequestSerializationScope::McpOauth)
+    );
+    assert_eq!(
+        app_server_request_serialization_scope(METHOD_MCP_RESOURCE_SUBSCRIBE),
+        Some(AppServerRequestSerializationScope::McpResourceSubscription)
+    );
+    assert_eq!(
+        app_server_request_serialization_scope(METHOD_BROWSER_SESSION_ACTION_EXECUTE),
+        Some(AppServerRequestSerializationScope::BrowserSession)
+    );
+    assert_eq!(
+        app_server_request_serialization_scope(METHOD_FILE_SYSTEM_DELETE_FILE),
+        Some(AppServerRequestSerializationScope::FileSystemMutation)
+    );
+    assert_eq!(
+        app_server_request_serialization_scope(METHOD_CAPABILITY_LIST),
+        None
+    );
+    assert_eq!(
+        app_server_request_serialization_scope(METHOD_AGENT_SESSION_EVENT),
+        None
+    );
+}
+
+#[test]
+fn app_server_request_access_keeps_shared_reads_in_the_catalog() {
+    for method in [
+        METHOD_BROWSER_SESSION_READ,
+        METHOD_THREAD_READ,
+        METHOD_THREAD_LIST,
+        METHOD_THREAD_TURNS_LIST,
+        METHOD_THREAD_ITEMS_LIST,
+    ] {
+        assert_eq!(
+            app_server_request_access(method),
+            AppServerRequestAccess::SharedRead,
+            "{method}"
+        );
+    }
+    assert_eq!(
+        app_server_request_access(METHOD_AGENT_SESSION_TURN_START),
+        AppServerRequestAccess::Exclusive
+    );
 }

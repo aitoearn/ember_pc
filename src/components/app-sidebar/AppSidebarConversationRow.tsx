@@ -1,26 +1,27 @@
 import type { MouseEvent } from "react";
 import styled from "styled-components";
-import { Check, MoreHorizontal, Pin } from "lucide-react";
-import type { AsterSessionInfo } from "@/lib/api/agentRuntime";
+import { CircleAlert, Clock3, LoaderCircle, MoreHorizontal, Pin } from "lucide-react";
+import type { AgentSessionInfo } from "@/lib/api/agentRuntime/sessionTypes";
 import { recordAgentUiPerformanceMetric } from "@/lib/agentUiPerformanceMetrics";
 
+type ConversationRuntimeStatus = "running" | "queued" | "waitingAction";
+
 interface AppSidebarConversationRowProps {
-  session: AsterSessionInfo;
+  session: AgentSessionInfo;
   title: string;
   meta: string;
   active: boolean;
+  runtimeStatus?: ConversationRuntimeStatus | null;
+  runtimeStatusLabel?: string | null;
   favorite: boolean;
-  selected: boolean;
-  multiSelectMode: boolean;
   actionDisabled: boolean;
   favoriteBadgeLabel: string;
   moreActionsLabel: string;
   openActionMenuLabel: string;
-  onNavigate: (session: AsterSessionInfo) => void;
-  onToggleSelected: (session: AsterSessionInfo) => void;
+  onNavigate: (session: AgentSessionInfo) => void;
   onOpenMenu: (
     event: MouseEvent<HTMLButtonElement>,
-    session: AsterSessionInfo,
+    session: AgentSessionInfo,
   ) => void;
 }
 
@@ -33,7 +34,7 @@ const ConversationItemRow = styled.div<{
   width: 100%;
   border-radius: 12px;
   background: ${({ $active }) =>
-    $active ? "var(--ember-sidebar-active, #e6f8ea)" : "transparent"};
+    $active ? "var(--lime-sidebar-active, #e6f8ea)" : "transparent"};
   transition:
     background-color 0.18s ease,
     color 0.18s ease;
@@ -72,24 +73,42 @@ const ConversationItemDot = styled.span<{ $active?: boolean }>`
     $active ? "var(--sidebar-active-foreground)" : "rgba(148, 163, 184, 0.72)"};
 `;
 
-const ConversationSelectionMark = styled.span<{ $selected?: boolean }>`
+const ConversationRuntimeStatusIcon = styled.span<{
+  $status: ConversationRuntimeStatus;
+}>`
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  border-radius: 6px;
-  border: 1px solid
-    ${({ $selected }) =>
-      $selected ? "var(--sidebar-active-foreground)" : "var(--sidebar-border)"};
-  background: ${({ $selected }) =>
-    $selected ? "var(--sidebar-active-foreground)" : "transparent"};
-  color: var(--sidebar-active);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  color: ${({ $status }) => {
+    switch ($status) {
+      case "waitingAction":
+        return "#b45309";
+      case "queued":
+        return "#0284c7";
+      case "running":
+        return "#059669";
+    }
+  }};
+
+  &[data-status="running"] svg {
+    animation: sidebar-conversation-status-spin 1s linear infinite;
+  }
 
   svg {
-    width: 11px;
-    height: 11px;
+    width: 14px;
+    height: 14px;
+  }
+
+  @keyframes sidebar-conversation-status-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
 `;
 
@@ -171,15 +190,14 @@ export function AppSidebarConversationRow({
   title,
   meta,
   active,
+  runtimeStatus,
+  runtimeStatusLabel,
   favorite,
-  selected,
-  multiSelectMode,
   actionDisabled,
   favoriteBadgeLabel,
   moreActionsLabel,
   openActionMenuLabel,
   onNavigate,
-  onToggleSelected,
   onOpenMenu,
 }: AppSidebarConversationRowProps) {
   return (
@@ -190,25 +208,34 @@ export function AppSidebarConversationRow({
       <ConversationItemButton
         type="button"
         $active={active}
+        data-testid="app-sidebar-conversation-open"
         aria-current={active ? "page" : undefined}
         onClick={() => {
           recordAgentUiPerformanceMetric("sidebar.conversation.click", {
             sessionId: session.id,
             source: "conversation_shelf",
-            workspaceId: session.workspace_id ?? null,
+            cwd: session.working_dir ?? null,
           });
-          if (multiSelectMode) {
-            onToggleSelected(session);
-            return;
-          }
           onNavigate(session);
         }}
         title={title}
       >
-        {multiSelectMode ? (
-          <ConversationSelectionMark $selected={selected}>
-            {selected ? <Check /> : null}
-          </ConversationSelectionMark>
+        {runtimeStatus ? (
+          <ConversationRuntimeStatusIcon
+            $status={runtimeStatus}
+            data-status={runtimeStatus}
+            data-testid="app-sidebar-conversation-runtime-status"
+            aria-label={runtimeStatusLabel ?? undefined}
+            title={runtimeStatusLabel ?? undefined}
+          >
+            {runtimeStatus === "waitingAction" ? (
+              <CircleAlert />
+            ) : runtimeStatus === "queued" ? (
+              <Clock3 />
+            ) : (
+              <LoaderCircle />
+            )}
+          </ConversationRuntimeStatusIcon>
         ) : (
           <ConversationItemDot $active={active} />
         )}

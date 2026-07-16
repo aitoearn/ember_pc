@@ -20,6 +20,7 @@ import { shouldDisallowMockEventFallbackInBrowser } from "./mockPriorityCommands
 import {
   getElectronHostBridge,
   isElectronHostCommandAvailable,
+  isElectronDevBridgeFallbackAvailable,
 } from "@/lib/electron-host";
 
 export interface InvokeErrorBufferEntry {
@@ -40,12 +41,12 @@ export interface InvokeTraceBufferEntry {
   args_preview?: Record<string, unknown>;
 }
 
-const INVOKE_ERROR_BUFFER_KEY = "ember_invoke_error_buffer_v1";
+const INVOKE_ERROR_BUFFER_KEY = "lime_invoke_error_buffer_v1";
 const INVOKE_ERROR_BUFFER_LIMIT = 120;
-const INVOKE_TRACE_BUFFER_KEY = "ember_invoke_trace_buffer_v1";
+const INVOKE_TRACE_BUFFER_KEY = "lime_invoke_trace_buffer_v1";
 const INVOKE_TRACE_BUFFER_LIMIT = 240;
 const INVOKE_ERROR_TEXT_LIMIT = 800;
-const USER_TIMING_PREFIX = "ember:safeInvoke";
+const USER_TIMING_PREFIX = "lime:safeInvoke";
 
 const SECRET_PATTERNS: Array<[RegExp, string]> = [
   [/\bBearer\s+[A-Za-z0-9._-]+\b/gi, "Bearer ***"],
@@ -486,7 +487,7 @@ export async function safeListen<T = any>(
   handler: (event: { payload: T }) => void,
 ): Promise<UnlistenFn> {
   const electronHost = getElectronHostBridge();
-  if (electronHost) {
+  if (electronHost && !isElectronDevBridgeFallbackAvailable()) {
     try {
       const listen = electronHost.listen ?? electronHost.on;
       if (listen) {

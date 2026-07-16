@@ -1,7 +1,7 @@
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import type { LocalSkillInspection } from "@/lib/api/skills";
 
 vi.mock("@/components/preview/MarkdownPreview", () => ({
@@ -26,8 +26,8 @@ function createInspection(
     content: "# 标题\n正文内容",
     license: "MIT",
     metadata: {
-      ember_category: "social",
-      ember_workflow_ref: "references/workflow.json",
+      lime_category: "social",
+      lime_workflow_ref: "references/workflow.json",
     },
     allowedTools: ["web.search"],
     resourceSummary: {
@@ -76,7 +76,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 afterEach(async () => {
@@ -90,7 +90,7 @@ afterEach(async () => {
     });
     mounted.container.remove();
   }
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("SkillContentDialog", () => {
@@ -113,7 +113,7 @@ describe("SkillContentDialog", () => {
     expect(document.body.textContent).toContain("Allowed tools");
     expect(document.body.textContent).toContain("Metadata");
     expect(document.body.textContent).toContain("Original SKILL.md");
-    expect(document.body.textContent).toContain("ember_category");
+    expect(document.body.textContent).toContain("lime_category");
     expect(document.body.textContent).toContain("web.search");
     expect(document.body.textContent).toContain("标题");
     expect(document.body.textContent).toContain("正文内容");

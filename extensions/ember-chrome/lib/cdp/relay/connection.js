@@ -80,12 +80,12 @@ function notifyError(title, message) {
   chrome.notifications.create('accio-relay-error', {
     type: 'basic',
     iconUrl: 'icons/icon128.png',
-    title: `Ember Bridge: ${title}`,
+    title: `Lime Bridge: ${title}`,
     message,
     priority: 2,
   }, () => {
     if (chrome.runtime.lastError) {
-      console.warn('[ember-relay] notification create failed:', chrome.runtime.lastError.message)
+      console.warn('[lime-relay] notification create failed:', chrome.runtime.lastError.message)
     }
   })
 }
@@ -181,7 +181,7 @@ export function trySendToRelay(payload) {
   try {
     sendToRelay(payload)
   } catch (err) {
-    console.debug('[ember-relay] trySendToRelay failed:', err)
+    console.debug('[lime-relay] trySendToRelay failed:', err)
   }
 }
 
@@ -469,7 +469,7 @@ export async function toggle() {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     if (message.includes('cancelled')) return
-    console.warn('[ember-relay] initial connect failed:', message)
+    console.warn('[lime-relay] initial connect failed:', message)
     notifyError('Connection Failed', `${message}\n\nRetrying automatically…`)
     scheduleReconnect()
   }

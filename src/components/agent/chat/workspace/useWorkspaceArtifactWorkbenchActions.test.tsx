@@ -39,7 +39,7 @@ function createArtifact(): Artifact {
     content: "",
     status: "complete",
     meta: {
-      filePath: ".ember/artifacts/thread-1/board-review.artifact.json",
+      filePath: ".lime/artifacts/thread-1/board-review.artifact.json",
       filename: "board-review.artifact.json",
       language: "json",
     },
@@ -182,7 +182,7 @@ describe("useWorkspaceArtifactWorkbenchActions", () => {
     });
 
     expect(syncGeneralArtifactToResource).toHaveBeenCalledWith({
-      rawFilePath: ".ember/artifacts/thread-1/board-review.artifact.json",
+      rawFilePath: ".lime/artifacts/thread-1/board-review.artifact.json",
       preferredName: "董事会季度复盘",
     });
     expect(toastSuccess).toHaveBeenCalledWith("已保存到项目资源");

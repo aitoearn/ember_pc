@@ -7,7 +7,7 @@ test("artifact snapshot helper builds completed artifact preview events", () => 
   const event = buildAgentUiArtifactSnapshotEvent(
     {
       artifactId: "artifact-1",
-      filePath: ".ember/artifacts/report.md",
+      filePath: ".lime/artifacts/report.md",
       content: "# 报告",
       metadata: {
         complete: true,
@@ -33,14 +33,14 @@ test("artifact snapshot helper builds completed artifact preview events", () => 
   assert.equal(event.surface, "artifact_workspace");
   assert.equal(event.persistence, "artifact_store");
   assert.deepEqual(event.payload, {
-    filePath: ".ember/artifacts/report.md",
+    filePath: ".lime/artifacts/report.md",
     contentLength: 4,
     complete: true,
     metadataKeys: ["complete", "kind"],
   });
   assert.deepEqual(event.refs, {
     artifactIds: ["artifact-1"],
-    artifactPaths: [".ember/artifacts/report.md"],
+    artifactPaths: [".lime/artifacts/report.md"],
   });
 });
 
@@ -49,7 +49,7 @@ test("artifact snapshot helper builds producing artifact update events", () => {
     {
       sourceType: "artifact_snapshot",
       artifactId: "artifact-2",
-      filePath: ".ember/artifacts/draft.md",
+      filePath: ".lime/artifacts/draft.md",
       content: "草稿",
       metadata: {
         complete: false,
@@ -64,13 +64,13 @@ test("artifact snapshot helper builds producing artifact update events", () => {
   assert.equal(event.artifactId, "artifact-2");
   assert.equal(event.phase, "producing");
   assert.deepEqual(event.payload, {
-    filePath: ".ember/artifacts/draft.md",
+    filePath: ".lime/artifacts/draft.md",
     contentLength: 2,
     complete: false,
     metadataKeys: ["complete"],
   });
   assert.deepEqual(event.refs, {
     artifactIds: ["artifact-2"],
-    artifactPaths: [".ember/artifacts/draft.md"],
+    artifactPaths: [".lime/artifacts/draft.md"],
   });
 });

@@ -30,7 +30,7 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 const DEFAULT_OUTPUT = path.join(
   rootDir,
-  ".ember/qc/code-runtime-fixture-smoke.json",
+  ".lime/qc/code-runtime-fixture-smoke.json",
 );
 const DEFAULT_HEALTH_URL = "http://127.0.0.1:3030/health";
 const DEFAULT_INVOKE_URL = "http://127.0.0.1:3030/invoke";
@@ -47,7 +47,7 @@ const APP_SERVER_METHOD_AGENT_SESSION_FILE_CHECKPOINT_LIST =
 const APP_SERVER_METHOD_AGENT_SESSION_FILE_CHECKPOINT_DIFF =
   "agentSession/fileCheckpoint/diff";
 const APP_SERVER_METHOD_EVIDENCE_EXPORT = "evidence/export";
-const FIXTURE_RELATIVE_PATH = ".ember/qc/code-runtime-fixture/src/greeting.ts";
+const FIXTURE_RELATIVE_PATH = ".lime/qc/code-runtime-fixture/src/greeting.ts";
 const INITIAL_CONTENT = [
   "export function greeting() {",
   "  return 'Hello from initial fixture';",
@@ -56,7 +56,7 @@ const INITIAL_CONTENT = [
 ].join("\n");
 const UPDATED_CONTENT = [
   "export function greeting() {",
-  "  return 'Hello Ember Runtime';",
+  "  return 'Hello Lime Runtime';",
   "}",
   "",
   "export const runtimeVerified = true;",
@@ -65,7 +65,7 @@ const UPDATED_CONTENT = [
 
 function printHelp() {
   console.log(`
-Ember Code Runtime Fixture Smoke
+Lime Code Runtime Fixture Smoke
 
 用途:
   通过 localhost fixture 验证自然语言工具请求默认进入 current Agent Runtime，
@@ -75,7 +75,7 @@ Ember Code Runtime Fixture Smoke
   npm run smoke:code-runtime-fixture
 
 选项:
-  --output <path>       evidence JSON 输出路径，默认 .ember/qc/code-runtime-fixture-smoke.json
+  --output <path>       evidence JSON 输出路径，默认 .lime/qc/code-runtime-fixture-smoke.json
   --health-url <url>    DevBridge health 地址，默认 ${DEFAULT_HEALTH_URL}
   --invoke-url <url>    DevBridge invoke 地址，默认 ${DEFAULT_INVOKE_URL}
   --timeout-ms <ms>     总等待超时，默认 ${DEFAULT_TIMEOUT_MS}
@@ -276,17 +276,17 @@ function buildCodeRuntimeMetadata() {
       },
     ],
     artifactVersionDiff: {
-      summary: "Update greeting() to return Hello Ember Runtime.",
+      summary: "Update greeting() to return Hello Lime Runtime.",
       changedFiles: [FIXTURE_RELATIVE_PATH],
       hunks: [
         {
           path: FIXTURE_RELATIVE_PATH,
           before: "Hello from initial fixture",
-          after: "Hello Ember Runtime",
+          after: "Hello Lime Runtime",
         },
       ],
     },
-    previewText: "export function greeting() returns Hello Ember Runtime.",
+    previewText: "export function greeting() returns Hello Lime Runtime.",
   };
 }
 
@@ -294,7 +294,7 @@ function buildFixtureResponses() {
   const nodeCommand = [
     "const fs = require('node:fs');",
     `const text = fs.readFileSync('${FIXTURE_RELATIVE_PATH}', 'utf8');`,
-    "if (!text.includes('Hello Ember Runtime')) {",
+    "if (!text.includes('Hello Lime Runtime')) {",
     "  throw new Error('updated greeting was not written');",
     "}",
     "console.log('CODE_RUNTIME_TEST_OK');",
@@ -397,7 +397,7 @@ function checkpointDiffContainsExpectedChange(checkpointDiff) {
   return (
     text.includes(FIXTURE_RELATIVE_PATH) &&
     text.includes("Hello from initial fixture") &&
-    text.includes("Hello Ember Runtime")
+    text.includes("Hello Lime Runtime")
   );
 }
 
@@ -523,20 +523,19 @@ function appServerEvidenceSummary(evidenceExport) {
   };
 }
 
-function buildAsterChatRequest({
+function buildRuntimeRequest({
   fixture,
-  message,
-  sessionId,
   turnId,
   workspaceId,
 }) {
-  const turnConfig = {
-    provider_config: fixture.provider.providerConfig,
-    provider_preference: fixture.provider.providerName,
-    model_preference: fixture.provider.modelPreference,
-    approval_policy: "never",
-    sandbox_policy: "danger-full-access",
-    execution_strategy: "react",
+  return {
+    providerConfig: fixture.provider.providerConfig,
+    providerPreference: fixture.provider.providerPreference,
+    modelPreference: fixture.provider.modelPreference,
+    approvalPolicy: "never",
+    sandboxPolicy: "danger-full-access",
+    workspaceId,
+    executionStrategy: "react",
     metadata: {
       harness: {
         access_mode: "full-access",
@@ -547,22 +546,6 @@ function buildAsterChatRequest({
         },
       },
     },
-  };
-  return {
-    message,
-    session_id: sessionId,
-    event_name: `code_runtime_fixture_${turnId}`,
-    provider_config: turnConfig.provider_config,
-    provider_preference: fixture.provider.providerPreference,
-    model_preference: turnConfig.model_preference,
-    approval_policy: turnConfig.approval_policy,
-    sandbox_policy: turnConfig.sandbox_policy,
-    workspace_id: workspaceId,
-    execution_strategy: turnConfig.execution_strategy,
-    metadata: turnConfig.metadata,
-    turn_config: turnConfig,
-    turn_id: turnId,
-    queue_if_busy: false,
   };
 }
 
@@ -607,7 +590,7 @@ async function waitForRuntimeCompletion(
           : 0,
       },
       fixtureChatRequestCount: fixtureChatRequestCount(fixture.requests),
-      fileUpdated: fileContent.includes("Hello Ember Runtime"),
+      fileUpdated: fileContent.includes("Hello Lime Runtime"),
     };
 
     if (
@@ -712,11 +695,9 @@ async function runSmoke(options) {
     console.log(`${LOG_PREFIX} stage=submit-turn session=${sessionId}`);
     const turnId = `code-runtime-fixture-${Date.now()}-${process.pid}`;
     const turnMessage =
-      "请修复这个 TypeScript fixture，让 greeting() 返回 Hello Ember Runtime，然后运行一个最小校验命令。";
-    const asterChatRequest = buildAsterChatRequest({
+      "请修复这个 TypeScript fixture，让 greeting() 返回 Hello Lime Runtime，然后运行一个最小校验命令。";
+    const runtimeRequest = buildRuntimeRequest({
       fixture,
-      message: turnMessage,
-      sessionId,
       turnId,
       workspaceId,
     });
@@ -731,11 +712,8 @@ async function runSmoke(options) {
         },
         runtimeOptions: {
           stream: true,
-          eventName: asterChatRequest.event_name,
-          metadata: asterChatRequest.metadata,
-          hostOptions: {
-            asterChatRequest,
-          },
+          eventName: `code_runtime_fixture_${turnId}`,
+          runtimeRequest,
         },
         queueIfBusy: false,
         skipPreSubmitResume: true,
@@ -808,7 +786,7 @@ async function runSmoke(options) {
         evidenceExport?.session?.sessionId === sessionId,
       fixtureProviderUsed: fixtureChatRequestCount(fixture.requests) >= 4,
       naturalLanguageWithoutAtCode:
-        firstRequestText.includes("Hello Ember Runtime") &&
+        firstRequestText.includes("Hello Lime Runtime") &&
         !firstRequestText.includes("@代码") &&
         !firstRequestText.includes("@code"),
       noHarnessCodeCommand: !fixtureBodyText.includes("code_command"),
@@ -832,7 +810,7 @@ async function runSmoke(options) {
         valueContains(finalState.sessionDetail, "Bash") ||
         sessionReadText.includes("Bash") ||
         evidenceExportText.includes("Bash"),
-      workspaceFileUpdated: finalContent.includes("Hello Ember Runtime"),
+      workspaceFileUpdated: finalContent.includes("Hello Lime Runtime"),
       checkpointCreated:
         Number(
           checkpointList?.checkpoint_count ??

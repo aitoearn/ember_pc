@@ -156,7 +156,7 @@ async function waitForPhotopeaResult(page, timeoutMs) {
       window.__messages.some(
         (message) =>
           typeof message === "string" &&
-          message.startsWith('{"type":"EMBER_PHOTOPEA_OPEN"'),
+          message.startsWith('{"type":"LIME_PHOTOPEA_OPEN"'),
       ),
     undefined,
     { timeout: timeoutMs },
@@ -165,14 +165,14 @@ async function waitForPhotopeaResult(page, timeoutMs) {
     window.__messages.find(
       (message) =>
         typeof message === "string" &&
-        message.startsWith('{"type":"EMBER_PHOTOPEA_OPEN"'),
+        message.startsWith('{"type":"LIME_PHOTOPEA_OPEN"'),
     ),
   );
   return JSON.parse(rawResult);
 }
 
 function createPhotopeaInspectionScript() {
-  return `var doc=app.activeDocument;var out={type:'EMBER_PHOTOPEA_OPEN',layerCount:doc.layers.length,layers:[]};for(var i=0;i<doc.layers.length;i++){var l=doc.layers[i];var bounds=[];try{for(var j=0;j<4;j++){bounds.push(l.bounds[j].value);}}catch(e){bounds=[];}out.layers.push({name:l.name,visible:l.visible,opacity:l.opacity,typename:l.typename,bounds:bounds});}app.echoToOE(JSON.stringify(out));`;
+  return `var doc=app.activeDocument;var out={type:'LIME_PHOTOPEA_OPEN',layerCount:doc.layers.length,layers:[]};for(var i=0;i<doc.layers.length;i++){var l=doc.layers[i];var bounds=[];try{for(var j=0;j<4;j++){bounds.push(l.bounds[j].value);}}catch(e){bounds=[];}out.layers.push({name:l.name,visible:l.visible,opacity:l.opacity,typename:l.typename,bounds:bounds});}app.echoToOE(JSON.stringify(out));`;
 }
 
 function arraysEqual(left, right) {

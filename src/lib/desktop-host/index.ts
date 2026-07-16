@@ -7,7 +7,7 @@
 function isElectronHostAvailable(): boolean {
   return (
     typeof window !== "undefined" &&
-    ("__EMBER_ELECTRON__" in window || "electronAPI" in window)
+    ("__LIME_ELECTRON__" in window || "electronAPI" in window)
   );
 }
 

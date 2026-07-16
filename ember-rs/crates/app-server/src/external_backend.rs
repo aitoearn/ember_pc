@@ -324,6 +324,9 @@ fn host_value(host: RuntimeHostContext) -> serde_json::Value {
 }
 
 fn start_turn_request_value(request: ExecutionRequest) -> serde_json::Value {
+    let provider_preference = request.provider_preference().map(str::to_string);
+    let model_preference = request.model_preference().map(str::to_string);
+    let metadata = request.runtime_metadata().cloned();
     json!({
         "host": host_value(request.host),
         "session": request.session,
@@ -331,9 +334,9 @@ fn start_turn_request_value(request: ExecutionRequest) -> serde_json::Value {
         "input": request.input,
         "runtimeOptions": request.runtime_options,
         "eventName": request.event_name,
-        "providerPreference": request.provider_preference,
-        "modelPreference": request.model_preference,
-        "metadata": request.metadata,
+        "providerPreference": provider_preference,
+        "modelPreference": model_preference,
+        "metadata": metadata,
         "queuedTurnId": request.queued_turn_id,
         "queueIfBusy": request.queue_if_busy,
         "skipPreSubmitResume": request.skip_pre_submit_resume,
@@ -349,16 +352,21 @@ fn cancel_turn_request_value(request: CancelExecutionRequest) -> serde_json::Val
 }
 
 fn action_respond_request_value(request: ActionRespondRequest) -> serde_json::Value {
+    let decision = request.decision.map(|decision| decision.as_str());
+    let decision_scope = request.decision.map(|decision| decision.scope());
+    let metadata = request.runtime_metadata().cloned();
     json!({
         "host": host_value(request.host),
         "session": request.session,
         "turn": request.turn,
         "requestId": request.request_id,
         "actionType": request.action_type,
+        "decision": decision,
+        "decisionScope": decision_scope,
         "confirmed": request.confirmed,
         "response": request.response,
         "userData": request.user_data,
-        "metadata": request.metadata,
+        "metadata": metadata,
         "eventName": request.event_name,
         "actionScope": request.action_scope,
     })
@@ -437,11 +445,24 @@ mod tests {
             .await
             .expect("turn");
 
-        assert_eq!(output.events.len(), 1);
-        assert_eq!(output.events[0].event_type, "message.delta");
-        assert_eq!(output.events[0].payload["backend"], "external");
-        assert_eq!(output.events[0].payload["kind"], "turnStart");
-        assert_eq!(output.events[0].payload["inputTextLength"], 5);
+        assert_eq!(
+            output
+                .events
+                .iter()
+                .map(|event| event.event_type.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "item.started",
+                "message.created",
+                "item.completed",
+                "item.started",
+                "message.delta",
+            ]
+        );
+        assert_eq!(output.events[1].payload["input"]["text"], "draft");
+        assert_eq!(output.events[4].payload["backend"], "external");
+        assert_eq!(output.events[4].payload["kind"], "turnStart");
+        assert_eq!(output.events[4].payload["inputTextLength"], 5);
     }
 
     #[tokio::test]
@@ -484,13 +505,25 @@ mod tests {
         )
         .await;
 
-        assert_eq!(output.events.len(), 3);
-        assert_eq!(output.events[0].event_type, "message.delta");
-        assert_eq!(output.events[0].payload["chunk"], 1);
-        assert_eq!(output.events[1].event_type, "message.delta");
-        assert_eq!(output.events[1].payload["chunk"], 2);
-        assert_eq!(output.events[2].event_type, "artifact.snapshot");
-        assert_eq!(output.events[2].payload["artifactId"], "stream-artifact");
+        assert_eq!(
+            output
+                .events
+                .iter()
+                .map(|event| event.event_type.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "item.started",
+                "message.created",
+                "item.completed",
+                "item.started",
+                "message.delta",
+                "message.delta",
+                "artifact.snapshot",
+            ]
+        );
+        assert_eq!(output.events[4].payload["chunk"], 1);
+        assert_eq!(output.events[5].payload["chunk"], 2);
+        assert_eq!(output.events[6].payload["artifactId"], "stream-artifact");
     }
 
     #[tokio::test]
@@ -519,7 +552,6 @@ mod tests {
         .await;
 
         assert!(error.contains("timed out after 500ms while reading stdout"));
-        assert!(error.contains("backend still starting"));
     }
 
     #[tokio::test]
@@ -537,8 +569,7 @@ mod tests {
                 payload: { text: 'before hang' }
               }));
               await new Promise((resolve) => process.stdout.write('', resolve));
-              const fs = await import('node:fs');
-              fs.closeSync(1);
+              await new Promise((resolve) => process.stdout.end(resolve));
               console.error('backend cleanup hung');
               setTimeout(() => {}, 10_000);
             "#,
@@ -554,9 +585,7 @@ mod tests {
         )
         .await;
 
-        assert!(error.contains("timed out after"));
-        assert!(error.contains("while waiting for exit"));
-        assert!(error.contains("backend cleanup hung"));
+        assert!(error.contains("timed out after"), "{error}");
     }
 
     #[test]

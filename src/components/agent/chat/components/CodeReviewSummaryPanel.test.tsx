@@ -2,7 +2,7 @@ import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { CodeReviewSummaryPanel } from "./CodeReviewSummaryPanel";
 
 const mountedRoots: Array<{ root: Root; container: HTMLDivElement }> = [];
@@ -114,7 +114,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 afterEach(async () => {
@@ -128,7 +128,7 @@ afterEach(async () => {
     });
     mounted.container.remove();
   }
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 describe("CodeReviewSummaryPanel", () => {
@@ -164,7 +164,7 @@ describe("CodeReviewSummaryPanel", () => {
   });
 
   it("英文界面应使用 agent namespace 文案", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
 
     const { container } = renderPanel();
 
@@ -289,7 +289,7 @@ describe("CodeReviewSummaryPanel", () => {
   });
 
   it("英文界面继续修复应生成英文 prompt", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
 
     const { container, onSubmitCodeFixPrompt } = renderPanel({
       harnessState: {

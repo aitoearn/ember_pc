@@ -1,4 +1,4 @@
-//! Ember Agent Scheduler
+//! Lime Agent Scheduler
 //!
 //! 提供 Agent 任务调度功能，支持定时任务、重试机制等。
 //!
@@ -17,10 +17,10 @@
 //! ## 使用示例
 //!
 //! ```rust,no_run
-//! use ember_scheduler::{AgentScheduler, ScheduledTask, SchedulerTrait};
+//! use lime_scheduler::{AgentScheduler, ScheduledTask, SchedulerTrait};
 //! use chrono::Utc;
 //!
-//! # async fn example(db: ember_core::database::DbConnection) -> Result<(), String> {
+//! # async fn example(db: lime_core::database::DbConnection) -> Result<(), String> {
 //! // 初始化调度器
 //! AgentScheduler::init_tables(&db)?;
 //! let scheduler = AgentScheduler::new(db);
@@ -44,12 +44,12 @@
 //! ```
 
 pub mod dao;
-pub mod executor;
 pub mod scheduler;
+#[cfg(test)]
+mod task_context;
 pub mod types;
 
 pub use dao::SchedulerDao;
-pub use executor::{AgentExecutor, TaskExecutor};
 pub use scheduler::{AgentScheduler, SchedulerGovernanceConfig, SchedulerTrait};
 pub use types::{
     ScheduledTask, TaskFilter, TaskStatus, DEFAULT_TASK_COOLDOWN_SECS,

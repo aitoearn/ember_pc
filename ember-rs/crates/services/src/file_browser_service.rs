@@ -477,6 +477,25 @@ pub fn read_file_preview(path: &str, max_size: Option<usize>) -> FilePreview {
     let extension = get_file_extension(&path_buf);
     let is_text = is_text_file(extension.as_deref());
 
+    if document_preview::is_supported_document(&path_buf) {
+        return match document_preview::extract_document_text_from_path(&path_buf, Some(max_size)) {
+            Ok(content) => FilePreview {
+                path: path.to_string(),
+                content: Some(content),
+                is_binary: false,
+                size,
+                error: None,
+            },
+            Err(error) => FilePreview {
+                path: path.to_string(),
+                content: None,
+                is_binary: false,
+                size,
+                error: Some(error.to_string()),
+            },
+        };
+    }
+
     if !is_text {
         return FilePreview {
             path: path.to_string(),
@@ -617,6 +636,23 @@ pub async fn get_file_name(path: String) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+
+    fn build_zip(entries: &[(&str, &str)]) -> Vec<u8> {
+        let mut buffer = std::io::Cursor::new(Vec::new());
+        {
+            let mut writer = zip::ZipWriter::new(&mut buffer);
+            let options = zip::write::FileOptions::default();
+            for (name, content) in entries {
+                writer.start_file(*name, options).expect("应创建 zip entry");
+                writer
+                    .write_all(content.as_bytes())
+                    .expect("应写入 zip entry");
+            }
+            writer.finish().expect("应完成 zip");
+        }
+        buffer.into_inner()
+    }
 
     #[test]
     fn test_list_home_directory() {
@@ -665,5 +701,103 @@ mod tests {
         assert!(!is_text_file(Some("png")));
         assert!(!is_text_file(Some("exe")));
         assert!(!is_text_file(None));
+    }
+
+    #[test]
+    fn read_file_preview_extracts_docx_text() {
+        let temp_dir = tempfile::tempdir().expect("应创建临时目录");
+        let docx_path = temp_dir.path().join("demo.docx");
+        let buffer = build_zip(&[(
+            "word/document.xml",
+            r#"<w:document><w:body><w:p><w:r><w:t>DOCX 正文</w:t></w:r></w:p></w:body></w:document>"#,
+        )]);
+        fs::write(&docx_path, buffer).expect("应写入 docx fixture");
+
+        let preview = read_file_preview(&docx_path.to_string_lossy(), Some(1024));
+
+        assert!(!preview.is_binary);
+        assert_eq!(preview.content.as_deref(), Some("DOCX 正文"));
+        assert!(preview.error.is_none());
+    }
+
+    #[test]
+    fn read_file_preview_extracts_xlsx_text() {
+        let temp_dir = tempfile::tempdir().expect("应创建临时目录");
+        let xlsx_path = temp_dir.path().join("demo.xlsx");
+        let buffer = build_zip(&[
+            (
+                "xl/sharedStrings.xml",
+                r#"<sst><si><t>项目</t></si><si><t>深澜智能</t></si></sst>"#,
+            ),
+            (
+                "xl/worksheets/sheet1.xml",
+                r#"<worksheet><sheetData><row><c t="s"><v>0</v></c><c t="s"><v>1</v></c></row></sheetData></worksheet>"#,
+            ),
+        ]);
+        fs::write(&xlsx_path, buffer).expect("应写入 xlsx fixture");
+
+        let preview = read_file_preview(&xlsx_path.to_string_lossy(), Some(1024));
+
+        assert!(!preview.is_binary);
+        assert!(preview.content.as_deref().unwrap_or("").contains("项目"));
+        assert!(preview
+            .content
+            .as_deref()
+            .unwrap_or("")
+            .contains("深澜智能"));
+        assert!(preview.error.is_none());
+    }
+
+    #[test]
+    fn read_file_preview_extracts_pptx_text() {
+        let temp_dir = tempfile::tempdir().expect("应创建临时目录");
+        let pptx_path = temp_dir.path().join("demo.pptx");
+        let buffer = build_zip(&[(
+            "ppt/slides/slide1.xml",
+            r#"<p:sld><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>路线图</a:t></a:r></a:p><a:p><a:r><a:t>全量还原</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>"#,
+        )]);
+        fs::write(&pptx_path, buffer).expect("应写入 pptx fixture");
+
+        let preview = read_file_preview(&pptx_path.to_string_lossy(), Some(1024));
+
+        assert!(!preview.is_binary);
+        assert!(preview.content.as_deref().unwrap_or("").contains("路线图"));
+        assert!(preview
+            .content
+            .as_deref()
+            .unwrap_or("")
+            .contains("全量还原"));
+        assert!(preview.error.is_none());
+    }
+
+    #[test]
+    fn read_file_preview_extracts_pdf_text() {
+        let temp_dir = tempfile::tempdir().expect("应创建临时目录");
+        let pdf_path = temp_dir.path().join("demo.pdf");
+        fs::write(
+            &pdf_path,
+            r#"%PDF-1.4
+1 0 obj
+<< /Length 42 >>
+stream
+BT
+(PDF 正文预览) Tj
+ET
+endstream
+endobj
+%%EOF"#
+                .as_bytes(),
+        )
+        .expect("应写入 pdf fixture");
+
+        let preview = read_file_preview(&pdf_path.to_string_lossy(), Some(1024));
+
+        assert!(!preview.is_binary);
+        assert!(preview
+            .content
+            .as_deref()
+            .unwrap_or("")
+            .contains("PDF 正文预览"));
+        assert!(preview.error.is_none());
     }
 }

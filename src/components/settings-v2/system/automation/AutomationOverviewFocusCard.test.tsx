@@ -1,7 +1,7 @@
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { AutomationOverviewFocusCard } from "./AutomationOverviewFocusCard";
 
 const mountedRoots: Array<{ root: Root; container: HTMLDivElement }> = [];
@@ -13,7 +13,7 @@ beforeEach(async () => {
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 afterEach(async () => {
@@ -28,7 +28,7 @@ afterEach(async () => {
     mounted.container.remove();
   }
   vi.clearAllMocks();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 async function renderCard(

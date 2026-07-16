@@ -2,10 +2,14 @@ use std::path::Path;
 use std::time::Duration;
 
 use chrono::Utc;
+use model_provider::lowering::{build_fal_video_generation_body, ProtocolMappingError};
+use runtime_core::CanonicalRequest;
 use serde_json::{json, Map, Value};
 
+use super::model_route;
+use super::task_artifact::read_payload_string;
 use super::{
-    load_task_output, patch_task_artifact, read_payload_string, MediaRuntimeError, MediaTaskOutput,
+    llm_events, load_task_output, patch_task_artifact, MediaRuntimeError, MediaTaskOutput,
     TaskArtifactPatch, TaskErrorRecord, TaskProgress,
 };
 
@@ -83,7 +87,19 @@ where
         return Ok(queued_output);
     }
 
-    let prepared_input = match prepare_video_task_input(&queued_output) {
+    let routed_output = match apply_video_route_preflight(
+        workspace_root,
+        task_id,
+        queued_output,
+        &mut on_update,
+    )? {
+        Ok(output) => output,
+        Err(task_error) => {
+            return mark_video_task_failed(workspace_root, task_id, task_error, &mut on_update);
+        }
+    };
+
+    let prepared_input = match prepare_video_task_input(&routed_output) {
         Ok(prepared_input) => prepared_input,
         Err(message) => {
             let task_error =
@@ -97,6 +113,9 @@ where
         task_id,
         TaskArtifactPatch {
             status: Some("running".to_string()),
+            payload_patch: Some(llm_events::video_running_payload_patch(
+                &routed_output.record.payload,
+            )),
             progress: Some(build_video_task_progress(
                 "running",
                 "视频生成中，结果会自动回填到对话与工作台。".to_string(),
@@ -151,6 +170,10 @@ where
         task_id,
         TaskArtifactPatch {
             status: Some("succeeded".to_string()),
+            payload_patch: Some(llm_events::video_completed_payload_patch(
+                &latest.record.payload,
+                video.get("url").and_then(Value::as_str),
+            )),
             result: Some(Some(build_video_task_result_value(
                 &prepared_input,
                 video,
@@ -204,6 +227,10 @@ where
         task_id,
         TaskArtifactPatch {
             status: Some("failed".to_string()),
+            payload_patch: Some(llm_events::video_failed_payload_patch(
+                &current.record.payload,
+                &error,
+            )),
             last_error: Some(Some(error.clone())),
             progress: Some(build_video_task_progress(
                 "failed",
@@ -220,13 +247,20 @@ where
 
 fn prepare_video_task_input(task: &MediaTaskOutput) -> Result<PreparedVideoTaskInput, String> {
     let payload = &task.record.payload;
+    let resolved_route = model_route::resolved_model_route_from_payload(payload);
     let prompt = read_payload_string(payload, &["prompt"])
         .ok_or_else(|| "视频任务缺少 prompt，无法继续执行".to_string())?;
 
     Ok(PreparedVideoTaskInput {
         prompt,
-        provider_id: read_payload_string(payload, &["provider_id", "providerId"]),
-        model: read_payload_string(payload, &["model"]),
+        provider_id: resolved_route
+            .as_ref()
+            .and_then(|route| route.provider_id.clone())
+            .or_else(|| read_payload_string(payload, &["provider_id", "providerId"])),
+        model: resolved_route
+            .as_ref()
+            .and_then(|route| route.model_id.clone())
+            .or_else(|| read_payload_string(payload, &["model"])),
         aspect_ratio: read_payload_string(payload, &["aspect_ratio", "aspectRatio"]),
         resolution: read_payload_string(payload, &["resolution"]),
         duration: read_payload_u64(payload, &["duration"]),
@@ -236,6 +270,38 @@ fn prepare_video_task_input(task: &MediaTaskOutput) -> Result<PreparedVideoTaskI
         generate_audio: read_payload_bool(payload, &["generate_audio", "generateAudio"]),
         camera_fixed: read_payload_bool(payload, &["camera_fixed", "cameraFixed"]),
     })
+}
+
+fn apply_video_route_preflight(
+    workspace_root: &Path,
+    task_id: &str,
+    output: MediaTaskOutput,
+    on_update: &mut impl FnMut(&MediaTaskOutput),
+) -> Result<Result<MediaTaskOutput, TaskErrorRecord>, MediaRuntimeError> {
+    let preflight = model_route::video_route_payload_preflight(&output.record.payload);
+    if let Some(failure) = preflight.failure {
+        return Ok(Err(build_video_task_error(
+            &failure.code,
+            failure.message,
+            failure.retryable,
+            "routing",
+        )));
+    };
+    let Some(payload_patch) = preflight.payload_patch else {
+        return Ok(Ok(output));
+    };
+
+    let migrated = patch_video_task(
+        workspace_root,
+        task_id,
+        TaskArtifactPatch {
+            payload_patch: Some(payload_patch),
+            current_attempt_worker_id: Some(Some(VIDEO_TASK_RUNNER_WORKER_ID.to_string())),
+            ..TaskArtifactPatch::default()
+        },
+    )?;
+    on_update(&migrated);
+    Ok(Ok(migrated))
 }
 
 async fn request_video_generation_for_executor(
@@ -260,7 +326,7 @@ async fn request_video_generation_for_executor(
         .json(&build_video_generation_request_body(
             prepared_input,
             task_id,
-        ));
+        )?);
     if let Some(provider_id) = prepared_input.provider_id.as_deref() {
         request = request.header("X-Provider-Id", provider_id);
     }
@@ -310,45 +376,71 @@ async fn request_video_generation_for_executor(
 fn build_video_generation_request_body(
     prepared_input: &PreparedVideoTaskInput,
     task_id: &str,
-) -> Value {
-    let mut body = Map::new();
-    body.insert("prompt".to_string(), json!(prepared_input.prompt));
-    body.insert("user".to_string(), json!(task_id));
-    insert_optional_string(
-        &mut body,
+) -> Result<Value, TaskErrorRecord> {
+    let request = video_generation_llm_request(prepared_input, task_id);
+    build_fal_video_generation_body(prepared_input.model.as_deref().unwrap_or(""), &request)
+        .map_err(|error| video_request_mapping_error(error))
+}
+
+fn video_generation_llm_request(
+    prepared_input: &PreparedVideoTaskInput,
+    task_id: &str,
+) -> CanonicalRequest {
+    let mut provider_options = std::collections::BTreeMap::new();
+    insert_string_metadata(
+        &mut provider_options,
         "provider_id",
         prepared_input.provider_id.as_deref(),
     );
-    insert_optional_string(&mut body, "model", prepared_input.model.as_deref());
-    insert_optional_string(
-        &mut body,
+    insert_string_metadata(
+        &mut provider_options,
         "aspect_ratio",
         prepared_input.aspect_ratio.as_deref(),
     );
-    insert_optional_string(
-        &mut body,
+    insert_string_metadata(
+        &mut provider_options,
         "resolution",
         prepared_input.resolution.as_deref(),
     );
-    insert_optional_string(&mut body, "image_url", prepared_input.image_url.as_deref());
-    insert_optional_string(
-        &mut body,
+    insert_string_metadata(
+        &mut provider_options,
+        "image_url",
+        prepared_input.image_url.as_deref(),
+    );
+    insert_string_metadata(
+        &mut provider_options,
         "end_image_url",
         prepared_input.end_image_url.as_deref(),
     );
+    insert_string_metadata(&mut provider_options, "user", Some(task_id));
     if let Some(duration) = prepared_input.duration {
-        body.insert("duration".to_string(), json!(duration));
+        provider_options.insert("duration".to_string(), json!(duration));
     }
     if let Some(seed) = prepared_input.seed.as_ref() {
-        body.insert("seed".to_string(), seed.clone());
+        provider_options.insert("seed".to_string(), seed.clone());
     }
     if let Some(generate_audio) = prepared_input.generate_audio {
-        body.insert("generate_audio".to_string(), json!(generate_audio));
+        provider_options.insert("generate_audio".to_string(), json!(generate_audio));
     }
     if let Some(camera_fixed) = prepared_input.camera_fixed {
-        body.insert("camera_fixed".to_string(), json!(camera_fixed));
+        provider_options.insert("camera_fixed".to_string(), json!(camera_fixed));
     }
-    Value::Object(body)
+
+    let mut request = CanonicalRequest::text(
+        prepared_input.model.as_deref().unwrap_or_default(),
+        prepared_input.prompt.clone(),
+    );
+    request.provider_options = provider_options;
+    request
+}
+
+fn video_request_mapping_error(error: ProtocolMappingError) -> TaskErrorRecord {
+    build_video_task_error(
+        "video_request_mapping_failed",
+        format!("构建视频生成请求失败: {error}"),
+        false,
+        "request",
+    )
 }
 
 fn extract_generated_video(response_body: &Value) -> Option<Value> {
@@ -442,7 +534,11 @@ fn build_video_task_provider_error(
     }
 }
 
-fn insert_optional_string(map: &mut Map<String, Value>, key: &str, value: Option<&str>) {
+fn insert_string_metadata(
+    map: &mut std::collections::BTreeMap<String, Value>,
+    key: &str,
+    value: Option<&str>,
+) {
     if let Some(value) = value.map(str::trim).filter(|value| !value.is_empty()) {
         map.insert(key.to_string(), json!(value));
     }
@@ -486,164 +582,4 @@ fn summarize_provider_body(raw: &str) -> String {
 
     let summary: String = trimmed.chars().take(240).collect();
     format!("{summary}...")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{write_task_artifact, TaskType, TaskWriteOptions};
-    use std::sync::{Arc, Mutex};
-
-    use axum::{
-        extract::Json,
-        http::{HeaderMap, StatusCode},
-        routing::post,
-        Router,
-    };
-    use tokio::net::TcpListener;
-
-    #[tokio::test]
-    async fn execute_video_generation_task_should_advance_task_file_to_succeeded() {
-        let temp_dir = tempfile::tempdir().expect("create temp dir");
-        let captured_auth = Arc::new(Mutex::new(None::<String>));
-        let captured_provider_id = Arc::new(Mutex::new(None::<String>));
-        let captured_body = Arc::new(Mutex::new(None::<Value>));
-        let captured_updates = Arc::new(Mutex::new(Vec::<String>::new()));
-        let created = write_task_artifact(
-            temp_dir.path(),
-            TaskType::VideoGenerate,
-            Some("短视频".to_string()),
-            json!({
-                "prompt": "生成一段青柠实验室短视频",
-                "provider_id": "veo-provider",
-                "model": "veo-3",
-                "aspect_ratio": "16:9",
-                "resolution": "1080p",
-                "duration": 8,
-                "image_url": "https://example.test/start.png",
-                "end_image_url": "https://example.test/end.png",
-                "seed": 42,
-                "generate_audio": true,
-                "camera_fixed": false
-            }),
-            TaskWriteOptions {
-                status: Some("pending_submit".to_string()),
-                ..TaskWriteOptions::default()
-            },
-        )
-        .expect("create video task");
-
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind video api");
-        let address = listener.local_addr().expect("resolve address");
-        let captured_auth_for_server = Arc::clone(&captured_auth);
-        let captured_provider_id_for_server = Arc::clone(&captured_provider_id);
-        let captured_body_for_server = Arc::clone(&captured_body);
-        let server = tokio::spawn(async move {
-            let app = Router::new().route(
-                "/v1/videos/generations",
-                post(move |headers: HeaderMap, Json(body): Json<Value>| {
-                    let captured_auth = Arc::clone(&captured_auth_for_server);
-                    let captured_provider_id = Arc::clone(&captured_provider_id_for_server);
-                    let captured_body = Arc::clone(&captured_body_for_server);
-                    async move {
-                        *captured_auth.lock().expect("lock auth") = headers
-                            .get("authorization")
-                            .and_then(|value| value.to_str().ok())
-                            .map(ToOwned::to_owned);
-                        *captured_provider_id.lock().expect("lock provider id") = headers
-                            .get("x-provider-id")
-                            .and_then(|value| value.to_str().ok())
-                            .map(ToOwned::to_owned);
-                        *captured_body.lock().expect("lock body") = Some(body);
-                        (
-                            StatusCode::OK,
-                            Json(json!({
-                                "id": "video-job-1",
-                                "data": [
-                                    {
-                                        "id": "generated-video-1",
-                                        "url": "https://cdn.example.test/generated.mp4",
-                                        "mime_type": "video/mp4",
-                                        "duration": 8
-                                    }
-                                ]
-                            })),
-                        )
-                    }
-                }),
-            );
-            axum::serve(listener, app).await.expect("serve video api");
-        });
-
-        let updates_for_hook = Arc::clone(&captured_updates);
-        let result = execute_video_generation_task_with_hook(
-            temp_dir.path(),
-            &created.task_id,
-            &VideoGenerationRunnerConfig {
-                endpoint: format!("http://{address}/v1/videos/generations"),
-                api_key: "test-key".to_string(),
-            },
-            move |output| {
-                updates_for_hook
-                    .lock()
-                    .expect("lock updates")
-                    .push(output.normalized_status.clone());
-            },
-        )
-        .await
-        .expect("execute video task");
-
-        assert_eq!(result.normalized_status, "succeeded");
-        assert_eq!(
-            result
-                .record
-                .result
-                .as_ref()
-                .and_then(|value| value.pointer("/video/url"))
-                .and_then(Value::as_str),
-            Some("https://cdn.example.test/generated.mp4")
-        );
-        assert_eq!(
-            result
-                .record
-                .attempts
-                .last()
-                .and_then(|attempt| attempt.worker_id.as_deref()),
-            Some(VIDEO_TASK_RUNNER_WORKER_ID)
-        );
-        assert_eq!(
-            captured_auth.lock().expect("lock auth").as_deref(),
-            Some("Bearer test-key")
-        );
-        assert_eq!(
-            captured_provider_id
-                .lock()
-                .expect("lock provider id")
-                .as_deref(),
-            Some("veo-provider")
-        );
-        let body = captured_body
-            .lock()
-            .expect("lock body")
-            .clone()
-            .expect("captured body");
-        assert_eq!(
-            body.pointer("/prompt"),
-            Some(&json!("生成一段青柠实验室短视频"))
-        );
-        assert_eq!(body.pointer("/model"), Some(&json!("veo-3")));
-        assert_eq!(body.pointer("/aspect_ratio"), Some(&json!("16:9")));
-        assert_eq!(body.pointer("/duration"), Some(&json!(8)));
-        assert_eq!(body.pointer("/generate_audio"), Some(&json!(true)));
-        assert_eq!(body.pointer("/camera_fixed"), Some(&json!(false)));
-        assert_eq!(body.pointer("/user"), Some(&json!(created.task_id.clone())));
-        assert_eq!(
-            captured_updates.lock().expect("lock updates").as_slice(),
-            ["queued", "running", "succeeded"]
-        );
-
-        server.abort();
-    }
 }

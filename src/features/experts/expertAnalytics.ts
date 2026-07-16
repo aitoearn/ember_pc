@@ -4,7 +4,7 @@ import {
 } from "@/lib/api/oemCloudRuntime";
 import type { ExpertCatalogEvent } from "./types";
 
-const EXPERT_ANALYTICS_QUEUE_STORAGE_KEY = "ember:expert-analytics-queue:v1";
+const EXPERT_ANALYTICS_QUEUE_STORAGE_KEY = "lime:expert-analytics-queue:v1";
 const MAX_EXPERT_ANALYTICS_QUEUE_SIZE = 100;
 const MAX_EXPERT_ANALYTICS_BATCH_SIZE = 50;
 

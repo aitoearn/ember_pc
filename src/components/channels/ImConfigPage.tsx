@@ -333,7 +333,7 @@ function ActionButton({
       className={cn(
         "inline-flex items-center justify-center rounded-xl px-3.5 py-2 text-sm font-medium transition",
         kind === "primary"
-          ? "border border-emerald-200 bg-[image:var(--ember-primary-gradient)] text-white shadow-sm shadow-emerald-950/15 hover:opacity-95"
+          ? "border border-emerald-200 bg-[image:var(--lime-primary-gradient)] text-white shadow-sm shadow-emerald-950/15 hover:opacity-95"
           : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
         disabled && "cursor-not-allowed opacity-50",
       )}
@@ -884,7 +884,7 @@ function TelegramConfigDialog({
       isOpen={isOpen}
       onClose={onClose}
       maxWidth="max-w-2xl"
-      className="ember-workbench-theme-scope border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface)] text-[color:var(--ember-text)]"
+      className="lime-workbench-theme-scope border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface)] text-[color:var(--lime-text)]"
     >
       <ModalHeader>Telegram 配置</ModalHeader>
       <ModalBody className="space-y-5">
@@ -1089,7 +1089,7 @@ function FeishuConfigDialog({
       isOpen={isOpen}
       onClose={onClose}
       maxWidth="max-w-2xl"
-      className="ember-workbench-theme-scope border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface)] text-[color:var(--ember-text)]"
+      className="lime-workbench-theme-scope border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface)] text-[color:var(--lime-text)]"
     >
       <ModalHeader>配置飞书</ModalHeader>
       <ModalBody className="space-y-4">
@@ -1248,7 +1248,7 @@ function FeishuConfigDialog({
                   className={cn(
                     "rounded-2xl border px-4 py-4 text-left transition",
                     selected
-                      ? "border-emerald-200 bg-[image:var(--ember-home-card-surface-strong)] text-slate-800 shadow-sm shadow-emerald-950/10"
+                      ? "border-emerald-200 bg-[image:var(--lime-home-card-surface-strong)] text-slate-800 shadow-sm shadow-emerald-950/10"
                       : "border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white",
                   )}
                 >
@@ -1853,7 +1853,7 @@ function WechatConfigDialog({
       isOpen={isOpen}
       onClose={onClose}
       maxWidth="max-w-4xl"
-      className="ember-workbench-theme-scope border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface)] text-[color:var(--ember-text)]"
+      className="lime-workbench-theme-scope border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface)] text-[color:var(--lime-text)]"
     >
       <ModalHeader>微信扫码配置</ModalHeader>
       <ModalBody className="space-y-5">
@@ -2534,9 +2534,9 @@ export function ImConfigPage() {
     return (
       <div
         data-testid="im-config-page"
-        className="ember-workbench-theme-scope mx-auto flex w-full max-w-[1260px] flex-col gap-6 pb-10"
+        className="lime-workbench-theme-scope mx-auto flex w-full max-w-[1260px] flex-col gap-6 pb-10"
       >
-        <div className="h-36 animate-pulse rounded-[30px] border border-slate-200 bg-[image:var(--ember-card-subtle)]" />
+        <div className="h-36 animate-pulse rounded-[30px] border border-slate-200 bg-[image:var(--lime-card-subtle)]" />
         <div className="grid gap-5 lg:grid-cols-3">
           <div className="h-[280px] animate-pulse rounded-[28px] border border-slate-200 bg-white" />
           <div className="h-[280px] animate-pulse rounded-[28px] border border-slate-200 bg-white" />
@@ -2548,8 +2548,8 @@ export function ImConfigPage() {
 
   return (
     <>
-      <div className="ember-workbench-theme-scope mx-auto flex w-full max-w-[1260px] flex-col gap-6 pb-10">
-        <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-[image:var(--ember-card-subtle)] px-7 py-7 shadow-sm shadow-slate-950/5">
+      <div className="lime-workbench-theme-scope mx-auto flex w-full max-w-[1260px] flex-col gap-6 pb-10">
+        <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-[image:var(--lime-card-subtle)] px-7 py-7 shadow-sm shadow-slate-950/5">
           <div className="max-w-3xl space-y-4">
             <div className="max-w-2xl space-y-3">
               <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
@@ -2563,13 +2563,13 @@ export function ImConfigPage() {
                   </h1>
                   <WorkbenchInfoTip
                     ariaLabel="消息渠道说明"
-                    content="把 Telegram、飞书、微信接进 Ember，让消息接收、回复和结果投递继续留在熟悉客户端；接入检查放在各自配置里，日志和运行检查按需展开。"
+                    content="把 Telegram、飞书、微信接进 Lime，让消息接收、回复和结果投递继续留在熟悉客户端；接入检查放在各自配置里，日志和运行检查按需展开。"
                     tone="mint"
                   />
                 </div>
                 <p className="max-w-3xl text-sm leading-7 text-slate-600">
                   把外部消息接进
-                  Ember，让消息接收、回复和结果投递继续留在熟悉客户端。
+                  Lime，让消息接收、回复和结果投递继续留在熟悉客户端。
                 </p>
               </div>
             </div>

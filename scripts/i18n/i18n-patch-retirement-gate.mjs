@@ -5,17 +5,17 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-const PATCH_REPORT_SCHEMA_VERSION = "ember.i18n.patchMetricsReport.v1";
-const PATCH_RETIREMENT_GATE_SCHEMA_VERSION = "ember.i18n.patchRetirementGate.v1";
+const PATCH_REPORT_SCHEMA_VERSION = "lime.i18n.patchMetricsReport.v1";
+const PATCH_RETIREMENT_GATE_SCHEMA_VERSION = "lime.i18n.patchRetirementGate.v1";
 
 function parseArgs(argv) {
   const result = {
     check: false,
     format: "text",
     help: false,
-    legacyReportPath: ".ember/governance/legacy-surface-report.json",
+    legacyReportPath: ".lime/governance/legacy-surface-report.json",
     outputPath: "",
-    patchReportPath: ".ember/i18n/patch-metrics-report.json",
+    patchReportPath: ".lime/i18n/patch-metrics-report.json",
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -243,17 +243,17 @@ function formatGateReport(report, format) {
 
 function printHelp() {
   console.log(`
-Ember i18n Patch Retirement Gate
+Lime i18n Patch Retirement Gate
 
 用法:
   node scripts/i18n/i18n-patch-retirement-gate.mjs
   node scripts/i18n/i18n-patch-retirement-gate.mjs --check
   node scripts/i18n/i18n-patch-retirement-gate.mjs --format json
-  node scripts/i18n/i18n-patch-retirement-gate.mjs --patch-report .ember/i18n/patch-metrics-report.json --legacy-report .ember/governance/legacy-surface-report.json
+  node scripts/i18n/i18n-patch-retirement-gate.mjs --patch-report .lime/i18n/patch-metrics-report.json --legacy-report .lime/governance/legacy-surface-report.json
 
 输入:
-  --patch-report PATH   Patch metrics 报告 JSON，默认 ".ember/i18n/patch-metrics-report.json"
-  --legacy-report PATH  legacy surface 报告 JSON，默认 ".ember/governance/legacy-surface-report.json"
+  --patch-report PATH   Patch metrics 报告 JSON，默认 ".lime/i18n/patch-metrics-report.json"
+  --legacy-report PATH  legacy surface 报告 JSON，默认 ".lime/governance/legacy-surface-report.json"
 
 选项:
   --format FMT          输出格式：text | json

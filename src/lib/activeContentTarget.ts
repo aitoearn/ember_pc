@@ -1,6 +1,6 @@
 import { normalizeThemeCanvasType } from "@/lib/workspace/workbenchContract";
 
-const ACTIVE_CONTENT_TARGET_KEY = "ember-active-content-target";
+const ACTIVE_CONTENT_TARGET_KEY = "lime-active-content-target";
 
 type ActiveCanvasType = "document" | "video" | null;
 

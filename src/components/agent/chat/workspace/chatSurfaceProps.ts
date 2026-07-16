@@ -44,6 +44,8 @@ interface BuildWorkspaceEmptyStatePropsParams {
   input: ComponentProps<typeof EmptyState>["input"];
   setInput: ComponentProps<typeof EmptyState>["setInput"];
   onSendMessage: InputbarSendHandler;
+  onStopSending?: ComponentProps<typeof EmptyState>["onStop"];
+  sendOnPointerDown?: ComponentProps<typeof EmptyState>["sendOnPointerDown"];
   isLoading: ComponentProps<typeof EmptyState>["isLoading"];
   disabled: ComponentProps<typeof EmptyState>["disabled"];
   providerType: ComponentProps<typeof EmptyState>["providerType"];
@@ -106,6 +108,9 @@ interface BuildWorkspaceEmptyStatePropsParams {
   recentSessionActionLabel?: ComponentProps<
     typeof EmptyState
   >["recentSessionActionLabel"];
+  homeRecoverySession?: ComponentProps<
+    typeof EmptyState
+  >["homeRecoverySession"];
   onResumeRecentSession?: ComponentProps<
     typeof EmptyState
   >["onResumeRecentSession"];
@@ -122,6 +127,16 @@ interface BuildWorkspaceEmptyStatePropsParams {
   runtimeToolAvailability?: ComponentProps<
     typeof EmptyState
   >["runtimeToolAvailability"];
+  pluginSuggestions?: ComponentProps<typeof EmptyState>["pluginSuggestions"];
+  pluginSuggestionsError?: ComponentProps<
+    typeof EmptyState
+  >["pluginSuggestionsError"];
+  pluginSuggestionsLoading?: ComponentProps<
+    typeof EmptyState
+  >["pluginSuggestionsLoading"];
+  onPluginSuggestionsNeeded?: ComponentProps<
+    typeof EmptyState
+  >["onPluginSuggestionsNeeded"];
   initialInputCapability?: ComponentProps<
     typeof EmptyState
   >["initialInputCapability"];
@@ -163,6 +178,12 @@ interface BuildWorkspaceEmptyStatePropsParams {
   onAddPathReferences?: ComponentProps<
     typeof EmptyState
   >["onAddPathReferences"];
+  inputRestoreRequest?: ComponentProps<
+    typeof EmptyState
+  >["inputRestoreRequest"];
+  onInputRestoreRequestHandled?: ComponentProps<
+    typeof EmptyState
+  >["onInputRestoreRequestHandled"];
   onImportPathReferenceAsKnowledge?: ComponentProps<
     typeof EmptyState
   >["onImportPathReferenceAsKnowledge"];
@@ -182,6 +203,8 @@ export function buildWorkspaceEmptyStateProps({
   input,
   setInput,
   onSendMessage,
+  onStopSending,
+  sendOnPointerDown,
   isLoading,
   disabled,
   providerType,
@@ -219,6 +242,7 @@ export function buildWorkspaceEmptyStateProps({
   recentSessionTitle,
   recentSessionSummary,
   recentSessionActionLabel,
+  homeRecoverySession,
   onResumeRecentSession,
   projectConversationGroups,
   onOpenProjectConversation,
@@ -227,6 +251,10 @@ export function buildWorkspaceEmptyStateProps({
   onProjectChange,
   sessionId,
   runtimeToolAvailability,
+  pluginSuggestions,
+  pluginSuggestionsError,
+  pluginSuggestionsLoading,
+  onPluginSuggestionsNeeded,
   initialInputCapability,
   knowledgePackSelection,
   knowledgePackOptions,
@@ -244,6 +272,8 @@ export function buildWorkspaceEmptyStateProps({
   defaultCuratedTaskReferenceEntries,
   pathReferences,
   onAddPathReferences,
+  inputRestoreRequest,
+  onInputRestoreRequestHandled,
   onImportPathReferenceAsKnowledge,
   onRemovePathReference,
   onClearPathReferences,
@@ -260,6 +290,8 @@ export function buildWorkspaceEmptyStateProps({
     input,
     setInput,
     onSend: handleEmptyStateSend,
+    onStop: onStopSending,
+    sendOnPointerDown,
     isLoading,
     disabled,
     providerType,
@@ -303,6 +335,7 @@ export function buildWorkspaceEmptyStateProps({
     recentSessionTitle,
     recentSessionSummary,
     recentSessionActionLabel,
+    homeRecoverySession,
     onResumeRecentSession,
     projectConversationGroups,
     onOpenProjectConversation,
@@ -311,6 +344,10 @@ export function buildWorkspaceEmptyStateProps({
     onProjectContextChange: onProjectChange,
     sessionId,
     runtimeToolAvailability,
+    pluginSuggestions,
+    pluginSuggestionsError,
+    pluginSuggestionsLoading,
+    onPluginSuggestionsNeeded,
     initialInputCapability,
     knowledgePackSelection,
     knowledgePackOptions,
@@ -328,6 +365,8 @@ export function buildWorkspaceEmptyStateProps({
     defaultCuratedTaskReferenceEntries,
     pathReferences,
     onAddPathReferences,
+    inputRestoreRequest,
+    onInputRestoreRequestHandled,
     onImportPathReferenceAsKnowledge,
     onRemovePathReference,
     onClearPathReferences,
@@ -358,15 +397,6 @@ interface BuildWorkspaceNavbarPropsParams {
   deferWorkspaceListLoad?: ComponentProps<
     typeof ChatNavbar
   >["deferWorkspaceListLoad"];
-  workspaceHintMessage?: ComponentProps<
-    typeof ChatNavbar
-  >["workspaceHintMessage"];
-  workspaceHintVisible?: ComponentProps<
-    typeof ChatNavbar
-  >["workspaceHintVisible"];
-  onDismissWorkspaceHint?: ComponentProps<
-    typeof ChatNavbar
-  >["onDismissWorkspaceHint"];
   onBackHome?: ComponentProps<typeof ChatNavbar>["onBackHome"];
   showHarnessToggle: boolean;
   harnessPanelVisible: boolean;
@@ -406,9 +436,6 @@ export function buildWorkspaceNavbarProps({
   onCloseProject,
   workspaceType,
   deferWorkspaceListLoad,
-  workspaceHintMessage,
-  workspaceHintVisible,
-  onDismissWorkspaceHint,
   onBackHome,
   showHarnessToggle,
   harnessPanelVisible,
@@ -445,9 +472,6 @@ export function buildWorkspaceNavbarProps({
     onCloseProject,
     workspaceType,
     deferWorkspaceListLoad,
-    workspaceHintMessage,
-    workspaceHintVisible,
-    onDismissWorkspaceHint,
     onBackHome,
     showHarnessToggle,
     harnessPanelVisible,

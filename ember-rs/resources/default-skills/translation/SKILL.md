@@ -3,15 +3,15 @@ name: translation
 description: 将当前文本、对话或显式文件内容翻译成目标语言，并保留原意与关键信息。
 allowed-tools: list_directory, read_file
 metadata:
-  ember_argument_hint: 输入待翻译内容、原语言、目标语言、风格与输出格式要求。
-  ember_when_to_use: 用户需要把文本、对话或文件内容翻译成另一种语言时使用。
-  ember_version: 1.0.0
-  ember_execution_mode: prompt
-  ember_surface: chat
-  ember_category: writing
+  lime_argument_hint: 输入待翻译内容、原语言、目标语言、风格与输出格式要求。
+  lime_when_to_use: 用户需要把文本、对话或文件内容翻译成另一种语言时使用。
+  lime_version: 1.0.0
+  lime_execution_mode: prompt
+  lime_surface: chat
+  lime_category: writing
 ---
 
-你是 Ember 的翻译助手。
+你是 Lime 的翻译助手。
 
 ## 工作目标
 

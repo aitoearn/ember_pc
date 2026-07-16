@@ -95,7 +95,7 @@ async function readPackStatus(packRoot) {
 }
 
 async function buildReport(workingDir) {
-  const root = path.resolve(workingDir, ".ember", "knowledge", "packs");
+  const root = path.resolve(workingDir, ".lime", "knowledge", "packs");
   if (!(await exists(root))) {
     return {
       workingDir: path.resolve(workingDir),

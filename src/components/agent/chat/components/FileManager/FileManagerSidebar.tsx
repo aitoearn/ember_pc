@@ -62,7 +62,7 @@ import {
   type FileManagerContextMenuAction,
 } from "./fileManagerSidebarViewModel";
 
-const PINNED_LOCATIONS_STORAGE_KEY = "ember.file-manager.pinned-locations";
+const PINNED_LOCATIONS_STORAGE_KEY = "lime.file-manager.pinned-locations";
 const MAX_ICON_PREFETCH_ENTRIES = 72;
 const ICON_PREFETCH_CONCURRENCY = 2;
 
@@ -819,9 +819,9 @@ export const FileManagerSidebar: React.FC<FileManagerSidebarProps> = ({
 
   return (
     <aside
-      className="flex h-full w-[34vw] min-w-[460px] max-w-[720px] shrink-0 overflow-hidden rounded-[12px] border border-[color:var(--ember-surface-border)] bg-white shadow-sm shadow-slate-950/5"
+      className="flex h-full w-[34vw] min-w-[460px] max-w-[720px] shrink-0 overflow-hidden rounded-[12px] border border-[color:var(--lime-surface-border)] bg-white shadow-sm shadow-slate-950/5"
       data-testid="file-manager-sidebar"
-      data-ember-no-window-drag
+      data-lime-no-window-drag
     >
       <div
         className="flex w-[148px] shrink-0 flex-col gap-1 border-r border-slate-200 bg-slate-50 px-2 py-2"

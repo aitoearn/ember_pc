@@ -15,9 +15,9 @@
 
 use rusqlite::Connection;
 
-use ember_core::database::dao::persona_dao::PersonaDao;
-use ember_core::errors::project_error::PersonaError;
-use ember_core::models::project_model::{
+use lime_core::database::dao::persona_dao::PersonaDao;
+use lime_core::errors::project_error::PersonaError;
+use lime_core::models::project_model::{
     CreatePersonaRequest, Persona, PersonaTemplate, PersonaUpdate,
 };
 
@@ -289,7 +289,7 @@ impl PersonaService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ember_core::database::schema::create_tables;
+    use lime_core::database::schema::create_tables;
 
     /// 创建测试数据库连接
     fn setup_test_db() -> Connection {

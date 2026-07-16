@@ -2,9 +2,12 @@ import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import type { HarnessSessionState } from "../utils/harnessState";
-import { GeneralWorkbenchDialogSection } from "./WorkspaceHarnessDialogs";
+import {
+  GeneralWorkbenchDialogSection,
+  GeneralWorkbenchHarnessSurfaceSection,
+} from "./WorkspaceHarnessDialogs";
 
 const mountedRoots: Array<{ root: Root; container: HTMLDivElement }> = [];
 let originalScrollIntoView:
@@ -45,11 +48,14 @@ function renderDialog(
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
-  const onSubmitCodeFixPrompt = vi.fn<
-    NonNullable<
-      ComponentProps<typeof GeneralWorkbenchDialogSection>["onSubmitCodeFixPrompt"]
-    >
-  >();
+  const onSubmitCodeFixPrompt =
+    vi.fn<
+      NonNullable<
+        ComponentProps<
+          typeof GeneralWorkbenchDialogSection
+        >["onSubmitCodeFixPrompt"]
+      >
+    >();
 
   act(() => {
     root.render(
@@ -69,9 +75,7 @@ function renderDialog(
           source: "session",
           execution_strategy: "react",
         }}
-        isExecutionRuntimeActive={true}
         runtimeStatusTitle={null}
-        selectedTeamRoleCount={0}
         harnessState={createHarnessState()}
         environment={{
           skillsCount: 0,
@@ -90,7 +94,6 @@ function renderDialog(
           model: "gpt-5.4",
           executionStrategy: "react",
           activeTheme: "default",
-          selectedTeamLabel: null,
         }}
         threadRead={{
           thread_id: "session-code",
@@ -116,6 +119,50 @@ function renderDialog(
   return { container, onSubmitCodeFixPrompt };
 }
 
+function renderSurface(
+  overrides: Partial<
+    ComponentProps<typeof GeneralWorkbenchHarnessSurfaceSection>
+  > = {},
+) {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+
+  act(() => {
+    root.render(
+      <GeneralWorkbenchHarnessSurfaceSection
+        enabled={true}
+        harnessState={createHarnessState()}
+        environment={{
+          skillsCount: 0,
+          skillNames: [],
+          memorySignals: [],
+          contextItemsCount: 0,
+          activeContextCount: 0,
+          contextItemNames: [],
+          contextEnabled: true,
+        }}
+        diagnosticRuntimeContext={{
+          sessionId: "session-surface",
+          workspaceId: "workspace-surface",
+          workingDir: "/tmp/workspace-surface",
+          providerType: "openai",
+          model: "gpt-5.4",
+          executionStrategy: "react",
+          activeTheme: "default",
+        }}
+        threadRead={{
+          thread_id: "session-surface",
+        }}
+        {...overrides}
+      />,
+    );
+  });
+
+  mountedRoots.push({ root, container });
+  return container;
+}
+
 beforeEach(async () => {
   (
     globalThis as typeof globalThis & {
@@ -123,7 +170,7 @@ beforeEach(async () => {
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
   originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 afterEach(async () => {
@@ -143,10 +190,62 @@ afterEach(async () => {
     delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
   }
   vi.restoreAllMocks();
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 describe("WorkspaceHarnessDialogs", () => {
+  it("运行时工作台 surface 应承载 dialog 形态的 Harness 面板", () => {
+    const container = renderSurface();
+
+    const surface = container.querySelector(
+      '[data-testid="general-workbench-harness-surface"]',
+    ) as HTMLElement | null;
+    const panel = container.querySelector(
+      '[data-testid="harness-status-panel"]',
+    ) as HTMLElement | null;
+
+    expect(surface).not.toBeNull();
+    expect(surface?.className).toContain("h-full");
+    expect(panel).not.toBeNull();
+    expect(panel?.getAttribute("data-layout")).toBe("dialog");
+  });
+
+  it("应展示 canonical child roster 并按 ThreadId 导航", () => {
+    const onOpenSubagentSession = vi.fn();
+    const container = renderSurface({
+      canonicalChildren: [
+        {
+          modelProvider: "openai",
+          name: "审阅进程",
+          parentThreadId: "thread-parent",
+          path: "/root/reviewer",
+          role: "reviewer",
+          sessionId: "session-reviewer",
+          status: "interrupted",
+          statusMessage: "等待新的审阅范围",
+          taskSummary: "检查 canonical roster 接线",
+          threadId: "thread-reviewer",
+          updatedAtMs: Date.parse("2026-07-14T10:00:00.000Z"),
+        },
+      ],
+      onOpenSubagentSession,
+    });
+
+    expect(container.textContent).toContain("审阅进程");
+    expect(container.textContent).toContain("reviewer");
+    expect(container.textContent).toContain("openai");
+    expect(container.textContent).toContain("已中断");
+    expect(container.textContent).toContain("等待新的审阅范围");
+
+    const openButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.includes("查看详情"),
+    );
+    act(() => {
+      openButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onOpenSubagentSession).toHaveBeenCalledWith("thread-reviewer");
+  });
+
   it("运行时工作台弹窗应基于信号展示导轨并可跳到权限区块", () => {
     const scrollIntoView = vi.fn();
     HTMLElement.prototype.scrollIntoView = scrollIntoView;
@@ -248,7 +347,6 @@ describe("WorkspaceHarnessDialogs", () => {
         model: "gpt-5.4",
         executionStrategy: "react",
         activeTheme: "default",
-        selectedTeamLabel: null,
       },
       threadRead: {
         thread_id: "session-react",
@@ -264,7 +362,7 @@ describe("WorkspaceHarnessDialogs", () => {
   });
 
   it("英文界面下运行时信号应展示 agent namespace 导轨", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
 
     renderDialog({
       harnessState: createHarnessState({
@@ -394,9 +492,7 @@ describe("WorkspaceHarnessDialogs", () => {
 
     expect(onSubmitCodeFixPrompt).toHaveBeenCalledTimes(1);
     expect(onSubmitCodeFixPrompt.mock.calls[0]?.[0]).toContain("回归测试失败");
-    expect(onSubmitCodeFixPrompt.mock.calls[0]?.[0]).toContain(
-      "1 test failed",
-    );
+    expect(onSubmitCodeFixPrompt.mock.calls[0]?.[0]).toContain("1 test failed");
   });
 
   it("代码审阅摘要应跟随文件审阅区的已应用状态变化", () => {
@@ -460,7 +556,7 @@ describe("WorkspaceHarnessDialogs", () => {
   });
 
   it("没有真实文件快照时不应在导轨显示快照可回滚", async () => {
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
 
     renderDialog({
       threadRead: {

@@ -2,9 +2,10 @@ import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { createInitialSessionImageWorkbenchState } from "./imageWorkbenchHelpers";
 import { useWorkspaceImageWorkbenchActionRuntime } from "./useWorkspaceImageWorkbenchActionRuntime";
+import { useWorkspaceImageWorkbenchCommandActionRuntime } from "./useWorkspaceImageWorkbenchCommandActionRuntime";
 
 const toastHoisted = vi.hoisted(() => ({
   toast: {
@@ -26,9 +27,9 @@ vi.mock("sonner", () => ({
   toast: toastHoisted.toast,
 }));
 
-vi.mock("@/lib/api/agentRuntime", async (importOriginal) => {
+vi.mock("@/lib/api/agentRuntime/agentClient", async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("@/lib/api/agentRuntime")>();
+    await importOriginal<typeof import("@/lib/api/agentRuntime/agentClient")>();
 
   return {
     ...actual,
@@ -39,6 +40,9 @@ vi.mock("@/lib/api/agentRuntime", async (importOriginal) => {
 
 export type HookProps = Parameters<
   typeof useWorkspaceImageWorkbenchActionRuntime
+>[0];
+export type CommandActionHookProps = Parameters<
+  typeof useWorkspaceImageWorkbenchCommandActionRuntime
 >[0];
 
 const mountedRoots: Array<{ container: HTMLDivElement; root: Root }> = [];
@@ -83,12 +87,12 @@ export function renderHook(props?: Partial<HookProps>) {
       task_family: "image",
       status: "cancelled",
       normalized_status: "cancelled",
-      path: ".ember/tasks/image_generate/task-image-1.json",
+      path: ".lime/tasks/image_generate/task-image-1.json",
       absolute_path:
-        "/workspace/project-1/.ember/tasks/image_generate/task-image-1.json",
-      artifact_path: ".ember/tasks/image_generate/task-image-1.json",
+        "/workspace/project-1/.lime/tasks/image_generate/task-image-1.json",
+      artifact_path: ".lime/tasks/image_generate/task-image-1.json",
       absolute_artifact_path:
-        "/workspace/project-1/.ember/tasks/image_generate/task-image-1.json",
+        "/workspace/project-1/.lime/tasks/image_generate/task-image-1.json",
       reused_existing: false,
       record: {
         task_id: "task-image-1",
@@ -121,9 +125,6 @@ export function renderHook(props?: Partial<HookProps>) {
       success: true,
     }),
     currentImageWorkbenchState: createInitialSessionImageWorkbenchState(),
-    imageWorkbenchPreferredModelId: undefined,
-    imageWorkbenchPreferredProviderId: undefined,
-    imageWorkbenchPreferredProviderUnavailable: false,
     imageWorkbenchSelectedModelId: "fal-ai/nano-banana-pro",
     imageWorkbenchSelectedProviderId: "fal",
     imageWorkbenchSelectedSize: "1024x1024",
@@ -135,7 +136,6 @@ export function renderHook(props?: Partial<HookProps>) {
       skipped: 0,
       errors: [],
     }),
-    submitImageWorkbenchAgentCommand: vi.fn().mockResolvedValue(true),
     setCanvasState: vi.fn(),
     setInput: vi.fn(),
     updateCurrentImageWorkbenchState: vi.fn(),
@@ -166,13 +166,63 @@ export function renderHook(props?: Partial<HookProps>) {
   };
 }
 
+export function renderCommandActionHook(
+  props?: Partial<CommandActionHookProps>,
+) {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  let latestValue: ReturnType<
+    typeof useWorkspaceImageWorkbenchCommandActionRuntime
+  > | null = null;
+
+  const defaultProps: CommandActionHookProps = {
+    contentId: null,
+    currentImageWorkbenchState: createInitialSessionImageWorkbenchState(),
+    imageWorkbenchPreferredModelId: undefined,
+    imageWorkbenchPreferredProviderId: undefined,
+    imageWorkbenchPreferredProviderUnavailable: false,
+    imageWorkbenchSelectedModelId: "fal-ai/nano-banana-pro",
+    imageWorkbenchSelectedProviderId: "fal",
+    imageWorkbenchSelectedSize: "1024x1024",
+    imageWorkbenchSessionKey: "session-1",
+    projectId: "project-1",
+    projectRootPath: "/workspace/project-1",
+    submitImageWorkbenchAgentCommand: vi.fn().mockResolvedValue(true),
+  };
+
+  function Probe(currentProps: CommandActionHookProps) {
+    latestValue = useWorkspaceImageWorkbenchCommandActionRuntime(currentProps);
+    return null;
+  }
+
+  const render = async (nextProps?: Partial<CommandActionHookProps>) => {
+    await act(async () => {
+      root.render(<Probe {...defaultProps} {...props} {...nextProps} />);
+      await Promise.resolve();
+    });
+  };
+
+  mountedRoots.push({ container, root });
+
+  return {
+    render,
+    getValue: () => {
+      if (!latestValue) {
+        throw new Error("hook 尚未初始化");
+      }
+      return latestValue;
+    },
+  };
+}
+
 beforeEach(async () => {
   (
     globalThis as typeof globalThis & {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 
   mockGenerateAgentRuntimeTitle.mockReset();
   mockGenerateAgentRuntimeTitle.mockResolvedValue({
@@ -204,5 +254,5 @@ afterEach(async () => {
     });
     mounted.container.remove();
   }
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });

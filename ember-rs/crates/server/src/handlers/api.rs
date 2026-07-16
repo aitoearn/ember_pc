@@ -34,22 +34,22 @@ use crate::middleware::request_dedup::{
 };
 use crate::middleware::response_cache::{CachedHttpResponse, ResponseCacheStore};
 use crate::{record_request_telemetry, record_token_usage, AppState};
-use aster::context::MODEL_CONTEXT_WINDOWS;
-use aster::session_context::{
+use agent_protocol::model_context::MODEL_CONTEXT_WINDOWS;
+use agent_protocol::session_context::{
     PENDING_REQUEST_ID_HEADER, QUEUED_TURN_ID_HEADER, SESSION_ID_HEADER,
     SUBAGENT_SESSION_ID_HEADER, THREAD_ID_HEADER, TURN_ID_HEADER,
 };
-use ember_core::agent_app_runtime_token::{
-    verify_agent_app_runtime_token_for_scope, AGENT_APP_RUNTIME_SCOPE_MODEL_GENERATION,
+use lime_core::errors::GatewayErrorCode;
+use lime_core::models::anthropic::AnthropicMessagesRequest;
+use lime_core::models::openai::{ChatCompletionRequest, ContentPart, MessageContent};
+use lime_core::models::{RuntimeCredentialData, RuntimeProviderCredential};
+use lime_core::plugin_runtime_token::{
+    verify_plugin_runtime_token_for_scope, PLUGIN_RUNTIME_SCOPE_MODEL_GENERATION,
 };
-use ember_core::errors::GatewayErrorCode;
-use ember_core::models::anthropic::AnthropicMessagesRequest;
-use ember_core::models::openai::{ChatCompletionRequest, ContentPart, MessageContent};
-use ember_core::models::{RuntimeCredentialData, RuntimeProviderCredential};
-use ember_core::ProviderType;
-use ember_processor::RequestContext;
-use ember_providers::streaming::StreamFormat as StreamingFormat;
-use ember_server_utils::{
+use lime_core::ProviderType;
+use lime_processor::RequestContext;
+use lime_providers::streaming::StreamFormat as StreamingFormat;
+use lime_server_utils::{
     build_error_response_with_meta, build_gateway_error_json, message_content_len,
 };
 use subtle::ConstantTimeEq;
@@ -500,7 +500,7 @@ fn set_request_id_header(response: &mut Response, request_id: &str) {
     if let Ok(value) = header::HeaderValue::from_str(request_id) {
         response
             .headers_mut()
-            .insert(header::HeaderName::from_static("x-ember-request-id"), value);
+            .insert(header::HeaderName::from_static("x-lime-request-id"), value);
     }
 }
 
@@ -519,20 +519,20 @@ fn attach_route_debug_headers(
 ) -> Response {
     if let Ok(value) = header::HeaderValue::from_str(requested_provider) {
         response.headers_mut().insert(
-            header::HeaderName::from_static("x-ember-requested-provider"),
+            header::HeaderName::from_static("x-lime-requested-provider"),
             value,
         );
     }
     if let Ok(value) = header::HeaderValue::from_str(effective_provider) {
         response.headers_mut().insert(
-            header::HeaderName::from_static("x-ember-effective-provider"),
+            header::HeaderName::from_static("x-lime-effective-provider"),
             value,
         );
     }
     if let Ok(value) = header::HeaderValue::from_str(model) {
         response
             .headers_mut()
-            .insert(header::HeaderName::from_static("x-ember-model"), value);
+            .insert(header::HeaderName::from_static("x-lime-model"), value);
     }
     response
 }
@@ -549,8 +549,8 @@ fn build_cached_response(response: CachedHttpResponse) -> Response {
             resp.headers_mut().insert(name, val);
         }
     }
-    set_static_diag_header(&mut resp, "x-ember-cache", "hit");
-    set_static_diag_header(&mut resp, "x-ember-source", "response-cache");
+    set_static_diag_header(&mut resp, "x-lime-cache", "hit");
+    set_static_diag_header(&mut resp, "x-lime-source", "response-cache");
     resp
 }
 
@@ -604,8 +604,8 @@ async fn begin_request_dedup(
         RequestDedupCheck::Completed { status, body } => {
             let mut response = replay_response(status, body);
             set_request_id_header(&mut response, request_id);
-            set_static_diag_header(&mut response, "x-ember-dedup", "replay");
-            set_static_diag_header(&mut response, "x-ember-source", "request-dedup");
+            set_static_diag_header(&mut response, "x-lime-dedup", "replay");
+            set_static_diag_header(&mut response, "x-lime-source", "request-dedup");
             Err(response)
         }
         RequestDedupCheck::InProgress { notify } => {
@@ -613,8 +613,8 @@ async fn begin_request_dedup(
                 Some(replay) => {
                     let mut response = replay_response(replay.status, replay.body);
                     set_request_id_header(&mut response, request_id);
-                    set_static_diag_header(&mut response, "x-ember-dedup", "wait-replay");
-                    set_static_diag_header(&mut response, "x-ember-source", "request-dedup");
+                    set_static_diag_header(&mut response, "x-lime-dedup", "wait-replay");
+                    set_static_diag_header(&mut response, "x-lime-source", "request-dedup");
                     Err(response)
                 }
                 None => {
@@ -632,7 +632,7 @@ async fn begin_request_dedup(
                         Some(GatewayErrorCode::RequestConflict),
                     );
                     set_request_id_header(&mut response, request_id);
-                    set_static_diag_header(&mut response, "x-ember-dedup", "wait-timeout");
+                    set_static_diag_header(&mut response, "x-lime-dedup", "wait-timeout");
                     Err(response)
                 }
             }
@@ -798,13 +798,13 @@ async fn finalize_replayable_response_with_usage_capture(
         dedup_guard.remove();
         cache_guard.skip();
         if guard.is_enabled() {
-            set_static_diag_header(&mut response, "x-ember-idempotency", "removed-on-error");
+            set_static_diag_header(&mut response, "x-lime-idempotency", "removed-on-error");
         }
         if dedup_guard.is_enabled() {
-            set_static_diag_header(&mut response, "x-ember-dedup", "removed-on-error");
+            set_static_diag_header(&mut response, "x-lime-dedup", "removed-on-error");
         }
         if cache_guard.is_enabled() {
-            set_static_diag_header(&mut response, "x-ember-cache", "skip-on-error");
+            set_static_diag_header(&mut response, "x-lime-cache", "skip-on-error");
         }
         return response;
     }
@@ -827,16 +827,16 @@ async fn finalize_replayable_response_with_usage_capture(
             let mut response = Response::from_parts(parts, Body::from(bytes));
             set_request_id_header(&mut response, request_id);
             if guard.is_enabled() {
-                set_static_diag_header(&mut response, "x-ember-idempotency", "new");
+                set_static_diag_header(&mut response, "x-lime-idempotency", "new");
             }
             if dedup_guard.is_enabled() {
-                set_static_diag_header(&mut response, "x-ember-dedup", "new");
+                set_static_diag_header(&mut response, "x-lime-dedup", "new");
             }
             if cache_guard.is_enabled() {
                 if cache_guard.should_cache_status(status) {
-                    set_static_diag_header(&mut response, "x-ember-cache", "store");
+                    set_static_diag_header(&mut response, "x-lime-cache", "store");
                 } else {
-                    set_static_diag_header(&mut response, "x-ember-cache", "skip-status");
+                    set_static_diag_header(&mut response, "x-lime-cache", "skip-status");
                 }
             }
             response
@@ -858,7 +858,7 @@ async fn finalize_replayable_response_with_usage_capture(
                 Some(GatewayErrorCode::InternalError),
             );
             set_request_id_header(&mut response, request_id);
-            set_static_diag_header(&mut response, "x-ember-source", "replay-capture-error");
+            set_static_diag_header(&mut response, "x-lime-source", "replay-capture-error");
             response
         }
     }
@@ -1212,14 +1212,14 @@ mod tests {
     fn openai_requires_vision_should_detect_image_part() {
         let request = ChatCompletionRequest {
             model: "gpt-4o".to_string(),
-            messages: vec![ember_core::models::openai::ChatMessage {
+            messages: vec![lime_core::models::openai::ChatMessage {
                 role: "user".to_string(),
                 content: Some(MessageContent::Parts(vec![
                     ContentPart::Text {
                         text: "请看图".to_string(),
                     },
                     ContentPart::ImageUrl {
-                        image_url: ember_core::models::openai::ImageUrl {
+                        image_url: lime_core::models::openai::ImageUrl {
                             url: "https://example.com/img.png".to_string(),
                             detail: None,
                         },
@@ -1245,7 +1245,7 @@ mod tests {
     fn anthropic_requires_vision_should_detect_image_block() {
         let request = AnthropicMessagesRequest {
             model: "claude-sonnet-4-5-20250929".to_string(),
-            messages: vec![ember_core::models::anthropic::AnthropicMessage {
+            messages: vec![lime_core::models::anthropic::AnthropicMessage {
                 role: "user".to_string(),
                 content: serde_json::json!([
                     { "type": "text", "text": "看看这张图" },
@@ -1536,7 +1536,7 @@ fn load_model_capability_from_registry(
     })
 }
 
-fn load_context_window_from_aster(model: &str) -> Option<u32> {
+fn load_context_window_from_protocol(model: &str) -> Option<u32> {
     let model_lower = model.to_lowercase();
     if let Some(v) = MODEL_CONTEXT_WINDOWS.get(model_lower.as_str()) {
         return Some(*v as u32);
@@ -1554,7 +1554,7 @@ fn load_context_window_from_aster(model: &str) -> Option<u32> {
 fn resolve_model_capability_snapshot(state: &AppState, model: &str) -> ModelCapabilitySnapshot {
     let mut snapshot = load_model_capability_from_registry(state, model).unwrap_or_default();
     if snapshot.context_length.is_none() {
-        snapshot.context_length = load_context_window_from_aster(model);
+        snapshot.context_length = load_context_window_from_protocol(model);
     }
     snapshot
 }
@@ -1948,7 +1948,7 @@ pub async fn verify_api_key(
     Ok(())
 }
 
-/// OpenAI 格式的模型生成端点认证，允许 Agent App 使用内容生成 scope。
+/// OpenAI 格式的模型生成端点认证，允许 Plugin 使用内容生成 scope。
 pub async fn verify_model_generation_api_key(
     headers: &HeaderMap,
     expected_key: &str,
@@ -1976,7 +1976,7 @@ pub async fn verify_api_key_anthropic(
     Ok(())
 }
 
-/// Anthropic 格式的模型生成端点认证，允许 Agent App 使用内容生成 scope。
+/// Anthropic 格式的模型生成端点认证，允许 Plugin 使用内容生成 scope。
 pub async fn verify_model_generation_api_key_anthropic(
     headers: &HeaderMap,
     expected_key: &str,
@@ -1992,10 +1992,10 @@ pub async fn verify_model_generation_api_key_anthropic(
 
 fn model_generation_access_key_matches(expected_key: &str, key: &str) -> bool {
     static_api_key_matches(expected_key, key)
-        || verify_agent_app_runtime_token_for_scope(
+        || verify_plugin_runtime_token_for_scope(
             expected_key,
             key,
-            AGENT_APP_RUNTIME_SCOPE_MODEL_GENERATION,
+            PLUGIN_RUNTIME_SCOPE_MODEL_GENERATION,
         )
         .is_ok()
 }
@@ -2136,15 +2136,15 @@ pub async fn chat_completions(
                         Some(GatewayErrorCode::RequestConflict),
                     );
                     set_request_id_header(&mut response, &ctx.request_id);
-                    set_static_diag_header(&mut response, "x-ember-idempotency", "in-progress");
+                    set_static_diag_header(&mut response, "x-lime-idempotency", "in-progress");
                     return response;
                 }
                 crate::middleware::idempotency::IdempotencyCheck::Completed { status, body } => {
                     let status_code = StatusCode::from_u16(status).unwrap_or(StatusCode::OK);
                     let mut response = (status_code, body).into_response();
                     set_request_id_header(&mut response, &ctx.request_id);
-                    set_static_diag_header(&mut response, "x-ember-idempotency", "replay");
-                    set_static_diag_header(&mut response, "x-ember-source", "idempotency");
+                    set_static_diag_header(&mut response, "x-lime-idempotency", "replay");
+                    set_static_diag_header(&mut response, "x-lime-source", "idempotency");
                     return response;
                 }
                 crate::middleware::idempotency::IdempotencyCheck::New => {}
@@ -2405,9 +2405,9 @@ pub async fn chat_completions(
         let is_success = response.status().is_success();
         let _status_code = response.status().as_u16();
         let status = if is_success {
-            ember_infra::telemetry::RequestStatus::Success
+            lime_infra::telemetry::RequestStatus::Success
         } else {
-            ember_infra::telemetry::RequestStatus::Failed
+            lime_infra::telemetry::RequestStatus::Failed
         };
         record_request_telemetry(&state, &ctx, status, None);
 
@@ -2544,15 +2544,15 @@ pub async fn anthropic_messages(
                         Some(GatewayErrorCode::RequestConflict),
                     );
                     set_request_id_header(&mut response, &ctx.request_id);
-                    set_static_diag_header(&mut response, "x-ember-idempotency", "in-progress");
+                    set_static_diag_header(&mut response, "x-lime-idempotency", "in-progress");
                     return response;
                 }
                 crate::middleware::idempotency::IdempotencyCheck::Completed { status, body } => {
                     let status_code = StatusCode::from_u16(status).unwrap_or(StatusCode::OK);
                     let mut response = (status_code, body).into_response();
                     set_request_id_header(&mut response, &ctx.request_id);
-                    set_static_diag_header(&mut response, "x-ember-idempotency", "replay");
-                    set_static_diag_header(&mut response, "x-ember-source", "idempotency");
+                    set_static_diag_header(&mut response, "x-lime-idempotency", "replay");
+                    set_static_diag_header(&mut response, "x-lime-source", "idempotency");
                     return response;
                 }
                 crate::middleware::idempotency::IdempotencyCheck::New => {}
@@ -2828,9 +2828,9 @@ pub async fn anthropic_messages(
         // 记录请求统计
         let is_success = response.status().is_success();
         let status = if is_success {
-            ember_infra::telemetry::RequestStatus::Success
+            lime_infra::telemetry::RequestStatus::Success
         } else {
-            ember_infra::telemetry::RequestStatus::Failed
+            lime_infra::telemetry::RequestStatus::Failed
         };
         record_request_telemetry(&state, &ctx, status, None);
 
@@ -3045,11 +3045,11 @@ fn convert_openai_to_anthropic(request: &ChatCompletionRequest) -> serde_json::V
             // 提取 system prompt
             if let Some(content) = &msg.content {
                 system_prompt = Some(match content {
-                    ember_core::models::openai::MessageContent::Text(s) => s.clone(),
-                    ember_core::models::openai::MessageContent::Parts(parts) => parts
+                    lime_core::models::openai::MessageContent::Text(s) => s.clone(),
+                    lime_core::models::openai::MessageContent::Parts(parts) => parts
                         .iter()
                         .filter_map(|p| {
-                            if let ember_core::models::openai::ContentPart::Text { text } = p {
+                            if let lime_core::models::openai::ContentPart::Text { text } = p {
                                 Some(text.clone())
                             } else {
                                 None
@@ -3063,11 +3063,11 @@ fn convert_openai_to_anthropic(request: &ChatCompletionRequest) -> serde_json::V
             // 转换其他消息
             let content = match &msg.content {
                 Some(c) => match c {
-                    ember_core::models::openai::MessageContent::Text(s) => s.clone(),
-                    ember_core::models::openai::MessageContent::Parts(parts) => parts
+                    lime_core::models::openai::MessageContent::Text(s) => s.clone(),
+                    lime_core::models::openai::MessageContent::Parts(parts) => parts
                         .iter()
                         .filter_map(|p| {
-                            if let ember_core::models::openai::ContentPart::Text { text } = p {
+                            if let lime_core::models::openai::ContentPart::Text { text } = p {
                                 Some(text.clone())
                             } else {
                                 None
@@ -3167,7 +3167,7 @@ fn convert_anthropic_response_to_openai(anthropic_resp: &serde_json::Value, mode
 mod auth_tests {
     use super::*;
     use axum::http::HeaderValue;
-    use ember_core::agent_app_runtime_token::issue_agent_app_runtime_token_with_nonce;
+    use lime_core::plugin_runtime_token::issue_plugin_runtime_token_with_nonce;
 
     fn bearer_headers(token: &str) -> HeaderMap {
         let mut headers = HeaderMap::new();
@@ -3189,8 +3189,8 @@ mod auth_tests {
     }
 
     #[tokio::test]
-    async fn verify_api_key_rejects_agent_app_scoped_token() {
-        let token = issue_agent_app_runtime_token_with_nonce(
+    async fn verify_api_key_rejects_plugin_scoped_token() {
+        let token = issue_plugin_runtime_token_with_nonce(
             "server-secret",
             "content-factory-app",
             chrono::Utc::now().timestamp() + 60,
@@ -3206,8 +3206,8 @@ mod auth_tests {
     }
 
     #[tokio::test]
-    async fn verify_model_generation_api_key_accepts_agent_app_scoped_token() {
-        let token = issue_agent_app_runtime_token_with_nonce(
+    async fn verify_model_generation_api_key_accepts_plugin_scoped_token() {
+        let token = issue_plugin_runtime_token_with_nonce(
             "server-secret",
             "content-factory-app",
             chrono::Utc::now().timestamp() + 60,
@@ -3225,8 +3225,8 @@ mod auth_tests {
     }
 
     #[tokio::test]
-    async fn verify_model_generation_api_key_rejects_wrong_agent_app_scoped_token_secret() {
-        let token = issue_agent_app_runtime_token_with_nonce(
+    async fn verify_model_generation_api_key_rejects_wrong_plugin_scoped_token_secret() {
+        let token = issue_plugin_runtime_token_with_nonce(
             "other-secret",
             "content-factory-app",
             chrono::Utc::now().timestamp() + 60,

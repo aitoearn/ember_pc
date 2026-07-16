@@ -2,7 +2,7 @@ import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { BrowserRuntimeWorkspace } from "./BrowserRuntimeWorkspace";
 
 const { mockGetChromeProfileSessions, mockGetExistingSessionBridgeStatus } =
@@ -127,7 +127,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   mockGetChromeProfileSessions.mockResolvedValue([]);
   mockGetExistingSessionBridgeStatus.mockResolvedValue({
     observer_count: 0,
@@ -229,7 +229,7 @@ describe("BrowserRuntimeWorkspace", () => {
   });
 
   it("英文界面应使用 workspace namespace 外壳文案", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     mockGetChromeProfileSessions.mockResolvedValueOnce([
       {
         profile_key: "search_google",

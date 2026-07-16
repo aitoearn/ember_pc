@@ -1,35 +1,33 @@
 import {
   Check,
-  ChevronDown,
   ChevronRight,
-  Cloud,
   ExternalLink,
   Info,
   KeyRound,
   Languages,
+  LogIn,
   LogOut,
-  Settings,
 } from "lucide-react";
+import type { ReactElement } from "react";
 import type { SidebarNavItemDefinition } from "@/lib/navigation/sidebarNav";
 import type { LocalePreference } from "@/i18n/locales";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { APP_SIDEBAR_LANGUAGE_OPTIONS } from "./AppSidebar.constants";
 import {
-  AccountButton,
-  AccountIdentity,
+  AccountMenuAnchor,
   AccountMenuDivider,
   AccountMenuItem,
   AccountMenuItemGroup,
   AccountMenuItemLeading,
   AccountMenuItemTrailing,
   AccountMenuList,
+  AccountMenuNotice,
   AccountMenuPopover,
-  AccountName,
+  AccountPlanActionButton,
+  AccountPlanActions,
+  AccountPlanBadge,
   AccountPlanButton,
+  AccountPlanCard,
+  AccountPlanDetail,
   AccountPlanDetailsPill,
   AccountPlanHeader,
   AccountPlanMeta,
@@ -43,7 +41,6 @@ import {
   AccountSubmenuItemText,
   AccountSubmenuPopover,
   AccountSubmenuTitle,
-  AccountTrailing,
 } from "./AppSidebar.styles";
 
 export interface AppSidebarAccountPlanSummary {
@@ -53,19 +50,20 @@ export interface AppSidebarAccountPlanSummary {
 }
 
 export interface AppSidebarAccountMenuCopy {
-  settingsEntryLabel: string;
-  openUserMenuLabel: string;
-  buttonTooltip: string;
   menuLabel: string;
   viewPlanDetailsLabel: string;
   viewDetailsLabel: string;
+  loginPromptTitleLabel: string;
+  loginPromptDescriptionLabel: string;
+  loginPromptBadgeLabel: string;
+  connectCloudLabel: string;
+  loginPendingLabel: string;
   modelSettingsLabel: string;
   interfaceLanguageLabel: string;
   selectLanguageLabel: string;
   languageMenuLabel: string;
   currentLanguageLabel: string;
   userCenterLabel: string;
-  cloudBrandLabel: string;
   aboutLabel: string;
   logoutLabel: string;
   logoutPendingLabel: string;
@@ -74,21 +72,24 @@ export interface AppSidebarAccountMenuCopy {
 
 interface AppSidebarAccountMenuProps {
   collapsed: boolean;
+  trigger: ReactElement;
   accountMenuOpen: boolean;
   languageMenuOpen: boolean;
   accountMetaLine: string;
   hasCloudAccount: boolean;
   accountPlanSummary: AppSidebarAccountPlanSummary;
+  accountLoginPending: boolean;
+  accountLoginError: string | null;
   accountLogoutPending: boolean;
   language: LocalePreference;
   navItems: SidebarNavItemDefinition[];
   copy: AppSidebarAccountMenuCopy;
   isNavItemActive: (item: SidebarNavItemDefinition) => boolean;
-  onToggleAccountMenu: () => void;
   onNavigateItem: (item: SidebarNavItemDefinition) => void;
   onToggleLanguageMenu: () => void;
   onLanguageChange: (language: LocalePreference) => void;
   onOpenBilling: () => void;
+  onLogin: () => void;
   onOpenModelSettings: () => void;
   onOpenUserCenter: () => void;
   onOpenAbout: () => void;
@@ -97,64 +98,32 @@ interface AppSidebarAccountMenuProps {
 
 export function AppSidebarAccountMenu({
   collapsed,
+  trigger,
   accountMenuOpen,
   languageMenuOpen,
   accountMetaLine,
   hasCloudAccount,
   accountPlanSummary,
+  accountLoginPending,
+  accountLoginError,
   accountLogoutPending,
   language,
   navItems,
   copy,
   isNavItemActive,
-  onToggleAccountMenu,
   onNavigateItem,
   onToggleLanguageMenu,
   onLanguageChange,
   onOpenBilling,
+  onLogin,
   onOpenModelSettings,
   onOpenUserCenter,
   onOpenAbout,
   onLogout,
 }: AppSidebarAccountMenuProps) {
-  const accountButton = (
-    <AccountButton
-      type="button"
-      $collapsed={collapsed}
-      $active={accountMenuOpen}
-      onClick={onToggleAccountMenu}
-      aria-label={copy.openUserMenuLabel}
-      aria-expanded={accountMenuOpen}
-      aria-haspopup="dialog"
-      data-testid="app-sidebar-account-button"
-    >
-      {collapsed ? (
-        <Settings size={16} />
-      ) : (
-        <>
-          <AccountIdentity>
-            <Settings size={16} />
-            <AccountName>{copy.settingsEntryLabel}</AccountName>
-          </AccountIdentity>
-          <AccountTrailing>
-            <ChevronDown />
-          </AccountTrailing>
-        </>
-      )}
-    </AccountButton>
-  );
-
   return (
-    <>
-      {collapsed ? (
-        <Tooltip>
-          <TooltipTrigger asChild>{accountButton}</TooltipTrigger>
-          <TooltipContent side="right">{copy.buttonTooltip}</TooltipContent>
-        </Tooltip>
-      ) : (
-        accountButton
-      )}
-
+    <AccountMenuAnchor $collapsed={collapsed}>
+      {trigger}
       {accountMenuOpen ? (
         <AccountMenuPopover
           $collapsed={collapsed}
@@ -192,7 +161,40 @@ export function AppSidebarAccountMenu({
               ) : null}
               <AccountPlanMeta>{accountMetaLine}</AccountPlanMeta>
             </AccountPlanButton>
-          ) : null}
+          ) : (
+            <AccountPlanCard data-testid="app-sidebar-login-card">
+              <AccountPlanHeader>
+                <AccountPlanTitle>
+                  <span>{copy.loginPromptTitleLabel}</span>
+                </AccountPlanTitle>
+                <AccountPlanBadge>
+                  {copy.loginPromptBadgeLabel}
+                </AccountPlanBadge>
+              </AccountPlanHeader>
+              <AccountPlanDetail>
+                <span>{copy.loginPromptDescriptionLabel}</span>
+              </AccountPlanDetail>
+              <AccountPlanActions>
+                <AccountPlanActionButton
+                  type="button"
+                  $primary
+                  disabled={accountLoginPending}
+                  aria-label={copy.connectCloudLabel}
+                  onClick={onLogin}
+                >
+                  <LogIn />
+                  {accountLoginPending
+                    ? copy.loginPendingLabel
+                    : copy.connectCloudLabel}
+                </AccountPlanActionButton>
+              </AccountPlanActions>
+              {accountLoginError ? (
+                <AccountMenuNotice $tone="error">
+                  {accountLoginError}
+                </AccountMenuNotice>
+              ) : null}
+            </AccountPlanCard>
+          )}
 
           <AccountMenuList>
             {navItems.map((item) => {
@@ -253,9 +255,7 @@ export function AppSidebarAccountMenu({
                         $active={active}
                         role="menuitemradio"
                         aria-checked={active}
-                        aria-label={copy.formatSwitchLanguageAria(
-                          option.label,
-                        )}
+                        aria-label={copy.formatSwitchLanguageAria(option.label)}
                         onClick={() => onLanguageChange(option.id)}
                       >
                         <AccountSubmenuItemText>
@@ -273,22 +273,10 @@ export function AppSidebarAccountMenu({
                 </AccountSubmenuPopover>
               ) : null}
             </AccountMenuItemGroup>
-            {hasCloudAccount ? (
-              <AccountMenuItem
-                type="button"
-                aria-label={copy.userCenterLabel}
-                onClick={onOpenUserCenter}
-              >
-                <AccountMenuItemLeading>
-                  <ExternalLink />
-                  {copy.userCenterLabel}
-                </AccountMenuItemLeading>
-                <ChevronRight />
-              </AccountMenuItem>
-            ) : null}
             <AccountMenuItem
               type="button"
               aria-label={copy.modelSettingsLabel}
+              data-testid="app-sidebar-account-model-settings"
               onClick={onOpenModelSettings}
             >
               <AccountMenuItemLeading>
@@ -300,12 +288,12 @@ export function AppSidebarAccountMenu({
             {hasCloudAccount ? (
               <AccountMenuItem
                 type="button"
-                aria-label={copy.cloudBrandLabel}
+                aria-label={copy.userCenterLabel}
                 onClick={onOpenUserCenter}
               >
                 <AccountMenuItemLeading>
-                  <Cloud />
-                  {copy.cloudBrandLabel}
+                  <ExternalLink />
+                  {copy.userCenterLabel}
                 </AccountMenuItemLeading>
                 <ChevronRight />
               </AccountMenuItem>
@@ -343,6 +331,6 @@ export function AppSidebarAccountMenu({
           </AccountMenuList>
         </AccountMenuPopover>
       ) : null}
-    </>
+    </AccountMenuAnchor>
   );
 }

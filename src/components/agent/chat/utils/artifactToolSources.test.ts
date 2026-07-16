@@ -10,7 +10,7 @@ describe("artifactToolSources", () => {
       {
         id: "tool-search-1",
         name: "WebSearch",
-        arguments: JSON.stringify({ query: "Ember artifact workbench" }),
+        arguments: JSON.stringify({ query: "Lime artifact workbench" }),
         result: {
           success: true,
           output: JSON.stringify({

@@ -1,10 +1,10 @@
 [package]
-name = "ember-server-utils"
+name = "lime-server-utils"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-ember-core = { path = "../core" }
+lime-core = { path = "../core" }
 serde_json = { workspace = true }
 axum = { workspace = true }
 futures = { workspace = true }

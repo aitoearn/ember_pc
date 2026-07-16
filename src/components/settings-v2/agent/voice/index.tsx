@@ -25,7 +25,7 @@ import { WorkbenchInfoTip } from "@/components/media/WorkbenchInfoTip";
 import { InstructionEditor } from "@/components/voice/InstructionEditor";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { getConfig, saveConfig, type Config } from "@/lib/api/appConfig";
+import { getConfig, type Config } from "@/lib/api/appConfig";
 import {
   getVoiceInputConfig,
   saveVoiceInputConfig,
@@ -50,7 +50,6 @@ import {
   VOICE_MODEL_SETTINGS_SECTION_ID,
 } from "@/lib/voiceModelSettingsNavigation";
 import {
-  buildPersistedMediaGenerationPreference,
   getTtsModelsForProvider,
   hasMediaGenerationPreferenceOverride,
   isTtsProvider,
@@ -63,7 +62,9 @@ import {
   useConfiguredProviders,
 } from "@/hooks/useConfiguredProviders";
 import { MediaPreferenceSection } from "../shared/MediaPreferenceSection";
+import { updateMediaPreference } from "../shared/mediaPreferencePersistence";
 import { SettingModelSelectorField } from "../shared/SettingModelSelectorField";
+import { useAutoDismissMessage } from "./useAutoDismissMessage";
 
 const DEFAULT_MEDIA_PREFERENCE: MediaGenerationPreference = {
   allowFallback: true,
@@ -311,10 +312,7 @@ export function VoiceSettings() {
   const [voiceModelTestError, setVoiceModelTestError] = useState<string | null>(
     null,
   );
-  const [message, setMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
+  const { message, showMessage } = useAutoDismissMessage();
   const [loading, setLoading] = useState(true);
   const [globalVoicePreference, setGlobalVoicePreference] =
     useState<MediaGenerationPreference>(DEFAULT_MEDIA_PREFERENCE);
@@ -328,7 +326,7 @@ export function VoiceSettings() {
         await Promise.all([
           getConfig(),
           getVoiceInputConfig(),
-          listVoiceModelCatalog(),
+          listVoiceModelCatalog().catch(() => []),
         ]);
       const primaryVoiceModel = nextVoiceModelCatalog[0] ?? null;
       const nextVoiceModelState = primaryVoiceModel
@@ -350,14 +348,11 @@ export function VoiceSettings() {
       );
     } catch (error) {
       console.error("加载语音设置失败:", error);
-      setMessage({
-        type: "error",
-        text: t("settings.voice.message.loadFailed"),
-      });
+      showMessage("error", t("settings.voice.message.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [showMessage, t]);
 
   useEffect(() => {
     void loadVoiceSettings();
@@ -401,11 +396,6 @@ export function VoiceSettings() {
     window.requestAnimationFrame(retryFocusVoiceModelSection);
   }, [loading]);
 
-  const showMessage = useCallback((type: "success" | "error", text: string) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 3000);
-  }, []);
-
   const persistVoiceConfig = useCallback(
     async (updater: (current: VoiceInputConfig) => VoiceInputConfig) => {
       if (!voiceConfig) {
@@ -428,25 +418,14 @@ export function VoiceSettings() {
   );
 
   const persistGlobalVoicePreference = useCallback(
-    async (nextPreference: MediaGenerationPreference) => {
-      if (!config) {
-        return;
-      }
-
+    async (
+      updater: (
+        current: MediaGenerationPreference,
+      ) => MediaGenerationPreference,
+    ) => {
       try {
-        const persistedPreference =
-          buildPersistedMediaGenerationPreference(nextPreference);
-        const nextConfig: Config = {
-          ...config,
-          workspace_preferences: {
-            ...config.workspace_preferences,
-            media_defaults: {
-              ...config.workspace_preferences?.media_defaults,
-              voice: persistedPreference,
-            },
-          },
-        };
-        await saveConfig(nextConfig);
+        const { config: nextConfig, preference: nextPreference } =
+          await updateMediaPreference("voice", updater);
         setConfig(nextConfig);
         setGlobalVoicePreference(nextPreference);
         showMessage(
@@ -461,7 +440,7 @@ export function VoiceSettings() {
         );
       }
     },
-    [config, showMessage, t],
+    [showMessage, t],
   );
 
   const voiceProviders = useMemo(
@@ -623,36 +602,49 @@ export function VoiceSettings() {
     const nextModels = nextProvider
       ? getTtsModelsForProvider(nextProvider.customModels)
       : [];
-    const preferredModelId = preferredProviderId
-      ? nextModels.includes(globalVoicePreference.preferredModelId || "")
-        ? globalVoicePreference.preferredModelId
-        : undefined
-      : undefined;
-
-    void persistGlobalVoicePreference({
+    void persistGlobalVoicePreference((current) => ({
       preferredProviderId,
-      preferredModelId,
-      allowFallback: globalVoicePreference.allowFallback ?? true,
-    });
+      preferredModelId: preferredProviderId
+        ? nextModels.includes(current.preferredModelId || "")
+          ? current.preferredModelId
+          : undefined
+        : undefined,
+      allowFallback: current.allowFallback ?? true,
+    }));
   };
 
   const handleMediaModelChange = (value: string) => {
-    void persistGlobalVoicePreference({
-      ...globalVoicePreference,
+    void persistGlobalVoicePreference((current) => ({
+      ...current,
       preferredModelId: normalizeOptionalText(value),
-      allowFallback: globalVoicePreference.allowFallback ?? true,
-    });
+      allowFallback: current.allowFallback ?? true,
+    }));
+  };
+
+  const handleMediaProviderAndModelChange = (
+    providerValue: string,
+    modelValue: string,
+  ) => {
+    void persistGlobalVoicePreference((current) => ({
+      preferredProviderId: normalizeOptionalText(providerValue),
+      preferredModelId:
+        normalizeOptionalText(providerValue) &&
+        normalizeOptionalText(modelValue)
+          ? normalizeOptionalText(modelValue)
+          : undefined,
+      allowFallback: current.allowFallback ?? true,
+    }));
   };
 
   const handleFallbackChange = (value: boolean) => {
-    void persistGlobalVoicePreference({
-      ...globalVoicePreference,
+    void persistGlobalVoicePreference((current) => ({
+      ...current,
       allowFallback: value,
-    });
+    }));
   };
 
   const handleResetPreference = () => {
-    void persistGlobalVoicePreference(DEFAULT_MEDIA_PREFERENCE);
+    void persistGlobalVoicePreference(() => DEFAULT_MEDIA_PREFERENCE);
   };
 
   const handleDownloadVoiceModel = async () => {
@@ -1211,6 +1203,7 @@ export function VoiceSettings() {
         setProviderType={handleMediaProviderChange}
         model={globalVoicePreference.preferredModelId ?? ""}
         setModel={handleMediaModelChange}
+        setProviderAndModel={handleMediaProviderAndModelChange}
         providerFilter={(provider) =>
           isTtsProvider(provider.providerId ?? provider.key, provider.type)
         }

@@ -1,8 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
-import type { AsterExecutionStrategy } from "@/lib/api/agentRuntime";
+import type { AgentExecutionStrategy } from "@/lib/api/agentExecutionRuntime";
 import type { Message, MessageImage } from "../types";
 import type { AssistantDraftState } from "./agentChatShared";
 import type { InputCapabilitySendRoute } from "../skill-selection/inputCapabilitySelection";
+import type { SoulInteractionCopy } from "@/lib/soul/interactionCopy";
 import {
   buildDiagnosticsRuntimeStatusMetadata,
   buildInitialAgentRuntimeStatus,
@@ -27,7 +28,7 @@ export function buildQueuedMessagePreview(content: string): string {
 }
 
 export function buildQueuedRuntimeStatus(
-  executionStrategy: AsterExecutionStrategy,
+  executionStrategy: AgentExecutionStrategy,
   content: string,
 ) {
   return {
@@ -55,7 +56,8 @@ interface PrepareAgentStreamSubmitDraftOptions {
   requestMetadata?: Record<string, unknown>;
   messagePurpose?: Message["purpose"];
   capabilityRoute?: InputCapabilitySendRoute;
-  effectiveExecutionStrategy: AsterExecutionStrategy;
+  effectiveExecutionStrategy: AgentExecutionStrategy;
+  soulCopy?: SoulInteractionCopy;
   setMessages: Dispatch<SetStateAction<Message[]>>;
   setIsSending: Dispatch<SetStateAction<boolean>>;
 }
@@ -76,6 +78,7 @@ export function prepareAgentStreamSubmitDraft(
     messagePurpose,
     capabilityRoute,
     effectiveExecutionStrategy,
+    soulCopy,
     setMessages,
     setIsSending,
   } = options;
@@ -96,6 +99,7 @@ export function prepareAgentStreamSubmitDraft(
         buildInitialAgentRuntimeStatus({
           executionStrategy: effectiveExecutionStrategy,
           skipUserMessage,
+          soulCopy,
         }),
     purpose: messagePurpose,
     imageWorkbenchPreview: assistantDraft?.imageWorkbenchPreview,

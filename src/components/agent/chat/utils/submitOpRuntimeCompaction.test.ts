@@ -43,27 +43,10 @@ describe("submitOpRuntimeCompaction", () => {
         model_name: "gpt-4.1",
         execution_strategy: "react",
         recent_preferences: {
+          webSearch: false,
+          thinking: true,
           task: false,
           subagent: true,
-        },
-        recent_team_selection: {
-          disabled: false,
-          preferredTeamPresetId: "social-preset",
-          selectedTeamId: "team-social-1",
-          selectedTeamSource: "builtin",
-          selectedTeamLabel: "社媒执行团队",
-          selectedTeamDescription: "负责选题、写作和校对。",
-          selectedTeamSummary: "负责选题、写作和校对。",
-          selectedTeamRoles: [
-            {
-              id: "role-1",
-              label: "写手",
-              summary: "负责起草正文",
-              profileId: "writer",
-              roleKey: "writer",
-              skillIds: ["draft"],
-            },
-          ],
         },
         recent_theme: "general",
         recent_session_mode: "general_workbench",
@@ -118,7 +101,57 @@ describe("submitOpRuntimeCompaction", () => {
     expect(result.shouldSubmitModelPreference).toBe(true);
   });
 
-  it("应裁掉旧 thinking preference，但保留尚未同步到 runtime 的其他显式变更", () => {
+  it("本地历史导入来源模型不应裁掉当前 provider/model 提交", () => {
+    const result = buildSubmitOpRuntimeCompaction({
+      executionRuntime: {
+        session_id: "session-imported-source-runtime",
+        source: "session",
+        provider_name: "openai",
+        model_name: "gpt-5.4",
+        source_client: "codex",
+        imported_continuation: {
+          modelProvider: "openai",
+          model: "gpt-5.4",
+        },
+      },
+      syncedRecentPreferences: null,
+      syncedSessionModelPreference: null,
+      syncedExecutionStrategy: null,
+      effectiveExecutionStrategy: "react",
+      effectiveProviderType: "custom-current-provider",
+      effectiveModel: "gpt-5.5",
+    });
+
+    expect(result.shouldSubmitProviderPreference).toBe(true);
+    expect(result.shouldSubmitModelPreference).toBe(true);
+  });
+
+  it("camelCase 本地历史导入来源模型不应裁掉当前 provider/model 提交", () => {
+    const result = buildSubmitOpRuntimeCompaction({
+      executionRuntime: {
+        session_id: "session-imported-source-runtime-camel",
+        source: "session",
+        provider_name: "openai",
+        model_name: "gpt-5.4",
+        sourceClient: "codex",
+        importedContinuation: {
+          modelProvider: "openai",
+          model: "gpt-5.4",
+        },
+      } as never,
+      syncedRecentPreferences: null,
+      syncedSessionModelPreference: null,
+      syncedExecutionStrategy: null,
+      effectiveExecutionStrategy: "react",
+      effectiveProviderType: "custom-current-provider",
+      effectiveModel: "gpt-5.5",
+    });
+
+    expect(result.shouldSubmitProviderPreference).toBe(true);
+    expect(result.shouldSubmitModelPreference).toBe(true);
+  });
+
+  it("应迁移未同步的旧 thinking preference，并保留其他显式变更 metadata", () => {
     const result = buildSubmitOpRuntimeCompaction({
       requestMetadata: {
         harness: {
@@ -167,7 +200,8 @@ describe("submitOpRuntimeCompaction", () => {
     expect(result.shouldSubmitModelPreference).toBe(true);
     expect(result.shouldSubmitExecutionStrategy).toBe(false);
     expect(result.shouldSubmitWebSearch).toBe(false);
-    expect(result.shouldSubmitThinking).toBe(false);
+    expect(result.shouldSubmitThinking).toBe(true);
+    expect(result.thinkingPreference).toBe(true);
     expect(result.metadata).toEqual({
       harness: {
         gate_key: "publish_confirm",
@@ -208,7 +242,7 @@ describe("submitOpRuntimeCompaction", () => {
     expect(result.shouldSubmitExecutionStrategy).toBe(false);
   });
 
-  it("execution_runtime 缺失但 synced preferences 已同步时应裁掉重复偏好", () => {
+  it("execution_runtime 缺失时只裁掉 synced task/subagent，搜索和思考迁移到正式配置", () => {
     const result = buildSubmitOpRuntimeCompaction({
       requestMetadata: {
         harness: {
@@ -233,7 +267,8 @@ describe("submitOpRuntimeCompaction", () => {
     });
 
     expect(result.shouldSubmitWebSearch).toBe(false);
-    expect(result.shouldSubmitThinking).toBe(false);
+    expect(result.shouldSubmitThinking).toBe(true);
+    expect(result.thinkingPreference).toBe(true);
     expect(result.metadata).toBeUndefined();
   });
 
@@ -258,6 +293,63 @@ describe("submitOpRuntimeCompaction", () => {
 
     expect(result.shouldSubmitWebSearch).toBe(false);
     expect(result.shouldSubmitThinking).toBe(false);
+    expect(result.metadata).toBeUndefined();
+  });
+
+  it("未同步 runtime 时应提交显式开启的搜索和思考开关", () => {
+    const result = buildSubmitOpRuntimeCompaction({
+      requestMetadata: {
+        harness: {
+          preferences: {
+            web_search: true,
+            thinking: true,
+          },
+        },
+      },
+      executionRuntime: null,
+      syncedRecentPreferences: null,
+      syncedSessionModelPreference: null,
+      syncedExecutionStrategy: null,
+      effectiveExecutionStrategy: "react",
+      effectiveProviderType: "openai",
+      effectiveModel: "gpt-5.4",
+    });
+
+    expect(result.shouldSubmitWebSearch).toBe(true);
+    expect(result.shouldSubmitThinking).toBe(true);
+    expect(result.metadata).toBeUndefined();
+  });
+
+  it("runtime 偏好不同步时应提交本轮搜索和思考差异", () => {
+    const result = buildSubmitOpRuntimeCompaction({
+      requestMetadata: {
+        harness: {
+          preferences: {
+            webSearch: false,
+            thinkingEnabled: true,
+          },
+        },
+      },
+      executionRuntime: {
+        session_id: "session-pref-diff",
+        source: "runtime_snapshot",
+        recent_preferences: {
+          webSearch: true,
+          thinking: false,
+          task: false,
+          subagent: false,
+        },
+      },
+      syncedRecentPreferences: null,
+      syncedSessionModelPreference: null,
+      syncedExecutionStrategy: null,
+      effectiveExecutionStrategy: "react",
+      effectiveProviderType: "openai",
+      effectiveModel: "gpt-5.4",
+    });
+
+    expect(result.shouldSubmitWebSearch).toBe(true);
+    expect(result.shouldSubmitThinking).toBe(true);
     expect(result.metadata).toBeUndefined();
   });
 
@@ -313,14 +405,15 @@ describe("submitOpRuntimeCompaction", () => {
     });
   });
 
-  it("快速响应路由应让后端解析服务模型，不应把前端当前模型作为本轮 request preference", () => {
+  it("配置的 model slot 不应吞掉当前 provider/model fallback", () => {
     const result = buildSubmitOpRuntimeCompaction({
       requestMetadata: {
         harness: {
-          fast_response_routing: {
-            service_model_slot: "responsive_chat",
-            routing_slot: "responsive_chat_model",
-            resolver: "backend_service_model",
+          model_slots: {
+            fast: {
+              provider: "responsive-provider",
+              model: "fast-chat",
+            },
           },
           browser_assist: {
             enabled: true,
@@ -337,16 +430,15 @@ describe("submitOpRuntimeCompaction", () => {
       effectiveModel: "deepseek-v4-pro",
     });
 
-    expect(result.shouldSubmitProviderPreference).toBe(false);
-    expect(result.shouldSubmitModelPreference).toBe(false);
+    expect(result.shouldSubmitProviderPreference).toBe(true);
+    expect(result.shouldSubmitModelPreference).toBe(true);
     expect(result.metadata).toEqual({
       harness: {
-        fast_response_routing: {
-          service_model_slot: "responsive_chat",
-          routing_slot: "responsive_chat_model",
-          resolver: "backend_service_model",
-          fallback_provider_preference: "deepseek",
-          fallback_model_preference: "deepseek-v4-pro",
+        model_slots: {
+          fast: {
+            provider: "responsive-provider",
+            model: "fast-chat",
+          },
         },
         browser_assist: {
           enabled: true,
@@ -356,13 +448,15 @@ describe("submitOpRuntimeCompaction", () => {
     });
   });
 
-  it("快速响应路由不应压过显式模型覆盖", () => {
+  it("配置的 model slot 不应压过显式模型覆盖", () => {
     const result = buildSubmitOpRuntimeCompaction({
       requestMetadata: {
         harness: {
-          fastResponseRouting: {
-            serviceModelSlot: "responsive_chat",
-            routingSlot: "responsive_chat_model",
+          model_slots: {
+            fast: {
+              provider: "responsive-provider",
+              model: "fast-chat",
+            },
           },
         },
       },
@@ -376,7 +470,7 @@ describe("submitOpRuntimeCompaction", () => {
       modelOverride: "gpt-5.4-mini",
     });
 
-    expect(result.shouldSubmitProviderPreference).toBe(false);
+    expect(result.shouldSubmitProviderPreference).toBe(true);
     expect(result.shouldSubmitModelPreference).toBe(true);
   });
 
@@ -410,11 +504,10 @@ describe("submitOpRuntimeCompaction", () => {
     expect(result.shouldSubmitModelPreference).toBe(false);
   });
 
-  it("图片生成命令新会话应提交编排聊天模型 provider_config，但不锁定图片模型偏好", () => {
+  it("图片生成命令新会话应提交编排聊天模型，且不把图片执行模型当作聊天偏好", () => {
     const requestMetadata = {
       harness: {
-        image_skill_launch: {
-          skill_name: "image_generate",
+        image_command_intent: {
           kind: "image_task",
           image_task: {
             prompt: "生成一张公众号封面",
@@ -445,8 +538,8 @@ describe("submitOpRuntimeCompaction", () => {
       effectiveModel: "deepseek-v4-flash",
     });
 
-    expect(result.shouldSubmitProviderPreference).toBe(false);
-    expect(result.shouldSubmitModelPreference).toBe(false);
+    expect(result.shouldSubmitProviderPreference).toBe(true);
+    expect(result.shouldSubmitModelPreference).toBe(true);
     expect(result.providerConfig).toEqual({
       provider_id: "deepseek",
       provider_name: "deepseek",
@@ -455,11 +548,51 @@ describe("submitOpRuntimeCompaction", () => {
     expect(result.metadata).toBe(requestMetadata);
   });
 
-  it("图片生成命令已有会话模型时不重复提交编排 provider_config", () => {
+  it("旧 image_skill_launch 不应继续作为图片路由或提交 metadata", () => {
     const requestMetadata = {
       harness: {
+        trace_id: "trace-image-retired",
         image_skill_launch: {
+          kind: "image_task",
           skill_name: "image_generate",
+          image_task: {
+            prompt: "生成一张公众号封面",
+            provider_id: "fal",
+            model: "fal-ai/nano-banana-pro",
+            runtime_contract: {
+              contract_key: "image_generation",
+              routing_slot: "image_generation_model",
+            },
+          },
+        },
+      },
+    };
+
+    const result = buildSubmitOpRuntimeCompaction({
+      requestMetadata,
+      executionRuntime: null,
+      syncedRecentPreferences: null,
+      syncedSessionModelPreference: null,
+      syncedExecutionStrategy: null,
+      effectiveExecutionStrategy: "react",
+      effectiveProviderType: "deepseek",
+      effectiveModel: "deepseek-v4-flash",
+    });
+
+    expect(result.providerConfig).toBeUndefined();
+    expect(result.shouldSubmitProviderPreference).toBe(true);
+    expect(result.shouldSubmitModelPreference).toBe(true);
+    expect(result.metadata).toEqual({
+      harness: {
+        trace_id: "trace-image-retired",
+      },
+    });
+  });
+
+  it("图片生成命令已有会话模型时仍应提交编排 provider_config", () => {
+    const requestMetadata = {
+      harness: {
+        image_command_intent: {
           image_task: {
             prompt: "生成一张公众号封面",
             provider_id: "fal",
@@ -490,6 +623,43 @@ describe("submitOpRuntimeCompaction", () => {
       effectiveExecutionStrategy: "react",
       effectiveProviderType: "deepseek",
       effectiveModel: "deepseek-v4-flash",
+    });
+
+    expect(result.providerConfig).toEqual({
+      provider_id: "deepseek",
+      provider_name: "deepseek",
+      model_name: "deepseek-v4-flash",
+    });
+    expect(result.shouldSubmitProviderPreference).toBe(false);
+    expect(result.shouldSubmitModelPreference).toBe(false);
+  });
+
+  it("图片生成命令不应把 custom Agnes 图片模型当作编排文本模型", () => {
+    const requestMetadata = {
+      harness: {
+        image_command_intent: {
+          image_task: {
+            prompt: "生成一张广州夏天照片",
+            provider_id: "custom-agnes-provider",
+            model: "agnes-image-2.0-flash",
+            runtime_contract: {
+              contract_key: "image_generation",
+              routing_slot: "image_generation_model",
+            },
+          },
+        },
+      },
+    };
+
+    const result = buildSubmitOpRuntimeCompaction({
+      requestMetadata,
+      executionRuntime: null,
+      syncedRecentPreferences: null,
+      syncedSessionModelPreference: null,
+      syncedExecutionStrategy: null,
+      effectiveExecutionStrategy: "react",
+      effectiveProviderType: "custom-agnes-provider",
+      effectiveModel: "agnes-image-2.0-flash",
     });
 
     expect(result.providerConfig).toBeUndefined();
@@ -527,85 +697,49 @@ describe("submitOpRuntimeCompaction", () => {
     });
   });
 
-  it("不应裁掉仅存在于请求侧的 team_memory_shadow", () => {
+  it("不应裁掉历史专家 session 恢复出的 expert metadata", () => {
     const result = buildSubmitOpRuntimeCompaction({
       requestMetadata: {
+        expert: {
+          expertId: "code-literature",
+          title: "代码文学专家",
+          skillRefs: ["skill:capability-report"],
+        },
         harness: {
-          preferred_team_preset_id: "code-triage-team",
-          selected_team_id: "team-code-1",
-          selected_team_source: "builtin",
-          selected_team_label: "代码排障 profile",
-          selected_team_summary: "分析、实现、验证三段推进。",
-          selected_team_roles: [
-            {
-              id: "explorer",
-              label: "分析",
-              summary: "负责定位问题。",
-            },
-          ],
-          team_memory_shadow: {
-            repo_scope: "/tmp/repo",
-            entries: [
-              {
-                key: "team.selection",
-                content: "Team：代码排障 profile",
-                updated_at: 1,
-              },
-            ],
+          theme: "general",
+          session_mode: "default",
+          expert: {
+            expert_id: "code-literature",
+            title: "代码文学专家",
+            skill_refs: ["skill:capability-report"],
           },
         },
       },
       executionRuntime: {
-        session_id: "session-code-1",
+        session_id: "session-expert",
         source: "runtime_snapshot",
-        provider_selector: "openai",
-        model_name: "gpt-4.1",
-        execution_strategy: "react",
-        recent_preferences: {
-          task: false,
-          subagent: true,
-        },
-        recent_team_selection: {
-          disabled: false,
-          preferredTeamPresetId: "code-triage-team",
-          selectedTeamId: "team-code-1",
-          selectedTeamSource: "builtin",
-          selectedTeamLabel: "代码排障 profile",
-          selectedTeamSummary: "分析、实现、验证三段推进。",
-          selectedTeamRoles: [
-            {
-              id: "explorer",
-              label: "分析",
-              summary: "负责定位问题。",
-            },
-          ],
-        },
+        recent_theme: "general",
+        recent_session_mode: "default",
       },
-      syncedRecentPreferences: {
-        task: false,
-        subagent: true,
-      },
-      syncedSessionModelPreference: {
-        providerType: "openai",
-        model: "gpt-4.1",
-      },
-      syncedExecutionStrategy: "react",
+      syncedRecentPreferences: null,
+      syncedSessionModelPreference: null,
+      syncedExecutionStrategy: null,
       effectiveExecutionStrategy: "react",
       effectiveProviderType: "openai",
-      effectiveModel: "gpt-4.1",
+      effectiveModel: "gpt-5.4",
     });
 
     expect(result.metadata).toEqual({
+      expert: {
+        expertId: "code-literature",
+        title: "代码文学专家",
+        skillRefs: ["skill:capability-report"],
+      },
       harness: {
-        team_memory_shadow: {
-          repo_scope: "/tmp/repo",
-          entries: [
-            {
-              key: "team.selection",
-              content: "Team：代码排障 profile",
-              updated_at: 1,
-            },
-          ],
+        expert: {
+          expert_id: "code-literature",
+          title: "代码文学专家",
+          skill_refs: ["skill:capability-report"],
         },
       },
     });

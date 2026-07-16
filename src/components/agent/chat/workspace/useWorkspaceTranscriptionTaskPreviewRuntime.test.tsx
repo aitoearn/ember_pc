@@ -5,10 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getMediaTaskArtifact,
   listMediaTaskArtifacts,
-  type ListMediaTaskArtifactsOutput,
-  type MediaTaskArtifactOutput,
 } from "@/lib/api/mediaTasks";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import type {
+  ListMediaTaskArtifactsOutput,
+  MediaTaskArtifactOutput,
+} from "@/lib/api/agentRuntime/mediaTaskTypes";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { readFilePreview } from "@/lib/api/fileBrowser";
 import { safeListen } from "@/lib/dev-bridge";
 import type { Message } from "../types";
@@ -47,9 +49,9 @@ function buildRunningTranscriptionMessage(): Message {
       title: "内容转写任务",
       status: "running",
       artifactPath:
-        ".ember/runtime/transcription-generate/task-transcription-1.md",
+        ".lime/runtime/transcription-generate/task-transcription-1.md",
       taskFilePath:
-        ".ember/tasks/transcription_generate/task-transcription-1.json",
+        ".lime/tasks/transcription_generate/task-transcription-1.json",
       sourcePath: "materials/interview.wav",
       sourceUrl: null,
       transcriptPath: null,
@@ -68,13 +70,13 @@ function buildCompletedTranscriptionArtifact(): MediaTaskArtifactOutput {
     status: "succeeded",
     normalized_status: "succeeded",
     current_attempt_id: "attempt-1",
-    path: ".ember/tasks/transcription_generate/task-transcription-1.json",
+    path: ".lime/tasks/transcription_generate/task-transcription-1.json",
     absolute_path:
-      "/workspace/.ember/tasks/transcription_generate/task-transcription-1.json",
+      "/workspace/.lime/tasks/transcription_generate/task-transcription-1.json",
     artifact_path:
-      ".ember/tasks/transcription_generate/task-transcription-1.json",
+      ".lime/tasks/transcription_generate/task-transcription-1.json",
     absolute_artifact_path:
-      "/workspace/.ember/tasks/transcription_generate/task-transcription-1.json",
+      "/workspace/.lime/tasks/transcription_generate/task-transcription-1.json",
     reused_existing: false,
     record: {
       task_id: "task-transcription-1",
@@ -89,7 +91,7 @@ function buildCompletedTranscriptionArtifact(): MediaTaskArtifactOutput {
         transcript: {
           kind: "transcript",
           status: "completed",
-          transcript_path: ".ember/runtime/transcripts/task-transcription-1.txt",
+          transcript_path: ".lime/runtime/transcripts/task-transcription-1.txt",
           source_path: "materials/interview.wav",
           language: "zh-CN",
           output_format: "txt",
@@ -103,11 +105,11 @@ function buildCompletedTranscriptionArtifact(): MediaTaskArtifactOutput {
       result: {
         kind: "transcription_result",
         status: "completed",
-        transcript_path: ".ember/runtime/transcripts/task-transcription-1.txt",
+        transcript_path: ".lime/runtime/transcripts/task-transcription-1.txt",
         transcript: {
           kind: "transcript",
           status: "completed",
-          transcript_path: ".ember/runtime/transcripts/task-transcription-1.txt",
+          transcript_path: ".lime/runtime/transcripts/task-transcription-1.txt",
         },
       },
     },
@@ -123,13 +125,13 @@ function buildFailedTranscriptionArtifact(): MediaTaskArtifactOutput {
     status: "failed",
     normalized_status: "failed",
     current_attempt_id: "attempt-1",
-    path: ".ember/tasks/transcription_generate/task-transcription-1.json",
+    path: ".lime/tasks/transcription_generate/task-transcription-1.json",
     absolute_path:
-      "/workspace/.ember/tasks/transcription_generate/task-transcription-1.json",
+      "/workspace/.lime/tasks/transcription_generate/task-transcription-1.json",
     artifact_path:
-      ".ember/tasks/transcription_generate/task-transcription-1.json",
+      ".lime/tasks/transcription_generate/task-transcription-1.json",
     absolute_artifact_path:
-      "/workspace/.ember/tasks/transcription_generate/task-transcription-1.json",
+      "/workspace/.lime/tasks/transcription_generate/task-transcription-1.json",
     reused_existing: false,
     record: {
       task_id: "task-transcription-1",
@@ -177,7 +179,7 @@ function buildEmptyTranscriptionTaskIndex(): ListMediaTaskArtifactsOutput {
   return {
     success: true,
     workspace_root: "/workspace",
-    artifact_root: "/workspace/.ember/tasks",
+    artifact_root: "/workspace/.lime/tasks",
     filters: {
       task_family: "audio",
       task_type: "transcription_generate",
@@ -190,10 +192,10 @@ function buildEmptyTranscriptionTaskIndex(): ListMediaTaskArtifactsOutput {
       contract_keys: [],
       execution_profile_keys: [],
       executor_adapter_keys: [],
-      embercore_policy_refs: [],
-      embercore_policy_snapshot_count: 0,
-      embercore_policy_snapshot_statuses: [],
-      embercore_policy_decisions: [],
+      limecore_policy_refs: [],
+      limecore_policy_snapshot_count: 0,
+      limecore_policy_snapshot_statuses: [],
+      limecore_policy_decisions: [],
       blocked_count: 0,
       routing_outcomes: [],
       model_registry_assessment_count: 0,
@@ -218,16 +220,16 @@ function buildCompletedTranscriptionTaskIndex(): ListMediaTaskArtifactsOutput {
       contract_keys: ["audio_transcription"],
       execution_profile_keys: ["audio_transcription_profile"],
       executor_adapter_keys: ["skill:transcription_generate"],
-      embercore_policy_refs: [
+      limecore_policy_refs: [
         "model_catalog",
         "provider_offer",
         "tenant_feature_flags",
       ],
-      embercore_policy_snapshot_count: 1,
-      embercore_policy_snapshot_statuses: [
+      limecore_policy_snapshot_count: 1,
+      limecore_policy_snapshot_statuses: [
         { status: "local_defaults_evaluated", count: 1 },
       ],
-      embercore_policy_decisions: ["allow"],
+      limecore_policy_decisions: ["allow"],
       blocked_count: 0,
       routing_outcomes: [{ outcome: "accepted", count: 1 }],
       model_registry_assessment_count: 0,
@@ -248,18 +250,18 @@ function buildCompletedTranscriptionTaskIndex(): ListMediaTaskArtifactsOutput {
           model: "gpt-4o-transcribe",
           execution_profile_key: "audio_transcription_profile",
           executor_adapter_key: "skill:transcription_generate",
-          embercore_policy_refs: [
+          limecore_policy_refs: [
             "model_catalog",
             "provider_offer",
             "tenant_feature_flags",
           ],
-          embercore_policy_snapshot_status: "local_defaults_evaluated",
-          embercore_policy_decision: "allow",
+          limecore_policy_snapshot_status: "local_defaults_evaluated",
+          limecore_policy_decision: "allow",
           routing_event: "task_created",
           routing_outcome: "accepted",
           failure_code: null,
           transcript_status: "completed",
-          transcript_path: ".ember/runtime/transcripts/task-transcription-1.txt",
+          transcript_path: ".lime/runtime/transcripts/task-transcription-1.txt",
           transcript_source_path: "materials/interview.wav",
           transcript_source_url: null,
           transcript_language: "zh-CN",
@@ -281,16 +283,16 @@ function buildFailedTranscriptionTaskIndex(): ListMediaTaskArtifactsOutput {
       contract_keys: ["audio_transcription"],
       execution_profile_keys: ["audio_transcription_profile"],
       executor_adapter_keys: ["skill:transcription_generate"],
-      embercore_policy_refs: [
+      limecore_policy_refs: [
         "model_catalog",
         "provider_offer",
         "tenant_feature_flags",
       ],
-      embercore_policy_snapshot_count: 1,
-      embercore_policy_snapshot_statuses: [
+      limecore_policy_snapshot_count: 1,
+      limecore_policy_snapshot_statuses: [
         { status: "local_defaults_evaluated", count: 1 },
       ],
-      embercore_policy_decisions: ["allow"],
+      limecore_policy_decisions: ["allow"],
       blocked_count: 0,
       routing_outcomes: [{ outcome: "failed", count: 1 }],
       model_registry_assessment_count: 0,
@@ -311,13 +313,13 @@ function buildFailedTranscriptionTaskIndex(): ListMediaTaskArtifactsOutput {
           model: "gpt-4o-transcribe",
           execution_profile_key: "audio_transcription_profile",
           executor_adapter_key: "skill:transcription_generate",
-          embercore_policy_refs: [
+          limecore_policy_refs: [
             "model_catalog",
             "provider_offer",
             "tenant_feature_flags",
           ],
-          embercore_policy_snapshot_status: "local_defaults_evaluated",
-          embercore_policy_decision: "allow",
+          limecore_policy_snapshot_status: "local_defaults_evaluated",
+          limecore_policy_decision: "allow",
           routing_event: "task_created",
           routing_outcome: "failed",
           failure_code: "transcription_provider_unconfigured",
@@ -342,30 +344,30 @@ function buildFailedTranscriptionTaskIndexWithPolicyDeny(): ListMediaTaskArtifac
     ...output.modality_runtime_contracts,
     blocked_count: 1,
     routing_outcomes: [{ outcome: "blocked", count: 1 }],
-    embercore_policy_evaluation_statuses: [{ status: "evaluated", count: 1 }],
-    embercore_policy_evaluation_decisions: ["deny"],
-    embercore_policy_evaluation_decision_sources: ["policy_input_evaluator"],
-    embercore_policy_evaluation_blocking_refs: blockingRefs,
-    embercore_policy_evaluation_ask_refs: [],
-    embercore_policy_evaluation_pending_refs: [],
+    limecore_policy_evaluation_statuses: [{ status: "evaluated", count: 1 }],
+    limecore_policy_evaluation_decisions: ["deny"],
+    limecore_policy_evaluation_decision_sources: ["policy_input_evaluator"],
+    limecore_policy_evaluation_blocking_refs: blockingRefs,
+    limecore_policy_evaluation_ask_refs: [],
+    limecore_policy_evaluation_pending_refs: [],
     snapshots: output.modality_runtime_contracts.snapshots.map((snapshot) => ({
       ...snapshot,
       routing_outcome: "blocked",
-      failure_code: "embercore_policy_denied",
-      embercore_policy_snapshot_status: "policy_inputs_evaluated",
-      embercore_policy_decision: "deny",
-      embercore_policy_decision_source: "policy_input_evaluator",
-      embercore_policy_decision_scope: "resolved_policy_inputs",
-      embercore_policy_decision_reason: "model_catalog_capability_gap",
-      embercore_policy_evaluation_status: "evaluated",
-      embercore_policy_evaluation_decision: "deny",
-      embercore_policy_evaluation_decision_source: "policy_input_evaluator",
-      embercore_policy_evaluation_decision_scope: "resolved_policy_inputs",
-      embercore_policy_evaluation_decision_reason:
+      failure_code: "limecore_policy_denied",
+      limecore_policy_snapshot_status: "policy_inputs_evaluated",
+      limecore_policy_decision: "deny",
+      limecore_policy_decision_source: "policy_input_evaluator",
+      limecore_policy_decision_scope: "resolved_policy_inputs",
+      limecore_policy_decision_reason: "model_catalog_capability_gap",
+      limecore_policy_evaluation_status: "evaluated",
+      limecore_policy_evaluation_decision: "deny",
+      limecore_policy_evaluation_decision_source: "policy_input_evaluator",
+      limecore_policy_evaluation_decision_scope: "resolved_policy_inputs",
+      limecore_policy_evaluation_decision_reason:
         "model_catalog_capability_gap",
-      embercore_policy_evaluation_blocking_refs: blockingRefs,
-      embercore_policy_evaluation_ask_refs: [],
-      embercore_policy_evaluation_pending_refs: [],
+      limecore_policy_evaluation_blocking_refs: blockingRefs,
+      limecore_policy_evaluation_ask_refs: [],
+      limecore_policy_evaluation_pending_refs: [],
     })),
   };
   return output;
@@ -408,7 +410,7 @@ function renderHook(props?: Partial<HookProps>) {
 }
 
 beforeEach(async () => {
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   (
     globalThis as typeof globalThis & {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -421,7 +423,7 @@ beforeEach(async () => {
     buildEmptyTranscriptionTaskIndex(),
   );
   vi.mocked(readFilePreview).mockResolvedValue({
-    path: "/workspace/.ember/runtime/transcripts/task-transcription-1.txt",
+    path: "/workspace/.lime/runtime/transcripts/task-transcription-1.txt",
     content: null,
     isBinary: false,
     size: 0,
@@ -446,13 +448,38 @@ afterEach(() => {
 });
 
 describe("useWorkspaceTranscriptionTaskPreviewRuntime", () => {
+  it("普通文本对话没有转写任务时不应启动转写任务旁路", async () => {
+    const setIntervalSpy = vi.spyOn(window, "setInterval");
+    const { render } = renderHook({
+      messages: [
+        {
+          id: "assistant-news-1",
+          role: "assistant",
+          content: "今天国际新闻主要集中在能源、气候和地区安全。",
+          timestamp: new Date("2026-04-30T00:00:00.000Z"),
+        },
+      ],
+    });
+
+    await render();
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(listMediaTaskArtifacts).not.toHaveBeenCalled();
+    expect(getMediaTaskArtifact).not.toHaveBeenCalled();
+    expect(readFilePreview).not.toHaveBeenCalled();
+    expect(safeListen).not.toHaveBeenCalled();
+    expect(setIntervalSpy).not.toHaveBeenCalled();
+  });
+
   it("应优先从统一媒体任务索引恢复 transcript 完成态而不读取隐藏 task JSON", async () => {
     vi.mocked(listMediaTaskArtifacts).mockResolvedValueOnce(
       buildCompletedTranscriptionTaskIndex(),
     );
     vi.mocked(readFilePreview).mockResolvedValueOnce({
-      path: "/workspace/.ember/runtime/transcripts/task-transcription-1.txt",
-      content: "欢迎来到 Ember 访谈节目。\n今天我们讨论多模态工作流。",
+      path: "/workspace/.lime/runtime/transcripts/task-transcription-1.txt",
+      content: "欢迎来到 Lime 访谈节目。\n今天我们讨论多模态工作流。",
       isBinary: false,
       size: 31,
       error: null,
@@ -474,19 +501,19 @@ describe("useWorkspaceTranscriptionTaskPreviewRuntime", () => {
       expect(getMessages()[0]?.taskPreview).toMatchObject({
         kind: "transcription_generate",
         status: "complete",
-        transcriptPath: ".ember/runtime/transcripts/task-transcription-1.txt",
+        transcriptPath: ".lime/runtime/transcripts/task-transcription-1.txt",
         sourcePath: "materials/interview.wav",
         language: "zh-CN",
         outputFormat: "txt",
         providerId: "openai-asr",
         model: "gpt-4o-transcribe",
-        transcriptText: "欢迎来到 Ember 访谈节目。\n今天我们讨论多模态工作流。",
+        transcriptText: "欢迎来到 Lime 访谈节目。\n今天我们讨论多模态工作流。",
         statusMessage:
           "转写结果已同步，工作区已载入 transcript 文本，可直接复制校对。",
       });
     });
     expect(readFilePreview).toHaveBeenCalledWith(
-      "/workspace/.ember/runtime/transcripts/task-transcription-1.txt",
+      "/workspace/.lime/runtime/transcripts/task-transcription-1.txt",
       256 * 1024,
     );
     expect(getMediaTaskArtifact).not.toHaveBeenCalled();
@@ -497,11 +524,11 @@ describe("useWorkspaceTranscriptionTaskPreviewRuntime", () => {
       buildCompletedTranscriptionTaskIndex(),
     );
     vi.mocked(readFilePreview).mockResolvedValueOnce({
-      path: "/workspace/.ember/runtime/transcripts/task-transcription-1.vtt",
+      path: "/workspace/.lime/runtime/transcripts/task-transcription-1.vtt",
       content: `WEBVTT
 
 00:00:01.000 --> 00:00:03.500
-<v 主持人>欢迎来到 Ember 访谈。</v>
+<v 主持人>欢迎来到 Lime 访谈。</v>
 
 00:00:04.000 --> 00:00:06.000
 嘉宾: 这次我们讲转写 viewer。
@@ -524,7 +551,7 @@ describe("useWorkspaceTranscriptionTaskPreviewRuntime", () => {
             startMs: 1000,
             endMs: 3500,
             speaker: "主持人",
-            text: "欢迎来到 Ember 访谈。",
+            text: "欢迎来到 Lime 访谈。",
           },
           {
             index: 2,
@@ -546,7 +573,7 @@ describe("useWorkspaceTranscriptionTaskPreviewRuntime", () => {
               title: "转写时间轴（可逐段编辑校对）",
               columns: ["时间", "说话人", "内容"],
               rows: [
-                ["00:01 - 00:03", "主持人", "欢迎来到 Ember 访谈。"],
+                ["00:01 - 00:03", "主持人", "欢迎来到 Lime 访谈。"],
                 ["00:04 - 00:06", "嘉宾", "这次我们讲转写 viewer。"],
               ],
             }),
@@ -555,7 +582,7 @@ describe("useWorkspaceTranscriptionTaskPreviewRuntime", () => {
             transcriptSegments: expect.arrayContaining([
               expect.objectContaining({
                 speaker: "主持人",
-                text: "欢迎来到 Ember 访谈。",
+                text: "欢迎来到 Lime 访谈。",
               }),
             ]),
           },
@@ -575,7 +602,7 @@ describe("useWorkspaceTranscriptionTaskPreviewRuntime", () => {
       "transcription_generate"
     ) {
       runningWithStaleTranscriptPath.taskPreview.transcriptPath =
-        ".ember/runtime/transcripts/stale.txt";
+        ".lime/runtime/transcripts/stale.txt";
     }
     const { render, getMessages } = renderHook({
       messages: [runningWithStaleTranscriptPath],
@@ -599,7 +626,7 @@ describe("useWorkspaceTranscriptionTaskPreviewRuntime", () => {
     expect(getMediaTaskArtifact).not.toHaveBeenCalled();
   });
 
-  it("应从统一媒体任务索引把 EmberCore policy deny 恢复到任务卡 meta", async () => {
+  it("应从统一媒体任务索引把 LimeCore policy deny 恢复到任务卡 meta", async () => {
     vi.mocked(listMediaTaskArtifacts).mockResolvedValueOnce(
       buildFailedTranscriptionTaskIndexWithPolicyDeny(),
     );
@@ -612,7 +639,7 @@ describe("useWorkspaceTranscriptionTaskPreviewRuntime", () => {
         kind: "transcription_generate",
         status: "failed",
         metaItems: expect.arrayContaining([
-          "EmberCore 策略输入阻断: model_catalog",
+          "LimeCore 策略输入阻断: model_catalog",
         ]),
       });
     });
@@ -624,8 +651,8 @@ describe("useWorkspaceTranscriptionTaskPreviewRuntime", () => {
       buildCompletedTranscriptionArtifact(),
     );
     vi.mocked(readFilePreview).mockResolvedValueOnce({
-      path: "/workspace/.ember/runtime/transcripts/task-transcription-1.txt",
-      content: "欢迎来到 Ember 访谈节目。\n今天我们讨论多模态工作流。",
+      path: "/workspace/.lime/runtime/transcripts/task-transcription-1.txt",
+      content: "欢迎来到 Lime 访谈节目。\n今天我们讨论多模态工作流。",
       isBinary: false,
       size: 31,
       error: null,
@@ -637,17 +664,17 @@ describe("useWorkspaceTranscriptionTaskPreviewRuntime", () => {
     await vi.waitFor(() => {
       expect(getMediaTaskArtifact).toHaveBeenCalledWith({
         projectRootPath: "/workspace",
-        taskRef: ".ember/tasks/transcription_generate/task-transcription-1.json",
+        taskRef: ".lime/tasks/transcription_generate/task-transcription-1.json",
       });
     });
     await vi.waitFor(() => {
       expect(getMessages()[0]?.taskPreview).toMatchObject({
         kind: "transcription_generate",
         status: "complete",
-        transcriptPath: ".ember/runtime/transcripts/task-transcription-1.txt",
+        transcriptPath: ".lime/runtime/transcripts/task-transcription-1.txt",
         providerId: "openai-asr",
         model: "gpt-4o-transcribe",
-        transcriptText: "欢迎来到 Ember 访谈节目。\n今天我们讨论多模态工作流。",
+        transcriptText: "欢迎来到 Lime 访谈节目。\n今天我们讨论多模态工作流。",
         statusMessage:
           "转写结果已同步，工作区已载入 transcript 文本，可直接复制校对。",
       });
@@ -658,14 +685,14 @@ describe("useWorkspaceTranscriptionTaskPreviewRuntime", () => {
       meta: {
         taskId: "task-transcription-1",
         taskType: "transcription_generate",
-        transcriptPath: ".ember/runtime/transcripts/task-transcription-1.txt",
+        transcriptPath: ".lime/runtime/transcripts/task-transcription-1.txt",
         artifactDocument: {
           status: "ready",
           metadata: {
             transcriptPath:
-              ".ember/runtime/transcripts/task-transcription-1.txt",
+              ".lime/runtime/transcripts/task-transcription-1.txt",
             transcriptText:
-              "欢迎来到 Ember 访谈节目。\n今天我们讨论多模态工作流。",
+              "欢迎来到 Lime 访谈节目。\n今天我们讨论多模态工作流。",
           },
         },
       },

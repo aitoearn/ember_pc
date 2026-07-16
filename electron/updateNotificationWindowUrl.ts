@@ -3,7 +3,7 @@ import { pathToFileURL } from "node:url";
 
 const UPDATE_NOTIFICATION_ROUTE = "/update-notification";
 const UPDATE_NOTIFICATION_WINDOW_ROUTE_ID = "update-notification";
-const WINDOW_ROUTE_QUERY_PARAM = "ember_window";
+const WINDOW_ROUTE_QUERY_PARAM = "lime_window";
 
 export function buildUpdateNotificationWindowUrl(params: {
   devServerUrl?: string;
@@ -16,12 +16,10 @@ export function buildUpdateNotificationWindowUrl(params: {
     ? new URL(UPDATE_NOTIFICATION_ROUTE, params.devServerUrl)
     : pathToFileURL(path.resolve(params.appPath, "dist/index.html"));
 
-  if (!params.devServerUrl) {
-    targetUrl.searchParams.set(
-      WINDOW_ROUTE_QUERY_PARAM,
-      UPDATE_NOTIFICATION_WINDOW_ROUTE_ID,
-    );
-  }
+  targetUrl.searchParams.set(
+    WINDOW_ROUTE_QUERY_PARAM,
+    UPDATE_NOTIFICATION_WINDOW_ROUTE_ID,
+  );
   if (params.current) {
     targetUrl.searchParams.set("current", params.current);
   }

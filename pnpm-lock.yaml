@@ -11,21 +11,21 @@ importers:
       '@babel/standalone':
         specifier: ^7.29.0
         version: 7.29.1
+      '@floating-ui/react':
+        specifier: ^0.27.16
+        version: 0.27.16(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@embercloud/agent-runtime-client':
         specifier: 0.1.1
         version: link:packages/agent-runtime-client
       '@embercloud/agent-runtime-projection':
-        specifier: 0.1.0
+        specifier: 0.1.1
         version: link:packages/agent-runtime-projection
       '@embercloud/agent-runtime-ui':
-        specifier: 0.1.0
+        specifier: 0.1.1
         version: link:packages/agent-runtime-ui
       '@embercloud/agent-ui-contracts':
         specifier: 0.1.0
         version: link:packages/agent-ui-contracts
-      '@floating-ui/react':
-        specifier: ^0.27.16
-        version: 0.27.16(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@observablehq/plot':
         specifier: ^0.6.17
         version: 0.6.17
@@ -146,12 +146,6 @@ importers:
       '@xterm/xterm':
         specifier: ^6.0.0
         version: 6.0.0
-      '@yume-chan/scrcpy':
-        specifier: ^1.1.0
-        version: 1.1.0
-      '@yume-chan/scrcpy-decoder-webcodecs':
-        specifier: ^1.1.0
-        version: 1.1.0
       class-variance-authority:
         specifier: ^0.7.0
         version: 0.7.1
@@ -230,9 +224,6 @@ importers:
       remark-math:
         specifier: ^6.0.0
         version: 6.0.0
-      socket.io-client:
-        specifier: ^4.8.3
-        version: 4.8.3
       sonner:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -251,6 +242,9 @@ importers:
       turndown:
         specifier: ^7.2.2
         version: 7.2.2
+      yaml:
+        specifier: ^2.8.3
+        version: 2.8.3
       zustand:
         specifier: ^5.0.10
         version: 5.0.11(@types/react@18.3.27)(react@18.3.1)(use-sync-external-store@1.6.0(react@18.3.1))
@@ -372,14 +366,18 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.3)(jsdom@22.1.0(canvas@2.11.2(encoding@0.1.13)))(terser@5.48.0)
-      yaml:
-        specifier: ^2.8.3
-        version: 2.8.3
+
+  packages/agent-app-runtime: {}
+
+  packages/agent-capability-catalog: {}
 
   packages/agent-runtime-client:
     dependencies:
+      '@embercloud/agent-ui-contracts':
+        specifier: 0.1.0
+        version: link:../agent-ui-contracts
       '@embercloud/app-server-client':
-        specifier: 1.0.0
+        specifier: 1.71.0
         version: link:../app-server-client
 
   packages/agent-runtime-projection:
@@ -401,10 +399,16 @@ importers:
         version: 18.3.1(react@18.3.1)
     devDependencies:
       '@embercloud/agent-runtime-projection':
-        specifier: 0.1.0
+        specifier: 0.1.1
         version: link:../agent-runtime-projection
 
   packages/agent-ui-contracts: {}
+
+  packages/agent-workbench-adapter:
+    dependencies:
+      '@embercloud/agent-capability-catalog':
+        specifier: 0.1.0
+        version: link:../agent-capability-catalog
 
   packages/app-server-client: {}
 
@@ -1918,7 +1922,6 @@ packages:
     resolution: {integrity: sha512-gr5vDbg3Bakga5kbdpqx81m2n9IX8M6gIMlQQIXiLTNeQW6CucvuInJ91EuCJ/JYvc+rcLLsDFcfAD1K7fMofg==}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-loong64-gnu@4.54.0':
     resolution: {integrity: sha512-gsrtB1NA3ZYj2vq0Rzkylo9ylCtW/PhpLEivlgWe0bpgtX5+9j9EZa0wtZiCjgu6zmSeZWyI/e2YRX1URozpIw==}
@@ -1949,7 +1952,6 @@ packages:
     resolution: {integrity: sha512-WGt5J8Ij/rvyqpFexxk3ffKqqbLf9AqrTBbWDk7ApGUzaIs6V+s2s84kAxklFwmMF/vBNGrVdYgbblCOFFezMQ==}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-x64-musl@4.54.0':
     resolution: {integrity: sha512-JzQmb38ATzHjxlPHuTH6tE7ojnMKM2kYNzt44LO/jJi8BpceEC8QuXYA908n8r3CNuG/B3BV8VR3Hi1rYtmPiw==}
@@ -2008,9 +2010,6 @@ packages:
   '@sindresorhus/is@4.6.0':
     resolution: {integrity: sha512-t09vSN3MdfsyCHoFcTRCH/iUtG7OJ0CsjzB8cjAmKc/va/kIgeDI/TxsigdncE/4be734m0cvIYwNaV4i2XqAw==}
     engines: {node: '>=10'}
-
-  '@socket.io/component-emitter@3.1.2':
-    resolution: {integrity: sha512-9BCxFwvbGg/RsZK9tjXd8s4UcwR0MWeFQ1XEKIQVVvAGJyINdrqKMcTRyLoK8Rse1GjzLV9cwjWV1olXRWEXVA==}
 
   '@svgr/babel-plugin-add-jsx-attribute@8.0.0':
     resolution: {integrity: sha512-b9MIk7yhdS1pMCZM8VeNfUlSKVRhsHZNMl5O9SfaX0l0t5wjdgu4IDzGB8bpnGBBOjGST3rRFVsaaEtI4W6f7g==}
@@ -2712,30 +2711,6 @@ packages:
 
   '@xtuc/long@4.2.2':
     resolution: {integrity: sha512-NuHqBY1PB/D8xU6s/thBgOAiAP7HOYDQ32+BFZILJ8ivkUkAHQnWfn6WhL79Owj1qmUnoN/YPhktdIoucipkAQ==}
-
-  '@yume-chan/async@4.1.3':
-    resolution: {integrity: sha512-0vzhNJMkWUPyjKzUK4rqHEeCU6YQtF78RsB1kFRB6Y2BLupmEQNxcSb0mjKabPL9jZpCCiLa5KL8oTOJClUVaw==}
-
-  '@yume-chan/event@1.0.0':
-    resolution: {integrity: sha512-tr4V34WQ5dz2UDMQl4ekj2zGLqwzmclOJpJL+9s2LJpURHw+Szy5g4gi4j86M+5epMFD8dpT9ym/wXHiUdtpsg==}
-
-  '@yume-chan/no-data-view@1.0.0':
-    resolution: {integrity: sha512-KrkXhJJQiCFFXb/eeHB++HCfKuwwiI7RVzHR7X/0XiwjQouxBpNpRFjEO25458Q5p/EPGprGWQ7BsHrmV3mkZQ==}
-
-  '@yume-chan/scrcpy-decoder-tinyh264@1.1.0':
-    resolution: {integrity: sha512-I1PpFlL7/jVUQ8VWzy787DtCersQ0l+UOMkAh5gB/AxDEtFHH/AR0Cr/Yd2uaWr46kKgIvj+SlqY2vW4fdbO9w==}
-
-  '@yume-chan/scrcpy-decoder-webcodecs@1.1.0':
-    resolution: {integrity: sha512-y3ijT/C8ZEEdPO76wiPQLdcsgsPIkWIgWJJfuqtJUcPWpdmWn8ujNUUBlGuS3X1/Q+djnQW4QJ8WISVAje7JBA==}
-
-  '@yume-chan/scrcpy@1.1.0':
-    resolution: {integrity: sha512-/N+tTU0IWWCcstFodsE6eOVpEo8CZk+KvMIywrU0PV22IO+AN2A87NLnAQW8252owNX5Zn8Sf9Iw7OK7K3iPgg==}
-
-  '@yume-chan/stream-extra@1.0.0':
-    resolution: {integrity: sha512-xltJYD5txn63e0jm7bHExmULowJTgjbsC205DN0GCxfdfrZIl6adKVheQNh1yOuOKV5Ok5luWNVSBp7Y2OVffA==}
-
-  '@yume-chan/struct@1.0.0':
-    resolution: {integrity: sha512-PQWUjgITlZstIkLD6ouRDwmR35Z9OJZ9daOQ6ZipzQ/mCnHTeoJf2v8x2+fmGyVrrHf9oaCWe8U/XW65onRlGg==}
 
   abab@2.0.6:
     resolution: {integrity: sha512-j2afSsaIENvHZN2B8GOpF566vZ5WVk5opAiMTvWgaQT8DkbOqsTfvNAvHoRGU2zzP8cPoqys+xHTRDWW8L+/BA==}
@@ -3579,13 +3554,6 @@ packages:
 
   end-of-stream@1.4.5:
     resolution: {integrity: sha512-ooEGc6HP26xXq/N+GCGOT0JKCLDGrq2bQUZrQ7gyrJiZANJ/8YDTxTpQBXGMn+WbIQXNVpyWymm7KYVICQnyOg==}
-
-  engine.io-client@6.6.5:
-    resolution: {integrity: sha512-QCwxUDULPlXv8F6tqMMKx5dNkTe6OaBYRMPYeXKBlyOoKvAmE0ac6pW7fFhSscJ/5SI7666/U/B+MElbsrJlIg==}
-
-  engine.io-parser@5.2.3:
-    resolution: {integrity: sha512-HqD3yTBfnBxIrbnM1DoD6Pcq8NECnh8d4As1Qgh0z5Gg3jRRIqijury0CL3ghu/edArpUYiYqQiDUQBIs4np3Q==}
-    engines: {node: '>=10.0.0'}
 
   enhanced-resolve@5.20.1:
     resolution: {integrity: sha512-Qohcme7V1inbAfvjItgw0EaxVX5q2rdVEZHRBrEQdRZTssLDGsL8Lwrznl8oQ/6kuTJONLaDcGjkNP247XEhcA==}
@@ -5708,14 +5676,6 @@ packages:
   snake-case@3.0.4:
     resolution: {integrity: sha512-LAOh4z89bGQvl9pFfNF8V146i7o7/CqFPbqzYgP+yYzDIDeS9HaNFtXABamRW+AQzEVODcvE79ljJ+8a9YSdMg==}
 
-  socket.io-client@4.8.3:
-    resolution: {integrity: sha512-uP0bpjWrjQmUt5DTHq9RuoCBdFJF10cdX9X+a368j/Ft0wmaVgxlrjvK3kjvgCODOMMOz9lcaRzxmso0bTWZ/g==}
-    engines: {node: '>=10.0.0'}
-
-  socket.io-parser@4.2.6:
-    resolution: {integrity: sha512-asJqbVBDsBCJx0pTqw3WfesSY0iRX+2xzWEWzrpcH7L6fLzrhyF8WPI8UaeM4YCuDfpwA/cgsdugMsmtz8EJeg==}
-    engines: {node: '>=10.0.0'}
-
   socks-proxy-agent@7.0.0:
     resolution: {integrity: sha512-Fgl0YPZ902wEsAyiQ+idGd1A7rSFx/ayC1CQVMw5P+EQx2V0SgpGtf6OKFhVjPflPUl9YMmEOnmfjCdMUsygww==}
     engines: {node: '>= 10'}
@@ -5966,9 +5926,6 @@ packages:
   tinyglobby@0.2.15:
     resolution: {integrity: sha512-j2Zq4NyQYG5XMST4cbs02Ak8iJUdxRM0XI5QyxXuZOzKOINmWurp3smXu3y5wDcJrptwpSjgXHzIQxR0omXljQ==}
     engines: {node: '>=12.0.0'}
-
-  tinyh264@0.0.7:
-    resolution: {integrity: sha512-etkBRgYkSFBdAi2Cqk4sZgi+xWs/vhzNgvjO3z2i4WILeEmORiNqxuQ4URJatrWQ9LPNV3WPWAtzsh/LA/XL/g==}
 
   tinypool@1.1.1:
     resolution: {integrity: sha512-Zba82s87IFq9A9XmjiX5uZA/ARWDrB03OHlq+Vw1fSdt0I+4/Kutwy8BP4Y/y/aORMo61FQ0vIb5j44vSo5Pkg==}
@@ -6440,18 +6397,6 @@ packages:
       utf-8-validate:
         optional: true
 
-  ws@8.20.1:
-    resolution: {integrity: sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: '>=5.0.2'
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
-
   xml-name-validator@4.0.0:
     resolution: {integrity: sha512-ICP2e+jsHvAj2E2lIHxa5tjXRlKDJo4IdvPvCXbXQGdzSfmSpNVyIKMvoZHjDY9DP0zV17iI85o90vRFXNccRw==}
     engines: {node: '>=12'}
@@ -6462,10 +6407,6 @@ packages:
 
   xmlchars@2.2.0:
     resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
-
-  xmlhttprequest-ssl@2.1.2:
-    resolution: {integrity: sha512-TEU+nJVUUnA4CYJFLvK5X9AOeH4KvDvhIfm0vV1GaQRtchnG0hgK5p8hw/xjv8cunWYCsiPCSDzObPyhEwq3KQ==}
-    engines: {node: '>=0.4.0'}
 
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
@@ -6515,12 +6456,6 @@ packages:
   yoctocolors-cjs@2.1.3:
     resolution: {integrity: sha512-U/PBtDf35ff0D8X8D0jfdzHYEPFxAI7jJlxZXwCSez5M3190m+QobIfh+sWDWSHMCWWJN2AWamkegn6vr6YBTw==}
     engines: {node: '>=18'}
-
-  yuv-buffer@1.0.1:
-    resolution: {integrity: sha512-1clmBXOyTX2R8OG0vaTFu5yP/C2XG4ULe+2HUu7c/aYE1fWpKvkGEzqMhUjknXp1Ts6Xfrc0YtIBbYxvaau38Q==}
-
-  yuv-canvas@1.3.0:
-    resolution: {integrity: sha512-zwl+lJgy23iTyCCUZbi0IRP+WezeKNeGEFU+a0gmtVRa81zL6mKJVxr+NKzlveJ2okz4aIOUEPrTs6yjuPt+Cg==}
 
   zod@4.3.6:
     resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
@@ -8235,8 +8170,6 @@ snapshots:
 
   '@sindresorhus/is@4.6.0': {}
 
-  '@socket.io/component-emitter@3.1.2': {}
-
   '@svgr/babel-plugin-add-jsx-attribute@8.0.0(@babel/core@7.28.5)':
     dependencies:
       '@babel/core': 7.28.5
@@ -9075,50 +9008,6 @@ snapshots:
   '@xtuc/ieee754@1.2.0': {}
 
   '@xtuc/long@4.2.2': {}
-
-  '@yume-chan/async@4.1.3': {}
-
-  '@yume-chan/event@1.0.0':
-    dependencies:
-      '@yume-chan/async': 4.1.3
-
-  '@yume-chan/no-data-view@1.0.0': {}
-
-  '@yume-chan/scrcpy-decoder-tinyh264@1.1.0':
-    dependencies:
-      '@yume-chan/async': 4.1.3
-      '@yume-chan/event': 1.0.0
-      '@yume-chan/scrcpy': 1.1.0
-      '@yume-chan/stream-extra': 1.0.0
-      tinyh264: 0.0.7
-      yuv-buffer: 1.0.1
-      yuv-canvas: 1.3.0
-
-  '@yume-chan/scrcpy-decoder-webcodecs@1.1.0':
-    dependencies:
-      '@yume-chan/async': 4.1.3
-      '@yume-chan/event': 1.0.0
-      '@yume-chan/no-data-view': 1.0.0
-      '@yume-chan/scrcpy': 1.1.0
-      '@yume-chan/scrcpy-decoder-tinyh264': 1.1.0
-      '@yume-chan/stream-extra': 1.0.0
-
-  '@yume-chan/scrcpy@1.1.0':
-    dependencies:
-      '@yume-chan/async': 4.1.3
-      '@yume-chan/no-data-view': 1.0.0
-      '@yume-chan/stream-extra': 1.0.0
-      '@yume-chan/struct': 1.0.0
-
-  '@yume-chan/stream-extra@1.0.0':
-    dependencies:
-      '@yume-chan/async': 4.1.3
-      '@yume-chan/struct': 1.0.0
-
-  '@yume-chan/struct@1.0.0':
-    dependencies:
-      '@yume-chan/async': 4.1.3
-      '@yume-chan/no-data-view': 1.0.0
 
   abab@2.0.6: {}
 
@@ -10022,20 +9911,6 @@ snapshots:
   end-of-stream@1.4.5:
     dependencies:
       once: 1.4.0
-
-  engine.io-client@6.6.5:
-    dependencies:
-      '@socket.io/component-emitter': 3.1.2
-      debug: 4.4.3
-      engine.io-parser: 5.2.3
-      ws: 8.20.1
-      xmlhttprequest-ssl: 2.1.2
-    transitivePeerDependencies:
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-
-  engine.io-parser@5.2.3: {}
 
   enhanced-resolve@5.20.1:
     dependencies:
@@ -12702,24 +12577,6 @@ snapshots:
       dot-case: 3.0.4
       tslib: 2.8.1
 
-  socket.io-client@4.8.3:
-    dependencies:
-      '@socket.io/component-emitter': 3.1.2
-      debug: 4.4.3
-      engine.io-client: 6.6.5
-      socket.io-parser: 4.2.6
-    transitivePeerDependencies:
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-
-  socket.io-parser@4.2.6:
-    dependencies:
-      '@socket.io/component-emitter': 3.1.2
-      debug: 4.4.3
-    transitivePeerDependencies:
-      - supports-color
-
   socks-proxy-agent@7.0.0:
     dependencies:
       agent-base: 6.0.2
@@ -12972,8 +12829,6 @@ snapshots:
     dependencies:
       fdir: 6.5.0(picomatch@4.0.3)
       picomatch: 4.0.3
-
-  tinyh264@0.0.7: {}
 
   tinypool@1.1.1: {}
 
@@ -13465,15 +13320,11 @@ snapshots:
 
   ws@8.18.3: {}
 
-  ws@8.20.1: {}
-
   xml-name-validator@4.0.0: {}
 
   xmlbuilder@15.1.1: {}
 
   xmlchars@2.2.0: {}
-
-  xmlhttprequest-ssl@2.1.2: {}
 
   xtend@4.0.2:
     optional: true
@@ -13527,10 +13378,6 @@ snapshots:
   yocto-queue@0.1.0: {}
 
   yoctocolors-cjs@2.1.3: {}
-
-  yuv-buffer@1.0.1: {}
-
-  yuv-canvas@1.3.0: {}
 
   zod@4.3.6: {}
 

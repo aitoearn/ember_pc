@@ -53,7 +53,7 @@ describe("workspaceHealthTelemetry browser storage boundary", () => {
       source: "agent_chat_page",
     });
 
-    expect(summary).toContain("Ember Workspace 自愈记录");
+    expect(summary).toContain("Lime Workspace 自愈记录");
     expect(summary).toContain("Workspace ID: ws-99");
     expect(summary).toContain("来源: agent_chat_page");
     expect(summary).toContain("修复后路径: /tmp/ws-99");
@@ -75,7 +75,7 @@ describe("workspaceHealthTelemetry browser storage boundary", () => {
       },
     ]);
 
-    expect(summary).toContain("Ember Workspace 自愈记录（最近）");
+    expect(summary).toContain("Lime Workspace 自愈记录（最近）");
     expect(summary).toContain("## 记录 1");
     expect(summary).toContain("Workspace ID: ws-1");
     expect(summary).toContain("## 记录 2");

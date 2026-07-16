@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MutableRefObject } from "react";
-import type { Message } from "../types";
+import type { AgentSessionExecutionRuntime } from "@/lib/api/agentExecutionRuntime";
+import type { ModelCapabilitySummary } from "@/lib/model/inferModelCapabilities";
+import type { Message, MessageImage } from "../types";
 import {
   prepareAgentStreamUserInputSend,
+  resolvePreparedSendExpectingQueue,
   type AgentStreamUserInputSendPreparationEnv,
 } from "./agentStreamUserInputSendPreparation";
 import type { ActiveStreamState } from "./agentStreamSubmissionLifecycle";
@@ -12,6 +15,45 @@ function createStateSetter<T>(getValue: () => T, setValue: (value: T) => void) {
     setValue(
       typeof next === "function" ? (next as (prev: T) => T)(getValue()) : next,
     );
+  };
+}
+
+function createModelCapabilitySummary(
+  inputModalities: ModelCapabilitySummary["input_modalities"],
+): ModelCapabilitySummary {
+  const supportsMediaInput = inputModalities.some((modality) =>
+    ["image", "audio", "video", "file"].includes(modality),
+  );
+
+  return {
+    capabilities: {
+      vision: inputModalities.includes("image"),
+      tools: true,
+      streaming: true,
+      json_mode: true,
+      function_calling: true,
+      reasoning: false,
+    },
+    task_families: inputModalities.includes("image")
+      ? ["chat", "vision_understanding"]
+      : ["chat"],
+    input_modalities: inputModalities,
+    output_modalities: ["text"],
+    runtime_features: ["streaming", "tool_calling"],
+    supports_tools: true,
+    supports_reasoning: false,
+    supports_prompt_cache: false,
+    supports_media_input: supportsMediaInput,
+    supports_media_output: false,
+    context_length: 128000,
+    max_output_tokens: 4096,
+  };
+}
+
+function createImageAttachment(): MessageImage {
+  return {
+    data: "data:image/png;base64,fixture",
+    mediaType: "image/png",
   };
 }
 
@@ -28,6 +70,7 @@ describe("agentStreamUserInputSendPreparation", () => {
     providerType?: string;
     model?: string;
     reasoningEffort?: string;
+    executionRuntime?: AgentSessionExecutionRuntime | null;
   }): AgentStreamUserInputSendPreparationEnv {
     let messages: Message[] = [];
     let isSending = false;
@@ -46,6 +89,9 @@ describe("agentStreamUserInputSendPreparation", () => {
       sessionIdRef: {
         current: options?.sessionId ?? "session-1",
       } as MutableRefObject<string | null>,
+      executionRuntime: options?.executionRuntime ?? null,
+      clawTraceEnabled: false,
+      getWorkspaceIdForSubmit: () => "workspace-1",
       activeStreamRef: {
         current: options?.activeStream ?? null,
       } as MutableRefObject<ActiveStreamState | null>,
@@ -70,6 +116,66 @@ describe("agentStreamUserInputSendPreparation", () => {
       ),
     };
   }
+
+  it("同一会话仅残留 active stream 且 read model 已无活跃工作时不应进入 queue 模式", () => {
+    expect(
+      resolvePreparedSendExpectingQueue({
+        activeStreamSessionId: "session-1",
+        currentSessionId: "session-1",
+        queuedTurnsCount: 0,
+        threadBusy: false,
+        pendingPreparedSubmit: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("同一会话 active stream 已绑定真实 turn 时应立即进入 queue 模式", () => {
+    expect(
+      resolvePreparedSendExpectingQueue({
+        activeStreamSessionId: "session-1",
+        activeStreamTurnId: "turn-active-1",
+        currentSessionId: "session-1",
+        queuedTurnsCount: 0,
+        threadBusy: false,
+        pendingPreparedSubmit: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("跨会话 active stream、真实 queued turn、busy read model 或 pending submit 仍应进入 queue 模式", () => {
+    const base = {
+      activeStreamSessionId: "session-1",
+      currentSessionId: "session-1",
+      queuedTurnsCount: 0,
+      threadBusy: false,
+      pendingPreparedSubmit: false,
+    };
+
+    expect(
+      resolvePreparedSendExpectingQueue({
+        ...base,
+        activeStreamSessionId: "session-other",
+      }),
+    ).toBe(true);
+    expect(
+      resolvePreparedSendExpectingQueue({
+        ...base,
+        queuedTurnsCount: 1,
+      }),
+    ).toBe(true);
+    expect(
+      resolvePreparedSendExpectingQueue({
+        ...base,
+        threadBusy: true,
+      }),
+    ).toBe(true);
+    expect(
+      resolvePreparedSendExpectingQueue({
+        ...base,
+        pendingPreparedSubmit: true,
+      }),
+    ).toBe(true);
+  });
 
   it("应归一化发送参数并注入 draft", () => {
     vi.spyOn(crypto, "randomUUID")
@@ -113,11 +219,386 @@ describe("agentStreamUserInputSendPreparation", () => {
       providerType: "openai",
       model: "gpt-5.4",
     });
+    expect(result.webSearch).toBe(true);
+    expect(result.searchMode).toBeUndefined();
     expect(result.expectingQueue).toBe(false);
     expect(result.assistantMsgId).toBe("00000000-0000-0000-0000-000000000001");
     expect(result.userMsgId).toBe("00000000-0000-0000-0000-000000000002");
     expect(messages).toHaveLength(2);
     expect(isSending).toBe(true);
+  });
+
+  it("富输入恢复结构应随 current turn metadata 一起提交给 App Server", () => {
+    vi.spyOn(crypto, "randomUUID")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000012")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000013");
+
+    const result = prepareAgentStreamUserInputSend({
+      content: "请结合截图和文件继续审查",
+      images: [createImageAttachment()],
+      skipUserMessage: false,
+      options: {
+        requestMetadata: {
+          harness: {
+            source: "inputbar",
+          },
+        },
+        inputRestoreDraft: {
+          text: "请结合截图和文件继续审查",
+          images: [createImageAttachment()],
+          pathReferences: [
+            {
+              id: "file:/project/report.md",
+              path: "/project/report.md",
+              name: "report.md",
+              isDir: false,
+              source: "file_manager",
+            },
+          ],
+          textElements: [{ type: "text", text: "请结合截图和文件继续审查" }],
+          inputCapabilityRoute: {
+            kind: "installed_skill",
+            skillKey: "code-review",
+            skillName: "Code Review",
+          },
+        },
+      },
+      env: createEnv(),
+    });
+
+    expect(result.submittedDraft).toMatchObject({
+      pathReferences: [
+        {
+          path: "/project/report.md",
+        },
+      ],
+      textElements: [{ type: "text", text: "请结合截图和文件继续审查" }],
+      inputCapabilityRoute: {
+        kind: "installed_skill",
+        skillKey: "code-review",
+      },
+    });
+    expect(result.requestMetadata).toMatchObject({
+      path_references: [
+        {
+          path: "/project/report.md",
+        },
+      ],
+      text_elements: [{ type: "text", text: "请结合截图和文件继续审查" }],
+      input_capability_route: {
+        kind: "installed_skill",
+        skillKey: "code-review",
+      },
+      harness: {
+        source: "inputbar",
+        file_references: [
+          {
+            path: "/project/report.md",
+          },
+        ],
+        input_capability_route: {
+          kind: "installed_skill",
+          skillKey: "code-review",
+        },
+      },
+    });
+  });
+
+  it("应优先使用 executionRuntime 回填空的 provider/model 发送偏好", () => {
+    vi.spyOn(crypto, "randomUUID")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000010")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000011");
+
+    let messages: Message[] = [];
+    let isSending = false;
+    const env = {
+      ...createEnv({
+        providerType: "",
+        model: "",
+        executionRuntime: {
+          session_id: "session-runtime-fallback",
+          source: "runtime_snapshot",
+          provider_selector: "fixture-provider",
+          model_name: "fixture-model",
+          execution_strategy: "react",
+        },
+      }),
+      setMessages: createStateSetter(
+        () => messages,
+        (value) => {
+          messages = value;
+        },
+      ),
+      setIsSending: createStateSetter(
+        () => isSending,
+        (value) => {
+          isSending = value;
+        },
+      ),
+      getSyncedSessionModelPreference: () => null,
+    };
+
+    const result = prepareAgentStreamUserInputSend({
+      content: "继续",
+      images: [],
+      skipUserMessage: false,
+      env,
+    });
+
+    expect(result.effectiveProviderType).toBe("fixture-provider");
+    expect(result.effectiveModel).toBe("fixture-model");
+    expect(messages).toHaveLength(2);
+    expect(isSending).toBe(true);
+  });
+
+  it("current provider 有值但 model 为空时，应跳过半截偏好并使用 runtime 完整 pair", () => {
+    vi.spyOn(crypto, "randomUUID")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000210")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000211");
+
+    const result = prepareAgentStreamUserInputSend({
+      content: "你好",
+      images: [],
+      skipUserMessage: false,
+      env: createEnv({
+        providerType: "lime-hub",
+        model: "",
+        executionRuntime: {
+          session_id: "session-runtime-pair",
+          source: "runtime_snapshot",
+          provider_selector: "openai",
+          model_name: "gpt-5.4",
+          execution_strategy: "react",
+        },
+      }),
+    });
+
+    expect(result.effectiveProviderType).toBe("openai");
+    expect(result.effectiveModel).toBe("gpt-5.4");
+  });
+
+  it("current provider 有值但 model 为空且 runtime 不完整时，应使用已同步 session 完整 pair", () => {
+    vi.spyOn(crypto, "randomUUID")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000220")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000221");
+
+    const result = prepareAgentStreamUserInputSend({
+      content: "你好",
+      images: [],
+      skipUserMessage: false,
+      env: createEnv({
+        providerType: "lime-hub",
+        model: "",
+        executionRuntime: {
+          session_id: "session-runtime-incomplete",
+          source: "runtime_snapshot",
+          provider_selector: "lime-hub",
+          model_name: "",
+          execution_strategy: "react",
+        },
+      }),
+    });
+
+    expect(result.effectiveProviderType).toBe("openai");
+    expect(result.effectiveModel).toBe("gpt-5.4");
+  });
+
+  it("普通自然语言发送不应在前端注入搜索模式", () => {
+    vi.spyOn(crypto, "randomUUID")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000301")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000302");
+
+    const result = prepareAgentStreamUserInputSend({
+      content: "整理今天的国际新闻",
+      images: [],
+      skipUserMessage: false,
+      env: createEnv(),
+    });
+
+    expect(result.webSearch).toBeUndefined();
+    expect(result.searchMode).toBeUndefined();
+  });
+
+  it("开启 Claw Trace 时应在发送准备阶段补齐 trace metadata", () => {
+    vi.spyOn(crypto, "randomUUID")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000201")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000202")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000203")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000204")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000205")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000206")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000207");
+
+    const result = prepareAgentStreamUserInputSend({
+      content: "追踪首字延迟",
+      images: [],
+      skipUserMessage: false,
+      options: {
+        requestMetadata: { source: "test" },
+      },
+      env: {
+        ...createEnv({ sessionId: "session-trace" }),
+        clawTraceEnabled: true,
+      },
+    });
+
+    expect(result.requestMetadata).toMatchObject({
+      source: "test",
+      agentUiPerformanceTrace: expect.objectContaining({
+        requestId: expect.stringMatching(/^claw_request_/),
+        runId: expect.stringMatching(/^claw_run_/),
+        sessionId: "session-trace",
+        source: "agent-chat",
+        traceId: expect.stringMatching(/^claw_trace_/),
+        workspaceId: "workspace-1",
+        w3cTraceContext: expect.objectContaining({
+          traceparent: expect.stringMatching(
+            /^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/,
+          ),
+          traceId: expect.stringMatching(/^[0-9a-f]{32}$/),
+        }),
+      }),
+    });
+  });
+
+  it("默认 Claw 发送应生成 summary trace metadata", () => {
+    vi.spyOn(crypto, "randomUUID")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000301")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000302")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000303")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000304")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000305")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000306")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000307");
+
+    const result = prepareAgentStreamUserInputSend({
+      content: "整理今天的国际新闻",
+      images: [],
+      skipUserMessage: false,
+      env: createEnv(),
+    });
+
+    expect(result.assistantMsg.id).toBe("00000000-0000-0000-0000-000000000301");
+    expect(result.userMsg?.id).toBe("00000000-0000-0000-0000-000000000302");
+    expect(result.requestMetadata).toMatchObject({
+      agentUiPerformanceTrace: expect.objectContaining({
+        requestId: expect.stringMatching(/^claw_request_/),
+        runId: expect.stringMatching(/^claw_run_/),
+        sessionId: "session-1",
+        source: "agent-chat",
+        traceId: expect.stringMatching(/^claw_trace_/),
+        workspaceId: "workspace-1",
+        w3cTraceContext: expect.objectContaining({
+          traceparent: expect.stringMatching(
+            /^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/,
+          ),
+        }),
+      }),
+    });
+    expect(result.assistantMsg.requestMetadata).toBeUndefined();
+    expect(result.userMsg?.requestMetadata).toBeUndefined();
+  });
+
+  it("已解析模型能力时应把纯文本发送 gate 写入 harness metadata", () => {
+    vi.spyOn(crypto, "randomUUID")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000401")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000402");
+
+    const result = prepareAgentStreamUserInputSend({
+      content: "继续分析项目结构",
+      images: [],
+      skipUserMessage: false,
+      options: {
+        modelCapabilitySummary: createModelCapabilitySummary(["text"]),
+      },
+      env: createEnv(),
+    });
+
+    expect(result.modelInputCapabilityGate).toMatchObject({
+      status: "allowed",
+      requiredInputModalities: ["text"],
+      missingInputModalities: [],
+      reason: null,
+    });
+    expect(result.requestMetadata).toMatchObject({
+      harness: {
+        model_input_capability_gate: {
+          status: "allowed",
+          requiredInputModalities: ["text"],
+          supportedInputModalities: ["text"],
+        },
+      },
+    });
+  });
+
+  it("图片输入遇到 text-only 模型时应记录 blocked gate 且保留既有 metadata", () => {
+    vi.spyOn(crypto, "randomUUID")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000411")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000412");
+
+    const result = prepareAgentStreamUserInputSend({
+      content: "描述这张图",
+      images: [createImageAttachment()],
+      skipUserMessage: false,
+      options: {
+        requestMetadata: {
+          source: "test",
+          harness: {
+            existing_signal: true,
+          },
+        },
+        modelCapabilitySummary: createModelCapabilitySummary(["text"]),
+      },
+      env: createEnv(),
+    });
+
+    expect(result.modelInputCapabilityGate).toMatchObject({
+      status: "blocked",
+      requiredInputModalities: ["text", "image"],
+      supportedInputModalities: ["text"],
+      missingInputModalities: ["image"],
+      requiresMediaInput: true,
+      reason: "missing_input_modalities",
+    });
+    expect(result.requestMetadata).toMatchObject({
+      source: "test",
+      harness: {
+        existing_signal: true,
+        model_input_capability_gate: {
+          status: "blocked",
+          missingInputModalities: ["image"],
+        },
+      },
+    });
+  });
+
+  it("图片输入缺少模型能力 summary 时应记录 unknown gate 交给后续边界决策", () => {
+    vi.spyOn(crypto, "randomUUID")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000421")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000422");
+
+    const result = prepareAgentStreamUserInputSend({
+      content: "分析这张图",
+      images: [createImageAttachment()],
+      skipUserMessage: false,
+      env: createEnv(),
+    });
+
+    expect(result.modelInputCapabilityGate).toMatchObject({
+      status: "unknown",
+      requiredInputModalities: ["text", "image"],
+      missingInputModalities: ["text", "image"],
+      requiresMediaInput: true,
+      reason: "missing_capability_summary",
+    });
+    expect(result.requestMetadata).toMatchObject({
+      harness: {
+        model_input_capability_gate: {
+          status: "unknown",
+          reason: "missing_capability_summary",
+        },
+      },
+    });
   });
 
   it("displayContent 应透传给用户消息草稿", () => {
@@ -161,7 +642,7 @@ describe("agentStreamUserInputSendPreparation", () => {
     expect(isSending).toBe(true);
   });
 
-  it("有 active stream 时应进入 queue 模式，归一 legacy 策略并允许 model override", () => {
+  it("跨会话 active stream 时应进入 queue 模式，归一 legacy 策略并允许 model override", () => {
     vi.spyOn(crypto, "randomUUID").mockReturnValueOnce(
       "00000000-0000-0000-0000-000000000003",
     );
@@ -170,7 +651,7 @@ describe("agentStreamUserInputSendPreparation", () => {
     let isSending = false;
     const env = {
       ...createEnv({
-        sessionId: null,
+        sessionId: "session-current",
         activeStream: {
           assistantMsgId: "assistant-queued",
           eventName: "event-queued",
@@ -217,6 +698,92 @@ describe("agentStreamUserInputSendPreparation", () => {
     expect(messages).toHaveLength(1);
     expect(messages[0]?.content).toBe("队列中");
     expect(isSending).toBe(false);
+  });
+
+  it("同一会话 stale active stream 不应让下一轮误入队列", () => {
+    vi.spyOn(crypto, "randomUUID")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000011")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000012");
+
+    let messages: Message[] = [];
+    let isSending = false;
+    const env = {
+      ...createEnv({
+        sessionId: "session-stale",
+        activeStream: {
+          assistantMsgId: "assistant-stale",
+          eventName: "event-stale",
+          sessionId: "session-stale",
+        },
+      }),
+      setMessages: createStateSetter(
+        () => messages,
+        (value) => {
+          messages = value;
+        },
+      ),
+      setIsSending: createStateSetter(
+        () => isSending,
+        (value) => {
+          isSending = value;
+        },
+      ),
+    };
+
+    const result = prepareAgentStreamUserInputSend({
+      content: "继续生成提纲",
+      images: [],
+      skipUserMessage: false,
+      env,
+    });
+
+    expect(result.expectingQueue).toBe(false);
+    expect(messages).toHaveLength(2);
+    expect(isSending).toBe(true);
+  });
+
+  it("同一会话 active stream 带 turnId 时应把下一轮投影为 queued draft", () => {
+    vi.spyOn(crypto, "randomUUID")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000013")
+      .mockReturnValueOnce("00000000-0000-0000-0000-000000000014");
+
+    let messages: Message[] = [];
+    let isSending = true;
+    const env = {
+      ...createEnv({
+        sessionId: "session-active",
+        activeStream: {
+          assistantMsgId: "assistant-active",
+          eventName: "event-active",
+          sessionId: "session-active",
+          turnId: "turn-active",
+        },
+      }),
+      setMessages: createStateSetter(
+        () => messages,
+        (value) => {
+          messages = value;
+        },
+      ),
+      setIsSending: createStateSetter(
+        () => isSending,
+        (value) => {
+          isSending = value;
+        },
+      ),
+    };
+
+    const result = prepareAgentStreamUserInputSend({
+      content: "排到当前回合之后",
+      images: [],
+      skipUserMessage: false,
+      env,
+    });
+
+    expect(result.expectingQueue).toBe(true);
+    expect(messages).toHaveLength(2);
+    expect(messages[1]?.runtimeStatus?.title).toBe("已加入排队列表");
+    expect(isSending).toBe(true);
   });
 
   it("应优先使用 options 里的 provider/model override", () => {
@@ -280,31 +847,6 @@ describe("agentStreamUserInputSendPreparation", () => {
     });
 
     expect(result.systemPrompt).toBe("快速响应系统提示");
-  });
-
-  it("快速响应元数据应透传首字前轻量状态展示策略", () => {
-    vi.spyOn(crypto, "randomUUID")
-      .mockReturnValueOnce("00000000-0000-0000-0000-000000000118")
-      .mockReturnValueOnce("00000000-0000-0000-0000-000000000119");
-
-    const result = prepareAgentStreamUserInputSend({
-      content: "只回答 OK",
-      images: [],
-      skipUserMessage: false,
-      options: {
-        requestMetadata: {
-          harness: {
-            fast_response_routing: {
-              mode: "auto",
-              runtime_status_presentation: "transient",
-            },
-          },
-        },
-      },
-      env: createEnv(),
-    });
-
-    expect(result.runtimeStatusPresentation).toBe("transient");
   });
 
   it("Skill launch metadata 应标记助手草稿保留内联过程", () => {

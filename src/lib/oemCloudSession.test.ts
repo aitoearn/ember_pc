@@ -10,16 +10,16 @@ import {
 describe("oemCloudSession", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    delete window.__EMBER_SESSION_TOKEN__;
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_OEM_CLOUD__;
+    delete window.__LIME_SESSION_TOKEN__;
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_OEM_CLOUD__;
   });
 
   afterEach(() => {
     window.localStorage.clear();
-    delete window.__EMBER_SESSION_TOKEN__;
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_OEM_CLOUD__;
+    delete window.__LIME_SESSION_TOKEN__;
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_OEM_CLOUD__;
   });
 
   it("应持久化 session 并同步到 window 全局", () => {
@@ -52,8 +52,8 @@ describe("oemCloudSession", () => {
     expect(getStoredOemCloudSessionState()?.session.user.displayName).toBe(
       "Demo Operator",
     );
-    expect(window.__EMBER_SESSION_TOKEN__).toBe("session-token-demo");
-    expect(window.__EMBER_OEM_CLOUD__).toMatchObject({
+    expect(window.__LIME_SESSION_TOKEN__).toBe("session-token-demo");
+    expect(window.__LIME_OEM_CLOUD__).toMatchObject({
       tenantId: "tenant-0001",
     });
   });
@@ -72,13 +72,13 @@ describe("oemCloudSession", () => {
       },
     });
 
-    delete window.__EMBER_SESSION_TOKEN__;
-    delete window.__EMBER_OEM_CLOUD__;
+    delete window.__LIME_SESSION_TOKEN__;
+    delete window.__LIME_OEM_CLOUD__;
 
     const restored = applyStoredOemCloudSessionToWindow();
     expect(restored?.token).toBe("session-token-restore");
-    expect(window.__EMBER_SESSION_TOKEN__).toBe("session-token-restore");
-    expect(window.__EMBER_OEM_CLOUD__).toMatchObject({
+    expect(window.__LIME_SESSION_TOKEN__).toBe("session-token-restore");
+    expect(window.__LIME_OEM_CLOUD__).toMatchObject({
       tenantId: "tenant-restore",
     });
   });
@@ -101,6 +101,6 @@ describe("oemCloudSession", () => {
 
     expect(getStoredOemCloudAccessToken()).toBeNull();
     expect(getStoredOemCloudSessionState()).toBeNull();
-    expect(window.__EMBER_SESSION_TOKEN__).toBeUndefined();
+    expect(window.__LIME_SESSION_TOKEN__).toBeUndefined();
   });
 });

@@ -209,7 +209,7 @@ describe("channelsRuntime API", () => {
   it("隧道运行时命令应通过 App Server current", async () => {
     appServerCreateGatewayTunnelMock.mockResolvedValueOnce({
       result: {
-        result: { ok: true, tunnelName: "ember", message: "created" },
+        result: { ok: true, tunnelName: "lime", message: "created" },
         status: createTunnelStatus(),
       },
     });
@@ -218,10 +218,10 @@ describe("channelsRuntime API", () => {
     });
 
     await expect(
-      gatewayTunnelCreate({ tunnelName: "ember", persist: true }),
+      gatewayTunnelCreate({ tunnelName: "lime", persist: true }),
     ).resolves.toEqual(
       expect.objectContaining({
-        result: expect.objectContaining({ tunnel_name: "ember" }),
+        result: expect.objectContaining({ tunnel_name: "lime" }),
         status: expect.objectContaining({
           local_url: "http://127.0.0.1:17654",
         }),
@@ -234,7 +234,7 @@ describe("channelsRuntime API", () => {
       }),
     );
     expect(appServerCreateGatewayTunnelMock).toHaveBeenCalledWith({
-      tunnelName: "ember",
+      tunnelName: "lime",
       dnsName: undefined,
       persist: true,
     });
@@ -310,8 +310,8 @@ describe("channelsRuntime API", () => {
       result: {
         channel: "feishu",
         webhookPath: "/webhook/feishu",
-        publicBaseUrl: "https://ember.example.com",
-        webhookUrl: "https://ember.example.com/webhook/feishu",
+        publicBaseUrl: "https://lime.example.com",
+        webhookUrl: "https://lime.example.com/webhook/feishu",
         persisted: true,
       },
     });
@@ -556,7 +556,7 @@ describe("channelsRuntime API", () => {
     });
     appServerCreateGatewayTunnelMock.mockResolvedValueOnce({
       result: {
-        result: { ok: true, tunnelName: "ember", message: "created" },
+        result: { ok: true, tunnelName: "lime", message: "created" },
         status: { running: true },
       },
     });

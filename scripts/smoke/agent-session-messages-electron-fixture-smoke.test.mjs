@@ -16,9 +16,9 @@ describe("agent session messages Electron fixture smoke guard", () => {
     expect(content).toContain("electron.launch({");
     expect(content).toContain('"--use-mock-keychain"');
     expect(content).toContain("ELECTRON_E2E_USER_DATA_DIR");
-    expect(content).toContain('EMBER_ELECTRON_E2E: "1"');
-    expect(content).toContain('EMBER_ELECTRON_DEV_HTTP_BRIDGE: "0"');
-    expect(content).toContain("window.__EMBER_ELECTRON__ === true");
+    expect(content).toContain('LIME_ELECTRON_E2E: "1"');
+    expect(content).toContain('LIME_ELECTRON_DEV_HTTP_BRIDGE: "0"');
+    expect(content).toContain("window.__LIME_ELECTRON__ === true");
     expect(content).toContain(
       'typeof window.electronAPI?.invoke === "function"',
     );

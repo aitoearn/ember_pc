@@ -8,11 +8,11 @@ use app_server_protocol::GatewayTunnelProbeResponse;
 use app_server_protocol::GatewayTunnelStatusResponse;
 use app_server_protocol::GatewayTunnelSyncWebhookUrlParams;
 use app_server_protocol::GatewayTunnelSyncWebhookUrlResponse;
-use ember_core::config::load_config;
-use ember_core::config::save_config;
-use ember_core::config::Config;
-use ember_core::logger::LogStore;
-use ember_gateway::tunnel::{
+use lime_core::config::load_config;
+use lime_core::config::save_config;
+use lime_core::config::Config;
+use lime_core::logger::LogStore;
+use lime_gateway::tunnel::{
     create_cloudflare_tunnel, is_manual_stop_error, probe_tunnel, start_tunnel,
     status_tunnel_with_config, stop_tunnel, CloudflareTunnelCreateRequest,
     CloudflareTunnelCreateResult, GatewayTunnelProbeResult, GatewayTunnelState,
@@ -78,7 +78,7 @@ pub async fn create_gateway_tunnel(
                 .filter(|value| !value.is_empty())
                 .map(str::to_string)
         })
-        .unwrap_or_else(|| "ember-gateway".to_string());
+        .unwrap_or_else(|| "lime-gateway".to_string());
 
     let result = create_cloudflare_tunnel(
         &config,

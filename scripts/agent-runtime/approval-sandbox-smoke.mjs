@@ -26,32 +26,32 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "../..");
 const DEFAULT_OUTPUT = path.join(
   rootDir,
-  ".ember/qc/runtime-approval-sandbox-smoke.json",
+  ".lime/qc/runtime-approval-sandbox-smoke.json",
 );
 const DEFAULT_HEALTH_URL = "http://127.0.0.1:3030/health";
 const DEFAULT_INVOKE_URL = "http://127.0.0.1:3030/invoke";
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_INTERVAL_MS = 1_000;
 const DEFAULT_PROVIDER_PREFERENCE =
-  process.env.EMBER_AGENT_QC_PROVIDER ||
-  process.env.EMBER_E2E_PROVIDER ||
-  process.env.EMBER_DEFAULT_PROVIDER ||
+  process.env.LIME_AGENT_QC_PROVIDER ||
+  process.env.LIME_E2E_PROVIDER ||
+  process.env.LIME_DEFAULT_PROVIDER ||
   "";
 const DEFAULT_MODEL_PREFERENCE =
-  process.env.EMBER_AGENT_QC_MODEL ||
-  process.env.EMBER_E2E_MODEL ||
-  process.env.EMBER_DEFAULT_MODEL ||
+  process.env.LIME_AGENT_QC_MODEL ||
+  process.env.LIME_E2E_MODEL ||
+  process.env.LIME_DEFAULT_MODEL ||
   "";
 const APPROVAL_POLICY = "on-request";
 const SANDBOX_POLICY = "workspace-write";
-const PROVIDER_PICK_ORDER = ["deepseek", "doubao", "ember-hub"];
+const PROVIDER_PICK_ORDER = ["deepseek", "doubao", "lime-hub"];
 const APP_SERVER_HANDLE_JSON_LINES_COMMAND = "app_server_handle_json_lines";
 const APP_SERVER_METHOD_MODEL_PROVIDER_LIST = "modelProvider/list";
 const APP_SERVER_METHOD_MODEL_PROVIDER_READ = "modelProvider/read";
 
 function printHelp() {
   console.log(`
-Ember Agent Runtime Approval / Sandbox Smoke
+Lime Agent Runtime Approval / Sandbox Smoke
 
 用途:
   生成 tool / approval / sandbox 边界的确定性 smoke 证据，补齐 qcloop P0 场景的可审查摘要。
@@ -60,13 +60,13 @@ Ember Agent Runtime Approval / Sandbox Smoke
   node scripts/agent-runtime/approval-sandbox-smoke.mjs [选项]
 
 选项:
-  --output <path>   写入 evidence JSON，默认 ./.ember/qc/runtime-approval-sandbox-smoke.json
+  --output <path>   写入 evidence JSON，默认 ./.lime/qc/runtime-approval-sandbox-smoke.json
   --health-url <url> DevBridge health 地址，默认 ${DEFAULT_HEALTH_URL}
   --invoke-url <url> DevBridge invoke 地址，默认 ${DEFAULT_INVOKE_URL}
   --timeout-ms <ms>  live runtime 等待超时，默认 ${DEFAULT_TIMEOUT_MS}
   --interval-ms <ms> live runtime 轮询间隔，默认 ${DEFAULT_INTERVAL_MS}
-  --provider-preference <id> live runtime 使用的 provider 偏好；默认读取 EMBER_AGENT_QC_PROVIDER / EMBER_E2E_PROVIDER，未设置时自动选本地启用 provider
-  --model-preference <name>  live runtime 使用的 model 偏好；默认读取 EMBER_AGENT_QC_MODEL / EMBER_E2E_MODEL，未设置时自动选 provider 的首个自定义模型
+  --provider-preference <id> live runtime 使用的 provider 偏好；默认读取 LIME_AGENT_QC_PROVIDER / LIME_E2E_PROVIDER，未设置时自动选本地启用 provider
+  --model-preference <name>  live runtime 使用的 model 偏好；默认读取 LIME_AGENT_QC_MODEL / LIME_E2E_MODEL，未设置时自动选 provider 的首个自定义模型
   --devbridge-denied-runtime
                       采集真实 DevBridge denied-only runtime 权限确认 transcript；只拒绝权限，不继续模型执行，不要求真实 Provider
   --allow-live-provider / --live-runtime
@@ -186,7 +186,7 @@ function writeEvidenceWithFallback(outputPath, evidence) {
     }
     const fallbackPath = path.join(
       os.tmpdir(),
-      "ember-runtime-approval-sandbox-smoke.json",
+      "lime-runtime-approval-sandbox-smoke.json",
     );
     const writtenPath = writeEvidence(fallbackPath, evidence);
     console.warn(
@@ -549,23 +549,23 @@ async function runPermissionDecisionFlow(
     },
   });
   const turnId = `qc-approval-${decision}-${Date.now()}-${process.pid}`;
-  const eventName = `aster_stream_${sessionId}_${turnId}`;
+  const eventName = `agent_stream_${sessionId}_${turnId}`;
   const submittedPolicies = {
     approvalPolicy: APPROVAL_POLICY,
     sandboxPolicy: SANDBOX_POLICY,
   };
 
-  const turnConfig = {
-    execution_strategy: submittedStrategy,
-    approval_policy: APPROVAL_POLICY,
-    sandbox_policy: SANDBOX_POLICY,
+  const runtimeRequest = {
+    executionStrategy: submittedStrategy,
+    approvalPolicy: APPROVAL_POLICY,
+    sandboxPolicy: SANDBOX_POLICY,
     metadata: buildRuntimeContractMetadata(),
   };
   if (providerPreference?.providerPreference) {
-    turnConfig.provider_preference = providerPreference.providerPreference;
+    runtimeRequest.providerPreference = providerPreference.providerPreference;
   }
   if (providerPreference?.modelPreference) {
-    turnConfig.model_preference = providerPreference.modelPreference;
+    runtimeRequest.modelPreference = providerPreference.modelPreference;
   }
 
   await startAgentSessionTurnCurrent(options, {
@@ -575,7 +575,7 @@ async function runPermissionDecisionFlow(
     workspaceId,
     eventName,
     turnId,
-    turnConfig,
+    runtimeRequest,
     skipPreSubmitResume: true,
   });
 
@@ -660,7 +660,7 @@ async function collectDevBridgeDeniedRuntimeTranscript(options) {
           flow.before.permissionStatus === "requires_confirmation" &&
           flow.before.confirmationStatus === "requested" &&
           flow.before.pendingRequestCount > 0 &&
-          flow.before.latestTurnStatus === "failed" &&
+          flow.before.latestTurnStatus === "waitingAction" &&
           String(flow.before.confirmationRequestId || "").includes(flow.turnId),
       ),
       deniedDecisionClearsPendingRequest:
@@ -717,7 +717,7 @@ async function collectLiveRuntimeTranscript(options) {
           flow.before.permissionStatus === "requires_confirmation" &&
           flow.before.confirmationStatus === "requested" &&
           flow.before.pendingRequestCount > 0 &&
-          flow.before.latestTurnStatus === "failed" &&
+          flow.before.latestTurnStatus === "waitingAction" &&
           String(flow.before.confirmationRequestId || "").includes(flow.turnId),
       ),
       deniedDecisionClearsPendingRequest:

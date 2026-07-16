@@ -32,7 +32,7 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 const DEFAULT_OUTPUT = path.join(
   rootDir,
-  ".ember/qc/managed-objective-continuation-smoke.json",
+  ".lime/qc/managed-objective-continuation-smoke.json",
 );
 const DEFAULT_HEALTH_URL = "http://127.0.0.1:3030/health";
 const DEFAULT_INVOKE_URL = "http://127.0.0.1:3030/invoke";
@@ -40,21 +40,21 @@ const DEFAULT_TIMEOUT_MS = 180_000;
 const DEFAULT_INTERVAL_MS = 1_000;
 const DEFAULT_MAX_AUTO_TURNS = 1;
 const LIVE_PROVIDER_ENV_PREFERENCE =
-  process.env.EMBER_AGENT_QC_PROVIDER ||
-  process.env.EMBER_E2E_PROVIDER ||
-  process.env.EMBER_DEFAULT_PROVIDER ||
+  process.env.LIME_AGENT_QC_PROVIDER ||
+  process.env.LIME_E2E_PROVIDER ||
+  process.env.LIME_DEFAULT_PROVIDER ||
   "";
 const LIVE_MODEL_ENV_PREFERENCE =
-  process.env.EMBER_AGENT_QC_MODEL ||
-  process.env.EMBER_E2E_MODEL ||
-  process.env.EMBER_DEFAULT_MODEL ||
+  process.env.LIME_AGENT_QC_MODEL ||
+  process.env.LIME_E2E_MODEL ||
+  process.env.LIME_DEFAULT_MODEL ||
   "";
 const DEFAULT_ALLOW_LIVE_PROVIDER = liveProviderSmokeAllowed();
 const LOG_PREFIX = "[smoke:managed-objective-continuation]";
 
 function printHelp() {
   console.log(`
-Ember Managed Objective Continuation Smoke
+Lime Managed Objective Continuation Smoke
 
 用途:
   通过 DevBridge current 命令验证 Managed Objective 的受控自动续跑：
@@ -65,7 +65,7 @@ Ember Managed Objective Continuation Smoke
   npm run smoke:managed-objective-continuation -- --allow-live-provider --provider-preference deepseek --model-preference deepseek-v4-flash
 
 选项:
-  --output <path>              evidence JSON 输出路径，默认 .ember/qc/managed-objective-continuation-smoke.json
+  --output <path>              evidence JSON 输出路径，默认 .lime/qc/managed-objective-continuation-smoke.json
   --health-url <url>           DevBridge health 地址，默认 ${DEFAULT_HEALTH_URL}
   --invoke-url <url>           DevBridge invoke 地址，默认 ${DEFAULT_INVOKE_URL}
   --timeout-ms <ms>            总等待超时，默认 ${DEFAULT_TIMEOUT_MS}
@@ -310,7 +310,7 @@ async function submitInitialTurn(options, sessionId, workspaceId, provider) {
     message: "请只回复 MO_OK，不要解释。",
     eventName: `managed_objective_continuation_smoke_${turnId}`,
     turnId,
-    turnConfig: {
+    runtimeRequest: {
       providerPreference: provider.providerPreference,
       modelPreference: provider.modelPreference,
       ...(provider.providerConfig

@@ -1,7 +1,7 @@
 import type {
   AgentRuntimeGeneratedTitleResult,
-  AsterAgentStatus,
-} from "./types";
+  RuntimeProviderSelection,
+} from "./sessionTypes";
 import {
   invokeAgentRuntimeBridge,
   type AgentRuntimeBridgeInvoke,
@@ -27,10 +27,11 @@ function isOptionalString(value: unknown): value is string | undefined {
   return value === undefined || typeof value === "string";
 }
 
-function isAsterAgentStatus(value: unknown): value is AsterAgentStatus {
+function isRuntimeProviderSelection(
+  value: unknown,
+): value is RuntimeProviderSelection {
   return (
     isRecord(value) &&
-    typeof value.initialized === "boolean" &&
     typeof value.provider_configured === "boolean" &&
     isOptionalString(value.provider_name) &&
     isOptionalString(value.provider_selector) &&
@@ -38,12 +39,12 @@ function isAsterAgentStatus(value: unknown): value is AsterAgentStatus {
   );
 }
 
-function assertAsterAgentStatus(
+function assertRuntimeProviderSelection(
   command: string,
   value: unknown,
-): asserts value is AsterAgentStatus {
-  if (!isAsterAgentStatus(value)) {
-    throw new Error(`${command} did not return Aster agent status`);
+): asserts value is RuntimeProviderSelection {
+  if (!isRuntimeProviderSelection(value)) {
+    throw new Error(`${command} did not return runtime provider selection`);
   }
 }
 
@@ -75,9 +76,7 @@ function truncateLocalTitle(text: string): string {
   return chars.slice(0, LOCAL_TITLE_MAX_LENGTH).join("").trim();
 }
 
-function buildLocalGeneratedTitle(
-  previewText: string | undefined,
-): string {
+function buildLocalGeneratedTitle(previewText: string | undefined): string {
   const lines =
     previewText
       ?.split(/\r?\n/)
@@ -127,10 +126,10 @@ export function createAgentClient({
     });
   }
 
-  async function initAsterAgent(): Promise<AsterAgentStatus> {
-    const command = "aster_agent_init";
+  async function getRuntimeProviderSelection(): Promise<RuntimeProviderSelection> {
+    const command = "get_runtime_provider_selection";
     const result = await bridgeInvoke<unknown>(command);
-    assertAsterAgentStatus(command, result);
+    assertRuntimeProviderSelection(command, result);
     return result;
   }
 
@@ -138,7 +137,7 @@ export function createAgentClient({
     generateAgentRuntimeTitleResult,
     generateAgentRuntimeTitle,
     generateAgentRuntimeSessionTitle,
-    initAsterAgent,
+    getRuntimeProviderSelection,
   };
 }
 
@@ -146,5 +145,5 @@ export const {
   generateAgentRuntimeTitleResult,
   generateAgentRuntimeTitle,
   generateAgentRuntimeSessionTitle,
-  initAsterAgent,
+  getRuntimeProviderSelection,
 } = createAgentClient();

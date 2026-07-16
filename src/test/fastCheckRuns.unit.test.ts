@@ -14,7 +14,7 @@ describe("fastCheckRuns", () => {
   });
 
   it("环境变量可显式覆盖 runs 数量", () => {
-    expect(fastCheckRuns(100, { env: { EMBER_FAST_CHECK_RUNS: "10" } })).toBe(
+    expect(fastCheckRuns(100, { env: { LIME_FAST_CHECK_RUNS: "10" } })).toBe(
       10,
     );
   });

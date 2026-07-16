@@ -48,7 +48,7 @@ function resolveProjectionCandidates(
   skill: Pick<ServiceSkillItem, "id" | "skillBundle">,
 ): string[] {
   const candidates = [
-    readSkillBundleMetadata(skill, "Ember_projection_id"),
+    readSkillBundleMetadata(skill, "Lime_projection_id"),
     normalizeOptionalText(skill.id),
   ].filter((value): value is string => Boolean(value));
 
@@ -85,27 +85,27 @@ export function resolveBaseSetupProjectionRefsForSkill(
   return {
     packageId:
       snapshot?.package.id ??
-      readSkillBundleMetadata(skill, "Ember_base_setup_package_id"),
+      readSkillBundleMetadata(skill, "Lime_base_setup_package_id"),
     packageVersion:
       snapshot?.package.version ??
-      readSkillBundleMetadata(skill, "Ember_base_setup_package_version"),
+      readSkillBundleMetadata(skill, "Lime_base_setup_package_version"),
     projectionId:
-      projection?.id ?? readSkillBundleMetadata(skill, "Ember_projection_id"),
+      projection?.id ?? readSkillBundleMetadata(skill, "Lime_projection_id"),
     artifactProfileRef:
       projection?.artifactProfileRef ??
-      readSkillBundleMetadata(skill, "Ember_artifact_profile_ref"),
+      readSkillBundleMetadata(skill, "Lime_artifact_profile_ref"),
     scorecardProfileRef:
       projection?.scorecardProfileRef ??
-      readSkillBundleMetadata(skill, "Ember_scorecard_profile_ref"),
+      readSkillBundleMetadata(skill, "Lime_scorecard_profile_ref"),
     policyProfileRef:
       projection?.policyProfileRef ??
-      readSkillBundleMetadata(skill, "Ember_policy_profile_ref"),
+      readSkillBundleMetadata(skill, "Lime_policy_profile_ref"),
     automationProfileRef:
       projection?.automationProfileRef ??
-      readSkillBundleMetadata(skill, "Ember_automation_profile_ref"),
+      readSkillBundleMetadata(skill, "Lime_automation_profile_ref"),
     compositionBlueprintRef:
       projection?.compositionBlueprintRef ??
-      readSkillBundleMetadata(skill, "Ember_composition_blueprint_ref"),
+      readSkillBundleMetadata(skill, "Lime_composition_blueprint_ref"),
   };
 }
 

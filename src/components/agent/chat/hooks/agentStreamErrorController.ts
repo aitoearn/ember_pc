@@ -5,6 +5,7 @@ import {
   formatAgentRuntimeStatusSummary,
 } from "../utils/agentRuntimeStatus";
 import { resolveAgentRuntimeErrorPresentation } from "../utils/agentRuntimeErrorPresentation";
+import type { SoulInteractionCopy } from "@/lib/soul/interactionCopy";
 
 export interface AgentStreamErrorToastPlan {
   level: "error" | "warning";
@@ -63,24 +64,31 @@ export function buildAgentStreamFailedAssistantMessagePatch(params: {
   previousContent: string;
   previousContentParts?: Message["contentParts"];
   usage?: Message["usage"];
+  soulCopy?: SoulInteractionCopy;
 }): Pick<Message, "content" | "contentParts" | "isThinking" | "runtimeStatus"> &
   Partial<Pick<Message, "usage">> {
   const partialContent = (
     params.accumulatedContent || params.previousContent
   ).trim();
-  const content = buildFailedAgentMessageContent(
-    params.errorMessage,
-    partialContent || undefined,
-  );
+  const content =
+    partialContent ||
+    buildFailedAgentMessageContent(params.errorMessage, undefined, params.soulCopy);
   const processParts = (params.previousContentParts || []).filter(
     (part) => part.type !== "text",
   );
+  const contentParts = [
+    ...processParts,
+    { type: "text" as const, text: content },
+  ];
 
   return {
     isThinking: false,
     content,
-    contentParts: [...processParts, { type: "text", text: content }],
-    runtimeStatus: buildFailedAgentRuntimeStatus(params.errorMessage),
+    contentParts,
+    runtimeStatus: buildFailedAgentRuntimeStatus(
+      params.errorMessage,
+      params.soulCopy,
+    ),
     ...(params.usage !== undefined ? { usage: params.usage } : {}),
   };
 }

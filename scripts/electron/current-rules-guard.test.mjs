@@ -10,20 +10,28 @@ function existingFiles(filePaths) {
 }
 
 function expectNoBrandPrefixRule(content, label) {
-  expect(content, label).toMatch(/Ember`\s*\/\s*`ember_`\s*\/\s*`ember-/);
-  expect(content, label).toMatch(/品牌前缀|新增命名/);
   expect(content, label).toMatch(
-    /不得添加|不要加|使用领域名|current 事实源命名|直接使用领域名/,
+    /Lime`\s*\/\s*`lime_`\s*\/\s*`lime-|产品品牌|品牌前缀/,
+  );
+  expect(content, label).toMatch(/品牌前缀|新增命名|新命名/);
+  expect(content, label).toMatch(
+    /不得添加|不要加|禁止把|使用领域名|current 事实源命名|直接使用领域名/,
   );
 }
 
 function expectAppServerAgentRule(content, label) {
   expect(content, label).toMatch(/App Server JSON-RPC|JSON-RPC/);
   expect(content, label).toMatch(
-    /新增 AI Agent|新增 Agent 逻辑|新增的是 AI Agent/,
+    /新增 AI Agent|新增 Agent 逻辑|新增的是 AI Agent|Agent runtime 的唯一产品链|能力缺口只能参考 Codex/,
   );
-  expect(content, label).toMatch(/agent_runtime_\*/);
-  expect(content, label).toMatch(/兼容适配|compat/);
+  expect(content, label).toMatch(/agent_runtime_\*|已退役 runtime|Agent runtime/);
+  expect(content, label).toMatch(/兼容适配|兼容层|compat/);
+}
+
+function expectCurrentRustOwnerRule(content, label) {
+  expect(content, label).toMatch(/ember-rs\/crates\/\*\*|App Server|RuntimeCore/);
+  expect(content, label).toMatch(/current|事实源|Owner|owner|职责/);
+  expect(content, label).toMatch(/不得|禁止|只允许|不再|不能/);
 }
 
 function expectRustCommandsCleanupRule(content, label) {
@@ -70,10 +78,10 @@ describe("Electron current repository rules guard", () => {
   it("keeps root and aiprompts rules on Electron/App Server current", () => {
     const docs = [
       "AGENTS.md",
-      "docs/aiprompts/README.md",
-      "docs/aiprompts/commands.md",
-      "docs/aiprompts/governance.md",
-      "docs/aiprompts/quality-workflow.md",
+      "internal/aiprompts/README.md",
+      "internal/aiprompts/commands.md",
+      "internal/aiprompts/governance.md",
+      "internal/aiprompts/quality-workflow.md",
     ];
 
     for (const filePath of docs) {
@@ -86,36 +94,36 @@ describe("Electron current repository rules guard", () => {
     expectNoBrandPrefixRule(readFile("AGENTS.md"), "AGENTS.md");
     expectAppServerAgentRule(readFile("AGENTS.md"), "AGENTS.md");
     expectNoBrandPrefixRule(
-      readFile("docs/aiprompts/README.md"),
-      "docs/aiprompts/README.md",
+      readFile("internal/aiprompts/README.md"),
+      "internal/aiprompts/README.md",
     );
     expectAppServerAgentRule(
-      readFile("docs/aiprompts/README.md"),
-      "docs/aiprompts/README.md",
+      readFile("internal/aiprompts/README.md"),
+      "internal/aiprompts/README.md",
     );
-    expectRustCommandsCleanupRule(readFile("AGENTS.md"), "AGENTS.md");
-    expectRustCommandsCleanupRule(
-      readFile("docs/aiprompts/README.md"),
-      "docs/aiprompts/README.md",
+    expectCurrentRustOwnerRule(readFile("AGENTS.md"), "AGENTS.md");
+    expectCurrentRustOwnerRule(
+      readFile("internal/aiprompts/README.md"),
+      "internal/aiprompts/README.md",
     );
-    expectRustCommandsCleanupRule(
-      readFile("docs/aiprompts/commands.md"),
-      "docs/aiprompts/commands.md",
+    expectCurrentRustOwnerRule(
+      readFile("internal/aiprompts/commands.md"),
+      "internal/aiprompts/commands.md",
     );
-    expectRustCommandsCleanupRule(
-      readFile("docs/README.md"),
-      "docs/README.md",
+    expectCurrentRustOwnerRule(
+      readFile("internal/README.md"),
+      "internal/README.md",
     );
   });
 
   it("keeps App Server roadmap aware that Rust commands are cleanup-only", () => {
     const docs = [
-      "docs/roadmap/appserver/README.md",
-      "docs/roadmap/appserver/architecture.md",
-      "docs/roadmap/appserver/frontend-electron-migration.md",
-      "docs/roadmap/appserver/service-extraction.md",
-      "docs/roadmap/appserver/testing-migration.md",
-      "docs/roadmap/appserver/implementation-plan.md",
+      "internal/roadmap/appserver/README.md",
+      "internal/roadmap/appserver/architecture.md",
+      "internal/roadmap/appserver/frontend-electron-migration.md",
+      "internal/roadmap/appserver/service-extraction.md",
+      "internal/roadmap/appserver/testing-migration.md",
+      "internal/roadmap/appserver/implementation-plan.md",
     ];
 
     for (const filePath of docs) {
@@ -125,27 +133,11 @@ describe("Electron current repository rules guard", () => {
 
   it("keeps execution plan entrypoints aware that Rust commands are cleanup-only", () => {
     const docs = [
-      "docs/exec-plans/README.md",
-      "docs/exec-plans/production-command-current-migration-plan.md",
-      "docs/exec-plans/tauri-wrapper-quick-cleanup-queue.md",
-      "docs/exec-plans/tauri-wrapper-command-inventory.md",
-    ];
-
-    for (const filePath of docs) {
-      expectRustCommandsCleanupRule(readFile(filePath), filePath);
-    }
-  });
-
-  it("keeps governance, quality, docs, and skill references aware of Rust commands cleanup", () => {
-    const docs = [
-      "docs/README.md",
-      "docs/aiprompts/governance.md",
-      "docs/aiprompts/quality-workflow.md",
-      "docs/aiprompts/commands.md",
+      "internal/exec-plans/README.md",
+      "internal/exec-plans/production-command-current-migration-plan.md",
       ...existingFiles([
-        ".codex/skills/ember-command-boundary/references/commands.md",
-        ".codex/skills/ember-governance/references/governance.md",
-        ".codex/skills/ember-quality-workflow/references/quality-workflow.md",
+        "internal/exec-plans/tauri-wrapper-quick-cleanup-queue.md",
+        "internal/exec-plans/tauri-wrapper-command-inventory.md",
       ]),
     ];
 
@@ -154,11 +146,34 @@ describe("Electron current repository rules guard", () => {
     }
   });
 
+  it("keeps governance, quality, docs, and skill references aware of Rust commands cleanup", () => {
+    const detailedDocs = [
+      "docs/README.md",
+      ...existingFiles([
+        ".codex/skills/lime-command-boundary/references/commands.md",
+        ".codex/skills/lime-governance/references/governance.md",
+        ".codex/skills/lime-quality-workflow/references/quality-workflow.md",
+      ]),
+    ];
+
+    for (const filePath of detailedDocs) {
+      expectRustCommandsCleanupRule(readFile(filePath), filePath);
+    }
+
+    for (const filePath of [
+      "internal/aiprompts/governance.md",
+      "internal/aiprompts/quality-workflow.md",
+      "internal/aiprompts/commands.md",
+    ]) {
+      expectCurrentRustOwnerRule(readFile(filePath), filePath);
+    }
+  });
+
   it("keeps command/governance/quality skills aligned with current rules", () => {
     const skillFiles = existingFiles([
-      ".codex/skills/ember-command-boundary/SKILL.md",
-      ".codex/skills/ember-governance/SKILL.md",
-      ".codex/skills/ember-quality-workflow/SKILL.md",
+      ".codex/skills/lime-command-boundary/SKILL.md",
+      ".codex/skills/lime-governance/SKILL.md",
+      ".codex/skills/lime-quality-workflow/SKILL.md",
     ]);
 
     for (const filePath of skillFiles) {
@@ -172,15 +187,15 @@ describe("Electron current repository rules guard", () => {
   });
 
   it("keeps testing rules on Electron current evidence", () => {
-    const content = readFile("docs/aiprompts/quality-workflow.md");
+    const content = readFile("internal/aiprompts/quality-workflow.md");
 
-    expect(content).toContain("测试用例需要全面更新口径");
-    expect(content).toContain("Electron Desktop Host");
+    expect(content).toContain("全量检查不能替代真实 GUI 或跨层证据");
+    expect(content).toContain("Gate A 不能替代 Gate B");
+    expect(content).toContain("Electron");
     expect(content).toContain("App Server JSON-RPC");
     expect(content).toContain("src/lib/desktop-host/");
-    expect(content).toContain("packages/app-server-client");
-    expect(content).toContain("smoke:electron");
-    expect(content).toContain("不得作为新改动的可交付证据");
+    expect(content).toContain("npm run verify:gui-smoke");
+    expect(content).toContain("不得把它们作为可交付的生产链证据");
   });
 
   it("keeps Vitest smoke runner aliases on desktop-host current naming", () => {
@@ -192,7 +207,7 @@ describe("Electron current repository rules guard", () => {
     expect(content).not.toContain(["Ta", "uriAliasPatterns"].join(""));
     expect(content).not.toContain(["ta", "uriMockDir"].join(""));
     expect(content).not.toContain(retiredHostMockDir());
-    expect(content).not.toContain("ember-vitest-smoke-");
+    expect(content).not.toContain("lime-vitest-smoke-");
   });
 
   it("keeps Vitest layer classifier from treating legacy desktop host API as desktop-host current", () => {
@@ -223,9 +238,9 @@ describe("Electron current repository rules guard", () => {
   it("keeps renderer HTML entrypoint covered by the native startup shell", () => {
     const content = readFile("index.html");
 
-    expect(content).toContain("data-ember-native-startup");
-    expect(content).toContain("data-ember-startup-shell");
-    expect(content).toContain("data-ember-startup-logo");
+    expect(content).toContain("data-lime-native-startup");
+    expect(content).toContain("data-lime-startup-shell");
+    expect(content).toContain("data-lime-startup-logo");
     expect(content).toContain('params.get("nativeStartup") === "1"');
     expect(content).toContain("index-startup-progress-shift");
     expect(content).toContain("animation: index-startup-progress-shift");

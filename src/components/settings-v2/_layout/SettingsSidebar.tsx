@@ -20,10 +20,10 @@ const SidebarContainer = styled.aside`
   width: 240px;
   min-width: 240px;
   height: 100%;
-  border-right: 1px solid var(--ember-sidebar-border, hsl(var(--border)));
+  border-right: 1px solid var(--lime-sidebar-border, hsl(var(--border)));
   background: var(
-    --ember-sidebar-surface,
-    var(--ember-surface-subtle, hsl(var(--card)))
+    --lime-sidebar-surface,
+    var(--lime-surface-subtle, hsl(var(--card)))
   );
   overflow-y: auto;
   padding: 16px 8px;
@@ -37,7 +37,7 @@ const SidebarContainer = styled.aside`
   }
 
   &::-webkit-scrollbar-thumb {
-    background: var(--ember-sidebar-border, hsl(var(--border)));
+    background: var(--lime-sidebar-border, hsl(var(--border)));
     border-radius: 2px;
   }
 
@@ -78,7 +78,7 @@ const GroupHeader = styled.button<{ $expanded: boolean }>`
   cursor: pointer;
   font-size: 12px;
   font-weight: 500;
-  color: var(--ember-text-muted, hsl(var(--muted-foreground)));
+  color: var(--lime-text-muted, hsl(var(--muted-foreground)));
   text-transform: uppercase;
   letter-spacing: 0.5px;
 
@@ -90,7 +90,7 @@ const GroupHeader = styled.button<{ $expanded: boolean }>`
   }
 
   &:hover {
-    color: var(--ember-text-strong, hsl(var(--foreground)));
+    color: var(--lime-text-strong, hsl(var(--foreground)));
   }
 `;
 
@@ -110,19 +110,19 @@ const NavItem = styled.button<{ $active: boolean }>`
   border: none;
   border-radius: 8px;
   background: ${({ $active }) =>
-    $active ? "var(--ember-sidebar-active, hsl(var(--accent)))" : "transparent"};
+    $active ? "var(--lime-sidebar-active, hsl(var(--accent)))" : "transparent"};
   cursor: pointer;
   font-size: 14px;
   color: ${({ $active }) =>
     $active
-      ? "var(--ember-sidebar-active-text, var(--ember-text-strong, hsl(var(--foreground))))"
-      : "var(--ember-text-muted, hsl(var(--muted-foreground)))"};
+      ? "var(--lime-sidebar-active-text, var(--lime-text-strong, hsl(var(--foreground))))"
+      : "var(--lime-text-muted, hsl(var(--muted-foreground)))"};
   transition: all 0.15s;
   text-align: left;
 
   &:hover {
-    background: var(--ember-sidebar-hover, hsl(var(--accent)));
-    color: var(--ember-text-strong, hsl(var(--foreground)));
+    background: var(--lime-sidebar-hover, hsl(var(--accent)));
+    color: var(--lime-text-strong, hsl(var(--foreground)));
   }
 
   svg {
@@ -142,9 +142,9 @@ const ItemLabel = styled.span`
 const ExperimentalBadge = styled.span`
   font-size: 10px;
   padding: 2px 6px;
-  border: 1px solid var(--ember-warning-border, hsl(var(--destructive) / 0.16));
-  background: var(--ember-warning-soft, hsl(var(--destructive) / 0.1));
-  color: var(--ember-warning, hsl(var(--destructive)));
+  border: 1px solid var(--lime-warning-border, hsl(var(--destructive) / 0.16));
+  background: var(--lime-warning-soft, hsl(var(--destructive) / 0.1));
+  color: var(--lime-warning, hsl(var(--destructive)));
   border-radius: 4px;
   flex-shrink: 0;
 `;
@@ -157,10 +157,10 @@ const FloatingNavButton = styled.button`
   gap: 8px;
   min-height: 40px;
   padding: 0 14px;
-  border: 1px solid var(--ember-surface-border, hsl(var(--border)));
+  border: 1px solid var(--lime-surface-border, hsl(var(--border)));
   border-radius: 999px;
-  background: var(--ember-surface, hsl(var(--card)));
-  color: var(--ember-text-strong, hsl(var(--foreground)));
+  background: var(--lime-surface, hsl(var(--card)));
+  color: var(--lime-text-strong, hsl(var(--foreground)));
   cursor: pointer;
   font-size: 13px;
   font-weight: 700;
@@ -174,10 +174,10 @@ const FloatingNavButton = styled.button`
 
   &:hover {
     border-color: var(
-      --ember-surface-border-strong,
+      --lime-surface-border-strong,
       hsl(var(--foreground) / 0.18)
     );
-    background: var(--ember-surface-hover, hsl(var(--accent)));
+    background: var(--lime-surface-hover, hsl(var(--accent)));
   }
 
   &:active {
@@ -205,9 +205,9 @@ const FloatingNavPanel = styled.div`
   width: min(420px, calc(100vw - 28px));
   max-height: min(72vh, 640px);
   overflow-y: auto;
-  border: 1px solid var(--ember-surface-border, hsl(var(--border)));
+  border: 1px solid var(--lime-surface-border, hsl(var(--border)));
   border-radius: 22px;
-  background: var(--ember-surface, hsl(var(--card)));
+  background: var(--lime-surface, hsl(var(--card)));
   padding: 10px;
   box-shadow:
     0 24px 56px rgba(15, 23, 42, 0.16),
@@ -222,7 +222,7 @@ const FloatingNavPanel = styled.div`
   }
 
   &::-webkit-scrollbar-thumb {
-    background: var(--ember-sidebar-border, hsl(var(--border)));
+    background: var(--lime-sidebar-border, hsl(var(--border)));
     border-radius: 3px;
   }
 `;
@@ -231,13 +231,13 @@ const FloatingGroup = styled.div`
   padding: 6px 0 8px;
 
   & + & {
-    border-top: 1px solid var(--ember-surface-border, hsl(var(--border)));
+    border-top: 1px solid var(--lime-surface-border, hsl(var(--border)));
   }
 `;
 
 const FloatingGroupTitle = styled.div`
   padding: 6px 10px;
-  color: var(--ember-text-muted, hsl(var(--muted-foreground)));
+  color: var(--lime-text-muted, hsl(var(--muted-foreground)));
   font-size: 12px;
   font-weight: 700;
 `;
@@ -351,6 +351,7 @@ export function SettingsSidebar({
                   key={item.key}
                   $active={activeTab === item.key}
                   data-active={String(activeTab === item.key)}
+                  data-testid={`settings-sidebar-tab-${item.key}`}
                   onMouseEnter={() => onTabPrefetch?.(item.key)}
                   onMouseDown={() => onTabPrefetch?.(item.key)}
                   onFocus={() => onTabPrefetch?.(item.key)}
@@ -405,6 +406,7 @@ export function SettingsSidebar({
                       key={item.key}
                       $active={activeTab === item.key}
                       data-active={String(activeTab === item.key)}
+                      data-testid={`settings-floating-tab-${item.key}`}
                       onMouseEnter={() => onTabPrefetch?.(item.key)}
                       onMouseDown={() => onTabPrefetch?.(item.key)}
                       onFocus={() => onTabPrefetch?.(item.key)}

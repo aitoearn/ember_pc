@@ -61,8 +61,8 @@ describe("parseMentionCommand", () => {
 
   it("应只依赖调用方传入的 mention catalog", () => {
     const result = parseMentionCommand(
-      "@Ember Engineering 收口 runtime mention 目录",
-      new Map([["@Ember Engineering", ENGINEERING_RUNTIME_COMMAND_KEY]]),
+      "@Lime Engineering 收口 runtime mention 目录",
+      new Map([["@Lime Engineering", ENGINEERING_RUNTIME_COMMAND_KEY]]),
       {
         commandKey: ENGINEERING_RUNTIME_COMMAND_KEY,
       },
@@ -70,7 +70,7 @@ describe("parseMentionCommand", () => {
 
     expect(result).toMatchObject({
       commandKey: ENGINEERING_RUNTIME_COMMAND_KEY,
-      trigger: "@Ember Engineering",
+      trigger: "@Lime Engineering",
       body: "收口 runtime mention 目录",
     });
   });

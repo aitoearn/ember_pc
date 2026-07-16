@@ -2,203 +2,1712 @@
 // Source: ember-rs/crates/app-server-protocol/schema/json/app_server_protocol.schemas.json
 // Run `npm run generate:protocol-types` to regenerate.
 
-export interface AgentAppCloudReleaseDescriptor {
-  appId: string;
-  channel?: null | string;
-  loadedAt: string;
-  manifestHash: string;
-  packageHash: string;
-  packageUrl: string;
-  releaseId?: null | string;
-  signatureRef?: null | string;
-  sourceUri: string;
-  tenantEnablementRef?: null | string;
-  tenantId?: null | string;
-  version: string;
-}
+export const METHOD_AGENT_SESSION_ACTION_REPLAY = "agentSession/action/replay";
+export const METHOD_AGENT_SESSION_ACTION_RESPOND =
+  "agentSession/action/respond";
+export const METHOD_AGENT_SESSION_ANALYSIS_HANDOFF_EXPORT =
+  "agentSession/analysisHandoff/export";
+export const METHOD_AGENT_SESSION_ARCHIVE_MANY = "agentSession/archiveMany";
+export const METHOD_AGENT_SESSION_COMPACT = "agentSession/compact";
+export const METHOD_AGENT_SESSION_DELETE = "agentSession/delete";
+export const METHOD_AGENT_SESSION_EVENT = "agentSession/event";
+export const METHOD_AGENT_SESSION_FILE_CHECKPOINT_DIFF =
+  "agentSession/fileCheckpoint/diff";
+export const METHOD_AGENT_SESSION_FILE_CHECKPOINT_GET =
+  "agentSession/fileCheckpoint/get";
+export const METHOD_AGENT_SESSION_FILE_CHECKPOINT_LIST =
+  "agentSession/fileCheckpoint/list";
+export const METHOD_AGENT_SESSION_FILE_CHECKPOINT_RESTORE =
+  "agentSession/fileCheckpoint/restore";
+export const METHOD_AGENT_SESSION_HANDOFF_BUNDLE_EXPORT =
+  "agentSession/handoffBundle/export";
+export const METHOD_AGENT_SESSION_LIST = "agentSession/list";
+export const METHOD_AGENT_SESSION_MEDIA_READ = "agentSession/media/read";
+export const METHOD_AGENT_SESSION_OBJECTIVE_AUDIT =
+  "agentSession/objective/audit";
+export const METHOD_AGENT_SESSION_OBJECTIVE_CLEAR =
+  "agentSession/objective/clear";
+export const METHOD_AGENT_SESSION_OBJECTIVE_CONTINUE =
+  "agentSession/objective/continue";
+export const METHOD_AGENT_SESSION_OBJECTIVE_READ =
+  "agentSession/objective/read";
+export const METHOD_AGENT_SESSION_OBJECTIVE_SET = "agentSession/objective/set";
+export const METHOD_AGENT_SESSION_OBJECTIVE_STATUS_UPDATE =
+  "agentSession/objective/status/update";
+export const METHOD_AGENT_SESSION_QUEUED_TURN_PROMOTE =
+  "agentSession/queuedTurn/promote";
+export const METHOD_AGENT_SESSION_QUEUED_TURN_REMOVE =
+  "agentSession/queuedTurn/remove";
+export const METHOD_AGENT_SESSION_READ = "agentSession/read";
+export const METHOD_AGENT_SESSION_REPLAY_CASE_EXPORT =
+  "agentSession/replayCase/export";
+export const METHOD_AGENT_SESSION_REVIEW_DECISION_SAVE =
+  "agentSession/reviewDecision/save";
+export const METHOD_AGENT_SESSION_REVIEW_DECISION_TEMPLATE_EXPORT =
+  "agentSession/reviewDecisionTemplate/export";
+export const METHOD_AGENT_SESSION_RUNTIME_EVENTS_APPEND =
+  "agentSession/runtimeEvents/append";
+export const METHOD_AGENT_SESSION_START = "agentSession/start";
+export const METHOD_AGENT_SESSION_THREAD_RESUME = "agentSession/thread/resume";
+export const METHOD_AGENT_SESSION_TOOL_INVENTORY_READ =
+  "agentSession/toolInventory/read";
+export const METHOD_AGENT_SESSION_TURN_CANCEL = "agentSession/turn/cancel";
+export const METHOD_AGENT_SESSION_TURN_START = "agentSession/turn/start";
+export const METHOD_AGENT_SESSION_UPDATE = "agentSession/update";
+export const METHOD_ARTIFACT_READ = "artifact/read";
+export const METHOD_AUTOMATION_JOB_CREATE = "automationJob/create";
+export const METHOD_AUTOMATION_JOB_DELETE = "automationJob/delete";
+export const METHOD_AUTOMATION_JOB_HEALTH = "automationJob/health";
+export const METHOD_AUTOMATION_JOB_LIST = "automationJob/list";
+export const METHOD_AUTOMATION_JOB_READ = "automationJob/read";
+export const METHOD_AUTOMATION_JOB_RUN_HISTORY = "automationJob/runHistory";
+export const METHOD_AUTOMATION_JOB_RUN_NOW = "automationJob/runNow";
+export const METHOD_AUTOMATION_JOB_UPDATE = "automationJob/update";
+export const METHOD_AUTOMATION_SCHEDULE_PREVIEW = "automationSchedule/preview";
+export const METHOD_AUTOMATION_SCHEDULE_VALIDATE =
+  "automationSchedule/validate";
+export const METHOD_AUTOMATION_SCHEDULER_CONFIG_READ =
+  "automationScheduler/config/read";
+export const METHOD_AUTOMATION_SCHEDULER_CONFIG_UPDATE =
+  "automationScheduler/config/update";
+export const METHOD_AUTOMATION_SCHEDULER_STATUS = "automationScheduler/status";
+export const METHOD_BROWSER_SESSION_ACTION_EXECUTE =
+  "browserSession/action/execute";
+export const METHOD_BROWSER_SESSION_CLOSE = "browserSession/close";
+export const METHOD_BROWSER_SESSION_EVENT_LIST = "browserSession/event/list";
+export const METHOD_BROWSER_SESSION_OPEN = "browserSession/open";
+export const METHOD_BROWSER_SESSION_READ = "browserSession/read";
+export const METHOD_BROWSER_SESSION_TARGET_LIST = "browserSession/target/list";
+export const METHOD_CAPABILITY_LIST = "capability/list";
+export const METHOD_CONFIG_WARNING = "configWarning";
+export const METHOD_CONNECT_CALLBACK_SEND = "connectCallback/send";
+export const METHOD_CONNECT_DEEP_LINK_RESOLVE = "connectDeepLink/resolve";
+export const METHOD_CONNECT_OPEN_DEEP_LINK_RESOLVE =
+  "connectOpenDeepLink/resolve";
+export const METHOD_CONNECT_RELAY_API_KEY_SAVE = "connectRelayApiKey/save";
+export const METHOD_CONVERSATION_IMPORT_SOURCE_SCAN =
+  "conversationImport/source/scan";
+export const METHOD_CONVERSATION_IMPORT_THREAD_COMMIT =
+  "conversationImport/thread/commit";
+export const METHOD_CONVERSATION_IMPORT_THREAD_PREVIEW =
+  "conversationImport/thread/preview";
+export const METHOD_DIAGNOSTICS_LOG_STORAGE_READ =
+  "diagnostics/logStorage/read";
+export const METHOD_DIAGNOSTICS_SERVER_READ = "diagnostics/server/read";
+export const METHOD_DIAGNOSTICS_SUPPORT_BUNDLE_EXPORT =
+  "diagnostics/supportBundle/export";
+export const METHOD_DIAGNOSTICS_TRACE_EXPORT = "diagnostics/trace/export";
+export const METHOD_DIAGNOSTICS_TRACE_LIST = "diagnostics/trace/list";
+export const METHOD_DIAGNOSTICS_TRACE_READ = "diagnostics/trace/read";
+export const METHOD_DIAGNOSTICS_WINDOWS_STARTUP_READ =
+  "diagnostics/windowsStartup/read";
+export const METHOD_DISCORD_CHANNEL_PROBE = "discordChannel/probe";
+export const METHOD_EVIDENCE_EXPORT = "evidence/export";
+export const METHOD_EXECUTION_PROCESS_DRAIN_OUTPUT =
+  "executionProcess/drainOutput";
+export const METHOD_EXECUTION_PROCESS_INTERRUPT = "executionProcess/interrupt";
+export const METHOD_EXECUTION_PROCESS_START = "executionProcess/start";
+export const METHOD_EXECUTION_PROCESS_STATUS = "executionProcess/status";
+export const METHOD_EXECUTION_PROCESS_TERMINATE = "executionProcess/terminate";
+export const METHOD_EXECUTION_PROCESS_WRITE_STDIN =
+  "executionProcess/writeStdin";
+export const METHOD_FEISHU_CHANNEL_PROBE = "feishuChannel/probe";
+export const METHOD_FILE_SYSTEM_CREATE_DIRECTORY = "fileSystem/createDirectory";
+export const METHOD_FILE_SYSTEM_CREATE_FILE = "fileSystem/createFile";
+export const METHOD_FILE_SYSTEM_DELETE_FILE = "fileSystem/deleteFile";
+export const METHOD_FILE_SYSTEM_LIST_DIRECTORY = "fileSystem/listDirectory";
+export const METHOD_FILE_SYSTEM_READ_FILE_PREVIEW =
+  "fileSystem/readFilePreview";
+export const METHOD_FILE_SYSTEM_RENAME_FILE = "fileSystem/renameFile";
+export const METHOD_GALLERY_MATERIAL_GET = "galleryMaterial/get";
+export const METHOD_GALLERY_MATERIAL_LIST_BY_IMAGE_CATEGORY =
+  "galleryMaterial/listByImageCategory";
+export const METHOD_GALLERY_MATERIAL_LIST_BY_LAYOUT_CATEGORY =
+  "galleryMaterial/listByLayoutCategory";
+export const METHOD_GALLERY_MATERIAL_LIST_BY_MOOD =
+  "galleryMaterial/listByMood";
+export const METHOD_GALLERY_MATERIAL_METADATA_CREATE =
+  "galleryMaterialMetadata/create";
+export const METHOD_GALLERY_MATERIAL_METADATA_DELETE =
+  "galleryMaterialMetadata/delete";
+export const METHOD_GALLERY_MATERIAL_METADATA_GET =
+  "galleryMaterialMetadata/get";
+export const METHOD_GALLERY_MATERIAL_METADATA_UPDATE =
+  "galleryMaterialMetadata/update";
+export const METHOD_GATEWAY_CHANNEL_START = "gatewayChannel/start";
+export const METHOD_GATEWAY_CHANNEL_STATUS = "gatewayChannel/status";
+export const METHOD_GATEWAY_CHANNEL_STOP = "gatewayChannel/stop";
+export const METHOD_GATEWAY_TUNNEL_CLOUDFLARED_DETECT =
+  "gatewayTunnel/cloudflared/detect";
+export const METHOD_GATEWAY_TUNNEL_CLOUDFLARED_INSTALL =
+  "gatewayTunnel/cloudflared/install";
+export const METHOD_GATEWAY_TUNNEL_CREATE = "gatewayTunnel/create";
+export const METHOD_GATEWAY_TUNNEL_PROBE = "gatewayTunnel/probe";
+export const METHOD_GATEWAY_TUNNEL_RESTART = "gatewayTunnel/restart";
+export const METHOD_GATEWAY_TUNNEL_START = "gatewayTunnel/start";
+export const METHOD_GATEWAY_TUNNEL_STATUS = "gatewayTunnel/status";
+export const METHOD_GATEWAY_TUNNEL_STOP = "gatewayTunnel/stop";
+export const METHOD_GATEWAY_TUNNEL_SYNC_WEBHOOK_URL =
+  "gatewayTunnel/syncWebhookUrl";
+export const METHOD_INITIALIZE = "initialize";
+export const METHOD_INITIALIZED = "initialized";
+export const METHOD_KNOWLEDGE_CONTEXT_RESOLVE = "knowledgeContext/resolve";
+export const METHOD_KNOWLEDGE_CONTEXT_RUN_VALIDATE =
+  "knowledgeContextRun/validate";
+export const METHOD_KNOWLEDGE_PACK_COMPILE = "knowledgePack/compile";
+export const METHOD_KNOWLEDGE_PACK_DEFAULT_SET = "knowledgePack/default/set";
+export const METHOD_KNOWLEDGE_PACK_LIST = "knowledgePack/list";
+export const METHOD_KNOWLEDGE_PACK_READ = "knowledgePack/read";
+export const METHOD_KNOWLEDGE_SOURCE_IMPORT = "knowledgePack/source/import";
+export const METHOD_KNOWLEDGE_PACK_STATUS_UPDATE =
+  "knowledgePack/status/update";
+export const METHOD_LOG_CLEAR = "log/clear";
+export const METHOD_LOG_DIAGNOSTIC_HISTORY_CLEAR =
+  "log/diagnosticHistory/clear";
+export const METHOD_LOG_LIST = "log/list";
+export const METHOD_LOG_PERSISTED_TAIL = "log/persistedTail";
+export const METHOD_MCP_PROMPT_GET = "mcpPrompt/get";
+export const METHOD_MCP_PROMPT_LIST = "mcpPrompt/list";
+export const METHOD_MCP_RESOURCE_LIST = "mcpResource/list";
+export const METHOD_MCP_RESOURCE_READ = "mcpResource/read";
+export const METHOD_MCP_RESOURCE_SUBSCRIBE = "mcpResource/subscribe";
+export const METHOD_MCP_RESOURCE_UNSUBSCRIBE = "mcpResource/unsubscribe";
+export const METHOD_MCP_SERVER_CREATE = "mcpServer/create";
+export const METHOD_MCP_SERVER_DELETE = "mcpServer/delete";
+export const METHOD_MCP_SERVER_ELICITATION_REQUEST =
+  "mcpServer/elicitation/request";
+export const METHOD_MCP_SERVER_ENABLED_SET = "mcpServer/enabled/set";
+export const METHOD_MCP_SERVER_IMPORT_FROM_APP = "mcpServer/importFromApp";
+export const METHOD_MCP_SERVER_LIST = "mcpServer/list";
+export const METHOD_MCP_SERVER_OAUTH_LOGIN = "mcpServer/oauth/login";
+export const METHOD_MCP_SERVER_START = "mcpServer/start";
+export const METHOD_MCP_SERVER_STOP = "mcpServer/stop";
+export const METHOD_MCP_SERVER_SYNC_ALL_TO_LIVE = "mcpServer/syncAllToLive";
+export const METHOD_MCP_SERVER_UPDATE = "mcpServer/update";
+export const METHOD_MCP_SERVER_STATUS_LIST = "mcpServerStatus/list";
+export const METHOD_MCP_TOOL_CALL = "mcpTool/call";
+export const METHOD_MCP_TOOL_CALL_WITH_CALLER = "mcpTool/callWithCaller";
+export const METHOD_MCP_TOOL_LIST = "mcpTool/list";
+export const METHOD_MCP_TOOL_LIST_FOR_CONTEXT = "mcpTool/listForContext";
+export const METHOD_MCP_TOOL_SEARCH = "mcpTool/search";
+export const METHOD_MEDIA_TASK_ARTIFACT_AUDIO_COMPLETE =
+  "mediaTaskArtifact/audio/complete";
+export const METHOD_MEDIA_TASK_ARTIFACT_AUDIO_CREATE =
+  "mediaTaskArtifact/audio/create";
+export const METHOD_MEDIA_TASK_ARTIFACT_CANCEL = "mediaTaskArtifact/cancel";
+export const METHOD_MEDIA_TASK_ARTIFACT_GET = "mediaTaskArtifact/get";
+export const METHOD_MEDIA_TASK_ARTIFACT_IMAGE_COMPLETE =
+  "mediaTaskArtifact/image/complete";
+export const METHOD_MEDIA_TASK_ARTIFACT_IMAGE_CREATE =
+  "mediaTaskArtifact/image/create";
+export const METHOD_MEDIA_TASK_ARTIFACT_LIST = "mediaTaskArtifact/list";
+export const METHOD_MEDIA_TASK_ARTIFACT_VIDEO_CREATE =
+  "mediaTaskArtifact/video/create";
+export const METHOD_MEMORY_STORE_ADD_NOTE = "memoryStore/addNote";
+export const METHOD_MEMORY_STORE_CONSOLIDATE = "memoryStore/consolidate";
+export const METHOD_MEMORY_STORE_HEALTH = "memoryStore/health";
+export const METHOD_MEMORY_STORE_INDEX_REBUILD = "memoryStore/index/rebuild";
+export const METHOD_MEMORY_STORE_LIST = "memoryStore/list";
+export const METHOD_MEMORY_STORE_READ = "memoryStore/read";
+export const METHOD_MEMORY_STORE_RESET = "memoryStore/reset";
+export const METHOD_MEMORY_STORE_REVIEW_LIST = "memoryStore/review/list";
+export const METHOD_MEMORY_STORE_REVIEW_RESOLVE = "memoryStore/review/resolve";
+export const METHOD_MEMORY_STORE_SEARCH = "memoryStore/search";
+export const METHOD_MODEL_LIST = "model/list";
+export const METHOD_MODEL_PREFERENCES_LIST = "modelPreferences/list";
+export const METHOD_MODEL_PROVIDER_CATALOG_LIST = "modelProvider/catalog/list";
+export const METHOD_MODEL_PROVIDER_CREATE = "modelProvider/create";
+export const METHOD_MODEL_PROVIDER_DELETE = "modelProvider/delete";
+export const METHOD_MODEL_PROVIDER_FETCH_MODELS = "modelProvider/fetchModels";
+export const METHOD_MODEL_PROVIDER_LIST = "modelProvider/list";
+export const METHOD_MODEL_PROVIDER_READ = "modelProvider/read";
+export const METHOD_MODEL_PROVIDER_SORT_ORDERS_UPDATE =
+  "modelProvider/sortOrders/update";
+export const METHOD_MODEL_PROVIDER_TEST_CHAT = "modelProvider/testChat";
+export const METHOD_MODEL_PROVIDER_TEST_CONNECTION =
+  "modelProvider/testConnection";
+export const METHOD_MODEL_PROVIDER_UPDATE = "modelProvider/update";
+export const METHOD_MODEL_PROVIDER_ALIAS_LIST = "modelProviderAlias/list";
+export const METHOD_MODEL_PROVIDER_ALIAS_READ = "modelProviderAlias/read";
+export const METHOD_MODEL_PROVIDER_CONFIG_EXPORT = "modelProviderConfig/export";
+export const METHOD_MODEL_PROVIDER_CONFIG_IMPORT = "modelProviderConfig/import";
+export const METHOD_MODEL_PROVIDER_KEY_CREATE = "modelProviderKey/create";
+export const METHOD_MODEL_PROVIDER_KEY_DELETE = "modelProviderKey/delete";
+export const METHOD_MODEL_PROVIDER_KEY_ERROR_RECORD =
+  "modelProviderKey/error/record";
+export const METHOD_MODEL_PROVIDER_KEY_NEXT = "modelProviderKey/next";
+export const METHOD_MODEL_PROVIDER_KEY_UPDATE = "modelProviderKey/update";
+export const METHOD_MODEL_PROVIDER_KEY_USAGE_RECORD =
+  "modelProviderKey/usage/record";
+export const METHOD_MODEL_PROVIDER_UI_STATE_READ = "modelProviderUiState/read";
+export const METHOD_MODEL_PROVIDER_UI_STATE_WRITE =
+  "modelProviderUiState/write";
+export const METHOD_MODEL_SYNC_STATE_READ = "modelSyncState/read";
+export const METHOD_PLUGIN_HOST_LIFECYCLE_LIST = "pluginHostLifecycle/list";
+export const METHOD_PLUGIN_INSTALLED_DISABLED_SET =
+  "pluginInstalled/disabled/set";
+export const METHOD_PLUGIN_INSTALLED_LIST = "pluginInstalled/list";
+export const METHOD_PLUGIN_INSTALLED_SAVE = "pluginInstalled/save";
+export const METHOD_PLUGIN_INSTALLED_UNINSTALL = "pluginInstalled/uninstall";
+export const METHOD_PLUGIN_INSTALLED_UNINSTALL_REHEARSAL =
+  "pluginInstalled/uninstall/rehearsal";
+export const METHOD_PLUGIN_LOCAL_PACKAGE_EXPORT = "pluginLocalPackage/export";
+export const METHOD_PLUGIN_LOCAL_PACKAGE_INSPECT = "pluginLocalPackage/inspect";
+export const METHOD_PLUGIN_PACKAGE_FETCH_CLOUD = "pluginPackage/fetchCloud";
+export const METHOD_PLUGIN_SHELL_PREPARE = "pluginShell/prepare";
+export const METHOD_PLUGIN_UI_RUNTIME_START = "pluginUiRuntime/start";
+export const METHOD_PLUGIN_UI_RUNTIME_STATUS = "pluginUiRuntime/status";
+export const METHOD_PLUGIN_UI_RUNTIME_STOP = "pluginUiRuntime/stop";
+export const METHOD_PROJECT_GIT_BRANCH_CHECKOUT = "projectGit/branch/checkout";
+export const METHOD_PROJECT_GIT_BRANCH_CREATE = "projectGit/branch/create";
+export const METHOD_PROJECT_GIT_COMMITS_LIST = "projectGit/commits/list";
+export const METHOD_PROJECT_GIT_DIFF = "projectGit/diff";
+export const METHOD_PROJECT_GIT_STATUS = "projectGit/status";
+export const METHOD_PROJECT_GIT_WORKTREE_CREATE = "projectGit/worktree/create";
+export const METHOD_PROJECT_MATERIAL_CONTENT = "projectMaterial/content";
+export const METHOD_PROJECT_MATERIAL_COUNT = "projectMaterial/count";
+export const METHOD_PROJECT_MATERIAL_DELETE = "projectMaterial/delete";
+export const METHOD_PROJECT_MATERIAL_GET = "projectMaterial/get";
+export const METHOD_PROJECT_MATERIAL_IMPORT_FROM_URL =
+  "projectMaterial/importFromUrl";
+export const METHOD_PROJECT_MATERIAL_LIST = "projectMaterial/list";
+export const METHOD_PROJECT_MATERIAL_UPDATE = "projectMaterial/update";
+export const METHOD_PROJECT_MATERIAL_UPLOAD = "projectMaterial/upload";
+export const METHOD_PROJECT_MEMORY_READ = "projectMemory/read";
+export const METHOD_PROJECT_SHELL_SESSION_DRAIN_EVENTS =
+  "projectShell/session/drainEvents";
+export const METHOD_PROJECT_SHELL_SESSION_KILL = "projectShell/session/kill";
+export const METHOD_PROJECT_SHELL_SESSION_RESIZE =
+  "projectShell/session/resize";
+export const METHOD_PROJECT_SHELL_SESSION_START = "projectShell/session/start";
+export const METHOD_PROJECT_SHELL_SESSION_WRITE = "projectShell/session/write";
+export const METHOD_SERVER_REQUEST_RESOLVED = "serverRequest/resolved";
+export const METHOD_SESSION_FILE_DELETE = "sessionFile/delete";
+export const METHOD_SESSION_FILE_GET_OR_CREATE = "sessionFile/getOrCreate";
+export const METHOD_SESSION_FILE_LIST = "sessionFile/list";
+export const METHOD_SESSION_FILE_READ = "sessionFile/read";
+export const METHOD_SESSION_FILE_RESOLVE_PATH = "sessionFile/resolvePath";
+export const METHOD_SESSION_FILE_SAVE = "sessionFile/save";
+export const METHOD_SESSION_FILE_UPDATE_META = "sessionFile/updateMeta";
+export const METHOD_SKILL_LIST = "skill/list";
+export const METHOD_SKILL_READ = "skill/read";
+export const METHOD_SKILL_CACHE_REFRESH = "skillCache/refresh";
+export const METHOD_SKILL_INSTALLED_DIRECTORIES_LIST =
+  "skillInstalledDirectories/list";
+export const METHOD_SKILL_LOCAL_DETAIL_INSPECT = "skillLocal/detail/inspect";
+export const METHOD_SKILL_LOCAL_IMPORT = "skillLocal/import";
+export const METHOD_SKILL_LOCAL_INSPECT = "skillLocal/inspect";
+export const METHOD_SKILL_LOCAL_RENAME = "skillLocal/rename";
+export const METHOD_SKILL_LOCAL_SCAFFOLD_CREATE = "skillLocal/scaffold/create";
+export const METHOD_SKILL_MANAGEMENT_INSTALL = "skillManagement/install";
+export const METHOD_SKILL_MANAGEMENT_LIST = "skillManagement/list";
+export const METHOD_SKILL_MANAGEMENT_UNINSTALL = "skillManagement/uninstall";
+export const METHOD_SKILL_MARKETPLACE_INSTALL = "skillMarketplace/install";
+export const METHOD_SKILL_PACKAGE_DOWNLOAD_INSTALL =
+  "skillPackage/download/install";
+export const METHOD_SKILL_PACKAGE_EXPORT = "skillPackage/export";
+export const METHOD_SKILL_PACKAGE_LOCAL_INSPECT = "skillPackage/local/inspect";
+export const METHOD_SKILL_PACKAGE_LOCAL_INSTALL = "skillPackage/local/install";
+export const METHOD_SKILL_PACKAGE_LOCAL_REPLACE = "skillPackage/local/replace";
+export const METHOD_SKILL_REMOTE_INSPECT = "skillRemote/inspect";
+export const METHOD_SKILL_REPOSITORY_DELETE = "skillRepository/delete";
+export const METHOD_SKILL_REPOSITORY_LIST = "skillRepository/list";
+export const METHOD_SKILL_REPOSITORY_SAVE = "skillRepository/save";
+export const METHOD_SOUL_STYLE_PACK_INSTALL = "soulStylePack/install";
+export const METHOD_SOUL_STYLE_PACK_LIST = "soulStylePack/list";
+export const METHOD_SOUL_STYLE_PACK_STATUS_SET = "soulStylePack/status/set";
+export const METHOD_SOUL_STYLE_PACK_UNINSTALL = "soulStylePack/uninstall";
+export const METHOD_TELEGRAM_CHANNEL_PROBE = "telegramChannel/probe";
+export const METHOD_THREAD_ITEMS_LIST = "thread/items/list";
+export const METHOD_THREAD_LIST = "thread/list";
+export const METHOD_THREAD_READ = "thread/read";
+export const METHOD_THREAD_TURNS_LIST = "thread/turns/list";
+export const METHOD_USAGE_STATS_DAILY_TRENDS_LIST =
+  "usageStats/dailyTrends/list";
+export const METHOD_USAGE_STATS_MODEL_RANKING_LIST =
+  "usageStats/modelRanking/list";
+export const METHOD_USAGE_STATS_READ = "usageStats/read";
+export const METHOD_VOICE_ASR_CREDENTIAL_CREATE = "voiceAsrCredential/create";
+export const METHOD_VOICE_ASR_CREDENTIAL_DEFAULT_SET =
+  "voiceAsrCredential/default/set";
+export const METHOD_VOICE_ASR_CREDENTIAL_DELETE = "voiceAsrCredential/delete";
+export const METHOD_VOICE_ASR_CREDENTIAL_LIST = "voiceAsrCredential/list";
+export const METHOD_VOICE_ASR_CREDENTIAL_TEST = "voiceAsrCredential/test";
+export const METHOD_VOICE_ASR_CREDENTIAL_UPDATE = "voiceAsrCredential/update";
+export const METHOD_VOICE_INSTRUCTION_DELETE = "voiceInstruction/delete";
+export const METHOD_VOICE_INSTRUCTION_LIST = "voiceInstruction/list";
+export const METHOD_VOICE_INSTRUCTION_SAVE = "voiceInstruction/save";
+export const METHOD_VOICE_MODEL_DEFAULT_SET = "voiceModel/default/set";
+export const METHOD_VOICE_MODEL_TEST_TRANSCRIBE_FILE =
+  "voiceModel/testTranscribeFile";
+export const METHOD_VOICE_TRANSCRIPTION_POLISH_TEXT =
+  "voiceTranscription/polishText";
+export const METHOD_VOICE_TRANSCRIPTION_TRANSCRIBE_AUDIO =
+  "voiceTranscription/transcribeAudio";
+export const METHOD_WECHAT_CHANNEL_ACCOUNT_REMOVE =
+  "wechatChannel/account/remove";
+export const METHOD_WECHAT_CHANNEL_ACCOUNT_LIST = "wechatChannel/accounts/list";
+export const METHOD_WECHAT_CHANNEL_LOGIN_START = "wechatChannel/login/start";
+export const METHOD_WECHAT_CHANNEL_LOGIN_WAIT = "wechatChannel/login/wait";
+export const METHOD_WECHAT_CHANNEL_PROBE = "wechatChannel/probe";
+export const METHOD_WECHAT_CHANNEL_RUNTIME_MODEL_SET =
+  "wechatChannel/runtimeModel/set";
+export const METHOD_WORKFLOW_CANCEL = "workflow/cancel";
+export const METHOD_WORKFLOW_READ = "workflow/read";
+export const METHOD_WORKFLOW_RESPOND = "workflow/respond";
+export const METHOD_WORKFLOW_RETRY = "workflow/retry";
+export const METHOD_WORKSPACE_BY_PATH_READ = "workspace/byPath/read";
+export const METHOD_WORKSPACE_DEFAULT_ENSURE = "workspace/default/ensure";
+export const METHOD_WORKSPACE_DEFAULT_READ = "workspace/default/read";
+export const METHOD_WORKSPACE_DELETE = "workspace/delete";
+export const METHOD_WORKSPACE_ENSURE = "workspace/ensure";
+export const METHOD_WORKSPACE_ENSURE_READY = "workspace/ensureReady";
+export const METHOD_WORKSPACE_LIST = "workspace/list";
+export const METHOD_WORKSPACE_PROJECT_PATH_RESOLVE =
+  "workspace/projectPath/resolve";
+export const METHOD_WORKSPACE_PROJECTS_ROOT_READ =
+  "workspace/projectsRoot/read";
+export const METHOD_WORKSPACE_READ = "workspace/read";
+export const METHOD_WORKSPACE_UPDATE = "workspace/update";
+export const METHOD_WORKSPACE_REGISTERED_SKILLS_LIST =
+  "workspaceRegisteredSkills/list";
+export const METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CONSUME =
+  "workspaceRightSurface/pending/consume";
+export const METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_DISMISS =
+  "workspaceRightSurface/pending/dismiss";
+export const METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_LIST =
+  "workspaceRightSurface/pending/list";
+export const METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED =
+  "workspaceRightSurface/pendingChanged";
+export const METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST =
+  "workspaceRightSurface/request";
+export const METHOD_WORKSPACE_SKILL_BINDINGS_LIST =
+  "workspaceSkillBindings/list";
 
-export interface AgentAppDeleteDataExecutionEvidence {
-  blockedTargets?: (AgentAppDeleteDataTargetEvidence)[];
-  blockerCodes?: (string)[];
-  dataRoot: string;
-  failedTarget?: AgentAppDeleteDataTargetEvidence | null;
-  generatedAt: string;
-  missingTargets?: (AgentAppDeleteDataTargetEvidence)[];
-  postDeleteResidualAudit: AgentAppDeleteDataPostDeleteResidualAudit;
-  removedTargets?: (AgentAppDeleteDataTargetEvidence)[];
-  retainedTargets?: (AgentAppDeleteDataTargetEvidence)[];
-  status: string;
-}
+export const GENERATED_APP_SERVER_METHODS = [
+  {
+    kind: "request",
+    method: "agentSession/action/replay",
+  },
+  {
+    kind: "request",
+    method: "agentSession/action/respond",
+  },
+  {
+    kind: "request",
+    method: "agentSession/analysisHandoff/export",
+  },
+  {
+    kind: "request",
+    method: "agentSession/archiveMany",
+  },
+  {
+    kind: "request",
+    method: "agentSession/compact",
+  },
+  {
+    kind: "request",
+    method: "agentSession/delete",
+  },
+  {
+    kind: "notification",
+    method: "agentSession/event",
+  },
+  {
+    kind: "request",
+    method: "agentSession/fileCheckpoint/diff",
+  },
+  {
+    kind: "request",
+    method: "agentSession/fileCheckpoint/get",
+  },
+  {
+    kind: "request",
+    method: "agentSession/fileCheckpoint/list",
+  },
+  {
+    kind: "request",
+    method: "agentSession/fileCheckpoint/restore",
+  },
+  {
+    kind: "request",
+    method: "agentSession/handoffBundle/export",
+  },
+  {
+    kind: "request",
+    method: "agentSession/list",
+  },
+  {
+    kind: "request",
+    method: "agentSession/media/read",
+  },
+  {
+    kind: "request",
+    method: "agentSession/objective/audit",
+  },
+  {
+    kind: "request",
+    method: "agentSession/objective/clear",
+  },
+  {
+    kind: "request",
+    method: "agentSession/objective/continue",
+  },
+  {
+    kind: "request",
+    method: "agentSession/objective/read",
+  },
+  {
+    kind: "request",
+    method: "agentSession/objective/set",
+  },
+  {
+    kind: "request",
+    method: "agentSession/objective/status/update",
+  },
+  {
+    kind: "request",
+    method: "agentSession/queuedTurn/promote",
+  },
+  {
+    kind: "request",
+    method: "agentSession/queuedTurn/remove",
+  },
+  {
+    kind: "request",
+    method: "agentSession/read",
+  },
+  {
+    kind: "request",
+    method: "agentSession/replayCase/export",
+  },
+  {
+    kind: "request",
+    method: "agentSession/reviewDecision/save",
+  },
+  {
+    kind: "request",
+    method: "agentSession/reviewDecisionTemplate/export",
+  },
+  {
+    kind: "request",
+    method: "agentSession/runtimeEvents/append",
+  },
+  {
+    kind: "request",
+    method: "agentSession/start",
+  },
+  {
+    kind: "request",
+    method: "agentSession/thread/resume",
+  },
+  {
+    kind: "request",
+    method: "agentSession/toolInventory/read",
+  },
+  {
+    kind: "request",
+    method: "agentSession/turn/cancel",
+  },
+  {
+    kind: "request",
+    method: "agentSession/turn/start",
+  },
+  {
+    kind: "request",
+    method: "agentSession/update",
+  },
+  {
+    kind: "request",
+    method: "artifact/read",
+  },
+  {
+    kind: "request",
+    method: "automationJob/create",
+  },
+  {
+    kind: "request",
+    method: "automationJob/delete",
+  },
+  {
+    kind: "request",
+    method: "automationJob/health",
+  },
+  {
+    kind: "request",
+    method: "automationJob/list",
+  },
+  {
+    kind: "request",
+    method: "automationJob/read",
+  },
+  {
+    kind: "request",
+    method: "automationJob/runHistory",
+  },
+  {
+    kind: "request",
+    method: "automationJob/runNow",
+  },
+  {
+    kind: "request",
+    method: "automationJob/update",
+  },
+  {
+    kind: "request",
+    method: "automationSchedule/preview",
+  },
+  {
+    kind: "request",
+    method: "automationSchedule/validate",
+  },
+  {
+    kind: "request",
+    method: "automationScheduler/config/read",
+  },
+  {
+    kind: "request",
+    method: "automationScheduler/config/update",
+  },
+  {
+    kind: "request",
+    method: "automationScheduler/status",
+  },
+  {
+    kind: "request",
+    method: "browserSession/action/execute",
+  },
+  {
+    kind: "request",
+    method: "browserSession/close",
+  },
+  {
+    kind: "request",
+    method: "browserSession/event/list",
+  },
+  {
+    kind: "request",
+    method: "browserSession/open",
+  },
+  {
+    kind: "request",
+    method: "browserSession/read",
+  },
+  {
+    kind: "request",
+    method: "browserSession/target/list",
+  },
+  {
+    kind: "request",
+    method: "capability/list",
+  },
+  {
+    kind: "notification",
+    method: "configWarning",
+  },
+  {
+    kind: "request",
+    method: "connectCallback/send",
+  },
+  {
+    kind: "request",
+    method: "connectDeepLink/resolve",
+  },
+  {
+    kind: "request",
+    method: "connectOpenDeepLink/resolve",
+  },
+  {
+    kind: "request",
+    method: "connectRelayApiKey/save",
+  },
+  {
+    kind: "request",
+    method: "conversationImport/source/scan",
+  },
+  {
+    kind: "request",
+    method: "conversationImport/thread/commit",
+  },
+  {
+    kind: "request",
+    method: "conversationImport/thread/preview",
+  },
+  {
+    kind: "request",
+    method: "diagnostics/logStorage/read",
+  },
+  {
+    kind: "request",
+    method: "diagnostics/server/read",
+  },
+  {
+    kind: "request",
+    method: "diagnostics/supportBundle/export",
+  },
+  {
+    kind: "request",
+    method: "diagnostics/trace/export",
+  },
+  {
+    kind: "request",
+    method: "diagnostics/trace/list",
+  },
+  {
+    kind: "request",
+    method: "diagnostics/trace/read",
+  },
+  {
+    kind: "request",
+    method: "diagnostics/windowsStartup/read",
+  },
+  {
+    kind: "request",
+    method: "discordChannel/probe",
+  },
+  {
+    kind: "request",
+    method: "evidence/export",
+  },
+  {
+    kind: "request",
+    method: "executionProcess/drainOutput",
+  },
+  {
+    kind: "request",
+    method: "executionProcess/interrupt",
+  },
+  {
+    kind: "request",
+    method: "executionProcess/start",
+  },
+  {
+    kind: "request",
+    method: "executionProcess/status",
+  },
+  {
+    kind: "request",
+    method: "executionProcess/terminate",
+  },
+  {
+    kind: "request",
+    method: "executionProcess/writeStdin",
+  },
+  {
+    kind: "request",
+    method: "feishuChannel/probe",
+  },
+  {
+    kind: "request",
+    method: "fileSystem/createDirectory",
+  },
+  {
+    kind: "request",
+    method: "fileSystem/createFile",
+  },
+  {
+    kind: "request",
+    method: "fileSystem/deleteFile",
+  },
+  {
+    kind: "request",
+    method: "fileSystem/listDirectory",
+  },
+  {
+    kind: "request",
+    method: "fileSystem/readFilePreview",
+  },
+  {
+    kind: "request",
+    method: "fileSystem/renameFile",
+  },
+  {
+    kind: "request",
+    method: "galleryMaterial/get",
+  },
+  {
+    kind: "request",
+    method: "galleryMaterial/listByImageCategory",
+  },
+  {
+    kind: "request",
+    method: "galleryMaterial/listByLayoutCategory",
+  },
+  {
+    kind: "request",
+    method: "galleryMaterial/listByMood",
+  },
+  {
+    kind: "request",
+    method: "galleryMaterialMetadata/create",
+  },
+  {
+    kind: "request",
+    method: "galleryMaterialMetadata/delete",
+  },
+  {
+    kind: "request",
+    method: "galleryMaterialMetadata/get",
+  },
+  {
+    kind: "request",
+    method: "galleryMaterialMetadata/update",
+  },
+  {
+    kind: "request",
+    method: "gatewayChannel/start",
+  },
+  {
+    kind: "request",
+    method: "gatewayChannel/status",
+  },
+  {
+    kind: "request",
+    method: "gatewayChannel/stop",
+  },
+  {
+    kind: "request",
+    method: "gatewayTunnel/cloudflared/detect",
+  },
+  {
+    kind: "request",
+    method: "gatewayTunnel/cloudflared/install",
+  },
+  {
+    kind: "request",
+    method: "gatewayTunnel/create",
+  },
+  {
+    kind: "request",
+    method: "gatewayTunnel/probe",
+  },
+  {
+    kind: "request",
+    method: "gatewayTunnel/restart",
+  },
+  {
+    kind: "request",
+    method: "gatewayTunnel/start",
+  },
+  {
+    kind: "request",
+    method: "gatewayTunnel/status",
+  },
+  {
+    kind: "request",
+    method: "gatewayTunnel/stop",
+  },
+  {
+    kind: "request",
+    method: "gatewayTunnel/syncWebhookUrl",
+  },
+  {
+    kind: "request",
+    method: "initialize",
+  },
+  {
+    kind: "notification",
+    method: "initialized",
+  },
+  {
+    kind: "request",
+    method: "knowledgeContext/resolve",
+  },
+  {
+    kind: "request",
+    method: "knowledgeContextRun/validate",
+  },
+  {
+    kind: "request",
+    method: "knowledgePack/compile",
+  },
+  {
+    kind: "request",
+    method: "knowledgePack/default/set",
+  },
+  {
+    kind: "request",
+    method: "knowledgePack/list",
+  },
+  {
+    kind: "request",
+    method: "knowledgePack/read",
+  },
+  {
+    kind: "request",
+    method: "knowledgePack/source/import",
+  },
+  {
+    kind: "request",
+    method: "knowledgePack/status/update",
+  },
+  {
+    kind: "request",
+    method: "log/clear",
+  },
+  {
+    kind: "request",
+    method: "log/diagnosticHistory/clear",
+  },
+  {
+    kind: "request",
+    method: "log/list",
+  },
+  {
+    kind: "request",
+    method: "log/persistedTail",
+  },
+  {
+    kind: "request",
+    method: "mcpPrompt/get",
+  },
+  {
+    kind: "request",
+    method: "mcpPrompt/list",
+  },
+  {
+    kind: "request",
+    method: "mcpResource/list",
+  },
+  {
+    kind: "request",
+    method: "mcpResource/read",
+  },
+  {
+    kind: "request",
+    method: "mcpResource/subscribe",
+  },
+  {
+    kind: "request",
+    method: "mcpResource/unsubscribe",
+  },
+  {
+    kind: "request",
+    method: "mcpServer/create",
+  },
+  {
+    kind: "request",
+    method: "mcpServer/delete",
+  },
+  {
+    kind: "serverRequest",
+    method: "mcpServer/elicitation/request",
+  },
+  {
+    kind: "request",
+    method: "mcpServer/enabled/set",
+  },
+  {
+    kind: "request",
+    method: "mcpServer/importFromApp",
+  },
+  {
+    kind: "request",
+    method: "mcpServer/list",
+  },
+  {
+    kind: "request",
+    method: "mcpServer/oauth/login",
+  },
+  {
+    kind: "request",
+    method: "mcpServer/start",
+  },
+  {
+    kind: "request",
+    method: "mcpServer/stop",
+  },
+  {
+    kind: "request",
+    method: "mcpServer/syncAllToLive",
+  },
+  {
+    kind: "request",
+    method: "mcpServer/update",
+  },
+  {
+    kind: "request",
+    method: "mcpServerStatus/list",
+  },
+  {
+    kind: "request",
+    method: "mcpTool/call",
+  },
+  {
+    kind: "request",
+    method: "mcpTool/callWithCaller",
+  },
+  {
+    kind: "request",
+    method: "mcpTool/list",
+  },
+  {
+    kind: "request",
+    method: "mcpTool/listForContext",
+  },
+  {
+    kind: "request",
+    method: "mcpTool/search",
+  },
+  {
+    kind: "request",
+    method: "mediaTaskArtifact/audio/complete",
+  },
+  {
+    kind: "request",
+    method: "mediaTaskArtifact/audio/create",
+  },
+  {
+    kind: "request",
+    method: "mediaTaskArtifact/cancel",
+  },
+  {
+    kind: "request",
+    method: "mediaTaskArtifact/get",
+  },
+  {
+    kind: "request",
+    method: "mediaTaskArtifact/image/complete",
+  },
+  {
+    kind: "request",
+    method: "mediaTaskArtifact/image/create",
+  },
+  {
+    kind: "request",
+    method: "mediaTaskArtifact/list",
+  },
+  {
+    kind: "request",
+    method: "mediaTaskArtifact/video/create",
+  },
+  {
+    kind: "request",
+    method: "memoryStore/addNote",
+  },
+  {
+    kind: "request",
+    method: "memoryStore/consolidate",
+  },
+  {
+    kind: "request",
+    method: "memoryStore/health",
+  },
+  {
+    kind: "request",
+    method: "memoryStore/index/rebuild",
+  },
+  {
+    kind: "request",
+    method: "memoryStore/list",
+  },
+  {
+    kind: "request",
+    method: "memoryStore/read",
+  },
+  {
+    kind: "request",
+    method: "memoryStore/reset",
+  },
+  {
+    kind: "request",
+    method: "memoryStore/review/list",
+  },
+  {
+    kind: "request",
+    method: "memoryStore/review/resolve",
+  },
+  {
+    kind: "request",
+    method: "memoryStore/search",
+  },
+  {
+    kind: "request",
+    method: "model/list",
+  },
+  {
+    kind: "request",
+    method: "modelPreferences/list",
+  },
+  {
+    kind: "request",
+    method: "modelProvider/catalog/list",
+  },
+  {
+    kind: "request",
+    method: "modelProvider/create",
+  },
+  {
+    kind: "request",
+    method: "modelProvider/delete",
+  },
+  {
+    kind: "request",
+    method: "modelProvider/fetchModels",
+  },
+  {
+    kind: "request",
+    method: "modelProvider/list",
+  },
+  {
+    kind: "request",
+    method: "modelProvider/read",
+  },
+  {
+    kind: "request",
+    method: "modelProvider/sortOrders/update",
+  },
+  {
+    kind: "request",
+    method: "modelProvider/testChat",
+  },
+  {
+    kind: "request",
+    method: "modelProvider/testConnection",
+  },
+  {
+    kind: "request",
+    method: "modelProvider/update",
+  },
+  {
+    kind: "request",
+    method: "modelProviderAlias/list",
+  },
+  {
+    kind: "request",
+    method: "modelProviderAlias/read",
+  },
+  {
+    kind: "request",
+    method: "modelProviderConfig/export",
+  },
+  {
+    kind: "request",
+    method: "modelProviderConfig/import",
+  },
+  {
+    kind: "request",
+    method: "modelProviderKey/create",
+  },
+  {
+    kind: "request",
+    method: "modelProviderKey/delete",
+  },
+  {
+    kind: "request",
+    method: "modelProviderKey/error/record",
+  },
+  {
+    kind: "request",
+    method: "modelProviderKey/next",
+  },
+  {
+    kind: "request",
+    method: "modelProviderKey/update",
+  },
+  {
+    kind: "request",
+    method: "modelProviderKey/usage/record",
+  },
+  {
+    kind: "request",
+    method: "modelProviderUiState/read",
+  },
+  {
+    kind: "request",
+    method: "modelProviderUiState/write",
+  },
+  {
+    kind: "request",
+    method: "modelSyncState/read",
+  },
+  {
+    kind: "request",
+    method: "pluginHostLifecycle/list",
+  },
+  {
+    kind: "request",
+    method: "pluginInstalled/disabled/set",
+  },
+  {
+    kind: "request",
+    method: "pluginInstalled/list",
+  },
+  {
+    kind: "request",
+    method: "pluginInstalled/save",
+  },
+  {
+    kind: "request",
+    method: "pluginInstalled/uninstall",
+  },
+  {
+    kind: "request",
+    method: "pluginInstalled/uninstall/rehearsal",
+  },
+  {
+    kind: "request",
+    method: "pluginLocalPackage/export",
+  },
+  {
+    kind: "request",
+    method: "pluginLocalPackage/inspect",
+  },
+  {
+    kind: "request",
+    method: "pluginPackage/fetchCloud",
+  },
+  {
+    kind: "request",
+    method: "pluginShell/prepare",
+  },
+  {
+    kind: "request",
+    method: "pluginUiRuntime/start",
+  },
+  {
+    kind: "request",
+    method: "pluginUiRuntime/status",
+  },
+  {
+    kind: "request",
+    method: "pluginUiRuntime/stop",
+  },
+  {
+    kind: "request",
+    method: "projectGit/branch/checkout",
+  },
+  {
+    kind: "request",
+    method: "projectGit/branch/create",
+  },
+  {
+    kind: "request",
+    method: "projectGit/commits/list",
+  },
+  {
+    kind: "request",
+    method: "projectGit/diff",
+  },
+  {
+    kind: "request",
+    method: "projectGit/status",
+  },
+  {
+    kind: "request",
+    method: "projectGit/worktree/create",
+  },
+  {
+    kind: "request",
+    method: "projectMaterial/content",
+  },
+  {
+    kind: "request",
+    method: "projectMaterial/count",
+  },
+  {
+    kind: "request",
+    method: "projectMaterial/delete",
+  },
+  {
+    kind: "request",
+    method: "projectMaterial/get",
+  },
+  {
+    kind: "request",
+    method: "projectMaterial/importFromUrl",
+  },
+  {
+    kind: "request",
+    method: "projectMaterial/list",
+  },
+  {
+    kind: "request",
+    method: "projectMaterial/update",
+  },
+  {
+    kind: "request",
+    method: "projectMaterial/upload",
+  },
+  {
+    kind: "request",
+    method: "projectMemory/read",
+  },
+  {
+    kind: "request",
+    method: "projectShell/session/drainEvents",
+  },
+  {
+    kind: "request",
+    method: "projectShell/session/kill",
+  },
+  {
+    kind: "request",
+    method: "projectShell/session/resize",
+  },
+  {
+    kind: "request",
+    method: "projectShell/session/start",
+  },
+  {
+    kind: "request",
+    method: "projectShell/session/write",
+  },
+  {
+    kind: "notification",
+    method: "serverRequest/resolved",
+  },
+  {
+    kind: "request",
+    method: "sessionFile/delete",
+  },
+  {
+    kind: "request",
+    method: "sessionFile/getOrCreate",
+  },
+  {
+    kind: "request",
+    method: "sessionFile/list",
+  },
+  {
+    kind: "request",
+    method: "sessionFile/read",
+  },
+  {
+    kind: "request",
+    method: "sessionFile/resolvePath",
+  },
+  {
+    kind: "request",
+    method: "sessionFile/save",
+  },
+  {
+    kind: "request",
+    method: "sessionFile/updateMeta",
+  },
+  {
+    kind: "request",
+    method: "skill/list",
+  },
+  {
+    kind: "request",
+    method: "skill/read",
+  },
+  {
+    kind: "request",
+    method: "skillCache/refresh",
+  },
+  {
+    kind: "request",
+    method: "skillInstalledDirectories/list",
+  },
+  {
+    kind: "request",
+    method: "skillLocal/detail/inspect",
+  },
+  {
+    kind: "request",
+    method: "skillLocal/import",
+  },
+  {
+    kind: "request",
+    method: "skillLocal/inspect",
+  },
+  {
+    kind: "request",
+    method: "skillLocal/rename",
+  },
+  {
+    kind: "request",
+    method: "skillLocal/scaffold/create",
+  },
+  {
+    kind: "request",
+    method: "skillManagement/install",
+  },
+  {
+    kind: "request",
+    method: "skillManagement/list",
+  },
+  {
+    kind: "request",
+    method: "skillManagement/uninstall",
+  },
+  {
+    kind: "request",
+    method: "skillMarketplace/install",
+  },
+  {
+    kind: "request",
+    method: "skillPackage/download/install",
+  },
+  {
+    kind: "request",
+    method: "skillPackage/export",
+  },
+  {
+    kind: "request",
+    method: "skillPackage/local/inspect",
+  },
+  {
+    kind: "request",
+    method: "skillPackage/local/install",
+  },
+  {
+    kind: "request",
+    method: "skillPackage/local/replace",
+  },
+  {
+    kind: "request",
+    method: "skillRemote/inspect",
+  },
+  {
+    kind: "request",
+    method: "skillRepository/delete",
+  },
+  {
+    kind: "request",
+    method: "skillRepository/list",
+  },
+  {
+    kind: "request",
+    method: "skillRepository/save",
+  },
+  {
+    kind: "request",
+    method: "soulStylePack/install",
+  },
+  {
+    kind: "request",
+    method: "soulStylePack/list",
+  },
+  {
+    kind: "request",
+    method: "soulStylePack/status/set",
+  },
+  {
+    kind: "request",
+    method: "soulStylePack/uninstall",
+  },
+  {
+    kind: "request",
+    method: "telegramChannel/probe",
+  },
+  {
+    kind: "request",
+    method: "thread/items/list",
+  },
+  {
+    kind: "request",
+    method: "thread/list",
+  },
+  {
+    kind: "request",
+    method: "thread/read",
+  },
+  {
+    kind: "request",
+    method: "thread/turns/list",
+  },
+  {
+    kind: "request",
+    method: "usageStats/dailyTrends/list",
+  },
+  {
+    kind: "request",
+    method: "usageStats/modelRanking/list",
+  },
+  {
+    kind: "request",
+    method: "usageStats/read",
+  },
+  {
+    kind: "request",
+    method: "voiceAsrCredential/create",
+  },
+  {
+    kind: "request",
+    method: "voiceAsrCredential/default/set",
+  },
+  {
+    kind: "request",
+    method: "voiceAsrCredential/delete",
+  },
+  {
+    kind: "request",
+    method: "voiceAsrCredential/list",
+  },
+  {
+    kind: "request",
+    method: "voiceAsrCredential/test",
+  },
+  {
+    kind: "request",
+    method: "voiceAsrCredential/update",
+  },
+  {
+    kind: "request",
+    method: "voiceInstruction/delete",
+  },
+  {
+    kind: "request",
+    method: "voiceInstruction/list",
+  },
+  {
+    kind: "request",
+    method: "voiceInstruction/save",
+  },
+  {
+    kind: "request",
+    method: "voiceModel/default/set",
+  },
+  {
+    kind: "request",
+    method: "voiceModel/testTranscribeFile",
+  },
+  {
+    kind: "request",
+    method: "voiceTranscription/polishText",
+  },
+  {
+    kind: "request",
+    method: "voiceTranscription/transcribeAudio",
+  },
+  {
+    kind: "request",
+    method: "wechatChannel/account/remove",
+  },
+  {
+    kind: "request",
+    method: "wechatChannel/accounts/list",
+  },
+  {
+    kind: "request",
+    method: "wechatChannel/login/start",
+  },
+  {
+    kind: "request",
+    method: "wechatChannel/login/wait",
+  },
+  {
+    kind: "request",
+    method: "wechatChannel/probe",
+  },
+  {
+    kind: "request",
+    method: "wechatChannel/runtimeModel/set",
+  },
+  {
+    kind: "request",
+    method: "workflow/cancel",
+  },
+  {
+    kind: "request",
+    method: "workflow/read",
+  },
+  {
+    kind: "request",
+    method: "workflow/respond",
+  },
+  {
+    kind: "request",
+    method: "workflow/retry",
+  },
+  {
+    kind: "request",
+    method: "workspace/byPath/read",
+  },
+  {
+    kind: "request",
+    method: "workspace/default/ensure",
+  },
+  {
+    kind: "request",
+    method: "workspace/default/read",
+  },
+  {
+    kind: "request",
+    method: "workspace/delete",
+  },
+  {
+    kind: "request",
+    method: "workspace/ensure",
+  },
+  {
+    kind: "request",
+    method: "workspace/ensureReady",
+  },
+  {
+    kind: "request",
+    method: "workspace/list",
+  },
+  {
+    kind: "request",
+    method: "workspace/projectPath/resolve",
+  },
+  {
+    kind: "request",
+    method: "workspace/projectsRoot/read",
+  },
+  {
+    kind: "request",
+    method: "workspace/read",
+  },
+  {
+    kind: "request",
+    method: "workspace/update",
+  },
+  {
+    kind: "request",
+    method: "workspaceRegisteredSkills/list",
+  },
+  {
+    kind: "request",
+    method: "workspaceRightSurface/pending/consume",
+  },
+  {
+    kind: "request",
+    method: "workspaceRightSurface/pending/dismiss",
+  },
+  {
+    kind: "request",
+    method: "workspaceRightSurface/pending/list",
+  },
+  {
+    kind: "notification",
+    method: "workspaceRightSurface/pendingChanged",
+  },
+  {
+    kind: "request",
+    method: "workspaceRightSurface/request",
+  },
+  {
+    kind: "request",
+    method: "workspaceSkillBindings/list",
+  },
+] as const;
 
-export interface AgentAppDeleteDataPostDeleteResidualAudit {
-  checkedAt: string;
-  checkedTargetCount: number;
-  failedTarget?: AgentAppDeleteDataTargetEvidence | null;
-  remainingTargetCount: number;
-  remainingTargets?: (AgentAppDeleteDataTargetEvidence)[];
-  status: string;
-}
+export type GeneratedAppServerMethodSpec =
+  (typeof GENERATED_APP_SERVER_METHODS)[number];
 
-export interface AgentAppDeleteDataTargetEvidence {
-  action: string;
-  blockerCodes?: (string)[];
-  error?: null | string;
-  kind: string;
-  reason: string;
-  status: string;
-  value: string;
-}
+export type GeneratedAppServerMethodKind = GeneratedAppServerMethodSpec["kind"];
 
-export interface AgentAppFetchCloudPackageParams {
-  descriptor: AgentAppCloudReleaseDescriptor;
-}
+export const GENERATED_APP_SERVER_REQUEST_SERIALIZATION_SCOPES = [
+  {
+    method: "agentSession/queuedTurn/promote",
+    scope: "thread",
+  },
+  {
+    method: "agentSession/queuedTurn/remove",
+    scope: "thread",
+  },
+  {
+    method: "agentSession/thread/resume",
+    scope: "thread",
+  },
+  {
+    method: "agentSession/turn/cancel",
+    scope: "thread",
+  },
+  {
+    method: "agentSession/turn/start",
+    scope: "thread",
+  },
+  {
+    method: "browserSession/action/execute",
+    scope: "browserSession",
+  },
+  {
+    method: "browserSession/close",
+    scope: "browserSession",
+  },
+  {
+    method: "browserSession/open",
+    scope: "browserSession",
+  },
+  {
+    method: "browserSession/read",
+    scope: "browserSession",
+  },
+  {
+    method: "executionProcess/interrupt",
+    scope: "executionProcess",
+  },
+  {
+    method: "executionProcess/start",
+    scope: "executionProcess",
+  },
+  {
+    method: "executionProcess/terminate",
+    scope: "executionProcess",
+  },
+  {
+    method: "executionProcess/writeStdin",
+    scope: "executionProcess",
+  },
+  {
+    method: "fileSystem/createDirectory",
+    scope: "fileSystemMutation",
+  },
+  {
+    method: "fileSystem/createFile",
+    scope: "fileSystemMutation",
+  },
+  {
+    method: "fileSystem/deleteFile",
+    scope: "fileSystemMutation",
+  },
+  {
+    method: "fileSystem/renameFile",
+    scope: "fileSystemMutation",
+  },
+  {
+    method: "mcpResource/subscribe",
+    scope: "mcpResourceSubscription",
+  },
+  {
+    method: "mcpResource/unsubscribe",
+    scope: "mcpResourceSubscription",
+  },
+  {
+    method: "mcpServer/oauth/login",
+    scope: "mcpOauth",
+  },
+  {
+    method: "projectShell/session/kill",
+    scope: "projectShellSession",
+  },
+  {
+    method: "projectShell/session/resize",
+    scope: "projectShellSession",
+  },
+  {
+    method: "projectShell/session/start",
+    scope: "projectShellSession",
+  },
+  {
+    method: "projectShell/session/write",
+    scope: "projectShellSession",
+  },
+  {
+    method: "thread/items/list",
+    scope: "thread",
+  },
+  {
+    method: "thread/read",
+    scope: "thread",
+  },
+  {
+    method: "thread/turns/list",
+    scope: "thread",
+  },
+] as const;
 
-export interface AgentAppInstalledDisabledSetParams {
-  appId: string;
-  disabled: boolean;
-  updatedAt?: null | string;
-}
+export type GeneratedAppServerRequestSerializationScopeSpec =
+  (typeof GENERATED_APP_SERVER_REQUEST_SERIALIZATION_SCOPES)[number];
 
-export interface AgentAppInstalledListResponse {
-  issues?: (unknown)[];
-  states?: (unknown)[];
-}
-
-export interface AgentAppInstalledSaveParams {
-  state: unknown;
-}
-
-export interface AgentAppLocalPackageInspectParams {
-  appDir: string;
-}
-
-export interface AgentAppLocalPackageInspectResponse {
-  appDir: string;
-  appMarkdown: string;
-  inspectedAt: string;
-  manifest: unknown;
-  manifestHash: string;
-  packageHash: string;
-  sourceKind: string;
-  sourceUri: string;
-}
-
-export interface AgentAppPackageCacheEntry {
-  appId: string;
-  cachePath: string;
-  cachedAt: string;
-  identity: AgentAppPackageIdentity;
-  manifestHash: string;
-  manifestSnapshot: unknown;
-  packageHash: string;
-}
-
-export interface AgentAppPackageIdentity {
-  appId: string;
-  appVersion: string;
-  channel?: null | string;
-  loadedAt: string;
-  manifestHash: string;
-  packageHash: string;
-  releaseId?: null | string;
-  signatureRef?: null | string;
-  sourceKind: string;
-  sourceUri: string;
-  tenantEnablementRef?: null | string;
-  tenantId?: null | string;
-}
-
-export interface AgentAppShellPackageMount {
-  kind: string;
-  manifestHash: string;
-  packageHash: string;
-  path: string;
-  readOnly: boolean;
-}
-
-export interface AgentAppShellPrepareParams {
-  descriptor: unknown;
-}
-
-export interface AgentAppShellPrepareResponse {
-  appId?: null | string;
-  blockerCodes?: (string)[];
-  descriptorVersion?: number | null;
-  devShell: boolean;
-  entryKey?: null | string;
-  installMode?: null | string;
-  message?: null | string;
-  packageMount?: AgentAppShellPackageMount | null;
-  preparedAt: string;
-  shellKind?: null | string;
-  status: string;
-  windowTitle?: null | string;
-}
-
-export interface AgentAppUiRuntimeStartParams {
-  appId: string;
-  entryKey?: null | string;
-}
-
-export interface AgentAppUiRuntimeStatusParams {
-  appId: string;
-}
-
-export interface AgentAppUiRuntimeStatusResponse {
-  appId: string;
-  baseUrl?: null | string;
-  entryKey?: null | string;
-  entryUrl?: null | string;
-  message?: null | string;
-  pid?: number | null;
-  port?: number | null;
-  route?: null | string;
-  status: string;
-}
-
-export interface AgentAppUiRuntimeStopParams {
-  appId: string;
-}
-
-export interface AgentAppUninstallParams {
-  appId: string;
-  confirmationPhrase?: null | string;
-  mode: string;
-}
-
-export interface AgentAppUninstallRehearsalParams {
-  appId: string;
-  mode: string;
-}
-
-export interface AgentAppUninstallRehearsalResponse {
-  appId: string;
-  deletedTargetCount: number;
-  generatedAt: string;
-  mode: string;
-  packageHash?: null | string;
-  retainedTargetCount: number;
-  targets?: (AgentAppUninstallRehearsalTarget)[];
-  warnings?: (string)[];
-}
-
-export interface AgentAppUninstallRehearsalTarget {
-  action: string;
-  kind: string;
-  reason: string;
-  safeToDelete: boolean;
-  value: string;
-}
-
-export interface AgentAppUninstallResponse {
-  blockerCodes?: (string)[];
-  deleteEvidence?: AgentAppDeleteDataExecutionEvidence | null;
-  list: AgentAppInstalledListResponse;
-  missingTargetCount: number;
-  rehearsal: AgentAppUninstallRehearsalResponse;
-  removedTargetCount: number;
-  status: string;
-}
+export type GeneratedAppServerRequestSerializationScope =
+  GeneratedAppServerRequestSerializationScopeSpec["scope"];
 
 export interface AgentAttachment {
   kind: string;
@@ -218,7 +1727,7 @@ export interface AgentEvent {
 }
 
 export interface AgentInput {
-  attachments?: (AgentAttachment)[];
+  attachments?: AgentAttachment[];
   text: string;
 }
 
@@ -245,7 +1754,8 @@ export interface AgentSessionActionReplayResponse {
 export interface AgentSessionActionRespondParams {
   actionScope?: AgentSessionActionScope | null;
   actionType: AgentSessionActionType;
-  confirmed: boolean;
+  confirmed?: boolean | null;
+  decision?: AgentSessionApprovalDecision | null;
   eventName?: null | string;
   metadata?: unknown;
   requestId: string;
@@ -262,7 +1772,23 @@ export interface AgentSessionActionScope {
   turnId?: null | string;
 }
 
-export type AgentSessionActionType = "ask_user" | "elicitation" | "tool_confirmation";
+export type AgentSessionActionType =
+  | "ask_user"
+  | "elicitation"
+  | "tool_confirmation";
+
+export interface AgentSessionAgentMessageDeltaNotification {
+  delta: string;
+  eventId: string;
+  itemId: string;
+  phase?: null | string;
+  sequence: number;
+  sessionId: string;
+  source?: null | string;
+  threadId?: null | string;
+  timestamp: string;
+  turnId?: null | string;
+}
 
 export interface AgentSessionAnalysisHandoffExportParams {
   locale?: null | string;
@@ -272,7 +1798,7 @@ export interface AgentSessionAnalysisHandoffExportParams {
 export interface AgentSessionAnalysisHandoffExportResponse {
   analysisAbsoluteRoot: string;
   analysisRelativeRoot: string;
-  artifacts?: (AgentSessionHandoffArtifact)[];
+  artifacts?: AgentSessionHandoffArtifact[];
   copyPrompt: string;
   evidencePackRelativeRoot: string;
   exportedAt: string;
@@ -291,11 +1817,11 @@ export interface AgentSessionAnalysisHandoffExportResponse {
 }
 
 export interface AgentSessionArchiveManyParams {
-  sessionIds?: (string)[];
+  sessionIds?: string[];
 }
 
 export interface AgentSessionArchiveManyResponse {
-  sessions?: (AgentSessionOverview)[];
+  sessions?: AgentSessionOverview[];
 }
 
 export interface AgentSessionCompactParams {
@@ -306,11 +1832,22 @@ export interface AgentSessionCompactParams {
 export interface AgentSessionCompactResponse {
   compacted: boolean;
   session: AgentSession;
-  turns?: (AgentTurn)[];
+  turns?: AgentTurn[];
+}
+
+export interface AgentSessionDeleteParams {
+  sessionId: string;
+}
+
+export interface AgentSessionDeleteResponse {
+  deleted: boolean;
+  sessionId: string;
 }
 
 export interface AgentSessionEventParams {
+  canonicalEvent?: CanonicalThreadEventNotification | null;
   event: AgentEvent;
+  typedEvent?: AgentSessionRuntimeEventNotification | null;
 }
 
 export interface AgentSessionFileCheckpointDetail {
@@ -323,8 +1860,8 @@ export interface AgentSessionFileCheckpointDetail {
   sessionId: string;
   snapshotPath: string;
   threadId: string;
-  validationIssues?: (string)[];
-  versionHistory?: (unknown)[];
+  validationIssues?: string[];
+  versionHistory?: unknown[];
 }
 
 export interface AgentSessionFileCheckpointDiffParams {
@@ -352,7 +1889,7 @@ export interface AgentSessionFileCheckpointListParams {
 
 export interface AgentSessionFileCheckpointListResponse {
   checkpointCount: number;
-  checkpoints?: (AgentSessionFileCheckpointSummary)[];
+  checkpoints?: AgentSessionFileCheckpointSummary[];
   sessionId: string;
   threadId: string;
 }
@@ -411,7 +1948,7 @@ export interface AgentSessionHandoffBundleExportParams {
 
 export interface AgentSessionHandoffBundleExportResponse {
   activeSubagentCount: number;
-  artifacts?: (AgentSessionHandoffArtifact)[];
+  artifacts?: AgentSessionHandoffArtifact[];
   bundleAbsoluteRoot: string;
   bundleRelativeRoot: string;
   exportedAt: string;
@@ -429,15 +1966,67 @@ export interface AgentSessionHandoffBundleExportResponse {
   workspaceRoot: string;
 }
 
+export interface AgentSessionItemLifecycleNotification {
+  eventId: string;
+  itemId: string;
+  itemType?: null | string;
+  ordinal?: number | null;
+  sequence: number;
+  sessionId: string;
+  status?: null | string;
+  threadId?: null | string;
+  timestamp: string;
+  turnId?: null | string;
+}
+
 export interface AgentSessionListParams {
   archivedOnly?: boolean | null;
+  cwd?: AgentSessionCwdFilter | null;
   includeArchived?: boolean | null;
   limit?: number | null;
   workspaceId?: null | string;
 }
 
 export interface AgentSessionListResponse {
-  sessions?: (AgentSessionOverview)[];
+  sessions?: AgentSessionOverview[];
+}
+
+export interface AgentSessionMediaReadParams {
+  length?: number | null;
+  maxBytes?: number | null;
+  offset?: number | null;
+  refId?: null | string;
+  sessionId: string;
+  sidecarRef?: unknown;
+  stream?: boolean;
+  uri?: null | string;
+}
+
+export interface AgentSessionMediaReadResponse {
+  bytes: number;
+  contentBase64: string;
+  contentRange: string;
+  hasMore: boolean;
+  length: number;
+  mimeType?: null | string;
+  offset: number;
+  sessionId: string;
+  sha256: string;
+  sidecarRef?: unknown;
+  totalBytes: number;
+  uri: string;
+}
+
+export interface AgentSessionMessageCreatedNotification {
+  eventId: string;
+  input?: AgentInput | null;
+  role?: null | string;
+  sequence: number;
+  sessionId: string;
+  text?: null | string;
+  threadId?: null | string;
+  timestamp: string;
+  turnId?: null | string;
 }
 
 export interface AgentSessionObjectiveAuditParams {
@@ -486,7 +2075,7 @@ export interface AgentSessionObjectiveSetParams {
   objectiveText: string;
   riskPolicy?: unknown;
   sessionId: string;
-  successCriteria?: (string)[];
+  successCriteria?: string[];
   workspaceId?: null | string;
 }
 
@@ -505,13 +2094,18 @@ export interface AgentSessionObjectiveStatusUpdateResponse {
 }
 
 export interface AgentSessionOverview {
+  activeTurnId?: null | string;
   archivedAt?: null | string;
+  businessObjectRefMetadata?: unknown;
   createdAt: string;
   executionStrategy?: null | string;
+  latestTurnStatus?: null | string;
   messagesCount: number;
   model: string;
+  queuedTurnCount?: number;
   sessionId: string;
   threadId?: null | string;
+  threadStatus?: string;
   title?: null | string;
   updatedAt: string;
   workingDir?: null | string;
@@ -527,7 +2121,7 @@ export interface AgentSessionQueuedTurnPromoteResponse {
   promoted: boolean;
   queuedTurnId: string;
   session: AgentSession;
-  turns?: (AgentTurn)[];
+  turns?: AgentTurn[];
 }
 
 export interface AgentSessionQueuedTurnRemoveParams {
@@ -539,7 +2133,7 @@ export interface AgentSessionQueuedTurnRemoveResponse {
   queuedTurnId: string;
   removed: boolean;
   session: AgentSession;
-  turns?: (AgentTurn)[];
+  turns?: AgentTurn[];
 }
 
 export interface AgentSessionReadParams {
@@ -552,7 +2146,7 @@ export interface AgentSessionReadParams {
 export interface AgentSessionReadResponse {
   detail?: unknown;
   session: AgentSession;
-  turns?: (AgentTurn)[];
+  turns?: AgentTurn[];
 }
 
 export interface AgentSessionReplayCaseExportParams {
@@ -561,7 +2155,7 @@ export interface AgentSessionReplayCaseExportParams {
 }
 
 export interface AgentSessionReplayCaseExportResponse {
-  artifacts?: (AgentSessionHandoffArtifact)[];
+  artifacts?: AgentSessionHandoffArtifact[];
   evidencePackRelativeRoot: string;
   exportedAt: string;
   handoffBundleRelativeRoot: string;
@@ -583,6 +2177,7 @@ export interface AgentSessionReplayCaseExportResponse {
 export interface AgentSessionReplayedActionRequired {
   actionType: AgentSessionActionType;
   arguments?: unknown;
+  availableDecisions?: AgentSessionApprovalDecision[] | null;
   prompt?: null | string;
   questions?: unknown;
   requestId: string;
@@ -596,25 +2191,25 @@ export interface AgentSessionReviewDecision {
   chosenFixStrategy?: string;
   decisionStatus: string;
   decisionSummary?: string;
-  followupActions?: (string)[];
+  followupActions?: string[];
   humanReviewer?: string;
   notes?: string;
-  regressionRequirements?: (string)[];
+  regressionRequirements?: string[];
   riskLevel: string;
-  riskTags?: (string)[];
+  riskTags?: string[];
 }
 
 export interface AgentSessionReviewDecisionSaveParams {
   chosenFixStrategy?: string;
   decisionStatus: string;
   decisionSummary?: string;
-  followupActions?: (string)[];
+  followupActions?: string[];
   humanReviewer?: string;
   locale?: null | string;
   notes?: string;
-  regressionRequirements?: (string)[];
+  regressionRequirements?: string[];
   riskLevel: string;
-  riskTags?: (string)[];
+  riskTags?: string[];
   sessionId: string;
 }
 
@@ -625,11 +2220,11 @@ export interface AgentSessionReviewDecisionTemplateExportParams {
 
 export interface AgentSessionReviewDecisionTemplateExportResponse {
   analysisAbsoluteRoot: string;
-  analysisArtifacts?: (AgentSessionHandoffArtifact)[];
+  analysisArtifacts?: AgentSessionHandoffArtifact[];
   analysisRelativeRoot: string;
-  artifacts?: (AgentSessionHandoffArtifact)[];
+  artifacts?: AgentSessionHandoffArtifact[];
   decision: AgentSessionReviewDecision;
-  decisionStatusOptions?: (string)[];
+  decisionStatusOptions?: string[];
   defaultDecisionStatus: string;
   evidencePackRelativeRoot: string;
   exportedAt: string;
@@ -639,9 +2234,9 @@ export interface AgentSessionReviewDecisionTemplateExportResponse {
   queuedTurnCount: number;
   replayCaseRelativeRoot: string;
   reviewAbsoluteRoot: string;
-  reviewChecklist?: (string)[];
+  reviewChecklist?: string[];
   reviewRelativeRoot: string;
-  riskLevelOptions?: (string)[];
+  riskLevelOptions?: string[];
   sessionId: string;
   threadId: string;
   threadStatus: string;
@@ -649,6 +2244,55 @@ export interface AgentSessionReviewDecisionTemplateExportResponse {
   workspaceId?: null | string;
   workspaceRoot: string;
 }
+
+export interface AgentSessionRuntimeEventAppendParams {
+  runtimeEvents?: AgentSessionRuntimeEventInput[];
+  sessionId: string;
+  turnId?: null | string;
+}
+
+export interface AgentSessionRuntimeEventAppendResponse {
+  events?: AgentEvent[];
+}
+
+export interface AgentSessionRuntimeEventInput {
+  payload: unknown;
+  type: string;
+}
+
+export type AgentSessionRuntimeEventNotification =
+  | {
+      method: "message/created";
+      params: AgentSessionMessageCreatedNotification;
+    }
+  | {
+      method: "turn/accepted";
+      params: AgentSessionTurnLifecycleNotification;
+    }
+  | {
+      method: "turn/started";
+      params: AgentSessionTurnLifecycleNotification;
+    }
+  | {
+      method: "turn/completed";
+      params: AgentSessionTurnLifecycleNotification;
+    }
+  | {
+      method: "turn/failed";
+      params: AgentSessionTurnLifecycleNotification;
+    }
+  | {
+      method: "item/agentMessage/delta";
+      params: AgentSessionAgentMessageDeltaNotification;
+    }
+  | {
+      method: "item/started";
+      params: AgentSessionItemLifecycleNotification;
+    }
+  | {
+      method: "item/completed";
+      params: AgentSessionItemLifecycleNotification;
+    };
 
 export interface AgentSessionStartParams {
   appId: string;
@@ -663,16 +2307,34 @@ export interface AgentSessionStartResponse {
   session: AgentSession;
 }
 
-export type AgentSessionStatus = "canceled" | "completed" | "failed" | "idle" | "running" | "waitingAction";
+export type AgentSessionStatus =
+  | "canceled"
+  | "completed"
+  | "failed"
+  | "idle"
+  | "running"
+  | "waitingAction";
 
 export interface AgentSessionThreadResumeParams {
+  resumeContract?: RuntimeResumeContract | null;
   sessionId: string;
 }
 
 export interface AgentSessionThreadResumeResponse {
   resumed: boolean;
   session: AgentSession;
-  turns?: (AgentTurn)[];
+  turns?: AgentTurn[];
+}
+
+export interface AgentSessionToolInventoryReadParams {
+  browserAssist?: boolean;
+  caller?: null | string;
+  metadata?: unknown;
+  workbench?: boolean;
+}
+
+export interface AgentSessionToolInventoryReadResponse {
+  inventory: unknown;
 }
 
 export interface AgentSessionTurnCancelParams {
@@ -681,6 +2343,16 @@ export interface AgentSessionTurnCancelParams {
 }
 
 export type AgentSessionTurnCancelResponse = Record<string, unknown>;
+
+export interface AgentSessionTurnLifecycleNotification {
+  eventId: string;
+  sequence: number;
+  sessionId: string;
+  status: AgentTurnStatus;
+  threadId?: null | string;
+  timestamp: string;
+  turnId?: null | string;
+}
 
 export interface AgentSessionTurnStartParams {
   input: AgentInput;
@@ -697,13 +2369,14 @@ export interface AgentSessionTurnStartResponse {
 
 export interface AgentSessionUpdateParams {
   archived?: boolean | null;
+  articleWorkspaceEditedDraft?: unknown;
+  articleWorkspaceSelectedObjectRef?: unknown;
   executionStrategy?: null | string;
   modelName?: null | string;
   providerName?: null | string;
   providerSelector?: null | string;
   recentAccessMode?: null | string;
   recentPreferences?: unknown;
-  recentTeamSelection?: unknown;
   sessionId: string;
   title?: null | string;
 }
@@ -711,6 +2384,30 @@ export interface AgentSessionUpdateParams {
 export interface AgentSessionUpdateResponse {
   session: AgentSessionOverview;
 }
+
+export interface AgentThreadContentReference {
+  byte_size?: number | null;
+  mime_type: string;
+  preview_url?: null | string;
+  sha256?: null | string;
+  sidecar_ref?: unknown;
+  source_path?: null | string;
+  source_uri?: null | string;
+  title?: null | string;
+  uri: string;
+}
+
+export type AgentThreadMessageContentPart =
+  | {
+      text: string;
+      type: "text";
+    }
+  | {
+      caption?: null | string;
+      kind: string;
+      reference: AgentThreadContentReference;
+      type: "media";
+    };
 
 export interface AgentTurn {
   completedAt?: null | string;
@@ -721,9 +2418,1822 @@ export interface AgentTurn {
   turnId: string;
 }
 
-export type AgentTurnStatus = "accepted" | "canceled" | "completed" | "failed" | "queued" | "running" | "waitingAction";
+export type AgentTurnStatus =
+  | "accepted"
+  | "canceled"
+  | "completed"
+  | "failed"
+  | "queued"
+  | "running"
+  | "waitingAction";
 
-export type ArtifactContentStatus = "available" | "notRequested" | "unavailable";
+export type AppServerClientRequest =
+  | {
+      id: number | string;
+      method: "initialize";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "capability/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "artifact/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "fileSystem/listDirectory";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "fileSystem/readFilePreview";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "fileSystem/createFile";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "fileSystem/createDirectory";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "fileSystem/renameFile";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "fileSystem/deleteFile";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectGit/status";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectGit/diff";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectGit/commits/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectGit/branch/checkout";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectGit/branch/create";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectGit/worktree/create";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectShell/session/start";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectShell/session/write";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectShell/session/resize";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectShell/session/kill";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectShell/session/drainEvents";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "executionProcess/start";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "executionProcess/writeStdin";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "executionProcess/interrupt";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "executionProcess/terminate";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "executionProcess/status";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "executionProcess/drainOutput";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "evidence/export";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/handoffBundle/export";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/replayCase/export";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/analysisHandoff/export";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/reviewDecisionTemplate/export";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/reviewDecision/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "thread/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "thread/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "thread/turns/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "thread/items/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/update";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/archiveMany";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/delete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/objective/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/objective/set";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/objective/status/update";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/objective/clear";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/objective/continue";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/objective/audit";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/compact";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/thread/resume";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/queuedTurn/remove";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/queuedTurn/promote";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/fileCheckpoint/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/fileCheckpoint/get";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/fileCheckpoint/diff";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/fileCheckpoint/restore";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/toolInventory/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "sessionFile/getOrCreate";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "sessionFile/updateMeta";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "sessionFile/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "sessionFile/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "sessionFile/resolvePath";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "sessionFile/delete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "sessionFile/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspace/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspace/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspace/update";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspace/delete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspace/ensure";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspace/byPath/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspace/default/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspace/default/ensure";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspace/projectsRoot/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspace/projectPath/resolve";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspace/ensureReady";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skill/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skill/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillManagement/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillManagement/install";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillManagement/uninstall";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillRepository/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillRepository/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillRepository/delete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillCache/refresh";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillInstalledDirectories/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillLocal/inspect";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillLocal/detail/inspect";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillLocal/scaffold/create";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillLocal/import";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillLocal/rename";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillRemote/inspect";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillPackage/local/inspect";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillPackage/local/install";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillPackage/local/replace";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillPackage/export";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillMarketplace/install";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "skillPackage/download/install";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "gatewayChannel/start";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "gatewayChannel/stop";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "gatewayChannel/status";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "telegramChannel/probe";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "feishuChannel/probe";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "discordChannel/probe";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "wechatChannel/probe";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "wechatChannel/login/start";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "wechatChannel/login/wait";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "wechatChannel/accounts/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "wechatChannel/account/remove";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "wechatChannel/runtimeModel/set";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "gatewayTunnel/probe";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "gatewayTunnel/cloudflared/detect";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "gatewayTunnel/cloudflared/install";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "gatewayTunnel/create";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "gatewayTunnel/start";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "gatewayTunnel/stop";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "gatewayTunnel/restart";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "gatewayTunnel/status";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "gatewayTunnel/syncWebhookUrl";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mediaTaskArtifact/image/create";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mediaTaskArtifact/audio/create";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mediaTaskArtifact/video/create";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mediaTaskArtifact/image/complete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mediaTaskArtifact/audio/complete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mediaTaskArtifact/get";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mediaTaskArtifact/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mediaTaskArtifact/cancel";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "galleryMaterial/get";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "galleryMaterialMetadata/create";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "galleryMaterialMetadata/get";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "galleryMaterialMetadata/update";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "galleryMaterialMetadata/delete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "galleryMaterial/listByImageCategory";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "galleryMaterial/listByLayoutCategory";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "galleryMaterial/listByMood";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectMaterial/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectMaterial/get";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectMaterial/count";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectMaterial/upload";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectMaterial/importFromUrl";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectMaterial/update";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectMaterial/delete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectMaterial/content";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "voiceAsrCredential/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "voiceAsrCredential/create";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "voiceAsrCredential/update";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "voiceAsrCredential/delete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "voiceAsrCredential/default/set";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "voiceAsrCredential/test";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "voiceInstruction/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "voiceInstruction/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "voiceInstruction/delete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "voiceModel/default/set";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "voiceModel/testTranscribeFile";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "voiceTranscription/transcribeAudio";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "voiceTranscription/polishText";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspaceSkillBindings/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspaceRegisteredSkills/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspaceRightSurface/request";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspaceRightSurface/pending/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspaceRightSurface/pending/consume";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workspaceRightSurface/pending/dismiss";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "browserSession/target/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "browserSession/open";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "browserSession/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "browserSession/close";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "browserSession/event/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "browserSession/action/execute";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "pluginLocalPackage/inspect";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "pluginLocalPackage/export";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "pluginPackage/fetchCloud";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "pluginInstalled/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "pluginInstalled/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "pluginInstalled/disabled/set";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "pluginInstalled/uninstall/rehearsal";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "pluginInstalled/uninstall";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "pluginHostLifecycle/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "pluginShell/prepare";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "pluginUiRuntime/start";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "pluginUiRuntime/status";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "pluginUiRuntime/stop";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "soulStylePack/install";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "soulStylePack/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "soulStylePack/status/set";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "soulStylePack/uninstall";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "knowledgePack/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "knowledgePack/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "knowledgePack/source/import";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "knowledgePack/compile";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "knowledgePack/default/set";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "knowledgePack/status/update";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "knowledgeContext/resolve";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "knowledgeContextRun/validate";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "automationScheduler/config/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "automationScheduler/config/update";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "automationScheduler/status";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "automationJob/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "automationJob/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "automationJob/create";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "automationJob/update";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "automationJob/delete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "automationJob/runNow";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "automationJob/health";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "automationJob/runHistory";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "automationSchedule/preview";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "automationSchedule/validate";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpServer/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpServerStatus/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpServer/create";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpServer/update";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpServer/delete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpServer/enabled/set";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpServer/importFromApp";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpServer/syncAllToLive";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpServer/oauth/login";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpServer/start";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpServer/stop";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpTool/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpTool/listForContext";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpTool/search";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpTool/call";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpTool/callWithCaller";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpPrompt/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpPrompt/get";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpResource/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpResource/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpResource/subscribe";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "mcpResource/unsubscribe";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "projectMemory/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "memoryStore/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "memoryStore/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "memoryStore/search";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "memoryStore/addNote";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "memoryStore/consolidate";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "memoryStore/review/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "memoryStore/review/resolve";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "memoryStore/health";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "memoryStore/reset";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "memoryStore/index/rebuild";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "log/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "log/persistedTail";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "log/clear";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "log/diagnosticHistory/clear";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "diagnostics/logStorage/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "diagnostics/supportBundle/export";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "diagnostics/server/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "diagnostics/windowsStartup/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "diagnostics/trace/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "diagnostics/trace/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "diagnostics/trace/export";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "usageStats/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "usageStats/modelRanking/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "usageStats/dailyTrends/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "model/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelPreferences/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelSyncState/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProvider/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProvider/catalog/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProvider/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProvider/create";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProvider/update";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProvider/delete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProvider/sortOrders/update";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProviderConfig/export";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProviderConfig/import";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProvider/testConnection";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProvider/testChat";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProvider/fetchModels";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProviderKey/create";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProviderKey/update";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProviderKey/delete";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProviderKey/next";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProviderKey/usage/record";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProviderKey/error/record";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProviderUiState/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProviderUiState/write";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProviderAlias/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "modelProviderAlias/list";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "connectDeepLink/resolve";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "connectOpenDeepLink/resolve";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "connectRelayApiKey/save";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "connectCallback/send";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "conversationImport/source/scan";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "conversationImport/thread/preview";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "conversationImport/thread/commit";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/start";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/media/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/turn/start";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/turn/cancel";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/action/replay";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/action/respond";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "agentSession/runtimeEvents/append";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workflow/read";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workflow/cancel";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workflow/retry";
+      params?: unknown;
+    }
+  | {
+      id: number | string;
+      method: "workflow/respond";
+      params?: unknown;
+    };
+
+export type AppServerMethodKind = "notification" | "request" | "serverRequest";
+
+export interface AppServerMethodSpec {
+  kind: AppServerMethodKind;
+  method: string;
+}
+
+export type AppServerNotificationMethod =
+  | "agentSession/event"
+  | "configWarning"
+  | "initialized"
+  | "serverRequest/resolved"
+  | "workspaceRightSurface/pendingChanged";
+
+export type AppServerRequestAccess = "exclusive" | "sharedRead";
+
+export interface AppServerRequestAccessSpec {
+  access: AppServerRequestAccess;
+  method: string;
+}
+
+export type AppServerRequestMethod =
+  | "agentSession/action/replay"
+  | "agentSession/action/respond"
+  | "agentSession/analysisHandoff/export"
+  | "agentSession/archiveMany"
+  | "agentSession/compact"
+  | "agentSession/delete"
+  | "agentSession/fileCheckpoint/diff"
+  | "agentSession/fileCheckpoint/get"
+  | "agentSession/fileCheckpoint/list"
+  | "agentSession/fileCheckpoint/restore"
+  | "agentSession/handoffBundle/export"
+  | "agentSession/list"
+  | "agentSession/media/read"
+  | "agentSession/objective/audit"
+  | "agentSession/objective/clear"
+  | "agentSession/objective/continue"
+  | "agentSession/objective/read"
+  | "agentSession/objective/set"
+  | "agentSession/objective/status/update"
+  | "agentSession/queuedTurn/promote"
+  | "agentSession/queuedTurn/remove"
+  | "agentSession/read"
+  | "agentSession/replayCase/export"
+  | "agentSession/reviewDecision/save"
+  | "agentSession/reviewDecisionTemplate/export"
+  | "agentSession/runtimeEvents/append"
+  | "agentSession/start"
+  | "agentSession/thread/resume"
+  | "agentSession/toolInventory/read"
+  | "agentSession/turn/cancel"
+  | "agentSession/turn/start"
+  | "agentSession/update"
+  | "artifact/read"
+  | "automationJob/create"
+  | "automationJob/delete"
+  | "automationJob/health"
+  | "automationJob/list"
+  | "automationJob/read"
+  | "automationJob/runHistory"
+  | "automationJob/runNow"
+  | "automationJob/update"
+  | "automationSchedule/preview"
+  | "automationSchedule/validate"
+  | "automationScheduler/config/read"
+  | "automationScheduler/config/update"
+  | "automationScheduler/status"
+  | "browserSession/action/execute"
+  | "browserSession/close"
+  | "browserSession/event/list"
+  | "browserSession/open"
+  | "browserSession/read"
+  | "browserSession/target/list"
+  | "capability/list"
+  | "connectCallback/send"
+  | "connectDeepLink/resolve"
+  | "connectOpenDeepLink/resolve"
+  | "connectRelayApiKey/save"
+  | "conversationImport/source/scan"
+  | "conversationImport/thread/commit"
+  | "conversationImport/thread/preview"
+  | "diagnostics/logStorage/read"
+  | "diagnostics/server/read"
+  | "diagnostics/supportBundle/export"
+  | "diagnostics/trace/export"
+  | "diagnostics/trace/list"
+  | "diagnostics/trace/read"
+  | "diagnostics/windowsStartup/read"
+  | "discordChannel/probe"
+  | "evidence/export"
+  | "executionProcess/drainOutput"
+  | "executionProcess/interrupt"
+  | "executionProcess/start"
+  | "executionProcess/status"
+  | "executionProcess/terminate"
+  | "executionProcess/writeStdin"
+  | "feishuChannel/probe"
+  | "fileSystem/createDirectory"
+  | "fileSystem/createFile"
+  | "fileSystem/deleteFile"
+  | "fileSystem/listDirectory"
+  | "fileSystem/readFilePreview"
+  | "fileSystem/renameFile"
+  | "galleryMaterial/get"
+  | "galleryMaterial/listByImageCategory"
+  | "galleryMaterial/listByLayoutCategory"
+  | "galleryMaterial/listByMood"
+  | "galleryMaterialMetadata/create"
+  | "galleryMaterialMetadata/delete"
+  | "galleryMaterialMetadata/get"
+  | "galleryMaterialMetadata/update"
+  | "gatewayChannel/start"
+  | "gatewayChannel/status"
+  | "gatewayChannel/stop"
+  | "gatewayTunnel/cloudflared/detect"
+  | "gatewayTunnel/cloudflared/install"
+  | "gatewayTunnel/create"
+  | "gatewayTunnel/probe"
+  | "gatewayTunnel/restart"
+  | "gatewayTunnel/start"
+  | "gatewayTunnel/status"
+  | "gatewayTunnel/stop"
+  | "gatewayTunnel/syncWebhookUrl"
+  | "initialize"
+  | "knowledgeContext/resolve"
+  | "knowledgeContextRun/validate"
+  | "knowledgePack/compile"
+  | "knowledgePack/default/set"
+  | "knowledgePack/list"
+  | "knowledgePack/read"
+  | "knowledgePack/source/import"
+  | "knowledgePack/status/update"
+  | "log/clear"
+  | "log/diagnosticHistory/clear"
+  | "log/list"
+  | "log/persistedTail"
+  | "mcpPrompt/get"
+  | "mcpPrompt/list"
+  | "mcpResource/list"
+  | "mcpResource/read"
+  | "mcpResource/subscribe"
+  | "mcpResource/unsubscribe"
+  | "mcpServer/create"
+  | "mcpServer/delete"
+  | "mcpServer/enabled/set"
+  | "mcpServer/importFromApp"
+  | "mcpServer/list"
+  | "mcpServer/oauth/login"
+  | "mcpServer/start"
+  | "mcpServer/stop"
+  | "mcpServer/syncAllToLive"
+  | "mcpServer/update"
+  | "mcpServerStatus/list"
+  | "mcpTool/call"
+  | "mcpTool/callWithCaller"
+  | "mcpTool/list"
+  | "mcpTool/listForContext"
+  | "mcpTool/search"
+  | "mediaTaskArtifact/audio/complete"
+  | "mediaTaskArtifact/audio/create"
+  | "mediaTaskArtifact/cancel"
+  | "mediaTaskArtifact/get"
+  | "mediaTaskArtifact/image/complete"
+  | "mediaTaskArtifact/image/create"
+  | "mediaTaskArtifact/list"
+  | "mediaTaskArtifact/video/create"
+  | "memoryStore/addNote"
+  | "memoryStore/consolidate"
+  | "memoryStore/health"
+  | "memoryStore/index/rebuild"
+  | "memoryStore/list"
+  | "memoryStore/read"
+  | "memoryStore/reset"
+  | "memoryStore/review/list"
+  | "memoryStore/review/resolve"
+  | "memoryStore/search"
+  | "model/list"
+  | "modelPreferences/list"
+  | "modelProvider/catalog/list"
+  | "modelProvider/create"
+  | "modelProvider/delete"
+  | "modelProvider/fetchModels"
+  | "modelProvider/list"
+  | "modelProvider/read"
+  | "modelProvider/sortOrders/update"
+  | "modelProvider/testChat"
+  | "modelProvider/testConnection"
+  | "modelProvider/update"
+  | "modelProviderAlias/list"
+  | "modelProviderAlias/read"
+  | "modelProviderConfig/export"
+  | "modelProviderConfig/import"
+  | "modelProviderKey/create"
+  | "modelProviderKey/delete"
+  | "modelProviderKey/error/record"
+  | "modelProviderKey/next"
+  | "modelProviderKey/update"
+  | "modelProviderKey/usage/record"
+  | "modelProviderUiState/read"
+  | "modelProviderUiState/write"
+  | "modelSyncState/read"
+  | "pluginHostLifecycle/list"
+  | "pluginInstalled/disabled/set"
+  | "pluginInstalled/list"
+  | "pluginInstalled/save"
+  | "pluginInstalled/uninstall"
+  | "pluginInstalled/uninstall/rehearsal"
+  | "pluginLocalPackage/export"
+  | "pluginLocalPackage/inspect"
+  | "pluginPackage/fetchCloud"
+  | "pluginShell/prepare"
+  | "pluginUiRuntime/start"
+  | "pluginUiRuntime/status"
+  | "pluginUiRuntime/stop"
+  | "projectGit/branch/checkout"
+  | "projectGit/branch/create"
+  | "projectGit/commits/list"
+  | "projectGit/diff"
+  | "projectGit/status"
+  | "projectGit/worktree/create"
+  | "projectMaterial/content"
+  | "projectMaterial/count"
+  | "projectMaterial/delete"
+  | "projectMaterial/get"
+  | "projectMaterial/importFromUrl"
+  | "projectMaterial/list"
+  | "projectMaterial/update"
+  | "projectMaterial/upload"
+  | "projectMemory/read"
+  | "projectShell/session/drainEvents"
+  | "projectShell/session/kill"
+  | "projectShell/session/resize"
+  | "projectShell/session/start"
+  | "projectShell/session/write"
+  | "sessionFile/delete"
+  | "sessionFile/getOrCreate"
+  | "sessionFile/list"
+  | "sessionFile/read"
+  | "sessionFile/resolvePath"
+  | "sessionFile/save"
+  | "sessionFile/updateMeta"
+  | "skill/list"
+  | "skill/read"
+  | "skillCache/refresh"
+  | "skillInstalledDirectories/list"
+  | "skillLocal/detail/inspect"
+  | "skillLocal/import"
+  | "skillLocal/inspect"
+  | "skillLocal/rename"
+  | "skillLocal/scaffold/create"
+  | "skillManagement/install"
+  | "skillManagement/list"
+  | "skillManagement/uninstall"
+  | "skillMarketplace/install"
+  | "skillPackage/download/install"
+  | "skillPackage/export"
+  | "skillPackage/local/inspect"
+  | "skillPackage/local/install"
+  | "skillPackage/local/replace"
+  | "skillRemote/inspect"
+  | "skillRepository/delete"
+  | "skillRepository/list"
+  | "skillRepository/save"
+  | "soulStylePack/install"
+  | "soulStylePack/list"
+  | "soulStylePack/status/set"
+  | "soulStylePack/uninstall"
+  | "telegramChannel/probe"
+  | "thread/items/list"
+  | "thread/list"
+  | "thread/read"
+  | "thread/turns/list"
+  | "usageStats/dailyTrends/list"
+  | "usageStats/modelRanking/list"
+  | "usageStats/read"
+  | "voiceAsrCredential/create"
+  | "voiceAsrCredential/default/set"
+  | "voiceAsrCredential/delete"
+  | "voiceAsrCredential/list"
+  | "voiceAsrCredential/test"
+  | "voiceAsrCredential/update"
+  | "voiceInstruction/delete"
+  | "voiceInstruction/list"
+  | "voiceInstruction/save"
+  | "voiceModel/default/set"
+  | "voiceModel/testTranscribeFile"
+  | "voiceTranscription/polishText"
+  | "voiceTranscription/transcribeAudio"
+  | "wechatChannel/account/remove"
+  | "wechatChannel/accounts/list"
+  | "wechatChannel/login/start"
+  | "wechatChannel/login/wait"
+  | "wechatChannel/probe"
+  | "wechatChannel/runtimeModel/set"
+  | "workflow/cancel"
+  | "workflow/read"
+  | "workflow/respond"
+  | "workflow/retry"
+  | "workspace/byPath/read"
+  | "workspace/default/ensure"
+  | "workspace/default/read"
+  | "workspace/delete"
+  | "workspace/ensure"
+  | "workspace/ensureReady"
+  | "workspace/list"
+  | "workspace/projectPath/resolve"
+  | "workspace/projectsRoot/read"
+  | "workspace/read"
+  | "workspace/update"
+  | "workspaceRegisteredSkills/list"
+  | "workspaceRightSurface/pending/consume"
+  | "workspaceRightSurface/pending/dismiss"
+  | "workspaceRightSurface/pending/list"
+  | "workspaceRightSurface/request"
+  | "workspaceSkillBindings/list";
+
+export type AppServerRequestSerializationScope =
+  | "browserSession"
+  | "executionProcess"
+  | "fileSystemMutation"
+  | "mcpOauth"
+  | "mcpResourceSubscription"
+  | "projectShellSession"
+  | "thread";
+
+export interface AppServerRequestSerializationScopeSpec {
+  method: string;
+  scope: AppServerRequestSerializationScope;
+}
+
+export type ArtifactContentStatus =
+  | "available"
+  | "notRequested"
+  | "unavailable";
 
 export interface ArtifactReadParams {
   artifactRef?: null | string;
@@ -735,7 +4245,7 @@ export interface ArtifactReadParams {
 }
 
 export interface ArtifactReadResponse {
-  artifacts?: (ArtifactSummary)[];
+  artifacts?: ArtifactSummary[];
   nextCursor?: null | string;
 }
 
@@ -752,6 +4262,20 @@ export interface ArtifactSummary {
   status?: null | string;
   title?: null | string;
   turnId?: null | string;
+}
+
+export type AuthKind =
+  | "api_key_ref"
+  | "direct_api_key"
+  | "no_auth"
+  | "oem_managed";
+
+export interface AuthMaterialRef {
+  credentialRef?: null | string;
+  headerName?: null | string;
+  headerPrefix?: null | string;
+  kind: AuthKind;
+  providerId?: null | string;
 }
 
 export interface AutomationJobCreateParams {
@@ -775,7 +4299,7 @@ export interface AutomationJobIdParams {
 }
 
 export interface AutomationJobListResponse {
-  jobs?: (unknown)[];
+  jobs?: unknown[];
 }
 
 export interface AutomationJobReadResponse {
@@ -788,7 +4312,7 @@ export interface AutomationJobRunHistoryParams {
 }
 
 export interface AutomationJobRunHistoryResponse {
-  runs?: (unknown)[];
+  runs?: unknown[];
 }
 
 export interface AutomationJobRunNowResponse {
@@ -833,6 +4357,109 @@ export interface AutomationSchedulerStatusResponse {
   status: unknown;
 }
 
+export interface BrowserSessionActionExecuteParams {
+  action: string;
+  args?: unknown;
+  sessionId: string;
+}
+
+export interface BrowserSessionActionExecuteResponse {
+  action: string;
+  result?: unknown;
+  sessionId: string;
+}
+
+export interface BrowserSessionCloseResponse {
+  sessionId: string;
+  status: string;
+}
+
+export interface BrowserSessionEventItem {
+  occurredAt: string;
+  payload?: unknown;
+  sequence: number;
+  sessionId: string;
+}
+
+export interface BrowserSessionEventListParams {
+  cursor?: number | null;
+  sessionId: string;
+}
+
+export interface BrowserSessionEventListResponse {
+  events?: BrowserSessionEventItem[];
+  nextCursor: number;
+}
+
+export interface BrowserSessionIdParams {
+  sessionId: string;
+}
+
+export interface BrowserSessionOpenParams {
+  environmentPresetId?: null | string;
+  environmentPresetName?: null | string;
+  launchUrl?: null | string;
+  profileKey: string;
+  remoteDebuggingPort: number;
+  targetId?: null | string;
+}
+
+export interface BrowserSessionOpenResponse {
+  session: BrowserSessionState;
+}
+
+export interface BrowserSessionPageInfo {
+  markdown: string;
+  title: string;
+  updatedAt: string;
+  url: string;
+}
+
+export interface BrowserSessionReadResponse {
+  session: BrowserSessionState;
+}
+
+export interface BrowserSessionState {
+  connected: boolean;
+  controlMode: string;
+  createdAt: string;
+  devtoolsFrontendUrl?: null | string;
+  environmentPresetId?: null | string;
+  environmentPresetName?: null | string;
+  humanReason?: null | string;
+  lastError?: null | string;
+  lastEventAt?: null | string;
+  lastFrameAt?: null | string;
+  lastPageInfo?: BrowserSessionPageInfo | null;
+  lifecycleState: string;
+  profileKey: string;
+  remoteDebuggingPort: number;
+  sessionId: string;
+  streamMode?: null | string;
+  targetId: string;
+  targetTitle: string;
+  targetUrl: string;
+  transportKind: string;
+  wsDebuggerUrl: string;
+}
+
+export interface BrowserSessionTargetInfo {
+  devtoolsFrontendUrl?: null | string;
+  id: string;
+  targetType?: string;
+  title?: string;
+  url?: string;
+  webSocketDebuggerUrl?: null | string;
+}
+
+export interface BrowserSessionTargetListParams {
+  remoteDebuggingPort: number;
+}
+
+export interface BrowserSessionTargetListResponse {
+  targets?: BrowserSessionTargetInfo[];
+}
+
 export interface BusinessObjectRef {
   id: string;
   kind: string;
@@ -841,10 +4468,24 @@ export interface BusinessObjectRef {
   uri?: null | string;
 }
 
+export type CanonicalThreadEventNotification =
+  | {
+      method: "thread/updated";
+      params: Thread;
+    }
+  | {
+      method: "turn/updated";
+      params: Turn;
+    }
+  | {
+      method: "item/updated";
+      params: ThreadItem;
+    };
+
 export interface CapabilityDescriptor {
   description?: null | string;
   id: string;
-  methods?: (string)[];
+  methods?: string[];
   title: string;
 }
 
@@ -857,8 +4498,27 @@ export interface CapabilityListParams {
 }
 
 export interface CapabilityListResponse {
-  capabilities?: (CapabilityDescriptor)[];
+  capabilities?: CapabilityDescriptor[];
   nextCursor?: null | string;
+  runtimeCapabilityManifest?: RuntimeCapabilityManifest | null;
+}
+
+export interface CapabilityRequirement {
+  capabilities?: string[];
+  inputModalities?: string[];
+  outputModalities?: string[];
+  runtimeFeatures?: string[];
+  taskFamilies?: string[];
+}
+
+export interface CapabilitySnapshot {
+  capabilities?: ModelCapabilitiesInfo;
+  inputModalities?: string[];
+  outputModalities?: string[];
+  reasonCode?: null | string;
+  runtimeFeatures?: string[];
+  source?: null | string;
+  taskFamilies?: string[];
 }
 
 export interface ChannelProbeParams {
@@ -872,7 +4532,7 @@ export interface ChannelProbeResponse {
 }
 
 export interface ClientCapabilities {
-  eventMethods?: (string)[];
+  eventMethods?: string[];
   experimental?: boolean;
 }
 
@@ -880,6 +4540,17 @@ export interface ClientInfo {
   name: string;
   title?: null | string;
   version?: null | string;
+}
+
+export type ClientNotification = {
+  method: "initialized";
+};
+
+export interface ConfigWarningNotification {
+  details?: null | string;
+  path?: null | string;
+  range?: TextRange | null;
+  summary: string;
 }
 
 export interface ConnectCallbackSendParams {
@@ -935,92 +4606,147 @@ export interface ConnectRelayApiKeySaveResponse {
   providerName: string;
 }
 
-export interface DeviceFlowDeleteParams {
-  ids?: (string)[];
+export interface ConversationImportFidelitySummary {
+  approvals: number;
+  attachments: number;
+  budgetDropped: number;
+  commands: number;
+  mcp: number;
+  messages: number;
+  patches: number;
+  provenanceOnly: number;
+  reasoning: number;
+  tools: number;
+  unsupported: number;
+  webSearch: number;
 }
 
-export interface DeviceFlowDeleteResponse {
-  deleted: number;
+export interface ConversationImportPreviewDryRun {
+  unsupportedItems: number;
+  willAppendToExistingSession: boolean;
+  willCreateSession: boolean;
+  willImportAttachments: number;
+  willImportMessages: number;
+  willImportTimelineItems: number;
+  willImportTurns: number;
 }
 
-export interface DeviceFlowHealingListParams {
-  flowId: string;
-  status?: null | string;
+export interface ConversationImportPreviewEvent {
+  kind: string;
+  label?: null | string;
+  provenance?: ConversationImportSourceProvenance | null;
+  timestamp?: null | string;
 }
 
-export interface DeviceFlowHealingListResponse {
-  revisions?: (HealingRevision)[];
+export interface ConversationImportPreviewMessage {
+  attachments?: AgentAttachment[];
+  omittedBytes?: number;
+  provenance?: ConversationImportSourceProvenance | null;
+  role: string;
+  sourceType?: null | string;
+  text: string;
+  timestamp?: null | string;
+  truncated?: boolean;
 }
 
-export interface DeviceFlowHealingResolveParams {
-  id: string;
-  resolution: string;
+export interface ConversationImportPreviewSummary {
+  dryRun: ConversationImportPreviewDryRun;
+  fidelity?: ConversationImportFidelitySummary;
+  lineCount: number;
+  messageCount: number;
+  rolloutEventItems: number;
+  truncated: boolean;
+  unsupportedCount: number;
+  warnings?: string[];
 }
 
-export interface DeviceFlowHealingResolveResponse {
-  flow?: TestFlow | null;
-  revision: HealingRevision;
+export type ConversationImportSourceClient = "codex";
+
+export interface ConversationImportSourceProvenance {
+  sourceCallId?: null | string;
+  sourceChannel?: null | string;
+  sourceClient: ConversationImportSourceClient;
+  sourceEventSeq?: number | null;
+  sourceEventType?: null | string;
+  sourcePath?: null | string;
+  sourcePayloadType?: null | string;
+  sourceRole?: null | string;
+  sourceThreadId?: null | string;
 }
 
-export interface DeviceFlowHealingSaveParams {
-  revision: HealingRevision;
-}
-
-export interface DeviceFlowHealingSaveResponse {
-  id: string;
-}
-
-export interface DeviceFlowListParams {
-  workspaceId: string;
-}
-
-export interface DeviceFlowListResponse {
-  flows?: (TestFlow)[];
-}
-
-export interface DeviceFlowReadParams {
-  id: string;
-}
-
-export interface DeviceFlowReadResponse {
-  flow?: TestFlow | null;
-}
-
-export interface DeviceFlowRunListParams {
-  flowId: string;
+export interface ConversationImportSourceScanParams {
+  cursor?: null | string;
+  includeArchived?: boolean | null;
   limit?: number | null;
-  offset?: number | null;
+  projectPath?: null | string;
+  query?: null | string;
+  sourceClient?: ConversationImportSourceClient | null;
+  sourceRoot?: null | string;
 }
 
-export interface DeviceFlowRunListResponse {
-  runs?: (FlowRun)[];
+export interface ConversationImportSourceScanResponse {
+  nextCursor?: null | string;
+  source: ConversationImportSourceSummary;
+  threads?: ImportedThreadSummary[];
 }
 
-export interface DeviceFlowRunReadParams {
-  runId: string;
+export type ConversationImportSourceStatus = "missing" | "ready";
+
+export interface ConversationImportSourceSummary {
+  indexedAt?: null | string;
+  message?: null | string;
+  readable: boolean;
+  rolloutFileCount?: number;
+  sourceClient: ConversationImportSourceClient;
+  sourceHomeExists?: boolean;
+  sourceRoot?: null | string;
+  stateDbReadable?: boolean;
+  statePath?: null | string;
+  status: ConversationImportSourceStatus;
+  threadCount?: number;
 }
 
-export interface DeviceFlowRunReadResponse {
-  run?: FlowRun | null;
-  steps?: (FlowRunStep)[];
+export interface ConversationImportThreadCommitParams {
+  appId?: null | string;
+  confirmed?: boolean;
+  replaceExisting?: boolean | null;
+  sourceClient?: ConversationImportSourceClient | null;
+  sourcePath?: null | string;
+  sourceRoot?: null | string;
+  sourceThreadId?: null | string;
+  workspaceId?: null | string;
 }
 
-export interface DeviceFlowRunSaveParams {
-  run: FlowRun;
-  steps?: (FlowRunStep)[];
+export interface ConversationImportThreadCommitResponse {
+  canContinue: boolean;
+  importedMessages: number;
+  importedTurns: number;
+  session: AgentSession;
+  summary: ConversationImportPreviewSummary;
+  thread: ImportedThreadSummary;
+  warnings?: string[];
 }
 
-export interface DeviceFlowRunSaveResponse {
-  runId: string;
+export interface ConversationImportThreadPreviewParams {
+  limit?: number | null;
+  sourceClient?: ConversationImportSourceClient | null;
+  sourcePath?: null | string;
+  sourceRoot?: null | string;
+  sourceThreadId?: null | string;
 }
 
-export interface DeviceFlowSaveParams {
-  flow: TestFlow;
+export interface ConversationImportThreadPreviewResponse {
+  events?: ConversationImportPreviewEvent[];
+  messages?: ConversationImportPreviewMessage[];
+  source: ConversationImportSourceSummary;
+  summary: ConversationImportPreviewSummary;
+  thread: ImportedThreadSummary;
 }
 
-export interface DeviceFlowSaveResponse {
-  flow: TestFlow;
-}
+export type ConversationImportThreadStatus =
+  | "conflict"
+  | "imported"
+  | "not_imported";
 
 export interface DiagnosticsCapabilityRoutingMetricsSnapshot {
   allCandidatesExcludedTotal: number;
@@ -1040,7 +4766,7 @@ export interface DiagnosticsIdempotencyDiagnostics {
 }
 
 export interface DiagnosticsMetricConfig {
-  cacheableStatusCodes?: (number)[];
+  cacheableStatusCodes?: number[];
   enabled: boolean;
   headerName?: null | string;
   maxBodyBytes?: number | null;
@@ -1075,6 +4801,100 @@ export interface DiagnosticsTelemetrySummary {
   totalTokens: number;
 }
 
+export interface DiagnosticsTraceEvent {
+  checkpoint: string;
+  eventId: string;
+  eventSequence: number;
+  eventType: string;
+  metrics?: Record<string, unknown>;
+  redaction: DiagnosticsTraceRedactionPolicy;
+  requestId?: null | string;
+  runId?: null | string;
+  schemaVersion: number;
+  seq: number;
+  sessionId: string;
+  threadId?: null | string;
+  traceId: string;
+  turnId?: null | string;
+  wallTimeUnixMs: number;
+}
+
+export interface DiagnosticsTraceExportParams {
+  sessionId: string;
+  traceId: string;
+}
+
+export interface DiagnosticsTraceExportResponse {
+  available: boolean;
+  bundlePath?: null | string;
+  exported: boolean;
+  generatedAt?: null | string;
+  includedSections?: string[];
+  omittedSections?: string[];
+  outputDirectory?: null | string;
+  redaction: DiagnosticsTraceRedactionPolicy;
+  trace?: DiagnosticsTraceSummary | null;
+}
+
+export interface DiagnosticsTraceListParams {
+  limit?: number | null;
+  sessionId?: null | string;
+}
+
+export interface DiagnosticsTraceListResponse {
+  available: boolean;
+  redaction: DiagnosticsTraceRedactionPolicy;
+  traceRoot?: null | string;
+  traces?: DiagnosticsTraceSummary[];
+}
+
+export interface DiagnosticsTraceReadParams {
+  maxEvents?: number | null;
+  sessionId: string;
+  traceId: string;
+}
+
+export interface DiagnosticsTraceReadResponse {
+  available: boolean;
+  events?: DiagnosticsTraceEvent[];
+  redaction: DiagnosticsTraceRedactionPolicy;
+  trace?: DiagnosticsTraceSummary | null;
+}
+
+export interface DiagnosticsTraceRedactionPolicy {
+  mode: string;
+  promptText: boolean;
+  providerPayload: boolean;
+  rawAgentEventPayload: boolean;
+}
+
+export interface DiagnosticsTraceSummary {
+  eventCount: number;
+  firstWallTimeUnixMs?: number | null;
+  lastWallTimeUnixMs?: number | null;
+  modifiedAt?: null | string;
+  path: string;
+  sessionId: string;
+  sizeBytes: number;
+  traceId: string;
+}
+
+export interface EndpointInfo {
+  apiVersion?: null | string;
+  baseUrl?: null | string;
+  kind: EndpointKind;
+  location?: null | string;
+  project?: null | string;
+  region?: null | string;
+}
+
+export type EndpointKind =
+  | "direct_request"
+  | "local"
+  | "oem_gateway"
+  | "openai_compatible"
+  | "provider_base_url";
+
 export interface EvidenceExportParams {
   includeArtifacts?: boolean | null;
   includeEvents?: boolean | null;
@@ -1084,12 +4904,12 @@ export interface EvidenceExportParams {
 }
 
 export interface EvidenceExportResponse {
-  artifacts?: (ArtifactSummary)[];
-  events?: (AgentEvent)[];
+  artifacts?: ArtifactSummary[];
+  events?: AgentEvent[];
   evidencePack?: EvidencePackSummary | null;
   exportedAt: string;
   session: AgentSession;
-  turns?: (AgentTurn)[];
+  turns?: AgentTurn[];
 }
 
 export interface EvidencePackArtifact {
@@ -1101,11 +4921,11 @@ export interface EvidencePackArtifact {
 }
 
 export interface EvidencePackSummary {
-  artifacts?: (EvidencePackArtifact)[];
+  artifacts?: EvidencePackArtifact[];
   completionAuditSummary?: unknown;
   exportedAt: string;
   itemCount: number;
-  knownGaps?: (string)[];
+  knownGaps?: string[];
   latestTurnStatus?: null | string;
   observabilitySummary?: unknown;
   packAbsoluteRoot?: null | string;
@@ -1115,6 +4935,86 @@ export interface EvidencePackSummary {
   recentArtifactCount: number;
   threadStatus: string;
   turnCount: number;
+}
+
+export interface ExecutionProcessDrainOutputParams {
+  afterSequence?: number | null;
+  limit?: number | null;
+  maxBytes?: number | null;
+  processId?: null | string;
+}
+
+export interface ExecutionProcessDrainOutputResponse {
+  deltas?: ExecutionProcessOutputDelta[];
+  nextSequence?: number | null;
+}
+
+export type ExecutionProcessEmptyResponse = Record<string, unknown>;
+
+export interface ExecutionProcessIdParams {
+  processId: string;
+}
+
+export interface ExecutionProcessOutputDelta {
+  bytes: number;
+  delta: string;
+  kind: ExecutionProcessOutputKind;
+  omittedBytes: number;
+  processId: string;
+  sequence: number;
+  toolId: string;
+  truncated: boolean;
+}
+
+export type ExecutionProcessOutputKind = "combined" | "stderr" | "stdout";
+
+export interface ExecutionProcessSnapshot {
+  elapsedMs: number;
+  exitCode?: number | null;
+  failure?: null | string;
+  outputBytes: number;
+  outputOmittedBytes: number;
+  outputTruncated: boolean;
+  processId: string;
+  retainedOutput: string;
+  status: ExecutionProcessStatus;
+  toolId: string;
+  toolName: string;
+}
+
+export interface ExecutionProcessStartParams {
+  approvalPolicy?: null | string;
+  command: string[];
+  cwd?: null | string;
+  env?: Record<string, unknown>;
+  processId: string;
+  runtimeMetadata?: unknown;
+  sandboxPolicy?: null | string;
+  toolId: string;
+  toolName: string;
+  tty?: boolean;
+  workingDirectory: string;
+}
+
+export interface ExecutionProcessStartResponse {
+  snapshot: ExecutionProcessSnapshot;
+}
+
+export type ExecutionProcessStatus =
+  | "exited"
+  | "failed"
+  | "interrupted"
+  | "running"
+  | "starting"
+  | "terminated";
+
+export interface ExecutionProcessStatusResponse {
+  snapshot: ExecutionProcessSnapshot;
+}
+
+export interface ExecutionProcessWriteStdinParams {
+  data: string;
+  processId: string;
 }
 
 export interface FileSystemCreateDirectoryParams {
@@ -1131,7 +5031,7 @@ export interface FileSystemDeleteFileParams {
 }
 
 export interface FileSystemDirectoryListing {
-  entries?: (FileSystemFileEntry)[];
+  entries?: FileSystemFileEntry[];
   error?: null | string;
   parentPath?: null | string;
   path: string;
@@ -1176,71 +5076,7 @@ export interface FileSystemRenameFileParams {
   oldPath: string;
 }
 
-export interface FlowAssertResult {
-  ok: boolean;
-  reason?: null | string;
-}
-
-export interface FlowAssertion {
-  expr?: unknown;
-  type: string;
-}
-
-export interface FlowLocator {
-  kind: string;
-  match?: null | string;
-  value?: string;
-  vlmAnchor?: FlowVlmAnchor | null;
-}
-
-export interface FlowLocatorRef {
-  kind: string;
-  value: string;
-}
-
-export interface FlowRun {
-  conclusion?: string;
-  deviceId?: string;
-  finishedAt?: null | string;
-  flowId: string;
-  healingTriggered?: boolean;
-  id: string;
-  llmTokenUsed?: number;
-  startedAt?: string;
-  summary?: string;
-  workspaceId: string;
-}
-
-export interface FlowRunStep {
-  assertResult?: FlowAssertResult | null;
-  durationMs?: number;
-  index: number;
-  locatorUsed?: FlowLocatorRef | null;
-  op?: string;
-  runId: string;
-  screenshotPath?: null | string;
-  status?: string;
-}
-
-export interface FlowStep {
-  args?: unknown;
-  assert?: FlowAssertion | null;
-  index: number;
-  intent?: null | string;
-  locators?: unknown | null;
-  op: string;
-  wait?: FlowWaitPolicy | null;
-}
-
-export interface FlowVlmAnchor {
-  xNorm: number;
-  yNorm: number;
-}
-
-export interface FlowWaitPolicy {
-  stabilizeMs: number;
-  timeoutMs: number;
-}
+export type FramingKind = "json" | "ndjson" | "sse";
 
 export interface GalleryMaterial {
   content?: null | string;
@@ -1253,7 +5089,7 @@ export interface GalleryMaterial {
   mimeType?: null | string;
   name: string;
   projectId: string;
-  tags?: (string)[];
+  tags?: string[];
   type: string;
 }
 
@@ -1266,7 +5102,7 @@ export interface GalleryMaterialFilterParams {
 }
 
 export interface GalleryMaterialListResponse {
-  materials?: (GalleryMaterial)[];
+  materials?: GalleryMaterial[];
 }
 
 export interface GalleryMaterialLookupParams {
@@ -1275,7 +5111,7 @@ export interface GalleryMaterialLookupParams {
 
 export interface GalleryMaterialMetadata {
   colorSchemeJson?: null | string;
-  colors?: (string)[];
+  colors?: string[];
   createdAt: number;
   elementCount?: number | null;
   fabricJson?: null | string;
@@ -1294,7 +5130,7 @@ export interface GalleryMaterialMetadata {
 
 export interface GalleryMaterialMetadataCreateParams {
   colorSchemeJson?: null | string;
-  colors?: unknown | null;
+  colors?: string[] | null;
   elementCount?: number | null;
   fabricJson?: null | string;
   height?: number | null;
@@ -1435,23 +5271,26 @@ export interface GatewayTunnelSyncWebhookUrlResponse {
   webhookUrl: string;
 }
 
-export interface HealingRevision {
-  createdAt?: string;
-  evidenceScreenshotPath?: null | string;
-  flowId: string;
-  healedLocator?: FlowLocator;
-  id: string;
-  originalLocators?: (FlowLocator)[];
-  runId: string;
-  status?: string;
-  stepIndex: number;
-}
-
 export interface ImageStoryboardSlotInput {
   label?: null | string;
   prompt: string;
   shotType?: null | string;
   slotId?: null | string;
+}
+
+export interface ImportedThreadSummary {
+  archived?: boolean;
+  createdAt?: null | string;
+  cwd?: null | string;
+  importStatus: ConversationImportThreadStatus;
+  metadata?: unknown;
+  modelProvider?: null | string;
+  source?: null | string;
+  sourceClient: ConversationImportSourceClient;
+  sourcePath?: null | string;
+  sourceThreadId: string;
+  title?: null | string;
+  updatedAt?: null | string;
 }
 
 export interface InitializeParams {
@@ -1476,22 +5315,22 @@ export interface KnowledgeCompilePackResponse {
   pack: unknown;
   run: unknown;
   selectedSourceCount: number;
-  warnings?: (string)[];
+  warnings?: string[];
 }
 
 export interface KnowledgeContextResolutionResponse {
   fencedContext: string;
   grounding?: null | string;
-  missing?: (string)[];
+  missing?: string[];
   packName: string;
   runId?: null | string;
   runPath?: null | string;
-  selectedFiles?: (string)[];
-  selectedViews?: (unknown)[];
-  sourceAnchors?: (string)[];
+  selectedFiles?: string[];
+  selectedViews?: unknown[];
+  sourceAnchors?: string[];
   status: string;
   tokenEstimate: number;
-  warnings?: (unknown)[];
+  warnings?: unknown[];
 }
 
 export interface KnowledgeImportSourceParams {
@@ -1515,7 +5354,7 @@ export interface KnowledgeListPacksParams {
 }
 
 export interface KnowledgeListPacksResponse {
-  packs?: (unknown)[];
+  packs?: unknown[];
   rootPath: string;
   workingDir: string;
 }
@@ -1538,7 +5377,7 @@ export interface KnowledgeResolveContextParams {
   activation?: null | string;
   maxChars?: number | null;
   name: string;
-  packs?: (KnowledgeResolveContextPackParams)[];
+  packs?: KnowledgeResolveContextPackParams[];
   runReason?: null | string;
   task?: null | string;
   workingDir: string;
@@ -1574,11 +5413,11 @@ export interface KnowledgeValidateContextRunParams {
 }
 
 export interface KnowledgeValidateContextRunResponse {
-  errors?: (string)[];
+  errors?: string[];
   runId?: null | string;
   status?: null | string;
   valid: boolean;
-  warnings?: (string)[];
+  warnings?: string[];
 }
 
 export interface LogArtifactEntry {
@@ -1600,7 +5439,7 @@ export interface LogEntry {
 }
 
 export interface LogListResponse {
-  entries?: (LogEntry)[];
+  entries?: LogEntry[];
 }
 
 export interface LogPersistedTailParams {
@@ -1608,7 +5447,7 @@ export interface LogPersistedTailParams {
 }
 
 export interface LogPersistedTailResponse {
-  entries?: (LogEntry)[];
+  entries?: LogEntry[];
 }
 
 export interface LogStorageDiagnosticsResponse {
@@ -1617,8 +5456,8 @@ export interface LogStorageDiagnosticsResponse {
   currentLogSizeBytes?: number | null;
   inMemoryLogCount: number;
   logDirectory?: null | string;
-  rawResponseFiles?: (LogArtifactEntry)[];
-  relatedLogFiles?: (LogArtifactEntry)[];
+  rawResponseFiles?: LogArtifactEntry[];
+  relatedLogFiles?: LogArtifactEntry[];
 }
 
 export interface ManagedObjective {
@@ -1627,7 +5466,7 @@ export interface ManagedObjective {
   budgetPolicy?: unknown;
   continuationPolicy?: unknown;
   createdAt: string;
-  lastArtifactRefs?: (string)[];
+  lastArtifactRefs?: string[];
   lastAuditSummary?: null | string;
   lastEvidencePackRef?: null | string;
   objectiveId: string;
@@ -1636,39 +5475,51 @@ export interface ManagedObjective {
   ownerKind: string;
   riskPolicy?: unknown;
   status: ManagedObjectiveStatus;
-  successCriteria?: (string)[];
+  successCriteria?: string[];
   updatedAt: string;
   workspaceId?: null | string;
 }
 
-export type ManagedObjectiveStatus = "active" | "blocked" | "budget_limited" | "completed" | "failed" | "needs_input" | "paused" | "verifying";
+export type ManagedObjectiveStatus =
+  | "active"
+  | "blocked"
+  | "budget_limited"
+  | "completed"
+  | "failed"
+  | "needs_input"
+  | "paused"
+  | "verifying";
 
-export type McpContent = {
-  text: string;
-  type: "text";
-} | {
-  data: string;
-  mime_type: string;
-  type: "image";
-} | {
-  blob?: null | string;
-  text?: null | string;
-  type: "resource";
-  uri: string;
-};
+export type McpContent =
+  | {
+      text: string;
+      type: "text";
+    }
+  | {
+      data: string;
+      mime_type: string;
+      type: "image";
+    }
+  | {
+      blob?: null | string;
+      text?: null | string;
+      type: "resource";
+      uri: string;
+    };
 
 export interface McpPromptGetParams {
   arguments?: Record<string, unknown>;
   name: string;
+  server: string;
 }
 
 export interface McpPromptGetResponse {
   description?: null | string;
-  messages?: (McpPromptMessage)[];
+  messages?: McpPromptMessage[];
 }
 
 export interface McpPromptListResponse {
-  prompts?: (unknown)[];
+  prompts?: unknown[];
 }
 
 export interface McpPromptMessage {
@@ -1677,10 +5528,12 @@ export interface McpPromptMessage {
 }
 
 export interface McpResourceListResponse {
-  resources?: (unknown)[];
+  resourceTemplates?: unknown[];
+  resources?: unknown[];
 }
 
 export interface McpResourceReadParams {
+  server: string;
   uri: string;
 }
 
@@ -1691,12 +5544,43 @@ export interface McpResourceReadResponse {
   uri: string;
 }
 
+export interface McpResourceSubscribeParams {
+  server: string;
+  uri: string;
+}
+
+export type McpResourceSubscriptionResponse = Record<string, unknown>;
+
+export interface McpResourceUnsubscribeParams {
+  server: string;
+  uri: string;
+}
+
 export interface McpServerCreateParams {
   server: unknown;
 }
 
 export interface McpServerDeleteParams {
   id: string;
+}
+
+export type McpServerElicitationAction = "accept" | "cancel" | "decline";
+
+export type McpServerElicitationRequestParams = {
+  serverName: string;
+  threadId: string;
+  turnId?: null | string;
+} & {
+  _meta?: unknown;
+  message: string;
+  mode: "form";
+  requestedSchema: Record<string, unknown>;
+};
+
+export interface McpServerElicitationResponse {
+  _meta?: null | Record<string, unknown>;
+  action: McpServerElicitationAction;
+  content?: unknown;
 }
 
 export interface McpServerEnabledSetParams {
@@ -1711,13 +5595,24 @@ export interface McpServerImportFromAppParams {
 
 export interface McpServerImportFromAppResponse {
   importedCount: number;
-  servers?: (unknown)[];
+  servers?: unknown[];
 }
 
 export type McpServerLifecycleResponse = Record<string, unknown>;
 
 export interface McpServerListResponse {
-  servers?: (unknown)[];
+  servers?: unknown[];
+}
+
+export interface McpServerOauthLoginParams {
+  name: string;
+  scopes?: string[] | null;
+  timeoutSecs?: number | null;
+}
+
+export interface McpServerOauthLoginResponse {
+  authorizationUrl: string;
+  state: string;
 }
 
 export interface McpServerStartParams {
@@ -1725,7 +5620,7 @@ export interface McpServerStartParams {
 }
 
 export interface McpServerStatusListResponse {
-  servers?: (unknown)[];
+  servers?: unknown[];
 }
 
 export interface McpServerStopParams {
@@ -1742,8 +5637,9 @@ export interface McpToolCallParams {
 }
 
 export interface McpToolCallResponse {
-  content?: (McpContent)[];
+  content?: McpContent[];
   is_error: boolean;
+  structuredContent?: unknown;
 }
 
 export interface McpToolCallWithCallerParams {
@@ -1758,7 +5654,7 @@ export interface McpToolListForContextParams {
 }
 
 export interface McpToolListResponse {
-  tools?: (unknown)[];
+  tools?: unknown[];
 }
 
 export interface McpToolSearchParams {
@@ -1792,7 +5688,7 @@ export interface MediaTaskArtifactAudioCreateParams {
   providerId?: null | string;
   rawText?: null | string;
   requestedTarget?: null | string;
-  requiredCapabilities?: (string)[];
+  requiredCapabilities?: string[];
   routingSlot?: null | string;
   runtimeContract?: unknown;
   sessionId?: null | string;
@@ -1803,6 +5699,31 @@ export interface MediaTaskArtifactAudioCreateParams {
   turnId?: null | string;
   voice?: null | string;
   voiceStyle?: null | string;
+}
+
+export interface MediaTaskArtifactCompletedImageInput {
+  model?: null | string;
+  prompt?: null | string;
+  providerId?: null | string;
+  revisedPrompt?: null | string;
+  size?: null | string;
+  slotId?: null | string;
+  slotIndex?: number | null;
+  slotPrompt?: null | string;
+  url: string;
+}
+
+export interface MediaTaskArtifactImageCompleteParams {
+  executorMode?: null | string;
+  failures?: unknown[];
+  images?: MediaTaskArtifactCompletedImageInput[];
+  model?: null | string;
+  projectRootPath: string;
+  providerId?: null | string;
+  responseId?: null | string;
+  responses?: unknown[];
+  status?: null | string;
+  taskRef: string;
 }
 
 export interface MediaTaskArtifactImageCreateParams {
@@ -1827,15 +5748,15 @@ export interface MediaTaskArtifactImageCreateParams {
   prompt: string;
   providerId?: null | string;
   rawText?: null | string;
-  referenceImages?: (string)[];
+  referenceImages?: string[];
   requestedTarget?: null | string;
-  requiredCapabilities?: (string)[];
+  requiredCapabilities?: string[];
   routingSlot?: null | string;
   runtimeContract?: unknown;
   sessionId?: null | string;
   size?: null | string;
   slotId?: null | string;
-  storyboardSlots?: (ImageStoryboardSlotInput)[];
+  storyboardSlots?: ImageStoryboardSlotInput[];
   style?: null | string;
   targetOutputId?: null | string;
   targetOutputRefId?: null | string;
@@ -1871,7 +5792,7 @@ export interface MediaTaskArtifactListResponse {
   filters: MediaTaskArtifactListFilters;
   modality_runtime_contracts?: unknown;
   success: boolean;
-  tasks?: (MediaTaskArtifactResponse)[];
+  tasks?: MediaTaskArtifactResponse[];
   total: number;
   workspace_root: string;
 }
@@ -1917,7 +5838,7 @@ export interface MediaTaskArtifactVideoCreateParams {
   providerId?: null | string;
   rawText?: null | string;
   requestedTarget?: null | string;
-  requiredCapabilities?: (string)[];
+  requiredCapabilities?: string[];
   resolution?: null | string;
   routingSlot?: null | string;
   runtimeContract?: unknown;
@@ -1928,17 +5849,276 @@ export interface MediaTaskArtifactVideoCreateParams {
   turnId?: null | string;
 }
 
+export interface MemoryStoreAddNoteParams {
+  content: string;
+  scope?: MemoryStoreScope;
+  slug?: null | string;
+  title?: null | string;
+  workspaceRoot?: null | string;
+}
+
+export interface MemoryStoreAddNoteResponse {
+  citation: MemoryStoreCitation;
+  path: string;
+}
+
+export interface MemoryStoreCitation {
+  endLineNumber: number;
+  path: string;
+  startLineNumber: number;
+}
+
+export interface MemoryStoreConsolidateParams {
+  maxNotes?: number | null;
+  scope?: MemoryStoreScope;
+  workspaceRoot?: null | string;
+}
+
+export interface MemoryStoreConsolidateResponse {
+  archivedNotes: number;
+  memoryPath: string;
+  processedNotes: number;
+  rootPath: string;
+  rootScope: MemoryStoreScope;
+  skippedNotes: number;
+  summaryPath: string;
+  updated: boolean;
+  warnings?: string[];
+}
+
+export interface MemoryStoreEntry {
+  entryType: string;
+  modifiedAt: number;
+  path: string;
+  size: number;
+}
+
+export interface MemoryStoreHealthResponse {
+  fileCount: number;
+  initialized: boolean;
+  memoryBytes: number;
+  memoryExists: boolean;
+  notesCount: number;
+  rootPath: string;
+  rootScope: MemoryStoreScope;
+  summaryBytes: number;
+  summaryExists: boolean;
+  totalBytes: number;
+}
+
+export interface MemoryStoreIndexRebuildResponse {
+  indexedAt: string;
+  manifestPath: string;
+  rebuilt: boolean;
+  rootPath: string;
+  rootScope: MemoryStoreScope;
+  schemaVersion: string;
+  sourceChecksum: string;
+  sourceFileCount: number;
+  sourceTotalBytes: number;
+}
+
+export interface MemoryStoreListParams {
+  cursor?: null | string;
+  maxResults?: number | null;
+  path?: null | string;
+  scope?: MemoryStoreScope;
+  workspaceRoot?: null | string;
+}
+
+export interface MemoryStoreListResponse {
+  entries?: MemoryStoreEntry[];
+  nextCursor?: null | string;
+  path: string;
+  rootScope: MemoryStoreScope;
+  truncated: boolean;
+}
+
+export interface MemoryStoreReadParams {
+  lineOffset?: number | null;
+  maxLines?: number | null;
+  maxTokens?: number | null;
+  path: string;
+  scope?: MemoryStoreScope;
+  workspaceRoot?: null | string;
+}
+
+export interface MemoryStoreReadResponse {
+  citation: MemoryStoreCitation;
+  content: string;
+  path: string;
+  startLineNumber: number;
+  truncated: boolean;
+}
+
+export interface MemoryStoreResetParams {
+  scope?: MemoryStoreScope;
+  workspaceRoot?: null | string;
+}
+
+export interface MemoryStoreResetResponse {
+  preservedSoul: boolean;
+  removedDirectories: number;
+  removedFiles: number;
+  rootPath: string;
+  rootScope: MemoryStoreScope;
+}
+
+export interface MemoryStoreReviewListParams {
+  cursor?: null | string;
+  maxResults?: number | null;
+  scope?: MemoryStoreScope;
+  workspaceRoot?: null | string;
+}
+
+export interface MemoryStoreReviewListResponse {
+  nextCursor?: null | string;
+  notes?: MemoryStoreReviewNote[];
+  rootPath: string;
+  rootScope: MemoryStoreScope;
+  truncated: boolean;
+}
+
+export interface MemoryStoreReviewNote {
+  citation: MemoryStoreCitation;
+  modifiedAt: number;
+  path: string;
+  preview: string;
+  size: number;
+}
+
+export type MemoryStoreReviewResolveAction = "accept" | "reject";
+
+export interface MemoryStoreReviewResolveParams {
+  action: MemoryStoreReviewResolveAction;
+  path: string;
+  scope?: MemoryStoreScope;
+  workspaceRoot?: null | string;
+}
+
+export interface MemoryStoreReviewResolveResponse {
+  action: MemoryStoreReviewResolveAction;
+  archivedPath: string;
+  memoryPath: string;
+  rootPath: string;
+  rootScope: MemoryStoreScope;
+  sourcePath: string;
+  summaryPath: string;
+  updated: boolean;
+}
+
+export interface MemoryStoreRootParams {
+  scope?: MemoryStoreScope;
+  workspaceRoot?: null | string;
+}
+
+export type MemoryStoreScope = "global" | "workspace";
+
+export interface MemoryStoreSearchHit {
+  citation: MemoryStoreCitation;
+  content: string;
+  contentStartLineNumber: number;
+  matchLineNumber: number;
+  matchedQueries: string[];
+  path: string;
+}
+
+export type MemoryStoreSearchMatchMode =
+  | "allOnSameLine"
+  | "allWithinLines"
+  | "any";
+
+export interface MemoryStoreSearchParams {
+  caseSensitive?: boolean;
+  contextLines?: number;
+  cursor?: null | string;
+  matchMode?: MemoryStoreSearchMatchMode;
+  maxResults?: number | null;
+  normalized?: boolean;
+  queries?: string[];
+  scope?: MemoryStoreScope;
+  withinLines?: number | null;
+  workspaceRoot?: null | string;
+}
+
+export interface MemoryStoreSearchResponse {
+  hits?: MemoryStoreSearchHit[];
+  nextCursor?: null | string;
+  truncated: boolean;
+}
+
+export interface ModelCapabilitiesInfo {
+  functionCalling: boolean;
+  jsonMode: boolean;
+  reasoning: boolean;
+  reasoningEffort?: unknown;
+  streaming: boolean;
+  tools: boolean;
+  vision: boolean;
+}
+
+export interface ModelInfo {
+  aliasSource?: null | string;
+  applyPatchToolType?: null | string;
+  autoCompactTokenLimit?: number | null;
+  canonicalModelId?: null | string;
+  capabilities?: ModelCapabilitiesInfo;
+  contextWindow?: number | null;
+  createdAt: number;
+  defaultReasoningLevel?: null | string;
+  defaultReasoningSummary?: null | string;
+  defaultServiceTier?: null | string;
+  defaultVerbosity?: null | string;
+  deploymentSource: string;
+  description?: null | string;
+  displayName: string;
+  effectiveContextWindowPercent?: number | null;
+  experimentalSupportedTools?: string[];
+  family?: null | string;
+  id: string;
+  inputModalities?: string[];
+  isLatest?: boolean;
+  limits: unknown;
+  managementPlane: string;
+  maxContextWindow?: number | null;
+  outputModalities?: string[];
+  pricing?: unknown;
+  providerId: string;
+  providerModelId?: null | string;
+  providerName: string;
+  releaseDate?: null | string;
+  runtimeFeatures?: string[];
+  serviceTiers?: unknown[];
+  shellType?: null | string;
+  source: string;
+  status: string;
+  supportVerbosity?: boolean;
+  supportedReasoningLevels?: unknown[];
+  supportsImageDetailOriginal?: boolean;
+  supportsParallelToolCalls?: boolean;
+  supportsReasoningSummaries?: boolean;
+  supportsSearchTool?: boolean;
+  taskFamilies?: string[];
+  tier: string;
+  toolMode?: null | string;
+  truncationPolicy?: unknown;
+  updatedAt: number;
+  useResponsesLite?: boolean;
+  visibility?: null | string;
+  webSearchToolType?: null | string;
+}
+
 export interface ModelListParams {
   providerId?: null | string;
   tier?: null | string;
 }
 
 export interface ModelListResponse {
-  models?: (unknown)[];
+  models?: ModelInfo[];
 }
 
 export interface ModelPreferencesListResponse {
-  preferences?: (unknown)[];
+  preferences?: unknown[];
 }
 
 export interface ModelProviderAliasListResponse {
@@ -1954,7 +6134,7 @@ export interface ModelProviderAliasReadResponse {
 }
 
 export interface ModelProviderCatalogListResponse {
-  providers?: (unknown)[];
+  providers?: ProviderInfo[];
 }
 
 export interface ModelProviderConfigExportParams {
@@ -1970,7 +6150,7 @@ export interface ModelProviderConfigImportParams {
 }
 
 export interface ModelProviderConfigImportResponse {
-  errors?: (string)[];
+  errors?: string[];
   importedApiKeys: number;
   importedProviders: number;
   skippedProviders: number;
@@ -1978,7 +6158,14 @@ export interface ModelProviderConfigImportResponse {
 }
 
 export interface ModelProviderCreateParams {
-  provider: unknown;
+  apiHost: string;
+  apiVersion?: null | string;
+  location?: null | string;
+  name: string;
+  project?: null | string;
+  promptCacheMode?: null | string;
+  providerType: string;
+  region?: null | string;
 }
 
 export interface ModelProviderDeleteParams {
@@ -1998,7 +6185,7 @@ export interface ModelProviderFetchModelsResponse {
   error?: null | string;
   errorKind?: null | string;
   fromCache: boolean;
-  models?: (unknown)[];
+  models?: ModelInfo[];
   requestUrl?: null | string;
   shouldPromptError: boolean;
   source: string;
@@ -2039,11 +6226,11 @@ export interface ModelProviderKeyUpdateParams {
 }
 
 export interface ModelProviderKeyWriteResponse {
-  key: unknown;
+  key: ProviderKeyInfo;
 }
 
 export interface ModelProviderListResponse {
-  providers?: (unknown)[];
+  providers?: ProviderInfo[];
 }
 
 export type ModelProviderMutationResponse = Record<string, unknown>;
@@ -2053,7 +6240,7 @@ export interface ModelProviderReadParams {
 }
 
 export interface ModelProviderReadResponse {
-  provider?: unknown;
+  provider?: ProviderInfo | null;
 }
 
 export interface ModelProviderSortOrderItem {
@@ -2062,7 +6249,7 @@ export interface ModelProviderSortOrderItem {
 }
 
 export interface ModelProviderSortOrdersUpdateParams {
-  sortOrders?: (ModelProviderSortOrderItem)[];
+  sortOrders?: ModelProviderSortOrderItem[];
 }
 
 export interface ModelProviderTestChatParams {
@@ -2087,7 +6274,7 @@ export interface ModelProviderTestConnectionParams {
 export interface ModelProviderTestConnectionResponse {
   error?: null | string;
   latencyMs?: number | null;
-  models?: unknown | null;
+  models?: string[] | null;
   success: boolean;
 }
 
@@ -2105,17 +6292,78 @@ export interface ModelProviderUiStateWriteParams {
 }
 
 export interface ModelProviderUpdateParams {
-  patch: unknown;
+  apiHost?: null | string;
+  apiVersion?: null | string;
+  customModels?: string[] | null;
+  enabled?: boolean | null;
+  location?: null | string;
+  name?: null | string;
+  project?: null | string;
+  promptCacheMode?: null | string;
   providerId: string;
+  providerType?: null | string;
+  region?: null | string;
+  sortOrder?: number | null;
 }
 
 export interface ModelProviderWriteResponse {
-  provider: unknown;
+  provider: ProviderInfo;
 }
+
+export interface ModelRef {
+  modelId: string;
+  providerId: string;
+  routingSlot?: null | string;
+  source: ModelRefSource;
+  variant?: null | string;
+}
+
+export type ModelRefSource =
+  | "direct_provider_config"
+  | "explicit"
+  | "fallback"
+  | "oem_policy"
+  | "profile_slot"
+  | "runtime_options"
+  | "runtime_request"
+  | "session_default"
+  | "task";
 
 export interface ModelSyncStateReadResponse {
   syncState: unknown;
 }
+
+export type ModelTaskKind =
+  | "chat"
+  | "embedding"
+  | "image_edit"
+  | "image_generate"
+  | "moderation"
+  | "rerank"
+  | "transcription_generate"
+  | "video_generate"
+  | "voice_generate";
+
+export interface ModelTaskRequest {
+  contentId?: null | string;
+  modalityContractKey?: null | string;
+  modelRef?: ModelRef | null;
+  requirements: CapabilityRequirement;
+  routingSlot?: null | string;
+  sessionId?: null | string;
+  source: ModelTaskSource;
+  taskKind: ModelTaskKind;
+  threadId?: null | string;
+  traceId?: null | string;
+  turnId?: null | string;
+}
+
+export type ModelTaskSource =
+  | "agent_turn"
+  | "automation"
+  | "media_task_artifact"
+  | "plugin"
+  | "provider_probe";
 
 export interface OpenDeepLinkPayload {
   action?: null | string;
@@ -2125,55 +6373,306 @@ export interface OpenDeepLinkPayload {
   version?: null | string;
 }
 
-export interface PerfMetricSummary {
-  avg: number;
-  max: number;
-  min: number;
-}
-
-export interface PerfMonitorSessionListParams {
-  limit?: number | null;
-  offset?: number | null;
-  workspaceId: string;
-}
-
-export interface PerfMonitorSessionListResponse {
-  sessions?: (PerformanceSession)[];
-}
-
-export interface PerfMonitorSessionReadParams {
-  id: string;
-}
-
-export interface PerfMonitorSessionReadResponse {
-  session?: PerformanceSession | null;
-}
-
-export interface PerfMonitorSessionSaveParams {
-  session: PerformanceSession;
-}
-
-export interface PerfMonitorSessionSaveResponse {
-  session: PerformanceSession;
-}
-
-export interface PerformanceSession {
-  deviceId: string;
-  devicePlatform: string;
-  id: string;
-  intervalMs?: number;
-  metrics?: (string)[];
-  packageName: string;
-  startedAt?: string;
-  status?: string;
-  stoppedAt?: null | string;
-  summary?: null | Record<string, unknown>;
-  workspaceId: string;
-}
-
 export interface PlatformInfo {
   family: string;
   os: string;
+}
+
+export interface PluginArticleWorkspaceContract {
+  enabled: boolean;
+  objects?: PluginArticleWorkspaceObject[];
+  panes?: string[];
+  rendererKinds?: string[];
+}
+
+export interface PluginArticleWorkspaceObject {
+  artifactKind?: null | string;
+  defaultPane: string;
+  kind: string;
+  primary: boolean;
+  title: string;
+}
+
+export interface PluginCloudReleaseDescriptor {
+  appId: string;
+  channel?: null | string;
+  loadedAt: string;
+  manifestHash: string;
+  packageHash: string;
+  packageUrl: string;
+  releaseId?: null | string;
+  signatureRef?: null | string;
+  sourceUri: string;
+  tenantEnablementRef?: null | string;
+  tenantId?: null | string;
+  version: string;
+}
+
+export interface PluginDeleteDataExecutionEvidence {
+  blockedTargets?: PluginDeleteDataTargetEvidence[];
+  blockerCodes?: string[];
+  dataRoot: string;
+  failedTarget?: PluginDeleteDataTargetEvidence | null;
+  generatedAt: string;
+  missingTargets?: PluginDeleteDataTargetEvidence[];
+  postDeleteResidualAudit: PluginDeleteDataPostDeleteResidualAudit;
+  removedTargets?: PluginDeleteDataTargetEvidence[];
+  retainedTargets?: PluginDeleteDataTargetEvidence[];
+  status: string;
+}
+
+export interface PluginDeleteDataPostDeleteResidualAudit {
+  checkedAt: string;
+  checkedTargetCount: number;
+  failedTarget?: PluginDeleteDataTargetEvidence | null;
+  remainingTargetCount: number;
+  remainingTargets?: PluginDeleteDataTargetEvidence[];
+  status: string;
+}
+
+export interface PluginDeleteDataTargetEvidence {
+  action: string;
+  blockerCodes?: string[];
+  error?: null | string;
+  kind: string;
+  reason: string;
+  status: string;
+  value: string;
+}
+
+export interface PluginFetchCloudPackageParams {
+  descriptor: PluginCloudReleaseDescriptor;
+}
+
+export interface PluginHistoryRestoreContract {
+  defaultPane?: null | string;
+  defaultTab?: null | string;
+  enabled: boolean;
+  fallback: string;
+  restoreLayout: boolean;
+  restoreSelection: boolean;
+}
+
+export interface PluginHostFunctionState {
+  blockers?: string[];
+  currentOwner: string;
+  followUps?: string[];
+  key: string;
+  status: string;
+}
+
+export interface PluginHostLifecycleListResponse {
+  issues?: unknown[];
+  snapshots?: PluginHostLifecycleSnapshot[];
+}
+
+export interface PluginHostLifecycleSnapshot {
+  appCenterStatus: string;
+  appId: string;
+  blockers?: string[];
+  displayName: string;
+  followUps?: string[];
+  functions?: PluginHostFunctionState[];
+  generatedAt: string;
+  issueCategories?: PluginReadinessIssueCategorySummary[];
+  primaryIssueCategory?: null | string;
+  profiles?: string[];
+  publishBlocked: boolean;
+  readinessStatus: string;
+  rightSurface: PluginRightSurfaceContract;
+  taskRuntime: PluginTaskRuntimeContract;
+}
+
+export interface PluginInstalledDisabledSetParams {
+  appId: string;
+  disabled: boolean;
+  updatedAt?: null | string;
+}
+
+export interface PluginInstalledListResponse {
+  issues?: unknown[];
+  states?: unknown[];
+}
+
+export interface PluginInstalledSaveParams {
+  state: unknown;
+}
+
+export interface PluginLocalPackageExportParams {
+  appDir: string;
+}
+
+export interface PluginLocalPackageExportResponse {
+  appDir: string;
+  contentType: string;
+  exportedAt: string;
+  fileCount: number;
+  manifest: unknown;
+  manifestHash: string;
+  manifestSource: string;
+  packageBase64: string;
+  packageHash: string;
+  pluginManifest: unknown;
+  sizeBytes: number;
+  sourceKind: string;
+  sourceUri: string;
+}
+
+export interface PluginLocalPackageInspectParams {
+  appDir: string;
+}
+
+export interface PluginLocalPackageInspectResponse {
+  appDir: string;
+  inspectedAt: string;
+  manifest: unknown;
+  manifestHash: string;
+  manifestSource: string;
+  packageHash: string;
+  pluginManifest: unknown;
+  sourceKind: string;
+  sourceUri: string;
+}
+
+export interface PluginPackageCacheEntry {
+  appId: string;
+  cachePath: string;
+  cachedAt: string;
+  identity: PluginPackageIdentity;
+  manifestHash: string;
+  manifestSnapshot: unknown;
+  packageHash: string;
+}
+
+export interface PluginPackageIdentity {
+  appId: string;
+  appVersion: string;
+  channel?: null | string;
+  loadedAt: string;
+  manifestHash: string;
+  packageHash: string;
+  releaseId?: null | string;
+  signatureRef?: null | string;
+  sourceKind: string;
+  sourceUri: string;
+  tenantEnablementRef?: null | string;
+  tenantId?: null | string;
+}
+
+export interface PluginRightSurfaceContract {
+  articleWorkspace: PluginArticleWorkspaceContract;
+  defaultActiveTab?: null | string;
+  dock: string;
+  historyRestore: PluginHistoryRestoreContract;
+  physicalDockCount: number;
+  supportedTabs?: string[];
+}
+
+export interface PluginShellPackageMount {
+  kind: string;
+  manifestHash: string;
+  packageHash: string;
+  path: string;
+  readOnly: boolean;
+}
+
+export interface PluginShellPrepareParams {
+  descriptor: unknown;
+}
+
+export interface PluginShellPrepareResponse {
+  appId?: null | string;
+  blockerCodes?: string[];
+  descriptorVersion?: number | null;
+  devShell: boolean;
+  entryKey?: null | string;
+  installMode?: null | string;
+  message?: null | string;
+  packageMount?: PluginShellPackageMount | null;
+  preparedAt: string;
+  shellKind?: null | string;
+  status: string;
+  windowTitle?: null | string;
+}
+
+export interface PluginTaskRuntimeContract {
+  blockers?: string[];
+  contractPath?: null | string;
+  directFilesystemAccess: boolean;
+  directProviderAccess: boolean;
+  enabled: boolean;
+  followUps?: string[];
+  outputArtifactKind?: null | string;
+  packageRootPath?: null | string;
+  sampleRequestPath?: null | string;
+  taskKinds?: string[];
+  workerEntrypoint?: null | string;
+}
+
+export interface PluginUiRuntimeStartParams {
+  appId: string;
+  entryKey?: null | string;
+}
+
+export interface PluginUiRuntimeStatusParams {
+  appId: string;
+}
+
+export interface PluginUiRuntimeStatusResponse {
+  appId: string;
+  baseUrl?: null | string;
+  entryKey?: null | string;
+  entryUrl?: null | string;
+  message?: null | string;
+  pid?: number | null;
+  port?: number | null;
+  route?: null | string;
+  status: string;
+  taskRuntime?: PluginTaskRuntimeContract | null;
+}
+
+export interface PluginUiRuntimeStopParams {
+  appId: string;
+}
+
+export interface PluginUninstallParams {
+  appId: string;
+  confirmationPhrase?: null | string;
+  mode: string;
+}
+
+export interface PluginUninstallRehearsalParams {
+  appId: string;
+  mode: string;
+}
+
+export interface PluginUninstallRehearsalResponse {
+  appId: string;
+  deletedTargetCount: number;
+  generatedAt: string;
+  mode: string;
+  packageHash?: null | string;
+  retainedTargetCount: number;
+  targets?: PluginUninstallRehearsalTarget[];
+  warnings?: string[];
+}
+
+export interface PluginUninstallRehearsalTarget {
+  action: string;
+  kind: string;
+  reason: string;
+  safeToDelete: boolean;
+  value: string;
+}
+
+export interface PluginUninstallResponse {
+  blockerCodes?: string[];
+  deleteEvidence?: PluginDeleteDataExecutionEvidence | null;
+  list: PluginInstalledListResponse;
+  missingTargetCount: number;
+  rehearsal: PluginUninstallRehearsalResponse;
+  removedTargetCount: number;
+  status: string;
 }
 
 export interface ProjectGitBranchCheckoutParams {
@@ -2186,12 +6685,57 @@ export interface ProjectGitBranchCreateParams {
   rootPath: string;
 }
 
+export interface ProjectGitCommit {
+  authorEmail: string;
+  authorName: string;
+  committedAt: string;
+  sha: string;
+  shortSha: string;
+  subject: string;
+}
+
+export interface ProjectGitCommitListParams {
+  limit?: number | null;
+  rootPath: string;
+}
+
+export interface ProjectGitCommitListResponse {
+  commits?: ProjectGitCommit[];
+  hasGitRepository: boolean;
+  repositoryRoot?: null | string;
+  rootPath: string;
+}
+
+export type ProjectGitDiffBase =
+  | "branch"
+  | "commit"
+  | "previousConversation"
+  | "staged"
+  | "unstaged";
+
+export interface ProjectGitDiffParams {
+  base?: ProjectGitDiffBase | null;
+  commitSha?: null | string;
+  contextLines?: number | null;
+  rootPath: string;
+}
+
+export interface ProjectGitDiffResponse {
+  comparisonBaseRef?: null | string;
+  currentRef?: null | string;
+  hasGitRepository: boolean;
+  patch: string;
+  repositoryRoot?: null | string;
+  rootPath: string;
+  uncommittedFileCount?: number;
+}
+
 export interface ProjectGitStatusParams {
   rootPath: string;
 }
 
 export interface ProjectGitStatusResponse {
-  branches?: (string)[];
+  branches?: string[];
   currentBranch?: null | string;
   hasGitRepository: boolean;
   repositoryRoot?: null | string;
@@ -2231,7 +6775,7 @@ export interface ProjectMaterial {
   mimeType?: null | string;
   name: string;
   projectId: string;
-  tags?: (string)[];
+  tags?: string[];
   type: string;
 }
 
@@ -2247,7 +6791,7 @@ export type ProjectMaterialDeleteResponse = Record<string, unknown>;
 
 export interface ProjectMaterialFilter {
   searchQuery?: null | string;
-  tags?: unknown | null;
+  tags?: string[] | null;
   type?: null | string;
 }
 
@@ -2255,7 +6799,7 @@ export interface ProjectMaterialImportFromUrlParams {
   description?: null | string;
   name: string;
   projectId: string;
-  tags?: unknown | null;
+  tags?: string[] | null;
   type: string;
   url: string;
 }
@@ -2266,7 +6810,7 @@ export interface ProjectMaterialListParams {
 }
 
 export interface ProjectMaterialListResponse {
-  materials?: (ProjectMaterial)[];
+  materials?: ProjectMaterial[];
 }
 
 export interface ProjectMaterialLookupParams {
@@ -2280,7 +6824,7 @@ export interface ProjectMaterialResponse {
 export interface ProjectMaterialUpdate {
   description?: null | string;
   name?: null | string;
-  tags?: unknown | null;
+  tags?: string[] | null;
 }
 
 export interface ProjectMaterialUpdateParams {
@@ -2294,7 +6838,7 @@ export interface ProjectMaterialUploadParams {
   filePath?: null | string;
   name: string;
   projectId: string;
-  tags?: unknown | null;
+  tags?: string[] | null;
   type: string;
 }
 
@@ -2306,16 +6850,251 @@ export interface ProjectMemoryReadResponse {
   memory: unknown;
 }
 
+export type ProjectShellEmptyResponse = Record<string, unknown>;
+
+export interface ProjectShellSessionDrainEventsParams {
+  limit?: number | null;
+  sessionId?: null | string;
+}
+
+export interface ProjectShellSessionDrainEventsResponse {
+  events?: ProjectShellSessionEvent[];
+}
+
+export type ProjectShellSessionEvent =
+  | {
+      data: string;
+      session_id: string;
+      stream: ProjectShellSessionStream;
+      type: "data";
+    }
+  | {
+      exit_code?: number | null;
+      session_id: string;
+      signal?: null | string;
+      type: "exit";
+    }
+  | {
+      message: string;
+      session_id: string;
+      type: "error";
+    };
+
+export interface ProjectShellSessionKillParams {
+  sessionId: string;
+}
+
+export interface ProjectShellSessionResizeParams {
+  cols: number;
+  rows: number;
+  sessionId: string;
+}
+
+export interface ProjectShellSessionStartParams {
+  cols?: number | null;
+  rootPath: string;
+  rows?: number | null;
+}
+
+export interface ProjectShellSessionStartResponse {
+  cwd: string;
+  localEcho: boolean;
+  pid?: number | null;
+  sessionId: string;
+  shell: string;
+  title: string;
+  tty: boolean;
+}
+
+export type ProjectShellSessionStream = "stderr" | "stdout";
+
+export interface ProjectShellSessionWriteParams {
+  data: string;
+  sessionId: string;
+}
+
+export type ProtocolKind =
+  | "anthropic_messages"
+  | "bedrock_converse"
+  | "codex_responses"
+  | "fal"
+  | "gemini_generate_content"
+  | "ollama_chat"
+  | "openai_chat"
+  | "openai_images"
+  | "openai_responses"
+  | "unknown"
+  | "vertex_gemini";
+
+export interface ProviderInfo {
+  apiHost: string;
+  apiKeyCount: number;
+  apiKeys?: ProviderKeyInfo[];
+  apiVersion?: null | string;
+  createdAt?: null | string;
+  customModels?: string[];
+  enabled: boolean;
+  group: string;
+  id: string;
+  isSystem: boolean;
+  legacyIds?: string[];
+  location?: null | string;
+  name: string;
+  project?: null | string;
+  promptCacheMode?: null | string;
+  providerType: string;
+  region?: null | string;
+  sortOrder: number;
+  updatedAt?: null | string;
+}
+
+export interface ProviderKeyInfo {
+  alias?: null | string;
+  apiKeyMasked: string;
+  createdAt: string;
+  enabled: boolean;
+  errorCount: number;
+  id: string;
+  lastUsedAt?: null | string;
+  providerId: string;
+  usageCount: number;
+}
+
+export interface ResolvedModelRoute {
+  auth: AuthMaterialRef;
+  capabilitySnapshot: CapabilitySnapshot;
+  decision: RoutingDecision;
+  defaults: RouteDefaults;
+  endpoint: EndpointInfo;
+  failure?: RouteFailure | null;
+  framing: FramingKind;
+  modelRef: ModelRef;
+  protocol: ProtocolKind;
+  transport: TransportKind;
+}
+
+export interface RouteDefaults {
+  promptCacheMode?: null | string;
+  reasoningEffort?: null | string;
+  toolshim?: boolean | null;
+  toolshimModel?: null | string;
+}
+
+export interface RouteFailure {
+  capabilityGap?: null | string;
+  category: RouteFailureCategory;
+  message?: null | string;
+  modelId?: null | string;
+  providerId?: null | string;
+  reasonCode: string;
+  retryable?: boolean;
+}
+
+export type RouteFailureCategory =
+  | "capability_gap"
+  | "internal_error"
+  | "missing_credential"
+  | "model_unavailable"
+  | "no_candidate"
+  | "provider_disabled"
+  | "provider_needs_setup"
+  | "unsupported_endpoint"
+  | "unsupported_protocol";
+
+export interface RoutingDecision {
+  candidateCount?: number;
+  capabilityGap?: null | string;
+  decisionReason: string;
+  decisionSource: string;
+  fallbackChain?: string[];
+  routingMode: string;
+  serviceModelSlot?: null | string;
+  settingsSource?: null | string;
+}
+
+export interface RuntimeCapabilityEntry {
+  detail?: null | string;
+  id: string;
+  metadata?: unknown;
+  scope: string;
+  status: string;
+  title: string;
+  version?: null | string;
+}
+
+export interface RuntimeCapabilityManifest {
+  capabilities?: RuntimeCapabilityEntry[];
+  generatedAt: string;
+  providerId?: null | string;
+  runtimeId: string;
+  schemaVersion: string;
+  sessionId?: null | string;
+}
+
 export interface RuntimeOptions {
   capabilityId?: null | string;
   eventName?: null | string;
-  hostOptions?: unknown;
+  expectedOutput?: unknown;
+  outputSchema?: unknown;
+  queuedTurnId?: null | string;
+  runtimeRequest?: RuntimeRequest | null;
+  stream?: boolean;
+  structuredOutput?: StructuredOutputContract | null;
+}
+
+export interface RuntimeProviderConfig {
+  apiKey?: null | string;
+  baseUrl?: null | string;
+  modelCapabilities?: unknown;
+  modelName?: null | string;
+  providerId?: null | string;
+  providerName?: null | string;
+  toolCallStrategy?: RuntimeToolCallStrategy | null;
+  toolshimModel?: null | string;
+}
+
+export interface RuntimeRequest {
+  approvalPolicy?: null | string;
+  autoContinue?: boolean | null;
+  executionStrategy?: null | string;
   metadata?: unknown;
   modelPreference?: null | string;
+  projectRoot?: null | string;
+  providerConfig?: RuntimeProviderConfig | null;
   providerPreference?: null | string;
-  queuedTurnId?: null | string;
-  stream?: boolean;
+  reasoningEffort?: null | string;
+  sandboxPolicy?: null | string;
+  searchMode?: RuntimeSearchMode | null;
+  systemPrompt?: null | string;
+  thinkingEnabled?: boolean | null;
+  webSearch?: boolean | null;
+  workingDir?: null | string;
+  workspaceId?: null | string;
+  workspaceRoot?: null | string;
 }
+
+export interface RuntimeResumeActionDecision {
+  actionId: string;
+  decision: string;
+  metadata?: unknown;
+  response?: unknown;
+}
+
+export interface RuntimeResumeContract {
+  createdAt: string;
+  decisions?: RuntimeResumeActionDecision[];
+  expiresAt?: null | string;
+  openActionIds?: string[];
+  resumeMode: string;
+  runtimeId: string;
+  schemaVersion: string;
+  sessionId: string;
+  turnId: string;
+}
+
+export type RuntimeSearchMode = "auto" | "disabled" | "required";
+
+export type RuntimeToolCallStrategy = "native" | "tool_shim";
 
 export interface ServerCapabilities {
   agentSession: boolean;
@@ -2343,6 +7122,28 @@ export interface ServerInfo {
   version: string;
 }
 
+export type ServerNotification =
+  | {
+      method: "configWarning";
+      params: ConfigWarningNotification;
+    }
+  | {
+      method: "serverRequest/resolved";
+      params: ServerRequestResolvedNotification;
+    }
+  | {
+      method: "agentSession/event";
+      params: AgentSessionEventParams;
+    }
+  | {
+      method: "workspaceRightSurface/pendingChanged";
+      params: WorkspaceRightSurfacePendingChangedParams;
+    };
+
+export interface ServerRequestResolvedNotification {
+  requestId: number | string;
+}
+
 export interface SessionFileEntry {
   createdAt: number;
   fileType: string;
@@ -2366,7 +7167,7 @@ export interface SessionFileIdParams {
 }
 
 export interface SessionFileListResponse {
-  files?: (SessionFileEntry)[];
+  files?: SessionFileEntry[];
 }
 
 export interface SessionFileMeta {
@@ -2408,6 +7209,18 @@ export interface SessionFileUpdateMetaParams {
   title?: null | string;
 }
 
+export type SkillAuthority = "application" | "external" | "user" | "workspace";
+
+export interface SkillDependencies {
+  tools: SkillToolDependency[];
+}
+
+export interface SkillDetail {
+  markdownContent: string;
+  metadata: SkillSummary;
+  workflowSteps: SkillWorkflowStep[];
+}
+
 export interface SkillDownloadInstallParams {
   app: string;
   downloadUrl: string;
@@ -2420,11 +7233,19 @@ export interface SkillDownloadInstallResponse {
 }
 
 export interface SkillInstalledDirectoriesListResponse {
-  directories?: (string)[];
+  directories?: string[];
+}
+
+export interface SkillInterface {
+  argumentHint?: null | string;
+  displayName: string;
+  executionMode: string;
+  model?: null | string;
+  provider?: null | string;
 }
 
 export interface SkillListResponse {
-  skills?: (unknown)[];
+  skills: SkillSummary[];
 }
 
 export interface SkillLocalDetailInspectParams {
@@ -2434,7 +7255,7 @@ export interface SkillLocalDetailInspectParams {
 
 export interface SkillLocalDetailInspectResponse {
   directory: string;
-  files?: (unknown)[];
+  files?: unknown[];
   inspection: unknown;
 }
 
@@ -2466,6 +7287,11 @@ export interface SkillLocalRenameResponse {
   directory: string;
 }
 
+export interface SkillLocator {
+  directory: string;
+  skillFilePath: string;
+}
+
 export interface SkillManagementInstallParams {
   app: string;
   directory: string;
@@ -2475,6 +7301,10 @@ export interface SkillManagementListParams {
   app: string;
   refreshRemote?: boolean;
   scope?: null | string;
+}
+
+export interface SkillManagementListResponse {
+  skills: unknown[];
 }
 
 export interface SkillManagementUninstallParams {
@@ -2494,11 +7324,11 @@ export interface SkillMarketplaceBundleFile {
 }
 
 export interface SkillMarketplaceInstallParams {
-  aliases?: (string)[];
+  aliases?: string[];
   app: string;
   contentHash?: string;
   fileCount?: number;
-  files?: (SkillMarketplaceBundleFile)[];
+  files?: SkillMarketplaceBundleFile[];
   manifestVersion: string;
   name: string;
   version: string;
@@ -2529,7 +7359,7 @@ export interface SkillPackageLocalInspectParams {
 
 export interface SkillPackageLocalInspectResponse {
   directory: string;
-  files?: (unknown)[];
+  files?: unknown[];
   inspection: unknown;
 }
 
@@ -2555,12 +7385,17 @@ export interface SkillPackageLocalReplaceResponse {
   inspection: unknown;
 }
 
+export interface SkillPolicy {
+  allowImplicitInvocation: boolean;
+  whenToUse?: null | string;
+}
+
 export interface SkillReadParams {
-  skillName: string;
+  skillId: string;
 }
 
 export interface SkillReadResponse {
-  skill: unknown;
+  skill: SkillDetail;
 }
 
 export interface SkillRemoteInspectParams {
@@ -2587,7 +7422,7 @@ export interface SkillRepositoryEntry {
 }
 
 export interface SkillRepositoryListResponse {
-  repos?: (SkillRepositoryEntry)[];
+  repos?: SkillRepositoryEntry[];
 }
 
 export interface SkillRepositorySaveParams {
@@ -2603,314 +7438,191 @@ export interface SkillScaffoldCreateResponse {
   inspection: unknown;
 }
 
+export type SkillScope = "app" | "other" | "project" | "user";
+
+export type SkillSource = "app" | "other" | "project" | "user";
+
+export interface SkillSummary {
+  authority: SkillAuthority;
+  capabilities: string[];
+  dependencies: SkillDependencies;
+  description: string;
+  enabled: boolean;
+  interface: SkillInterface;
+  locator: SkillLocator;
+  name: string;
+  policy: SkillPolicy;
+  scope: SkillScope;
+  skillId: string;
+  source: SkillSource;
+}
+
+export interface SkillToolDependency {
+  required: boolean;
+  type: string;
+  value: string;
+}
+
+export interface SkillWorkflowStep {
+  dependencies: string[];
+  id: string;
+  name: string;
+}
+
+export interface SoulStylePackInstallParams {
+  enableAfterInstall?: boolean;
+  localeSources?: Record<string, unknown>;
+  manifestSource: string;
+}
+
+export interface SoulStylePackInstallResponse {
+  packId: string;
+  profileIds?: string[];
+  status: SoulStylePackInstallStatus;
+}
+
+export type SoulStylePackInstallStatus =
+  | "disabled"
+  | "discovered"
+  | "downloading"
+  | "enabled"
+  | "failed"
+  | "installed"
+  | "installing"
+  | "uninstalled"
+  | "validating";
+
+export interface SoulStylePackListEntry {
+  integrityDigest?: null | string;
+  localeSources?: Record<string, unknown>;
+  manifestSource: string;
+  packId: string;
+  profileIds?: string[];
+  source: string;
+  status: SoulStylePackInstallStatus;
+  updatedAt?: null | string;
+}
+
+export type SoulStylePackListParams = Record<string, unknown>;
+
+export interface SoulStylePackListResponse {
+  packs?: SoulStylePackListEntry[];
+}
+
+export type SoulStylePackMutableStatus = "disabled" | "enabled";
+
+export interface SoulStylePackStatusSetParams {
+  packId: string;
+  status: SoulStylePackMutableStatus;
+}
+
+export interface SoulStylePackStatusSetResponse {
+  packId: string;
+  status: SoulStylePackInstallStatus;
+}
+
+export interface SoulStylePackUninstallParams {
+  packId: string;
+}
+
+export interface SoulStylePackUninstallResponse {
+  packId: string;
+  status: SoulStylePackInstallStatus;
+}
+
+export interface StructuredOutputContract {
+  failureSubtype?: null | string;
+  materializer?: unknown;
+  maxValidationRetries?: number | null;
+  metadata?: unknown;
+  schema?: unknown;
+  schemaRef?: null | string;
+  type?: null | string;
+}
+
+export interface SupportBundleExportParams {
+  includeTraceExport?: SupportBundleTraceExportSelection | null;
+}
+
 export interface SupportBundleExportResponse {
   bundlePath: string;
   generatedAt: string;
-  includedSections?: (string)[];
-  omittedSections?: (string)[];
+  includedSections?: string[];
+  omittedSections?: string[];
   outputDirectory: string;
   platform: string;
 }
 
-export interface TestCase {
-  assertions?: (string)[];
-  caseId: string;
-  caseType?: string;
-  createdAt?: string;
-  execResult?: string;
-  id: string;
-  moduleId?: string;
-  precondition?: string;
-  priority?: string;
-  remark?: string;
-  source?: string;
-  status?: string;
-  steps?: (TestCaseStep)[];
-  tags?: (string)[];
-  title: string;
-  updatedAt?: string;
+export interface SupportBundleTraceExportSelection {
+  sessionId: string;
+  traceId: string;
 }
 
-export interface TestCaseDeleteParams {
-  ids?: (string)[];
+export interface TextPosition {
+  column: number;
+  line: number;
 }
 
-export interface TestCaseDeleteResponse {
-  deleted: number;
+export interface TextRange {
+  end: TextPosition;
+  start: TextPosition;
 }
 
-export interface TestCaseListParams {
-  moduleId?: null | string;
-  workspaceId: string;
-}
-
-export interface TestCaseListResponse {
-  cases?: (TestCase)[];
-}
-
-export interface TestCaseModule {
-  id: string;
-  name: string;
-  orderIndex?: number;
-  parentId?: null | string;
-}
-
-export interface TestCaseModuleDeleteParams {
-  id: string;
-  workspaceId: string;
-}
-
-export interface TestCaseModuleDeleteResponse {
-  deleted: boolean;
-}
-
-export interface TestCaseModuleListParams {
-  workspaceId: string;
-}
-
-export interface TestCaseModuleListResponse {
-  modules?: (TestCaseModule)[];
-}
-
-export interface TestCaseModuleSaveParams {
-  module: TestCaseModule;
-  workspaceId: string;
-}
-
-export interface TestCaseModuleSaveResponse {
-  module: TestCaseModule;
-}
-
-export interface TestCaseReadParams {
-  id: string;
-}
-
-export interface TestCaseReadResponse {
-  case?: TestCase | null;
-}
-
-export interface TestCaseRun {
-  caseId: string;
-  deviceId?: string;
-  finishedAt?: string;
-  id: string;
-  instruction?: string;
-  result?: string;
-  startedAt?: string;
-  steps?: (TestCaseRunStep)[];
-  summary?: string;
-}
-
-export interface TestCaseRunListParams {
-  caseId: string;
-  workspaceId: string;
-}
-
-export interface TestCaseRunListResponse {
-  runs?: (TestCaseRun)[];
-}
-
-export interface TestCaseRunSaveParams {
-  run: TestCaseRun;
-  workspaceId: string;
-}
-
-export interface TestCaseRunSaveResponse {
-  run: TestCaseRun;
-}
-
-export interface TestCaseRunStep {
-  id: string;
-  observation?: string;
-  runId?: string;
-  screenshotPath?: string;
-  stepNo: number;
-  ts?: string;
-}
-
-export interface TestCaseSaveParams {
-  case: TestCase;
-  workspaceId: string;
-}
-
-export interface TestCaseSaveResponse {
-  case: TestCase;
-}
-
-export interface TestCaseStep {
-  action?: string;
-  expected?: string;
-  stepNo: number;
-}
-
-export interface TestFlow {
-  appPackage: string;
-  createdAt?: string;
-  formatVersion: number;
-  id: string;
-  name: string;
-  platform?: string;
-  selfHealingEnabled?: boolean;
-  source?: string;
-  steps?: (FlowStep)[];
-  updatedAt?: string;
-  workspaceId: string;
-}
-
-export interface UnifiedMemory {
-  archived: boolean;
-  category: UnifiedMemoryCategory;
-  content: string;
-  created_at: number;
-  id: string;
-  memory_type: UnifiedMemoryType;
-  metadata: UnifiedMemoryMetadata;
-  session_id: string;
-  summary: string;
-  tags?: (string)[];
-  title: string;
-  updated_at: number;
-}
-
-export interface UnifiedMemoryAnalysisResponse {
-  analyzed_messages: number;
-  analyzed_sessions: number;
-  deduplicated_entries: number;
-  generated_entries: number;
-}
-
-export interface UnifiedMemoryAnalyzeParams {
-  from_timestamp?: number | null;
-  to_timestamp?: number | null;
-}
-
-export type UnifiedMemoryCategory = "activity" | "context" | "experience" | "identity" | "preference";
-
-export interface UnifiedMemoryCategoryCount {
-  category: UnifiedMemoryCategory;
-  count: number;
-}
-
-export interface UnifiedMemoryCreateParams {
-  request: UnifiedMemoryCreateRequest;
-}
-
-export interface UnifiedMemoryCreateRequest {
-  category?: UnifiedMemoryCategory | null;
-  confidence?: null | number;
-  content: string;
-  importance?: number | null;
-  session_id: string;
-  summary: string;
-  tags?: unknown | null;
-  title: string;
-}
-
-export interface UnifiedMemoryDeleteParams {
-  id: string;
-}
-
-export interface UnifiedMemoryDeleteResponse {
-  deleted: boolean;
-}
-
-export interface UnifiedMemoryGetParams {
-  id: string;
-}
-
-export interface UnifiedMemoryGetResponse {
-  memory?: UnifiedMemory | null;
-}
-
-export interface UnifiedMemoryHybridSearchOptions {
-  category?: UnifiedMemoryCategory | null;
-  keyword_weight?: null | number;
+export interface ThreadItemsListParams {
+  cursor?: null | string;
   limit?: number | null;
-  min_similarity?: null | number;
-  query: string;
-  semantic_weight: number;
+  sortDirection?: SortDirection;
+  threadId: string;
+  turnId?: null | string;
 }
 
-export interface UnifiedMemoryHybridSearchParams {
-  options: UnifiedMemoryHybridSearchOptions;
+export interface ThreadItemsListResponse {
+  backwardsCursor?: null | string;
+  data: ThreadItem[];
+  nextCursor?: null | string;
 }
 
-export interface UnifiedMemoryListFilters {
-  archived?: boolean | null;
-  category?: UnifiedMemoryCategory | null;
+export interface ThreadListParams {
+  cursor?: null | string;
+  includeArchived?: boolean;
   limit?: number | null;
-  memory_type?: UnifiedMemoryType | null;
-  offset?: number | null;
-  order?: null | string;
-  session_id?: null | string;
-  sort_by?: null | string;
+  sortDirection?: SortDirection;
+  turnsView?: ThreadTurnsView;
 }
 
-export interface UnifiedMemoryListParams {
-  filters?: UnifiedMemoryListFilters | null;
+export interface ThreadListResponse {
+  backwardsCursor?: null | string;
+  data: Thread[];
+  nextCursor?: null | string;
 }
 
-export interface UnifiedMemoryListResponse {
-  memories?: (UnifiedMemory)[];
+export interface ThreadReadParams {
+  threadId: string;
+  turnsView?: ThreadTurnsView;
 }
 
-export interface UnifiedMemoryMetadata {
-  access_count: number;
-  confidence: number;
-  embedding?: unknown | null;
-  importance: number;
-  last_accessed_at?: number | null;
-  source: UnifiedMemorySource;
+export interface ThreadReadResponse {
+  thread: Thread;
 }
 
-export interface UnifiedMemorySearchParams {
-  category?: UnifiedMemoryCategory | null;
+export interface ThreadTurnsListParams {
+  cursor?: null | string;
+  itemsView?: TurnItemsView;
   limit?: number | null;
-  query: string;
+  sortDirection?: SortDirection;
+  threadId: string;
 }
 
-export interface UnifiedMemorySemanticSearchOptions {
-  category?: UnifiedMemoryCategory | null;
-  limit?: number | null;
-  min_similarity?: null | number;
-  query: string;
+export interface ThreadTurnsListResponse {
+  backwardsCursor?: null | string;
+  data: Turn[];
+  nextCursor?: null | string;
 }
 
-export interface UnifiedMemorySemanticSearchParams {
-  options: UnifiedMemorySemanticSearchOptions;
-}
-
-export type UnifiedMemorySource = "auto_extracted" | "imported" | "manual";
-
-export interface UnifiedMemoryStatsResponse {
-  categories?: (UnifiedMemoryCategoryCount)[];
-  memory_count: number;
-  storage_used: number;
-  total_entries: number;
-}
-
-export type UnifiedMemoryType = "conversation" | "project";
-
-export interface UnifiedMemoryUpdateParams {
-  id: string;
-  request: UnifiedMemoryUpdateRequest;
-}
-
-export interface UnifiedMemoryUpdateRequest {
-  confidence?: null | number;
-  content?: null | string;
-  importance?: number | null;
-  summary?: null | string;
-  tags?: unknown | null;
-  title?: null | string;
-}
-
-export interface UnifiedMemoryWriteResponse {
-  memory: UnifiedMemory;
-}
+export type TransportKind = "http" | "local_process" | "sidecar";
 
 export interface UsageStatsDailyTrendsListResponse {
-  trends?: (UsageStatsDailyUsage)[];
+  trends?: UsageStatsDailyUsage[];
 }
 
 export interface UsageStatsDailyUsage {
@@ -2920,7 +7632,7 @@ export interface UsageStatsDailyUsage {
 }
 
 export interface UsageStatsModelRankingListResponse {
-  ranking?: (UsageStatsModelUsage)[];
+  ranking?: UsageStatsModelUsage[];
 }
 
 export interface UsageStatsModelUsage {
@@ -2988,7 +7700,7 @@ export interface VoiceAsrCredentialIdParams {
 }
 
 export interface VoiceAsrCredentialListResponse {
-  credentials?: (VoiceAsrCredential)[];
+  credentials?: VoiceAsrCredential[];
 }
 
 export type VoiceAsrCredentialMutationResponse = Record<string, unknown>;
@@ -3012,7 +7724,12 @@ export interface VoiceAsrOpenAiConfig {
   proxy_url?: null | string;
 }
 
-export type VoiceAsrProviderType = "baidu" | "openai" | "sense_voice_local" | "whisper_local" | "xunfei";
+export type VoiceAsrProviderType =
+  | "baidu"
+  | "openai"
+  | "sense_voice_local"
+  | "whisper_local"
+  | "xunfei";
 
 export interface VoiceAsrSenseVoiceLocalConfig {
   model_dir?: null | string;
@@ -3050,7 +7767,7 @@ export interface VoiceInstructionIdParams {
 }
 
 export interface VoiceInstructionListResponse {
-  instructions?: (VoiceInstruction)[];
+  instructions?: VoiceInstruction[];
 }
 
 export type VoiceInstructionMutationResponse = Record<string, unknown>;
@@ -3080,8 +7797,33 @@ export interface VoiceModelTestTranscribeFileResponse {
   text: string;
 }
 
+export interface VoiceTranscriptionPolishTextParams {
+  instruction_id?: null | string;
+  text: string;
+}
+
+export interface VoiceTranscriptionPolishTextResponse {
+  instruction_name: string;
+  polished?: boolean;
+  text: string;
+}
+
+export interface VoiceTranscriptionTranscribeAudioParams {
+  audio_base64: string;
+  credential_id?: null | string;
+  mime_type: string;
+}
+
+export interface VoiceTranscriptionTranscribeAudioResponse {
+  duration_secs: number;
+  language?: null | string;
+  provider: VoiceAsrProviderType;
+  sample_rate: number;
+  text: string;
+}
+
 export interface WechatChannelAccountListResponse {
-  accounts?: (WechatConfiguredAccount)[];
+  accounts?: WechatConfiguredAccount[];
 }
 
 export interface WechatChannelAccountRemoveParams {
@@ -3148,7 +7890,7 @@ export interface WindowsStartupCheck {
 
 export interface WindowsStartupDiagnosticsResponse {
   appDataDir?: null | string;
-  checks?: (WindowsStartupCheck)[];
+  checks?: WindowsStartupCheck[];
   comspecEnv?: null | string;
   currentDir?: null | string;
   currentExe?: null | string;
@@ -3164,6 +7906,65 @@ export interface WindowsStartupDiagnosticsResponse {
   shellEnv?: null | string;
   summaryMessage?: null | string;
   webview2Version?: null | string;
+}
+
+export interface WorkflowCancelParams {
+  reason?: null | string;
+  reasonCode?: null | string;
+  sessionId: string;
+  stepId?: null | string;
+  workflowRunId: string;
+}
+
+export interface WorkflowCancelResponse {
+  sessionId: string;
+  workflow: unknown;
+  workflowRuns?: unknown[];
+  workflowSteps?: unknown[];
+}
+
+export interface WorkflowReadParams {
+  sessionId: string;
+}
+
+export interface WorkflowReadResponse {
+  sessionId: string;
+  workflow: unknown;
+  workflowRuns?: unknown[];
+  workflowSteps?: unknown[];
+}
+
+export interface WorkflowRespondParams {
+  actionType?: AgentSessionActionType | null;
+  confirmed?: boolean | null;
+  requestId?: null | string;
+  response?: unknown;
+  sessionId: string;
+  stepId?: null | string;
+  workflowRunId: string;
+}
+
+export interface WorkflowRespondResponse {
+  sessionId: string;
+  workflow: unknown;
+  workflowRuns?: unknown[];
+  workflowSteps?: unknown[];
+}
+
+export interface WorkflowRetryParams {
+  reason?: null | string;
+  reasonCode?: null | string;
+  sessionId: string;
+  stepId?: null | string;
+  workflowRunId: string;
+}
+
+export interface WorkflowRetryResponse {
+  rescheduledTurnId?: null | string;
+  sessionId: string;
+  workflow: unknown;
+  workflowRuns?: unknown[];
+  workflowSteps?: unknown[];
 }
 
 export interface WorkspaceDeleteParams {
@@ -3196,7 +7997,7 @@ export interface WorkspaceEnsureReadyResponse {
 }
 
 export interface WorkspaceListResponse {
-  workspaces?: (unknown)[];
+  workspaces?: unknown[];
 }
 
 export interface WorkspacePathReadParams {
@@ -3229,7 +8030,91 @@ export interface WorkspaceRegisteredSkillsListParams {
 }
 
 export interface WorkspaceRegisteredSkillsListResponse {
-  skills?: (unknown)[];
+  skills?: unknown[];
+}
+
+export interface WorkspaceRightSurfacePendingChangedParams {
+  changeType: string;
+  consumedRequestIds?: string[];
+  dismissedRequestIds?: string[];
+  missingRequestIds?: string[];
+  pending?: WorkspaceRightSurfacePendingRequest[];
+  requestIds?: string[];
+  sessionId?: null | string;
+  surfaceKind?: null | string;
+  workspaceId?: null | string;
+  workspaceRoot?: null | string;
+}
+
+export interface WorkspaceRightSurfacePendingConsumeParams {
+  requestId?: null | string;
+  requestIds?: string[];
+}
+
+export interface WorkspaceRightSurfacePendingConsumeResponse {
+  consumedRequestIds?: string[];
+  missingRequestIds?: string[];
+  status: string;
+}
+
+export interface WorkspaceRightSurfacePendingDismissParams {
+  reason?: null | string;
+  requestId?: null | string;
+  requestIds?: string[];
+}
+
+export interface WorkspaceRightSurfacePendingDismissResponse {
+  dismissedRequestIds?: string[];
+  missingRequestIds?: string[];
+  status: string;
+}
+
+export interface WorkspaceRightSurfacePendingListParams {
+  limit?: number | null;
+  sessionId?: null | string;
+  surfaceKind?: null | string;
+  workspaceId?: null | string;
+  workspaceRoot?: null | string;
+}
+
+export interface WorkspaceRightSurfacePendingListResponse {
+  pending?: WorkspaceRightSurfacePendingRequest[];
+}
+
+export interface WorkspaceRightSurfacePendingRequest {
+  candidateId?: null | string;
+  expiresAt?: null | string;
+  metadata?: unknown;
+  origin: string;
+  priority: string;
+  reason?: null | string;
+  requestId: string;
+  requestedAt: string;
+  sessionId?: null | string;
+  status: string;
+  surfaceKind: string;
+  ttlMs?: number | null;
+  workspaceId?: null | string;
+  workspaceRoot?: null | string;
+}
+
+export interface WorkspaceRightSurfaceRequestParams {
+  candidateId?: null | string;
+  metadata?: unknown;
+  origin: string;
+  priority?: null | string;
+  reason?: null | string;
+  sessionId?: null | string;
+  surfaceKind: string;
+  ttlMs?: number | null;
+  workspaceId?: null | string;
+  workspaceRoot?: null | string;
+}
+
+export interface WorkspaceRightSurfaceRequestResponse {
+  pending: WorkspaceRightSurfacePendingRequest;
+  requestId: string;
+  status: string;
 }
 
 export interface WorkspaceSkillBindingsListParams {
@@ -3253,7 +8138,7 @@ export interface WorkspaceUpdateParams {
   name?: null | string;
   rootPath?: null | string;
   settings?: unknown;
-  tags?: unknown | null;
+  tags?: string[] | null;
 }
 
 export interface WorkspaceUpdateResponse {
@@ -3286,3 +8171,339 @@ export interface jsonRpcResponse {
 }
 
 export type requestId = number | string;
+
+export type AgentSessionApprovalDecision =
+  | "allow_for_session"
+  | "allow_once"
+  | "cancel"
+  | "decline";
+
+export interface ApprovalAction {
+  description: string;
+  kind: string;
+}
+
+export type ApprovalDecision =
+  | "abort"
+  | "approved"
+  | "approvedForSession"
+  | "denied"
+  | "timedOut";
+
+export type ApprovalScope = "once" | "session" | "turn";
+
+export type CollabAgentOperation =
+  | "close"
+  | "followUp"
+  | "interrupt"
+  | "resume"
+  | "sendMessage"
+  | "spawn"
+  | "wait";
+
+export interface CollabAgentState {
+  message?: null | string;
+  status: CollabAgentStatus;
+}
+
+export type CollabAgentStatus =
+  | "completed"
+  | "errored"
+  | "interrupted"
+  | "notFound"
+  | "pendingInit"
+  | "running"
+  | "shutdown";
+
+export type FileChangeStatus = "applied" | "failed" | "proposed" | "rejected";
+
+export type ItemId = string;
+
+export type ItemKind =
+  | "agentMessage"
+  | "approval"
+  | "collabAgentToolCall"
+  | "command"
+  | "contextCompaction"
+  | "extension"
+  | "file"
+  | "mcpToolCall"
+  | "media"
+  | "plan"
+  | "reasoning"
+  | "subAgent"
+  | "tool"
+  | "userMessage";
+
+export type ItemStatus =
+  | "cancelled"
+  | "completed"
+  | "failed"
+  | "inProgress"
+  | "interrupted"
+  | "pending";
+
+export type MessageContentPart =
+  | {
+      text: string;
+      type: "text";
+    }
+  | {
+      caption?: null | string;
+      kind: string;
+      reference: MessageContentReference;
+      type: "media";
+    };
+
+export interface MessageContentReference {
+  byte_size?: number | null;
+  mime_type: string;
+  preview_url?: null | string;
+  sha256?: null | string;
+  sidecar_ref?: unknown;
+  source_path?: null | string;
+  source_uri?: null | string;
+  title?: null | string;
+  uri: string;
+}
+
+export interface PlanStep {
+  status: PlanStepStatus;
+  step: string;
+}
+
+export type PlanStepStatus = "completed" | "in_progress" | "pending";
+
+export type SubAgentActivityKind = "interacted" | "interrupted" | "started";
+
+export interface Thread {
+  agentNickname?: null | string;
+  agentPath?: null | string;
+  agentRole?: null | string;
+  agentState?: CollabAgentState | null;
+  archived: boolean;
+  createdAtMs: number;
+  forkedFromId?: null | string;
+  lastTaskMessage?: null | string;
+  metadata?: unknown;
+  modelProvider?: string;
+  name?: null | string;
+  parentThreadId?: null | string;
+  preview?: string;
+  product?: null | string;
+  recencyAtMs?: number | null;
+  sessionId: string;
+  status: ThreadStatus;
+  threadId: string;
+  turns?: Turn[];
+  turnsView?: ThreadTurnsView;
+  updatedAtMs: number;
+}
+
+export type ThreadActiveFlag = "waitingOnApproval" | "waitingOnUserInput";
+
+export interface ThreadItem {
+  completedAtMs?: number | null;
+  createdAtMs: number;
+  itemId: ItemId;
+  kind: ItemKind;
+  metadata?: unknown;
+  ordinal: number;
+  payload: ThreadItemPayload;
+  sequence: number;
+  sessionId: string;
+  status: ItemStatus;
+  threadId: string;
+  turnId: string;
+  updatedAtMs: number;
+}
+
+export type ThreadItemPayload =
+  | {
+      client_id?: null | string;
+      content: string;
+      type: "userMessage";
+    }
+  | {
+      content_parts?: MessageContentPart[];
+      phase?: null | string;
+      text: string;
+      type: "agentMessage";
+    }
+  | {
+      explanation?: null | string;
+      plan?: PlanStep[];
+      revision_id: string;
+      source?: null | string;
+      source_item_id?: null | string;
+      text: string;
+      tool_call_id?: null | string;
+      type: "plan";
+    }
+  | {
+      content?: string[];
+      summary?: string[];
+      type: "reasoning";
+    }
+  | {
+      arguments?: ToolArgument[];
+      call_id: string;
+      name: string;
+      output?: ToolOutput | null;
+      type: "tool";
+    }
+  | {
+      arguments?: ToolArgument[];
+      call_id: string;
+      output?: ToolOutput | null;
+      server_name: string;
+      tool_name: string;
+      type: "mcpToolCall";
+    }
+  | {
+      call_id: string;
+      message?: null | string;
+      operation: CollabAgentOperation;
+      output?: ToolOutput | null;
+      target_thread_id?: null | string;
+      type: "collabAgentToolCall";
+    }
+  | {
+      action: ApprovalAction;
+      available_decisions?: ApprovalDecision[];
+      decision?: ApprovalDecision | null;
+      expires_at_ms?: number | null;
+      reason_code?: null | string;
+      request_id: string;
+      requested_at_ms?: number | null;
+      resolved_at_ms?: number | null;
+      scope?: ApprovalScope;
+      type: "approval";
+    }
+  | {
+      command: string;
+      cwd?: null | string;
+      exit_code?: number | null;
+      output?: null | string;
+      type: "command";
+    }
+  | {
+      diff?: null | string;
+      path: string;
+      status: FileChangeStatus;
+      type: "file";
+    }
+  | {
+      mime_type: string;
+      preview?: null | string;
+      type: "media";
+      uri: string;
+    }
+  | {
+      activity: SubAgentActivityKind;
+      child_thread_id: string;
+      detail?: null | string;
+      type: "subAgent";
+    }
+  | {
+      summary?: null | string;
+      type: "contextCompaction";
+      window_id?: null | string;
+    }
+  | {
+      data: unknown;
+      name: string;
+      type: "extension";
+    };
+
+export type ThreadStatus =
+  | {
+      type: "notLoaded";
+    }
+  | {
+      type: "idle";
+    }
+  | {
+      type: "systemError";
+    }
+  | {
+      activeFlags?: ThreadActiveFlag[];
+      type: "active";
+    };
+
+export type ThreadTurnsView = "full" | "notLoaded" | "summary";
+
+export interface ToolArgument {
+  name: string;
+  value: string;
+}
+
+export interface ToolOutput {
+  durationMs?: number | null;
+  error?: null | string;
+  outputRef?: null | string;
+  structuredContent?: unknown;
+  text?: null | string;
+  truncated?: boolean;
+}
+
+export interface Turn {
+  admission?: TurnAdmissionState;
+  approval?: TurnApprovalState;
+  completedAtMs?: number | null;
+  createdAtMs: number;
+  durationMs?: number | null;
+  error?: TurnError | null;
+  items?: ThreadItem[];
+  itemsView?: TurnItemsView;
+  queue?: TurnQueueState;
+  sessionId: string;
+  startedAtMs?: number | null;
+  status: TurnStatus;
+  threadId: string;
+  turnId: string;
+  updatedAtMs: number;
+}
+
+export type TurnAdmissionState = "accepted" | "rejected";
+
+export type TurnApprovalState =
+  | "approved"
+  | "cancelled"
+  | "denied"
+  | "notRequired"
+  | "pending"
+  | "resolved"
+  | "timedOut";
+
+export interface TurnError {
+  code?: null | string;
+  details?: null | string;
+  message: string;
+}
+
+export type TurnItemsView = "full" | "notLoaded" | "summary";
+
+export type TurnQueueState =
+  | {
+      state: "notQueued";
+    }
+  | {
+      position?: number | null;
+      state: "queued";
+    }
+  | {
+      state: "running";
+    };
+
+export type TurnStatus = "completed" | "failed" | "inProgress" | "interrupted";
+
+export type AgentSessionCwdFilter = string | string[];
+
+export interface PluginReadinessIssueCategorySummary {
+  category: string;
+  codes?: string[];
+  count: number;
+}
+
+export type SortDirection = "asc" | "desc";

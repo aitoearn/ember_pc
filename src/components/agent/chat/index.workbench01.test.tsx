@@ -6,18 +6,19 @@ import {
   createMockThemeContextWorkspaceState,
   createProject,
   flushEffects,
-  GENERAL_ASSISTANT_TITLE,
+  GENERAL_CONTEXT_HINT,
   getIndexTestMocks,
   getSendMessageCall,
   installMockAgentChatUnifiedState,
+  textContainsAny,
   type MockInputbarSendPayload,
   type MockInputbarSendProps,
   mountPage,
   renderPage,
   sharedSendMessageMock,
   waitForElement,
-  WORKSPACE_HARNESS_DESCRIPTION,
-  WORKSPACE_HARNESS_TITLE,
+  WORKSPACE_HARNESS_DESCRIPTION_CANDIDATES,
+  WORKSPACE_HARNESS_TITLE_CANDIDATES,
 } from "./index.testFixtures";
 
 const {
@@ -35,7 +36,7 @@ const {
 } = getIndexTestMocks();
 
 describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
-  it("空白新建任务首页应保留浏览器式工作区顶栏与新对话标签", async () => {
+  it("空白新建任务首页应去掉项目栏和会话标签，只保留右上工具区", async () => {
     const container = renderPage({
       agentEntry: "new-task",
       showChatPanel: false,
@@ -44,26 +45,30 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
     });
     await flushEffects(10);
 
-    const navbar = container.querySelector(
-      '[data-testid="chat-navbar"]',
-    ) as HTMLDivElement | null;
-
-    expect(navbar?.dataset.contextVariant).toBe("task-center");
-    expect(navbar?.dataset.showHarnessToggle).toBe("false");
-    expect(navbar?.dataset.showSettingsButton).toBe("false");
-    expect(navbar?.dataset.showContextCompactionAction).toBe("false");
+    expect(container.querySelector('[data-testid="chat-navbar"]')).toBeNull();
+    expect(
+      container.querySelector('[data-testid="task-center-chrome-shell"]'),
+    ).toBeNull();
     expect(
       container.querySelector('[data-testid="task-center-tab-strip"]'),
-    ).not.toBeNull();
+    ).toBeNull();
     expect(
       container.querySelector('[data-testid="task-center-tab-new-task-home"]'),
-    ).not.toBeNull();
+    ).toBeNull();
     expect(
       container.querySelector(
         '[data-testid="task-center-tab-close-new-task-home"]',
       ),
     ).toBeNull();
-    expect(container.textContent).toContain("新对话");
+    expect(container.textContent).not.toContain("新对话");
+    expect(
+      container.querySelector(
+        '[data-testid="task-center-home-top-toolbar-host"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="task-center-utility-toolbar"]'),
+    ).not.toBeNull();
     expect(
       container.querySelector('[data-testid="toggle-harness"]'),
     ).toBeNull();
@@ -75,7 +80,7 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
     ).not.toBeNull();
   });
 
-  it("空白新建任务首页点击加号应连续创建草稿标签", async () => {
+  it("空白新建任务首页不应再展示顶部加号和草稿标签", async () => {
     const mounted = mountPage({
       agentEntry: "new-task",
       showChatPanel: false,
@@ -88,31 +93,21 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
       mounted.container.querySelector(
         '[data-testid="task-center-tab-new-task-home"]',
       ),
-    ).not.toBeNull();
-
-    clickButton(mounted.container, "task-center-tab-create-button");
-    await flushEffects(4);
-
-    const firstDraftTabs = mounted.container.querySelectorAll(
-      '[data-testid^="task-center-tab-task-draft-"]',
-    );
-    expect(firstDraftTabs).toHaveLength(1);
-    expect(firstDraftTabs[0]?.getAttribute("data-active")).toBe("true");
+    ).toBeNull();
     expect(
       mounted.container.querySelector(
-        '[data-testid="task-center-tab-new-task-home"]',
+        '[data-testid="task-center-tab-create-button"]',
       ),
     ).toBeNull();
-
-    clickButton(mounted.container, "task-center-tab-create-button");
-    await flushEffects(4);
-
     const draftTabs = mounted.container.querySelectorAll(
       '[data-testid^="task-center-tab-task-draft-"]',
     );
-    expect(draftTabs).toHaveLength(2);
-    expect(draftTabs[0]?.getAttribute("data-active")).toBe("false");
-    expect(draftTabs[1]?.getAttribute("data-active")).toBe("true");
+    expect(draftTabs).toHaveLength(0);
+    expect(
+      mounted.container.querySelector(
+        '[data-testid="task-center-home-top-toolbar-host"]',
+      ),
+    ).not.toBeNull();
   });
 
   it("空白新建任务首页刷新后不应自动恢复最近会话", async () => {
@@ -314,15 +309,15 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
     });
     await flushEffects();
 
-    const navbar = container.querySelector(
-      '[data-testid="chat-navbar"]',
+    const toolbar = container.querySelector(
+      '[data-testid="task-center-utility-toolbar"]',
     ) as HTMLDivElement | null;
     const toggleCanvasButton = container.querySelector(
       '[data-testid="toggle-canvas"]',
     ) as HTMLButtonElement | null;
 
-    expect(navbar?.dataset.showCanvasToggle).toBe("true");
-    expect(navbar?.dataset.canvasOpen).toBe("false");
+    expect(toolbar?.dataset.showCanvasToggle).toBe("true");
+    expect(toolbar?.dataset.canvasOpen).toBe("false");
     expect(toggleCanvasButton?.textContent).toContain("展开画布");
     expect(
       container
@@ -338,7 +333,7 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
     expect(
       (
         container.querySelector(
-          '[data-testid="chat-navbar"]',
+          '[data-testid="task-center-utility-toolbar"]',
         ) as HTMLDivElement | null
       )?.dataset.canvasOpen,
     ).toBe("true");
@@ -360,7 +355,7 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
     expect(
       (
         container.querySelector(
-          '[data-testid="chat-navbar"]',
+          '[data-testid="task-center-utility-toolbar"]',
         ) as HTMLDivElement | null
       )?.dataset.canvasOpen,
     ).toBe("false");
@@ -372,7 +367,7 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
   });
 
   it("普通画布应将工作台触发按钮并入头部工具栏，避免覆盖关闭区", async () => {
-    mockCanvasWorkbenchLayoutState.renderPreview = true;
+    mockCanvasWorkbenchLayoutState.renderPreviewProbe = true;
 
     const container = renderPage({
       theme: "general",
@@ -383,21 +378,86 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
     clickButton(container, "toggle-canvas");
     await flushEffects(4);
 
-    const toolbar = container.querySelector(
-      '[data-testid="general-canvas-toolbar"]',
+    const workbench = container.querySelector(
+      '[data-testid="canvas-workbench-layout-mock"]',
     ) as HTMLDivElement | null;
-    const triggers = container.querySelectorAll(
-      '[data-testid="stacked-workbench-trigger"]',
+
+    expect(workbench).not.toBeNull();
+    expect(
+      workbench?.querySelector(
+        '[data-testid="canvas-workbench-default-preview-probe"]',
+      ),
+    ).not.toBeNull();
+  });
+
+  it("点击 WebSearch 来源应在右侧 Browser 工作台打开 URL，而不是 URL 预览", async () => {
+    installMockAgentChatUnifiedState(
+      createMockAgentChatUnifiedState({
+        messages: [
+          {
+            id: "msg-search-assistant",
+            role: "assistant",
+            content: "已整理搜索来源。",
+            timestamp: new Date("2026-06-24T10:00:00.000Z"),
+          },
+        ],
+      }),
     );
 
+    const mounted = mountPage({
+      theme: "general",
+      lockTheme: true,
+    });
+    await flushEffects();
+
+    const latestMessageListProps = mockMessageList.mock.calls.at(-1)?.[0] as
+      | {
+          onOpenUrlPreview?: (item: {
+            id: string;
+            title: string;
+            url: string;
+            hostname: string;
+            snippet?: string;
+            snapshotContent?: string;
+          }) => void;
+        }
+      | undefined;
+    expect(latestMessageListProps?.onOpenUrlPreview).toEqual(
+      expect.any(Function),
+    );
+
+    act(() => {
+      latestMessageListProps?.onOpenUrlPreview?.({
+        id: "source-1",
+        title: "Reuters World News",
+        url: " https://www.reuters.com/world/ ",
+        hostname: "www.reuters.com",
+        snippet: "搜索结果摘要",
+        snapshotContent: "# Reuters snapshot\n\n正文来自 WebFetch。",
+      });
+    });
+    await flushEffects(4);
+
     expect(
-      container.querySelector('[data-testid="general-canvas"]'),
-    ).not.toBeNull();
-    expect(toolbar).not.toBeNull();
-    expect(triggers).toHaveLength(1);
-    expect(
-      toolbar?.querySelector('[data-testid="stacked-workbench-trigger"]'),
-    ).not.toBeNull();
+      mounted.container
+        .querySelector('[data-testid="layout-transition"]')
+        ?.getAttribute("data-mode"),
+    ).toBe("chat-canvas");
+
+    const latestWorkbenchProps = mockCanvasWorkbenchLayout.mock.calls.at(
+      -1,
+    )?.[0] as
+      | {
+          browserOpenRequest?: { url?: string | null } | null;
+          previewOpenRequest?: unknown;
+        }
+      | undefined;
+    expect(latestWorkbenchProps?.browserOpenRequest).toEqual(
+      expect.objectContaining({
+        url: "https://www.reuters.com/world/",
+      }),
+    );
+    expect(latestWorkbenchProps?.previewOpenRequest ?? null).toBeNull();
   });
 
   it("通用模式空闲时应保留顶部 Harness 入口", async () => {
@@ -407,19 +467,29 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
     });
     await flushEffects();
 
-    const navbar = container.querySelector(
-      '[data-testid="chat-navbar"]',
+    const toolbar = container.querySelector(
+      '[data-testid="task-center-utility-toolbar"]',
     ) as HTMLDivElement | null;
-    expect(navbar?.dataset.showHarnessToggle).toBe("true");
-    expect(navbar?.dataset.harnessToggleLabel).toBe("Harness");
-    expect(document.body.textContent).not.toContain(WORKSPACE_HARNESS_TITLE);
-    expect(document.body.textContent).not.toContain(GENERAL_ASSISTANT_TITLE);
+    expect(toolbar?.dataset.showHarnessToggle).toBe("true");
+    expect(toolbar?.dataset.harnessToggleLabel).toBe("Harness");
+    expect(
+      textContainsAny(
+        document.body.textContent,
+        WORKSPACE_HARNESS_TITLE_CANDIDATES,
+      ),
+    ).toBe(false);
+    expect(document.body.textContent).not.toContain(GENERAL_CONTEXT_HINT);
 
     clickButton(container, "toggle-harness");
     await flushEffects();
 
-    expect(document.body.textContent).toContain(WORKSPACE_HARNESS_TITLE);
-    expect(document.body.textContent).toContain(GENERAL_ASSISTANT_TITLE);
+    expect(
+      textContainsAny(
+        document.body.textContent,
+        WORKSPACE_HARNESS_TITLE_CANDIDATES,
+      ),
+    ).toBe(true);
+    expect(document.body.textContent).toContain(GENERAL_CONTEXT_HINT);
   });
 
   it("通用模式有处理活动时应通过顶部 Harness 按钮打开弹窗，而不是常驻右侧占位", async () => {
@@ -435,24 +505,70 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
     });
     await flushEffects();
 
-    const navbar = container.querySelector(
-      '[data-testid="chat-navbar"]',
+    const toolbar = container.querySelector(
+      '[data-testid="task-center-utility-toolbar"]',
     ) as HTMLDivElement | null;
-    expect(navbar?.dataset.showHarnessToggle).toBe("true");
-    expect(navbar?.dataset.harnessToggleLabel).toBe("Harness");
-    expect(document.body.textContent).not.toContain(WORKSPACE_HARNESS_TITLE);
-    expect(document.body.textContent).not.toContain(GENERAL_ASSISTANT_TITLE);
+    expect(toolbar?.dataset.showHarnessToggle).toBe("true");
+    expect(toolbar?.dataset.harnessToggleLabel).toBe("Harness");
+    expect(
+      textContainsAny(
+        document.body.textContent,
+        WORKSPACE_HARNESS_TITLE_CANDIDATES,
+      ),
+    ).toBe(false);
+    expect(document.body.textContent).not.toContain(GENERAL_CONTEXT_HINT);
 
     clickButton(container, "toggle-harness");
     await flushEffects();
 
-    expect(document.body.textContent).toContain(WORKSPACE_HARNESS_TITLE);
-    expect(document.body.textContent).toContain(GENERAL_ASSISTANT_TITLE);
-    expect(document.body.textContent).toContain(WORKSPACE_HARNESS_DESCRIPTION);
+    expect(
+      textContainsAny(
+        document.body.textContent,
+        WORKSPACE_HARNESS_TITLE_CANDIDATES,
+      ),
+    ).toBe(true);
+    expect(document.body.textContent).toContain(GENERAL_CONTEXT_HINT);
+    expect(
+      textContainsAny(
+        document.body.textContent,
+        WORKSPACE_HARNESS_DESCRIPTION_CANDIDATES,
+      ),
+    ).toBe(true);
+  });
+
+  it("处理工作台调试信息开关开启时右侧 Harness surface 应触发工具库存读取", async () => {
+    const container = renderPage({
+      theme: "general",
+      lockTheme: true,
+    });
+    await flushEffects();
+
+    const toolbar = container.querySelector(
+      '[data-testid="task-center-utility-toolbar"]',
+    ) as HTMLDivElement | null;
+    expect(toolbar?.dataset.showHarnessToggle).toBe("true");
+    expect(toolbar?.dataset.harnessPanelVisible).toBe("false");
+    expect(
+      container.querySelector('[data-testid="task-center-harness-toggle"]'),
+    ).not.toBeNull();
+    expect(mockGetAgentRuntimeToolInventory).not.toHaveBeenCalled();
+
+    clickButton(container, "task-center-harness-toggle");
+    await flushEffects();
+
+    expect(toolbar?.dataset.harnessPanelVisible).toBe("true");
+    expect(mockGetAgentRuntimeToolInventory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        browserAssist: true,
+        caller: "assistant",
+        workbench: false,
+      }),
+    );
   });
 
   it("处理工作台调试信息开关关闭时仍应保留入口，但不触发工具库存读取", async () => {
     mockUseDeveloperFeatureFlags.mockReturnValue({
+      clawTraceEnabled: false,
       workspaceHarnessEnabled: false,
     });
 
@@ -462,23 +578,33 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
     });
     await flushEffects();
 
-    const navbar = container.querySelector(
-      '[data-testid="chat-navbar"]',
+    const toolbar = container.querySelector(
+      '[data-testid="task-center-utility-toolbar"]',
     ) as HTMLDivElement | null;
-    expect(navbar?.dataset.showHarnessToggle).toBe("true");
-    expect(navbar?.dataset.harnessToggleLabel).toBe("Harness");
-    expect(document.body.textContent).not.toContain(WORKSPACE_HARNESS_TITLE);
+    expect(toolbar?.dataset.showHarnessToggle).toBe("true");
+    expect(toolbar?.dataset.harnessToggleLabel).toBe("Harness");
+    expect(
+      textContainsAny(
+        document.body.textContent,
+        WORKSPACE_HARNESS_TITLE_CANDIDATES,
+      ),
+    ).toBe(false);
     expect(mockGetAgentRuntimeToolInventory).not.toHaveBeenCalled();
 
     clickButton(container, "toggle-harness");
     await flushEffects();
 
-    expect(document.body.textContent).toContain(WORKSPACE_HARNESS_TITLE);
+    expect(
+      textContainsAny(
+        document.body.textContent,
+        WORKSPACE_HARNESS_TITLE_CANDIDATES,
+      ),
+    ).toBe(true);
     expect(mockGetAgentRuntimeToolInventory).not.toHaveBeenCalled();
   });
 
   it("窄屏工作台切换 stacked/split 时不应恢复旧对话侧栏入口", async () => {
-    mockCanvasWorkbenchLayoutState.renderPreview = true;
+    mockCanvasWorkbenchLayoutState.renderPreviewProbe = true;
 
     const container = renderPage({
       theme: "general",
@@ -487,7 +613,9 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
     await flushEffects();
 
     expect(container.querySelector('[data-testid="chat-sidebar"]')).toBeNull();
-    expect(container.querySelector('[data-testid="toggle-history"]')).toBeNull();
+    expect(
+      container.querySelector('[data-testid="toggle-history"]'),
+    ).toBeNull();
 
     clickButton(container, "toggle-canvas");
     await flushEffects(4);
@@ -507,7 +635,9 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
     await flushEffects(4);
 
     expect(container.querySelector('[data-testid="chat-sidebar"]')).toBeNull();
-    expect(container.querySelector('[data-testid="toggle-history"]')).toBeNull();
+    expect(
+      container.querySelector('[data-testid="toggle-history"]'),
+    ).toBeNull();
 
     act(() => {
       getWorkbenchProps()?.onLayoutModeChange?.("split");
@@ -524,7 +654,7 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
       }),
     );
     localStorage.setItem(
-      "ember.chat.team_selection.v1.general",
+      "lime.chat.team_selection.v1.general",
       JSON.stringify({
         id: "code-triage-team",
         source: "builtin",
@@ -572,24 +702,12 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
     expect(sendCall.modelOverride).toBeUndefined();
     expect(sendCall.autoContinue).toBeUndefined();
     const sendOptions = sendCall.options;
-    expect(sendOptions?.requestMetadata?.harness).toMatchObject({
-      preferred_team_preset_id: "code-triage-team",
-      selected_team_id: "code-triage-team",
-      selected_team_source: "builtin",
-      selected_team_label: "代码排障 profile",
-      selected_team_roles: expect.arrayContaining([
-        expect.objectContaining({
-          id: "explorer",
-          label: "分析",
-          profile_id: "code-explorer",
-        }),
-        expect.objectContaining({
-          id: "executor",
-          label: "执行",
-          profile_id: "code-executor",
-        }),
-      ]),
-    });
+    expect(sendOptions?.requestMetadata?.harness).not.toHaveProperty(
+      "selected_team_id",
+    );
+    expect(sendOptions?.requestMetadata?.harness).not.toHaveProperty(
+      "selected_team_roles",
+    );
     expect(
       sendOptions?.requestMetadata?.harness?.turn_team_decision,
     ).toBeUndefined();
@@ -612,5 +730,4 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
       );
     }
   });
-
 });

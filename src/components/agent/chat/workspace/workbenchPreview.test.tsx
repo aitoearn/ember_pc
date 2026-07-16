@@ -33,7 +33,7 @@ function createArtifact(): Artifact {
     content: '{"schemaVersion":"artifact_document.v1"}',
     status: "complete",
     meta: {
-      filePath: ".ember/artifacts/thread-1/live.artifact.json",
+      filePath: ".lime/artifacts/thread-1/live.artifact.json",
       filename: "live.artifact.json",
       language: "json",
     },

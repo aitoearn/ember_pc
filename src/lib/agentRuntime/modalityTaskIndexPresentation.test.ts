@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { AgentRuntimeEvidenceTaskIndex } from "@/lib/api/agentRuntime";
+import type { AgentRuntimeEvidenceTaskIndex } from "@/lib/api/agentRuntime/evidenceTypes";
 import {
   buildModalityTaskIndexFacets,
   buildModalityTaskIndexRows,
@@ -18,7 +18,7 @@ function createTaskIndex(): AgentRuntimeEvidenceTaskIndex {
     skill_ids: [],
     model_ids: ["claude-sonnet"],
     executor_kinds: [],
-    executor_binding_keys: ["ember_browser_mcp"],
+    executor_binding_keys: ["lime_browser_mcp"],
     cost_states: ["estimated"],
     limit_states: [],
     estimated_cost_classes: [],
@@ -26,7 +26,7 @@ function createTaskIndex(): AgentRuntimeEvidenceTaskIndex {
     quota_low_count: 0,
     items: [
       {
-        artifact_path: ".ember/harness/browser.json",
+        artifact_path: ".lime/harness/browser.json",
         contract_key: "browser_replay_viewer",
         thread_id: "thread-evidence-1",
         turn_id: "turn-evidence-1",
@@ -36,7 +36,7 @@ function createTaskIndex(): AgentRuntimeEvidenceTaskIndex {
         skill_id: "browser_control",
         model_id: "claude-sonnet",
         executor_kind: "mcp",
-        executor_binding_key: "ember_browser_mcp",
+        executor_binding_key: "lime_browser_mcp",
         cost_state: "estimated",
         limit_state: "within_limit",
         estimated_cost_class: "low",
@@ -44,7 +44,7 @@ function createTaskIndex(): AgentRuntimeEvidenceTaskIndex {
         quota_low: false,
       },
       {
-        artifact_path: ".ember/harness/research.json",
+        artifact_path: ".lime/harness/research.json",
         contract_key: "web_research",
         thread_id: "thread-evidence-2",
         turn_id: "turn-evidence-2",
@@ -90,7 +90,7 @@ describe("modalityTaskIndexPresentation", () => {
       "claude-haiku",
       "mcp",
       "search_query",
-      "ember_browser_mcp",
+      "lime_browser_mcp",
       "web_search",
     ]);
     expect(facets.costLimitDimensions).toEqual([
@@ -109,13 +109,13 @@ describe("modalityTaskIndexPresentation", () => {
 
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({
-      id: "thread-evidence-1:turn-evidence-1:content-browser-1:@browser:browser_replay_viewer:.ember/harness/browser.json",
+      id: "thread-evidence-1:turn-evidence-1:content-browser-1:@browser:browser_replay_viewer:.lime/harness/browser.json",
       title: "@browser",
-      artifactPath: ".ember/harness/browser.json",
+      artifactPath: ".lime/harness/browser.json",
       threadId: "thread-evidence-1",
       contentId: "content-browser-1",
       executorKind: "mcp",
-      executorBindingKey: "ember_browser_mcp",
+      executorBindingKey: "lime_browser_mcp",
       costState: "estimated",
       limitState: "within_limit",
     });
@@ -136,7 +136,7 @@ describe("modalityTaskIndexPresentation", () => {
     expect(
       filterModalityTaskIndexRows(rows, {
         contentId: "content-browser-1",
-        executorBindingKey: "ember_browser_mcp",
+        executorBindingKey: "lime_browser_mcp",
       }).map((row) => row.entryKey),
     ).toEqual(["@browser"]);
   });

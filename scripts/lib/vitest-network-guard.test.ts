@@ -16,8 +16,8 @@ import {
 } from "./vitest-network-guard";
 
 function disableLiveProviderNetwork(): void {
-  vi.stubEnv("EMBER_ALLOW_LIVE_PROVIDER_SMOKE", "");
-  vi.stubEnv("EMBER_REAL_API_TEST", "");
+  vi.stubEnv("LIME_ALLOW_LIVE_PROVIDER_SMOKE", "");
+  vi.stubEnv("LIME_REAL_API_TEST", "");
 }
 
 describe("vitest-network-guard", () => {
@@ -32,11 +32,11 @@ describe("vitest-network-guard", () => {
   it("显式授权时允许 live Provider 网络", () => {
     expect(
       vitestLiveProviderNetworkAllowed({
-        EMBER_ALLOW_LIVE_PROVIDER_SMOKE: "1",
+        LIME_ALLOW_LIVE_PROVIDER_SMOKE: "1",
       }),
     ).toBe(true);
     expect(
-      vitestLiveProviderNetworkAllowed({ EMBER_REAL_API_TEST: "true" }),
+      vitestLiveProviderNetworkAllowed({ LIME_REAL_API_TEST: "true" }),
     ).toBe(true);
   });
 

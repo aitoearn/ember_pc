@@ -3,16 +3,27 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { builtinModules } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import {
-  PRODUCT_DISPLAY_NAME,
-  PRODUCT_NAME,
-} from "./productIdentity.mjs";
-
 const DEFAULT_PACKAGE_ROOT = "release-electron";
+const MAC_PRODUCT_NAME = "Lime";
 const MAC_APP_ID = "com.embercloud.ember";
+const ELECTRON_RUNTIME_BUNDLES = [
+  {
+    label: "Electron main bundle",
+    relativePath: "dist-electron/main/main.js",
+  },
+  {
+    label: "Electron preload bundle",
+    relativePath: "dist-electron/preload/preload.cjs",
+  },
+];
+const ALLOWED_BARE_RUNTIME_IMPORTS = new Set([
+  "electron",
+  ...builtinModules.map((moduleName) => moduleName.replace(/^node:/, "")),
+]);
 
 function parseArgs(argv) {
   const args = {};
@@ -121,12 +132,6 @@ function assertFile(filePath, label) {
   }
 }
 
-function assertDirectory(dirPath, label) {
-  if (!existsSync(dirPath) || !statSync(dirPath).isDirectory()) {
-    throw new Error(`${label} is missing: ${dirPath}`);
-  }
-}
-
 function verifyResourceRoot(root, { platform, arch }) {
   const manifestPath = path.join(root, "app-server.release.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
@@ -162,7 +167,6 @@ function verifyResourceRoot(root, { platform, arch }) {
       `desktop asset ${name}`,
     );
   }
-  verifyDeviceAutomationResources(root);
 
   return {
     platform: key,
@@ -177,54 +181,56 @@ function verifyResourceRoot(root, { platform, arch }) {
   };
 }
 
-export function verifyDeviceAutomationResources(root) {
-  const manifestPath = path.join(root, "device-automation", "manifest.json");
-  assertFile(manifestPath, "device automation resource manifest");
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-  const resources = manifest.resources ?? {};
-  const required = ["scrcpyServer", "agentDevice"];
-  for (const name of required) {
-    const resource = resources[name];
-    if (resource?.status !== "staged") {
-      throw new Error(
-        `device automation resource ${name} is not staged: ${resource?.reason ?? manifestPath}`,
-      );
-    }
-    const resourcePath = path.join(root, "device-automation", resource.path);
-    if (name === "agentDevice") {
-      assertDirectory(resourcePath, `device automation resource ${name}`);
-    } else {
-      assertFile(resourcePath, `device automation resource ${name}`);
-    }
-  }
-  const agentDeviceRoot = path.join(root, "device-automation", "agent-device");
-  assertFile(
-    path.join(agentDeviceRoot, "package.json"),
-    "device automation agent-device package.json",
-  );
-  assertFile(
-    path.join(agentDeviceRoot, "bin", "agent-device.mjs"),
-    "device automation agent-device binary",
-  );
-  assertFile(
-    path.join(agentDeviceRoot, "dist", "src", "internal", "bin.js"),
-    "device automation agent-device built entry",
-  );
-  assertFile(
-    path.join(agentDeviceRoot, "node_modules", "yaml", "package.json"),
-    "device automation agent-device yaml dependency",
-  );
+function verifyMainBundle(repoRoot) {
+  verifyElectronRuntimeBundles(repoRoot);
 }
 
-function verifyMainBundle(repoRoot) {
-  const mainBundle = path.resolve(repoRoot, "dist-electron/main/main.js");
-  assertFile(mainBundle, "Electron main bundle");
-  const content = readFileSync(mainBundle, "utf8");
-  if (/from\s+["']app-server-client["']/.test(content)) {
-    throw new Error(
-      "Electron main bundle still imports bare app-server-client",
+export function verifyElectronRuntimeBundles(repoRoot) {
+  for (const bundle of ELECTRON_RUNTIME_BUNDLES) {
+    const bundlePath = path.resolve(repoRoot, bundle.relativePath);
+    assertFile(bundlePath, bundle.label);
+    const content = readFileSync(bundlePath, "utf8");
+    const bareImports = collectBareRuntimeImports(content).filter(
+      (packageName) => !ALLOWED_BARE_RUNTIME_IMPORTS.has(packageName),
     );
+    if (bareImports.length > 0) {
+      throw new Error(
+        `${bundle.label} still imports runtime package(s) outside app.asar bundle: ${bareImports.join(", ")}`,
+      );
+    }
   }
+}
+
+export function collectBareRuntimeImports(content) {
+  const imports = new Set();
+  for (const pattern of [
+    /^\s*import\s+(?!type\b)[^;]*?\s+from\s+["']([^"']+)["']/gm,
+    /^\s*import\s+["']([^"']+)["']/gm,
+    /\brequire\(\s*["']([^"']+)["']\s*\)/g,
+  ]) {
+    for (const match of content.matchAll(pattern)) {
+      const packageName = barePackageName(match[1]);
+      if (packageName) {
+        imports.add(packageName);
+      }
+    }
+  }
+  return [...imports].sort();
+}
+
+function barePackageName(specifier) {
+  if (
+    specifier.startsWith(".") ||
+    specifier.startsWith("/") ||
+    specifier.startsWith("#") ||
+    specifier.startsWith("node:")
+  ) {
+    return null;
+  }
+  if (specifier.startsWith("@")) {
+    return specifier.split("/").slice(0, 2).join("/");
+  }
+  return specifier.split("/")[0] ?? null;
 }
 
 export function verifyMacAppIdentity(packageRoot, { platform }) {
@@ -248,7 +254,7 @@ function verifyMacAppBundleIdentity({ appPath, infoPlistPath }) {
     );
   }
 
-  const isMainApp = path.basename(appPath) === `${PRODUCT_DISPLAY_NAME}.app`;
+  const isMainApp = path.basename(appPath) === `${MAC_PRODUCT_NAME}.app`;
   if (isMainApp) {
     verifyMainMacAppInfoPlist(content, infoPlistPath);
   } else {
@@ -264,9 +270,9 @@ function verifyMacAppBundleIdentity({ appPath, infoPlistPath }) {
 
 function verifyMainMacAppInfoPlist(content, infoPlistPath) {
   const requiredPairs = new Map([
-    ["CFBundleDisplayName", PRODUCT_DISPLAY_NAME],
-    ["CFBundleName", PRODUCT_DISPLAY_NAME],
-    ["CFBundleExecutable", PRODUCT_NAME],
+    ["CFBundleDisplayName", MAC_PRODUCT_NAME],
+    ["CFBundleName", MAC_PRODUCT_NAME],
+    ["CFBundleExecutable", MAC_PRODUCT_NAME],
     ["CFBundleIdentifier", MAC_APP_ID],
     ["CFBundleIconFile", "icon.icns"],
   ]);

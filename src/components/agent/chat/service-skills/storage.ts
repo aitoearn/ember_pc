@@ -4,10 +4,10 @@ import type {
   ServiceSkillUsageRecord,
 } from "./types";
 
-const SERVICE_SKILL_USAGE_STORAGE_KEY = "ember:service-skill-usage:v1";
+const SERVICE_SKILL_USAGE_STORAGE_KEY = "lime:service-skill-usage:v1";
 const MAX_SERVICE_SKILL_USAGE_RECORDS = 12;
 export const SERVICE_SKILL_USAGE_CHANGED_EVENT =
-  "ember:service-skill-usage-changed";
+  "lime:service-skill-usage-changed";
 
 function normalizeOptionalText(value: unknown): string | undefined {
   if (typeof value !== "string") {

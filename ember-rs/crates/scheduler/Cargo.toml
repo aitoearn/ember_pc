@@ -1,5 +1,5 @@
 [package]
-name = "ember-scheduler"
+name = "lime-scheduler"
 version = "0.61.0"
 edition = "2021"
 
@@ -26,9 +26,11 @@ rusqlite = { workspace = true }
 # 时间和 UUID
 chrono = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
-base64 = { workspace = true }
 
 # 项目内依赖
-ember-core = { workspace = true }
-ember-agent = { workspace = true }
-aster = { workspace = true }
+lime-core = { workspace = true }
+lime-agent = { workspace = true }
+agent-protocol = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

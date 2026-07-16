@@ -5,7 +5,7 @@ const path = require("path");
 
 const ext = process.platform === "win32" ? ".exe" : "";
 const packageDir = path.join(__dirname, "..");
-const bundledBin = path.join(packageDir, "bin", "ember" + ext);
+const bundledBin = path.join(packageDir, "bin", "lime" + ext);
 
 function isExecutableFile(filePath) {
   return Boolean(filePath) && fs.existsSync(filePath) && fs.statSync(filePath).isFile();
@@ -23,12 +23,12 @@ function resolveBinaryCandidates() {
     }
   };
 
-  push(process.env.EMBER_CLI_BINARY_PATH);
+  push(process.env.LIME_CLI_BINARY_PATH);
   push(bundledBin);
-  push(path.join(process.cwd(), "ember-rs", "target", "release", "ember" + ext));
-  push(path.join(process.cwd(), "target", "release", "ember" + ext));
-  push(path.join(packageDir, "..", "..", "ember-rs", "target", "release", "ember" + ext));
-  push(path.join(packageDir, "..", "..", "target", "release", "ember" + ext));
+  push(path.join(process.cwd(), "ember-rs", "target", "release", "lime" + ext));
+  push(path.join(process.cwd(), "target", "release", "lime" + ext));
+  push(path.join(packageDir, "..", "..", "ember-rs", "target", "release", "lime" + ext));
+  push(path.join(packageDir, "..", "..", "target", "release", "lime" + ext));
 
   return candidates;
 }
@@ -54,7 +54,7 @@ function findManifestPath() {
 }
 
 function runCargoFallback(manifestPath) {
-  const args = ["run", "--quiet", "--manifest-path", manifestPath, "-p", "ember-cli", "--", ...process.argv.slice(2)];
+  const args = ["run", "--quiet", "--manifest-path", manifestPath, "-p", "lime-cli", "--", ...process.argv.slice(2)];
   const result = spawnSync("cargo", args, {
     stdio: "inherit",
     cwd: path.dirname(manifestPath),
@@ -77,10 +77,10 @@ try {
 
   console.error(
     [
-      "未找到可执行的 ember 二进制。",
+      "未找到可执行的 lime 二进制。",
       "可选解决方案：",
-      "1. 设置环境变量 EMBER_CLI_BINARY_PATH 指向本地构建好的二进制",
-      "2. 在 Ember 源码仓库内运行命令，让 wrapper 自动使用 cargo run",
+      "1. 设置环境变量 LIME_CLI_BINARY_PATH 指向本地构建好的二进制",
+      "2. 在 Lime 源码仓库内运行命令，让 wrapper 自动使用 cargo run",
       "3. 等待后续 GitHub Release 预编译资产可用后重新安装",
     ].join("\n"),
   );

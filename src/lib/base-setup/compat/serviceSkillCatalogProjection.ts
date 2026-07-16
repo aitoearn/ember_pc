@@ -87,39 +87,39 @@ function buildBundleSummary(
   const executorBinding = normalizeExecutorBinding(bindingProfile);
 
   const metadata: Record<string, string> = {
-    Ember_base_setup_package_id: pkg.id,
-    Ember_base_setup_package_version: pkg.version,
-    Ember_projection_id: projection.id,
-    Ember_target_catalog: projection.targetCatalog,
-    Ember_artifact_profile_ref: projection.artifactProfileRef,
-    Ember_scorecard_profile_ref: projection.scorecardProfileRef,
-    Ember_policy_profile_ref: projection.policyProfileRef,
-    Ember_automation_profile_ref: projection.automationProfileRef ?? "",
-    Ember_skill_type: skillType,
-    Ember_category: projection.category,
-    Ember_runner_type: bindingProfile.runnerType ?? "instant",
-    Ember_execution_location: executionLocation,
-    Ember_executor_binding: executorBinding,
-    Ember_output_destination: artifactProfile.outputDestination ?? "",
-    Ember_output_hint: projection.outputHint,
-    Ember_entry_hint: projection.entryHint ?? "",
-    Ember_prompt_template_key: projection.promptTemplateKey ?? "",
-    Ember_theme_target: projection.themeTarget ?? "",
-    Ember_composition_blueprint_ref: projection.compositionBlueprintRef ?? "",
+    Lime_base_setup_package_id: pkg.id,
+    Lime_base_setup_package_version: pkg.version,
+    Lime_projection_id: projection.id,
+    Lime_target_catalog: projection.targetCatalog,
+    Lime_artifact_profile_ref: projection.artifactProfileRef,
+    Lime_scorecard_profile_ref: projection.scorecardProfileRef,
+    Lime_policy_profile_ref: projection.policyProfileRef,
+    Lime_automation_profile_ref: projection.automationProfileRef ?? "",
+    Lime_skill_type: skillType,
+    Lime_category: projection.category,
+    Lime_runner_type: bindingProfile.runnerType ?? "instant",
+    Lime_execution_location: executionLocation,
+    Lime_executor_binding: executorBinding,
+    Lime_output_destination: artifactProfile.outputDestination ?? "",
+    Lime_output_hint: projection.outputHint,
+    Lime_entry_hint: projection.entryHint ?? "",
+    Lime_prompt_template_key: projection.promptTemplateKey ?? "",
+    Lime_theme_target: projection.themeTarget ?? "",
+    Lime_composition_blueprint_ref: projection.compositionBlueprintRef ?? "",
   };
 
   if (policyProfile.surfaceScopes && policyProfile.surfaceScopes.length > 0) {
-    metadata.Ember_surface_scopes = JSON.stringify(policyProfile.surfaceScopes);
+    metadata.Lime_surface_scopes = JSON.stringify(policyProfile.surfaceScopes);
   }
 
   if (projection.siteCapabilityBinding?.adapterName) {
-    metadata.Ember_site_adapter = projection.siteCapabilityBinding.adapterName;
+    metadata.Lime_site_adapter = projection.siteCapabilityBinding.adapterName;
   }
   if (projection.siteCapabilityBinding?.siteLabel) {
-    metadata.Ember_site_label = projection.siteCapabilityBinding.siteLabel;
+    metadata.Lime_site_label = projection.siteCapabilityBinding.siteLabel;
   }
   if (projection.siteCapabilityBinding?.adapterMatch?.urlArgName) {
-    metadata.Ember_site_adapter_match_url_arg =
+    metadata.Lime_site_adapter_match_url_arg =
       projection.siteCapabilityBinding.adapterMatch.urlArgName;
   }
   if (
@@ -127,7 +127,7 @@ function buildBundleSummary(
     projection.siteCapabilityBinding.adapterMatch.requiredCapabilities.length >
       0
   ) {
-    metadata.Ember_site_adapter_match_capabilities = JSON.stringify(
+    metadata.Lime_site_adapter_match_capabilities = JSON.stringify(
       projection.siteCapabilityBinding.adapterMatch.requiredCapabilities,
     );
   }
@@ -135,7 +135,7 @@ function buildBundleSummary(
     projection.siteCapabilityBinding?.adapterMatch?.hostAliases &&
     projection.siteCapabilityBinding.adapterMatch.hostAliases.length > 0
   ) {
-    metadata.Ember_site_adapter_match_host_aliases = JSON.stringify(
+    metadata.Lime_site_adapter_match_host_aliases = JSON.stringify(
       projection.siteCapabilityBinding.adapterMatch.hostAliases,
     );
   }

@@ -19,7 +19,6 @@ function resolve(
     isThemeWorkbench: false,
     shouldUseCompactGeneralWorkbench: false,
     isBootstrapDispatchPending: false,
-    isSessionHydrating: false,
     isSending: false,
     queuedTurnCount: 0,
     ...overrides,
@@ -49,16 +48,64 @@ describe("agentChatWorkspaceShellViewModel", () => {
   it("new-task 有展示消息、预览或发送活动时应进入聊天面板", () => {
     for (const overrides of [
       { displayMessageCount: 1 },
+      { threadItemCount: 1 },
       { isHomePendingPreviewActive: true },
       { isSending: true },
       { queuedTurnCount: 1 },
-      { isSessionHydrating: true },
     ] satisfies Array<Partial<AgentChatWorkspaceShellViewModelInput>>) {
       expect(resolve(overrides)).toMatchObject({
         hasDisplayMessages:
           Boolean(overrides.displayMessageCount) ||
+          Boolean(overrides.threadItemCount) ||
           Boolean(overrides.isHomePendingPreviewActive),
         effectiveShowChatPanel: true,
+      });
+    }
+  });
+
+  it("App Server read model 已有 thread item 时不应按首页空态处理", () => {
+    expect(
+      resolve({
+        agentEntry: "claw",
+        displayMessageCount: 0,
+        threadItemCount: 2,
+      }),
+    ).toMatchObject({
+      hasDisplayMessages: true,
+      hasMessages: true,
+      effectiveShowChatPanel: true,
+      shouldRestoreImageTasksFromWorkspace: true,
+    });
+  });
+
+  it("claw 首页首发 pending preview 应立即打开聊天面板", () => {
+    expect(
+      resolve({
+        agentEntry: "claw",
+        isHomePendingPreviewActive: true,
+      }),
+    ).toMatchObject({
+      hasDisplayMessages: true,
+      hasMessages: true,
+      effectiveShowChatPanel: true,
+      shouldRestoreImageTasksFromWorkspace: true,
+    });
+  });
+
+  it("claw 首页发送中但 preview 尚未派生时也应立即打开聊天面板", () => {
+    for (const overrides of [
+      { isBootstrapDispatchPending: true },
+      { isSending: true },
+      { queuedTurnCount: 1 },
+    ] satisfies Array<Partial<AgentChatWorkspaceShellViewModelInput>>) {
+      expect(
+        resolve({
+          agentEntry: "claw",
+          ...overrides,
+        }),
+      ).toMatchObject({
+        effectiveShowChatPanel: true,
+        shouldRestoreImageTasksFromWorkspace: true,
       });
     }
   });
@@ -67,6 +114,7 @@ describe("agentChatWorkspaceShellViewModel", () => {
     expect(
       resolve({
         displayMessageCount: 2,
+        threadItemCount: 2,
         shouldSuppressTaskCenterDraftContent: true,
       }),
     ).toMatchObject({
@@ -115,6 +163,18 @@ describe("agentChatWorkspaceShellViewModel", () => {
       }),
     ).toMatchObject({
       effectiveShowChatPanel: false,
+      shouldRestoreImageTasksFromWorkspace: true,
+    });
+  });
+
+  it("claw 历史会话入口应打开聊天面板", () => {
+    expect(
+      resolve({
+        agentEntry: "claw",
+        initialSessionId: "session-from-sidebar",
+      }),
+    ).toMatchObject({
+      effectiveShowChatPanel: true,
       shouldRestoreImageTasksFromWorkspace: true,
     });
   });

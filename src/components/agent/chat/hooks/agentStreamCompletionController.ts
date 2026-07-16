@@ -1,6 +1,11 @@
 import i18n from "i18next";
 import type { Message } from "../types";
 import {
+  isProcessBoundaryContentPart,
+  shouldAppendCompletionSuffixToTextPart,
+} from "../utils/contentPartTimeline";
+import { isAgentMessageCommentaryPhase } from "../utils/agentMessagePhase";
+import {
   containsAssistantProtocolResidue,
   stripAssistantProtocolResidue,
 } from "../utils/protocolResidue";
@@ -51,6 +56,7 @@ interface AgentStreamCompletionRequestLogPayload {
 interface AgentStreamCompletionErrorRequestLogPayload {
   eventType: "chat_request_error";
   status: "error";
+  description?: string;
   error: string;
 }
 
@@ -83,7 +89,7 @@ interface AgentStreamCompletionSuccessPlan {
   requestLogPayload: AgentStreamCompletionRequestLogPayload;
 }
 
-export type AgentStreamFinalDonePlan =
+export type AgentStreamTerminalCompletionPlan =
   | AgentStreamMissingFinalReplyPlan
   | AgentStreamCompletionSuccessPlan;
 
@@ -94,12 +100,46 @@ export type AgentStreamEmptyFinalErrorPlan =
 const resolveQueuedTurnIds = (queuedTurnId?: string | null): string[] =>
   queuedTurnId ? [queuedTurnId] : [];
 
+const TRIVIAL_ASSISTANT_FINAL_TEXT_CHARS = ".,!?;:，。！？；：、…";
+
+function isTrivialAssistantFinalText(value?: string | null): boolean {
+  const normalized = (value || "").trim();
+  if (!normalized) {
+    return true;
+  }
+
+  for (const char of normalized) {
+    if (char.trim() && !TRIVIAL_ASSISTANT_FINAL_TEXT_CHARS.includes(char)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function resolveVisibleAssistantFinalText(value: string): string {
+  const cleanedFinalContent = stripAssistantProtocolResidue(value);
+  if (cleanedFinalContent) {
+    return cleanedFinalContent;
+  }
+
+  const rawFinalContent = value.trim();
+  if (
+    rawFinalContent &&
+    !containsAssistantProtocolResidue(value) &&
+    !isTrivialAssistantFinalText(rawFinalContent)
+  ) {
+    return rawFinalContent;
+  }
+
+  return "";
+}
+
 export function buildAgentStreamMissingFinalReplyFailurePlan(params: {
   errorMessage: string;
+  toastMessage?: string;
   queuedTurnId?: string | null;
   usage?: Message["usage"];
 }): AgentStreamMissingFinalReplyPlan {
-  const toastMessage = resolveAgentStreamEmptyFinalReplyErrorMessage();
   return {
     type: "missing_final_reply_failure",
     errorMessage: params.errorMessage,
@@ -109,7 +149,8 @@ export function buildAgentStreamMissingFinalReplyFailurePlan(params: {
       status: "error",
       error: params.errorMessage,
     },
-    toastMessage,
+    toastMessage:
+      params.toastMessage ?? resolveAgentStreamEmptyFinalReplyErrorMessage(),
     ...(params.usage !== undefined ? { usage: params.usage } : {}),
   };
 }
@@ -144,9 +185,23 @@ export function isAgentStreamEmptyFinalReplyError(message: string): boolean {
 
 export function shouldFailAgentStreamMissingFinalReply(params: {
   accumulatedContent: string;
+  hasAssistantTextAfterLatestFinalAnswerRequiredProcessBoundary?: boolean;
+  hasFinalAnswerRequiredProcessBoundary?: boolean;
   hasMeaningfulCompletionSignal?: boolean;
 }): boolean {
   if (params.hasMeaningfulCompletionSignal) {
+    return false;
+  }
+
+  const visibleAssistantFinalText = resolveVisibleAssistantFinalText(
+    params.accumulatedContent,
+  );
+  if (
+    visibleAssistantFinalText &&
+    !isTrivialAssistantFinalText(visibleAssistantFinalText) &&
+    (!params.hasFinalAnswerRequiredProcessBoundary ||
+      params.hasAssistantTextAfterLatestFinalAnswerRequiredProcessBoundary)
+  ) {
     return false;
   }
 
@@ -156,9 +211,13 @@ export function shouldFailAgentStreamMissingFinalReply(params: {
   );
 
   return (
-    !cleanedFinalContent &&
+    (!cleanedFinalContent || isTrivialAssistantFinalText(cleanedFinalContent)) &&
     (containsAssistantProtocolResidue(params.accumulatedContent) ||
-      !rawFinalContent)
+      !rawFinalContent ||
+      isTrivialAssistantFinalText(rawFinalContent))
+  ) || Boolean(
+    params.hasFinalAnswerRequiredProcessBoundary &&
+      !params.hasAssistantTextAfterLatestFinalAnswerRequiredProcessBoundary,
   );
 }
 
@@ -171,27 +230,53 @@ export function resolveAgentStreamGracefulCompletionContent(params: {
     params.accumulatedContent,
   );
 
-  return (
-    cleanedFinalContent ||
-    (!containsAssistantProtocolResidue(params.accumulatedContent)
-      ? rawFinalContent
-      : "") ||
-    params.fallbackContent ||
-    resolveAgentStreamEmptyFinalReplyFallbackContent()
-  );
+  if (cleanedFinalContent && !isTrivialAssistantFinalText(cleanedFinalContent)) {
+    return cleanedFinalContent;
+  }
+  if (
+    !containsAssistantProtocolResidue(params.accumulatedContent) &&
+    rawFinalContent &&
+    !isTrivialAssistantFinalText(rawFinalContent)
+  ) {
+    return rawFinalContent;
+  }
+  if (params.fallbackContent !== undefined) {
+    return params.fallbackContent;
+  }
+  return resolveAgentStreamEmptyFinalReplyFallbackContent();
 }
 
-function isProcessBoundaryContentPart(
+function shouldRetainPersistedThinkingContentPart(
   part: NonNullable<Message["contentParts"]>[number],
 ): boolean {
+  if (part.type !== "thinking") {
+    return false;
+  }
+  const metadata = part.metadata;
   return (
-    part.type === "tool_use" ||
-    part.type === "action_required" ||
-    part.type === "file_changes_batch"
+    Boolean(metadata?.threadItemId) &&
+    (metadata?.source === "thread_item_reasoning" ||
+      metadata?.source === "agent_thread_item")
   );
 }
 
-function completeRunningToolCallOnFinalDone(
+type MessageContentPart = NonNullable<Message["contentParts"]>[number];
+
+function isCommentaryTextContentPart(part: MessageContentPart): boolean {
+  return (
+    part.type === "text" &&
+    typeof part.metadata?.phase === "string" &&
+    isAgentMessageCommentaryPhase(part.metadata.phase)
+  );
+}
+
+function isFinalTextContentPart(
+  part: MessageContentPart,
+): part is Extract<MessageContentPart, { type: "text" }> {
+  return part.type === "text" && !isCommentaryTextContentPart(part);
+}
+
+function completeRunningToolCallOnTerminalCompletion(
   toolCall: NonNullable<Message["toolCalls"]>[number],
   completedAt: Date,
 ): NonNullable<Message["toolCalls"]>[number] {
@@ -210,7 +295,7 @@ function completeRunningToolCallOnFinalDone(
   };
 }
 
-function completeRunningToolCallsOnFinalDone(
+function completeRunningToolCallsOnTerminalCompletion(
   parts: Message["contentParts"],
   completedAt: Date,
 ): Message["contentParts"] {
@@ -222,7 +307,7 @@ function completeRunningToolCallsOnFinalDone(
     part.type === "tool_use"
       ? {
           ...part,
-          toolCall: completeRunningToolCallOnFinalDone(
+          toolCall: completeRunningToolCallOnTerminalCompletion(
             part.toolCall,
             completedAt,
           ),
@@ -234,28 +319,50 @@ function completeRunningToolCallsOnFinalDone(
 export function reconcileAgentStreamFinalContentParts(params: {
   parts: Message["contentParts"];
   finalContent: string;
+  finalTextPartMetadata?: Record<string, unknown>;
   rawContent: string;
   surfaceThinkingDeltas: boolean;
 }): Message["contentParts"] {
   if (!params.parts?.length) {
     return params.finalContent
-      ? [{ type: "text", text: params.finalContent }]
+      ? [
+          {
+            type: "text",
+            text: params.finalContent,
+            ...(params.finalTextPartMetadata
+              ? { metadata: params.finalTextPartMetadata }
+              : {}),
+          },
+        ]
       : params.parts;
   }
 
   const visibleParts = params.surfaceThinkingDeltas
     ? params.parts
-    : params.parts.filter((part) => part.type !== "thinking");
+    : params.parts.filter(
+        (part) =>
+          part.type !== "thinking" ||
+          shouldRetainPersistedThinkingContentPart(part),
+      );
   if (visibleParts.length === 0) {
     return undefined;
   }
 
   const textContent = visibleParts
-    .filter((part) => part.type === "text")
+    .filter(isFinalTextContentPart)
     .map((part) => part.text)
     .join("");
   if (!textContent && params.finalContent) {
-    return [...visibleParts, { type: "text", text: params.finalContent }];
+    return [
+      ...visibleParts,
+      {
+        type: "text",
+        text: params.finalContent,
+        ...(params.finalTextPartMetadata
+          ? { metadata: params.finalTextPartMetadata }
+          : {}),
+      },
+    ];
   }
   const finalTextChanged =
     params.finalContent !== params.rawContent ||
@@ -266,15 +373,26 @@ export function reconcileAgentStreamFinalContentParts(params: {
   }
 
   if (!params.finalContent) {
-    const processParts = visibleParts.filter((part) => part.type !== "text");
+    const processParts = visibleParts.filter(
+      (part) => part.type !== "text" || isCommentaryTextContentPart(part),
+    );
     return processParts.length > 0 ? processParts : undefined;
   }
 
   const textPartIndexes = visibleParts.flatMap((part, index) =>
-    part.type === "text" ? [index] : [],
+    isFinalTextContentPart(part) ? [index] : [],
   );
   if (textPartIndexes.length === 0) {
-    return [...visibleParts, { type: "text", text: params.finalContent }];
+    return [
+      ...visibleParts,
+      {
+        type: "text",
+        text: params.finalContent,
+        ...(params.finalTextPartMetadata
+          ? { metadata: params.finalTextPartMetadata }
+          : {}),
+      },
+    ];
   }
 
   const nextParts = [...visibleParts];
@@ -296,13 +414,35 @@ export function reconcileAgentStreamFinalContentParts(params: {
     const lastPartIndex = nextParts.length - 1;
     const lastPart = nextParts[lastPartIndex];
     if (lastPart?.type === "text") {
+      if (!shouldAppendCompletionSuffixToTextPart(nextParts, lastPartIndex)) {
+        return [
+          ...nextParts,
+          {
+            type: "text",
+            text: suffix,
+            ...(params.finalTextPartMetadata
+              ? { metadata: params.finalTextPartMetadata }
+              : {}),
+          },
+        ];
+      }
       nextParts[lastPartIndex] = {
+        ...lastPart,
         type: "text",
         text: `${lastPart.text}${suffix}`,
       };
       return nextParts;
     }
-    return [...nextParts, { type: "text", text: suffix }];
+    return [
+      ...nextParts,
+      {
+        type: "text",
+        text: suffix,
+        ...(params.finalTextPartMetadata
+          ? { metadata: params.finalTextPartMetadata }
+          : {}),
+      },
+    ];
   }
 
   if (processBoundaryIndex >= 0) {
@@ -321,11 +461,23 @@ export function reconcileAgentStreamFinalContentParts(params: {
       nextParts[lastTextAfterProcessIndex] = {
         type: "text",
         text: nextText,
+        ...(params.finalTextPartMetadata
+          ? { metadata: params.finalTextPartMetadata }
+          : {}),
       };
       return nextParts;
     }
 
-    return [...nextParts, { type: "text", text: params.finalContent }];
+    return [
+      ...nextParts,
+      {
+        type: "text",
+        text: params.finalContent,
+        ...(params.finalTextPartMetadata
+          ? { metadata: params.finalTextPartMetadata }
+          : {}),
+      },
+    ];
   }
 
   if (textPartIndexes.length === 1) {
@@ -416,8 +568,10 @@ export function resolveAgentStreamCompletedVisibleContent(params: {
 
 export function buildAgentStreamCompletedAssistantMessagePatch(params: {
   finalContent: string;
+  finalTextPartMetadata?: Record<string, unknown>;
   parts: Message["contentParts"];
   previousContent?: string;
+  preserveThinkingContent?: boolean;
   rawContent: string;
   surfaceThinkingDeltas: boolean;
   thinkingContent?: string;
@@ -426,7 +580,9 @@ export function buildAgentStreamCompletedAssistantMessagePatch(params: {
 }): Pick<Message, "content" | "contentParts" | "isThinking" | "runtimeStatus"> &
   Partial<Pick<Message, "thinkingContent">> &
   Partial<Pick<Message, "toolCalls" | "usage">> {
-  const retainedThinkingContent = params.surfaceThinkingDeltas
+  const shouldRetainThinkingContent =
+    params.surfaceThinkingDeltas || params.preserveThinkingContent === true;
+  const retainedThinkingContent = shouldRetainThinkingContent
     ? params.thinkingContent?.trim() || undefined
     : undefined;
   const finalContent = resolveAgentStreamCompletedVisibleContent({
@@ -439,34 +595,41 @@ export function buildAgentStreamCompletedAssistantMessagePatch(params: {
     isThinking: false,
     content: finalContent,
     thinkingContent: retainedThinkingContent,
-    contentParts: completeRunningToolCallsOnFinalDone(
+    contentParts: completeRunningToolCallsOnTerminalCompletion(
       reconcileAgentStreamFinalContentParts({
         parts: params.parts,
         finalContent,
+        finalTextPartMetadata: params.finalTextPartMetadata,
         rawContent: params.rawContent,
-        surfaceThinkingDeltas: params.surfaceThinkingDeltas,
+        surfaceThinkingDeltas: shouldRetainThinkingContent,
       }),
       completedAt,
     ),
     toolCalls: params.toolCalls?.map((toolCall) =>
-      completeRunningToolCallOnFinalDone(toolCall, completedAt),
+      completeRunningToolCallOnTerminalCompletion(toolCall, completedAt),
     ),
     runtimeStatus: undefined,
     ...(params.usage !== undefined ? { usage: params.usage } : {}),
   };
 }
 
-export function buildAgentStreamFinalDonePlan(params: {
+export function buildAgentStreamTerminalCompletionPlan(params: {
   accumulatedContent: string;
   fallbackContent?: string | null;
+  hasAssistantTextAfterLatestFinalAnswerRequiredProcessBoundary?: boolean;
+  hasFinalAnswerRequiredProcessBoundary?: boolean;
   hasMeaningfulCompletionSignal?: boolean;
   queuedTurnId?: string | null;
   toolCallCount: number;
   usage?: Message["usage"];
-}): AgentStreamFinalDonePlan {
+}): AgentStreamTerminalCompletionPlan {
   if (
     shouldFailAgentStreamMissingFinalReply({
       accumulatedContent: params.accumulatedContent,
+      hasAssistantTextAfterLatestFinalAnswerRequiredProcessBoundary:
+        params.hasAssistantTextAfterLatestFinalAnswerRequiredProcessBoundary,
+      hasFinalAnswerRequiredProcessBoundary:
+        params.hasFinalAnswerRequiredProcessBoundary,
       hasMeaningfulCompletionSignal: params.hasMeaningfulCompletionSignal,
     })
   ) {
@@ -481,7 +644,7 @@ export function buildAgentStreamFinalDonePlan(params: {
     type: "complete",
     finalContent: resolveAgentStreamGracefulCompletionContent({
       accumulatedContent: params.accumulatedContent,
-      fallbackContent: params.fallbackContent || undefined,
+      fallbackContent: params.fallbackContent ?? undefined,
     }),
     queuedTurnIds: resolveQueuedTurnIds(params.queuedTurnId),
     requestLogPayload: {
@@ -499,7 +662,12 @@ export function buildAgentStreamEmptyFinalErrorPlan(params: {
   hasMeaningfulCompletionSignal?: boolean;
   queuedTurnId?: string | null;
 }): AgentStreamEmptyFinalErrorPlan {
-  if (!params.hasMeaningfulCompletionSignal) {
+  if (
+    shouldFailAgentStreamMissingFinalReply({
+      accumulatedContent: params.accumulatedContent,
+      hasMeaningfulCompletionSignal: params.hasMeaningfulCompletionSignal,
+    })
+  ) {
     return buildAgentStreamMissingFinalReplyFailurePlan({
       errorMessage: params.errorMessage,
       queuedTurnId: params.queuedTurnId,
@@ -510,7 +678,7 @@ export function buildAgentStreamEmptyFinalErrorPlan(params: {
     type: "complete",
     finalContent: resolveAgentStreamGracefulCompletionContent({
       accumulatedContent: params.accumulatedContent,
-      fallbackContent: params.fallbackContent || undefined,
+      fallbackContent: params.fallbackContent ?? undefined,
     }),
     queuedTurnIds: resolveQueuedTurnIds(params.queuedTurnId),
     requestLogPayload: {

@@ -139,13 +139,13 @@ function assertBuildSteps(buildJob) {
   const buildJobEnv = buildJob?.env || {};
   assertEnvValueIncludes(
     buildJobEnv,
-    "EMBER_ELECTRON_UPDATES_URL",
-    "EMBER_UPDATES_BASE_URL",
+    "LIME_ELECTRON_UPDATES_URL",
+    "LIME_UPDATES_BASE_URL",
     "release build job",
   );
   assertEnvValueIncludes(
     buildJobEnv,
-    "EMBER_ELECTRON_UPDATES_URL",
+    "LIME_ELECTRON_UPDATES_URL",
     "matrix.feed",
     "release build job",
   );
@@ -237,7 +237,7 @@ function assertBuildSteps(buildJob) {
     "security import",
     "security set-key-partition-list",
     "security find-identity -v -p codesigning",
-    "EMBER_MACOS_KEYCHAIN",
+    "LIME_MACOS_KEYCHAIN",
     '>> "$GITHUB_ENV"',
   ]) {
     assertIncludes(macImportRun, required, "macOS certificate import");
@@ -305,8 +305,8 @@ function assertBuildSteps(buildJob) {
     "WINDOWS_SIGNING_CERTIFICATE_PATH",
     'Buffer.from(certificate, "base64")',
     "Skipping Electron Windows signing certificate preparation",
-    "EMBER_WINDOWS_SIGNING_CERTIFICATE_FILE",
-    "EMBER_WINDOWS_SIGNING_CERTIFICATE_PASSWORD",
+    "LIME_WINDOWS_SIGNING_CERTIFICATE_FILE",
+    "LIME_WINDOWS_SIGNING_CERTIFICATE_PASSWORD",
     '>> "$GITHUB_ENV"',
   ]) {
     assertIncludes(winImportRun, required, "Windows certificate preparation");
@@ -317,6 +317,16 @@ function assertBuildSteps(buildJob) {
   for (const required of [
     "npm run electron:build",
     "npx electron-forge package",
+    "FORGE_PACKAGE_LOG",
+    "run_forge_package",
+    "is_transient_macos_package_error",
+    "NSURLErrorDomain",
+    "The Internet connection appears to be offline",
+    "No network route",
+    "HTTPError\\\\(statusCode: nil",
+    "_NSURLErrorNWPathKey=unsatisfied",
+    "Response code 502 \\\\(Bad Gateway\\\\)",
+    "retrying package attempt",
     "npx electron-forge make",
     "FORGE_MAKE_LOG",
     "run_forge_make",
@@ -325,9 +335,9 @@ function assertBuildSteps(buildJob) {
     '--arch "${{ matrix.arch }}"',
     '--targets "${{ matrix.forge_targets }}"',
     "PIPESTATUS[0]",
-    "hdiutil detach /Volumes/Ember",
+    "hdiutil detach /Volumes/Lime",
     "No such file or directory",
-    'hdiutil detach "/Volumes/Ember" -force || true',
+    'hdiutil detach "/Volumes/Lime" -force || true',
     "find release-electron -type f | sort",
     "codesign --display --verbose=4",
     "codesign --verify --deep --strict --verbose=4",
@@ -341,7 +351,7 @@ function assertBuildSteps(buildJob) {
   const buildEnv = buildStep?.env || {};
   assertEnvValueIncludes(
     buildEnv,
-    "EMBER_ELECTRON_SIGN",
+    "LIME_ELECTRON_SIGN",
     "matrix.host_platform == 'win32'",
     "Electron build",
   );
@@ -515,7 +525,7 @@ function assertForgeConfig(forgeConfigPath = DEFAULT_FORGE_CONFIG_PATH) {
     "macUpdateManifestBaseUrl",
     'updateFeedUrl("darwin", arch',
     "RELEASE_OUTPUT_DIR",
-    "EMBER_ELECTRON_FORGE_OUT_DIR",
+    "LIME_ELECTRON_FORGE_OUT_DIR",
     "dist-electron/app-server.release.json",
     "dist-electron/app-server",
   ]) {
@@ -543,7 +553,7 @@ function assertForgeConfig(forgeConfigPath = DEFAULT_FORGE_CONFIG_PATH) {
     "hardenedRuntime",
     "signatureFlags",
     "APPLE_SIGNING_IDENTITY",
-    "EMBER_MACOS_KEYCHAIN",
+    "LIME_MACOS_KEYCHAIN",
     "osxSign: macSignOptions()",
     "macNotarizeOptions",
     "APPLE_ID",
@@ -559,8 +569,8 @@ function assertForgeConfig(forgeConfigPath = DEFAULT_FORGE_CONFIG_PATH) {
 
   for (const required of [
     "windowsSigningOptions",
-    "EMBER_WINDOWS_SIGNING_CERTIFICATE_FILE",
-    "EMBER_WINDOWS_SIGNING_CERTIFICATE_PASSWORD",
+    "LIME_WINDOWS_SIGNING_CERTIFICATE_FILE",
+    "LIME_WINDOWS_SIGNING_CERTIFICATE_PASSWORD",
     "certificateFile",
     "certificatePassword",
     "squirrelConfig",
@@ -572,7 +582,7 @@ function assertForgeConfig(forgeConfigPath = DEFAULT_FORGE_CONFIG_PATH) {
     "ember-rs/icons/icon.ico",
     "windowsSquirrelRemoteReleasesUrl",
     "windowsSquirrelRemoteReleasesOptions",
-    "EMBER_WINDOWS_SQUIRREL_REMOTE_RELEASES_URL",
+    "LIME_WINDOWS_SQUIRREL_REMOTE_RELEASES_URL",
     "...windowsSquirrelRemoteReleasesOptions(options)",
     "...windowsSigningOptions(options)",
   ]) {

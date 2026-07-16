@@ -4,9 +4,10 @@ import type {
   BaseSetupPackage,
   BaseSetupRenderContract,
 } from "./types";
+import { resolveImageCapabilityModels } from "@/lib/imageGen/catalog";
 import { SEEDED_SERVICE_SKILL_CATALOG_VERSION } from "./seededServiceSkillPackage";
 
-const SEEDED_COMMAND_PACKAGE_ID = "ember-seeded-command-catalog";
+const SEEDED_COMMAND_PACKAGE_ID = "lime-seeded-command-catalog";
 const SEEDED_COMMAND_BUNDLE_ID = "seeded-command-catalog-bundle";
 const SEEDED_COMMAND_SLOT_PROFILE_ID = "seeded-command-input";
 const SEEDED_COMMAND_SCORECARD_PROFILE_ID = "seeded-command-scorecard";
@@ -80,6 +81,45 @@ interface SeededCommandProjectionSpec {
   commandRenderContract: BaseSetupRenderContract;
 }
 
+function normalizeCatalogLabel(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function requireSeededImageCommandModelId(params: {
+  providerId: string;
+  providerType: string;
+  modelName: string;
+}): string {
+  const models = resolveImageCapabilityModels({
+    id: params.providerId,
+    type: params.providerType,
+  });
+  const model = models.find(
+    (candidate) =>
+      normalizeCatalogLabel(candidate.name) ===
+      normalizeCatalogLabel(params.modelName),
+  );
+  if (!model) {
+    throw new Error(
+      `missing seeded image command model in image capability catalog: ${params.providerId}/${params.modelName}`,
+    );
+  }
+
+  return model.id;
+}
+
+const SEEDED_NANOBANANA_PRO_MODEL_ID = requireSeededImageCommandModelId({
+  providerId: "fal",
+  providerType: "fal",
+  modelName: "Nano Banana Pro",
+});
+
+const SEEDED_GPT_IMAGES_2_MODEL_ID = requireSeededImageCommandModelId({
+  providerId: "new-api",
+  providerType: "openai",
+  modelName: "GPT Images 2",
+});
+
 const SEEDED_COMMAND_PROJECTION_SPECS: SeededCommandProjectionSpec[] = [
   {
     commandKey: "image_generate",
@@ -100,8 +140,7 @@ const SEEDED_COMMAND_PROJECTION_SPECS: SeededCommandProjectionSpec[] = [
         id: "plain_image_generation",
         ruleKey: "agentChat.inputIntent.imageGeneration.rules",
         confirmationKey: "agentChat.inputIntent.imageGeneration.confirm",
-        systemPromptKey:
-          "agentChat.inputIntent.imageGeneration.systemPrompt",
+        systemPromptKey: "agentChat.inputIntent.imageGeneration.systemPrompt",
       },
     },
     commandRenderContract: COMMAND_IMAGE_GALLERY_CONTRACT,
@@ -127,7 +166,7 @@ const SEEDED_COMMAND_PROJECTION_SPECS: SeededCommandProjectionSpec[] = [
       requestDefaults: {
         imageWorkbench: "true",
         providerId: "fal",
-        model: "fal-ai/nano-banana-pro",
+        model: SEEDED_NANOBANANA_PRO_MODEL_ID,
       },
     },
     commandRenderContract: COMMAND_IMAGE_GALLERY_CONTRACT,
@@ -152,7 +191,8 @@ const SEEDED_COMMAND_PROJECTION_SPECS: SeededCommandProjectionSpec[] = [
       executionKind: "task_queue",
       requestDefaults: {
         imageWorkbench: "true",
-        model: "gpt-images-2",
+        providerId: "new-api",
+        model: SEEDED_GPT_IMAGES_2_MODEL_ID,
         executorMode: "responses_image_generation",
       },
     },
@@ -416,16 +456,14 @@ const SEEDED_COMMAND_PROJECTION_SPECS: SeededCommandProjectionSpec[] = [
       "blog 1",
       "newsletters pro",
       "web copy",
-      "xiezuo",
       "wenan",
-      "写作",
       "文案",
       "写稿",
       "起草",
       "blog",
       "newsletter",
     ],
-    trigger: "@写作",
+    trigger: "@文案",
     triggerHints: [
       "@Writing Partner",
       "@Writers 1",
@@ -445,15 +483,7 @@ const SEEDED_COMMAND_PROJECTION_SPECS: SeededCommandProjectionSpec[] = [
     commandKey: "code_runtime",
     title: "代码",
     summary: "把本次输入切到代码编排主链，优先调度工具、子代理与代码团队协作。",
-    aliases: [
-      "code",
-      "coding",
-      "code agent",
-      "kaifa",
-      "daima",
-      "代码",
-      "开发",
-    ],
+    aliases: ["code", "coding", "code agent", "kaifa", "daima", "代码", "开发"],
     trigger: "@代码",
     triggerHints: ["@code", "@coding", "@开发", "@Code Agent"],
     category: "代码执行",
@@ -1066,8 +1096,8 @@ function buildSeededCommandProjection(
 const SEEDED_COMMAND_PACKAGE: BaseSetupPackage = {
   id: SEEDED_COMMAND_PACKAGE_ID,
   version: SEEDED_SERVICE_SKILL_CATALOG_VERSION,
-  title: "Ember Seeded Command Catalog",
-  summary: "Ember 内置命令目录的基础设置包事实源。",
+  title: "Lime Seeded Command Catalog",
+  summary: "Lime 内置命令目录的基础设置包事实源。",
   bundleRefs: [
     {
       id: SEEDED_COMMAND_BUNDLE_ID,

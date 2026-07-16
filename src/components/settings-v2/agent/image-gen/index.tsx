@@ -1,28 +1,87 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { getConfig, saveConfig, type Config } from "@/lib/api/appConfig";
+import { getConfig, type Config } from "@/lib/api/appConfig";
 import {
   findConfiguredProviderBySelection,
   type ConfiguredProvider,
   useConfiguredProviders,
 } from "@/hooks/useConfiguredProviders";
+import { useProviderModels } from "@/hooks/useProviderModels";
 import { cn } from "@/lib/utils";
 import {
-  buildPersistedMediaGenerationPreference,
+  inferInputModalities,
+  inferModelAliasSource,
+  inferModelCapabilities,
+  inferModelDeploymentSource,
+  inferModelManagementPlane,
+  inferModelTaskFamilies,
+  inferOutputModalities,
+  inferRuntimeFeatures,
+} from "@/lib/model/inferModelCapabilities";
+import type { EnhancedModelMetadata } from "@/lib/types/modelRegistry";
+import { resolveProviderModelLoadOptions } from "@/lib/model/providerModelLoadOptions";
+import {
   hasMediaGenerationPreferenceOverride,
   type MediaGenerationPreference,
 } from "@/lib/mediaGeneration";
 import {
-  getImageModelIdsForProvider,
-  isImageProvider,
-} from "@/lib/imageGeneration";
-import { buildProviderModelsFromBackendModelIds } from "@/lib/model/providerModelsCatalog";
+  resolveImageCapabilityModelIds,
+  resolveImageCapabilityModels,
+  isImageCapabilityProvider,
+  isImageCapabilityModelMetadata,
+  type ImageGenModel,
+} from "@/lib/imageGen/catalog";
 import { MediaPreferenceSection } from "../shared/MediaPreferenceSection";
+import { updateMediaPreference } from "../shared/mediaPreferencePersistence";
 
 const DEFAULT_MEDIA_PREFERENCE: MediaGenerationPreference = {
   allowFallback: true,
 };
+
+function buildImageModelMetadata(
+  provider: ConfiguredProvider,
+  model: ImageGenModel,
+): EnhancedModelMetadata {
+  const providerId = provider.providerId ?? provider.key;
+  const taxonomyParams = {
+    modelId: model.id,
+    providerId,
+    providerModelId: model.id,
+  };
+  return {
+    id: model.id,
+    display_name: model.name || model.id,
+    provider_id: providerId,
+    provider_name: provider.label,
+    family: null,
+    tier: "pro",
+    capabilities: inferModelCapabilities(taxonomyParams),
+    task_families: inferModelTaskFamilies(taxonomyParams),
+    input_modalities: inferInputModalities(taxonomyParams),
+    output_modalities: inferOutputModalities(taxonomyParams),
+    runtime_features: inferRuntimeFeatures(taxonomyParams),
+    deployment_source: inferModelDeploymentSource(taxonomyParams),
+    management_plane: inferModelManagementPlane(taxonomyParams),
+    canonical_model_id: null,
+    provider_model_id: model.id,
+    alias_source: inferModelAliasSource(taxonomyParams),
+    pricing: null,
+    limits: {
+      context_length: null,
+      max_output_tokens: null,
+      requests_per_minute: null,
+      tokens_per_minute: null,
+    },
+    status: "active",
+    release_date: null,
+    is_latest: false,
+    description: null,
+    source: "embedded",
+    created_at: 0,
+    updated_at: 0,
+  };
+}
 
 export function ImageGenSettings() {
   const { t } = useTranslation("settings");
@@ -55,11 +114,12 @@ export function ImageGenSettings() {
       providers.filter(
         (provider) =>
           provider.authStatus === "login_required" ||
-          isImageProvider(
-            provider.providerId ?? provider.key,
-            provider.type,
-            provider.customModels,
-          ),
+          isImageCapabilityProvider({
+            id: provider.providerId ?? provider.key,
+            type: provider.type,
+            custom_models: provider.customModels,
+            api_host: provider.apiHost,
+          }),
       ),
     [providers],
   );
@@ -78,13 +138,64 @@ export function ImageGenSettings() {
       return [];
     }
 
-    return getImageModelIdsForProvider(
-      selectedProvider.providerId ?? selectedProvider.key,
-      selectedProvider.type,
-      selectedProvider.customModels,
-      selectedProvider.apiHost,
-    );
+    return resolveImageCapabilityModelIds({
+      id: selectedProvider.providerId ?? selectedProvider.key,
+      type: selectedProvider.type,
+      custom_models: selectedProvider.customModels,
+      api_host: selectedProvider.apiHost,
+    });
   }, [selectedProvider]);
+  const selectedProviderModelLoadOptions = useMemo(
+    () =>
+      resolveProviderModelLoadOptions({
+        providerId: selectedProvider?.providerId,
+        providerType: selectedProvider?.type,
+        apiHost: selectedProvider?.apiHost,
+        hasApiKey: selectedProvider?.hasApiKey,
+        hasDeclaredModels: Boolean(
+          selectedProvider?.customModels?.some((modelId) => modelId.trim()),
+        ),
+      }),
+    [
+      selectedProvider?.apiHost,
+      selectedProvider?.customModels,
+      selectedProvider?.hasApiKey,
+      selectedProvider?.providerId,
+      selectedProvider?.type,
+    ],
+  );
+  const { models: selectedProviderModels } = useProviderModels(
+    selectedProvider,
+    {
+      returnFullMetadata: true,
+      autoLoad: Boolean(selectedProvider),
+      ...selectedProviderModelLoadOptions,
+    },
+  );
+  const imageSelectableModelIds = useMemo(() => {
+    if (!selectedProvider) {
+      return availableModelIds;
+    }
+
+    const modelIds = new Set(availableModelIds);
+    for (const model of selectedProviderModels) {
+      if (
+        isImageCapabilityModelMetadata(
+          {
+            id: selectedProvider.providerId ?? selectedProvider.key,
+            type: selectedProvider.type,
+            custom_models: selectedProvider.customModels,
+            api_host: selectedProvider.apiHost,
+          },
+          model,
+        )
+      ) {
+        modelIds.add(model.id);
+      }
+    }
+
+    return Array.from(modelIds);
+  }, [availableModelIds, selectedProvider, selectedProviderModels]);
 
   const providerUnavailableLabel =
     globalImagePreference.preferredProviderId && !selectedProvider
@@ -95,7 +206,7 @@ export function ImageGenSettings() {
 
   const modelUnavailableLabel =
     globalImagePreference.preferredModelId &&
-    !availableModelIds.includes(globalImagePreference.preferredModelId)
+    !imageSelectableModelIds.includes(globalImagePreference.preferredModelId)
       ? t("settings.mediaGeneration.warning.unavailable", {
           id: globalImagePreference.preferredModelId,
         })
@@ -106,25 +217,12 @@ export function ImageGenSettings() {
     setTimeout(() => setMessage(null), 3000);
   };
 
-  const savePreference = async (nextPreference: MediaGenerationPreference) => {
-    if (!config) {
-      return;
-    }
-
+  const savePreference = async (
+    updater: (current: MediaGenerationPreference) => MediaGenerationPreference,
+  ) => {
     try {
-      const persistedPreference =
-        buildPersistedMediaGenerationPreference(nextPreference);
-      const updatedConfig: Config = {
-        ...config,
-        workspace_preferences: {
-          ...config.workspace_preferences,
-          media_defaults: {
-            ...config.workspace_preferences?.media_defaults,
-            image: persistedPreference,
-          },
-        },
-      };
-      await saveConfig(updatedConfig);
+      const { config: updatedConfig, preference: nextPreference } =
+        await updateMediaPreference("image", updater);
       setConfig(updatedConfig);
       setGlobalImagePreference(nextPreference);
       showMessage("success", t("settings.mediaGeneration.message.saved"));
@@ -141,59 +239,68 @@ export function ImageGenSettings() {
       preferredProviderId,
     );
     const nextModelIds = nextProvider
-      ? getImageModelIdsForProvider(
-          nextProvider.providerId ?? nextProvider.key,
-          nextProvider.type,
-          nextProvider.customModels,
-          nextProvider.apiHost,
-        )
+      ? resolveImageCapabilityModelIds({
+          id: nextProvider.providerId ?? nextProvider.key,
+          type: nextProvider.type,
+          custom_models: nextProvider.customModels,
+          api_host: nextProvider.apiHost,
+        })
       : [];
-    const preferredModelId = preferredProviderId
-      ? nextModelIds.includes(globalImagePreference.preferredModelId || "")
-        ? globalImagePreference.preferredModelId
-        : undefined
-      : undefined;
-
-    void savePreference({
+    void savePreference((current) => ({
       preferredProviderId,
-      preferredModelId,
-      allowFallback: globalImagePreference.allowFallback ?? true,
-    });
+      preferredModelId: preferredProviderId
+        ? nextModelIds.includes(current.preferredModelId || "")
+          ? current.preferredModelId
+          : undefined
+        : undefined,
+      allowFallback: current.allowFallback ?? true,
+    }));
   };
 
   const handleModelChange = (value: string) => {
-    void savePreference({
-      ...globalImagePreference,
+    void savePreference((current) => ({
+      ...current,
       preferredModelId: value.trim() || undefined,
-      allowFallback: globalImagePreference.allowFallback ?? true,
-    });
+      allowFallback: current.allowFallback ?? true,
+    }));
+  };
+
+  const handleProviderAndModelChange = (
+    providerValue: string,
+    modelValue: string,
+  ) => {
+    void savePreference((current) => ({
+      preferredProviderId: providerValue.trim() || undefined,
+      preferredModelId:
+        providerValue.trim() && modelValue.trim()
+          ? modelValue.trim()
+          : undefined,
+      allowFallback: current.allowFallback ?? true,
+    }));
   };
 
   const handleFallbackChange = (value: boolean) => {
-    void savePreference({
-      ...globalImagePreference,
+    void savePreference((current) => ({
+      ...current,
       allowFallback: value,
-    });
+    }));
   };
 
   const handleResetPreference = () => {
-    void savePreference(DEFAULT_MEDIA_PREFERENCE);
+    void savePreference(() => DEFAULT_MEDIA_PREFERENCE);
   };
 
-  const getImageFallbackModels = useCallback(
-    (provider: ConfiguredProvider) =>
-      buildProviderModelsFromBackendModelIds(
-        provider,
-        [],
-        getImageModelIdsForProvider(
-          provider.providerId ?? provider.key,
-          provider.type,
-          provider.customModels,
-          provider.apiHost,
-        ),
-      ),
-    [],
-  );
+  const getImageFallbackModels = useCallback((provider: ConfiguredProvider) => {
+    const catalogModels = resolveImageCapabilityModels({
+      id: provider.providerId ?? provider.key,
+      type: provider.type,
+      custom_models: provider.customModels,
+      api_host: provider.apiHost,
+    });
+    return catalogModels.map((model) =>
+      buildImageModelMetadata(provider, model),
+    );
+  }, []);
 
   const providerHint = providersLoading
     ? t("settings.mediaGeneration.image.hint.loading")
@@ -213,21 +320,26 @@ export function ImageGenSettings() {
         setProviderType={handleProviderChange}
         model={globalImagePreference.preferredModelId ?? ""}
         setModel={handleModelChange}
+        setProviderAndModel={handleProviderAndModelChange}
         providerFilter={(provider) =>
           provider.authStatus === "login_required" ||
-          isImageProvider(
-            provider.providerId ?? provider.key,
-            provider.type,
-            provider.customModels,
-          )
+          isImageCapabilityProvider({
+            id: provider.providerId ?? provider.key,
+            type: provider.type,
+            custom_models: provider.customModels,
+            api_host: provider.apiHost,
+          })
         }
         modelFilter={(model, provider) =>
-          getImageModelIdsForProvider(
-            provider.providerId ?? provider.key,
-            provider.type,
-            provider.customModels,
-            provider.apiHost,
-          ).includes(model.id)
+          isImageCapabilityModelMetadata(
+            {
+              id: provider.providerId ?? provider.key,
+              type: provider.type,
+              custom_models: provider.customModels,
+              api_host: provider.apiHost,
+            },
+            model,
+          )
         }
         getFallbackModels={getImageFallbackModels}
         allowFallback={globalImagePreference.allowFallback ?? true}

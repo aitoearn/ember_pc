@@ -8,14 +8,15 @@ import type {
   ModelRuntimeFeature,
   ModelTaskFamily,
 } from "@/lib/types/modelRegistry";
+import { isLikelyImageGenerationSearchText } from "@/lib/imageGen/providerMatchers";
 
 const REASONING_TOKEN_PATTERN = /(^|[._/-])(thinking|reasoning)(?=$|[._/-])/i;
+const OPENAI_REASONING_PATTERN =
+  /\b(?:gpt-5(?:[._/-]|\b)|o[134](?:[._/-]|\b)|o4-mini(?:[._/-]|\b))\b/i;
 const VISION_HINT_PATTERN =
   /\b(vision|multimodal|multi-modal|omni|image-input|image understanding)\b/i;
 const NON_VISION_PATTERN =
   /\b(embedding|embed|rerank|tts|stt|transcribe|transcription|speech|audio|moderation)\b/i;
-const IMAGE_GENERATION_PATTERN =
-  /\b(gpt-image|gpt-images|imagen|dall-e|dalle|stable[ -]?diffusion|sdxl|sd3|midjourney|mj|flux|image[ -]?generation|image-gen|image-preview|nano-banana|recraft|ideogram|seedream|cogview)\b/i;
 const IMAGE_EDIT_PATTERN =
   /\b(edit|inpaint|outpaint|img2img|image-edit|image_edit|image edits)\b/i;
 const OPENAI_VISION_PATTERN =
@@ -41,7 +42,7 @@ const TEXT_TO_SPEECH_PATTERN =
   /\b(tts|text[- ]?to[- ]?speech|speech[- ]?synthesis|voice[- ]?synth)\b/i;
 
 const LOCAL_PROVIDER_PATTERN = /\b(ollama|lmstudio|gpustack|ovms|comfyui)\b/i;
-const OEM_PROVIDER_PATTERN = /\b(ember[\s-_]?hub|oem|partner[\s-_]?hub)\b/i;
+const OEM_PROVIDER_PATTERN = /\b(lime[\s-_]?hub|oem|partner[\s-_]?hub)\b/i;
 
 const TASK_FAMILY_SET = new Set<ModelTaskFamily>([
   "chat",
@@ -94,6 +95,40 @@ interface InferModelTaxonomyParams {
   aliasSource?: ModelAliasSource | null;
 }
 
+type ModelTaxonomyInput = Pick<
+  EnhancedModelMetadata,
+  | "id"
+  | "provider_id"
+  | "family"
+  | "description"
+  | "capabilities"
+  | "task_families"
+  | "input_modalities"
+  | "output_modalities"
+  | "runtime_features"
+  | "deployment_source"
+  | "management_plane"
+  | "source"
+  | "provider_model_id"
+  | "canonical_model_id"
+  | "alias_source"
+>;
+
+export interface ModelCapabilitySummary {
+  capabilities: ModelCapabilities;
+  task_families: ModelTaskFamily[];
+  input_modalities: ModelModality[];
+  output_modalities: ModelModality[];
+  runtime_features: ModelRuntimeFeature[];
+  supports_tools: boolean;
+  supports_reasoning: boolean;
+  supports_prompt_cache: boolean;
+  supports_media_input: boolean;
+  supports_media_output: boolean;
+  context_length: number | null;
+  max_output_tokens: number | null;
+}
+
 function normalize(value?: string | null): string {
   return (value || "").trim().toLowerCase();
 }
@@ -136,7 +171,11 @@ function normalizeRuntimeFeatures(
 }
 
 function inferReasoningCapability(modelId: string): boolean {
-  return REASONING_TOKEN_PATTERN.test(modelId.trim().toLowerCase());
+  const normalized = modelId.trim().toLowerCase();
+  return (
+    REASONING_TOKEN_PATTERN.test(normalized) ||
+    OPENAI_REASONING_PATTERN.test(normalized)
+  );
 }
 
 export function inferVisionCapability(params: {
@@ -153,7 +192,10 @@ export function inferVisionCapability(params: {
     return false;
   }
 
-  if (NON_VISION_PATTERN.test(text) || IMAGE_GENERATION_PATTERN.test(text)) {
+  if (
+    NON_VISION_PATTERN.test(text) ||
+    isLikelyImageGenerationSearchText(text)
+  ) {
     return false;
   }
 
@@ -232,7 +274,14 @@ function inferBaseSignals(params: InferModelTaxonomyParams) {
     explicitOutputModalities.includes("text");
   const hasExplicitVisionInput = hasExplicitImageInput && hasExplicitTextOutput;
   const inferredReasoning =
-    capabilities.reasoning ?? inferReasoningCapability(params.modelId);
+    capabilities.reasoning === true ||
+    inferReasoningCapability(params.modelId) ||
+    (params.providerModelId
+      ? inferReasoningCapability(params.providerModelId)
+      : false) ||
+    (params.canonicalModelId
+      ? inferReasoningCapability(params.canonicalModelId)
+      : false);
   const inferredVisionByName =
     inferVisionCapability({
       modelId: params.modelId,
@@ -267,7 +316,7 @@ function inferBaseSignals(params: InferModelTaxonomyParams) {
   const isSpeechToText = SPEECH_TO_TEXT_PATTERN.test(text);
   const isTextToSpeech = TEXT_TO_SPEECH_PATTERN.test(text);
   const isImageGeneration =
-    hasExplicitImageOutput || IMAGE_GENERATION_PATTERN.test(text);
+    hasExplicitImageOutput || isLikelyImageGenerationSearchText(text);
   const isImageEdit =
     IMAGE_EDIT_PATTERN.test(text) ||
     (hasExplicitImageInput && hasExplicitImageOutput);
@@ -585,170 +634,90 @@ export function inferModelCapabilities(
         "embedding",
         "rerank",
       ].some((family) => taskFamilies.includes(family as ModelTaskFamily)),
-    reasoning: params.capabilities?.reasoning ?? supportsReasoningByDefault,
+    reasoning: params.capabilities?.reasoning === true || supportsReasoningByDefault,
   };
 }
 
 export function getModelTaskFamilies(
-  model: Pick<
-    EnhancedModelMetadata,
-    | "id"
-    | "provider_id"
-    | "family"
-    | "description"
-    | "capabilities"
-    | "task_families"
-    | "input_modalities"
-    | "output_modalities"
-    | "runtime_features"
-    | "deployment_source"
-    | "management_plane"
-    | "source"
-    | "provider_model_id"
-    | "canonical_model_id"
-    | "alias_source"
-  >,
+  model: ModelTaxonomyInput,
 ): ModelTaskFamily[] {
-  return inferModelTaskFamilies({
-    modelId: model.id,
-    providerId: model.provider_id,
-    family: model.family,
-    description: model.description,
-    capabilities: model.capabilities,
-    explicitTaskFamilies: model.task_families,
-    explicitInputModalities: model.input_modalities,
-    explicitOutputModalities: model.output_modalities,
-    explicitRuntimeFeatures: model.runtime_features,
-    deploymentSource: model.deployment_source,
-    managementPlane: model.management_plane,
-    source: model.source,
-    providerModelId: model.provider_model_id,
-    canonicalModelId: model.canonical_model_id,
-    aliasSource: model.alias_source,
-  });
+  return inferModelTaskFamilies(modelToTaxonomyParams(model));
 }
 
 export function modelSupportsTaskFamily(
-  model: Parameters<typeof getModelTaskFamilies>[0],
+  model: ModelTaxonomyInput,
   family: ModelTaskFamily,
 ): boolean {
   return getModelTaskFamilies(model).includes(family);
 }
 
 export function getModelInputModalities(
-  model: Parameters<typeof getModelTaskFamilies>[0],
+  model: ModelTaxonomyInput,
 ): ModelModality[] {
-  return inferInputModalities({
-    modelId: model.id,
-    providerId: model.provider_id,
-    family: model.family,
-    description: model.description,
-    capabilities: model.capabilities,
-    explicitTaskFamilies: model.task_families,
-    explicitInputModalities: model.input_modalities,
-    explicitOutputModalities: model.output_modalities,
-    explicitRuntimeFeatures: model.runtime_features,
-    deploymentSource: model.deployment_source,
-    managementPlane: model.management_plane,
-    source: model.source,
-    providerModelId: model.provider_model_id,
-    canonicalModelId: model.canonical_model_id,
-    aliasSource: model.alias_source,
-  });
+  return inferInputModalities(modelToTaxonomyParams(model));
 }
 
 export function getModelOutputModalities(
-  model: Parameters<typeof getModelTaskFamilies>[0],
+  model: ModelTaxonomyInput,
 ): ModelModality[] {
-  return inferOutputModalities({
-    modelId: model.id,
-    providerId: model.provider_id,
-    family: model.family,
-    description: model.description,
-    capabilities: model.capabilities,
-    explicitTaskFamilies: model.task_families,
-    explicitInputModalities: model.input_modalities,
-    explicitOutputModalities: model.output_modalities,
-    explicitRuntimeFeatures: model.runtime_features,
-    deploymentSource: model.deployment_source,
-    managementPlane: model.management_plane,
-    source: model.source,
-    providerModelId: model.provider_model_id,
-    canonicalModelId: model.canonical_model_id,
-    aliasSource: model.alias_source,
-  });
+  return inferOutputModalities(modelToTaxonomyParams(model));
 }
 
 export function getModelRuntimeFeatures(
-  model: Parameters<typeof getModelTaskFamilies>[0],
+  model: ModelTaxonomyInput,
 ): ModelRuntimeFeature[] {
-  return inferRuntimeFeatures({
-    modelId: model.id,
-    providerId: model.provider_id,
-    family: model.family,
-    description: model.description,
-    capabilities: model.capabilities,
-    explicitTaskFamilies: model.task_families,
-    explicitInputModalities: model.input_modalities,
-    explicitOutputModalities: model.output_modalities,
-    explicitRuntimeFeatures: model.runtime_features,
-    deploymentSource: model.deployment_source,
-    managementPlane: model.management_plane,
-    source: model.source,
-    providerModelId: model.provider_model_id,
-    canonicalModelId: model.canonical_model_id,
-    aliasSource: model.alias_source,
-  });
+  return inferRuntimeFeatures(modelToTaxonomyParams(model));
 }
 
 export function getModelDeploymentSource(
-  model: Parameters<typeof getModelTaskFamilies>[0],
+  model: ModelTaxonomyInput,
 ): ModelDeploymentSource {
-  return inferModelDeploymentSource({
-    modelId: model.id,
-    providerId: model.provider_id,
-    family: model.family,
-    description: model.description,
-    capabilities: model.capabilities,
-    explicitTaskFamilies: model.task_families,
-    explicitInputModalities: model.input_modalities,
-    explicitOutputModalities: model.output_modalities,
-    explicitRuntimeFeatures: model.runtime_features,
-    deploymentSource: model.deployment_source,
-    managementPlane: model.management_plane,
-    source: model.source,
-    providerModelId: model.provider_model_id,
-    canonicalModelId: model.canonical_model_id,
-    aliasSource: model.alias_source,
-  });
+  return inferModelDeploymentSource(modelToTaxonomyParams(model));
 }
 
 export function getModelManagementPlane(
-  model: Parameters<typeof getModelTaskFamilies>[0],
+  model: ModelTaxonomyInput,
 ): ModelManagementPlane {
-  return inferModelManagementPlane({
-    modelId: model.id,
-    providerId: model.provider_id,
-    family: model.family,
-    description: model.description,
-    capabilities: model.capabilities,
-    explicitTaskFamilies: model.task_families,
-    explicitInputModalities: model.input_modalities,
-    explicitOutputModalities: model.output_modalities,
-    explicitRuntimeFeatures: model.runtime_features,
-    deploymentSource: model.deployment_source,
-    managementPlane: model.management_plane,
-    source: model.source,
-    providerModelId: model.provider_model_id,
-    canonicalModelId: model.canonical_model_id,
-    aliasSource: model.alias_source,
-  });
+  return inferModelManagementPlane(modelToTaxonomyParams(model));
 }
 
 export function getModelAliasSource(
-  model: Parameters<typeof getModelTaskFamilies>[0],
+  model: ModelTaxonomyInput,
 ): ModelAliasSource | null {
-  return inferModelAliasSource({
+  return inferModelAliasSource(modelToTaxonomyParams(model));
+}
+
+export function getModelCapabilitySummary(
+  model: ModelTaxonomyInput &
+    Pick<EnhancedModelMetadata, "limits">,
+): ModelCapabilitySummary {
+  const task_families = getModelTaskFamilies(model);
+  const input_modalities = getModelInputModalities(model);
+  const output_modalities = getModelOutputModalities(model);
+  const runtime_features = getModelRuntimeFeatures(model);
+  const capabilities = inferModelCapabilities(modelToTaxonomyParams(model));
+
+  return {
+    capabilities,
+    task_families,
+    input_modalities,
+    output_modalities,
+    runtime_features,
+    supports_tools: capabilities.tools || runtime_features.includes("tool_calling"),
+    supports_reasoning:
+      capabilities.reasoning ||
+      task_families.includes("reasoning") ||
+      runtime_features.includes("reasoning"),
+    supports_prompt_cache: runtime_features.includes("prompt_cache"),
+    supports_media_input: input_modalities.some(isMediaModality),
+    supports_media_output: output_modalities.some(isMediaModality),
+    context_length: model.limits.context_length,
+    max_output_tokens: model.limits.max_output_tokens,
+  };
+}
+
+function modelToTaxonomyParams(model: ModelTaxonomyInput): InferModelTaxonomyParams {
+  return {
     modelId: model.id,
     providerId: model.provider_id,
     family: model.family,
@@ -764,5 +733,9 @@ export function getModelAliasSource(
     providerModelId: model.provider_model_id,
     canonicalModelId: model.canonical_model_id,
     aliasSource: model.alias_source,
-  });
+  };
+}
+
+function isMediaModality(modality: ModelModality): boolean {
+  return modality === "image" || modality === "audio" || modality === "video";
 }

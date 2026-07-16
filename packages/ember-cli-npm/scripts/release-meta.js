@@ -1,7 +1,7 @@
 const VERSION = require("../package.json").version;
 
-const REPO = "aitoearn/ember_pc";
-const NAME = "ember";
+const REPO = "limecloud/lime";
+const NAME = "lime";
 
 const PLATFORM_MAP = {
   darwin: "darwin",

@@ -174,7 +174,7 @@ export function buildTranslationPrPackReport(
   return {
     localeProposals,
     resourcesDir: path.resolve(resourcesDir),
-    schemaVersion: "ember.i18n.translationPrPack.v1",
+    schemaVersion: "lime.i18n.translationPrPack.v1",
     sourceLocale,
     sourceLocaleExport: {
       namespaceCount: sourceExport.summary.namespaceCount,

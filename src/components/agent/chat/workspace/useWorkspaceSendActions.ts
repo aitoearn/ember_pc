@@ -2,14 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { Dispatch, SetStateAction } from "react";
-import type {
-  AgentRuntimeWebSearchMode,
-  AutoContinueRequestPayload,
-} from "@/lib/api/agentRuntime";
+import type { RuntimeSearchMode } from "@embercloud/app-server-client";
+import type { AutoContinueRequestPayload } from "@/lib/api/agentRuntime/sessionTypes";
+import type { InstalledPluginState } from "@/features/plugin/types";
+import { getOrCreateDefaultProject } from "@/lib/api/project";
+import type { AgentRuntimeWorkspaceSkillBinding } from "@/lib/api/agentRuntime/toolInventoryTypes";
+import { listInstalledPlugins } from "@/lib/api/plugins";
+import { normalizeExecutionStrategyToReact } from "@/lib/api/agentRuntime/executionStrategyCompat";
 import type { ServiceModelsConfig } from "@/lib/api/appConfigTypes";
 import { logAgentDebug } from "@/lib/agentDebug";
 import { recordAgentUiPerformanceMetric } from "@/lib/agentUiPerformanceMetrics";
-import { useGlobalMediaGenerationDefaults } from "@/hooks/useGlobalMediaGenerationDefaults";
+import { readGlobalMediaGenerationDefaults } from "@/hooks/useGlobalMediaGenerationDefaults";
+import type { MediaGenerationDefaults } from "@/lib/mediaGeneration";
 import {
   mergeServiceModelPrompt,
   resolveServiceModelExecutionPreference,
@@ -18,9 +22,7 @@ import { parseAnalysisWorkbenchCommand } from "../utils/analysisWorkbenchCommand
 import { parseBrowserWorkbenchCommand } from "../utils/browserWorkbenchCommand";
 import { parseBroadcastWorkbenchCommand } from "../utils/broadcastWorkbenchCommand";
 import { parseChannelPreviewWorkbenchCommand } from "../utils/channelPreviewWorkbenchCommand";
-import {
-  parseComplianceWorkbenchCommand,
-} from "../utils/complianceWorkbenchCommand";
+import { parseComplianceWorkbenchCommand } from "../utils/complianceWorkbenchCommand";
 import { parseCompetitorWorkbenchCommand } from "../utils/competitorWorkbenchCommand";
 import { parseCoverWorkbenchCommand } from "../utils/coverWorkbenchCommand";
 import { parseDeepSearchWorkbenchCommand } from "../utils/deepSearchWorkbenchCommand";
@@ -39,9 +41,7 @@ import { parseSearchWorkbenchCommand } from "../utils/searchWorkbenchCommand";
 import { parseSiteSearchWorkbenchCommand } from "../utils/siteSearchWorkbenchCommand";
 import { parseSummaryWorkbenchCommand } from "../utils/summaryWorkbenchCommand";
 import { parseTranslationWorkbenchCommand } from "../utils/translationWorkbenchCommand";
-import {
-  resolveMentionCommandMergedPrefillReplayText,
-} from "../utils/mentionCommandReplayText";
+import { resolveMentionCommandMergedPrefillReplayText } from "../utils/mentionCommandReplayText";
 import {
   parseMentionCommand,
   resolveMentionCommandPrefixMatch,
@@ -58,10 +58,6 @@ import { parseVideoWorkbenchCommand } from "../utils/videoWorkbenchCommand";
 import { parseVoiceWorkbenchCommand } from "../utils/voiceWorkbenchCommand";
 import { parseWritingWorkbenchCommand } from "../utils/writingWorkbenchCommand";
 import { parseWebpageWorkbenchCommand } from "../utils/webpageWorkbenchCommand";
-import {
-  buildAgentFastResponseSystemPrompt,
-  resolveAgentFastResponseRouting,
-} from "../utils/fastResponseRouting";
 import { resolvePlainInputIntentConfirmation } from "../utils/plainInputIntentConfirmation";
 import { detectBrowserTaskRequirement } from "../utils/browserTaskRequirement";
 import { isTeamRuntimeRecommendation } from "../utils/contextualRecommendations";
@@ -75,43 +71,37 @@ import {
 } from "../utils/chatToolPreferences";
 import type { HandleSendOptions } from "../hooks/handleSendTypes";
 import { extractAgentUiPerformanceTraceMetadata } from "../hooks/agentStreamPerformanceMetrics";
-import type { UseRuntimeTeamFormationResult } from "../hooks/useRuntimeTeamFormation";
 import type { SendMessageFn } from "../hooks/agentChatShared";
 import { normalizeExecutionStrategy } from "../hooks/agentChatCoreUtils";
 import type {
+  BrowserAssistSessionState,
   Message,
   MessageImage,
 } from "../types";
-import type { TeamDefinition } from "../utils/teamDefinitions";
 import type { AgentAccessMode } from "../hooks/agentChatStorage";
 import {
-  buildInitialDispatchPreviewMessages,
-  buildRuntimeTeamDispatchPreview,
-  buildRuntimeTeamDispatchPreviewMessages,
   buildSubmissionPreviewMessages,
   type GeneralWorkbenchSendBoundaryState,
   type InitialDispatchPreviewSnapshot,
-  resolveRuntimeTeamDispatchPreviewState,
-  type RuntimeTeamDispatchPreviewSnapshot,
   createSubmissionPreviewSnapshot,
   type SubmissionPreviewSnapshot,
   buildWorkspaceRequestMetadata,
   buildWorkspaceSendText,
   hasModelSkillLaunchRequestMetadata,
   hasServiceSkillLaunchRequestMetadata,
+  serviceSkillLaunchRequiresProject,
   primeBrowserAssistBeforeSend,
   type ContextWorkspaceSummary,
   type EnsureBrowserAssistCanvasOptions,
 } from "./workspaceSendHelpers";
-import { recordTeamFormationAgentUiProjection } from "../projection/teamFormationAgentUiProjection";
-import type { Character } from "@/lib/api/memory";
-import type { TeamMemorySnapshot } from "@/lib/teamMemorySync";
+import type { Character } from "@/lib/api/projectMemory";
 import type { ThemeType } from "@/lib/workspace/workbenchContract";
 import type {
   ServiceSkillHomeItem,
   ServiceSkillSlotValues,
 } from "../service-skills/types";
-import type { ImageWorkbenchSkillRequest } from "./imageSkillLaunch";
+import type { ImageWorkbenchCommandRequest } from "./imageCommandIntent";
+import type { WorkspaceSkillRuntimeEnableInput } from "../utils/workspaceSkillBindingsMetadata";
 import {
   attachSessionIdToRequestContext,
   attachSessionIdToScopedRequestContext,
@@ -147,16 +137,11 @@ import {
   getMentionEntryUsageRecordKey,
   recordMentionEntryUsage,
 } from "../skill-selection/mentionEntryUsage";
-import {
-  parseCatalogExecutionStrategy,
-  useRuntimeMentionCommandCatalog,
-} from "../skill-selection/runtimeInputCapabilityCatalog";
+import { useRuntimeMentionCommandCatalog } from "../skill-selection/runtimeInputCapabilityCatalog";
 import { recordServiceSkillUsage } from "../service-skills/storage";
 import { recordSlashEntryUsage } from "../skill-selection/slashEntryUsage";
 import { CONTENT_POST_SKILL_KEY } from "../utils/contentPostSkill";
-import {
-  parseSkillInstallPromptInstruction,
-} from "@/lib/skills/skillInstallPrompt";
+import { parseSkillInstallPromptInstruction } from "@/lib/skills/skillInstallPrompt";
 import {
   mergeSummaryCommandRecentDefaults,
   mergeTranslationCommandRecentDefaults,
@@ -176,14 +161,37 @@ import {
 } from "./commands/dispatchBodyBuilders";
 import { asRecord } from "./commands/skillSlotUtils";
 import { waitForNextPaint } from "./commands/sendHelpers";
-import { readFastResponseMode, withFastResponseMetadata } from "./commands/fastResponseHelpers";
-import { isImageGenerationPlainInputIntent, isPlainInputIntentAffirmativeReply } from "./commands/intentHelpers";
-import { resolveServiceModelSendOverrides } from "./commands/serviceModelHelpers";
-import { shouldSkipBrowserAssistPrimeForPlainFirstTurn, buildFastResponseAssistantDraft } from "./commands/browserAssistHelpers";
+import {
+  mergePluginActivationSendOptions,
+  resolveWorkspacePluginActivation,
+} from "./workspacePluginActivation";
+import {
+  isImageGenerationPlainInputIntent,
+  isLikelyPlainImageGenerationRequest,
+} from "./commands/intentHelpers";
+import {
+  resolveServiceModelSendOverrides,
+  shouldRefreshServiceModelsBeforeSend,
+  withConfiguredModelSlots,
+} from "./commands/serviceModelHelpers";
+import { shouldSkipBrowserAssistPrimeForPlainFirstTurn } from "./commands/browserAssistHelpers";
 import { buildImageWorkbenchAssistantDraft } from "./commands/imageWorkbenchHelpers";
 import { resolveSkillInstallPromptConfirmation } from "./commands/skillInstallHelpers";
-import { buildFileReadSkillLaunchRequestContext, buildVideoSkillLaunchRequestContext, buildCoverSkillLaunchRequestContext, buildResearchSkillLaunchRequestContext, buildDeepSearchSkillLaunchRequestContext, buildReportSkillLaunchRequestContext, buildCompetitorSkillLaunchRequestContext, buildSiteSearchSkillLaunchRequestContext, buildPdfReadSkillLaunchRequestContext } from "./commands/skillLaunchContextBuilders";
-import { resolveGrowthSkillLaunchRequestContext, resolveVoiceSkillLaunchRequestContext } from "./commands/skillLaunchResolvers";
+import {
+  buildFileReadSkillLaunchRequestContext,
+  buildVideoSkillLaunchRequestContext,
+  buildCoverSkillLaunchRequestContext,
+  buildResearchSkillLaunchRequestContext,
+  buildDeepSearchSkillLaunchRequestContext,
+  buildReportSkillLaunchRequestContext,
+  buildCompetitorSkillLaunchRequestContext,
+  buildSiteSearchSkillLaunchRequestContext,
+  buildPdfReadSkillLaunchRequestContext,
+} from "./commands/skillLaunchContextBuilders";
+import {
+  resolveGrowthSkillLaunchRequestContext,
+  resolveVoiceSkillLaunchRequestContext,
+} from "./commands/skillLaunchResolvers";
 import {
   resolveMentionCommandUsageSlotValues,
   resolveImageMentionCommandKey,
@@ -224,7 +232,7 @@ type CompletedMentionCommandUsage = {
 // MENTION_USAGE_REQUEST_FIELDS + resolve*Mention* 函数组已提取到 ./commands/mentionCommandUtils.ts
 
 interface UseWorkspaceSendActionsParams {
-// 命令 recent defaults 合并函数已提取到 ./commands/commandRecentDefaults.ts
+  // 命令 recent defaults 合并函数已提取到 ./commands/commandRecentDefaults.ts
   input: string;
   setInput: SetStringState;
   mentionedCharacters: Character[];
@@ -242,26 +250,28 @@ interface UseWorkspaceSendActionsParams {
   executionStrategy: CurrentExecutionStrategy;
   accessMode?: AgentAccessMode;
   providerType?: string | null;
-  preferredTeamPresetId?: string | null;
-  selectedTeam?: TeamDefinition | null;
-  selectedTeamLabel?: string;
-  selectedTeamSummary?: string;
-  teamMemoryShadowSnapshot?: TeamMemorySnapshot | null;
+  workspaceSkillBindings?: AgentRuntimeWorkspaceSkillBinding[] | null;
+  workspaceSkillRuntimeEnable?: WorkspaceSkillRuntimeEnableInput | null;
   currentGateKey: string;
   themeWorkbenchActiveQueueTitle?: string;
   contentId?: string | null;
   browserAssistProfileKey?: string | null;
   browserAssistPreferredBackend?:
-    | "aster_compat"
-    | "ember_extension_bridge"
+    | "current"
+    | "lime_extension_bridge"
     | "cdp_direct"
     | null;
   browserAssistAutoLaunch?: boolean | null;
+  browserAssistSessionState?: BrowserAssistSessionState | null;
   workspaceRequestMetadataBase?: Record<string, unknown>;
   savedSoulArtifactVoiceGenerationBrief?: Record<string, unknown> | null;
   soulArtifactVoiceEnabledForTurn?: boolean;
   serviceModels?: ServiceModelsConfig;
   agentResponseLanguage?: string | null;
+  resolveServiceModelsBeforeSend?: () => Promise<{
+    serviceModels?: ServiceModelsConfig;
+    agentResponseLanguage?: string | null;
+  }>;
   messages: Message[];
   setChatMessages: Dispatch<SetStateAction<Message[]>>;
   bootstrapDispatchPreview?: InitialDispatchPreviewSnapshot | null;
@@ -276,7 +286,6 @@ interface UseWorkspaceSendActionsParams {
   rollbackAfterSendFailure: (
     boundary: GeneralWorkbenchSendBoundaryState,
   ) => void;
-  prepareRuntimeTeamBeforeSend: UseRuntimeTeamFormationResult["prepareRuntimeTeamBeforeSend"];
   ensureBrowserAssistCanvas: (
     target: string,
     options?: EnsureBrowserAssistCanvasOptions,
@@ -288,31 +297,40 @@ interface UseWorkspaceSendActionsParams {
     request: RuntimeSceneGateRequest,
   ) => Promise<void> | void;
   ensureSessionForCommandMetadata?: (options?: {
+    targetSessionId?: string;
     skipSessionRestore?: boolean;
     skipSessionStartHooks?: boolean;
   }) => Promise<string | null>;
-  resolveImageWorkbenchSkillRequest: (input: {
+  prepareImageWorkbenchSkillSend?: () => boolean | Promise<boolean>;
+  listInstalledPluginsForPluginActivation?: () => Promise<{
+    states: InstalledPluginState[];
+  }>;
+  resolveImageWorkbenchCommandRequest: (input: {
     rawText: string;
     parsedCommand: ParsedImageWorkbenchCommand;
     images: MessageImage[];
     sessionIdOverride?: string | null;
     entrySource?: string;
-  }) => ImageWorkbenchSkillRequest | null;
+    projectId?: string | null;
+    projectRootPath?: string | null;
+  }) => ImageWorkbenchCommandRequest | null;
 }
 
 interface WorkspaceResolvedSendState {
   sourceText: string;
   dispatchText: string;
   sendBoundary: GeneralWorkbenchSendBoundaryState;
+  browserRequirementForSend: GeneralWorkbenchSendBoundaryState["browserRequirementMatch"];
   effectiveToolPreferences: ChatToolPreferences;
   effectiveWebSearch?: boolean;
-  effectiveSearchMode?: AgentRuntimeWebSearchMode;
-  submissionPreviewKey: string;
+  effectiveSearchMode?: RuntimeSearchMode;
+  submissionPreviewKey: string | null;
 }
 
 interface WorkspaceSendPlan extends WorkspaceResolvedSendState {
   text: string;
   images: MessageImage[];
+  hasContextWorkspace: boolean;
   sendExecutionStrategy?: CurrentExecutionStrategy;
   autoContinuePayload?: AutoContinueRequestPayload;
   sendOptions?: HandleSendOptions;
@@ -321,20 +339,32 @@ interface WorkspaceSendPlan extends WorkspaceResolvedSendState {
   completedSlashUsage?: CompletedInputCapabilitySlashUsage | null;
 }
 
+async function resolveImageCommandProjectContext(params: {
+  projectId?: string | null;
+  projectRootPath?: string | null;
+}): Promise<{ projectId: string | null; projectRootPath: string | null }> {
+  const projectId = params.projectId?.trim() || null;
+  const projectRootPath = params.projectRootPath?.trim() || null;
+  if (projectRootPath) {
+    return { projectId, projectRootPath };
+  }
+  if (projectId) {
+    return { projectId, projectRootPath: null };
+  }
+
+  const defaultProject = await getOrCreateDefaultProject();
+  return {
+    projectId: defaultProject.id?.trim() || null,
+    projectRootPath: defaultProject.rootPath?.trim() || null,
+  };
+}
+
 interface WorkspaceLocalConfirmationPlan {
   sourceText: string;
   images: MessageImage[];
   sendBoundary: GeneralWorkbenchSendBoundaryState;
   submissionPreviewKey: string | null;
   confirmation: string;
-  pendingIntent?: PendingPlainInputIntent;
-}
-
-interface PendingPlainInputIntent {
-  commandKey: string;
-  intentId: string;
-  sourceText: string;
-  images: MessageImage[];
 }
 
 type WorkspaceSendResolution =
@@ -369,52 +399,46 @@ export function useWorkspaceSendActions({
   isThemeWorkbench,
   contextWorkspace,
   projectId,
-  sessionId,
+  projectRootPath,
+  sessionId: _sessionId,
   executionStrategy,
   accessMode: _accessMode,
   providerType,
-  preferredTeamPresetId,
-  selectedTeam,
-  selectedTeamLabel,
-  selectedTeamSummary,
-  teamMemoryShadowSnapshot,
+  workspaceSkillBindings,
+  workspaceSkillRuntimeEnable,
   currentGateKey,
   themeWorkbenchActiveQueueTitle,
   contentId,
   browserAssistProfileKey,
   browserAssistPreferredBackend,
   browserAssistAutoLaunch,
+  browserAssistSessionState,
   workspaceRequestMetadataBase,
   savedSoulArtifactVoiceGenerationBrief,
   soulArtifactVoiceEnabledForTurn,
   serviceModels,
   agentResponseLanguage,
+  resolveServiceModelsBeforeSend,
   messages,
   setChatMessages,
-  bootstrapDispatchPreview,
   sendMessage,
   resolveSendBoundary,
   finalizeAfterSendSuccess,
   rollbackAfterSendFailure,
-  prepareRuntimeTeamBeforeSend: _prepareRuntimeTeamBeforeSend,
   ensureBrowserAssistCanvas,
   handleAutoLaunchMatchedSiteSkill,
   openRuntimeSceneGate,
   ensureSessionForCommandMetadata,
-  resolveImageWorkbenchSkillRequest,
+  prepareImageWorkbenchSkillSend,
+  listInstalledPluginsForPluginActivation = listInstalledPlugins,
+  resolveImageWorkbenchCommandRequest,
 }: UseWorkspaceSendActionsParams) {
   const { t } = useTranslation("agent");
   const messagesCount = messages.length;
-  const [runtimeTeamDispatchPreview, setRuntimeTeamDispatchPreview] =
-    useState<RuntimeTeamDispatchPreviewSnapshot | null>(null);
   const [submissionPreview, setSubmissionPreview] =
     useState<SubmissionPreviewSnapshot | null>(null);
   const [isPreparingSend, setIsPreparingSend] = useState(false);
   const isPreparingSendRef = useRef(false);
-  const pendingPlainInputIntentRef = useRef<PendingPlainInputIntent | null>(
-    null,
-  );
-  const { mediaDefaults } = useGlobalMediaGenerationDefaults();
   const translateAgentWorkspace = useCallback<AgentWorkspaceTranslator>(
     (key, options) => {
       const translate = t as unknown as (
@@ -430,20 +454,6 @@ export function useWorkspaceSendActions({
     mentionCommandSkillIdMap,
     mentionCommandPrefixKeyMap,
   } = useRuntimeMentionCommandCatalog();
-  const clearRuntimeTeamDispatchPreview = useCallback(() => {
-    setRuntimeTeamDispatchPreview(null);
-  }, []);
-  const teamDispatchPreviewState = useMemo(
-    () => resolveRuntimeTeamDispatchPreviewState(runtimeTeamDispatchPreview),
-    [runtimeTeamDispatchPreview],
-  );
-  const runtimeTeamDispatchPreviewMessages = useMemo(
-    () =>
-      runtimeTeamDispatchPreview
-        ? buildRuntimeTeamDispatchPreviewMessages(runtimeTeamDispatchPreview)
-        : [],
-    [runtimeTeamDispatchPreview],
-  );
   const resourcePromptRewritePreference =
     serviceModels?.resource_prompt_rewrite;
   const submissionPreviewMessages = useMemo(
@@ -453,52 +463,13 @@ export function useWorkspaceSendActions({
         : [],
     [messagesCount, submissionPreview],
   );
-  const bootstrapDispatchPreviewMessages = useMemo(
-    () =>
-      bootstrapDispatchPreview
-        ? buildInitialDispatchPreviewMessages(bootstrapDispatchPreview)
-        : [],
-    [bootstrapDispatchPreview],
-  );
   const displayMessages = useMemo(() => {
-    if (runtimeTeamDispatchPreviewMessages.length > 0) {
-      return [...messages, ...runtimeTeamDispatchPreviewMessages];
-    }
-
     if (submissionPreviewMessages.length > 0) {
       return submissionPreviewMessages;
     }
 
-    if (messagesCount === 0 && bootstrapDispatchPreviewMessages.length > 0) {
-      return bootstrapDispatchPreviewMessages;
-    }
-
     return messages;
-  }, [
-    bootstrapDispatchPreviewMessages,
-    messages,
-    messagesCount,
-    runtimeTeamDispatchPreviewMessages,
-    submissionPreviewMessages,
-  ]);
-
-  useEffect(() => {
-    clearRuntimeTeamDispatchPreview();
-  }, [clearRuntimeTeamDispatchPreview, sessionId]);
-
-  useEffect(() => {
-    if (!runtimeTeamDispatchPreview) {
-      return;
-    }
-
-    if (messagesCount > runtimeTeamDispatchPreview.baseMessageCount) {
-      clearRuntimeTeamDispatchPreview();
-    }
-  }, [
-    clearRuntimeTeamDispatchPreview,
-    messagesCount,
-    runtimeTeamDispatchPreview,
-  ]);
+  }, [messages, submissionPreviewMessages]);
 
   const resolveSendExecutionPlan = useCallback(
     async (
@@ -520,32 +491,6 @@ export function useWorkspaceSendActions({
         sendExecutionStrategy ?? executionStrategy,
       );
       let sourceText = inputCapabilityDispatch.sourceText;
-      const pendingPlainInputIntent = pendingPlainInputIntentRef.current;
-      if (
-        pendingPlainInputIntent &&
-        !sendOptions?.purpose &&
-        isImageGenerationPlainInputIntent(pendingPlainInputIntent)
-      ) {
-        if (isPlainInputIntentAffirmativeReply(sourceText)) {
-          const confirmationText = sourceText;
-          const pendingSourceText = pendingPlainInputIntent.sourceText.trim();
-          sourceText = pendingSourceText
-            ? `@配图 ${pendingSourceText}`
-            : sourceText;
-          images =
-            images && images.length > 0
-              ? images
-              : pendingPlainInputIntent.images;
-          sendOptions = {
-            ...(sendOptions || {}),
-            displayContent:
-              sendOptions?.displayContent ?? confirmationText.trim(),
-          };
-          pendingPlainInputIntentRef.current = null;
-        } else if (sourceText.trim()) {
-          pendingPlainInputIntentRef.current = null;
-        }
-      }
       logAgentDebug("WorkspaceSend", "plan.start", {
         hasAutoContinue: Boolean(autoContinuePayload?.enabled),
         hasPurpose: Boolean(sendOptions?.purpose),
@@ -640,6 +585,7 @@ export function useWorkspaceSendActions({
       let effectiveToolPreferences =
         sendOptions?.toolPreferencesOverride ?? chatToolPreferences;
       const { browserRequirementMatch } = sendBoundary;
+      let browserRequirementForSend = browserRequirementMatch;
       const mergedLaunchRequestMetadata = {
         ...(workspaceRequestMetadataBase || {}),
         ...(sendOptions?.requestMetadata || {}),
@@ -652,15 +598,27 @@ export function useWorkspaceSendActions({
         browserRequirementMatch.requirement !== "optional"
           ? false
           : undefined;
-      const effectiveSearchMode =
+      let effectiveSearchMode =
         browserRequirementMatch &&
         browserRequirementMatch.requirement !== "optional"
           ? "disabled"
           : sendOptions?.searchMode;
 
+      const {
+        activeContextPrompt,
+        enabled: contextWorkspaceEnabled,
+        prepareActiveContextPrompt,
+      } = contextWorkspace;
+      const shouldAttachContextWorkspace =
+        Boolean(activeContextPrompt.trim()) ||
+        (contextWorkspaceEnabled && isThemeWorkbench);
+      const effectiveContextWorkspace = {
+        ...contextWorkspace,
+        enabled: shouldAttachContextWorkspace,
+      };
       const preparedActiveContextPrompt =
-        contextWorkspace.enabled && !contextWorkspace.activeContextPrompt.trim()
-          ? contextWorkspace.prepareActiveContextPrompt().then(
+        effectiveContextWorkspace.enabled && !activeContextPrompt.trim()
+          ? prepareActiveContextPrompt().then(
               (value) => ({
                 ok: true as const,
                 value,
@@ -676,6 +634,8 @@ export function useWorkspaceSendActions({
       let commandSessionPromise: Promise<string | null> | null = null;
       let pendingCommandSessionBinding: PendingCommandSessionBinding | null =
         extractBoundSessionRequestContext(mergedLaunchRequestMetadata);
+      let pendingCommandSessionBindingMode: "blocking" | "best_effort" =
+        "blocking";
       let completedMentionCommandUsage:
         | WorkspaceSendPlan["completedMentionCommandUsage"]
         | null = null;
@@ -703,7 +663,6 @@ export function useWorkspaceSendActions({
             displayContent: sendOptions?.displayContent,
             inputCapabilityRoute: sendOptions?.capabilityRoute,
             images: previewImages,
-            executionStrategy: effectiveSendExecutionStrategy,
           }),
         );
         return submissionPreviewKey;
@@ -712,12 +671,68 @@ export function useWorkspaceSendActions({
         if (!submissionPreviewKey) {
           return;
         }
-        const previewKey = submissionPreviewKey;
-        setSubmissionPreview((current) =>
-          current?.key === previewKey ? null : current,
-        );
+        setSubmissionPreview(null);
       };
+      if (sendOptions?.skipWorkspaceCommandRouting === true) {
+        let text: string;
+        try {
+          text = await buildWorkspaceSendText({
+            sourceText: dispatchText,
+            contextWorkspace: effectiveContextWorkspace,
+            mentionedCharacters,
+            sendOptions,
+            preparedActiveContextPrompt,
+          });
+        } catch (error) {
+          clearSubmissionPreview();
+          throw error;
+        }
+        const performanceTrace = extractAgentUiPerformanceTraceMetadata(
+          sendOptions?.requestMetadata,
+        );
+        if (performanceTrace?.sessionId || performanceTrace?.requestId) {
+          recordAgentUiPerformanceMetric("workspaceSend.plan.ready", {
+            durationMs: Date.now() - planStartedAt,
+            hasPendingSessionBinding: false,
+            primedSessionId: null,
+            requestId: performanceTrace.requestId ?? null,
+            sessionId: performanceTrace.sessionId ?? null,
+            skippedWorkspaceCommandRouting: true,
+            source: performanceTrace.source ?? "workspace-send",
+            workspaceId: performanceTrace.workspaceId ?? null,
+          });
+        }
+        logAgentDebug("WorkspaceSend", "plan.ready", {
+          durationMs: Date.now() - planStartedAt,
+          hasPendingSessionBinding: false,
+          skippedWorkspaceCommandRouting: true,
+          sourceTextLength: sourceText.trim().length,
+        });
+        return {
+          kind: "ready",
+          plan: {
+            sourceText,
+            dispatchText,
+            text,
+            images: effectiveImages,
+            hasContextWorkspace: shouldAttachContextWorkspace,
+            sendBoundary,
+            browserRequirementForSend,
+            effectiveToolPreferences,
+            effectiveWebSearch,
+            effectiveSearchMode,
+            submissionPreviewKey: null,
+            sendExecutionStrategy: effectiveSendExecutionStrategy,
+            autoContinuePayload,
+            sendOptions,
+            completedMentionCommandUsage: null,
+            completedMentionUsage: null,
+            completedSlashUsage,
+          },
+        };
+      }
       const resolveCommandSessionEnsureOptions = () => ({
+        targetSessionId: sendOptions?.targetSessionId?.trim() || undefined,
         skipSessionRestore: sendOptions?.skipSessionRestore === true,
         skipSessionStartHooks: sendOptions?.skipSessionStartHooks === true,
       });
@@ -731,6 +746,7 @@ export function useWorkspaceSendActions({
             sessionId: commandSessionId,
             skipSessionRestore: ensureOptions.skipSessionRestore,
             skipSessionStartHooks: ensureOptions.skipSessionStartHooks,
+            targetSessionId: ensureOptions.targetSessionId ?? null,
           });
           return Promise.resolve(commandSessionId);
         }
@@ -740,6 +756,7 @@ export function useWorkspaceSendActions({
             reason,
             skipSessionRestore: ensureOptions.skipSessionRestore,
             skipSessionStartHooks: ensureOptions.skipSessionStartHooks,
+            targetSessionId: ensureOptions.targetSessionId ?? null,
           });
           commandSessionPromise = (async () => {
             try {
@@ -752,6 +769,7 @@ export function useWorkspaceSendActions({
                 sessionId: commandSessionId,
                 skipSessionRestore: ensureOptions.skipSessionRestore,
                 skipSessionStartHooks: ensureOptions.skipSessionStartHooks,
+                targetSessionId: ensureOptions.targetSessionId ?? null,
               });
               return commandSessionId;
             } catch (error) {
@@ -764,6 +782,7 @@ export function useWorkspaceSendActions({
                   reason,
                   skipSessionRestore: ensureOptions.skipSessionRestore,
                   skipSessionStartHooks: ensureOptions.skipSessionStartHooks,
+                  targetSessionId: ensureOptions.targetSessionId ?? null,
                 },
                 { level: "error" },
               );
@@ -802,17 +821,6 @@ export function useWorkspaceSendActions({
         });
       };
 
-      if (messagesCount === 0) {
-        const previewStartedAt = Date.now();
-        ensureSubmissionPreview();
-        void waitForNextPaint().then(() => {
-          logAgentDebug("WorkspaceSend", "initialPreview.paintDone", {
-            durationMs: Date.now() - previewStartedAt,
-            messagesCount,
-          });
-        });
-      }
-
       const skillInstallPromptInstruction =
         !sendOptions?.purpose && !hasBoundSkillLaunch && sourceText.trim()
           ? parseSkillInstallPromptInstruction(sourceText)
@@ -834,17 +842,53 @@ export function useWorkspaceSendActions({
         };
       }
 
-      const parsedImageWorkbenchCommand =
+      const explicitImageWorkbenchCommand =
         !sendOptions?.purpose && !hasBoundSkillLaunch && sourceText.trim()
           ? parseImageWorkbenchCommand(sourceText)
           : null;
+      const plainImageIntent =
+        !sendOptions?.purpose &&
+        !hasBoundSkillLaunch &&
+        !explicitImageWorkbenchCommand
+          ? resolvePlainInputIntentConfirmation(sourceText)
+          : null;
+      const parsedPlainImageWorkbenchCommand =
+        (plainImageIntent &&
+          isImageGenerationPlainInputIntent(plainImageIntent)) ||
+        (!plainImageIntent &&
+          isLikelyPlainImageGenerationRequest(sourceText.trim()))
+          ? parseImageWorkbenchCommand(`@配图 ${sourceText.trim()}`)
+          : null;
+      const parsedImageWorkbenchCommand =
+        explicitImageWorkbenchCommand ?? parsedPlainImageWorkbenchCommand;
       if (parsedImageWorkbenchCommand) {
-        const skillRequest = resolveImageWorkbenchSkillRequest({
-          rawText: sourceText,
+        const imageCommandProjectContext =
+          await resolveImageCommandProjectContext({
+            projectId,
+            projectRootPath,
+          });
+        if (!imageCommandProjectContext.projectRootPath) {
+          clearSubmissionPreview();
+          toast.error("默认项目目录未就绪，暂时无法创建图片任务");
+          return { kind: "done", result: false };
+        }
+        if (prepareImageWorkbenchSkillSend) {
+          const prepared = await prepareImageWorkbenchSkillSend();
+          if (!prepared) {
+            clearSubmissionPreview();
+            return { kind: "done", result: false };
+          }
+        }
+        const imageDispatchText =
+          parsedPlainImageWorkbenchCommand?.rawText || sourceText;
+        const skillRequest = resolveImageWorkbenchCommandRequest({
+          rawText: imageDispatchText,
           parsedCommand: parsedImageWorkbenchCommand,
           images: effectiveImages,
           sessionIdOverride: commandSessionId,
           entrySource: parsedImageWorkbenchCommand.entrySource,
+          projectId: imageCommandProjectContext.projectId,
+          projectRootPath: imageCommandProjectContext.projectRootPath,
         });
         if (!skillRequest) {
           clearSubmissionPreview();
@@ -862,9 +906,12 @@ export function useWorkspaceSendActions({
           requestContext: skillRequest.requestContext,
           requestContextKey: "image_task",
         };
+        pendingCommandSessionBindingMode = parsedPlainImageWorkbenchCommand
+          ? "best_effort"
+          : "blocking";
         ensureSubmissionPreview(effectiveImages);
         void primeCommandSessionId(
-          "image_skill_launch",
+          "image_command_intent",
           resolveCommandSessionEnsureOptions(),
         ).catch(() => undefined);
         sendOptions = {
@@ -884,6 +931,7 @@ export function useWorkspaceSendActions({
             ),
           );
         }
+        dispatchText = imageDispatchText;
         hasBoundSkillLaunch = true;
       }
 
@@ -894,7 +942,24 @@ export function useWorkspaceSendActions({
           ? parsePosterWorkbenchCommand(sourceText)
           : null;
       if (parsedPosterWorkbenchCommand) {
-        const skillRequest = resolveImageWorkbenchSkillRequest({
+        const imageCommandProjectContext =
+          await resolveImageCommandProjectContext({
+            projectId,
+            projectRootPath,
+          });
+        if (!imageCommandProjectContext.projectRootPath) {
+          clearSubmissionPreview();
+          toast.error("默认项目目录未就绪，暂时无法创建图片任务");
+          return { kind: "done", result: false };
+        }
+        if (prepareImageWorkbenchSkillSend) {
+          const prepared = await prepareImageWorkbenchSkillSend();
+          if (!prepared) {
+            clearSubmissionPreview();
+            return { kind: "done", result: false };
+          }
+        }
+        const skillRequest = resolveImageWorkbenchCommandRequest({
           rawText: sourceText,
           parsedCommand: {
             rawText: parsedPosterWorkbenchCommand.rawText,
@@ -911,6 +976,8 @@ export function useWorkspaceSendActions({
           images: effectiveImages,
           sessionIdOverride: commandSessionId,
           entrySource: "at_poster_command",
+          projectId: imageCommandProjectContext.projectId,
+          projectRootPath: imageCommandProjectContext.projectRootPath,
         });
         if (!skillRequest) {
           clearSubmissionPreview();
@@ -946,29 +1013,6 @@ export function useWorkspaceSendActions({
           ),
         );
         hasBoundSkillLaunch = true;
-      }
-
-      const plainInputIntentConfirmation =
-        !sendOptions?.purpose && !hasBoundSkillLaunch
-          ? resolvePlainInputIntentConfirmation(sourceText)
-          : null;
-      if (plainInputIntentConfirmation) {
-        return {
-          kind: "local_confirmation",
-          plan: {
-            sourceText,
-            images: effectiveImages,
-            sendBoundary,
-            submissionPreviewKey,
-            confirmation: plainInputIntentConfirmation.confirmation,
-            pendingIntent: {
-              commandKey: plainInputIntentConfirmation.commandKey,
-              intentId: plainInputIntentConfirmation.intentId,
-              sourceText,
-              images: effectiveImages,
-            },
-          },
-        };
       }
 
       const parsedCoverWorkbenchCommand =
@@ -1239,7 +1283,10 @@ export function useWorkspaceSendActions({
             sendOptions?.requestMetadata,
             requestContext,
           ),
+          explicitToolPreferences: true,
         };
+        effectiveWebSearch = true;
+        effectiveSearchMode = sendOptions.searchMode ?? "required";
         markCompletedMentionCommand(
           "research",
           resolveMentionCommandReplayText(
@@ -2442,6 +2489,12 @@ export function useWorkspaceSendActions({
           ? parseVoiceWorkbenchCommand(sourceText)
           : null;
       if (parsedVoiceWorkbenchCommand) {
+        let mediaDefaults: MediaGenerationDefaults = {};
+        try {
+          mediaDefaults = await readGlobalMediaGenerationDefaults();
+        } catch (error) {
+          console.error("加载全局媒体默认设置失败:", error);
+        }
         const voiceSkillLaunch = await resolveVoiceSkillLaunchRequestContext({
           rawText: sourceText,
           parsedCommand: parsedVoiceWorkbenchCommand,
@@ -2516,12 +2569,19 @@ export function useWorkspaceSendActions({
           : null;
       if (parsedBrowserWorkbenchCommand) {
         effectiveWebSearch = false;
+        effectiveSearchMode = "disabled";
+        browserRequirementForSend = {
+          requirement: parsedBrowserWorkbenchCommand.browserRequirement,
+          reason: parsedBrowserWorkbenchCommand.browserRequirementReason,
+          launchUrl: parsedBrowserWorkbenchCommand.launchUrl,
+        };
         ensureSubmissionPreview();
         sendOptions = {
           ...(sendOptions || {}),
           requestMetadata: buildBrowserControlLaunchRequestMetadata(
             sendOptions?.requestMetadata,
             parsedBrowserWorkbenchCommand,
+            browserAssistSessionState,
           ),
         };
         markCompletedMentionCommand(
@@ -2563,13 +2623,14 @@ export function useWorkspaceSendActions({
         if (sceneLaunchRequest) {
           const sceneRequestDefaults =
             sceneLaunchRequest.sceneEntry.requestDefaults ?? {};
-          const sceneExecutionStrategy = parseCatalogExecutionStrategy(
+          const sceneExecutionStrategy = normalizeExecutionStrategyToReact(
             sceneRequestDefaults.executionStrategy ??
               sceneRequestDefaults.execution_strategy,
           );
           if (sceneExecutionStrategy) {
-            effectiveSendExecutionStrategy =
-              normalizeExecutionStrategy(sceneExecutionStrategy);
+            effectiveSendExecutionStrategy = normalizeExecutionStrategy(
+              sceneExecutionStrategy,
+            );
           }
           if (sceneLaunchRequest.dispatchText) {
             dispatchText = sceneLaunchRequest.dispatchText;
@@ -2589,6 +2650,74 @@ export function useWorkspaceSendActions({
               completedSlashUsage?.replayText ??
               parseRuntimeSceneCommand(sourceText)?.userInput,
           };
+        }
+      }
+
+      const hasMatchedWorkspaceMentionCommandWithoutAgentTurnRoute = Boolean(
+        parsedImageWorkbenchCommand ||
+        parsedPosterWorkbenchCommand ||
+        parsedCoverWorkbenchCommand ||
+        parsedVideoWorkbenchCommand ||
+        parsedBroadcastWorkbenchCommand ||
+        parsedResourceSearchWorkbenchCommand ||
+        parsedTranscriptionWorkbenchCommand ||
+        parsedSearchWorkbenchCommand ||
+        parsedReportWorkbenchCommand ||
+        parsedCompetitorWorkbenchCommand ||
+        parsedDeepSearchWorkbenchCommand ||
+        parsedSiteSearchWorkbenchCommand ||
+        parsedPdfWorkbenchCommand ||
+        parsedFileReadWorkbenchCommand ||
+        parsedSummaryWorkbenchCommand ||
+        parsedTranslationWorkbenchCommand ||
+        parsedComplianceWorkbenchCommand ||
+        parsedLogoDecompositionWorkbenchCommand ||
+        parsedAnalysisWorkbenchCommand ||
+        parsedUrlParseWorkbenchCommand ||
+        parsedTypesettingWorkbenchCommand ||
+        parsedPresentationWorkbenchCommand ||
+        parsedFormWorkbenchCommand ||
+        parsedWebpageWorkbenchCommand ||
+        parsedWritingWorkbenchCommand ||
+        parsedChannelPreviewWorkbenchCommand ||
+        parsedUploadWorkbenchCommand ||
+        parsedPublishWorkbenchCommand ||
+        parsedVoiceWorkbenchCommand ||
+        parsedGrowthWorkbenchCommand ||
+        parsedBrowserWorkbenchCommand,
+      );
+      const shouldResolvePluginActivation =
+        !sendOptions?.purpose &&
+        !hasBoundSkillLaunch &&
+        !hasMatchedWorkspaceMentionCommandWithoutAgentTurnRoute &&
+        sourceText.trim().startsWith("@");
+      if (shouldResolvePluginActivation) {
+        const pluginSessionId = await ensureCommandSessionId();
+        const installedPlugins =
+          await listInstalledPluginsForPluginActivation();
+        const pluginActivationResolution = resolveWorkspacePluginActivation({
+          text: sourceText,
+          sessionId: pluginSessionId,
+          installedPlugins: installedPlugins.states,
+        });
+        if (pluginActivationResolution?.status === "blocked") {
+          clearSubmissionPreview();
+          toast.error(
+            translateAgentWorkspace(
+              "agentChat.workspace.pluginActivation.blocked",
+            ),
+          );
+          return { kind: "done", result: false };
+        }
+        if (pluginActivationResolution?.status === "matched") {
+          ensureSubmissionPreview();
+          sendOptions = mergePluginActivationSendOptions({
+            sendOptions,
+            resolution: pluginActivationResolution,
+          });
+          completedMentionCommandUsage = null;
+          completedMentionUsage = null;
+          hasBoundSkillLaunch = true;
         }
       }
 
@@ -2619,7 +2748,7 @@ export function useWorkspaceSendActions({
       };
       if (
         !projectId &&
-        !hasServiceSkillLaunchRequestMetadata(mergedRequestMetadataAfterLaunch)
+        serviceSkillLaunchRequiresProject(mergedRequestMetadataAfterLaunch)
       ) {
         sendOptions?.observer?.onError?.("请先选择项目后再开始对话");
         toast.error("请先选择项目后再开始对话");
@@ -2638,7 +2767,7 @@ export function useWorkspaceSendActions({
       const shouldSkipBrowserAssistPrime =
         shouldSkipBrowserAssistPrimeForPlainFirstTurn({
           activeTheme,
-          browserRequirementMatch: sendBoundary.browserRequirementMatch,
+          browserRequirementMatch: browserRequirementForSend,
           hasBoundSkillLaunch,
           imagesCount: images?.length ?? 0,
           messagesCount,
@@ -2650,7 +2779,7 @@ export function useWorkspaceSendActions({
         primeBrowserAssistBeforeSend({
           activeTheme,
           sourceText,
-          browserRequirementMatch,
+          browserRequirementMatch: browserRequirementForSend,
           ensureBrowserAssistCanvas,
         });
       }
@@ -2658,6 +2787,15 @@ export function useWorkspaceSendActions({
       let text: string;
       try {
         const resolvedSubmissionPreviewKey = ensureSubmissionPreview();
+        if (messagesCount === 0) {
+          const previewStartedAt = Date.now();
+          void waitForNextPaint().then(() => {
+            logAgentDebug("WorkspaceSend", "initialPreview.paintDone", {
+              durationMs: Date.now() - previewStartedAt,
+              messagesCount,
+            });
+          });
+        }
         if (shouldPrimeSessionForInitialConversationSend) {
           void primeCommandSessionId(
             "initial_conversation_send",
@@ -2677,24 +2815,32 @@ export function useWorkspaceSendActions({
         }
         text = await buildWorkspaceSendText({
           sourceText: dispatchText,
-          contextWorkspace,
+          contextWorkspace: effectiveContextWorkspace,
           mentionedCharacters,
           sendOptions,
           preparedActiveContextPrompt,
         });
         if (pendingCommandSessionBinding) {
-          const resolvedSessionId = await ensureCommandSessionId();
-          if (pendingCommandSessionBinding.kind === "request_context") {
-            attachSessionIdToRequestContext(
-              pendingCommandSessionBinding.requestContext,
-              pendingCommandSessionBinding.requestContextKey,
-              resolvedSessionId,
-            );
-          } else {
-            attachSessionIdToScopedRequestContext(
-              pendingCommandSessionBinding.scopedRequestContext,
-              resolvedSessionId,
-            );
+          const resolvedSessionId =
+            pendingCommandSessionBindingMode === "blocking"
+              ? await ensureCommandSessionId()
+              : commandSessionId;
+          if (
+            resolvedSessionId !== undefined ||
+            pendingCommandSessionBindingMode === "best_effort"
+          ) {
+            if (pendingCommandSessionBinding.kind === "request_context") {
+              attachSessionIdToRequestContext(
+                pendingCommandSessionBinding.requestContext,
+                pendingCommandSessionBinding.requestContextKey,
+                resolvedSessionId,
+              );
+            } else {
+              attachSessionIdToScopedRequestContext(
+                pendingCommandSessionBinding.scopedRequestContext,
+                resolvedSessionId,
+              );
+            }
           }
         }
         submissionPreviewKey = resolvedSubmissionPreviewKey;
@@ -2730,7 +2876,9 @@ export function useWorkspaceSendActions({
           dispatchText,
           text,
           images: effectiveImages,
+          hasContextWorkspace: shouldAttachContextWorkspace,
           sendBoundary,
+          browserRequirementForSend,
           effectiveToolPreferences,
           effectiveWebSearch,
           effectiveSearchMode,
@@ -2746,6 +2894,7 @@ export function useWorkspaceSendActions({
     },
     [
       activeTheme,
+      browserAssistSessionState,
       chatToolPreferences,
       contentId,
       contextWorkspace,
@@ -2753,13 +2902,16 @@ export function useWorkspaceSendActions({
       ensureBrowserAssistCanvas,
       executionStrategy,
       handleAutoLaunchMatchedSiteSkill,
-      resolveImageWorkbenchSkillRequest,
+      isThemeWorkbench,
+      listInstalledPluginsForPluginActivation,
+      resolveImageWorkbenchCommandRequest,
       input,
-      mediaDefaults.voice,
       messagesCount,
       mentionedCharacters,
       openRuntimeSceneGate,
+      prepareImageWorkbenchSkillSend,
       projectId,
+      projectRootPath,
       resolveSendBoundary,
       resourcePromptRewritePreference,
       serviceSkills,
@@ -2774,11 +2926,8 @@ export function useWorkspaceSendActions({
   const executeLocalConfirmationPlan = useCallback(
     async (plan: WorkspaceLocalConfirmationPlan): Promise<boolean> => {
       const { sourceText, images, sendBoundary, submissionPreviewKey } = plan;
-      setRuntimeTeamDispatchPreview(null);
       setInput("");
       setMentionedCharacters([]);
-      pendingPlainInputIntentRef.current = plan.pendingIntent ?? null;
-
       setChatMessages((previous) => {
         const timestamp = new Date();
         return [
@@ -2810,7 +2959,6 @@ export function useWorkspaceSendActions({
       setChatMessages,
       setInput,
       setMentionedCharacters,
-      setRuntimeTeamDispatchPreview,
     ],
   );
 
@@ -2822,6 +2970,7 @@ export function useWorkspaceSendActions({
         text,
         images,
         sendBoundary,
+        browserRequirementForSend,
         effectiveWebSearch,
         effectiveSearchMode,
         submissionPreviewKey,
@@ -2839,37 +2988,11 @@ export function useWorkspaceSendActions({
         sourceTextLength: sourceText.trim().length,
       });
       const effectiveToolPreferences = plan.effectiveToolPreferences;
-      const effectivePreferredTeamPresetId = preferredTeamPresetId;
-      setRuntimeTeamDispatchPreview(null);
       setInput("");
       setMentionedCharacters([]);
 
       try {
-        const teamPrepareStartedAt = Date.now();
-        const preparedRuntimeTeamState = await _prepareRuntimeTeamBeforeSend({
-          input: sourceText,
-          purpose: sendOptions?.purpose,
-          subagentEnabled: effectiveToolPreferences.subagent,
-        });
-        logAgentDebug("WorkspaceSend", "runtimeTeam.prepareDone", {
-          durationMs: Date.now() - teamPrepareStartedAt,
-          hasPreparedRuntimeTeamState: Boolean(preparedRuntimeTeamState),
-        });
-        if (preparedRuntimeTeamState) {
-          recordTeamFormationAgentUiProjection(preparedRuntimeTeamState, {
-            sessionId,
-          });
-          setRuntimeTeamDispatchPreview(
-            buildRuntimeTeamDispatchPreview(
-              preparedRuntimeTeamState,
-              sourceText,
-              images,
-              messagesCount,
-            ),
-          );
-        }
-
-        const nextRequestMetadata = buildWorkspaceRequestMetadata({
+        let nextRequestMetadata = buildWorkspaceRequestMetadata({
           workspaceRequestMetadataBase,
           savedSoulArtifactVoiceGenerationBrief,
           soulArtifactVoiceEnabledForTurn,
@@ -2884,68 +3007,69 @@ export function useWorkspaceSendActions({
           currentGateKey,
           themeWorkbenchActiveQueueTitle,
           contentId,
-          browserRequirementMatch: sendBoundary.browserRequirementMatch,
+          browserRequirementMatch: browserRequirementForSend,
           browserAssistProfileKey,
           browserAssistPreferredBackend,
           browserAssistAutoLaunch,
-          preferredTeamPresetId: effectivePreferredTeamPresetId,
-          selectedTeam,
-          selectedTeamLabel,
-          selectedTeamSummary,
-          teamMemoryShadowSnapshot,
+          workspaceSkillBindings,
+          workspaceSkillRuntimeEnable,
           agentResponseLanguage,
         });
+        const shouldRefreshServiceModels =
+          Boolean(resolveServiceModelsBeforeSend) &&
+          shouldRefreshServiceModelsBeforeSend({
+            requestMetadata: nextRequestMetadata,
+            purpose: sendOptions?.purpose,
+          });
+        const serviceModelsForSend = shouldRefreshServiceModels
+          ? await resolveServiceModelsBeforeSend?.()
+          : null;
+        const effectiveServiceModels =
+          serviceModelsForSend?.serviceModels ?? serviceModels;
+        const effectiveAgentResponseLanguage =
+          serviceModelsForSend?.agentResponseLanguage ?? agentResponseLanguage;
+        if (shouldRefreshServiceModels) {
+          nextRequestMetadata = buildWorkspaceRequestMetadata({
+            workspaceRequestMetadataBase,
+            savedSoulArtifactVoiceGenerationBrief,
+            soulArtifactVoiceEnabledForTurn,
+            sendOptions: {
+              ...(sendOptions || {}),
+              toolPreferencesOverride: effectiveToolPreferences,
+            },
+            currentProviderType: providerType,
+            effectiveToolPreferences,
+            mappedTheme,
+            isThemeWorkbench,
+            currentGateKey,
+            themeWorkbenchActiveQueueTitle,
+            contentId,
+            browserRequirementMatch: browserRequirementForSend,
+            browserAssistProfileKey,
+            browserAssistPreferredBackend,
+            browserAssistAutoLaunch,
+            workspaceSkillBindings,
+            workspaceSkillRuntimeEnable,
+            agentResponseLanguage: effectiveAgentResponseLanguage,
+          });
+        }
         const serviceModelSendOverrides = resolveServiceModelSendOverrides({
           requestMetadata: nextRequestMetadata,
           purpose: sendOptions?.purpose,
-          serviceModels,
-        });
-        const fastResponseDecision = resolveAgentFastResponseRouting({
-          mode: readFastResponseMode(),
-          mappedTheme,
-          isThemeWorkbench,
-          contentId,
-          messageCount: messagesCount,
-          sourceText,
-          imagesCount: images.length,
-          toolPreferences: effectiveToolPreferences,
-          searchMode: effectiveSearchMode,
-          effectiveWebSearch,
-          hasExplicitProviderOverride: Boolean(
-            sendOptions?.providerOverride?.trim(),
-          ),
-          hasExplicitModelOverride: Boolean(sendOptions?.modelOverride?.trim()),
-          hasServiceModelOverride: Boolean(
-            serviceModelSendOverrides.providerOverride ||
-            serviceModelSendOverrides.modelOverride,
-          ),
-          hasCapabilityRoute: Boolean(
-            sendOptions?.capabilityRoute ||
-            sendBoundary.browserRequirementMatch,
-          ),
-          hasSkillRequest: Boolean(sendOptions?.skillRequest),
-          hasSelectedTeam: Boolean(selectedTeam),
-          hasMentionedCharacters: mentionedCharacters.length > 0,
-          hasContextWorkspace: Boolean(
-            contextWorkspace.enabled ||
-            contextWorkspace.activeContextPrompt?.trim(),
-          ),
-          hasPurpose: Boolean(sendOptions?.purpose),
-          hasAutoContinue: Boolean(autoContinuePayload?.enabled),
+          serviceModels: effectiveServiceModels,
         });
         const nextAssistantDraft =
           sendOptions?.assistantDraft ??
-          buildImageWorkbenchAssistantDraft(nextRequestMetadata) ??
-          buildFastResponseAssistantDraft(fastResponseDecision);
+          buildImageWorkbenchAssistantDraft(nextRequestMetadata);
         const nextSendOptions: HandleSendOptions = {
           ...(sendOptions || {}),
           displayContent:
             dispatchText !== sourceText
               ? (sendOptions?.displayContent ?? sourceText)
               : sendOptions?.displayContent,
-          requestMetadata: withFastResponseMetadata(
+          requestMetadata: withConfiguredModelSlots(
             nextRequestMetadata,
-            fastResponseDecision,
+            effectiveServiceModels,
           ),
           ...(effectiveSearchMode ? { searchMode: effectiveSearchMode } : {}),
           providerOverride:
@@ -2954,19 +3078,17 @@ export function useWorkspaceSendActions({
           modelOverride:
             sendOptions?.modelOverride ??
             serviceModelSendOverrides.modelOverride,
-          systemPromptOverride:
-            sendOptions?.systemPromptOverride ??
-            (fastResponseDecision.enabled
-              ? buildAgentFastResponseSystemPrompt(undefined, {
-                  searchMode: fastResponseDecision.searchMode,
-                })
-              : undefined),
+          systemPromptOverride: sendOptions?.systemPromptOverride,
           assistantDraft: nextAssistantDraft,
         };
 
         logAgentDebug("WorkspaceSend", "sendMessage.start", {
           durationMs: Date.now() - executeStartedAt,
-          fastResponseApplied: fastResponseDecision.enabled,
+          responsiveModelSlotConfigured: Boolean(
+            effectiveServiceModels?.responsive_chat?.enabled !== false &&
+            effectiveServiceModels?.responsive_chat?.preferredProviderId &&
+            effectiveServiceModels?.responsive_chat?.preferredModelId,
+          ),
           modelOverride: nextSendOptions.modelOverride ?? null,
           providerOverride: nextSendOptions.providerOverride ?? null,
         });
@@ -2981,7 +3103,6 @@ export function useWorkspaceSendActions({
           autoContinuePayload,
           nextSendOptions,
         );
-        pendingPlainInputIntentRef.current = null;
         logAgentDebug("WorkspaceSend", "sendMessage.done", {
           durationMs: Date.now() - executeStartedAt,
         });
@@ -3009,15 +3130,6 @@ export function useWorkspaceSendActions({
         rollbackAfterSendFailure(sendBoundary);
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        setRuntimeTeamDispatchPreview((current) =>
-          current
-            ? {
-                ...current,
-                status: "failed",
-                failureMessage: errorMessage,
-              }
-            : null,
-        );
         sendOptions?.observer?.onError?.(errorMessage);
         console.error("[AgentChat] 发送消息失败:", error);
         toast.error(`发送失败: ${errorMessage}`);
@@ -3030,33 +3142,25 @@ export function useWorkspaceSendActions({
       }
     },
     [
-      _prepareRuntimeTeamBeforeSend,
       agentResponseLanguage,
       browserAssistAutoLaunch,
       browserAssistPreferredBackend,
       browserAssistProfileKey,
       contentId,
-      contextWorkspace.activeContextPrompt,
-      contextWorkspace.enabled,
       currentGateKey,
       finalizeAfterSendSuccess,
       isThemeWorkbench,
       mappedTheme,
       messagesCount,
-      mentionedCharacters,
-      preferredTeamPresetId,
       providerType,
       rollbackAfterSendFailure,
-      selectedTeam,
-      selectedTeamLabel,
-      selectedTeamSummary,
       serviceModels,
-      sessionId,
-      teamMemoryShadowSnapshot,
+      resolveServiceModelsBeforeSend,
+      workspaceSkillBindings,
+      workspaceSkillRuntimeEnable,
       sendMessage,
       setInput,
       setMentionedCharacters,
-      setRuntimeTeamDispatchPreview,
       themeWorkbenchActiveQueueTitle,
       workspaceRequestMetadataBase,
       savedSoulArtifactVoiceGenerationBrief,
@@ -3103,11 +3207,7 @@ export function useWorkspaceSendActions({
         setIsPreparingSend(false);
       }
     },
-    [
-      executeLocalConfirmationPlan,
-      executeSendPlan,
-      resolveSendExecutionPlan,
-    ],
+    [executeLocalConfirmationPlan, executeSendPlan, resolveSendExecutionPlan],
   );
 
   const handleRecommendationClick = useCallback(
@@ -3166,6 +3266,5 @@ export function useWorkspaceSendActions({
     handleSendRef,
     isPreparingSend,
     displayMessages,
-    teamDispatchPreviewState,
   };
 }

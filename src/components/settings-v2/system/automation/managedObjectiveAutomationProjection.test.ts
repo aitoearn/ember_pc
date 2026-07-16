@@ -17,6 +17,8 @@ function buildAgentTurnJob(
     payload: {
       kind: "agent_turn",
       prompt: "继续推进目标",
+      session_id: "session-objective-1",
+      thread_id: "thread-objective-1",
       system_prompt: null,
       web_search: false,
       request_metadata: requestMetadata,
@@ -61,7 +63,7 @@ describe("resolveManagedObjectiveAutomationProjection", () => {
             state: "blocked",
             completion_audit: "artifact_or_evidence_required",
             last_audit_summary: "缺少证据包",
-            last_evidence_pack_ref: ".ember/harness/job/evidence",
+            last_evidence_pack_ref: ".lime/harness/job/evidence",
             last_artifact_refs: ["content-posts/daily.md"],
             blocker_reason: "等待补证据",
           },
@@ -79,7 +81,7 @@ describe("resolveManagedObjectiveAutomationProjection", () => {
       completionAudit: "artifact_or_evidence_required",
       requiresArtifactOrEvidence: true,
       lastAuditSummary: "缺少证据包",
-      lastEvidencePackRef: ".ember/harness/job/evidence",
+      lastEvidencePackRef: ".lime/harness/job/evidence",
       lastArtifactRefs: ["content-posts/daily.md"],
       blockerReason: "等待补证据",
     });
@@ -97,7 +99,7 @@ describe("resolveManagedObjectiveAutomationProjection", () => {
             successCriteria: ["整理下一步"],
             completionAudit: { kind: "artifact_or_evidence_required" },
             lastAuditSummary: "Needs artifact",
-            lastEvidencePackRef: ".ember/evidence",
+            lastEvidencePackRef: ".lime/evidence",
             lastArtifactRefs: ["draft.md"],
             blockerReason: "Need input",
           },
@@ -110,7 +112,7 @@ describe("resolveManagedObjectiveAutomationProjection", () => {
     expect(projection?.successCriteria).toEqual(["整理下一步"]);
     expect(projection?.requiresArtifactOrEvidence).toBe(true);
     expect(projection?.lastAuditSummary).toBe("Needs artifact");
-    expect(projection?.lastEvidencePackRef).toBe(".ember/evidence");
+    expect(projection?.lastEvidencePackRef).toBe(".lime/evidence");
     expect(projection?.lastArtifactRefs).toEqual(["draft.md"]);
     expect(projection?.blockerReason).toBe("Need input");
   });

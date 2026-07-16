@@ -32,7 +32,7 @@ import {
   type OemCloudReferralClaimResult,
 } from "@/lib/oemCloudReferralClaim";
 import { resolveOemCloudRuntimeContext } from "@/lib/api/oemCloudRuntime";
-import { resolveOemEmberHubProviderName } from "@/lib/oemEmberHubProvider";
+import { resolveOemLimeHubProviderName } from "@/lib/oemLimeHubProvider";
 import {
   showDeepLinkError,
   showApiKeySaveError,
@@ -101,7 +101,7 @@ function parseBrowserConnectorDeepLink(
   try {
     const parsed = new URL(url);
     if (
-      parsed.protocol !== "ember:" ||
+      parsed.protocol !== "lime:" ||
       parsed.host !== "connectors" ||
       parsed.pathname !== "/browser"
     ) {
@@ -252,7 +252,7 @@ export function useDeepLink(options?: UseDeepLinkOptions): UseDeepLinkReturn {
 
       try {
         await completeOemCloudDesktopOAuthLogin(payload);
-        const providerName = resolveOemEmberHubProviderName(
+        const providerName = resolveOemLimeHubProviderName(
           resolveOemCloudRuntimeContext(),
         );
         toast.success(t("common.deepLink.oauth.success.title"), {
@@ -278,7 +278,7 @@ export function useDeepLink(options?: UseDeepLinkOptions): UseDeepLinkReturn {
 
   const handleOpenDeepLinkEvent = useCallback(
     (result: OpenDeepLinkResult) => {
-      console.log("[useDeepLink] 收到 ember://open Deep Link:", result);
+      console.log("[useDeepLink] 收到 lime://open Deep Link:", result);
       onOpenWebsiteDeepLink?.(result.payload);
     },
     [onOpenWebsiteDeepLink],
@@ -340,7 +340,7 @@ export function useDeepLink(options?: UseDeepLinkOptions): UseDeepLinkReturn {
         return;
       }
 
-      if (normalizedUrl.startsWith("ember://open")) {
+      if (normalizedUrl.startsWith("lime://open")) {
         try {
           const result = await resolveOpenDeepLink(normalizedUrl);
           handleOpenDeepLinkEvent(result);
@@ -352,7 +352,7 @@ export function useDeepLink(options?: UseDeepLinkOptions): UseDeepLinkReturn {
         return;
       }
 
-      if (!normalizedUrl.startsWith("ember://connect")) {
+      if (!normalizedUrl.startsWith("lime://connect")) {
         return;
       }
 

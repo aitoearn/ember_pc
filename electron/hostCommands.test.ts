@@ -7,39 +7,83 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { execFile } from "node:child_process";
 import { createServer } from "node:http";
-import { promisify } from "node:util";
 import os from "node:os";
 import path from "node:path";
+import { parse as parseYaml } from "yaml";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { AppServerRequestError } from "@embercloud/app-server-client";
 import { ElectronHostCommands } from "./hostCommands";
 import type { ElectronAppServerHost } from "./appServerHost";
 
-const execFileAsync = promisify(execFile);
-
 const {
+  pluginShellHostGetUiRuntimeStatusMock,
+  pluginShellHostLaunchShellMock,
+  pluginShellHostSelectDirectoryMock,
+  pluginShellHostStartUiRuntimeMock,
+  pluginShellHostStopUiRuntimeMock,
+  pluginRuntimeTaskHostCancelTaskMock,
+  pluginRuntimeTaskHostGetTaskMock,
+  pluginRuntimeTaskHostStartTaskMock,
+  pluginRuntimeTaskHostSubmitHostResponseMock,
   browserWindowCtorMock,
   browserWindowGetAllWindowsMock,
+  fileShellHostGetFileIconDataUrlMock,
+  fileShellHostGetFileManagerLocationsMock,
+  fileShellHostGetHomeDirMock,
+  fileShellHostOpenFilePreviewWindowMock,
+  fileShellHostOpenWithDefaultAppMock,
+  fileShellHostRevealInFinderMock,
   getFileIconMock,
   getPathMock,
-  loadUrlMock,
   openExternalMock,
   openPathMock,
-  showWindowMock,
-  focusWindowMock,
   globalShortcutIsRegisteredMock,
+  showDesktopNotificationMock,
   showOpenDialogMock,
   showItemInFolderMock,
+  openProjectPathWithLocalToolMock,
+  projectShellHostDisposeForShutdownMock,
+  projectShellHostKillSessionMock,
+  projectShellHostResizeSessionMock,
+  projectShellHostRunCommandMock,
+  projectShellHostStartSessionMock,
+  projectShellHostWriteSessionMock,
+  systemUtilityHostGetBrowserBackendPolicyMock,
+  systemUtilityHostGetBrowserBackendsStatusMock,
+  systemUtilityHostGetBrowserConnectorInstallStatusMock,
+  systemUtilityHostGetBrowserConnectorSettingsMock,
+  systemUtilityHostGetChromeBridgeEndpointInfoMock,
+  systemUtilityHostGetChromeBridgeStatusMock,
+  systemUtilityHostGetChromeProfileSessionsMock,
+  systemUtilityHostGetEnvironmentPreviewMock,
+  systemUtilityHostGetSkillPackageFileAssociationStatusMock,
+  systemUtilityHostGetVoiceShortcutRuntimeStatusMock,
+  systemUtilityHostOpenExternalUrlMock,
+  systemUtilityHostOpenSystemSettingsUrlMock,
+  systemUtilityHostSetSkillPackageFileAssociationDefaultMock,
+  systemUtilityHostValidateShortcutMock,
+  voiceModelHostDeleteMock,
+  voiceModelHostDownloadMock,
+  voiceModelHostGetInstallStateMock,
+  voiceModelHostListCatalogMock,
+  webContentsViewCtorMock,
 } = vi.hoisted(() => {
   const loadUrlMock = vi.fn();
+  const contentViewAddChildViewMock = vi.fn();
+  const contentViewRemoveChildViewMock = vi.fn();
   const showWindowMock = vi.fn();
   const focusWindowMock = vi.fn();
   const browserWindowCtorMock = vi.fn(() => ({
+    contentView: {
+      addChildView: contentViewAddChildViewMock,
+      removeChildView: contentViewRemoveChildViewMock,
+    },
     focus: focusWindowMock,
+    isDestroyed: () => false,
     loadURL: loadUrlMock,
+    off: vi.fn(),
+    on: vi.fn(),
     once: vi.fn((event: string, callback: () => void) => {
       if (event === "ready-to-show") {
         callback();
@@ -50,24 +94,101 @@ const {
       getURL: () => "",
     },
   }));
+  const webContentsLoadUrlMock = vi.fn();
+  const webContentsReloadMock = vi.fn();
+  const webContentsDestroyMock = vi.fn();
+  const webContentsViewCtorMock = vi.fn(() => ({
+    setBackgroundColor: vi.fn(),
+    setBounds: vi.fn(),
+    setVisible: vi.fn(),
+    webContents: {
+      destroy: webContentsDestroyMock,
+      getTitle: () => "Example",
+      getURL: () => "https://example.com/",
+      isDestroyed: () => false,
+      isLoading: () => false,
+      loadURL: webContentsLoadUrlMock,
+      navigationHistory: {
+        canGoBack: () => false,
+        canGoForward: () => false,
+        goBack: vi.fn(),
+        goForward: vi.fn(),
+      },
+      on: vi.fn(),
+      reload: webContentsReloadMock,
+      setWindowOpenHandler: vi.fn(),
+    },
+  }));
+  const browserWindowGetAllWindowsMock = vi.fn((): MockBrowserWindow[] => []);
   return {
     browserWindowCtorMock,
-    browserWindowGetAllWindowsMock: vi.fn(() => []),
+    browserWindowGetAllWindowsMock,
+    pluginRuntimeTaskHostCancelTaskMock: vi.fn(),
+    pluginRuntimeTaskHostGetTaskMock: vi.fn(),
+    pluginRuntimeTaskHostStartTaskMock: vi.fn(),
+    pluginRuntimeTaskHostSubmitHostResponseMock: vi.fn(),
+    pluginShellHostGetUiRuntimeStatusMock: vi.fn(),
+    pluginShellHostLaunchShellMock: vi.fn(),
+    pluginShellHostSelectDirectoryMock: vi.fn(),
+    pluginShellHostStartUiRuntimeMock: vi.fn(),
+    pluginShellHostStopUiRuntimeMock: vi.fn(),
+    contentViewAddChildViewMock,
+    contentViewRemoveChildViewMock,
+    fileShellHostGetFileIconDataUrlMock: vi.fn(),
+    fileShellHostGetFileManagerLocationsMock: vi.fn(),
+    fileShellHostGetHomeDirMock: vi.fn(),
+    fileShellHostOpenFilePreviewWindowMock: vi.fn(),
+    fileShellHostOpenWithDefaultAppMock: vi.fn(),
+    fileShellHostRevealInFinderMock: vi.fn(),
     getFileIconMock: vi.fn(),
     getPathMock: vi.fn((_name: string) => os.tmpdir()),
     globalShortcutIsRegisteredMock: vi.fn((_shortcut: string) => false),
-    loadUrlMock,
     openExternalMock: vi.fn(),
     openPathMock: vi.fn(),
-    showWindowMock,
-    focusWindowMock,
+    showDesktopNotificationMock: vi.fn(() => ({ status: "sent" })),
     showOpenDialogMock: vi.fn(),
     showItemInFolderMock: vi.fn(),
+    openProjectPathWithLocalToolMock: vi.fn(),
+    projectShellHostDisposeForShutdownMock: vi.fn(),
+    projectShellHostKillSessionMock: vi.fn(),
+    projectShellHostResizeSessionMock: vi.fn(),
+    projectShellHostRunCommandMock: vi.fn(),
+    projectShellHostStartSessionMock: vi.fn(),
+    projectShellHostWriteSessionMock: vi.fn(),
+    systemUtilityHostGetBrowserBackendPolicyMock: vi.fn(),
+    systemUtilityHostGetBrowserBackendsStatusMock: vi.fn(),
+    systemUtilityHostGetBrowserConnectorInstallStatusMock: vi.fn(),
+    systemUtilityHostGetBrowserConnectorSettingsMock: vi.fn(),
+    systemUtilityHostGetChromeBridgeEndpointInfoMock: vi.fn(),
+    systemUtilityHostGetChromeBridgeStatusMock: vi.fn(),
+    systemUtilityHostGetChromeProfileSessionsMock: vi.fn(),
+    systemUtilityHostGetEnvironmentPreviewMock: vi.fn(),
+    systemUtilityHostGetSkillPackageFileAssociationStatusMock: vi.fn(),
+    systemUtilityHostGetVoiceShortcutRuntimeStatusMock: vi.fn(),
+    systemUtilityHostOpenExternalUrlMock: vi.fn(),
+    systemUtilityHostOpenSystemSettingsUrlMock: vi.fn(),
+    systemUtilityHostSetSkillPackageFileAssociationDefaultMock: vi.fn(),
+    systemUtilityHostValidateShortcutMock: vi.fn(),
+    voiceModelHostDeleteMock: vi.fn(),
+    voiceModelHostDownloadMock: vi.fn(),
+    voiceModelHostGetInstallStateMock: vi.fn(),
+    voiceModelHostListCatalogMock: vi.fn(),
+    webContentsDestroyMock,
+    webContentsLoadUrlMock,
+    webContentsReloadMock,
+    webContentsViewCtorMock,
   };
 });
 const tempDirs: string[] = [];
 const TEST_REMOTE_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lwcdVwAAAABJRU5ErkJggg==";
+type MockBrowserWindow = {
+  focus: ReturnType<typeof vi.fn>;
+  show: ReturnType<typeof vi.fn>;
+  webContents: {
+    getURL: () => string;
+  };
+};
 type AppServerRequestMock = (
   method: string,
   params?: unknown,
@@ -76,7 +197,8 @@ type AppServerRequestMock = (
 vi.mock("./electronRuntime", () => ({
   app: {
     getFileIcon: getFileIconMock,
-    getName: () => "Ember",
+    getAppPath: () => os.tmpdir(),
+    getName: () => "Lime",
     getPath: getPathMock,
     getVersion: () => "0.0.0-test",
   },
@@ -94,7 +216,95 @@ vi.mock("./electronRuntime", () => ({
     openPath: openPathMock,
     showItemInFolder: showItemInFolderMock,
   },
+  WebContentsView: webContentsViewCtorMock,
 }));
+
+vi.mock("./desktopNotificationHost", () => ({
+  showDesktopNotification: showDesktopNotificationMock,
+}));
+
+vi.mock("./pluginShellHost", () => ({
+  PluginShellHost: vi.fn(() => ({
+    getUiRuntimeStatus: pluginShellHostGetUiRuntimeStatusMock,
+    launchShell: pluginShellHostLaunchShellMock,
+    selectDirectory: pluginShellHostSelectDirectoryMock,
+    startUiRuntime: pluginShellHostStartUiRuntimeMock,
+    stopUiRuntime: pluginShellHostStopUiRuntimeMock,
+  })),
+}));
+
+vi.mock("./pluginRuntimeTaskHost", () => ({
+  PluginRuntimeTaskHost: vi.fn(() => ({
+    cancelTask: pluginRuntimeTaskHostCancelTaskMock,
+    getTask: pluginRuntimeTaskHostGetTaskMock,
+    startTask: pluginRuntimeTaskHostStartTaskMock,
+    submitHostResponse: pluginRuntimeTaskHostSubmitHostResponseMock,
+  })),
+}));
+
+vi.mock("./fileShellHost", () => ({
+  FileShellHost: vi.fn(() => ({
+    getFileIconDataUrl: fileShellHostGetFileIconDataUrlMock,
+    getFileManagerLocations: fileShellHostGetFileManagerLocationsMock,
+    getHomeDir: fileShellHostGetHomeDirMock,
+    openFilePreviewWindow: fileShellHostOpenFilePreviewWindowMock,
+    openWithDefaultApp: fileShellHostOpenWithDefaultAppMock,
+    revealInFinder: fileShellHostRevealInFinderMock,
+  })),
+}));
+
+vi.mock("./projectShellHost", () => ({
+  ProjectShellHost: vi.fn(() => ({
+    disposeForShutdown: projectShellHostDisposeForShutdownMock,
+    killSession: projectShellHostKillSessionMock,
+    resizeSession: projectShellHostResizeSessionMock,
+    runCommand: projectShellHostRunCommandMock,
+    startSession: projectShellHostStartSessionMock,
+    writeSession: projectShellHostWriteSessionMock,
+  })),
+}));
+
+vi.mock("./systemUtilityHost", () => ({
+  SystemUtilityHost: vi.fn(() => ({
+    getBrowserBackendPolicy: systemUtilityHostGetBrowserBackendPolicyMock,
+    getBrowserBackendsStatus: systemUtilityHostGetBrowserBackendsStatusMock,
+    getBrowserConnectorInstallStatus:
+      systemUtilityHostGetBrowserConnectorInstallStatusMock,
+    getBrowserConnectorSettings:
+      systemUtilityHostGetBrowserConnectorSettingsMock,
+    getChromeBridgeEndpointInfo:
+      systemUtilityHostGetChromeBridgeEndpointInfoMock,
+    getChromeBridgeStatus: systemUtilityHostGetChromeBridgeStatusMock,
+    getChromeProfileSessions: systemUtilityHostGetChromeProfileSessionsMock,
+    getEnvironmentPreview: systemUtilityHostGetEnvironmentPreviewMock,
+    getSkillPackageFileAssociationStatus:
+      systemUtilityHostGetSkillPackageFileAssociationStatusMock,
+    getVoiceShortcutRuntimeStatus:
+      systemUtilityHostGetVoiceShortcutRuntimeStatusMock,
+    openExternalUrl: systemUtilityHostOpenExternalUrlMock,
+    openSystemSettingsUrl: systemUtilityHostOpenSystemSettingsUrlMock,
+    setSkillPackageFileAssociationDefault:
+      systemUtilityHostSetSkillPackageFileAssociationDefaultMock,
+    validateShortcut: systemUtilityHostValidateShortcutMock,
+  })),
+}));
+
+vi.mock("./voiceModelHost", () => ({
+  VoiceModelHost: vi.fn(() => ({
+    delete: voiceModelHostDeleteMock,
+    download: voiceModelHostDownloadMock,
+    getInstallState: voiceModelHostGetInstallStateMock,
+    listCatalog: voiceModelHostListCatalogMock,
+  })),
+}));
+
+vi.mock("./projectToolsHost", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./projectToolsHost")>();
+  return {
+    ...actual,
+    openProjectPathWithLocalTool: openProjectPathWithLocalToolMock,
+  };
+});
 
 function createHost(
   userDataDir: string,
@@ -110,7 +320,7 @@ function createHost(
 }
 
 async function createTempUserDataDir() {
-  const dir = await mkdtemp(path.join(os.tmpdir(), "ember-host-commands-"));
+  const dir = await mkdtemp(path.join(os.tmpdir(), "lime-host-commands-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -145,70 +355,7 @@ async function withRemotePngServer<T>(
   }
 }
 
-async function withBinaryServer<T>(
-  assets: Record<string, Buffer>,
-  run: (baseUrl: string) => Promise<T>,
-): Promise<T> {
-  const server = createServer((request, response) => {
-    const asset = assets[request.url ?? ""];
-    if (asset) {
-      response.writeHead(200, {
-        "content-type": "application/octet-stream",
-        "content-length": asset.byteLength,
-      });
-      response.end(asset);
-      return;
-    }
-    response.writeHead(404);
-    response.end();
-  });
-  await new Promise<void>((resolve) => {
-    server.listen(0, "127.0.0.1", resolve);
-  });
-  const address = server.address();
-  if (!address || typeof address === "string") {
-    server.close();
-    throw new Error("无法启动二进制测试服务");
-  }
-  try {
-    return await run(`http://127.0.0.1:${address.port}`);
-  } finally {
-    await new Promise<void>((resolve, reject) => {
-      server.close((error) => (error ? reject(error) : resolve()));
-    });
-  }
-}
-
-async function createVoiceModelArchiveFixture(
-  userDataDir: string,
-): Promise<Buffer> {
-  const sourceDir = path.join(userDataDir, "fixture-voice-model-source");
-  const archivePath = path.join(userDataDir, "fixture-voice-model.tar.bz2");
-  await mkdir(sourceDir, { recursive: true });
-  await Promise.all([
-    writeFile(path.join(sourceDir, "model.int8.onnx"), "model"),
-    writeFile(path.join(sourceDir, "tokens.txt"), "tokens"),
-  ]);
-  await execFileAsync("tar", ["-cjf", archivePath, "-C", sourceDir, "."]);
-  return await readFile(archivePath);
-}
-
-function sessionAlreadyExistsError(sessionId: string) {
-  return new AppServerRequestError(
-    "agentSession/start",
-    {
-      id: "test-session-start",
-      error: {
-        code: -32013,
-        message: `session already exists: ${sessionId}`,
-      },
-    },
-    [],
-    [],
-  );
-}
-
-function buildAgentAppShellDescriptor(): Record<string, unknown> {
+function buildPluginShellDescriptor(): Record<string, unknown> {
   return {
     descriptorVersion: 1,
     appId: "content-factory-app",
@@ -236,10 +383,12 @@ function buildAgentAppShellDescriptor(): Record<string, unknown> {
 }
 
 afterEach(async () => {
+  vi.useRealTimers();
   vi.clearAllMocks();
   browserWindowGetAllWindowsMock.mockReturnValue([]);
   globalShortcutIsRegisteredMock.mockReturnValue(false);
   getPathMock.mockImplementation(() => os.tmpdir());
+  showDesktopNotificationMock.mockReturnValue({ status: "sent" });
   showOpenDialogMock.mockResolvedValue({ canceled: true, filePaths: [] });
   while (tempDirs.length > 0) {
     const dir = tempDirs.pop();
@@ -293,6 +442,96 @@ describe("ElectronHostCommands retired API Key Provider facade", () => {
     await expect(host.invoke(command, {})).rejects.toThrow(
       `Electron host command is not implemented: ${command}`,
     );
+  });
+});
+
+describe("ElectronHostCommands frontend debug logging", () => {
+  it("report_frontend_debug_log 通过 Host 日志通道写入并返回 null", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const userDataDir = await createTempUserDataDir();
+    const host = createHost(userDataDir);
+
+    await expect(
+      host.invoke("report_frontend_debug_log", {
+        report: {
+          level: "debug",
+          message: "AgentChatPage.loadData.start",
+        },
+      }),
+    ).resolves.toBeNull();
+
+    expect(logSpy).toHaveBeenCalledWith(
+      "[electron-renderer:debug] AgentChatPage.loadData.start",
+    );
+  });
+
+  it("report_frontend_debug_log 忽略已关闭 stdout 管道的 EPIPE", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {
+      const error = new Error("write EPIPE") as Error & { code: string };
+      error.code = "EPIPE";
+      throw error;
+    });
+    const userDataDir = await createTempUserDataDir();
+    const host = createHost(userDataDir);
+
+    await expect(
+      host.invoke("report_frontend_debug_log", {
+        report: {
+          level: "info",
+          message: "renderer debug after parent pipe closed",
+        },
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("report_frontend_debug_log 不吞掉非管道类日志错误", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {
+      throw new Error("unexpected console failure");
+    });
+    const userDataDir = await createTempUserDataDir();
+    const host = createHost(userDataDir);
+
+    await expect(
+      host.invoke("report_frontend_debug_log", {
+        report: {
+          message: "renderer debug",
+        },
+      }),
+    ).rejects.toThrow("unexpected console failure");
+  });
+
+  it("report_frontend_debug_log 处理 stdout 异步 EPIPE 事件时不触发 uncaughtException", async () => {
+    const uncaughtExceptionSpy = vi.fn();
+    process.once("uncaughtException", uncaughtExceptionSpy);
+
+    process.stdout.emit(
+      "error",
+      Object.assign(new Error("write EPIPE"), {
+        code: "EPIPE",
+      }),
+    );
+    await Promise.resolve();
+
+    process.removeListener("uncaughtException", uncaughtExceptionSpy);
+    expect(uncaughtExceptionSpy).not.toHaveBeenCalled();
+  });
+
+  it("report_frontend_crash 忽略已关闭 stderr 管道的 EPIPE", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {
+      const error = new Error("write EPIPE") as Error & { code: string };
+      error.code = "EPIPE";
+      throw error;
+    });
+    const userDataDir = await createTempUserDataDir();
+    const host = createHost(userDataDir);
+
+    await expect(
+      host.invoke("report_frontend_crash", {
+        report: {
+          message: "renderer crashed after parent pipe closed",
+        },
+      }),
+    ).resolves.toEqual({ success: true });
   });
 });
 
@@ -385,7 +624,7 @@ describe("ElectronHostCommands local file shell facade", () => {
       expect.objectContaining({
         projectRootPath,
         exportDirectoryRelativePath:
-          ".ember/layered-designs/design-test.layered-design",
+          ".lime/layered-designs/design-test.layered-design",
         assetCount: 1,
         fileCount: 5,
         remoteReferenceAssetCount: 0,
@@ -433,14 +672,14 @@ describe("ElectronHostCommands local file shell facade", () => {
         request: {
           projectRootPath,
           exportDirectoryRelativePath:
-            ".ember/layered-designs/design-test.layered-design",
+            ".lime/layered-designs/design-test.layered-design",
         },
       }),
     ).resolves.toEqual(
       expect.objectContaining({
         projectRootPath,
         exportDirectoryRelativePath:
-          ".ember/layered-designs/design-test.layered-design",
+          ".lime/layered-designs/design-test.layered-design",
         designJson: '{"layers":[{"id":"hero"}]}',
         manifestJson: '{"assets":[]}',
         assetCount: 0,
@@ -549,7 +788,7 @@ describe("ElectronHostCommands local file shell facade", () => {
           request: {
             projectRootPath,
             exportDirectoryRelativePath:
-              ".ember/layered-designs/remote-design.layered-design",
+              ".lime/layered-designs/remote-design.layered-design",
           },
         }),
       ).resolves.toEqual(
@@ -629,212 +868,75 @@ describe("ElectronHostCommands local file shell facade", () => {
     });
   });
 
-  it("agent_app_select_directory 通过 Electron dialog 选择目录", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const host = createHost(userDataDir);
-    showOpenDialogMock.mockResolvedValueOnce({
-      canceled: false,
-      filePaths: ["/tmp/agent-app"],
-    });
-
-    await expect(
-      host.invoke("agent_app_select_directory", {
-        request: { title: "选择应用目录" },
-      }),
-    ).resolves.toEqual({
-      path: "/tmp/agent-app",
+  it("Plugin shell 命令应只分发到 PluginShellHost", async () => {
+    pluginShellHostSelectDirectoryMock.mockResolvedValueOnce({
+      path: "/tmp/plugin",
       cancelled: false,
     });
-
-    expect(showOpenDialogMock).toHaveBeenCalledWith({
-      title: "选择应用目录",
-      properties: ["openDirectory"],
-    });
-  });
-
-  it("agent_app_select_directory 取消时返回空路径", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const host = createHost(userDataDir);
-    showOpenDialogMock.mockResolvedValueOnce({
-      canceled: true,
-      filePaths: [],
-    });
-
-    await expect(
-      host.invoke("agent_app_select_directory", {}),
-    ).resolves.toEqual({
-      path: null,
-      cancelled: true,
-    });
-  });
-
-  it("agent_app_launch_shell 应经 App Server prepare 后启动 UI runtime 并打开 Electron 窗口", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const request = vi.fn(async (method: string, params?: unknown) => {
-      if (method === "agentAppShell/prepare") {
-        expect(params).toEqual({
-          descriptor: buildAgentAppShellDescriptor(),
-        });
-        return {
-          appId: "content-factory-app",
-          status: "ready",
-          installMode: "standalone",
-          shellKind: "app_shell",
-          descriptorVersion: 1,
-          devShell: true,
-          blockerCodes: [],
-          preparedAt: "2026-05-15T00:00:00.000Z",
-          entryKey: "dashboard",
-          windowTitle: "Content Factory",
-          packageMount: {
-            kind: "local_dir",
-            path: "/tmp/content-factory-app",
-            readOnly: true,
-            packageHash: "package-fnv1a-current",
-            manifestHash: "manifest-fnv1a-current",
-          },
-        };
-      }
-      if (method === "agentAppUiRuntime/start") {
-        expect(params).toEqual({
-          appId: "content-factory-app",
-          entryKey: "dashboard",
-        });
-        return {
-          appId: "content-factory-app",
-          status: "running",
-          entryUrl: "http://127.0.0.1:4199/dashboard",
-          baseUrl: "http://127.0.0.1:4199",
-          port: 4199,
-          pid: 41990,
-          entryKey: "dashboard",
-          route: "/dashboard",
-        };
-      }
-      throw new Error(`unexpected App Server method: ${method}`);
-    });
-    const host = createHost(userDataDir, undefined, request);
-
-    await expect(
-      host.invoke("agent_app_launch_shell", {
-        request: {
-          descriptor: buildAgentAppShellDescriptor(),
-        },
-      }),
-    ).resolves.toMatchObject({
-      appId: "content-factory-app",
+    pluginShellHostLaunchShellMock.mockResolvedValueOnce({
       status: "launched",
       devShell: true,
       blockerCodes: [],
-      packageMount: {
-        kind: "local_dir",
-        path: "/tmp/content-factory-app",
-        readOnly: true,
-        packageHash: "package-fnv1a-current",
-        manifestHash: "manifest-fnv1a-current",
-      },
-      runtimeStatus: {
-        status: "running",
-        entryUrl: "http://127.0.0.1:4199/dashboard",
-      },
-      shellWindow: {
-        label: "agent-app-shell-content-factory-app-standalone",
-        url: "http://127.0.0.1:4199/dashboard",
-        reused: false,
-        chrome: {
-          deepLinkScheme: "ember-agent-content-factory-app",
-          openEntryKey: "dashboard",
-          trayEnabled: true,
-          closePolicy: "hide_to_tray",
-          multiAppManagement: false,
-          runtimeBypass: false,
-        },
-      },
+      launchedAt: "2026-05-15T00:00:00.000Z",
     });
-
-    expect(request).toHaveBeenCalledWith("agentAppShell/prepare", {
-      descriptor: buildAgentAppShellDescriptor(),
-    });
-    expect(request).toHaveBeenCalledWith("agentAppUiRuntime/start", {
+    pluginShellHostStartUiRuntimeMock.mockResolvedValueOnce({
       appId: "content-factory-app",
-      entryKey: "dashboard",
+      status: "running",
     });
-    expect(browserWindowCtorMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: "Content Factory",
-        width: 1280,
-        height: 860,
-      }),
+    pluginShellHostGetUiRuntimeStatusMock.mockResolvedValueOnce({
+      appId: "content-factory-app",
+      status: "running",
+    });
+    pluginShellHostStopUiRuntimeMock.mockResolvedValueOnce({
+      appId: "content-factory-app",
+      status: "stopped",
+    });
+    const userDataDir = await createTempUserDataDir();
+    const host = createHost(userDataDir);
+
+    const selectArgs = { request: { title: "选择应用目录" } };
+    await expect(
+      host.invoke("plugin_select_directory", selectArgs),
+    ).resolves.toEqual({
+      path: "/tmp/plugin",
+      cancelled: false,
+    });
+
+    const launchArgs = {
+      request: {
+        descriptor: buildPluginShellDescriptor(),
+      },
+    };
+    await expect(
+      host.invoke("plugin_launch_shell", launchArgs),
+    ).resolves.toMatchObject({
+      status: "launched",
+      devShell: true,
+    });
+
+    const runtimeArgs = {
+      request: {
+        appId: "content-factory-app",
+        entryKey: "dashboard",
+      },
+    };
+    await expect(
+      host.invoke("plugin_start_ui_runtime", runtimeArgs),
+    ).resolves.toMatchObject({ status: "running" });
+    await expect(
+      host.invoke("plugin_get_ui_runtime_status", runtimeArgs),
+    ).resolves.toMatchObject({ status: "running" });
+    await expect(
+      host.invoke("plugin_stop_ui_runtime", runtimeArgs),
+    ).resolves.toMatchObject({ status: "stopped" });
+
+    expect(pluginShellHostSelectDirectoryMock).toHaveBeenCalledWith(selectArgs);
+    expect(pluginShellHostLaunchShellMock).toHaveBeenCalledWith(launchArgs);
+    expect(pluginShellHostStartUiRuntimeMock).toHaveBeenCalledWith(runtimeArgs);
+    expect(pluginShellHostGetUiRuntimeStatusMock).toHaveBeenCalledWith(
+      runtimeArgs,
     );
-    expect(loadUrlMock).toHaveBeenCalledWith("http://127.0.0.1:4199/dashboard");
-    expect(showWindowMock).toHaveBeenCalled();
-    expect(focusWindowMock).toHaveBeenCalled();
-  });
-
-  it("agent_app_launch_shell prepare blocked 时应 fail closed 且不启动 runtime", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const request = vi.fn(async (method: string) => {
-      if (method === "agentAppShell/prepare") {
-        return {
-          appId: "content-factory-app",
-          status: "blocked",
-          devShell: true,
-          blockerCodes: ["INSTALLED_STATE_MISSING"],
-          message: "Agent App 未安装。",
-          preparedAt: "2026-05-15T00:00:00.000Z",
-        };
-      }
-      throw new Error(`unexpected App Server method: ${method}`);
-    });
-    const host = createHost(userDataDir, undefined, request);
-
-    await expect(
-      host.invoke("agent_app_launch_shell", {
-        request: {
-          descriptor: buildAgentAppShellDescriptor(),
-        },
-      }),
-    ).resolves.toMatchObject({
-      status: "blocked",
-      blockerCodes: ["INSTALLED_STATE_MISSING"],
-    });
-
-    expect(request).toHaveBeenCalledTimes(1);
-    expect(browserWindowCtorMock).not.toHaveBeenCalled();
-  });
-
-  it("agent_app_launch_shell descriptor 无效时由 App Server prepare fail closed", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const request = vi.fn(async (method: string) => {
-      if (method === "agentAppShell/prepare") {
-        return {
-          status: "blocked",
-          devShell: true,
-          blockerCodes: ["PACKAGE_IDENTITY_MISSING"],
-          message: "Agent App shell descriptor 未通过启动前校验。",
-          preparedAt: "2026-05-15T00:00:00.000Z",
-        };
-      }
-      throw new Error(`unexpected App Server method: ${method}`);
-    });
-    const host = createHost(userDataDir, undefined, request);
-
-    await expect(
-      host.invoke("agent_app_launch_shell", {
-        request: {
-          descriptor: {
-            ...buildAgentAppShellDescriptor(),
-            packageHash: "",
-          },
-        },
-      }),
-    ).resolves.toMatchObject({
-      status: "blocked",
-      blockerCodes: ["PACKAGE_IDENTITY_MISSING"],
-    });
-
-    expect(request).toHaveBeenCalledTimes(1);
-    expect(browserWindowCtorMock).not.toHaveBeenCalled();
+    expect(pluginShellHostStopUiRuntimeMock).toHaveBeenCalledWith(runtimeArgs);
   });
 
   it("get_local_skills_for_app 应透传 App Server skill/list 的本地目录路径", async () => {
@@ -858,7 +960,7 @@ describe("ElectronHostCommands local file shell facade", () => {
     const host = createHost(userDataDir, undefined, request);
 
     await expect(
-      host.invoke("get_local_skills_for_app", { app: "ember" }),
+      host.invoke("get_local_skills_for_app", { app: "lime" }),
     ).resolves.toEqual([
       expect.objectContaining({
         directory: "article-typesetting-master",
@@ -869,157 +971,330 @@ describe("ElectronHostCommands local file shell facade", () => {
     expect(request).toHaveBeenCalledWith("skill/list", {});
   });
 
-  it("reveal_in_finder 通过 Electron shell 定位本地路径", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const host = createHost(userDataDir);
-
-    await expect(
-      host.invoke("reveal_in_finder", { path: "/tmp/demo.txt" }),
-    ).resolves.toEqual({});
-
-    expect(showItemInFolderMock).toHaveBeenCalledWith("/tmp/demo.txt");
-  });
-
-  it("open_with_default_app 通过 Electron shell 打开本地路径", async () => {
-    openPathMock.mockResolvedValueOnce("");
-    const userDataDir = await createTempUserDataDir();
-    const host = createHost(userDataDir);
-
-    await expect(
-      host.invoke("open_with_default_app", { path: "/tmp/demo.txt" }),
-    ).resolves.toEqual({});
-
-    expect(openPathMock).toHaveBeenCalledWith("/tmp/demo.txt");
-  });
-
-  it("open_with_default_app 应暴露 Electron openPath 失败", async () => {
-    openPathMock.mockResolvedValueOnce("Cannot open file");
-    const userDataDir = await createTempUserDataDir();
-    const host = createHost(userDataDir);
-
-    await expect(
-      host.invoke("open_with_default_app", { path: "/tmp/missing.txt" }),
-    ).rejects.toThrow("Cannot open file");
-  });
-
-  it("get_file_icon_data_url 应通过 Electron 读取系统文件图标", async () => {
-    getFileIconMock.mockResolvedValueOnce({
-      isEmpty: () => false,
-      toDataURL: () => "data:image/png;base64,abc",
+  it("File Shell 命令应只分发到 FileShellHost", async () => {
+    fileShellHostRevealInFinderMock.mockReturnValueOnce({});
+    fileShellHostOpenWithDefaultAppMock.mockResolvedValueOnce({});
+    fileShellHostOpenFilePreviewWindowMock.mockResolvedValueOnce({
+      opened: true,
+      reused: false,
+      url: "file:///tmp/demo.html",
+      title: "Demo",
     });
+    fileShellHostGetFileIconDataUrlMock.mockResolvedValueOnce(
+      "data:image/png;base64,abc",
+    );
+    fileShellHostGetHomeDirMock.mockReturnValueOnce("/Users/demo");
+    fileShellHostGetFileManagerLocationsMock.mockResolvedValueOnce([
+      {
+        id: "home",
+        label: "个人",
+        path: "/Users/demo",
+        kind: "home",
+      },
+    ]);
     const userDataDir = await createTempUserDataDir();
     const host = createHost(userDataDir);
 
+    const revealArgs = { path: "/tmp/demo.txt" };
+    await expect(host.invoke("reveal_in_finder", revealArgs)).resolves.toEqual(
+      {},
+    );
+
+    const openArgs = { path: "/tmp/demo.txt" };
     await expect(
-      host.invoke("get_file_icon_data_url", { path: "/Applications/Ember.app" }),
+      host.invoke("open_with_default_app", openArgs),
+    ).resolves.toEqual({});
+
+    const previewArgs = {
+      path: "/tmp/demo.html",
+      title: "Demo",
+    };
+    await expect(
+      host.invoke("open_file_preview_window", previewArgs),
+    ).resolves.toEqual({
+      opened: true,
+      reused: false,
+      url: "file:///tmp/demo.html",
+      title: "Demo",
+    });
+
+    const resourceManagerResult = await host.invoke(
+      "open_resource_manager_window",
+      {
+        sessionId: "resource-session-1",
+      },
+    );
+    expect(resourceManagerResult).toEqual(
+      expect.objectContaining({
+        opened: true,
+        reused: false,
+      }),
+    );
+    expect(String((resourceManagerResult as { url: string }).url)).toContain(
+      "lime_window=resource-manager",
+    );
+    expect(String((resourceManagerResult as { url: string }).url)).toContain(
+      "session=resource-session-1",
+    );
+    expect(browserWindowCtorMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Lime 资源管理器",
+        width: 1240,
+        show: false,
+      }),
+    );
+
+    await expect(
+      host.invoke("get_file_icon_data_url", { path: "/Applications/Lime.app" }),
     ).resolves.toBe("data:image/png;base64,abc");
 
-    expect(getFileIconMock).toHaveBeenCalledWith("/Applications/Ember.app", {
-      size: "normal",
+    await expect(host.invoke("get_home_dir")).resolves.toBe("/Users/demo");
+    await expect(host.invoke("get_file_manager_locations")).resolves.toEqual([
+      {
+        id: "home",
+        label: "个人",
+        path: "/Users/demo",
+        kind: "home",
+      },
+    ]);
+
+    expect(fileShellHostRevealInFinderMock).toHaveBeenCalledWith(revealArgs);
+    expect(fileShellHostOpenWithDefaultAppMock).toHaveBeenCalledWith(openArgs);
+    expect(fileShellHostOpenFilePreviewWindowMock).toHaveBeenCalledWith(
+      previewArgs,
+    );
+    expect(fileShellHostGetFileIconDataUrlMock).toHaveBeenCalledWith({
+      path: "/Applications/Lime.app",
     });
+    expect(fileShellHostGetHomeDirMock).toHaveBeenCalledOnce();
+    expect(fileShellHostGetFileManagerLocationsMock).toHaveBeenCalledOnce();
   });
 
-  it("get_file_icon_data_url 在系统图标不可用时返回 null", async () => {
-    getFileIconMock.mockResolvedValueOnce({
-      isEmpty: () => true,
-      toDataURL: () => "data:image/png;base64,unused",
-    });
+  it("open_project_path_with_tool 应按工具类型走 Electron shell 或本地工具封装", async () => {
+    openPathMock.mockResolvedValueOnce("");
+    openProjectPathWithLocalToolMock.mockResolvedValue(undefined);
     const userDataDir = await createTempUserDataDir();
     const host = createHost(userDataDir);
 
     await expect(
-      host.invoke("get_file_icon_data_url", { path: "/tmp/missing.txt" }),
-    ).resolves.toBeNull();
+      host.invoke("open_project_path_with_tool", {
+        rootPath: "/tmp/project",
+        tool: "finder",
+      }),
+    ).resolves.toEqual({});
+    await expect(
+      host.invoke("open_project_path_with_tool", {
+        rootPath: "/tmp/project",
+        tool: "terminal",
+      }),
+    ).resolves.toEqual({});
+
+    expect(openPathMock).toHaveBeenCalledWith("/tmp/project");
+    expect(openProjectPathWithLocalToolMock).toHaveBeenCalledWith(
+      "/tmp/project",
+      "terminal",
+    );
   });
 
-  it("get_file_icon_data_url 应隔离 Electron 图标读取失败", async () => {
-    getFileIconMock.mockRejectedValueOnce(new Error("icon unavailable"));
+  it("项目 Shell 命令应只分发到 ProjectShellHost", async () => {
+    projectShellHostRunCommandMock.mockResolvedValueOnce({
+      command: "pwd",
+      exitCode: 0,
+    });
+    projectShellHostStartSessionMock.mockResolvedValueOnce({
+      sessionId: "project-shell-1",
+      tty: true,
+    });
+    projectShellHostWriteSessionMock.mockResolvedValueOnce({});
+    projectShellHostResizeSessionMock.mockResolvedValueOnce({});
+    projectShellHostKillSessionMock.mockResolvedValueOnce({});
+    const userDataDir = await createTempUserDataDir();
+    const host = createHost(userDataDir);
+
+    const runArgs = {
+      rootPath: "/tmp/project",
+      command: " pwd ",
+      timeoutMs: 10,
+    };
+    await expect(
+      host.invoke("run_project_shell_command", runArgs),
+    ).resolves.toMatchObject({ command: "pwd", exitCode: 0 });
+
+    const startArgs = {
+      rootPath: "/tmp/project",
+      cols: 120,
+      rows: 14,
+    };
+    await expect(
+      host.invoke("project_shell_session_start", startArgs),
+    ).resolves.toMatchObject({
+      sessionId: "project-shell-1",
+      tty: true,
+    });
+    const writeArgs = {
+      sessionId: "project-shell-1",
+      data: "ls\r",
+    };
+    await expect(
+      host.invoke("project_shell_session_write", writeArgs),
+    ).resolves.toEqual({});
+    const resizeArgs = {
+      sessionId: "project-shell-1",
+      cols: 100,
+      rows: 20,
+    };
+    await expect(
+      host.invoke("project_shell_session_resize", resizeArgs),
+    ).resolves.toEqual({});
+    const killArgs = {
+      sessionId: "project-shell-1",
+    };
+    await expect(
+      host.invoke("project_shell_session_kill", killArgs),
+    ).resolves.toEqual({});
+
+    expect(projectShellHostRunCommandMock).toHaveBeenCalledWith(runArgs);
+    expect(projectShellHostStartSessionMock).toHaveBeenCalledWith(startArgs);
+    expect(projectShellHostWriteSessionMock).toHaveBeenCalledWith(writeArgs);
+    expect(projectShellHostResizeSessionMock).toHaveBeenCalledWith(resizeArgs);
+    expect(projectShellHostKillSessionMock).toHaveBeenCalledWith(killArgs);
+  });
+
+  it("disposeProjectShellSessionsForShutdown 应委托 ProjectShellHost", async () => {
+    const userDataDir = await createTempUserDataDir();
+    const host = createHost(userDataDir);
+
+    host.disposeProjectShellSessionsForShutdown();
+
+    expect(projectShellHostDisposeForShutdownMock).toHaveBeenCalledOnce();
+  });
+});
+
+describe("ElectronHostCommands app config persistence", () => {
+  it("save_config 应只写入 App Server current config.yaml", async () => {
     const userDataDir = await createTempUserDataDir();
     const host = createHost(userDataDir);
 
     await expect(
-      host.invoke("get_file_icon_data_url", { path: "/tmp/missing.txt" }),
+      host.invoke("save_config", {
+        config: {
+          default_provider: "anthropic",
+          workspace_preferences: {
+            media_defaults: {
+              image: {
+                preferredProviderId: "relay-openai",
+                preferredModelId: "gpt-images-2",
+                allowFallback: true,
+              },
+            },
+          },
+        },
+      }),
     ).resolves.toBeNull();
+
+    const yamlConfig = parseYaml(
+      await readFile(path.join(userDataDir, "config.yaml"), "utf8"),
+    ) as Record<string, unknown>;
+
+    expect(yamlConfig).toMatchObject({
+      workspace_preferences: {
+        media_defaults: {
+          image: {
+            preferredProviderId: "relay-openai",
+            preferredModelId: "gpt-images-2",
+            allowFallback: true,
+          },
+        },
+      },
+    });
+    await expect(stat(path.join(userDataDir, "config.json"))).rejects.toThrow();
   });
 
-  it("get_home_dir 应返回 Electron 系统主目录", async () => {
+  it("save_config 写入微信模型配置时不应生成重复 YAML 键", async () => {
     const userDataDir = await createTempUserDataDir();
-    const homeDir = path.join(userDataDir, "home");
-    getPathMock.mockImplementation((name: string) => {
-      return name === "home" ? homeDir : os.tmpdir();
-    });
     const host = createHost(userDataDir);
 
-    await expect(host.invoke("get_home_dir")).resolves.toBe(homeDir);
-  });
-
-  it("get_home_dir 在系统主目录不可用时应 fail closed", async () => {
-    const userDataDir = await createTempUserDataDir();
-    getPathMock.mockImplementation((name: string) => {
-      return name === "home" ? "" : os.tmpdir();
-    });
-    const host = createHost(userDataDir);
-
-    await expect(host.invoke("get_home_dir")).rejects.toThrow("无法获取主目录");
-  });
-
-  it("get_file_manager_locations 应返回存在的系统快捷入口并去重", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const homeDir = path.join(userDataDir, "home");
-    const missingDesktopDir = path.join(userDataDir, "missing-desktop");
-    const documentsDir = path.join(userDataDir, "Documents");
-    const downloadsDir = path.join(userDataDir, "Downloads");
-    await mkdir(homeDir, { recursive: true });
-    await mkdir(documentsDir, { recursive: true });
-    await mkdir(downloadsDir, { recursive: true });
-    getPathMock.mockImplementation((name: string) => {
-      if (name === "home") {
-        return homeDir;
-      }
-      if (name === "desktop") {
-        return missingDesktopDir;
-      }
-      if (name === "documents") {
-        return documentsDir;
-      }
-      if (name === "downloads") {
-        return downloadsDir;
-      }
-      return os.tmpdir();
-    });
-    const host = createHost(userDataDir);
-
-    const locations = await host.invoke("get_file_manager_locations");
-
-    expect(locations).toEqual(
-      expect.arrayContaining([
-        {
-          id: "home",
-          label: "个人",
-          path: homeDir,
-          kind: "home",
+    await expect(
+      host.invoke("save_config", {
+        config: {
+          channels: {
+            wechat: {
+              enabled: false,
+              default_model: "lime-hub/claude-sonnet-4-6",
+              dm_policy: "pairing",
+              group_policy: "allowlist",
+              streaming: "off",
+              reply_to_mode: "off",
+            },
+          },
         },
-        {
-          id: "documents",
-          label: "文档",
-          path: documentsDir,
-          kind: "documents",
-        },
-        {
-          id: "downloads",
-          label: "下载",
-          path: downloadsDir,
-          kind: "downloads",
-        },
-      ]),
+      }),
+    ).resolves.toBeNull();
+
+    const yamlContent = await readFile(
+      path.join(userDataDir, "config.yaml"),
+      "utf8",
     );
-    const returnedPaths = (locations as Array<{ path: string }>).map(
-      (location) => location.path,
+    const parsedConfig = parseYaml(yamlContent) as Record<string, unknown>;
+
+    expect(parsedConfig).toMatchObject({
+      channels: {
+        wechat: {
+          default_model: "lime-hub/claude-sonnet-4-6",
+          streaming: "off",
+          reply_to_mode: "off",
+        },
+      },
+    });
+    expect(yamlContent.match(/^\s{4}streaming:/gm)).toHaveLength(1);
+    expect(yamlContent.match(/^\s{4}reply_to_mode:/gm)).toHaveLength(1);
+  });
+
+  it("get_config 应读取 App Server current config.yaml", async () => {
+    const userDataDir = await createTempUserDataDir();
+    await mkdir(userDataDir, { recursive: true });
+    await writeFile(
+      path.join(userDataDir, "config.yaml"),
+      [
+        "default_provider: yaml-provider",
+        "workspace_preferences:",
+        "  media_defaults:",
+        "    image:",
+        "      preferredProviderId: relay-openai",
+        "      preferredModelId: gpt-images-2",
+      ].join("\n"),
+      "utf8",
     );
-    expect(
-      returnedPaths.filter((nextPath) => nextPath === homeDir),
-    ).toHaveLength(1);
-    expect(returnedPaths).not.toContain(missingDesktopDir);
+
+    await expect(
+      createHost(userDataDir).invoke("get_config"),
+    ).resolves.toMatchObject({
+      default_provider: "yaml-provider",
+      workspace_preferences: {
+        media_defaults: {
+          image: {
+            preferredProviderId: "relay-openai",
+            preferredModelId: "gpt-images-2",
+          },
+        },
+      },
+    });
+  });
+
+  it("get_config 不再读取旧 config.json", async () => {
+    const userDataDir = await createTempUserDataDir();
+    await mkdir(userDataDir, { recursive: true });
+    await writeFile(
+      path.join(userDataDir, "config.json"),
+      JSON.stringify({ default_provider: "legacy-json-provider" }, null, 2),
+      "utf8",
+    );
+
+    await expect(
+      createHost(userDataDir).invoke("get_config"),
+    ).resolves.toMatchObject({
+      default_provider: "openai",
+    });
   });
 });
 
@@ -1060,8 +1335,8 @@ describe("ElectronHostCommands experimental config", () => {
       webmcp: { enabled: true },
       update_check: { enabled: true },
     });
-    const savedConfig = JSON.parse(
-      await readFile(path.join(userDataDir, "config.json"), "utf8"),
+    const savedConfig = parseYaml(
+      await readFile(path.join(userDataDir, "config.yaml"), "utf8"),
     ) as Record<string, unknown>;
     expect(savedConfig.default_provider).toBe("anthropic");
   });
@@ -1136,8 +1411,8 @@ describe("ElectronHostCommands model provider current source", () => {
               api_key_count: 0,
             },
             {
-              id: "ember-hub",
-              name: "Ember Hub",
+              id: "lime-hub",
+              name: "Lime Hub",
               enabled: true,
               api_key_count: 1,
             },
@@ -1148,11 +1423,11 @@ describe("ElectronHostCommands model provider current source", () => {
     });
     const host = createHost(userDataDir, () => undefined, request);
 
-    await expect(host.invoke("get_default_provider")).resolves.toBe("ember-hub");
+    await expect(host.invoke("get_default_provider")).resolves.toBe("lime-hub");
     expect(request).toHaveBeenCalledWith("modelProvider/list", {});
   });
 
-  it("aster_agent_init 不应把其他 Provider 的模型拼给当前 Provider", async () => {
+  it("get_runtime_provider_selection 不应把其他 Provider 的模型拼给当前 Provider", async () => {
     const userDataDir = await createTempUserDataDir();
     await createHost(userDataDir).invoke("save_config", {
       config: { default_provider: "retired-provider" },
@@ -1168,8 +1443,8 @@ describe("ElectronHostCommands model provider current source", () => {
               api_key_count: 0,
             },
             {
-              id: "ember-hub",
-              name: "Ember Hub",
+              id: "lime-hub",
+              name: "Lime Hub",
               enabled: true,
               api_key_count: 1,
             },
@@ -1190,1167 +1465,243 @@ describe("ElectronHostCommands model provider current source", () => {
     });
     const host = createHost(userDataDir, () => undefined, request);
 
-    await expect(host.invoke("aster_agent_init")).resolves.toEqual({
-      initialized: true,
+    await expect(host.invoke("get_runtime_provider_selection")).resolves.toEqual({
       provider_configured: true,
-      provider_name: "Ember Hub",
-      provider_selector: "ember-hub",
+      provider_name: "Lime Hub",
+      provider_selector: "lime-hub",
       model_name: undefined,
     });
   });
 });
 
-describe("ElectronHostCommands Agent runtime legacy facade current bridge", () => {
-  it("agent_runtime_get_tool_inventory 将 App Server tool capability 投影为运行时工具名", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const request = vi.fn(async (method: string) => {
-      if (method === "capability/list") {
-        return {
-          capabilities: [
-            {
-              id: "agent.session",
-              title: "Agent Session",
-              description: "Session control.",
-              methods: [
-                "agentSession/start",
-                "agentSession/read",
-                "agentSession/turn/start",
-              ],
-            },
-            {
-              id: "tool.WebFetch",
-              title: "WebFetch",
-              description: "Fetch a specific URL.",
-              methods: ["agentSession/turn/start"],
-            },
-            {
-              id: "tool.WebSearch",
-              title: "WebSearch",
-              description: "Search the web.",
-              methods: ["agentSession/turn/start"],
-            },
-          ],
-        };
-      }
-      throw new Error(`unexpected App Server method: ${method}`);
-    });
-    const host = createHost(userDataDir, () => undefined, request);
-
-    const inventory = (await host.invoke("agent_runtime_get_tool_inventory", {
-      request: {
-        caller: "assistant",
-        workbench: true,
-        browserAssist: true,
-        workspaceId: "workspace-1",
-        sessionId: "session-1",
-      },
-    })) as {
-      default_allowed_tools: string[];
-      runtime_tools: Array<{ name: string; source_label: string }>;
-    };
-
-    expect(request).toHaveBeenCalledWith("capability/list", {
-      workspaceId: "workspace-1",
-      sessionId: "session-1",
-    });
-    expect(inventory.default_allowed_tools).toContain("WebFetch");
-    expect(inventory.default_allowed_tools).toContain("WebSearch");
-    expect(inventory.runtime_tools).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          name: "WebFetch",
-          source_label: "tool.WebFetch",
-        }),
-        expect.objectContaining({
-          name: "WebSearch",
-          source_label: "tool.WebSearch",
-        }),
-      ]),
-    );
-    expect(
-      inventory.runtime_tools.filter(
-        (tool) => tool.name === "agentSession/turn/start",
-      ),
-    ).toHaveLength(1);
-  });
-
-  it("agent_runtime_submit_turn 将 Claw turnConfig 投影到 App Server asterChatRequest", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const request = vi.fn(async (method: string) => {
-      if (method === "agentSession/turn/start") {
-        return {
-          turn: {
-            turnId: "turn-1",
-            sessionId: "session-1",
-            threadId: "thread-1",
-            status: "accepted",
-          },
-        };
-      }
-      throw new Error(`unexpected App Server method: ${method}`);
-    });
-    const host = createHost(userDataDir, () => undefined, request);
-
-    await expect(
-      host.invoke("agent_runtime_submit_turn", {
-        request: {
-          message: "整理今天的国际新闻",
-          sessionId: "session-1",
-          workspaceId: "workspace-1",
-          eventName: "agent-runtime-event-1",
-          turnId: "turn-1",
-          queuedTurnId: "queued-1",
-          queueIfBusy: true,
-          skipPreSubmitResume: true,
-          turnConfig: {
-            providerPreference: "fixture-openai",
-            modelPreference: "fixture-model",
-            providerConfig: {
-              providerName: "fixture-openai",
-              modelName: "fixture-model",
-              apiKey: "fixture-key",
-              baseUrl: "http://127.0.0.1:5555/v1",
-              toolCallStrategy: "tool-shim",
-              toolshimModel: "fixture-toolshim",
-            },
-            approvalPolicy: "never",
-            sandboxPolicy: "danger-full-access",
-            webSearch: true,
-            searchMode: "allowed",
-            metadata: { source: "host-submit-test" },
-          },
-        },
-      }),
-    ).resolves.toBeUndefined();
-
-    expect(request).toHaveBeenCalledWith(
-      "agentSession/turn/start",
-      expect.objectContaining({
-        sessionId: "session-1",
-        turnId: "turn-1",
-        input: {
-          text: "整理今天的国际新闻",
-          attachments: undefined,
-        },
-        queueIfBusy: true,
-        skipPreSubmitResume: true,
-        runtimeOptions: expect.objectContaining({
-          stream: true,
-          eventName: "agent-runtime-event-1",
-          providerPreference: "fixture-openai",
-          modelPreference: "fixture-model",
-          metadata: { source: "host-submit-test" },
-          queuedTurnId: "queued-1",
-          hostOptions: {
-            asterChatRequest: expect.objectContaining({
-              message: "整理今天的国际新闻",
-              session_id: "session-1",
-              event_name: "agent-runtime-event-1",
-              provider_preference: "fixture-openai",
-              model_preference: "fixture-model",
-              workspace_id: "workspace-1",
-              approval_policy: "never",
-              sandbox_policy: "danger-full-access",
-              web_search: true,
-              search_mode: "allowed",
-              turn_id: "turn-1",
-              queue_if_busy: true,
-              queued_turn_id: "queued-1",
-              metadata: { source: "host-submit-test" },
-              provider_config: {
-                providerName: "fixture-openai",
-                modelName: "fixture-model",
-                apiKey: "fixture-key",
-                baseUrl: "http://127.0.0.1:5555/v1",
-                toolCallStrategy: "tool-shim",
-                toolshimModel: "fixture-toolshim",
-              },
-              turn_config: expect.objectContaining({
-                providerConfig: expect.objectContaining({
-                  providerName: "fixture-openai",
-                  baseUrl: "http://127.0.0.1:5555/v1",
-                }),
-              }),
-            }),
-            agentRuntimeSubmitTurnRequest: expect.objectContaining({
-              sessionId: "session-1",
-              turnConfig: expect.objectContaining({
-                providerPreference: "fixture-openai",
-              }),
-            }),
-          },
-        }),
-      }),
-    );
-  });
-
-  it("agent_runtime_get_thread_read 透传 App Server read detail 的工具调用", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const threadRead = {
-      session_id: "session-1",
-      thread_id: "thread-1",
-      status: "completed",
-      execution_strategy: "react",
-      turns: [],
-      pending_requests: [],
-      queued_turns: [],
-      tool_calls: [
-        {
-          id: "tool-call-webfetch",
-          tool_name: "WebFetch",
-          status: "completed",
-          success: true,
-          output_preview: "fetched example.com",
-        },
-        {
-          id: "tool-call-websearch",
-          toolName: "WebSearch",
-          status: "completed",
-          outputPreview: "search results",
-        },
-      ],
-    };
-    const request = vi.fn(async (method: string) => {
-      if (method === "agentSession/read") {
-        return {
-          session: {
-            sessionId: "session-1",
-            threadId: "thread-1",
-            appId: "desktop",
-            workspaceId: "workspace-1",
-            status: "completed",
-            createdAt: "2026-06-07T00:00:00.000Z",
-            updatedAt: "2026-06-07T00:00:01.000Z",
-          },
-          turns: [],
-          detail: {
-            id: "session-1",
-            execution_strategy: "react",
-            thread_read: threadRead,
-          },
-        };
-      }
-      throw new Error(`unexpected App Server method: ${method}`);
-    });
-    const host = createHost(userDataDir, () => undefined, request);
-
-    await expect(
-      host.invoke("agent_runtime_get_thread_read", {
-        sessionId: "session-1",
-      }),
-    ).resolves.toEqual(threadRead);
-    expect(request).toHaveBeenCalledWith("agentSession/read", {
-      sessionId: "session-1",
-    });
-  });
-
-  it("agent_runtime_export_evidence_pack 从 App Server events 投影真实工具轨迹", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const request = vi.fn(async (method: string) => {
-      if (method === "evidence/export") {
-        return {
-          session: {
-            sessionId: "session-1",
-            threadId: "thread-1",
-            appId: "desktop",
-            workspaceId: "workspace-1",
-            status: "completed",
-            createdAt: "2026-06-07T00:00:00.000Z",
-            updatedAt: "2026-06-07T00:00:03.000Z",
-          },
-          turns: [
-            {
-              turnId: "turn-1",
-              sessionId: "session-1",
-              threadId: "thread-1",
-              status: "completed",
-            },
-          ],
-          events: [
-            {
-              eventId: "event-fetch-started",
-              sequence: 1,
-              sessionId: "session-1",
-              threadId: "thread-1",
-              turnId: "turn-1",
-              type: "tool.started",
-              timestamp: "2026-06-07T00:00:01.000Z",
-              payload: {
-                toolCallId: "tool-call-webfetch",
-                toolName: "WebFetch",
-              },
-            },
-            {
-              eventId: "event-fetch-result",
-              sequence: 2,
-              sessionId: "session-1",
-              threadId: "thread-1",
-              turnId: "turn-1",
-              type: "tool.result",
-              timestamp: "2026-06-07T00:00:02.000Z",
-              payload: {
-                toolCallId: "tool-call-webfetch",
-                toolName: "WebFetch",
-                output: "Example Domain",
-              },
-            },
-            {
-              eventId: "event-nested-fetch-result",
-              sequence: 3,
-              sessionId: "session-1",
-              threadId: "thread-1",
-              turnId: "turn-1",
-              type: "tool.result",
-              timestamp: "2026-06-07T00:00:02.500Z",
-              payload: {
-                runtimeEvent: {
-                  tool_id: "tool-call-webfetch",
-                  type: "tool_end",
-                  result: {
-                    success: true,
-                    output: "Example Domain nested runtime output",
-                  },
-                },
-                tool_id: "tool-call-webfetch",
-                type: "tool_end",
-                result: {
-                  success: true,
-                  output: "Example Domain nested runtime output",
-                },
-              },
-            },
-            {
-              eventId: "event-search-result",
-              sequence: 4,
-              sessionId: "session-1",
-              threadId: "thread-1",
-              turnId: "turn-1",
-              type: "item.completed",
-              timestamp: "2026-06-07T00:00:03.000Z",
-              payload: {
-                runtimeEvent: {
-                  type: "item_completed",
-                  item: {
-                    id: "tool-call-websearch",
-                    type: "tool_call",
-                    tool_name: "WebSearch",
-                    status: "completed",
-                    success: true,
-                    output: "Ember runtime tool smoke example domain",
-                  },
-                },
-                item: {
-                  id: "tool-call-websearch",
-                  type: "tool_call",
-                  tool_name: "WebSearch",
-                  status: "completed",
-                  success: true,
-                  output: "Ember runtime tool smoke example domain",
-                },
-              },
-            },
-          ],
-          artifacts: [],
-          exportedAt: "2026-06-07T00:00:04.000Z",
-          evidencePack: {
-            packRelativeRoot: "",
-            exportedAt: "2026-06-07T00:00:04.000Z",
-            threadStatus: "completed",
-            latestTurnStatus: "completed",
-            turnCount: 1,
-            itemCount: 3,
-            pendingRequestCount: 0,
-            queuedTurnCount: 0,
-            recentArtifactCount: 0,
-            knownGaps: [],
-            artifacts: [],
-          },
-        };
-      }
-      throw new Error(`unexpected App Server method: ${method}`);
-    });
-    const host = createHost(userDataDir, () => undefined, request);
-
-    await expect(
-      host.invoke("agent_runtime_export_evidence_pack", {
-        sessionId: "session-1",
-      }),
-    ).resolves.toMatchObject({
-      sessionId: "session-1",
-      threadId: "thread-1",
-      observabilitySummary: {
-        schemaVersion: "runtime-evidence-observability.v1",
-        toolCalls: [
-          expect.objectContaining({
-            id: "tool-call-webfetch",
-            toolName: "WebFetch",
-            status: "completed",
-            success: true,
-            output: "Example Domain nested runtime output",
-          }),
-          expect.objectContaining({
-            id: "tool-call-websearch",
-            toolName: "WebSearch",
-            status: "completed",
-            success: true,
-            output: "Ember runtime tool smoke example domain",
-          }),
-        ],
-      },
-    });
-    expect(request).toHaveBeenCalledWith("evidence/export", {
-      sessionId: "session-1",
-      includeEvents: true,
-      includeArtifacts: true,
-      includeEvidencePack: true,
-    });
-  });
-});
-
-describe("ElectronHostCommands Agent App runtime current bridge", () => {
-  it("agent_app_runtime_start_task 通过 App Server session start 与 turn start 投影", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const request = vi.fn(async (method: string) => {
-      if (method === "agentSession/start") {
-        return {
-          session: {
-            sessionId: "session-1",
-            threadId: "thread-1",
-            appId: "content-factory-app",
-            workspaceId: "workspace-1",
-            status: "idle",
-            createdAt: "2026-06-07T00:00:00.000Z",
-            updatedAt: "2026-06-07T00:00:00.000Z",
-          },
-        };
-      }
-      if (method === "agentSession/turn/start") {
-        return {
-          turn: {
-            turnId: "turn-1",
-            sessionId: "session-1",
-            threadId: "thread-1",
-            status: "accepted",
-          },
-        };
-      }
-      throw new Error(`unexpected App Server method: ${method}`);
-    });
-    const host = createHost(userDataDir, () => undefined, request);
-
-    await expect(
-      host.invoke("agent_app_runtime_start_task", {
-        request: {
-          appId: "content-factory-app",
-          entryKey: "writer",
-          workspaceId: "workspace-1",
-          sessionId: "session-1",
-          taskId: "task-1",
-          taskKind: "content_factory.write",
-          title: "写一组发布文案",
-          prompt: "生成 3 条可发布文案",
-          input: { topic: "Electron current" },
-          expectedOutput: { contentFactoryWorkspacePatch: true },
-          eventName: "agent_app_runtime:content-factory-app:task-1",
-          turnId: "turn-1",
-          providerPreference: "anthropic",
-          modelPreference: "claude-sonnet-4",
-          queueIfBusy: true,
-          skipPreSubmitResume: false,
-          metadata: { source: "host-test" },
-          turnConfig: {
-            provider_config: { provider_name: "anthropic" },
-            reasoning_effort: "medium",
-            sandbox_policy: "workspace-write",
-            metadata: { turn_source: "agent-app" },
-          },
-        },
-      }),
-    ).resolves.toMatchObject({
-      appId: "content-factory-app",
-      entryKey: "writer",
-      taskId: "task-1",
-      taskKind: "content_factory.write",
-      sessionId: "session-1",
-      turnId: "turn-1",
-      eventName: "agent_app_runtime:content-factory-app:task-1",
+describe("ElectronHostCommands Plugin runtime dispatcher", () => {
+  it("plugin_runtime_* 命令应只分发到 PluginRuntimeTaskHost", async () => {
+    pluginRuntimeTaskHostStartTaskMock.mockResolvedValueOnce({
       status: "accepted",
     });
-
-    expect(request).toHaveBeenNthCalledWith(1, "agentSession/start", {
-      sessionId: "session-1",
-      appId: "content-factory-app",
-      workspaceId: "workspace-1",
-    });
-    expect(request).toHaveBeenNthCalledWith(
-      2,
-      "agentSession/turn/start",
-      expect.objectContaining({
-        sessionId: "session-1",
-        turnId: "turn-1",
-        input: {
-          text: expect.stringContaining("Business Prompt:"),
-          attachments: [],
-        },
-        queueIfBusy: true,
-        skipPreSubmitResume: false,
-        runtimeOptions: expect.objectContaining({
-          stream: true,
-          eventName: "agent_app_runtime:content-factory-app:task-1",
-          providerPreference: "anthropic",
-          modelPreference: "claude-sonnet-4",
-          queuedTurnId: "agent-app-queued-task-1",
-          metadata: {
-            source: "host-test",
-            turn_source: "agent-app",
-          },
-          hostOptions: {
-            asterChatRequest: expect.objectContaining({
-              session_id: "session-1",
-              turn_id: "turn-1",
-              workspace_id: "workspace-1",
-              provider_preference: "anthropic",
-              model_preference: "claude-sonnet-4",
-              provider_config: { provider_name: "anthropic" },
-              queued_turn_id: "agent-app-queued-task-1",
-              turn_config: expect.objectContaining({
-                provider_config: { provider_name: "anthropic" },
-              }),
-            }),
-          },
-        }),
-      }),
-    );
-  });
-
-  it("agent_app_runtime_start_task 对已存在 session 做幂等投影并继续提交 turn", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const request = vi.fn(async (method: string) => {
-      if (method === "agentSession/start") {
-        throw sessionAlreadyExistsError("session-1");
-      }
-      if (method === "agentSession/turn/start") {
-        return {
-          turn: {
-            turnId: "turn-1",
-            sessionId: "session-1",
-            threadId: "thread-1",
-            status: "accepted",
-          },
-        };
-      }
-      throw new Error(`unexpected App Server method: ${method}`);
-    });
-    const host = createHost(userDataDir, () => undefined, request);
-
-    await expect(
-      host.invoke("agent_app_runtime_start_task", {
-        request: {
-          appId: "content-factory-app",
-          workspaceId: "workspace-1",
-          sessionId: "session-1",
-          taskId: "task-1",
-          taskKind: "content_factory.write",
-          prompt: "继续同一个 App task",
-          turnId: "turn-1",
-        },
-      }),
-    ).resolves.toMatchObject({
-      appId: "content-factory-app",
-      taskId: "task-1",
-      sessionId: "session-1",
-      turnId: "turn-1",
-      status: "accepted",
-    });
-    expect(request.mock.calls.map(([method]) => method)).toEqual([
-      "agentSession/start",
-      "agentSession/turn/start",
-    ]);
-  });
-
-  it("agent_app_runtime_get_task 从 agentSession/read 投影 task snapshot 状态", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const detail = { thread_id: "thread-1", pending_requests: [] };
-    const request = vi.fn(async (method: string) => {
-      if (method === "agentSession/read") {
-        return {
-          session: {
-            sessionId: "session-1",
-            threadId: "thread-1",
-            appId: "content-factory-app",
-            workspaceId: "workspace-1",
-            status: "waitingAction",
-            createdAt: "2026-06-07T00:00:00.000Z",
-            updatedAt: "2026-06-07T00:00:00.000Z",
-          },
-          turns: [],
-          detail,
-        };
-      }
-      throw new Error(`unexpected App Server method: ${method}`);
-    });
-    const host = createHost(userDataDir, () => undefined, request);
-
-    await expect(
-      host.invoke("agent_app_runtime_get_task", {
-        request: {
-          appId: "content-factory-app",
-          taskId: "task-1",
-          sessionId: "session-1",
-        },
-      }),
-    ).resolves.toEqual({
-      appId: "content-factory-app",
-      taskId: "task-1",
-      sessionId: "session-1",
+    pluginRuntimeTaskHostGetTaskMock.mockResolvedValueOnce({
       status: "thread_read_available",
-      taskStatus: "blocked",
-      taskEvents: [],
-      threadRead: detail,
     });
-    expect(request).toHaveBeenCalledWith("agentSession/read", {
-      sessionId: "session-1",
-    });
-  });
-
-  it("agent_app_runtime_cancel_task 缺少 turnId 时先从 agentSession/read 查找活动 turn", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const request = vi.fn(async (method: string, params?: unknown) => {
-      if (method === "agentSession/read") {
-        return {
-          session: {
-            sessionId: "session-1",
-            threadId: "thread-1",
-            appId: "content-factory-app",
-            workspaceId: "workspace-1",
-            status: "running",
-            createdAt: "2026-06-07T00:00:00.000Z",
-            updatedAt: "2026-06-07T00:00:00.000Z",
-          },
-          turns:
-            (params as { sessionId?: string }).sessionId ===
-            "session-without-active-turn"
-              ? [
-                  {
-                    turnId: "turn-completed",
-                    sessionId: "session-without-active-turn",
-                    threadId: "thread-1",
-                    status: "completed",
-                  },
-                ]
-              : [
-                  {
-                    turnId: "turn-completed",
-                    sessionId: "session-1",
-                    threadId: "thread-1",
-                    status: "completed",
-                  },
-                  {
-                    turnId: "turn-running",
-                    sessionId: "session-1",
-                    threadId: "thread-1",
-                    status: "running",
-                  },
-                ],
-        };
-      }
-      if (method === "agentSession/turn/cancel") {
-        return {};
-      }
-      throw new Error(`unexpected App Server method: ${method}`);
-    });
-    const host = createHost(userDataDir, () => undefined, request);
-
-    await expect(
-      host.invoke("agent_app_runtime_cancel_task", {
-        request: {
-          appId: "content-factory-app",
-          taskId: "task-1",
-          sessionId: "session-without-active-turn",
-        },
-      }),
-    ).resolves.toEqual({
-      appId: "content-factory-app",
-      taskId: "task-1",
-      sessionId: "session-without-active-turn",
-      cancelled: false,
-      status: "not_running",
-    });
-    expect(request).toHaveBeenCalledWith("agentSession/read", {
-      sessionId: "session-without-active-turn",
-    });
-
-    await expect(
-      host.invoke("agent_app_runtime_cancel_task", {
-        request: {
-          appId: "content-factory-app",
-          taskId: "task-1",
-          sessionId: "session-1",
-        },
-      }),
-    ).resolves.toEqual({
-      appId: "content-factory-app",
-      taskId: "task-1",
-      sessionId: "session-1",
-      cancelled: true,
+    pluginRuntimeTaskHostCancelTaskMock.mockResolvedValueOnce({
       status: "cancelled",
     });
-    expect(request).toHaveBeenCalledWith("agentSession/read", {
-      sessionId: "session-1",
-    });
-    expect(request).toHaveBeenCalledWith("agentSession/turn/cancel", {
-      sessionId: "session-1",
-      turnId: "turn-running",
-    });
-  });
-
-  it("agent_app_runtime_submit_host_response 投影 snake_case runtime request 到 action/respond", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const request = vi.fn(async (method: string) => {
-      if (method === "agentSession/action/respond") {
-        return {};
-      }
-      throw new Error(`unexpected App Server method: ${method}`);
-    });
-    const host = createHost(userDataDir, () => undefined, request);
-
-    await expect(
-      host.invoke("agent_app_runtime_submit_host_response", {
-        request: {
-          appId: "content-factory-app",
-          taskId: "task-1",
-          runtimeRequest: {
-            session_id: "session-1",
-            request_id: "request-1",
-            action_type: "ask_user",
-            confirmed: true,
-            response: "继续",
-            user_data: { note: "ok" },
-            metadata: { source: "host-test" },
-            event_name: "agent_app_runtime:host_response",
-            action_scope: {
-              session_id: "session-1",
-              thread_id: "thread-1",
-              turn_id: "turn-1",
-            },
-          },
-        },
-      }),
-    ).resolves.toEqual({
-      appId: "content-factory-app",
-      taskId: "task-1",
+    pluginRuntimeTaskHostSubmitHostResponseMock.mockResolvedValueOnce({
       status: "submitted",
     });
-    expect(request).toHaveBeenCalledWith("agentSession/action/respond", {
-      sessionId: "session-1",
-      requestId: "request-1",
-      actionType: "ask_user",
-      confirmed: true,
-      response: "继续",
-      userData: { note: "ok" },
-      metadata: { source: "host-test" },
-      eventName: "agent_app_runtime:host_response",
-      actionScope: {
-        sessionId: "session-1",
-        threadId: "thread-1",
-        turnId: "turn-1",
-      },
-    });
+    const userDataDir = await createTempUserDataDir();
+    const host = createHost(userDataDir);
+
+    const startArgs = { request: { taskId: "task-start" } };
+    const getArgs = { request: { taskId: "task-get" } };
+    const cancelArgs = { request: { taskId: "task-cancel" } };
+    const responseArgs = { request: { taskId: "task-response" } };
+
+    await expect(
+      host.invoke("plugin_runtime_start_task", startArgs),
+    ).resolves.toEqual({ status: "accepted" });
+    await expect(
+      host.invoke("plugin_runtime_get_task", getArgs),
+    ).resolves.toEqual({ status: "thread_read_available" });
+    await expect(
+      host.invoke("plugin_runtime_cancel_task", cancelArgs),
+    ).resolves.toEqual({ status: "cancelled" });
+    await expect(
+      host.invoke("plugin_runtime_submit_host_response", responseArgs),
+    ).resolves.toEqual({ status: "submitted" });
+
+    expect(pluginRuntimeTaskHostStartTaskMock).toHaveBeenCalledWith(startArgs);
+    expect(pluginRuntimeTaskHostGetTaskMock).toHaveBeenCalledWith(getArgs);
+    expect(pluginRuntimeTaskHostCancelTaskMock).toHaveBeenCalledWith(
+      cancelArgs,
+    );
+    expect(pluginRuntimeTaskHostSubmitHostResponseMock).toHaveBeenCalledWith(
+      responseArgs,
+    );
   });
 });
 
 describe("ElectronHostCommands system utilities", () => {
-  it("get_voice_shortcut_runtime_status 读取当前语音快捷键注册状态", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const host = createHost(userDataDir);
-    await host.invoke("save_config", {
-      config: {
-        experimental: {
-          voice_input: {
-            shortcut: "Alt+F8",
-          },
-        },
-      },
-    });
-    globalShortcutIsRegisteredMock.mockImplementation(
-      (shortcut: string) => shortcut === "Alt+F8",
-    );
-
-    await expect(
-      host.invoke("get_voice_shortcut_runtime_status"),
-    ).resolves.toEqual({
-      shortcut_registered: true,
-      registered_shortcut: "Alt+F8",
-      fn_supported: process.platform === "darwin",
-      fn_registered: false,
-      fn_fallback_shortcut: "Alt+F8",
-      fn_note: "Fn 按住录音尚未接入；当前使用普通语音快捷键回退。",
-    });
-
-    expect(globalShortcutIsRegisteredMock).toHaveBeenCalledWith("Alt+F8");
-  });
-
-  it("get_voice_shortcut_runtime_status 对无效配置回退默认快捷键", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const host = createHost(userDataDir);
-    await host.invoke("save_config", {
-      config: {
-        experimental: {
-          voice_input: {
-            shortcut: "InvalidKey",
-          },
-        },
-      },
-    });
-    globalShortcutIsRegisteredMock.mockReturnValue(false);
-
-    await expect(
-      host.invoke("get_voice_shortcut_runtime_status"),
-    ).resolves.toEqual({
+  it("系统工具命令应只分发到 SystemUtilityHost", async () => {
+    systemUtilityHostOpenExternalUrlMock.mockResolvedValueOnce({});
+    systemUtilityHostOpenSystemSettingsUrlMock.mockResolvedValueOnce({});
+    systemUtilityHostGetVoiceShortcutRuntimeStatusMock.mockResolvedValueOnce({
       shortcut_registered: false,
-      registered_shortcut: null,
-      fn_supported: process.platform === "darwin",
-      fn_registered: false,
-      fn_fallback_shortcut: "CommandOrControl+Shift+V",
-      fn_note:
-        "语音快捷键配置不可解析，已使用默认普通语音快捷键回退；Fn 按住录音尚未接入。",
     });
-
-    expect(globalShortcutIsRegisteredMock).toHaveBeenCalledWith(
-      "CommandOrControl+Shift+V",
+    systemUtilityHostValidateShortcutMock.mockReturnValueOnce(true);
+    systemUtilityHostGetEnvironmentPreviewMock.mockResolvedValueOnce({
+      entries: [],
+    });
+    systemUtilityHostGetSkillPackageFileAssociationStatusMock.mockReturnValueOnce(
+      { extension: "skill" },
     );
-  });
-
-  it("validate_shortcut 在 Electron Host 侧校验常见全局快捷键", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const host = createHost(userDataDir);
-
-    await expect(
-      host.invoke("validate_shortcut", {
-        shortcutStr: "CommandOrControl+Shift+V",
-      }),
-    ).resolves.toBe(true);
-    await expect(
-      host.invoke("validate_shortcut", {
-        request: { shortcut_str: "Alt+F4" },
-      }),
-    ).resolves.toBe(true);
-    await expect(
-      host.invoke("validate_shortcut", {
-        request: { shortcut: "Ctrl+C" },
-      }),
-    ).resolves.toBe(true);
-  });
-
-  it("validate_shortcut 拒绝空值和无法解析的快捷键", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const host = createHost(userDataDir);
-
-    await expect(
-      host.invoke("validate_shortcut", { shortcutStr: "" }),
-    ).rejects.toThrow("快捷键不能为空");
-    await expect(
-      host.invoke("validate_shortcut", {
-        shortcutStr: "InvalidKey",
-      }),
-    ).rejects.toThrow("无法解析快捷键 'InvalidKey'");
-  });
-
-  it("validate_shortcut 拒绝系统输入法保留快捷键", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const host = createHost(userDataDir);
-
-    await expect(
-      host.invoke("validate_shortcut", {
-        shortcutStr: "CommandOrControl+Space",
-      }),
-    ).rejects.toThrow("输入法切换");
-  });
-
-  it("voice_models_list_catalog 返回 Electron Host current 目录形态", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const host = createHost(userDataDir);
-
-    await expect(host.invoke("voice_models_list_catalog")).resolves.toEqual([
-      expect.objectContaining({
-        id: "sensevoice-small-int8-2024-07-17",
-        name: "SenseVoice Small INT8",
-        provider: "FunAudioLLM / sherpa-onnx",
-        download_url: expect.stringContaining(
-          "/voice/sensevoice-small-int8-2024-07-17/",
-        ),
-        vad_download_url: expect.stringContaining(
-          "/voice/silero-vad-onnx/silero_vad.onnx",
-        ),
-        runtime: "sherpa-onnx",
-        bundled: false,
-      }),
-    ]);
-  });
-
-  it("voice_models_get_install_state 读取用户数据目录中的本地模型文件", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const host = createHost(userDataDir);
-    const installDir = path.join(
-      userDataDir,
-      "models",
-      "voice",
-      "sensevoice-small-int8-2024-07-17",
+    systemUtilityHostSetSkillPackageFileAssociationDefaultMock.mockReturnValueOnce(
+      { changed: false },
     );
-    await mkdir(installDir, { recursive: true });
-    await Promise.all([
-      writeFile(path.join(installDir, "model.int8.onnx"), "model"),
-      writeFile(path.join(installDir, "tokens.txt"), "tokens"),
-      writeFile(path.join(installDir, "silero_vad.onnx"), "vad"),
-      writeFile(
-        path.join(installDir, "ember-model.json"),
-        JSON.stringify({ installed_at: 1_700_000_000 }),
-      ),
-    ]);
-
-    await expect(
-      host.invoke("voice_models_get_install_state", {
-        modelId: "sensevoice-small-int8-2024-07-17",
-      }),
-    ).resolves.toEqual({
-      model_id: "sensevoice-small-int8-2024-07-17",
-      installed: true,
-      installing: false,
-      install_dir: installDir,
-      model_file: path.join(installDir, "model.int8.onnx"),
-      tokens_file: path.join(installDir, "tokens.txt"),
-      vad_file: path.join(installDir, "silero_vad.onnx"),
-      installed_bytes: 41,
-      last_verified_at: 1_700_000_000,
-      missing_files: [],
-      default_credential_id: null,
+    systemUtilityHostGetBrowserConnectorSettingsMock.mockReturnValueOnce({
+      enabled: true,
     });
-  });
-
-  it("voice_models_get_install_state 对未安装模型返回缺失文件但不返回 diagnostic facade", async () => {
+    systemUtilityHostGetBrowserConnectorInstallStatusMock.mockReturnValueOnce({
+      status: "not_installed",
+    });
+    systemUtilityHostGetChromeProfileSessionsMock.mockReturnValueOnce([]);
+    systemUtilityHostGetChromeBridgeEndpointInfoMock.mockReturnValueOnce({
+      server_running: false,
+    });
+    systemUtilityHostGetChromeBridgeStatusMock.mockReturnValueOnce({
+      observer_count: 0,
+    });
+    systemUtilityHostGetBrowserBackendPolicyMock.mockReturnValueOnce({
+      priority: ["lime_extension_bridge", "cdp_direct"],
+    });
+    systemUtilityHostGetBrowserBackendsStatusMock.mockReturnValueOnce({
+      backends: [],
+    });
     const userDataDir = await createTempUserDataDir();
     const host = createHost(userDataDir);
 
+    const externalArgs = { url: "https://user.limeai.run/login" };
     await expect(
-      host.invoke("voice_models_get_install_state", {
-        modelId: "sensevoice-small-int8-2024-07-17",
-      }),
-    ).resolves.toEqual({
-      model_id: "sensevoice-small-int8-2024-07-17",
-      installed: false,
-      installing: false,
-      install_dir: path.join(
-        userDataDir,
-        "models",
-        "voice",
-        "sensevoice-small-int8-2024-07-17",
-      ),
-      model_file: null,
-      tokens_file: null,
-      vad_file: null,
-      installed_bytes: 0,
-      last_verified_at: null,
-      missing_files: ["model.int8.onnx", "tokens.txt", "silero_vad.onnx"],
-      default_credential_id: null,
-    });
-  });
+      host.invoke("open_external_url", externalArgs),
+    ).resolves.toEqual({});
 
-  it("voice_models_download 下载并安装本地模型文件", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const emitted: Array<{ event: string; payload?: unknown }> = [];
-    const host = createHost(userDataDir, (event, payload) => {
-      emitted.push({ event, payload });
-    });
-    const archive = await createVoiceModelArchiveFixture(userDataDir);
-    const vad = Buffer.from("vad");
+    const settingsArgs = { url: "ms-settings:clipboard" };
+    await expect(
+      host.invoke("open_system_settings_url", settingsArgs),
+    ).resolves.toEqual({});
 
-    await withBinaryServer(
-      {
-        "/voice-model.tar.bz2": archive,
-        "/silero_vad.onnx": vad,
-      },
-      async (baseUrl) => {
-        await expect(
-          host.invoke("voice_models_download", {
-            modelId: "sensevoice-small-int8-2024-07-17",
-            catalogEntry: {
-              id: "sensevoice-small-int8-2024-07-17",
-              download_url: `${baseUrl}/voice-model.tar.bz2`,
-              vad_download_url: `${baseUrl}/silero_vad.onnx`,
-              size_bytes: archive.byteLength,
-            },
-          }),
-        ).resolves.toEqual({
-          state: expect.objectContaining({
-            model_id: "sensevoice-small-int8-2024-07-17",
-            installed: true,
-            installing: false,
-            missing_files: [],
-            installed_bytes: expect.any(Number),
-            model_file: path.join(
-              userDataDir,
-              "models",
-              "voice",
-              "sensevoice-small-int8-2024-07-17",
-              "model.int8.onnx",
-            ),
-            tokens_file: path.join(
-              userDataDir,
-              "models",
-              "voice",
-              "sensevoice-small-int8-2024-07-17",
-              "tokens.txt",
-            ),
-            vad_file: path.join(
-              userDataDir,
-              "models",
-              "voice",
-              "sensevoice-small-int8-2024-07-17",
-              "silero_vad.onnx",
-            ),
-          }),
-        });
-      },
+    await expect(
+      host.invoke("get_voice_shortcut_runtime_status"),
+    ).resolves.toEqual({ shortcut_registered: false });
+
+    const shortcutArgs = { shortcutStr: "CommandOrControl+Shift+V" };
+    await expect(host.invoke("validate_shortcut", shortcutArgs)).resolves.toBe(
+      true,
     );
 
-    const installDir = path.join(
-      userDataDir,
-      "models",
-      "voice",
-      "sensevoice-small-int8-2024-07-17",
+    await expect(host.invoke("get_environment_preview")).resolves.toEqual({
+      entries: [],
+    });
+    await expect(
+      host.invoke("get_skill_package_file_association_status"),
+    ).resolves.toEqual({ extension: "skill" });
+    await expect(
+      host.invoke("set_skill_package_file_association_default"),
+    ).resolves.toEqual({ changed: false });
+    await expect(
+      host.invoke("get_browser_connector_settings_cmd"),
+    ).resolves.toEqual({ enabled: true });
+    await expect(
+      host.invoke("get_browser_connector_install_status_cmd"),
+    ).resolves.toEqual({ status: "not_installed" });
+    await expect(host.invoke("get_chrome_profile_sessions")).resolves.toEqual(
+      [],
     );
     await expect(
-      readFile(path.join(installDir, "model.int8.onnx"), "utf8"),
-    ).resolves.toBe("model");
-    await expect(
-      readFile(path.join(installDir, "tokens.txt"), "utf8"),
-    ).resolves.toBe("tokens");
-    await expect(
-      readFile(path.join(installDir, "silero_vad.onnx"), "utf8"),
-    ).resolves.toBe("vad");
-    const manifest = JSON.parse(
-      await readFile(path.join(installDir, "ember-model.json"), "utf8"),
-    ) as Record<string, unknown>;
-    expect(manifest.model_id).toBe("sensevoice-small-int8-2024-07-17");
-    expect(manifest.archive_sha256).toMatch(/^[a-f0-9]{64}$/);
-    expect(emitted.map((entry) => entry.event)).toContain(
-      "voice-model-download-progress",
+      host.invoke("get_chrome_bridge_endpoint_info"),
+    ).resolves.toEqual({ server_running: false });
+    await expect(host.invoke("get_chrome_bridge_status")).resolves.toEqual({
+      observer_count: 0,
+    });
+    await expect(host.invoke("get_browser_backend_policy")).resolves.toEqual({
+      priority: ["lime_extension_bridge", "cdp_direct"],
+    });
+    await expect(host.invoke("get_browser_backends_status")).resolves.toEqual({
+      backends: [],
+    });
+
+    expect(systemUtilityHostOpenExternalUrlMock).toHaveBeenCalledWith(
+      externalArgs,
+    );
+    expect(systemUtilityHostOpenSystemSettingsUrlMock).toHaveBeenCalledWith(
+      settingsArgs,
     );
     expect(
-      emitted.some(
-        (entry) =>
-          entry.event === "voice-model-download-progress" &&
-          (entry.payload as Record<string, unknown>)?.phase === "done",
-      ),
-    ).toBe(true);
+      systemUtilityHostGetVoiceShortcutRuntimeStatusMock,
+    ).toHaveBeenCalledOnce();
+    expect(systemUtilityHostValidateShortcutMock).toHaveBeenCalledWith(
+      shortcutArgs,
+    );
+    expect(systemUtilityHostGetEnvironmentPreviewMock).toHaveBeenCalledOnce();
+    expect(
+      systemUtilityHostGetSkillPackageFileAssociationStatusMock,
+    ).toHaveBeenCalledOnce();
+    expect(
+      systemUtilityHostSetSkillPackageFileAssociationDefaultMock,
+    ).toHaveBeenCalledOnce();
+    expect(
+      systemUtilityHostGetBrowserConnectorSettingsMock,
+    ).toHaveBeenCalledOnce();
+    expect(
+      systemUtilityHostGetBrowserConnectorInstallStatusMock,
+    ).toHaveBeenCalledOnce();
+    expect(
+      systemUtilityHostGetChromeProfileSessionsMock,
+    ).toHaveBeenCalledOnce();
+    expect(
+      systemUtilityHostGetChromeBridgeEndpointInfoMock,
+    ).toHaveBeenCalledOnce();
+    expect(systemUtilityHostGetChromeBridgeStatusMock).toHaveBeenCalledOnce();
+    expect(systemUtilityHostGetBrowserBackendPolicyMock).toHaveBeenCalledOnce();
+    expect(
+      systemUtilityHostGetBrowserBackendsStatusMock,
+    ).toHaveBeenCalledOnce();
   });
 
-  it("voice_models_delete 删除本地模型目录并返回未安装状态", async () => {
+  it("voice_models_* 命令应只分发到 VoiceModelHost", async () => {
     const userDataDir = await createTempUserDataDir();
     const host = createHost(userDataDir);
-    const installDir = path.join(
-      userDataDir,
-      "models",
-      "voice",
-      "sensevoice-small-int8-2024-07-17",
-    );
-    await mkdir(installDir, { recursive: true });
-    await Promise.all([
-      writeFile(path.join(installDir, "model.int8.onnx"), "model"),
-      writeFile(path.join(installDir, "tokens.txt"), "tokens"),
-      writeFile(path.join(installDir, "silero_vad.onnx"), "vad"),
-      writeFile(
-        path.join(installDir, "ember-model.json"),
-        JSON.stringify({ installed_at: 1_700_000_000 }),
-      ),
-    ]);
-
-    await expect(
-      host.invoke("voice_models_delete", {
-        modelId: "sensevoice-small-int8-2024-07-17",
-      }),
-    ).resolves.toEqual({
+    const state = {
       model_id: "sensevoice-small-int8-2024-07-17",
       installed: false,
-      installing: false,
-      install_dir: installDir,
-      model_file: null,
-      tokens_file: null,
-      vad_file: null,
-      installed_bytes: 0,
-      last_verified_at: null,
-      missing_files: ["model.int8.onnx", "tokens.txt", "silero_vad.onnx"],
-      default_credential_id: null,
-    });
-    await expect(stat(installDir)).rejects.toThrow();
+    };
+    const stateArgs = { modelId: "sensevoice-small-int8-2024-07-17" };
+    const downloadArgs = {
+      modelId: "sensevoice-small-int8-2024-07-17",
+      catalogEntry: { id: "sensevoice-small-int8-2024-07-17" },
+    };
+    const deleteArgs = { modelId: "sensevoice-small-int8-2024-07-17" };
+    voiceModelHostListCatalogMock.mockReturnValue([{ id: "voice-model" }]);
+    voiceModelHostGetInstallStateMock.mockResolvedValue(state);
+    voiceModelHostDownloadMock.mockResolvedValue({ state });
+    voiceModelHostDeleteMock.mockResolvedValue(state);
+
+    await expect(host.invoke("voice_models_list_catalog")).resolves.toEqual([
+      { id: "voice-model" },
+    ]);
+    await expect(
+      host.invoke("voice_models_get_install_state", stateArgs),
+    ).resolves.toBe(state);
+    await expect(
+      host.invoke("voice_models_download", downloadArgs),
+    ).resolves.toEqual({ state });
+    await expect(host.invoke("voice_models_delete", deleteArgs)).resolves.toBe(
+      state,
+    );
+
+    expect(voiceModelHostListCatalogMock).toHaveBeenCalledOnce();
+    expect(voiceModelHostGetInstallStateMock).toHaveBeenCalledWith(stateArgs);
+    expect(voiceModelHostDownloadMock).toHaveBeenCalledWith(downloadArgs);
+    expect(voiceModelHostDeleteMock).toHaveBeenCalledWith(deleteArgs);
   });
 
-  it("通过系统浏览器打开 http/https 外部链接", async () => {
+  it("通过 Electron Host dispatcher 分发 summary-only 桌面通知", async () => {
     const userDataDir = await createTempUserDataDir();
     const host = createHost(userDataDir);
-    openExternalMock.mockResolvedValueOnce(undefined);
+    const args = {
+      request: {
+        body: " Lime local output · +520 ms ",
+        silent: true,
+        tag: "claw-trace-regression-alert-123",
+        title: " Regression alert: Critical ",
+      },
+    };
 
     await expect(
-      host.invoke("open_external_url", {
-        url: " https://user.emberai.run/login ",
-      }),
-    ).resolves.toEqual({});
+      host.invoke("show_desktop_notification", args),
+    ).resolves.toEqual({ status: "sent" });
 
-    expect(openExternalMock).toHaveBeenCalledWith(
-      "https://user.emberai.run/login",
-    );
-  });
-
-  it("拒绝非 http/https 外部链接", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const host = createHost(userDataDir);
-
-    await expect(
-      host.invoke("open_external_url", { url: "file:///tmp/token" }),
-    ).rejects.toThrow("外部链接只支持 http/https 地址");
-
-    expect(openExternalMock).not.toHaveBeenCalled();
-  });
-
-  it("打开系统设置 scheme 并拒绝普通外链或本地文件", async () => {
-    const userDataDir = await createTempUserDataDir();
-    const host = createHost(userDataDir);
-    openExternalMock.mockResolvedValue(undefined);
-
-    await expect(
-      host.invoke("open_system_settings_url", {
-        url: " x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility ",
-      }),
-    ).resolves.toEqual({});
-    await expect(
-      host.invoke("open_system_settings_url", {
-        url: "ms-settings:clipboard",
-      }),
-    ).resolves.toEqual({});
-    await expect(
-      host.invoke("open_system_settings_url", {
-        url: "https://example.com/settings",
-      }),
-    ).rejects.toThrow(
-      "系统设置链接只支持 x-apple.systempreferences 或 ms-settings scheme",
-    );
-    await expect(
-      host.invoke("open_system_settings_url", {
-        url: "file:///tmp/settings",
-      }),
-    ).rejects.toThrow(
-      "系统设置链接只支持 x-apple.systempreferences 或 ms-settings scheme",
-    );
-
-    expect(openExternalMock).toHaveBeenCalledTimes(2);
-    expect(openExternalMock).toHaveBeenNthCalledWith(
-      1,
-      "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
-    );
-    expect(openExternalMock).toHaveBeenNthCalledWith(
-      2,
-      "ms-settings:clipboard",
-    );
+    expect(showDesktopNotificationMock).toHaveBeenCalledOnce();
+    expect(showDesktopNotificationMock).toHaveBeenCalledWith(args);
   });
 
   it("启动真实 OAuth 本机回调桥并把回调事件广播到 renderer", async () => {
@@ -2377,7 +1728,7 @@ describe("ElectronHostCommands system utilities", () => {
     const callbackResponse = await fetch(callbackUrl);
     expect(callbackResponse.status).toBe(200);
     await expect(callbackResponse.text()).resolves.toContain(
-      "Ember 登录结果已返回",
+      "Lime 登录结果已返回",
     );
 
     expect(emitted).toEqual([

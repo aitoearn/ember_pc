@@ -24,7 +24,7 @@ use archive::read_skill_zip_package;
 use archive::resolve_local_skill_package_fallback_name;
 use archive::resolve_skill_package_directory_name;
 use chrono::Utc;
-use ember_services::skill_service::SkillService;
+use lime_services::skill_service::SkillService;
 use serde_json::json;
 use serde_json::Value;
 use std::collections::BTreeSet;

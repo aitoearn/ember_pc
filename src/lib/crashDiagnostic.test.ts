@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as logsApi from "@/lib/api/logs";
 import * as devBridge from "@/lib/dev-bridge";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
   buildCrashDiagnosticPayload,
   buildCrashDiagnosticFileName,
@@ -23,7 +23,7 @@ const payload = {
   generated_at: "2026-03-02T00:00:00.000Z",
   app_version: "0.76.0",
   platform: "MacIntel",
-  user_agent: "Ember-Test",
+  user_agent: "Lime-Test",
   locale: "zh-CN",
   timezone: "Asia/Shanghai",
   page_url: "desktop-host://localhost/settings",
@@ -39,11 +39,11 @@ const payload = {
 };
 
 beforeEach(async () => {
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 afterEach(async () => {
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("copyCrashDiagnosticToClipboard", () => {
@@ -153,7 +153,7 @@ describe("clipboard permission guide", () => {
 describe("diagnostic clipboard text", () => {
   it("应包含提示词和 JSON 诊断数据", () => {
     const text = buildCrashDiagnosticClipboardText(payload);
-    expect(text).toContain("Ember 故障诊断请求");
+    expect(text).toContain("Lime 故障诊断请求");
     expect(text).toContain("自动摘要");
     expect(text).toContain("你的任务");
     expect(text).toContain("诊断数据（JSON）");
@@ -161,11 +161,11 @@ describe("diagnostic clipboard text", () => {
   });
 
   it("切换英文后应输出本地化诊断正文", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
 
     const text = buildCrashDiagnosticClipboardText(payload);
 
-    expect(text).toContain("Ember Diagnostic Request");
+    expect(text).toContain("Lime Diagnostic Request");
     expect(text).toContain("Automatic Summary");
     expect(text).toContain("Version: 0.76.0");
     expect(text).toContain("Diagnostic Data (JSON)");
@@ -179,7 +179,7 @@ describe("diagnostic export file name", () => {
       timestamp: new Date("2026-03-02T08:09:10.000Z").getTime(),
     });
 
-    expect(fileName).toContain("ember-crash-workspace-path-missing");
+    expect(fileName).toContain("lime-crash-workspace-path-missing");
     expect(fileName).toContain("v-0-76-0");
     expect(fileName).toContain("20260302-");
     expect(fileName.endsWith(".json")).toBe(true);
@@ -225,7 +225,7 @@ describe("buildCrashDiagnosticPayload", () => {
 
   it("摘要应包含最近调用轨迹条数", () => {
     window.localStorage.setItem(
-      "ember_invoke_trace_buffer_v1",
+      "lime_invoke_trace_buffer_v1",
       JSON.stringify([
         {
           timestamp: "2026-03-09T01:02:03.000Z",
@@ -341,21 +341,21 @@ describe("buildCrashDiagnosticPayload", () => {
         },
       },
       logStorageDiagnostics: {
-        log_directory: "/tmp/ember/logs",
-        current_log_path: "/tmp/ember/logs/ember.log",
+        log_directory: "/tmp/lime/logs",
+        current_log_path: "/tmp/lime/logs/lime.log",
         current_log_exists: true,
         current_log_size_bytes: 1024,
         in_memory_log_count: 5,
         related_log_files: [
           {
-            file_name: "ember.log",
-            path: "/tmp/ember/logs/ember.log",
+            file_name: "lime.log",
+            path: "/tmp/lime/logs/lime.log",
             size_bytes: 1024,
             compressed: false,
           },
           {
-            file_name: "ember.log.20260309-010000",
-            path: "/tmp/ember/logs/ember.log.20260309-010000",
+            file_name: "lime.log.20260309-010000",
+            path: "/tmp/lime/logs/lime.log.20260309-010000",
             size_bytes: 2048,
             compressed: false,
           },
@@ -363,7 +363,7 @@ describe("buildCrashDiagnosticPayload", () => {
         raw_response_files: [
           {
             file_name: "raw_response_1.txt",
-            path: "/tmp/ember/logs/raw_response_1.txt",
+            path: "/tmp/lime/logs/raw_response_1.txt",
             size_bytes: 300,
             compressed: false,
           },
@@ -430,7 +430,7 @@ describe("buildCrashDiagnosticPayload", () => {
         mcp_summary: {
           total_servers: 3,
           running_servers: 1,
-          enabled_ember: 2,
+          enabled_lime: 2,
           enabled_claude: 1,
           enabled_codex: 1,
           enabled_gemini: 0,
@@ -438,7 +438,7 @@ describe("buildCrashDiagnosticPayload", () => {
             {
               name: "filesystem",
               is_running: true,
-              enabled_ember: true,
+              enabled_lime: true,
               enabled_claude: false,
               enabled_codex: true,
               enabled_gemini: false,
@@ -446,7 +446,7 @@ describe("buildCrashDiagnosticPayload", () => {
             {
               name: "fetch",
               is_running: false,
-              enabled_ember: true,
+              enabled_lime: true,
               enabled_claude: true,
               enabled_codex: false,
               enabled_gemini: false,
@@ -454,7 +454,7 @@ describe("buildCrashDiagnosticPayload", () => {
             {
               name: "sqlite",
               is_running: false,
-              enabled_ember: false,
+              enabled_lime: false,
               enabled_claude: false,
               enabled_codex: false,
               enabled_gemini: false,
@@ -471,6 +471,68 @@ describe("buildCrashDiagnosticPayload", () => {
     expect(text).toContain("运行时快照已采集：是");
     expect(text).toContain("API Key Provider / Key 数：2 / 4");
     expect(text).toContain("MCP 服务器数 / 运行中数：3 / 1");
+  });
+
+  it("应附加 Agent UI 性能摘要且不导出 raw entries", () => {
+    const diagnostic = buildCrashDiagnosticPayload({
+      crashConfig: payload.crash_reporting,
+      logs: payload.frontend_crash_logs,
+      appVersion: payload.app_version,
+      platform: payload.platform,
+      userAgent: payload.user_agent,
+      agentUiPerformanceSnapshot: {
+        entries: [
+          {
+            id: 1,
+            phase: "agentStream.providerTrace",
+            at: 10,
+            wallTime: 1_700_000_000_000,
+            sessionId: "session-a",
+            workspaceId: "workspace-a",
+            source: "runtime",
+            metrics: {
+              providerWaitMs: 1200,
+              raw_provider_payload: "secret-provider-payload",
+            },
+          },
+        ],
+        sessions: [
+          {
+            sessionId: "session-a",
+            workspaceId: "workspace-a",
+            providerWaitMs: 1200,
+            serverToRendererFirstTextDeltaMs: 18,
+            rendererApplyFirstTextDeltaMs: 4,
+            clientLocalOutputMs: 80,
+            phases: [
+              "agentStream.providerTrace",
+              "agentStream.firstTextDelta",
+              "agentStream.firstTextPaint",
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(diagnostic.agent_ui_performance_summary).toMatchObject({
+      entry_count: 1,
+      session_count: 1,
+      sessions: [
+        {
+          sessionId: "session-a",
+          workspaceId: "workspace-a",
+          metrics: {
+            providerWaitMs: 1200,
+            serverToRendererFirstTextDeltaMs: 18,
+            rendererApplyFirstTextDeltaMs: 4,
+            clientLocalOutputMs: 80,
+          },
+        },
+      ],
+    });
+    expect(
+      JSON.stringify(diagnostic.agent_ui_performance_summary),
+    ).not.toContain("secret-provider-payload");
   });
 
   it("无可用凭证时应提示初始化不足", () => {
@@ -518,13 +580,13 @@ describe("buildCrashDiagnosticPayload", () => {
       userAgent: payload.user_agent,
       windowsStartupDiagnostics: {
         platform: "windows",
-        app_data_dir: "C:/Users/test/AppData/Roaming/ember",
-        legacy_ember_dir: "C:/Users/test/.ember",
-        db_path: "C:/Users/test/.ember/ember.db",
+        app_data_dir: "C:/Users/test/AppData/Roaming/lime",
+        legacy_lime_dir: "C:/Users/test/.lime",
+        db_path: "C:/Users/test/.lime/lime.db",
         webview2_version: "123.0.0.0",
-        current_exe: "C:/Users/test/AppData/Local/Programs/Ember/Ember.exe",
-        current_dir: "C:/Users/test/AppData/Local/Programs/Ember",
-        resource_dir: "C:/Users/test/AppData/Local/Programs/Ember/resources",
+        current_exe: "C:/Users/test/AppData/Local/Programs/Lime/Lime.exe",
+        current_dir: "C:/Users/test/AppData/Local/Programs/Lime",
+        resource_dir: "C:/Users/test/AppData/Local/Programs/Lime/resources",
         home_dir: "C:/Users/test",
         shell_env: "/bin/bash",
         comspec_env: "C:/Windows/System32/cmd.exe",
@@ -567,7 +629,7 @@ describe("buildCrashDiagnosticPayload", () => {
       windowsStartupDiagnostics: {
         platform: "windows",
         app_data_dir: null,
-        legacy_ember_dir: null,
+        legacy_lime_dir: null,
         db_path: null,
         webview2_version: null,
         current_exe: null,
@@ -595,7 +657,7 @@ describe("buildCrashDiagnosticPayload", () => {
 
   it("应自动附加诊断采集说明", () => {
     window.localStorage.setItem(
-      "ember_invoke_trace_buffer_v1",
+      "lime_invoke_trace_buffer_v1",
       JSON.stringify([
         {
           timestamp: "2026-03-09T01:02:03.000Z",
@@ -633,21 +695,21 @@ describe("buildCrashDiagnosticPayload", () => {
       platform: payload.platform,
       userAgent: payload.user_agent,
       logStorageDiagnostics: {
-        log_directory: "/tmp/ember/logs",
-        current_log_path: "/tmp/ember/logs/ember.log",
+        log_directory: "/tmp/lime/logs",
+        current_log_path: "/tmp/lime/logs/lime.log",
         current_log_exists: true,
         current_log_size_bytes: 1024,
         in_memory_log_count: 5,
         related_log_files: [
           {
-            file_name: "ember.log",
-            path: "/tmp/ember/logs/ember.log",
+            file_name: "lime.log",
+            path: "/tmp/lime/logs/lime.log",
             size_bytes: 1024,
             compressed: false,
           },
           {
-            file_name: "ember.log.20260309-010000",
-            path: "/tmp/ember/logs/ember.log.20260309-010000",
+            file_name: "lime.log.20260309-010000",
+            path: "/tmp/lime/logs/lime.log.20260309-010000",
             size_bytes: 2048,
             compressed: false,
           },
@@ -677,15 +739,15 @@ describe("clearCrashDiagnosticHistory", () => {
     vi.spyOn(logsApi, "clearDiagnosticLogHistory").mockResolvedValue();
 
     window.localStorage.setItem(
-      "ember_frontend_crash_buffer_v1",
+      "lime_frontend_crash_buffer_v1",
       JSON.stringify([{ timestamp: "2026-03-09T00:00:00.000Z" }]),
     );
     window.localStorage.setItem(
-      "ember_invoke_error_buffer_v1",
+      "lime_invoke_error_buffer_v1",
       JSON.stringify([{ timestamp: "2026-03-09T00:00:00.000Z" }]),
     );
     window.localStorage.setItem(
-      "ember_invoke_trace_buffer_v1",
+      "lime_invoke_trace_buffer_v1",
       JSON.stringify([{ timestamp: "2026-03-09T00:00:00.000Z" }]),
     );
     recordWorkspaceRepair({
@@ -697,16 +759,16 @@ describe("clearCrashDiagnosticHistory", () => {
     await clearCrashDiagnosticHistory();
 
     expect(
-      window.localStorage.getItem("ember_frontend_crash_buffer_v1"),
+      window.localStorage.getItem("lime_frontend_crash_buffer_v1"),
     ).toBeNull();
     expect(
-      window.localStorage.getItem("ember_invoke_error_buffer_v1"),
+      window.localStorage.getItem("lime_invoke_error_buffer_v1"),
     ).toBeNull();
     expect(
-      window.localStorage.getItem("ember_invoke_trace_buffer_v1"),
+      window.localStorage.getItem("lime_invoke_trace_buffer_v1"),
     ).toBeNull();
     expect(
-      window.localStorage.getItem("ember.workspace_repair_history.v1"),
+      window.localStorage.getItem("lime.workspace_repair_history.v1"),
     ).toBeNull();
     expect(logsApi.clearDiagnosticLogHistory).toHaveBeenCalledTimes(1);
   });

@@ -35,7 +35,7 @@ export function resolveInstalledSkillPromise(
   const description = skill.description?.trim();
 
   return (
-    readInstalledSkillMetadata(skill, "ember_when_to_use") ??
+    readInstalledSkillMetadata(skill, "lime_when_to_use") ??
     readInstalledSkillMetadata(skill, "when_to_use") ??
     (description && description.length > 0 ? description : null) ??
     copy.defaultPromise ??
@@ -48,7 +48,7 @@ export function summarizeInstalledSkillRequiredInputs(
   copy: InstalledSkillPresentationCopy = {},
 ): string {
   return (
-    readInstalledSkillMetadata(skill, "ember_argument_hint") ??
+    readInstalledSkillMetadata(skill, "lime_argument_hint") ??
     readInstalledSkillMetadata(skill, "argument_hint") ??
     copy.fallbackRequiredInputs ??
     ""
@@ -60,7 +60,7 @@ export function getInstalledSkillOutputHint(
   copy: InstalledSkillPresentationCopy = {},
 ): string {
   return (
-    readInstalledSkillMetadata(skill, "ember_output_hint") ??
+    readInstalledSkillMetadata(skill, "lime_output_hint") ??
     readInstalledSkillMetadata(skill, "output_hint") ??
     copy.fallbackOutputHint ??
     ""

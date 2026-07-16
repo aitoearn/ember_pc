@@ -1,27 +1,34 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import process from "node:process";
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
 import {
+  mockEmptyStateCharacterMention,
   renderPanel,
   updateTextareaValue,
 } from "./EmptyStateComposerPanel.testFixtures";
 
 describe("EmptyStateComposerPanel", () => {
-  it("输入为空时展示 Tab 起手建议，按 Tab 后填入当前建议", async () => {
-    const container = renderPanel({
-      inputSuggestions: [
-        {
-          id: "suggestion-email",
-          label: "帮我写一封工作邮件",
-          prompt: "请帮我写一封工作邮件。",
-          order: 10,
-        },
-      ],
-    });
+  it("不应重新接入 input restore request 子面板 fallback", () => {
+    const source = readFileSync(
+      join(
+        process.cwd(),
+        "src/components/agent/chat/components/EmptyStateComposerPanel.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(source).not.toContain("inputRestoreRequest");
+    expect(source).not.toContain("InterruptedInputRestoreRequest");
+  });
+
+  it("输入为空时不再展示 Tab 起手建议，也不拦截 Tab 输入", async () => {
+    const container = renderPanel();
 
     expect(
-      container.querySelector('[data-testid="home-input-tab-suggestion"]')
-        ?.textContent,
-    ).toContain("帮我写一封工作邮件");
+      container.querySelector('[data-testid="home-input-tab-suggestion"]'),
+    ).toBeNull();
 
     const textarea = container.querySelector("textarea");
     await act(async () => {
@@ -37,23 +44,11 @@ describe("EmptyStateComposerPanel", () => {
 
     expect(
       (container.querySelector("textarea") as HTMLTextAreaElement).value,
-    ).toBe("请帮我写一封工作邮件。");
-    expect(
-      container.querySelector('[data-testid="home-input-tab-suggestion"]'),
-    ).toBeNull();
+    ).toBe("");
   });
 
   it("Shift+Tab 保持焦点切换，不填入起手建议", () => {
-    const container = renderPanel({
-      inputSuggestions: [
-        {
-          id: "suggestion-email",
-          label: "帮我写一封工作邮件",
-          prompt: "请帮我写一封工作邮件。",
-          order: 10,
-        },
-      ],
-    });
+    const container = renderPanel();
 
     const textarea = container.querySelector("textarea");
     act(() => {
@@ -76,22 +71,14 @@ describe("EmptyStateComposerPanel", () => {
     const onClearGuideHelp = vi.fn();
     const container = renderPanel({
       guideHelpActive: true,
-      guideHelpLabel: "Ember 引导帮助",
+      guideHelpLabel: "Lime 引导帮助",
       onClearGuideHelp,
-      inputSuggestions: [
-        {
-          id: "suggestion-meeting",
-          label: "帮我整理一下会议纪要",
-          prompt: "帮我整理一下会议纪要。",
-          order: 10,
-        },
-      ],
     });
 
     expect(
       container.querySelector('[data-testid="home-guide-help-active-badge"]')
         ?.textContent,
-    ).toContain("Ember 引导帮助");
+    ).toContain("Lime 引导帮助");
     expect(
       container.querySelector('[data-testid="home-guide-help-toolbar-badge"]')
         ?.textContent,
@@ -150,14 +137,74 @@ describe("EmptyStateComposerPanel", () => {
       sendButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(onSend).toHaveBeenCalledWith("帮我快速开一个新对话", {
-      goalEnabled: false,
-      planEnabled: false,
-      subagentEnabled: false,
-    });
+    expect(onSend).toHaveBeenCalledWith(
+      "帮我快速开一个新对话",
+      {
+        goalEnabled: false,
+        planEnabled: false,
+        subagentEnabled: false,
+      },
+      expect.objectContaining({
+        triggerSource: "button",
+        triggeredAt: expect.any(Number),
+      }),
+    );
     expect(
       (container.querySelector("textarea") as HTMLTextAreaElement).value,
     ).toBe("");
+  });
+
+  it("插件 chip 激活但输入未含触发词时发送应补齐插件触发词", async () => {
+    const onSend = vi.fn();
+    const plugin = {
+      pluginId: "content-factory-app",
+      displayName: "写文章",
+      trigger: "@写文章",
+      description: "生成文章草稿",
+    };
+    const container = renderPanel({
+      input: "帮我整理项目资料",
+      onSend,
+      pluginSuggestions: [plugin],
+    });
+    const mentionProps = mockEmptyStateCharacterMention.mock.calls.at(-1)?.[0];
+
+    await act(async () => {
+      mentionProps?.onSelectPlugin?.(plugin, undefined, {
+        inputOverride: "帮我整理项目资料",
+        preserveInputOverride: true,
+      });
+      await Promise.resolve();
+    });
+
+    expect(
+      container.querySelector('[data-testid="inputbar-plugin-badge"]')
+        ?.textContent,
+    ).toContain("写文章");
+    expect(
+      (container.querySelector("textarea") as HTMLTextAreaElement).value,
+    ).toBe("帮我整理项目资料");
+
+    const sendButton = container.querySelector(
+      'button[title="发送"]',
+    ) as HTMLButtonElement | null;
+
+    act(() => {
+      sendButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onSend).toHaveBeenCalledWith(
+      "@写文章 帮我整理项目资料",
+      {
+        goalEnabled: false,
+        planEnabled: false,
+        subagentEnabled: false,
+      },
+      expect.objectContaining({
+        triggerSource: "button",
+        triggeredAt: expect.any(Number),
+      }),
+    );
   });
 
   it("发送准备中应禁用首页发送入口并展示忙碌态", () => {
@@ -172,20 +219,43 @@ describe("EmptyStateComposerPanel", () => {
     const textarea = container.querySelector(
       "textarea",
     ) as HTMLTextAreaElement | null;
-    const pendingButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent?.includes("稍后处理"),
+    const runningButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent?.includes("正在输出"),
     ) as HTMLButtonElement | undefined;
 
     expect(textarea?.disabled).toBe(true);
-    expect(pendingButton).toBeTruthy();
-    expect(pendingButton?.disabled).toBe(true);
+    expect(runningButton).toBeTruthy();
+    expect(runningButton?.disabled).toBe(true);
     expect(container.querySelector('button[title="发送"]')).toBeNull();
 
     act(() => {
-      pendingButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      runningButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
     expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it("运行中应把空态停止按钮接到 onStop", () => {
+    const onStop = vi.fn();
+    const container = renderPanel({
+      input: "请帮我梳理首页首次发送链路",
+      isLoading: true,
+      disabled: true,
+      onStop,
+    });
+
+    const stopButton = container.querySelector(
+      'button[title="停止"]',
+    ) as HTMLButtonElement | null;
+
+    expect(stopButton).toBeTruthy();
+    expect(stopButton?.disabled).toBe(false);
+
+    act(() => {
+      stopButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onStop).toHaveBeenCalledTimes(1);
   });
 
   it("有待发送图片时应显示预览并支持删除", () => {

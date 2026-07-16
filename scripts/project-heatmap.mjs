@@ -9,7 +9,7 @@ import { execFileSync } from "node:child_process";
 const DEFAULT_SINCE_DAYS = 180;
 const DEFAULT_MODULE_DEPTH = 2;
 const DEFAULT_TOP_MODULES = 18;
-const DEFAULT_OUTPUT_DIR_NAME = "ember-project-heatmap";
+const DEFAULT_OUTPUT_DIR_NAME = "lime-project-heatmap";
 
 const TEXT_FILE_EXTENSIONS = new Set([
   ".cjs",
@@ -192,7 +192,7 @@ function normalizePositiveNumber(value, fallback) {
 
 function printHelp() {
   console.log(`
-Ember 项目热力图生成器
+Lime 项目热力图生成器
 
 用法:
   npm run heatmap:project

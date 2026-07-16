@@ -8,7 +8,6 @@ import {
   resolveEffectiveCuratedTaskReferences,
   resolveGuideHelpLabel,
   resolveRecentSessionLinkModel,
-  shouldExposeHomeInputSuggestions,
   truncateEmptyStatePrompt,
 } from "./EmptyStateViewModel";
 
@@ -103,22 +102,22 @@ describe("EmptyStateViewModel", () => {
         starterChips: [
           {
             id: "guide",
-            label: "Ember 使用指南",
+            label: "Lime 使用指南",
             launchKind: "toggle_guide",
           },
         ],
-        contextLabel: "Ember 引导帮助",
+        contextLabel: "Lime 引导帮助",
         contextLabelWithStarter: (label) => `正在查看 ${label}`,
       }),
-    ).toBe("正在查看 Ember 使用指南");
+    ).toBe("正在查看 Lime 使用指南");
 
     expect(
       resolveGuideHelpLabel({
         starterChips: [],
-        contextLabel: "Ember 引导帮助",
+        contextLabel: "Lime 引导帮助",
         contextLabelWithStarter: (label) => `正在查看 ${label}`,
       }),
-    ).toBe("Ember 引导帮助");
+    ).toBe("Lime 引导帮助");
   });
 
   it("应生成最近会话入口 label/title，并控制 supplemental action 是否存在", () => {
@@ -237,24 +236,4 @@ describe("EmptyStateViewModel", () => {
     ]);
   });
 
-  it("站点技能自动启动或引导帮助模式应隐藏 composer 起手建议", () => {
-    expect(
-      shouldExposeHomeInputSuggestions({
-        hasAutoLaunchSiteSkill: false,
-        guideHelpActive: false,
-      }),
-    ).toBe(true);
-    expect(
-      shouldExposeHomeInputSuggestions({
-        hasAutoLaunchSiteSkill: true,
-        guideHelpActive: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldExposeHomeInputSuggestions({
-        hasAutoLaunchSiteSkill: false,
-        guideHelpActive: true,
-      }),
-    ).toBe(false);
-  });
 });

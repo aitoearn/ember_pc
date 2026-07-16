@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { EventEmitter } from "node:events";
 import {
   chmod,
   copyFile,
@@ -12,6 +13,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { PassThrough, Writable } from "node:stream";
 import { test } from "vitest";
 const require = createRequire(import.meta.url);
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -28,34 +30,44 @@ execFileSync(
 
 const {
   APP_SERVER_METHODS,
+  APP_SERVER_REQUEST_CLIENT_METHODS,
+  APP_SERVER_REQUEST_SERIALIZATION_SCOPES,
   AppServerAgentEventRouter,
   AppServerAgentRuntimeClient,
   AppServerSidecarLifecycle,
+  AppServerSidecar,
   DEFAULT_LISTEN_URL,
   DEFAULT_PROTOCOL_SCHEMA_MANIFEST_NAME,
   DEFAULT_RELEASE_MANIFEST_NAME,
   ERROR_CODES,
   AppServerConnection,
   AppServerClient,
+  AppServerRequestAbortedError,
   AppServerRequestError,
   DEFAULT_STANDALONE_BACKEND_MODE,
+  agentSessionMediaReadEventNotification,
   createAgentRuntimeClient,
-  METHOD_AGENT_APP_INSTALLED_DISABLED_SET,
-  METHOD_AGENT_APP_INSTALLED_LIST,
-  METHOD_AGENT_APP_INSTALLED_SAVE,
-  METHOD_AGENT_APP_INSTALLED_UNINSTALL,
-  METHOD_AGENT_APP_INSTALLED_UNINSTALL_REHEARSAL,
-  METHOD_AGENT_APP_LOCAL_PACKAGE_INSPECT,
-  METHOD_AGENT_APP_PACKAGE_FETCH_CLOUD,
-  METHOD_AGENT_APP_SHELL_PREPARE,
-  METHOD_AGENT_APP_UI_RUNTIME_START,
-  METHOD_AGENT_APP_UI_RUNTIME_STATUS,
-  METHOD_AGENT_APP_UI_RUNTIME_STOP,
+  getAppServerRequestSerializationScope,
+  isAppServerServerRequestMethod,
+  METHOD_PLUGIN_INSTALLED_DISABLED_SET,
+  METHOD_PLUGIN_INSTALLED_LIST,
+  METHOD_PLUGIN_INSTALLED_SAVE,
+  METHOD_PLUGIN_INSTALLED_UNINSTALL,
+  METHOD_PLUGIN_INSTALLED_UNINSTALL_REHEARSAL,
+  METHOD_PLUGIN_HOST_LIFECYCLE_LIST,
+  METHOD_PLUGIN_LOCAL_PACKAGE_EXPORT,
+  METHOD_PLUGIN_LOCAL_PACKAGE_INSPECT,
+  METHOD_PLUGIN_PACKAGE_FETCH_CLOUD,
+  METHOD_PLUGIN_SHELL_PREPARE,
+  METHOD_PLUGIN_UI_RUNTIME_START,
+  METHOD_PLUGIN_UI_RUNTIME_STATUS,
+  METHOD_PLUGIN_UI_RUNTIME_STOP,
   METHOD_AGENT_SESSION_ACTION_REPLAY,
   METHOD_AGENT_SESSION_ACTION_RESPOND,
   METHOD_AGENT_SESSION_ARCHIVE_MANY,
   METHOD_AGENT_SESSION_ANALYSIS_HANDOFF_EXPORT,
   METHOD_AGENT_SESSION_COMPACT,
+  METHOD_AGENT_SESSION_DELETE,
   METHOD_AGENT_SESSION_EVENT,
   METHOD_AGENT_SESSION_FILE_CHECKPOINT_DIFF,
   METHOD_AGENT_SESSION_FILE_CHECKPOINT_GET,
@@ -63,6 +75,8 @@ const {
   METHOD_AGENT_SESSION_FILE_CHECKPOINT_RESTORE,
   METHOD_AGENT_SESSION_HANDOFF_BUNDLE_EXPORT,
   METHOD_AGENT_SESSION_LIST,
+  METHOD_AGENT_SESSION_MEDIA_READ,
+  METHOD_CANCEL_REQUEST,
   METHOD_AGENT_SESSION_OBJECTIVE_AUDIT,
   METHOD_AGENT_SESSION_OBJECTIVE_CLEAR,
   METHOD_AGENT_SESSION_OBJECTIVE_CONTINUE,
@@ -72,14 +86,23 @@ const {
   METHOD_AGENT_SESSION_QUEUED_TURN_PROMOTE,
   METHOD_AGENT_SESSION_QUEUED_TURN_REMOVE,
   METHOD_AGENT_SESSION_REPLAY_CASE_EXPORT,
-  METHOD_AGENT_SESSION_READ,
   METHOD_AGENT_SESSION_REVIEW_DECISION_SAVE,
   METHOD_AGENT_SESSION_REVIEW_DECISION_TEMPLATE_EXPORT,
+  METHOD_AGENT_SESSION_RUNTIME_EVENTS_APPEND,
   METHOD_AGENT_SESSION_START,
   METHOD_AGENT_SESSION_THREAD_RESUME,
+  METHOD_AGENT_SESSION_TOOL_INVENTORY_READ,
   METHOD_AGENT_SESSION_TURN_CANCEL,
   METHOD_AGENT_SESSION_TURN_START,
   METHOD_AGENT_SESSION_UPDATE,
+  METHOD_THREAD_ITEMS_LIST,
+  METHOD_THREAD_LIST,
+  METHOD_THREAD_READ,
+  METHOD_THREAD_TURNS_LIST,
+  METHOD_WORKFLOW_CANCEL,
+  METHOD_WORKFLOW_READ,
+  METHOD_WORKFLOW_RESPOND,
+  METHOD_WORKFLOW_RETRY,
   METHOD_ARTIFACT_READ,
   METHOD_AUTOMATION_JOB_CREATE,
   METHOD_AUTOMATION_JOB_DELETE,
@@ -94,12 +117,27 @@ const {
   METHOD_AUTOMATION_SCHEDULER_STATUS,
   METHOD_AUTOMATION_SCHEDULE_PREVIEW,
   METHOD_AUTOMATION_SCHEDULE_VALIDATE,
+  METHOD_BROWSER_SESSION_ACTION_EXECUTE,
+  METHOD_BROWSER_SESSION_CLOSE,
+  METHOD_BROWSER_SESSION_EVENT_LIST,
+  METHOD_BROWSER_SESSION_OPEN,
+  METHOD_BROWSER_SESSION_READ,
+  METHOD_BROWSER_SESSION_TARGET_LIST,
   METHOD_CAPABILITY_LIST,
   METHOD_CONNECT_CALLBACK_SEND,
   METHOD_CONNECT_DEEP_LINK_RESOLVE,
   METHOD_CONNECT_OPEN_DEEP_LINK_RESOLVE,
   METHOD_CONNECT_RELAY_API_KEY_SAVE,
+  METHOD_CONVERSATION_IMPORT_SOURCE_SCAN,
+  METHOD_CONVERSATION_IMPORT_THREAD_COMMIT,
+  METHOD_CONVERSATION_IMPORT_THREAD_PREVIEW,
   METHOD_EVIDENCE_EXPORT,
+  METHOD_EXECUTION_PROCESS_DRAIN_OUTPUT,
+  METHOD_EXECUTION_PROCESS_INTERRUPT,
+  METHOD_EXECUTION_PROCESS_START,
+  METHOD_EXECUTION_PROCESS_STATUS,
+  METHOD_EXECUTION_PROCESS_TERMINATE,
+  METHOD_EXECUTION_PROCESS_WRITE_STDIN,
   METHOD_FILE_SYSTEM_CREATE_DIRECTORY,
   METHOD_FILE_SYSTEM_CREATE_FILE,
   METHOD_FILE_SYSTEM_DELETE_FILE,
@@ -108,11 +146,21 @@ const {
   METHOD_FILE_SYSTEM_RENAME_FILE,
   METHOD_PROJECT_GIT_BRANCH_CHECKOUT,
   METHOD_PROJECT_GIT_BRANCH_CREATE,
+  METHOD_PROJECT_GIT_COMMITS_LIST,
+  METHOD_PROJECT_GIT_DIFF,
   METHOD_PROJECT_GIT_STATUS,
   METHOD_PROJECT_GIT_WORKTREE_CREATE,
+  METHOD_PROJECT_SHELL_SESSION_DRAIN_EVENTS,
+  METHOD_PROJECT_SHELL_SESSION_KILL,
+  METHOD_PROJECT_SHELL_SESSION_RESIZE,
+  METHOD_PROJECT_SHELL_SESSION_START,
+  METHOD_PROJECT_SHELL_SESSION_WRITE,
   METHOD_DIAGNOSTICS_LOG_STORAGE_READ,
   METHOD_DIAGNOSTICS_SERVER_READ,
   METHOD_DIAGNOSTICS_SUPPORT_BUNDLE_EXPORT,
+  METHOD_DIAGNOSTICS_TRACE_EXPORT,
+  METHOD_DIAGNOSTICS_TRACE_LIST,
+  METHOD_DIAGNOSTICS_TRACE_READ,
   METHOD_DIAGNOSTICS_WINDOWS_STARTUP_READ,
   METHOD_DISCORD_CHANNEL_PROBE,
   METHOD_FEISHU_CHANNEL_PROBE,
@@ -184,11 +232,15 @@ const {
   METHOD_MCP_PROMPT_LIST,
   METHOD_MCP_RESOURCE_LIST,
   METHOD_MCP_RESOURCE_READ,
+  METHOD_MCP_RESOURCE_SUBSCRIBE,
+  METHOD_MCP_RESOURCE_UNSUBSCRIBE,
   METHOD_MCP_SERVER_CREATE,
   METHOD_MCP_SERVER_DELETE,
   METHOD_MCP_SERVER_ENABLED_SET,
   METHOD_MCP_SERVER_IMPORT_FROM_APP,
   METHOD_MCP_SERVER_LIST,
+  METHOD_MCP_SERVER_OAUTH_LOGIN,
+  METHOD_MCP_SERVER_ELICITATION_REQUEST,
   METHOD_MCP_SERVER_SYNC_ALL_TO_LIVE,
   METHOD_MCP_SERVER_START,
   METHOD_MCP_SERVER_STATUS_LIST,
@@ -199,17 +251,17 @@ const {
   METHOD_MCP_TOOL_LIST,
   METHOD_MCP_TOOL_LIST_FOR_CONTEXT,
   METHOD_MCP_TOOL_SEARCH,
+  METHOD_MEMORY_STORE_ADD_NOTE,
+  METHOD_MEMORY_STORE_CONSOLIDATE,
+  METHOD_MEMORY_STORE_HEALTH,
+  METHOD_MEMORY_STORE_INDEX_REBUILD,
+  METHOD_MEMORY_STORE_LIST,
+  METHOD_MEMORY_STORE_READ,
+  METHOD_MEMORY_STORE_REVIEW_LIST,
+  METHOD_MEMORY_STORE_REVIEW_RESOLVE,
+  METHOD_MEMORY_STORE_RESET,
+  METHOD_MEMORY_STORE_SEARCH,
   METHOD_PROJECT_MEMORY_READ,
-  METHOD_UNIFIED_MEMORY_ANALYZE,
-  METHOD_UNIFIED_MEMORY_CREATE,
-  METHOD_UNIFIED_MEMORY_DELETE,
-  METHOD_UNIFIED_MEMORY_GET,
-  METHOD_UNIFIED_MEMORY_HYBRID_SEARCH,
-  METHOD_UNIFIED_MEMORY_LIST,
-  METHOD_UNIFIED_MEMORY_SEARCH,
-  METHOD_UNIFIED_MEMORY_SEMANTIC_SEARCH,
-  METHOD_UNIFIED_MEMORY_STATS,
-  METHOD_UNIFIED_MEMORY_UPDATE,
   METHOD_SESSION_FILE_DELETE,
   METHOD_SESSION_FILE_GET_OR_CREATE,
   METHOD_SESSION_FILE_LIST,
@@ -225,6 +277,7 @@ const {
   METHOD_MEDIA_TASK_ARTIFACT_AUDIO_CREATE,
   METHOD_MEDIA_TASK_ARTIFACT_CANCEL,
   METHOD_MEDIA_TASK_ARTIFACT_GET,
+  METHOD_MEDIA_TASK_ARTIFACT_IMAGE_COMPLETE,
   METHOD_MEDIA_TASK_ARTIFACT_IMAGE_CREATE,
   METHOD_MEDIA_TASK_ARTIFACT_LIST,
   METHOD_MEDIA_TASK_ARTIFACT_VIDEO_CREATE,
@@ -265,6 +318,7 @@ const {
   METHOD_VOICE_INSTRUCTION_SAVE,
   METHOD_VOICE_MODEL_DEFAULT_SET,
   METHOD_VOICE_MODEL_TEST_TRANSCRIBE_FILE,
+  METHOD_VOICE_TRANSCRIPTION_TRANSCRIBE_AUDIO,
   METHOD_WECHAT_CHANNEL_ACCOUNT_REMOVE,
   METHOD_WECHAT_CHANNEL_ACCOUNT_LIST,
   METHOD_WECHAT_CHANNEL_LOGIN_START,
@@ -282,13 +336,21 @@ const {
   METHOD_WORKSPACE_PROJECT_PATH_RESOLVE,
   METHOD_WORKSPACE_READ,
   METHOD_WORKSPACE_REGISTERED_SKILLS_LIST,
+  METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED,
+  METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CONSUME,
+  METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_DISMISS,
+  METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_LIST,
+  METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST,
   METHOD_WORKSPACE_SKILL_BINDINGS_LIST,
   METHOD_WORKSPACE_UPDATE,
   assertCompatibleManifest,
   assertCompatibleProtocolSchemaManifest,
   assertSha256,
   assertSidecarFileSha256,
+  agentSessionRuntimeEventNotification,
   agentSessionEventNotification,
+  agentSessionTurnStartRequest,
+  canonicalThreadEventNotification,
   connectAppServerSidecar,
   decodeMessage,
   defaultReleaseManifestPath,
@@ -300,6 +362,8 @@ const {
   isAppServerNotificationMethod,
   isAppServerRequestMethod,
   isAgentSessionEventNotification,
+  isAgentSessionTurnStartRequest,
+  isWorkspaceRightSurfacePendingChangedNotification,
   readReleaseManifest,
   readProtocolSchemaManifest,
   listProtocolSchemaFiles,
@@ -317,6 +381,7 @@ const {
   startPackagedAppServerSidecar,
   stdioSidecar,
   sidecarRestartDelayMs,
+  workspaceRightSurfacePendingChangedNotification,
 } = await import(
   /* @vite-ignore */ pathToFileURL(join(packageRoot, "dist/index.js")).href
 );
@@ -344,12 +409,53 @@ test("builds initialize and caller supplied session start requests", () => {
     appId: "content-studio",
     workspaceId: "default",
   });
+  const workflow = client.readWorkflow({
+    sessionId: "sess_external",
+  });
+  const workflowCancel = client.cancelWorkflow({
+    sessionId: "sess_external",
+    workflowRunId: "run_external",
+    reasonCode: "user_requested",
+  });
+  const workflowRetry = client.retryWorkflow({
+    sessionId: "sess_external",
+    workflowRunId: "run_external",
+  });
+  const workflowRespond = client.respondWorkflow({
+    sessionId: "sess_external",
+    workflowRunId: "run_external",
+    stepId: "approval",
+    requestId: "ask-approval-1",
+    actionType: "ask_user",
+    confirmed: true,
+    response: { answer: "approved" },
+  });
+  const mediaRead = client.readAgentSessionMedia({
+    sessionId: "sess_external",
+    uri: "sidecar://media/demo",
+    maxBytes: 1024,
+  });
 
   assert.equal(initialize.id, 1);
   assert.equal(initialize.method, METHOD_INITIALIZE);
   assert.equal(start.id, 2);
   assert.equal(start.method, METHOD_AGENT_SESSION_START);
   assert.equal(start.params.sessionId, "sess_external");
+  assert.equal(workflow.id, 3);
+  assert.equal(workflow.method, METHOD_WORKFLOW_READ);
+  assert.equal(mediaRead.id, 7);
+  assert.equal(mediaRead.method, METHOD_AGENT_SESSION_MEDIA_READ);
+  assert.equal(mediaRead.params.sessionId, "sess_external");
+  assert.equal(mediaRead.params.uri, "sidecar://media/demo");
+  assert.equal(workflow.params.sessionId, "sess_external");
+  assert.equal(workflowCancel.id, 4);
+  assert.equal(workflowCancel.method, METHOD_WORKFLOW_CANCEL);
+  assert.equal(workflowCancel.params.workflowRunId, "run_external");
+  assert.equal(workflowRetry.id, 5);
+  assert.equal(workflowRetry.method, METHOD_WORKFLOW_RETRY);
+  assert.equal(workflowRespond.id, 6);
+  assert.equal(workflowRespond.method, METHOD_WORKFLOW_RESPOND);
+  assert.equal(workflowRespond.params.stepId, "approval");
   assert.equal(ERROR_CODES.sessionAlreadyExists, -32013);
   assert.equal(ERROR_CODES.capabilityDenied, -32020);
 });
@@ -398,10 +504,12 @@ test("builds workspace and skill read requests with current methods", () => {
     executionStrategy: "react",
     recentAccessMode: "full-access",
     recentPreferences: { task: true, subagent: false },
-    recentTeamSelection: { disabled: true },
   });
   const archiveManySessions = client.archiveManySessions({
     sessionIds: ["session-main", "session-second"],
+  });
+  const deleteSession = client.deleteSession({
+    sessionId: "session-main",
   });
   const readObjective = client.readAgentSessionObjective({
     sessionId: "session-main",
@@ -442,8 +550,56 @@ test("builds workspace and skill read requests with current methods", () => {
     parentRootPath: "/workspace",
   });
   const ready = client.ensureWorkspaceReady({ id: "workspace-main" });
+  const rightSurfaceRequest = client.requestWorkspaceRightSurface({
+    workspaceId: "workspace-main",
+    workspaceRoot: "/workspace/project",
+    sessionId: "session-main",
+    surfaceKind: "objectCanvas",
+    origin: "mcpTool",
+    priority: "normal",
+    reason: "browser assist candidate",
+    candidateId: "browser-assist:session-main",
+  });
+  const rightSurfacePending = client.listWorkspaceRightSurfacePending({
+    workspaceId: "workspace-main",
+    surfaceKind: "objectCanvas",
+    limit: 8,
+  });
+  const rightSurfaceConsume = client.consumeWorkspaceRightSurfacePending({
+    requestId: "right-surface:req-1",
+    requestIds: ["right-surface:req-2"],
+  });
+  const rightSurfaceDismiss = client.dismissWorkspaceRightSurfacePending({
+    requestId: "right-surface:req-3",
+    requestIds: ["right-surface:req-4"],
+    reason: "user_closed_surface",
+  });
+  const browserTargets = client.listBrowserSessionTargets({
+    remoteDebuggingPort: 9222,
+  });
+  const browserOpen = client.openBrowserSession({
+    profileKey: "task-profile",
+    remoteDebuggingPort: 9222,
+    targetId: "target-1",
+    launchUrl: "https://example.com",
+  });
+  const browserRead = client.readBrowserSession({
+    sessionId: "browser-session-1",
+  });
+  const browserClose = client.closeBrowserSession({
+    sessionId: "browser-session-1",
+  });
+  const browserEvents = client.listBrowserSessionEvents({
+    sessionId: "browser-session-1",
+    cursor: 3,
+  });
+  const browserAction = client.executeBrowserSessionAction({
+    sessionId: "browser-session-1",
+    action: "get_page_info",
+    args: { includeMarkdown: true },
+  });
   const skills = client.listSkills();
-  const skill = client.readSkill({ skillName: "article-writer" });
+  const skill = client.readSkill({ skillId: "project:article-writer" });
   const bindings = client.listWorkspaceSkillBindings({
     workspaceRoot: "/workspace/project",
     caller: "agent-chat",
@@ -471,11 +627,14 @@ test("builds workspace and skill read requests with current methods", () => {
     executionStrategy: "react",
     recentAccessMode: "full-access",
     recentPreferences: { task: true, subagent: false },
-    recentTeamSelection: { disabled: true },
   });
   assert.equal(archiveManySessions.method, METHOD_AGENT_SESSION_ARCHIVE_MANY);
   assert.deepEqual(archiveManySessions.params, {
     sessionIds: ["session-main", "session-second"],
+  });
+  assert.equal(deleteSession.method, METHOD_AGENT_SESSION_DELETE);
+  assert.deepEqual(deleteSession.params, {
+    sessionId: "session-main",
   });
   assert.equal(readObjective.method, METHOD_AGENT_SESSION_OBJECTIVE_READ);
   assert.deepEqual(readObjective.params, {
@@ -530,10 +689,74 @@ test("builds workspace and skill read requests with current methods", () => {
   });
   assert.equal(ready.method, METHOD_WORKSPACE_ENSURE_READY);
   assert.deepEqual(ready.params, { id: "workspace-main" });
+  assert.equal(
+    rightSurfaceRequest.method,
+    METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST,
+  );
+  assert.deepEqual(rightSurfaceRequest.params, {
+    workspaceId: "workspace-main",
+    workspaceRoot: "/workspace/project",
+    sessionId: "session-main",
+    surfaceKind: "objectCanvas",
+    origin: "mcpTool",
+    priority: "normal",
+    reason: "browser assist candidate",
+    candidateId: "browser-assist:session-main",
+  });
+  assert.equal(
+    rightSurfacePending.method,
+    METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_LIST,
+  );
+  assert.deepEqual(rightSurfacePending.params, {
+    workspaceId: "workspace-main",
+    surfaceKind: "objectCanvas",
+    limit: 8,
+  });
+  assert.equal(
+    rightSurfaceConsume.method,
+    METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CONSUME,
+  );
+  assert.deepEqual(rightSurfaceConsume.params, {
+    requestId: "right-surface:req-1",
+    requestIds: ["right-surface:req-2"],
+  });
+  assert.equal(
+    rightSurfaceDismiss.method,
+    METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_DISMISS,
+  );
+  assert.deepEqual(rightSurfaceDismiss.params, {
+    requestId: "right-surface:req-3",
+    requestIds: ["right-surface:req-4"],
+    reason: "user_closed_surface",
+  });
+  assert.equal(browserTargets.method, METHOD_BROWSER_SESSION_TARGET_LIST);
+  assert.deepEqual(browserTargets.params, { remoteDebuggingPort: 9222 });
+  assert.equal(browserOpen.method, METHOD_BROWSER_SESSION_OPEN);
+  assert.deepEqual(browserOpen.params, {
+    profileKey: "task-profile",
+    remoteDebuggingPort: 9222,
+    targetId: "target-1",
+    launchUrl: "https://example.com",
+  });
+  assert.equal(browserRead.method, METHOD_BROWSER_SESSION_READ);
+  assert.deepEqual(browserRead.params, { sessionId: "browser-session-1" });
+  assert.equal(browserClose.method, METHOD_BROWSER_SESSION_CLOSE);
+  assert.deepEqual(browserClose.params, { sessionId: "browser-session-1" });
+  assert.equal(browserEvents.method, METHOD_BROWSER_SESSION_EVENT_LIST);
+  assert.deepEqual(browserEvents.params, {
+    sessionId: "browser-session-1",
+    cursor: 3,
+  });
+  assert.equal(browserAction.method, METHOD_BROWSER_SESSION_ACTION_EXECUTE);
+  assert.deepEqual(browserAction.params, {
+    sessionId: "browser-session-1",
+    action: "get_page_info",
+    args: { includeMarkdown: true },
+  });
   assert.equal(skills.method, METHOD_SKILL_LIST);
   assert.deepEqual(skills.params, {});
   assert.equal(skill.method, METHOD_SKILL_READ);
-  assert.deepEqual(skill.params, { skillName: "article-writer" });
+  assert.deepEqual(skill.params, { skillId: "project:article-writer" });
   assert.equal(bindings.method, METHOD_WORKSPACE_SKILL_BINDINGS_LIST);
   assert.deepEqual(bindings.params, {
     workspaceRoot: "/workspace/project",
@@ -548,6 +771,46 @@ test("builds workspace and skill read requests with current methods", () => {
   assert.deepEqual(registeredSkills.params, {
     workspaceRoot: "/workspace/project",
   });
+});
+
+test("builds canonical thread read requests with opaque cursors and views", () => {
+  const client = new AppServerClient();
+  const read = client.readThread({
+    threadId: "thread_1",
+    turnsView: "full",
+  });
+  const list = client.listThreads({
+    cursor: "opaque:thread:2",
+    limit: 20,
+    sortDirection: "desc",
+    includeArchived: true,
+    turnsView: "summary",
+  });
+  const turns = client.listThreadTurns({
+    threadId: "thread_1",
+    cursor: "opaque:turn:4",
+    sortDirection: "asc",
+    itemsView: "summary",
+  });
+  const items = client.listThreadItems({
+    threadId: "thread_1",
+    turnId: "turn_1",
+    cursor: "opaque:item:8",
+    sortDirection: "asc",
+  });
+
+  assert.deepEqual(
+    [read.method, list.method, turns.method, items.method],
+    [
+      METHOD_THREAD_READ,
+      METHOD_THREAD_LIST,
+      METHOD_THREAD_TURNS_LIST,
+      METHOD_THREAD_ITEMS_LIST,
+    ],
+  );
+  assert.equal(list.params.includeArchived, true);
+  assert.equal(turns.params.itemsView, "summary");
+  assert.equal(items.params.cursor, "opaque:item:8");
 });
 
 test("builds session archive and unarchive requests with current App Server methods", () => {
@@ -589,6 +852,16 @@ test("builds agent session file checkpoint requests with current App Server meth
   });
   const resume = client.resumeAgentSessionThread({
     sessionId: "sess_1",
+    resumeContract: {
+      schemaVersion: "lime-runtime-resume-contract/v0.1",
+      runtimeId: "app-server",
+      sessionId: "sess_1",
+      turnId: "thread",
+      resumeMode: "all-open-actions",
+      openActionIds: [],
+      decisions: [],
+      createdAt: "2026-06-12T00:00:00.000Z",
+    },
   });
   const remove = client.removeAgentSessionQueuedTurn({
     sessionId: "sess_1",
@@ -609,6 +882,16 @@ test("builds agent session file checkpoint requests with current App Server meth
   assert.equal(resume.method, METHOD_AGENT_SESSION_THREAD_RESUME);
   assert.deepEqual(resume.params, {
     sessionId: "sess_1",
+    resumeContract: {
+      schemaVersion: "lime-runtime-resume-contract/v0.1",
+      runtimeId: "app-server",
+      sessionId: "sess_1",
+      turnId: "thread",
+      resumeMode: "all-open-actions",
+      openActionIds: [],
+      decisions: [],
+      createdAt: "2026-06-12T00:00:00.000Z",
+    },
   });
   assert.equal(remove.id, 3);
   assert.equal(remove.method, METHOD_AGENT_SESSION_QUEUED_TURN_REMOVE);
@@ -759,18 +1042,22 @@ test("builds session file requests with current App Server methods", () => {
 test("builds app data surface requests with current methods", () => {
   const client = new AppServerClient();
 
-  const installed = client.listAgentAppInstalled();
-  const runtimeStart = client.startAgentAppUiRuntime({
+  const installed = client.listPluginInstalled();
+  const hostLifecycle = client.listPluginHostLifecycle();
+  const exportedPluginPackage = client.exportPluginLocalPackage({
+    appDir: "/tmp/content-factory-app",
+  });
+  const runtimeStart = client.startPluginUiRuntime({
     appId: "content-factory-app",
     entryKey: "dashboard",
   });
-  const runtimeStatus = client.getAgentAppUiRuntimeStatus({
+  const runtimeStatus = client.getPluginUiRuntimeStatus({
     appId: "content-factory-app",
   });
-  const runtimeStop = client.stopAgentAppUiRuntime({
+  const runtimeStop = client.stopPluginUiRuntime({
     appId: "content-factory-app",
   });
-  const shellPrepare = client.prepareAgentAppShell({
+  const shellPrepare = client.preparePluginShell({
     descriptor: {
       appId: "content-factory-app",
     },
@@ -861,7 +1148,7 @@ test("builds app data surface requests with current methods", () => {
     id: "server-1",
     name: "filesystem",
     server_config: { command: "node", args: ["server.js"] },
-    enabled_ember: true,
+    enabled_lime: true,
     enabled_claude: false,
     enabled_codex: true,
     enabled_gemini: false,
@@ -884,6 +1171,11 @@ test("builds app data surface requests with current methods", () => {
     appType: "codex",
   });
   const mcpServerSync = client.syncAllMcpServersToLive();
+  const mcpServerOAuthLogin = client.loginMcpServerOauth({
+    name: "filesystem",
+    scopes: ["files.read"],
+    timeoutSecs: 120,
+  });
   const mcpServerStart = client.startMcpServer({
     name: "filesystem",
   });
@@ -911,15 +1203,78 @@ test("builds app data surface requests with current methods", () => {
   });
   const mcpPrompts = client.listMcpPrompts();
   const mcpPrompt = client.getMcpPrompt({
+    server: "filesystem",
     name: "summarize",
     arguments: { topic: "release notes" },
   });
   const mcpResources = client.listMcpResources();
   const mcpResource = client.readMcpResource({
+    server: "filesystem",
+    uri: "file:///workspace/README.md",
+  });
+  const mcpResourceSubscribe = client.subscribeMcpResource({
+    server: "filesystem",
+    uri: "file:///workspace/README.md",
+  });
+  const mcpResourceUnsubscribe = client.unsubscribeMcpResource({
+    server: "filesystem",
     uri: "file:///workspace/README.md",
   });
   const memory = client.readProjectMemory({
     projectId: "workspace-main",
+  });
+  const memoryStoreList = client.listMemoryStore({
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+    path: "skills",
+    maxResults: 20,
+  });
+  const memoryStoreRead = client.readMemoryStore({
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+    path: "MEMORY.md",
+    maxLines: 40,
+  });
+  const memoryStoreSearch = client.searchMemoryStore({
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+    queries: ["voice", "preference"],
+    matchMode: "allWithinLines",
+    withinLines: 4,
+  });
+  const memoryStoreAddNote = client.addMemoryStoreNote({
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+    title: "Tone note",
+    content: "Prefer concise answers.",
+  });
+  const memoryStoreConsolidate = client.consolidateMemoryStore({
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+    maxNotes: 10,
+  });
+  const memoryStoreReviewList = client.listMemoryStoreReviewNotes({
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+    maxResults: 10,
+  });
+  const memoryStoreReviewResolve = client.resolveMemoryStoreReviewNote({
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+    path: "extensions/ad_hoc/review/secret.md",
+    action: "reject",
+  });
+  const memoryStoreHealth = client.healthMemoryStore({
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+  });
+  const memoryStoreReset = client.resetMemoryStore({
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+  });
+  const memoryStoreIndexRebuild = client.rebuildMemoryStoreIndex({
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
   });
   const logs = client.listLogs();
   const persistedTail = client.readPersistedLogTail({ lines: 250 });
@@ -927,6 +1282,12 @@ test("builds app data surface requests with current methods", () => {
   const clearedDiagnosticHistory = client.clearDiagnosticLogHistory();
   const logStorageDiagnostics = client.readLogStorageDiagnostics();
   const supportBundle = client.exportSupportBundle();
+  const supportBundleWithTrace = client.exportSupportBundle({
+    includeTraceExport: {
+      sessionId: "session-a",
+      traceId: "trace-a",
+    },
+  });
   const serverDiagnostics = client.readServerDiagnostics();
   const windowsStartupDiagnostics = client.readWindowsStartupDiagnostics();
   const gatewayChannelStatus = client.readGatewayChannelStatus({
@@ -969,7 +1330,7 @@ test("builds app data surface requests with current methods", () => {
       confirm: true,
     });
   const gatewayTunnelCreate = client.createGatewayTunnel({
-    tunnelName: "ember",
+    tunnelName: "lime",
     dnsName: "bot.example.com",
     persist: true,
   });
@@ -995,7 +1356,17 @@ test("builds app data surface requests with current methods", () => {
   const completedAudioMediaTask = client.completeAudioMediaTaskArtifact({
     projectRootPath: "/workspace",
     taskRef: "task-audio-1",
-    audioPath: ".ember/runtime/audio/task-audio-1.mp3",
+    audioPath: ".lime/runtime/audio/task-audio-1.mp3",
+  });
+  const completedImageMediaTask = client.completeImageMediaTaskArtifact({
+    projectRootPath: "/workspace",
+    taskRef: "task-image-1",
+    images: [
+      {
+        url: "file:///workspace/.lime/runtime/images/task-image-1.png",
+        revisedPrompt: "未来感青柠实验室",
+      },
+    ],
   });
   const mediaTask = client.getMediaTaskArtifact({
     projectRootPath: "/workspace",
@@ -1058,29 +1429,44 @@ test("builds app data surface requests with current methods", () => {
   });
   const defaultVoiceModel = client.setDefaultVoiceModel({
     model_id: "sensevoice-small-int8-2024-07-17",
-    install_dir: "/mock/ember/models/voice/sensevoice-small-int8-2024-07-17",
+    install_dir: "/mock/lime/models/voice/sensevoice-small-int8-2024-07-17",
   });
   const testedVoiceModelFile = client.testTranscribeVoiceModelFile({
     model_id: "sensevoice-small-int8-2024-07-17",
     file_path: "/tmp/interview.wav",
   });
+  const transcribedVoiceAudio = client.transcribeVoiceAudio({
+    audio_base64:
+      "UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=",
+    mime_type: "audio/wav",
+    credential_id: "cred-1",
+  });
 
-  assert.equal(installed.method, METHOD_AGENT_APP_INSTALLED_LIST);
+  assert.equal(installed.method, METHOD_PLUGIN_INSTALLED_LIST);
   assert.deepEqual(installed.params, {});
-  assert.equal(runtimeStart.method, METHOD_AGENT_APP_UI_RUNTIME_START);
+  assert.equal(hostLifecycle.method, METHOD_PLUGIN_HOST_LIFECYCLE_LIST);
+  assert.deepEqual(hostLifecycle.params, {});
+  assert.equal(
+    exportedPluginPackage.method,
+    METHOD_PLUGIN_LOCAL_PACKAGE_EXPORT,
+  );
+  assert.deepEqual(exportedPluginPackage.params, {
+    appDir: "/tmp/content-factory-app",
+  });
+  assert.equal(runtimeStart.method, METHOD_PLUGIN_UI_RUNTIME_START);
   assert.deepEqual(runtimeStart.params, {
     appId: "content-factory-app",
     entryKey: "dashboard",
   });
-  assert.equal(runtimeStatus.method, METHOD_AGENT_APP_UI_RUNTIME_STATUS);
+  assert.equal(runtimeStatus.method, METHOD_PLUGIN_UI_RUNTIME_STATUS);
   assert.deepEqual(runtimeStatus.params, {
     appId: "content-factory-app",
   });
-  assert.equal(runtimeStop.method, METHOD_AGENT_APP_UI_RUNTIME_STOP);
+  assert.equal(runtimeStop.method, METHOD_PLUGIN_UI_RUNTIME_STOP);
   assert.deepEqual(runtimeStop.params, {
     appId: "content-factory-app",
   });
-  assert.equal(shellPrepare.method, METHOD_AGENT_APP_SHELL_PREPARE);
+  assert.equal(shellPrepare.method, METHOD_PLUGIN_SHELL_PREPARE);
   assert.deepEqual(shellPrepare.params, {
     descriptor: {
       appId: "content-factory-app",
@@ -1220,6 +1606,12 @@ test("builds app data surface requests with current methods", () => {
   });
   assert.equal(mcpServerSync.method, METHOD_MCP_SERVER_SYNC_ALL_TO_LIVE);
   assert.deepEqual(mcpServerSync.params, {});
+  assert.equal(mcpServerOAuthLogin.method, METHOD_MCP_SERVER_OAUTH_LOGIN);
+  assert.deepEqual(mcpServerOAuthLogin.params, {
+    name: "filesystem",
+    scopes: ["files.read"],
+    timeoutSecs: 120,
+  });
   assert.equal(mcpServerStart.method, METHOD_MCP_SERVER_START);
   assert.deepEqual(mcpServerStart.params, {
     name: "filesystem",
@@ -1256,6 +1648,7 @@ test("builds app data surface requests with current methods", () => {
   assert.deepEqual(mcpPrompts.params, {});
   assert.equal(mcpPrompt.method, METHOD_MCP_PROMPT_GET);
   assert.deepEqual(mcpPrompt.params, {
+    server: "filesystem",
     name: "summarize",
     arguments: { topic: "release notes" },
   });
@@ -1263,11 +1656,91 @@ test("builds app data surface requests with current methods", () => {
   assert.deepEqual(mcpResources.params, {});
   assert.equal(mcpResource.method, METHOD_MCP_RESOURCE_READ);
   assert.deepEqual(mcpResource.params, {
+    server: "filesystem",
+    uri: "file:///workspace/README.md",
+  });
+  assert.equal(mcpResourceSubscribe.method, METHOD_MCP_RESOURCE_SUBSCRIBE);
+  assert.deepEqual(mcpResourceSubscribe.params, {
+    server: "filesystem",
+    uri: "file:///workspace/README.md",
+  });
+  assert.equal(mcpResourceUnsubscribe.method, METHOD_MCP_RESOURCE_UNSUBSCRIBE);
+  assert.deepEqual(mcpResourceUnsubscribe.params, {
+    server: "filesystem",
     uri: "file:///workspace/README.md",
   });
   assert.equal(memory.method, METHOD_PROJECT_MEMORY_READ);
   assert.deepEqual(memory.params, {
     projectId: "workspace-main",
+  });
+  assert.equal(memoryStoreList.method, METHOD_MEMORY_STORE_LIST);
+  assert.deepEqual(memoryStoreList.params, {
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+    path: "skills",
+    maxResults: 20,
+  });
+  assert.equal(memoryStoreRead.method, METHOD_MEMORY_STORE_READ);
+  assert.deepEqual(memoryStoreRead.params, {
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+    path: "MEMORY.md",
+    maxLines: 40,
+  });
+  assert.equal(memoryStoreSearch.method, METHOD_MEMORY_STORE_SEARCH);
+  assert.deepEqual(memoryStoreSearch.params, {
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+    queries: ["voice", "preference"],
+    matchMode: "allWithinLines",
+    withinLines: 4,
+  });
+  assert.equal(memoryStoreAddNote.method, METHOD_MEMORY_STORE_ADD_NOTE);
+  assert.deepEqual(memoryStoreAddNote.params, {
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+    title: "Tone note",
+    content: "Prefer concise answers.",
+  });
+  assert.equal(memoryStoreConsolidate.method, METHOD_MEMORY_STORE_CONSOLIDATE);
+  assert.deepEqual(memoryStoreConsolidate.params, {
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+    maxNotes: 10,
+  });
+  assert.equal(memoryStoreReviewList.method, METHOD_MEMORY_STORE_REVIEW_LIST);
+  assert.deepEqual(memoryStoreReviewList.params, {
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+    maxResults: 10,
+  });
+  assert.equal(
+    memoryStoreReviewResolve.method,
+    METHOD_MEMORY_STORE_REVIEW_RESOLVE,
+  );
+  assert.deepEqual(memoryStoreReviewResolve.params, {
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+    path: "extensions/ad_hoc/review/secret.md",
+    action: "reject",
+  });
+  assert.equal(memoryStoreHealth.method, METHOD_MEMORY_STORE_HEALTH);
+  assert.deepEqual(memoryStoreHealth.params, {
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+  });
+  assert.equal(memoryStoreReset.method, METHOD_MEMORY_STORE_RESET);
+  assert.deepEqual(memoryStoreReset.params, {
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
+  });
+  assert.equal(
+    memoryStoreIndexRebuild.method,
+    METHOD_MEMORY_STORE_INDEX_REBUILD,
+  );
+  assert.deepEqual(memoryStoreIndexRebuild.params, {
+    scope: "workspace",
+    workspaceRoot: "/workspace/project",
   });
   assert.equal(logs.method, METHOD_LOG_LIST);
   assert.deepEqual(logs.params, {});
@@ -1287,6 +1760,16 @@ test("builds app data surface requests with current methods", () => {
   assert.deepEqual(logStorageDiagnostics.params, {});
   assert.equal(supportBundle.method, METHOD_DIAGNOSTICS_SUPPORT_BUNDLE_EXPORT);
   assert.deepEqual(supportBundle.params, {});
+  assert.equal(
+    supportBundleWithTrace.method,
+    METHOD_DIAGNOSTICS_SUPPORT_BUNDLE_EXPORT,
+  );
+  assert.deepEqual(supportBundleWithTrace.params, {
+    includeTraceExport: {
+      sessionId: "session-a",
+      traceId: "trace-a",
+    },
+  });
   assert.equal(serverDiagnostics.method, METHOD_DIAGNOSTICS_SERVER_READ);
   assert.deepEqual(serverDiagnostics.params, {});
   assert.equal(
@@ -1359,7 +1842,7 @@ test("builds app data surface requests with current methods", () => {
   });
   assert.equal(gatewayTunnelCreate.method, METHOD_GATEWAY_TUNNEL_CREATE);
   assert.deepEqual(gatewayTunnelCreate.params, {
-    tunnelName: "ember",
+    tunnelName: "lime",
     dnsName: "bot.example.com",
     persist: true,
   });
@@ -1399,7 +1882,21 @@ test("builds app data surface requests with current methods", () => {
   assert.deepEqual(completedAudioMediaTask.params, {
     projectRootPath: "/workspace",
     taskRef: "task-audio-1",
-    audioPath: ".ember/runtime/audio/task-audio-1.mp3",
+    audioPath: ".lime/runtime/audio/task-audio-1.mp3",
+  });
+  assert.equal(
+    completedImageMediaTask.method,
+    METHOD_MEDIA_TASK_ARTIFACT_IMAGE_COMPLETE,
+  );
+  assert.deepEqual(completedImageMediaTask.params, {
+    projectRootPath: "/workspace",
+    taskRef: "task-image-1",
+    images: [
+      {
+        url: "file:///workspace/.lime/runtime/images/task-image-1.png",
+        revisedPrompt: "未来感青柠实验室",
+      },
+    ],
   });
   assert.equal(mediaTask.method, METHOD_MEDIA_TASK_ARTIFACT_GET);
   assert.deepEqual(mediaTask.params, {
@@ -1482,7 +1979,7 @@ test("builds app data surface requests with current methods", () => {
   assert.equal(defaultVoiceModel.method, METHOD_VOICE_MODEL_DEFAULT_SET);
   assert.deepEqual(defaultVoiceModel.params, {
     model_id: "sensevoice-small-int8-2024-07-17",
-    install_dir: "/mock/ember/models/voice/sensevoice-small-int8-2024-07-17",
+    install_dir: "/mock/lime/models/voice/sensevoice-small-int8-2024-07-17",
   });
   assert.equal(
     testedVoiceModelFile.method,
@@ -1491,6 +1988,16 @@ test("builds app data surface requests with current methods", () => {
   assert.deepEqual(testedVoiceModelFile.params, {
     model_id: "sensevoice-small-int8-2024-07-17",
     file_path: "/tmp/interview.wav",
+  });
+  assert.equal(
+    transcribedVoiceAudio.method,
+    METHOD_VOICE_TRANSCRIPTION_TRANSCRIBE_AUDIO,
+  );
+  assert.deepEqual(transcribedVoiceAudio.params, {
+    audio_base64:
+      "UklGRiQAAABXQVZFZm10IBAAAAABAAEAgD4AAAB9AAACABAAZGF0YQAAAAA=",
+    mime_type: "audio/wav",
+    credential_id: "cred-1",
   });
   for (const legacyMethod of [
     "get_automation_scheduler_config",
@@ -1572,6 +2079,16 @@ test("builds file system requests with current methods", () => {
   const gitStatus = client.readProjectGitStatus({
     rootPath: "/workspace",
   });
+  const gitDiff = client.readProjectGitDiff({
+    rootPath: "/workspace",
+    contextLines: 5,
+    base: "staged",
+    commitSha: "abc123",
+  });
+  const gitCommits = client.listProjectGitCommits({
+    rootPath: "/workspace",
+    limit: 12,
+  });
   const gitCheckout = client.checkoutProjectGitBranch({
     rootPath: "/workspace",
     branch: "feature/demo",
@@ -1584,6 +2101,53 @@ test("builds file system requests with current methods", () => {
     rootPath: "/workspace",
     name: "agent-demo",
     baseBranch: "main",
+  });
+  const shellStart = client.startProjectShellSession({
+    rootPath: "/workspace",
+    cols: 120,
+    rows: 16,
+  });
+  const shellWrite = client.writeProjectShellSession({
+    sessionId: "project-shell-1",
+    data: "pwd\r",
+  });
+  const shellResize = client.resizeProjectShellSession({
+    sessionId: "project-shell-1",
+    cols: 100,
+    rows: 24,
+  });
+  const shellKill = client.killProjectShellSession({
+    sessionId: "project-shell-1",
+  });
+  const shellDrain = client.drainProjectShellSessionEvents({
+    sessionId: "project-shell-1",
+    limit: 20,
+  });
+  const executionStart = client.startExecutionProcess({
+    processId: "execution-process-1",
+    toolId: "tool-1",
+    toolName: "shell",
+    command: ["sh", "-c", "printf ok"],
+    workingDirectory: "/workspace",
+    approvalPolicy: "never",
+    sandboxPolicy: "danger-full-access",
+  });
+  const executionWrite = client.writeExecutionProcessStdin({
+    processId: "execution-process-1",
+    data: "input\n",
+  });
+  const executionInterrupt = client.interruptExecutionProcess({
+    processId: "execution-process-1",
+  });
+  const executionTerminate = client.terminateExecutionProcess({
+    processId: "execution-process-1",
+  });
+  const executionStatus = client.readExecutionProcessStatus({
+    processId: "execution-process-1",
+  });
+  const executionDrain = client.drainExecutionProcessOutput({
+    processId: "execution-process-1",
+    limit: 20,
   });
 
   assert.equal(listing.id, 1);
@@ -1624,24 +2188,107 @@ test("builds file system requests with current methods", () => {
   assert.deepEqual(gitStatus.params, {
     rootPath: "/workspace",
   });
-  assert.equal(gitCheckout.id, 8);
+  assert.equal(gitDiff.id, 8);
+  assert.equal(gitDiff.method, METHOD_PROJECT_GIT_DIFF);
+  assert.deepEqual(gitDiff.params, {
+    rootPath: "/workspace",
+    contextLines: 5,
+    base: "staged",
+    commitSha: "abc123",
+  });
+  assert.equal(gitCommits.id, 9);
+  assert.equal(gitCommits.method, METHOD_PROJECT_GIT_COMMITS_LIST);
+  assert.deepEqual(gitCommits.params, {
+    rootPath: "/workspace",
+    limit: 12,
+  });
+  assert.equal(gitCheckout.id, 10);
   assert.equal(gitCheckout.method, METHOD_PROJECT_GIT_BRANCH_CHECKOUT);
   assert.deepEqual(gitCheckout.params, {
     rootPath: "/workspace",
     branch: "feature/demo",
   });
-  assert.equal(gitCreateBranch.id, 9);
+  assert.equal(gitCreateBranch.id, 11);
   assert.equal(gitCreateBranch.method, METHOD_PROJECT_GIT_BRANCH_CREATE);
   assert.deepEqual(gitCreateBranch.params, {
     rootPath: "/workspace",
     branch: "feature/new",
   });
-  assert.equal(gitCreateWorktree.id, 10);
+  assert.equal(gitCreateWorktree.id, 12);
   assert.equal(gitCreateWorktree.method, METHOD_PROJECT_GIT_WORKTREE_CREATE);
   assert.deepEqual(gitCreateWorktree.params, {
     rootPath: "/workspace",
     name: "agent-demo",
     baseBranch: "main",
+  });
+  assert.equal(shellStart.id, 13);
+  assert.equal(shellStart.method, METHOD_PROJECT_SHELL_SESSION_START);
+  assert.deepEqual(shellStart.params, {
+    rootPath: "/workspace",
+    cols: 120,
+    rows: 16,
+  });
+  assert.equal(shellWrite.id, 14);
+  assert.equal(shellWrite.method, METHOD_PROJECT_SHELL_SESSION_WRITE);
+  assert.deepEqual(shellWrite.params, {
+    sessionId: "project-shell-1",
+    data: "pwd\r",
+  });
+  assert.equal(shellResize.id, 15);
+  assert.equal(shellResize.method, METHOD_PROJECT_SHELL_SESSION_RESIZE);
+  assert.deepEqual(shellResize.params, {
+    sessionId: "project-shell-1",
+    cols: 100,
+    rows: 24,
+  });
+  assert.equal(shellKill.id, 16);
+  assert.equal(shellKill.method, METHOD_PROJECT_SHELL_SESSION_KILL);
+  assert.deepEqual(shellKill.params, {
+    sessionId: "project-shell-1",
+  });
+  assert.equal(shellDrain.id, 17);
+  assert.equal(shellDrain.method, METHOD_PROJECT_SHELL_SESSION_DRAIN_EVENTS);
+  assert.deepEqual(shellDrain.params, {
+    sessionId: "project-shell-1",
+    limit: 20,
+  });
+  assert.equal(executionStart.id, 18);
+  assert.equal(executionStart.method, METHOD_EXECUTION_PROCESS_START);
+  assert.deepEqual(executionStart.params, {
+    processId: "execution-process-1",
+    toolId: "tool-1",
+    toolName: "shell",
+    command: ["sh", "-c", "printf ok"],
+    workingDirectory: "/workspace",
+    approvalPolicy: "never",
+    sandboxPolicy: "danger-full-access",
+  });
+  assert.equal(executionWrite.id, 19);
+  assert.equal(executionWrite.method, METHOD_EXECUTION_PROCESS_WRITE_STDIN);
+  assert.deepEqual(executionWrite.params, {
+    processId: "execution-process-1",
+    data: "input\n",
+  });
+  assert.equal(executionInterrupt.id, 20);
+  assert.equal(executionInterrupt.method, METHOD_EXECUTION_PROCESS_INTERRUPT);
+  assert.deepEqual(executionInterrupt.params, {
+    processId: "execution-process-1",
+  });
+  assert.equal(executionTerminate.id, 21);
+  assert.equal(executionTerminate.method, METHOD_EXECUTION_PROCESS_TERMINATE);
+  assert.deepEqual(executionTerminate.params, {
+    processId: "execution-process-1",
+  });
+  assert.equal(executionStatus.id, 22);
+  assert.equal(executionStatus.method, METHOD_EXECUTION_PROCESS_STATUS);
+  assert.deepEqual(executionStatus.params, {
+    processId: "execution-process-1",
+  });
+  assert.equal(executionDrain.id, 23);
+  assert.equal(executionDrain.method, METHOD_EXECUTION_PROCESS_DRAIN_OUTPUT);
+  assert.deepEqual(executionDrain.params, {
+    processId: "execution-process-1",
+    limit: 20,
   });
 });
 
@@ -1649,10 +2296,10 @@ test("builds connect deep link requests with current methods", () => {
   const client = new AppServerClient();
 
   const connect = client.resolveConnectDeepLink({
-    url: "ember://connect?relay=relay-one&key=sk-relay-key",
+    url: "lime://connect?relay=relay-one&key=sk-relay-key",
   });
   const open = client.resolveConnectOpenDeepLink({
-    url: "ember://open?kind=skill&slug=viral-content-breakdown&action=install",
+    url: "lime://open?kind=skill&slug=viral-content-breakdown&action=install",
   });
   const replay = client.replayAction({
     sessionId: "sess_action",
@@ -1669,16 +2316,30 @@ test("builds connect deep link requests with current methods", () => {
     status: "success",
     refCode: "ref-001",
   });
+  const importScan = client.scanConversationImportSource({
+    sourceClient: "codex",
+    sourceRoot: "/Users/example/.codex",
+    projectPath: "/workspace/lime",
+    query: "runtime",
+    includeArchived: true,
+    limit: 20,
+  });
+  const importPreview = client.previewConversationImportThread({
+    sourceClient: "codex",
+    sourceRoot: "/Users/example/.codex",
+    sourceThreadId: "thread-1",
+    limit: 10,
+  });
 
   assert.equal(connect.id, 1);
   assert.equal(connect.method, METHOD_CONNECT_DEEP_LINK_RESOLVE);
   assert.deepEqual(connect.params, {
-    url: "ember://connect?relay=relay-one&key=sk-relay-key",
+    url: "lime://connect?relay=relay-one&key=sk-relay-key",
   });
   assert.equal(open.id, 2);
   assert.equal(open.method, METHOD_CONNECT_OPEN_DEEP_LINK_RESOLVE);
   assert.deepEqual(open.params, {
-    url: "ember://open?kind=skill&slug=viral-content-breakdown&action=install",
+    url: "lime://open?kind=skill&slug=viral-content-breakdown&action=install",
   });
   assert.equal(replay.id, 3);
   assert.equal(replay.method, METHOD_AGENT_SESSION_ACTION_REPLAY);
@@ -1700,6 +2361,40 @@ test("builds connect deep link requests with current methods", () => {
     apiKey: "sk-relay-key",
     status: "success",
     refCode: "ref-001",
+  });
+  assert.equal(importScan.id, 6);
+  assert.equal(importScan.method, METHOD_CONVERSATION_IMPORT_SOURCE_SCAN);
+  assert.deepEqual(importScan.params, {
+    sourceClient: "codex",
+    sourceRoot: "/Users/example/.codex",
+    projectPath: "/workspace/lime",
+    query: "runtime",
+    includeArchived: true,
+    limit: 20,
+  });
+  assert.equal(importPreview.id, 7);
+  assert.equal(importPreview.method, METHOD_CONVERSATION_IMPORT_THREAD_PREVIEW);
+  assert.deepEqual(importPreview.params, {
+    sourceClient: "codex",
+    sourceRoot: "/Users/example/.codex",
+    sourceThreadId: "thread-1",
+    limit: 10,
+  });
+  const importCommit = client.commitConversationImportThread({
+    sourceClient: "codex",
+    sourceRoot: "/Users/example/.codex",
+    sourceThreadId: "thread-1",
+    workspaceId: "workspace-1",
+    confirmed: true,
+  });
+  assert.equal(importCommit.id, 8);
+  assert.equal(importCommit.method, METHOD_CONVERSATION_IMPORT_THREAD_COMMIT);
+  assert.deepEqual(importCommit.params, {
+    sourceClient: "codex",
+    sourceRoot: "/Users/example/.codex",
+    sourceThreadId: "thread-1",
+    workspaceId: "workspace-1",
+    confirmed: true,
   });
 });
 
@@ -1790,498 +2485,124 @@ test("builds evidence export requests with optional scope flags and runtime expo
   });
 });
 
-test("exports app-server method catalog with request and notification kinds", () => {
-  assert.deepEqual(APP_SERVER_METHODS, [
-    { method: METHOD_INITIALIZE, kind: "request" },
-    { method: METHOD_INITIALIZED, kind: "notification" },
-    { method: METHOD_CAPABILITY_LIST, kind: "request" },
-    { method: METHOD_ARTIFACT_READ, kind: "request" },
-    { method: METHOD_FILE_SYSTEM_LIST_DIRECTORY, kind: "request" },
-    { method: METHOD_FILE_SYSTEM_READ_FILE_PREVIEW, kind: "request" },
-    { method: METHOD_FILE_SYSTEM_CREATE_FILE, kind: "request" },
-    { method: METHOD_FILE_SYSTEM_CREATE_DIRECTORY, kind: "request" },
-    { method: METHOD_FILE_SYSTEM_RENAME_FILE, kind: "request" },
-    { method: METHOD_FILE_SYSTEM_DELETE_FILE, kind: "request" },
-    { method: METHOD_PROJECT_GIT_STATUS, kind: "request" },
-    { method: METHOD_PROJECT_GIT_BRANCH_CHECKOUT, kind: "request" },
-    { method: METHOD_PROJECT_GIT_BRANCH_CREATE, kind: "request" },
-    { method: METHOD_PROJECT_GIT_WORKTREE_CREATE, kind: "request" },
-    { method: METHOD_EVIDENCE_EXPORT, kind: "request" },
-    { method: METHOD_AGENT_SESSION_HANDOFF_BUNDLE_EXPORT, kind: "request" },
-    { method: METHOD_AGENT_SESSION_REPLAY_CASE_EXPORT, kind: "request" },
-    { method: METHOD_AGENT_SESSION_ANALYSIS_HANDOFF_EXPORT, kind: "request" },
-    {
-      method: METHOD_AGENT_SESSION_REVIEW_DECISION_TEMPLATE_EXPORT,
-      kind: "request",
-    },
-    { method: METHOD_AGENT_SESSION_REVIEW_DECISION_SAVE, kind: "request" },
-    { method: METHOD_AGENT_SESSION_LIST, kind: "request" },
-    { method: METHOD_AGENT_SESSION_UPDATE, kind: "request" },
-    { method: METHOD_AGENT_SESSION_ARCHIVE_MANY, kind: "request" },
-    { method: METHOD_AGENT_SESSION_OBJECTIVE_READ, kind: "request" },
-    { method: METHOD_AGENT_SESSION_OBJECTIVE_SET, kind: "request" },
-    {
-      method: METHOD_AGENT_SESSION_OBJECTIVE_STATUS_UPDATE,
-      kind: "request",
-    },
-    { method: METHOD_AGENT_SESSION_OBJECTIVE_CLEAR, kind: "request" },
-    { method: METHOD_AGENT_SESSION_OBJECTIVE_CONTINUE, kind: "request" },
-    { method: METHOD_AGENT_SESSION_OBJECTIVE_AUDIT, kind: "request" },
-    { method: METHOD_AGENT_SESSION_COMPACT, kind: "request" },
-    { method: METHOD_AGENT_SESSION_THREAD_RESUME, kind: "request" },
-    { method: METHOD_AGENT_SESSION_QUEUED_TURN_REMOVE, kind: "request" },
-    { method: METHOD_AGENT_SESSION_QUEUED_TURN_PROMOTE, kind: "request" },
-    { method: METHOD_AGENT_SESSION_FILE_CHECKPOINT_LIST, kind: "request" },
-    { method: METHOD_AGENT_SESSION_FILE_CHECKPOINT_GET, kind: "request" },
-    { method: METHOD_AGENT_SESSION_FILE_CHECKPOINT_DIFF, kind: "request" },
-    { method: METHOD_AGENT_SESSION_FILE_CHECKPOINT_RESTORE, kind: "request" },
-    { method: METHOD_SESSION_FILE_GET_OR_CREATE, kind: "request" },
-    { method: METHOD_SESSION_FILE_UPDATE_META, kind: "request" },
-    { method: METHOD_SESSION_FILE_SAVE, kind: "request" },
-    { method: METHOD_SESSION_FILE_READ, kind: "request" },
-    { method: METHOD_SESSION_FILE_RESOLVE_PATH, kind: "request" },
-    { method: METHOD_SESSION_FILE_DELETE, kind: "request" },
-    { method: METHOD_SESSION_FILE_LIST, kind: "request" },
-    { method: METHOD_WORKSPACE_LIST, kind: "request" },
-    { method: METHOD_WORKSPACE_READ, kind: "request" },
-    { method: METHOD_WORKSPACE_UPDATE, kind: "request" },
-    { method: METHOD_WORKSPACE_DELETE, kind: "request" },
-    { method: METHOD_WORKSPACE_ENSURE, kind: "request" },
-    { method: METHOD_WORKSPACE_BY_PATH_READ, kind: "request" },
-    { method: METHOD_WORKSPACE_DEFAULT_READ, kind: "request" },
-    { method: METHOD_WORKSPACE_DEFAULT_ENSURE, kind: "request" },
-    { method: METHOD_WORKSPACE_PROJECTS_ROOT_READ, kind: "request" },
-    { method: METHOD_WORKSPACE_PROJECT_PATH_RESOLVE, kind: "request" },
-    { method: METHOD_WORKSPACE_ENSURE_READY, kind: "request" },
-    { method: METHOD_SKILL_LIST, kind: "request" },
-    { method: METHOD_SKILL_READ, kind: "request" },
-    { method: METHOD_SKILL_MANAGEMENT_LIST, kind: "request" },
-    { method: METHOD_SKILL_MANAGEMENT_INSTALL, kind: "request" },
-    { method: METHOD_SKILL_MANAGEMENT_UNINSTALL, kind: "request" },
-    { method: METHOD_SKILL_REPOSITORY_LIST, kind: "request" },
-    { method: METHOD_SKILL_REPOSITORY_SAVE, kind: "request" },
-    { method: METHOD_SKILL_REPOSITORY_DELETE, kind: "request" },
-    { method: METHOD_SKILL_CACHE_REFRESH, kind: "request" },
-    { method: METHOD_SKILL_INSTALLED_DIRECTORIES_LIST, kind: "request" },
-    { method: METHOD_SKILL_LOCAL_INSPECT, kind: "request" },
-    { method: METHOD_SKILL_LOCAL_DETAIL_INSPECT, kind: "request" },
-    { method: METHOD_SKILL_LOCAL_SCAFFOLD_CREATE, kind: "request" },
-    { method: METHOD_SKILL_LOCAL_IMPORT, kind: "request" },
-    { method: METHOD_SKILL_LOCAL_RENAME, kind: "request" },
-    { method: METHOD_SKILL_REMOTE_INSPECT, kind: "request" },
-    { method: METHOD_SKILL_PACKAGE_LOCAL_INSPECT, kind: "request" },
-    { method: METHOD_SKILL_PACKAGE_LOCAL_INSTALL, kind: "request" },
-    { method: METHOD_SKILL_PACKAGE_LOCAL_REPLACE, kind: "request" },
-    { method: METHOD_SKILL_PACKAGE_EXPORT, kind: "request" },
-    { method: METHOD_SKILL_MARKETPLACE_INSTALL, kind: "request" },
-    { method: METHOD_SKILL_PACKAGE_DOWNLOAD_INSTALL, kind: "request" },
-    { method: METHOD_GATEWAY_CHANNEL_START, kind: "request" },
-    { method: METHOD_GATEWAY_CHANNEL_STOP, kind: "request" },
-    { method: METHOD_GATEWAY_CHANNEL_STATUS, kind: "request" },
-    { method: METHOD_TELEGRAM_CHANNEL_PROBE, kind: "request" },
-    { method: METHOD_FEISHU_CHANNEL_PROBE, kind: "request" },
-    { method: METHOD_DISCORD_CHANNEL_PROBE, kind: "request" },
-    { method: METHOD_WECHAT_CHANNEL_PROBE, kind: "request" },
-    { method: METHOD_WECHAT_CHANNEL_LOGIN_START, kind: "request" },
-    { method: METHOD_WECHAT_CHANNEL_LOGIN_WAIT, kind: "request" },
-    { method: METHOD_WECHAT_CHANNEL_ACCOUNT_LIST, kind: "request" },
-    { method: METHOD_WECHAT_CHANNEL_ACCOUNT_REMOVE, kind: "request" },
-    { method: METHOD_WECHAT_CHANNEL_RUNTIME_MODEL_SET, kind: "request" },
-    { method: METHOD_GATEWAY_TUNNEL_PROBE, kind: "request" },
-    { method: METHOD_GATEWAY_TUNNEL_CLOUDFLARED_DETECT, kind: "request" },
-    { method: METHOD_GATEWAY_TUNNEL_CLOUDFLARED_INSTALL, kind: "request" },
-    { method: METHOD_GATEWAY_TUNNEL_CREATE, kind: "request" },
-    { method: METHOD_GATEWAY_TUNNEL_START, kind: "request" },
-    { method: METHOD_GATEWAY_TUNNEL_STOP, kind: "request" },
-    { method: METHOD_GATEWAY_TUNNEL_RESTART, kind: "request" },
-    { method: METHOD_GATEWAY_TUNNEL_STATUS, kind: "request" },
-    { method: METHOD_GATEWAY_TUNNEL_SYNC_WEBHOOK_URL, kind: "request" },
-    { method: METHOD_WORKSPACE_SKILL_BINDINGS_LIST, kind: "request" },
-    { method: METHOD_WORKSPACE_REGISTERED_SKILLS_LIST, kind: "request" },
-    { method: METHOD_AGENT_APP_LOCAL_PACKAGE_INSPECT, kind: "request" },
-    { method: METHOD_AGENT_APP_PACKAGE_FETCH_CLOUD, kind: "request" },
-    { method: METHOD_AGENT_APP_INSTALLED_SAVE, kind: "request" },
-    { method: METHOD_AGENT_APP_INSTALLED_LIST, kind: "request" },
-    { method: METHOD_AGENT_APP_INSTALLED_DISABLED_SET, kind: "request" },
-    { method: METHOD_AGENT_APP_INSTALLED_UNINSTALL_REHEARSAL, kind: "request" },
-    { method: METHOD_AGENT_APP_INSTALLED_UNINSTALL, kind: "request" },
-    { method: METHOD_AGENT_APP_SHELL_PREPARE, kind: "request" },
-    { method: METHOD_AGENT_APP_UI_RUNTIME_START, kind: "request" },
-    { method: METHOD_AGENT_APP_UI_RUNTIME_STATUS, kind: "request" },
-    { method: METHOD_AGENT_APP_UI_RUNTIME_STOP, kind: "request" },
-    { method: METHOD_KNOWLEDGE_PACK_LIST, kind: "request" },
-    { method: METHOD_KNOWLEDGE_PACK_READ, kind: "request" },
-    { method: METHOD_KNOWLEDGE_SOURCE_IMPORT, kind: "request" },
-    { method: METHOD_KNOWLEDGE_PACK_COMPILE, kind: "request" },
-    { method: METHOD_KNOWLEDGE_PACK_DEFAULT_SET, kind: "request" },
-    { method: METHOD_KNOWLEDGE_PACK_STATUS_UPDATE, kind: "request" },
-    { method: METHOD_KNOWLEDGE_CONTEXT_RESOLVE, kind: "request" },
-    { method: METHOD_KNOWLEDGE_CONTEXT_RUN_VALIDATE, kind: "request" },
-    { method: METHOD_AUTOMATION_SCHEDULER_CONFIG_READ, kind: "request" },
-    { method: METHOD_AUTOMATION_SCHEDULER_CONFIG_UPDATE, kind: "request" },
-    { method: METHOD_AUTOMATION_SCHEDULER_STATUS, kind: "request" },
-    { method: METHOD_AUTOMATION_JOB_LIST, kind: "request" },
-    { method: METHOD_AUTOMATION_JOB_READ, kind: "request" },
-    { method: METHOD_AUTOMATION_JOB_CREATE, kind: "request" },
-    { method: METHOD_AUTOMATION_JOB_UPDATE, kind: "request" },
-    { method: METHOD_AUTOMATION_JOB_DELETE, kind: "request" },
-    { method: METHOD_AUTOMATION_JOB_RUN_NOW, kind: "request" },
-    { method: METHOD_AUTOMATION_JOB_HEALTH, kind: "request" },
-    { method: METHOD_AUTOMATION_JOB_RUN_HISTORY, kind: "request" },
-    { method: METHOD_AUTOMATION_SCHEDULE_PREVIEW, kind: "request" },
-    { method: METHOD_AUTOMATION_SCHEDULE_VALIDATE, kind: "request" },
-    { method: METHOD_MCP_SERVER_LIST, kind: "request" },
-    { method: METHOD_MCP_SERVER_STATUS_LIST, kind: "request" },
-    { method: METHOD_MCP_SERVER_CREATE, kind: "request" },
-    { method: METHOD_MCP_SERVER_UPDATE, kind: "request" },
-    { method: METHOD_MCP_SERVER_DELETE, kind: "request" },
-    { method: METHOD_MCP_SERVER_ENABLED_SET, kind: "request" },
-    { method: METHOD_MCP_SERVER_IMPORT_FROM_APP, kind: "request" },
-    { method: METHOD_MCP_SERVER_SYNC_ALL_TO_LIVE, kind: "request" },
-    { method: METHOD_MCP_SERVER_START, kind: "request" },
-    { method: METHOD_MCP_SERVER_STOP, kind: "request" },
-    { method: METHOD_MCP_TOOL_LIST, kind: "request" },
-    { method: METHOD_MCP_TOOL_LIST_FOR_CONTEXT, kind: "request" },
-    { method: METHOD_MCP_TOOL_SEARCH, kind: "request" },
-    { method: METHOD_MCP_TOOL_CALL, kind: "request" },
-    { method: METHOD_MCP_TOOL_CALL_WITH_CALLER, kind: "request" },
-    { method: METHOD_MCP_PROMPT_LIST, kind: "request" },
-    { method: METHOD_MCP_PROMPT_GET, kind: "request" },
-    { method: METHOD_MCP_RESOURCE_LIST, kind: "request" },
-    { method: METHOD_MCP_RESOURCE_READ, kind: "request" },
-    { method: METHOD_PROJECT_MEMORY_READ, kind: "request" },
-    { method: METHOD_UNIFIED_MEMORY_LIST, kind: "request" },
-    { method: METHOD_UNIFIED_MEMORY_GET, kind: "request" },
-    { method: METHOD_UNIFIED_MEMORY_CREATE, kind: "request" },
-    { method: METHOD_UNIFIED_MEMORY_UPDATE, kind: "request" },
-    { method: METHOD_UNIFIED_MEMORY_DELETE, kind: "request" },
-    { method: METHOD_UNIFIED_MEMORY_SEARCH, kind: "request" },
-    { method: METHOD_UNIFIED_MEMORY_STATS, kind: "request" },
-    { method: METHOD_UNIFIED_MEMORY_ANALYZE, kind: "request" },
-    { method: METHOD_UNIFIED_MEMORY_SEMANTIC_SEARCH, kind: "request" },
-    { method: METHOD_UNIFIED_MEMORY_HYBRID_SEARCH, kind: "request" },
-    { method: METHOD_LOG_LIST, kind: "request" },
-    { method: METHOD_LOG_PERSISTED_TAIL, kind: "request" },
-    { method: METHOD_LOG_CLEAR, kind: "request" },
-    { method: METHOD_LOG_DIAGNOSTIC_HISTORY_CLEAR, kind: "request" },
-    { method: METHOD_DIAGNOSTICS_LOG_STORAGE_READ, kind: "request" },
-    { method: METHOD_DIAGNOSTICS_SUPPORT_BUNDLE_EXPORT, kind: "request" },
-    { method: METHOD_DIAGNOSTICS_SERVER_READ, kind: "request" },
-    { method: METHOD_DIAGNOSTICS_WINDOWS_STARTUP_READ, kind: "request" },
-    { method: METHOD_MEDIA_TASK_ARTIFACT_IMAGE_CREATE, kind: "request" },
-    { method: METHOD_MEDIA_TASK_ARTIFACT_AUDIO_CREATE, kind: "request" },
-    { method: METHOD_MEDIA_TASK_ARTIFACT_VIDEO_CREATE, kind: "request" },
-    { method: METHOD_MEDIA_TASK_ARTIFACT_AUDIO_COMPLETE, kind: "request" },
-    { method: METHOD_MEDIA_TASK_ARTIFACT_GET, kind: "request" },
-    { method: METHOD_MEDIA_TASK_ARTIFACT_LIST, kind: "request" },
-    { method: METHOD_MEDIA_TASK_ARTIFACT_CANCEL, kind: "request" },
-    { method: METHOD_GALLERY_MATERIAL_GET, kind: "request" },
-    { method: METHOD_GALLERY_MATERIAL_METADATA_CREATE, kind: "request" },
-    { method: METHOD_GALLERY_MATERIAL_METADATA_GET, kind: "request" },
-    { method: METHOD_GALLERY_MATERIAL_METADATA_UPDATE, kind: "request" },
-    { method: METHOD_GALLERY_MATERIAL_METADATA_DELETE, kind: "request" },
-    {
-      method: METHOD_GALLERY_MATERIAL_LIST_BY_IMAGE_CATEGORY,
-      kind: "request",
-    },
-    {
-      method: METHOD_GALLERY_MATERIAL_LIST_BY_LAYOUT_CATEGORY,
-      kind: "request",
-    },
-    { method: METHOD_GALLERY_MATERIAL_LIST_BY_MOOD, kind: "request" },
-    { method: METHOD_PROJECT_MATERIAL_LIST, kind: "request" },
-    { method: METHOD_PROJECT_MATERIAL_GET, kind: "request" },
-    { method: METHOD_PROJECT_MATERIAL_COUNT, kind: "request" },
-    { method: METHOD_PROJECT_MATERIAL_UPLOAD, kind: "request" },
-    { method: METHOD_PROJECT_MATERIAL_IMPORT_FROM_URL, kind: "request" },
-    { method: METHOD_PROJECT_MATERIAL_UPDATE, kind: "request" },
-    { method: METHOD_PROJECT_MATERIAL_DELETE, kind: "request" },
-    { method: METHOD_PROJECT_MATERIAL_CONTENT, kind: "request" },
-    { method: METHOD_VOICE_ASR_CREDENTIAL_LIST, kind: "request" },
-    { method: METHOD_VOICE_ASR_CREDENTIAL_CREATE, kind: "request" },
-    { method: METHOD_VOICE_ASR_CREDENTIAL_UPDATE, kind: "request" },
-    { method: METHOD_VOICE_ASR_CREDENTIAL_DELETE, kind: "request" },
-    { method: METHOD_VOICE_ASR_CREDENTIAL_DEFAULT_SET, kind: "request" },
-    { method: METHOD_VOICE_ASR_CREDENTIAL_TEST, kind: "request" },
-    { method: METHOD_VOICE_INSTRUCTION_LIST, kind: "request" },
-    { method: METHOD_VOICE_INSTRUCTION_SAVE, kind: "request" },
-    { method: METHOD_VOICE_INSTRUCTION_DELETE, kind: "request" },
-    { method: METHOD_VOICE_MODEL_DEFAULT_SET, kind: "request" },
-    { method: METHOD_VOICE_MODEL_TEST_TRANSCRIBE_FILE, kind: "request" },
-    { method: METHOD_USAGE_STATS_READ, kind: "request" },
-    { method: METHOD_USAGE_STATS_MODEL_RANKING_LIST, kind: "request" },
-    { method: METHOD_USAGE_STATS_DAILY_TRENDS_LIST, kind: "request" },
-    { method: METHOD_MODEL_LIST, kind: "request" },
-    { method: METHOD_MODEL_PREFERENCES_LIST, kind: "request" },
-    { method: METHOD_MODEL_SYNC_STATE_READ, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_LIST, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_CATALOG_LIST, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_READ, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_CREATE, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_UPDATE, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_DELETE, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_SORT_ORDERS_UPDATE, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_CONFIG_EXPORT, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_CONFIG_IMPORT, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_TEST_CONNECTION, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_TEST_CHAT, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_FETCH_MODELS, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_KEY_CREATE, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_KEY_UPDATE, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_KEY_DELETE, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_KEY_NEXT, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_KEY_USAGE_RECORD, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_KEY_ERROR_RECORD, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_UI_STATE_READ, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_UI_STATE_WRITE, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_ALIAS_READ, kind: "request" },
-    { method: METHOD_MODEL_PROVIDER_ALIAS_LIST, kind: "request" },
-    { method: METHOD_CONNECT_DEEP_LINK_RESOLVE, kind: "request" },
-    { method: METHOD_CONNECT_OPEN_DEEP_LINK_RESOLVE, kind: "request" },
-    { method: METHOD_CONNECT_RELAY_API_KEY_SAVE, kind: "request" },
-    { method: METHOD_CONNECT_CALLBACK_SEND, kind: "request" },
-    { method: METHOD_AGENT_SESSION_START, kind: "request" },
-    { method: METHOD_AGENT_SESSION_READ, kind: "request" },
-    { method: METHOD_AGENT_SESSION_TURN_START, kind: "request" },
-    { method: METHOD_AGENT_SESSION_TURN_CANCEL, kind: "request" },
-    { method: METHOD_AGENT_SESSION_ACTION_REPLAY, kind: "request" },
-    { method: METHOD_AGENT_SESSION_ACTION_RESPOND, kind: "request" },
-    { method: METHOD_AGENT_SESSION_EVENT, kind: "notification" },
-  ]);
+test("exports app-server method catalog from checked-in Rust manifest", () => {
+  const manifest = require(
+    join(
+      repoRoot,
+      "ember-rs",
+      "crates",
+      "app-server-protocol",
+      "schema",
+      "json",
+      "manifest.json",
+    ),
+  );
+  assert.deepEqual(APP_SERVER_METHODS, manifest.methods);
+  assert.deepEqual(
+    APP_SERVER_REQUEST_SERIALIZATION_SCOPES,
+    manifest.requestSerializationScopes,
+  );
   assert.equal(isAppServerRequestMethod(METHOD_INITIALIZE), true);
   assert.equal(isAppServerRequestMethod(METHOD_ARTIFACT_READ), true);
-  assert.equal(
-    isAppServerRequestMethod(METHOD_FILE_SYSTEM_LIST_DIRECTORY),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_FILE_SYSTEM_READ_FILE_PREVIEW),
-    true,
-  );
-  assert.equal(isAppServerRequestMethod(METHOD_FILE_SYSTEM_CREATE_FILE), true);
-  assert.equal(
-    isAppServerRequestMethod(METHOD_FILE_SYSTEM_CREATE_DIRECTORY),
-    true,
-  );
-  assert.equal(isAppServerRequestMethod(METHOD_FILE_SYSTEM_RENAME_FILE), true);
-  assert.equal(isAppServerRequestMethod(METHOD_FILE_SYSTEM_DELETE_FILE), true);
-  assert.equal(isAppServerRequestMethod(METHOD_PROJECT_GIT_STATUS), true);
-  assert.equal(
-    isAppServerRequestMethod(METHOD_PROJECT_GIT_BRANCH_CHECKOUT),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_PROJECT_GIT_BRANCH_CREATE),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_PROJECT_GIT_WORKTREE_CREATE),
-    true,
-  );
-  assert.equal(isAppServerRequestMethod(METHOD_EVIDENCE_EXPORT), true);
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_SESSION_HANDOFF_BUNDLE_EXPORT),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_SESSION_REPLAY_CASE_EXPORT),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_SESSION_ANALYSIS_HANDOFF_EXPORT),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(
-      METHOD_AGENT_SESSION_REVIEW_DECISION_TEMPLATE_EXPORT,
-    ),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_SESSION_REVIEW_DECISION_SAVE),
-    true,
-  );
-  assert.equal(isAppServerRequestMethod(METHOD_AGENT_SESSION_UPDATE), true);
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_SESSION_ARCHIVE_MANY),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_SESSION_OBJECTIVE_READ),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_SESSION_OBJECTIVE_SET),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_SESSION_OBJECTIVE_STATUS_UPDATE),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_SESSION_OBJECTIVE_CLEAR),
-    true,
-  );
-  assert.equal(isAppServerRequestMethod(METHOD_WORKSPACE_LIST), true);
-  assert.equal(isAppServerRequestMethod(METHOD_SKILL_LIST), true);
-  assert.equal(
-    isAppServerRequestMethod(METHOD_WORKSPACE_SKILL_BINDINGS_LIST),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_WORKSPACE_REGISTERED_SKILLS_LIST),
-    true,
-  );
-  assert.equal(isAppServerRequestMethod(METHOD_AGENT_APP_INSTALLED_LIST), true);
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_APP_LOCAL_PACKAGE_INSPECT),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_APP_PACKAGE_FETCH_CLOUD),
-    true,
-  );
-  assert.equal(isAppServerRequestMethod(METHOD_AGENT_APP_INSTALLED_SAVE), true);
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_APP_INSTALLED_DISABLED_SET),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_APP_INSTALLED_UNINSTALL_REHEARSAL),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_APP_INSTALLED_UNINSTALL),
-    true,
-  );
-  assert.equal(isAppServerRequestMethod(METHOD_AGENT_APP_SHELL_PREPARE), true);
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_APP_UI_RUNTIME_START),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_APP_UI_RUNTIME_STATUS),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_APP_UI_RUNTIME_STOP),
-    true,
-  );
-  assert.equal(isAppServerRequestMethod(METHOD_KNOWLEDGE_PACK_LIST), true);
-  assert.equal(isAppServerRequestMethod(METHOD_KNOWLEDGE_PACK_READ), true);
-  assert.equal(isAppServerRequestMethod(METHOD_KNOWLEDGE_SOURCE_IMPORT), true);
-  assert.equal(isAppServerRequestMethod(METHOD_KNOWLEDGE_PACK_COMPILE), true);
-  assert.equal(
-    isAppServerRequestMethod(METHOD_KNOWLEDGE_PACK_DEFAULT_SET),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_KNOWLEDGE_PACK_STATUS_UPDATE),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_KNOWLEDGE_CONTEXT_RESOLVE),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_KNOWLEDGE_CONTEXT_RUN_VALIDATE),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AUTOMATION_SCHEDULER_CONFIG_READ),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AUTOMATION_SCHEDULER_CONFIG_UPDATE),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AUTOMATION_SCHEDULER_STATUS),
-    true,
-  );
-  assert.equal(isAppServerRequestMethod(METHOD_AUTOMATION_JOB_LIST), true);
-  assert.equal(isAppServerRequestMethod(METHOD_AUTOMATION_JOB_READ), true);
-  assert.equal(isAppServerRequestMethod(METHOD_AUTOMATION_JOB_CREATE), true);
-  assert.equal(isAppServerRequestMethod(METHOD_AUTOMATION_JOB_UPDATE), true);
-  assert.equal(isAppServerRequestMethod(METHOD_AUTOMATION_JOB_DELETE), true);
-  assert.equal(isAppServerRequestMethod(METHOD_AUTOMATION_JOB_RUN_NOW), true);
-  assert.equal(isAppServerRequestMethod(METHOD_AUTOMATION_JOB_HEALTH), true);
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AUTOMATION_JOB_RUN_HISTORY),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AUTOMATION_SCHEDULE_PREVIEW),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_AUTOMATION_SCHEDULE_VALIDATE),
-    true,
-  );
-  assert.equal(isAppServerRequestMethod(METHOD_MCP_SERVER_LIST), true);
-  assert.equal(isAppServerRequestMethod(METHOD_MCP_SERVER_STATUS_LIST), true);
-  assert.equal(isAppServerRequestMethod(METHOD_MCP_SERVER_CREATE), true);
-  assert.equal(isAppServerRequestMethod(METHOD_MCP_SERVER_UPDATE), true);
-  assert.equal(isAppServerRequestMethod(METHOD_MCP_SERVER_DELETE), true);
-  assert.equal(isAppServerRequestMethod(METHOD_MCP_SERVER_ENABLED_SET), true);
-  assert.equal(
-    isAppServerRequestMethod(METHOD_MCP_SERVER_IMPORT_FROM_APP),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_MCP_SERVER_SYNC_ALL_TO_LIVE),
-    true,
-  );
-  assert.equal(isAppServerRequestMethod(METHOD_MCP_SERVER_START), true);
-  assert.equal(isAppServerRequestMethod(METHOD_MCP_SERVER_STOP), true);
-  assert.equal(isAppServerRequestMethod(METHOD_MCP_TOOL_LIST), true);
-  assert.equal(
-    isAppServerRequestMethod(METHOD_MCP_TOOL_LIST_FOR_CONTEXT),
-    true,
-  );
-  assert.equal(isAppServerRequestMethod(METHOD_MCP_TOOL_SEARCH), true);
-  assert.equal(isAppServerRequestMethod(METHOD_MCP_TOOL_CALL), true);
-  assert.equal(
-    isAppServerRequestMethod(METHOD_MCP_TOOL_CALL_WITH_CALLER),
-    true,
-  );
-  assert.equal(isAppServerRequestMethod(METHOD_MCP_PROMPT_LIST), true);
-  assert.equal(isAppServerRequestMethod(METHOD_MCP_PROMPT_GET), true);
-  assert.equal(isAppServerRequestMethod(METHOD_MCP_RESOURCE_LIST), true);
-  assert.equal(isAppServerRequestMethod(METHOD_MCP_RESOURCE_READ), true);
-  assert.equal(isAppServerRequestMethod(METHOD_PROJECT_MEMORY_READ), true);
-  assert.equal(
-    isAppServerRequestMethod(METHOD_CONNECT_DEEP_LINK_RESOLVE),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_CONNECT_OPEN_DEEP_LINK_RESOLVE),
-    true,
-  );
-  assert.equal(
-    isAppServerRequestMethod(METHOD_CONNECT_RELAY_API_KEY_SAVE),
-    true,
-  );
-  assert.equal(isAppServerRequestMethod(METHOD_CONNECT_CALLBACK_SEND), true);
-  assert.equal(isAppServerRequestMethod(METHOD_VOICE_INSTRUCTION_LIST), true);
-  assert.equal(isAppServerRequestMethod(METHOD_VOICE_INSTRUCTION_SAVE), true);
-  assert.equal(isAppServerRequestMethod(METHOD_VOICE_INSTRUCTION_DELETE), true);
-  assert.equal(isAppServerRequestMethod(METHOD_VOICE_MODEL_DEFAULT_SET), true);
-  assert.equal(
-    isAppServerRequestMethod(METHOD_VOICE_MODEL_TEST_TRANSCRIBE_FILE),
-    true,
-  );
   assert.equal(isAppServerRequestMethod(METHOD_AGENT_SESSION_TURN_START), true);
   assert.equal(
-    isAppServerRequestMethod(METHOD_AGENT_SESSION_ACTION_RESPOND),
-    true,
+    isAppServerRequestMethod(METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED),
+    false,
   );
-  assert.equal(isAppServerRequestMethod(METHOD_INITIALIZED), false);
+  assert.equal(isAppServerRequestMethod(METHOD_AGENT_SESSION_EVENT), false);
   assert.equal(isAppServerNotificationMethod(METHOD_INITIALIZED), true);
   assert.equal(isAppServerNotificationMethod(METHOD_AGENT_SESSION_EVENT), true);
   assert.equal(
     isAppServerNotificationMethod(METHOD_AGENT_SESSION_START),
     false,
+  );
+  assert.equal(
+    isAppServerServerRequestMethod(METHOD_MCP_SERVER_ELICITATION_REQUEST),
+    true,
+  );
+  assert.equal(
+    isAppServerRequestMethod(METHOD_MCP_SERVER_ELICITATION_REQUEST),
+    false,
+  );
+  assert.equal(
+    isAppServerNotificationMethod(METHOD_MCP_SERVER_ELICITATION_REQUEST),
+    false,
+  );
+  assert.equal(
+    getAppServerRequestSerializationScope(METHOD_AGENT_SESSION_TURN_START),
+    "thread",
+  );
+  assert.equal(
+    getAppServerRequestSerializationScope(METHOD_EXECUTION_PROCESS_START),
+    "executionProcess",
+  );
+  assert.equal(
+    getAppServerRequestSerializationScope(METHOD_PROJECT_SHELL_SESSION_START),
+    "projectShellSession",
+  );
+  assert.equal(
+    getAppServerRequestSerializationScope(METHOD_MCP_SERVER_OAUTH_LOGIN),
+    "mcpOauth",
+  );
+  assert.equal(
+    getAppServerRequestSerializationScope(METHOD_BROWSER_SESSION_OPEN),
+    "browserSession",
+  );
+  assert.equal(
+    getAppServerRequestSerializationScope(METHOD_FILE_SYSTEM_DELETE_FILE),
+    "fileSystemMutation",
+  );
+  assert.equal(
+    getAppServerRequestSerializationScope(METHOD_ARTIFACT_READ),
+    undefined,
+  );
+});
+
+test("request client wrapper specs are backed by the generated method catalog", () => {
+  const methodKinds = new Map(
+    APP_SERVER_METHODS.map(({ method, kind }) => [method, kind]),
+  );
+
+  for (const spec of APP_SERVER_REQUEST_CLIENT_METHODS) {
+    assert.equal(
+      methodKinds.get(spec.method),
+      spec.kind,
+      `${spec.name} must use a generated ${spec.kind} method`,
+    );
+  }
+});
+
+test("parses workspace right surface pending changed notifications", () => {
+  const notification = {
+    method: METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED,
+    params: {
+      changeType: "requested",
+      requestIds: ["right_surface_1"],
+      pending: [
+        {
+          requestId: "right_surface_1",
+          surfaceKind: "objectCanvas",
+          origin: "mcpTool",
+          priority: "normal",
+          requestedAt: "2026-06-23T00:00:00.000Z",
+          status: "pending",
+        },
+      ],
+    },
+  };
+
+  assert.equal(
+    isWorkspaceRightSurfacePendingChangedNotification(notification),
+    true,
+  );
+  assert.equal(
+    workspaceRightSurfacePendingChangedNotification(notification)?.params
+      .changeType,
+    "requested",
+  );
+  assert.equal(
+    workspaceRightSurfacePendingChangedNotification({ method: "other" }),
+    undefined,
   );
 });
 
@@ -2292,7 +2613,7 @@ test("builds action respond requests for host action resolution", () => {
     sessionId: "sess_external",
     requestId: "req_confirm_1",
     actionType: "tool_confirmation",
-    confirmed: true,
+    decision: "allow_once",
     response: "allow",
     userData: {
       reason: "approved",
@@ -2314,7 +2635,7 @@ test("builds action respond requests for host action resolution", () => {
     sessionId: "sess_external",
     requestId: "req_confirm_1",
     actionType: "tool_confirmation",
-    confirmed: true,
+    decision: "allow_once",
     response: "allow",
     userData: {
       reason: "approved",
@@ -2343,9 +2664,6 @@ test("builds turn start requests with runtime queue flags", () => {
     runtimeOptions: {
       capabilityId: "draft.write",
       stream: true,
-      hostOptions: {
-        adapter: "desktop",
-      },
     },
     queueIfBusy: true,
     skipPreSubmitResume: true,
@@ -2357,7 +2675,16 @@ test("builds turn start requests with runtime queue flags", () => {
   assert.equal(turn.params.queueIfBusy, true);
   assert.equal(turn.params.skipPreSubmitResume, true);
   assert.equal(turn.params.runtimeOptions.capabilityId, "draft.write");
-  assert.equal(turn.params.runtimeOptions.hostOptions.adapter, "desktop");
+  assert.equal(isAgentSessionTurnStartRequest(turn), true);
+  assert.equal(agentSessionTurnStartRequest(turn)?.params.input.text, "draft");
+  assert.equal(
+    agentSessionTurnStartRequest({
+      id: 2,
+      method: "other/request",
+      params: {},
+    }),
+    undefined,
+  );
 });
 
 test("connection wraps request response flow and keeps async notifications", async () => {
@@ -2419,7 +2746,470 @@ test("connection wraps request response flow and keeps async notifications", asy
   assert.equal(result.notifications[0].params.event.payload.text, "delta");
 });
 
-test("agent runtime client facade delegates to current App Server session methods", async () => {
+test("connection yields transport reads while one request is still pending", async () => {
+  const sent = [];
+  const inbound = [
+    {
+      id: 2,
+      result: {
+        sessions: [
+          {
+            sessionId: "sess_external",
+            threadId: "thread_external",
+            appId: "content-studio",
+            status: "running",
+            createdAt: "2026-06-04T00:00:00Z",
+            updatedAt: "2026-06-04T00:00:01Z",
+          },
+        ],
+      },
+    },
+  ];
+  const connection = new AppServerConnection({
+    send(message) {
+      sent.push(message);
+    },
+    nextMessage(timeoutMs = 30_000) {
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          const message = inbound.shift();
+          if (message) {
+            resolve(message);
+            return;
+          }
+          reject(
+            new Error(
+              `timed out waiting for app-server message after ${timeoutMs}ms`,
+            ),
+          );
+        }, 1);
+      });
+    },
+  });
+
+  void connection
+    .startTurn(
+      {
+        sessionId: "sess_external",
+        input: {
+          text: "draft",
+        },
+        queueIfBusy: true,
+      },
+      { timeoutMs: 1_000 },
+    )
+    .catch(() => undefined);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+
+  const result = await connection.listSessions({}, { timeoutMs: 100 });
+
+  assert.equal(sent[0].method, METHOD_AGENT_SESSION_TURN_START);
+  assert.equal(sent[1].method, METHOD_AGENT_SESSION_LIST);
+  assert.equal(result.id, 2);
+  assert.equal(result.result.sessions[0].sessionId, "sess_external");
+});
+
+test("connection detaches streaming request after first notification and drops its late final response", async () => {
+  const sent = [];
+  const inbound = [
+    {
+      method: METHOD_AGENT_SESSION_EVENT,
+      params: {
+        event: {
+          eventId: "evt-turn-started",
+          sequence: 1,
+          sessionId: "sess_external",
+          turnId: "turn_external",
+          type: "turn.started",
+          timestamp: "2026-06-04T00:00:00Z",
+          payload: {},
+        },
+      },
+    },
+    {
+      id: 1,
+      result: {
+        turn: {
+          turnId: "turn_external",
+          sessionId: "sess_external",
+          threadId: "thread_external",
+          status: "accepted",
+        },
+      },
+    },
+    {
+      id: 2,
+      result: {
+        sessions: [
+          {
+            sessionId: "sess_external",
+            threadId: "thread_external",
+            appId: "content-studio",
+            status: "running",
+            createdAt: "2026-06-04T00:00:00Z",
+            updatedAt: "2026-06-04T00:00:01Z",
+          },
+        ],
+      },
+    },
+  ];
+  const connection = new AppServerConnection({
+    send(message) {
+      sent.push(message);
+    },
+    async nextMessage() {
+      const message = inbound.shift();
+      if (!message) {
+        throw new Error("empty transport");
+      }
+      return message;
+    },
+  });
+
+  const turnRequest = connection.client.startTurn({
+    sessionId: "sess_external",
+    turnId: "turn_external",
+    input: {
+      text: "draft",
+    },
+    queueIfBusy: true,
+  });
+  const start = await connection.requestUntilFirstNotificationOrResponse(
+    turnRequest,
+    METHOD_AGENT_SESSION_TURN_START,
+    { timeoutMs: 100 },
+  );
+  const list = await connection.listSessions({}, { timeoutMs: 100 });
+
+  assert.equal(start.completed, false);
+  assert.equal(start.notifications.length, 1);
+  assert.equal(sent[0].method, METHOD_AGENT_SESSION_TURN_START);
+  assert.equal(sent[1].method, METHOD_AGENT_SESSION_LIST);
+  assert.equal(list.id, 2);
+  assert.equal(list.result.sessions[0].sessionId, "sess_external");
+});
+
+test("connection can consume streamed media read chunk notifications", async () => {
+  const sent = [];
+  const inbound = [
+    {
+      method: METHOD_AGENT_SESSION_EVENT,
+      params: {
+        event: {
+          eventId: "evt-media-chunk",
+          sequence: 1,
+          sessionId: "sess_external",
+          threadId: "thread_external",
+          type: "media.read.chunk",
+          timestamp: "2026-06-04T00:00:00Z",
+          payload: {
+            streamId: "media-read:sess_external:0",
+            chunkIndex: 1,
+            done: false,
+            chunk: {
+              sessionId: "sess_external",
+              uri: "sidecar://media/demo",
+              bytes: 4,
+              totalBytes: 4,
+              offset: 0,
+              length: 4,
+              contentRange: "bytes 0-3/4",
+              hasMore: false,
+              contentBase64: "iVBORw==",
+            },
+          },
+        },
+      },
+    },
+    {
+      method: METHOD_AGENT_SESSION_EVENT,
+      params: {
+        event: {
+          eventId: "evt-media-completed",
+          sequence: 2,
+          sessionId: "sess_external",
+          threadId: "thread_external",
+          type: "media.read.completed",
+          timestamp: "2026-06-04T00:00:01Z",
+          payload: {
+            streamId: "media-read:sess_external:0",
+            chunkCount: 1,
+            done: true,
+            media: {
+              sessionId: "sess_external",
+              uri: "sidecar://media/demo",
+              bytes: 4,
+              totalBytes: 4,
+              offset: 0,
+              length: 4,
+              contentRange: "bytes 0-3/4",
+              hasMore: false,
+              sha256: "sha256:demo",
+            },
+          },
+        },
+      },
+    },
+    {
+      id: 1,
+      result: {
+        sessionId: "sess_external",
+        uri: "sidecar://media/demo",
+        bytes: 4,
+        totalBytes: 4,
+        offset: 0,
+        length: 4,
+        contentRange: "bytes 0-3/4",
+        hasMore: false,
+        sha256: "sha256:demo",
+        contentBase64: "iVBORw==",
+      },
+    },
+    {
+      id: 2,
+      result: {
+        sessions: [
+          {
+            sessionId: "sess_external",
+            threadId: "thread_external",
+            appId: "content-studio",
+            status: "running",
+            createdAt: "2026-06-04T00:00:00Z",
+            updatedAt: "2026-06-04T00:00:01Z",
+          },
+        ],
+      },
+    },
+  ];
+  const connection = new AppServerConnection({
+    send(message) {
+      sent.push(message);
+    },
+    async nextMessage() {
+      const message = inbound.shift();
+      if (!message) {
+        throw new Error("empty transport");
+      }
+      return message;
+    },
+  });
+
+  const request = connection.client.readAgentSessionMedia({
+    sessionId: "sess_external",
+    uri: "sidecar://media/demo",
+    stream: true,
+  });
+  const first = await connection.requestUntilFirstNotificationOrResponse(
+    request,
+    METHOD_AGENT_SESSION_MEDIA_READ,
+    { timeoutMs: 100 },
+  );
+  const mirroredChunk = await connection.nextNotification(100);
+  const completed = await connection.nextNotification(100);
+  const list = await connection.listSessions({}, { timeoutMs: 100 });
+
+  assert.equal(first.completed, false);
+  assert.equal(sent[0].method, METHOD_AGENT_SESSION_MEDIA_READ);
+  assert.equal(sent[0].params.stream, true);
+  assert.equal(
+    agentSessionMediaReadEventNotification(first.notifications[0])?.params.event
+      .payload.chunk.contentBase64,
+    "iVBORw==",
+  );
+  assert.equal(
+    agentSessionMediaReadEventNotification(mirroredChunk)?.params.event.payload
+      .chunk.contentBase64,
+    "iVBORw==",
+  );
+  assert.equal(
+    agentSessionMediaReadEventNotification(completed)?.params.event.payload
+      .media.sha256,
+    "sha256:demo",
+  );
+  assert.equal(sent[1].method, METHOD_AGENT_SESSION_LIST);
+  assert.equal(list.id, 2);
+  assert.equal(list.result.sessions[0].sessionId, "sess_external");
+});
+
+test("ordinary request timeout is not extended forever by streaming notifications", async () => {
+  const sent = [];
+  let sequence = 0;
+  const connection = new AppServerConnection({
+    send(message) {
+      sent.push(message);
+    },
+    async nextMessage() {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      sequence += 1;
+      return {
+        method: METHOD_AGENT_SESSION_EVENT,
+        params: {
+          event: {
+            eventId: `evt-${sequence}`,
+            sequence,
+            sessionId: "sess_external",
+            turnId: "turn_external",
+            type: "message.delta",
+            timestamp: "2026-06-04T00:00:01Z",
+            payload: { text: "still streaming" },
+          },
+        },
+      };
+    },
+  });
+
+  await assert.rejects(
+    () => connection.listSessions({}, { timeoutMs: 100 }),
+    /timed out waiting for app-server message after 100ms/,
+  );
+
+  assert.equal(sent[0].method, METHOD_AGENT_SESSION_LIST);
+  assert.ok(sequence > 0);
+});
+
+test("request timeout reports the original budget instead of the final read slice", async () => {
+  const observedTimeouts = [];
+  const connection = new AppServerConnection({
+    send() {},
+    async nextMessage(timeoutMs) {
+      observedTimeouts.push(timeoutMs);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      throw new Error(
+        `timed out waiting for app-server message after ${timeoutMs}ms`,
+      );
+    },
+  });
+
+  await assert.rejects(
+    () => connection.listSessions({}, { timeoutMs: 30 }),
+    /timed out waiting for app-server message after 30ms/,
+  );
+
+  assert.ok(observedTimeouts.some((timeoutMs) => timeoutMs < 30));
+});
+
+test("connection rejects already aborted requests before transport send", async () => {
+  const sent = [];
+  const controller = new AbortController();
+  controller.abort("superseded");
+  const connection = new AppServerConnection({
+    send(message) {
+      sent.push(message);
+    },
+    async nextMessage() {
+      throw new Error("unexpected transport read");
+    },
+  });
+
+  await assert.rejects(
+    () => connection.listSessions({}, { signal: controller.signal }),
+    (error) => {
+      assert.equal(error instanceof AppServerRequestAbortedError, true);
+      assert.equal(error.method, METHOD_AGENT_SESSION_LIST);
+      assert.equal(error.id, 1);
+      assert.equal(error.reason, "superseded");
+      return true;
+    },
+  );
+
+  assert.equal(sent.length, 0);
+});
+
+test("connection abort detaches pending request and drops its late response", async () => {
+  const sent = [];
+  const inbound = [];
+  const controller = new AbortController();
+  const connection = new AppServerConnection({
+    send(message) {
+      sent.push(message);
+    },
+    async nextMessage(timeoutMs = 30_000) {
+      const message = inbound.shift();
+      if (message) {
+        return message;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      throw new Error(
+        `timed out waiting for app-server message after ${timeoutMs}ms`,
+      );
+    },
+  });
+
+  const aborted = connection.listSessions({}, { signal: controller.signal });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  controller.abort("preview superseded");
+
+  await assert.rejects(aborted, (error) => {
+    assert.equal(error instanceof AppServerRequestAbortedError, true);
+    assert.equal(error.method, METHOD_AGENT_SESSION_LIST);
+    assert.equal(error.id, 1);
+    assert.equal(error.reason, "preview superseded");
+    return true;
+  });
+
+  inbound.push(
+    {
+      id: 1,
+      result: { sessions: [] },
+    },
+    {
+      id: 2,
+      result: {
+        sessions: [
+          {
+            sessionId: "sess_after_abort",
+            threadId: "thread_after_abort",
+            appId: "content-studio",
+            status: "running",
+            createdAt: "2026-06-04T00:00:00Z",
+            updatedAt: "2026-06-04T00:00:01Z",
+          },
+        ],
+      },
+    },
+  );
+
+  const result = await connection.listSessions({}, { timeoutMs: 100 });
+
+  assert.deepEqual(
+    sent.map((message) => message.method),
+    [
+      METHOD_AGENT_SESSION_LIST,
+      METHOD_CANCEL_REQUEST,
+      METHOD_AGENT_SESSION_LIST,
+    ],
+  );
+  assert.deepEqual(sent[1].params, { id: 1 });
+  assert.equal(result.id, 2);
+  assert.equal(result.result.sessions[0].sessionId, "sess_after_abort");
+});
+
+test("stdio sidecar stdin EPIPE rejects pending request instead of escaping as uncaught exception", async () => {
+  const stdin = new Writable({
+    write(_chunk, _encoding, callback) {
+      callback(Object.assign(new Error("write EPIPE"), { code: "EPIPE" }));
+    },
+  });
+  const child = Object.assign(new EventEmitter(), {
+    stdin,
+    stdout: new PassThrough(),
+    stderr: new PassThrough(),
+    exitCode: null,
+    signalCode: null,
+    kill() {
+      return true;
+    },
+  });
+  const sidecar = new AppServerSidecar(child);
+  const connection = new AppServerConnection(sidecar);
+
+  await assert.rejects(
+    () => connection.listSessions({ limit: 1 }, { timeoutMs: 1_000 }),
+    /app-server sidecar stdin is closed/,
+  );
+});
+
+test("agent runtime client facade delegates to current App Server methods", async () => {
   const sent = [];
   const inbound = [
     {
@@ -2436,15 +3226,16 @@ test("agent runtime client facade delegates to current App Server session method
     {
       id: 2,
       result: {
-        session: {
+        thread: {
+          archived: false,
+          createdAtMs: 1780531200000,
           sessionId: "sess_external",
+          status: { type: "active" },
           threadId: "thread_external",
-          appId: "content-studio",
-          status: "running",
-          createdAt: "2026-06-04T00:00:00Z",
-          updatedAt: "2026-06-04T00:00:01Z",
+          turns: [],
+          turnsView: "full",
+          updatedAtMs: 1780531201000,
         },
-        turns: [],
       },
     },
     {
@@ -2492,7 +3283,8 @@ test("agent runtime client facade delegates to current App Server session method
     input: { text: "写草稿" },
   });
   const read = await runtime.readThread({
-    sessionId: "sess_external",
+    threadId: "thread_external",
+    turnsView: "full",
   });
   await runtime.respondAction({
     sessionId: "sess_external",
@@ -2514,14 +3306,14 @@ test("agent runtime client facade delegates to current App Server session method
     sent.map((message) => message.method),
     [
       METHOD_AGENT_SESSION_TURN_START,
-      METHOD_AGENT_SESSION_READ,
+      METHOD_THREAD_READ,
       METHOD_AGENT_SESSION_ACTION_RESPOND,
       METHOD_AGENT_SESSION_TURN_CANCEL,
       METHOD_EVIDENCE_EXPORT,
     ],
   );
   assert.equal(start.result.turn.turnId, "turn-1");
-  assert.equal(read.result.session.sessionId, "sess_external");
+  assert.equal(read.result.thread.sessionId, "sess_external");
   assert.equal(evidence.result.exportedAt, "2026-06-04T00:00:03Z");
 });
 
@@ -2562,6 +3354,64 @@ test("agent runtime client facade subscribes to agent session event notification
   assert.equal(next.params.event.payload.text, "delta");
   assert.equal(received.length, 2);
   assert.equal(received[0].event.eventId, "evt-1");
+  assert.equal(received[0].message.method, METHOD_AGENT_SESSION_EVENT);
+});
+
+test("agent runtime client facade subscribes to canonical thread item events", async () => {
+  const notification = {
+    method: METHOD_AGENT_SESSION_EVENT,
+    params: {
+      event: {
+        eventId: "evt-1",
+        sequence: 1,
+        sessionId: "sess_external",
+        threadId: "thread_external",
+        turnId: "turn_external",
+        type: "item.updated",
+        timestamp: "2026-06-04T00:00:00Z",
+        payload: {},
+      },
+      canonicalEvent: {
+        method: "item/updated",
+        params: {
+          sessionId: "sess_external",
+          threadId: "thread_external",
+          turnId: "turn_external",
+          itemId: "msg_1",
+          sequence: 1,
+          ordinal: 0,
+          createdAtMs: 100,
+          updatedAtMs: 120,
+          kind: "agentMessage",
+          status: "inProgress",
+          payload: {
+            type: "agentMessage",
+            text: "delta",
+          },
+        },
+      },
+    },
+  };
+  const runtime = new AppServerAgentRuntimeClient(
+    new AppServerConnection({
+      send() {},
+      async nextMessage() {
+        return notification;
+      },
+    }),
+  );
+  const received = [];
+  const subscription = runtime.subscribeCanonicalEvents((event, message) => {
+    received.push({ event, message });
+  });
+
+  await runtime.dispatchEvent(notification);
+  subscription.unsubscribe();
+  await runtime.dispatchEvent(notification);
+
+  assert.equal(received.length, 1);
+  assert.equal(received[0].event.method, "item/updated");
+  assert.equal(received[0].event.params.itemId, "msg_1");
   assert.equal(received[0].message.method, METHOD_AGENT_SESSION_EVENT);
 });
 
@@ -2655,7 +3505,7 @@ test("connection request errors preserve streamed notifications and response con
 test("connection keeps session archive failures fail-closed", async () => {
   const sent = [];
   const archiveFailure =
-    "agentSession/update archived is only supported for persisted current timeline sessions";
+    "agentSession/update archived is only supported for persisted sessions";
   const inbound = [
     {
       id: 1,
@@ -2718,6 +3568,20 @@ test("connection wraps capability list response", async () => {
             ],
           },
         ],
+        runtimeCapabilityManifest: {
+          schemaVersion: "lime-runtime-capability-manifest/v0.1",
+          runtimeId: "app-server",
+          sessionId: "sess_external",
+          generatedAt: "2026-06-12T00:00:00.000Z",
+          capabilities: [
+            {
+              id: "transport.jsonrpc",
+              status: "supported",
+              scope: "runtime",
+              title: "Agent Session",
+            },
+          ],
+        },
         nextCursor: "1",
       },
     },
@@ -2751,6 +3615,10 @@ test("connection wraps capability list response", async () => {
   });
   assert.equal(result.result.capabilities[0].id, "agent.session");
   assert.equal(
+    result.result.runtimeCapabilityManifest.capabilities[0].id,
+    "transport.jsonrpc",
+  );
+  assert.equal(
     result.result.capabilities[0].methods[0],
     METHOD_AGENT_SESSION_START,
   );
@@ -2770,7 +3638,7 @@ test("connection wraps artifact read response", async () => {
             sequence: 7,
             turnId: "turn_1",
             artifactId: "req-1",
-            path: ".ember/artifacts/report.md",
+            path: ".lime/artifacts/report.md",
             title: "Report",
             kind: "document",
             status: "ready",
@@ -2848,7 +3716,7 @@ test("connection wraps file system responses", async () => {
       id: 2,
       result: {
         path: "/workspace/README.md",
-        content: "# Ember",
+        content: "# Lime",
         isBinary: false,
         size: 6,
         error: null,
@@ -2887,13 +3755,41 @@ test("connection wraps file system responses", async () => {
         rootPath: "/workspace",
         repositoryRoot: "/workspace",
         hasGitRepository: true,
+        patch: "diff --git a/README.md b/README.md\n+hello",
+        uncommittedFileCount: 1,
+      },
+    },
+    {
+      id: 9,
+      result: {
+        rootPath: "/workspace",
+        repositoryRoot: "/workspace",
+        hasGitRepository: true,
+        commits: [
+          {
+            sha: "abc123456789",
+            shortSha: "abc1234",
+            subject: "demo commit",
+            authorName: "Test User",
+            authorEmail: "test@example.com",
+            committedAt: "2026-06-14T10:00:00Z",
+          },
+        ],
+      },
+    },
+    {
+      id: 10,
+      result: {
+        rootPath: "/workspace",
+        repositoryRoot: "/workspace",
+        hasGitRepository: true,
         currentBranch: "feature/demo",
         branches: ["feature/demo", "main"],
         uncommittedFileCount: 0,
       },
     },
     {
-      id: 9,
+      id: 11,
       result: {
         rootPath: "/workspace",
         repositoryRoot: "/workspace",
@@ -2904,7 +3800,7 @@ test("connection wraps file system responses", async () => {
       },
     },
     {
-      id: 10,
+      id: 12,
       result: {
         worktreePath: "/workspace-worktree",
         branch: "main",
@@ -2956,6 +3852,15 @@ test("connection wraps file system responses", async () => {
   const gitStatusResult = await connection.readProjectGitStatus({
     rootPath: "/workspace",
   });
+  const gitDiffResult = await connection.readProjectGitDiff({
+    rootPath: "/workspace",
+    contextLines: 5,
+    base: "branch",
+  });
+  const gitCommitsResult = await connection.listProjectGitCommits({
+    rootPath: "/workspace",
+    limit: 20,
+  });
   const gitCheckoutResult = await connection.checkoutProjectGitBranch({
     rootPath: "/workspace",
     branch: "feature/demo",
@@ -3001,29 +3906,42 @@ test("connection wraps file system responses", async () => {
   assert.deepEqual(sent[6].params, {
     rootPath: "/workspace",
   });
-  assert.equal(sent[7].method, METHOD_PROJECT_GIT_BRANCH_CHECKOUT);
+  assert.equal(sent[7].method, METHOD_PROJECT_GIT_DIFF);
   assert.deepEqual(sent[7].params, {
+    rootPath: "/workspace",
+    contextLines: 5,
+    base: "branch",
+  });
+  assert.equal(sent[8].method, METHOD_PROJECT_GIT_COMMITS_LIST);
+  assert.deepEqual(sent[8].params, {
+    rootPath: "/workspace",
+    limit: 20,
+  });
+  assert.equal(sent[9].method, METHOD_PROJECT_GIT_BRANCH_CHECKOUT);
+  assert.deepEqual(sent[9].params, {
     rootPath: "/workspace",
     branch: "feature/demo",
   });
-  assert.equal(sent[8].method, METHOD_PROJECT_GIT_BRANCH_CREATE);
-  assert.deepEqual(sent[8].params, {
+  assert.equal(sent[10].method, METHOD_PROJECT_GIT_BRANCH_CREATE);
+  assert.deepEqual(sent[10].params, {
     rootPath: "/workspace",
     branch: "feature/new",
   });
-  assert.equal(sent[9].method, METHOD_PROJECT_GIT_WORKTREE_CREATE);
-  assert.deepEqual(sent[9].params, {
+  assert.equal(sent[11].method, METHOD_PROJECT_GIT_WORKTREE_CREATE);
+  assert.deepEqual(sent[11].params, {
     rootPath: "/workspace",
     name: "agent-demo",
     baseBranch: "main",
   });
   assert.equal(result.result.entries[0].name, "README.md");
-  assert.equal(previewResult.result.content, "# Ember");
+  assert.equal(previewResult.result.content, "# Lime");
   assert.deepEqual(createFileResult.result, {});
   assert.deepEqual(createDirectoryResult.result, {});
   assert.deepEqual(renameFileResult.result, {});
   assert.deepEqual(deleteFileResult.result, {});
   assert.equal(gitStatusResult.result.currentBranch, "main");
+  assert.equal(gitDiffResult.result.patch.includes("diff --git"), true);
+  assert.equal(gitCommitsResult.result.commits[0].shortSha, "abc1234");
   assert.equal(gitCheckoutResult.result.currentBranch, "feature/demo");
   assert.equal(gitCreateBranchResult.result.currentBranch, "feature/new");
   assert.equal(
@@ -3075,14 +3993,14 @@ test("connection wraps evidence export response", async () => {
             sequence: 2,
             turnId: "turn_1",
             artifactId: "req-1",
-            path: ".ember/artifacts/report.md",
+            path: ".lime/artifacts/report.md",
             contentStatus: "notRequested",
           },
         ],
         exportedAt: "2026-06-05T00:00:02.000Z",
         evidencePack: {
-          packRelativeRoot: ".ember/harness/sessions/sess_1/evidence",
-          packAbsoluteRoot: "/workspace/.ember/harness/sessions/sess_1/evidence",
+          packRelativeRoot: ".lime/harness/sessions/sess_1/evidence",
+          packAbsoluteRoot: "/workspace/.lime/harness/sessions/sess_1/evidence",
           exportedAt: "2026-06-05T00:00:03.000Z",
           threadStatus: "running",
           latestTurnStatus: "accepted",
@@ -3102,7 +4020,7 @@ test("connection wraps evidence export response", async () => {
             {
               kind: "summary",
               title: "Evidence Summary",
-              relativePath: ".ember/harness/sessions/sess_1/evidence/summary.md",
+              relativePath: ".lime/harness/sessions/sess_1/evidence/summary.md",
               bytes: 128,
             },
           ],
@@ -3168,8 +4086,8 @@ test("connection wraps handoff bundle export response", async () => {
         threadId: "thread_1",
         workspaceId: "workspace-main",
         workspaceRoot: "/workspace",
-        bundleRelativeRoot: ".ember/harness/sessions/sess_1",
-        bundleAbsoluteRoot: "/workspace/.ember/harness/sessions/sess_1",
+        bundleRelativeRoot: ".lime/harness/sessions/sess_1",
+        bundleAbsoluteRoot: "/workspace/.lime/harness/sessions/sess_1",
         exportedAt: "2026-06-05T00:00:04.000Z",
         threadStatus: "running",
         latestTurnStatus: "accepted",
@@ -3184,8 +4102,8 @@ test("connection wraps handoff bundle export response", async () => {
           {
             kind: "handoff",
             title: "Handoff",
-            relativePath: ".ember/harness/sessions/sess_1/handoff.md",
-            absolutePath: "/workspace/.ember/harness/sessions/sess_1/handoff.md",
+            relativePath: ".lime/harness/sessions/sess_1/handoff.md",
+            absolutePath: "/workspace/.lime/harness/sessions/sess_1/handoff.md",
             bytes: 256,
           },
         ],
@@ -3223,7 +4141,7 @@ test("connection wraps handoff bundle export response", async () => {
   assert.equal(result.result.artifacts[0].kind, "handoff");
   assert.equal(
     result.result.artifacts[0].absolutePath,
-    "/workspace/.ember/harness/sessions/sess_1/handoff.md",
+    "/workspace/.lime/harness/sessions/sess_1/handoff.md",
   );
 });
 
@@ -3236,10 +4154,10 @@ test("connection wraps derived agent session export responses", async () => {
         sessionId: "sess_1",
         threadId: "thread_1",
         workspaceRoot: "/workspace",
-        replayRelativeRoot: ".ember/harness/sessions/sess_1/replay",
-        replayAbsoluteRoot: "/workspace/.ember/harness/sessions/sess_1/replay",
-        handoffBundleRelativeRoot: ".ember/harness/sessions/sess_1",
-        evidencePackRelativeRoot: ".ember/harness/sessions/sess_1/evidence",
+        replayRelativeRoot: ".lime/harness/sessions/sess_1/replay",
+        replayAbsoluteRoot: "/workspace/.lime/harness/sessions/sess_1/replay",
+        handoffBundleRelativeRoot: ".lime/harness/sessions/sess_1",
+        evidencePackRelativeRoot: ".lime/harness/sessions/sess_1/evidence",
         exportedAt: "2026-06-05T00:00:05.000Z",
         threadStatus: "running",
         pendingRequestCount: 0,
@@ -3257,12 +4175,12 @@ test("connection wraps derived agent session export responses", async () => {
         threadId: "thread_1",
         workspaceRoot: "/workspace",
         sanitizedWorkspaceRoot: "/workspace",
-        analysisRelativeRoot: ".ember/harness/sessions/sess_1/analysis",
+        analysisRelativeRoot: ".lime/harness/sessions/sess_1/analysis",
         analysisAbsoluteRoot:
-          "/workspace/.ember/harness/sessions/sess_1/analysis",
-        handoffBundleRelativeRoot: ".ember/harness/sessions/sess_1",
-        evidencePackRelativeRoot: ".ember/harness/sessions/sess_1/evidence",
-        replayCaseRelativeRoot: ".ember/harness/sessions/sess_1/replay",
+          "/workspace/.lime/harness/sessions/sess_1/analysis",
+        handoffBundleRelativeRoot: ".lime/harness/sessions/sess_1",
+        evidencePackRelativeRoot: ".lime/harness/sessions/sess_1/evidence",
+        replayCaseRelativeRoot: ".lime/harness/sessions/sess_1/replay",
         exportedAt: "2026-06-05T00:00:06.000Z",
         threadStatus: "running",
         pendingRequestCount: 0,
@@ -3278,14 +4196,14 @@ test("connection wraps derived agent session export responses", async () => {
         sessionId: "sess_1",
         threadId: "thread_1",
         workspaceRoot: "/workspace",
-        reviewRelativeRoot: ".ember/harness/sessions/sess_1/review",
-        reviewAbsoluteRoot: "/workspace/.ember/harness/sessions/sess_1/review",
-        analysisRelativeRoot: ".ember/harness/sessions/sess_1/analysis",
+        reviewRelativeRoot: ".lime/harness/sessions/sess_1/review",
+        reviewAbsoluteRoot: "/workspace/.lime/harness/sessions/sess_1/review",
+        analysisRelativeRoot: ".lime/harness/sessions/sess_1/analysis",
         analysisAbsoluteRoot:
-          "/workspace/.ember/harness/sessions/sess_1/analysis",
-        handoffBundleRelativeRoot: ".ember/harness/sessions/sess_1",
-        evidencePackRelativeRoot: ".ember/harness/sessions/sess_1/evidence",
-        replayCaseRelativeRoot: ".ember/harness/sessions/sess_1/replay",
+          "/workspace/.lime/harness/sessions/sess_1/analysis",
+        handoffBundleRelativeRoot: ".lime/harness/sessions/sess_1",
+        evidencePackRelativeRoot: ".lime/harness/sessions/sess_1/evidence",
+        replayCaseRelativeRoot: ".lime/harness/sessions/sess_1/replay",
         exportedAt: "2026-06-05T00:00:07.000Z",
         threadStatus: "running",
         pendingRequestCount: 0,
@@ -3316,14 +4234,14 @@ test("connection wraps derived agent session export responses", async () => {
         sessionId: "sess_1",
         threadId: "thread_1",
         workspaceRoot: "/workspace",
-        reviewRelativeRoot: ".ember/harness/sessions/sess_1/review",
-        reviewAbsoluteRoot: "/workspace/.ember/harness/sessions/sess_1/review",
-        analysisRelativeRoot: ".ember/harness/sessions/sess_1/analysis",
+        reviewRelativeRoot: ".lime/harness/sessions/sess_1/review",
+        reviewAbsoluteRoot: "/workspace/.lime/harness/sessions/sess_1/review",
+        analysisRelativeRoot: ".lime/harness/sessions/sess_1/analysis",
         analysisAbsoluteRoot:
-          "/workspace/.ember/harness/sessions/sess_1/analysis",
-        handoffBundleRelativeRoot: ".ember/harness/sessions/sess_1",
-        evidencePackRelativeRoot: ".ember/harness/sessions/sess_1/evidence",
-        replayCaseRelativeRoot: ".ember/harness/sessions/sess_1/replay",
+          "/workspace/.lime/harness/sessions/sess_1/analysis",
+        handoffBundleRelativeRoot: ".lime/harness/sessions/sess_1",
+        evidencePackRelativeRoot: ".lime/harness/sessions/sess_1/evidence",
+        replayCaseRelativeRoot: ".lime/harness/sessions/sess_1/replay",
         exportedAt: "2026-06-05T00:00:08.000Z",
         threadStatus: "running",
         pendingRequestCount: 0,
@@ -3386,7 +4304,7 @@ test("connection wraps derived agent session export responses", async () => {
   assert.equal(sent[3].method, METHOD_AGENT_SESSION_REVIEW_DECISION_SAVE);
   assert.equal(
     replay.result.replayRelativeRoot,
-    ".ember/harness/sessions/sess_1/replay",
+    ".lime/harness/sessions/sess_1/replay",
   );
   assert.equal(analysis.result.copyPrompt, "Review current evidence.");
   assert.equal(review.result.decision.decisionStatus, "pending_review");
@@ -3421,7 +4339,7 @@ test("connection wraps agent session file checkpoint responses", async () => {
         threadId: "thread_1",
         checkpoint,
         livePath: "/workspace/docs/brief.md",
-        snapshotPath: "/workspace/.ember/checkpoints/brief.md",
+        snapshotPath: "/workspace/.lime/checkpoints/brief.md",
         versionHistory: [],
         validationIssues: [],
         content: "draft",
@@ -3445,7 +4363,7 @@ test("connection wraps agent session file checkpoint responses", async () => {
         threadId: "thread_1",
         checkpoint,
         livePath: "/workspace/docs/brief.md",
-        snapshotPath: "/workspace/.ember/checkpoints/brief.md",
+        snapshotPath: "/workspace/.lime/checkpoints/brief.md",
         backupPath: null,
         restoredAt: "2026-06-08T10:05:00Z",
       },
@@ -3597,9 +4515,43 @@ test("routes agent session event notifications for renderer projection", async (
     method: METHOD_AGENT_SESSION_EVENT,
     params: {
       event,
+      typedEvent: {
+        method: "item/agentMessage/delta",
+        params: {
+          eventId: "evt-1",
+          sequence: 1,
+          sessionId: "sess_external",
+          threadId: "thread_external",
+          turnId: "turn_external",
+          timestamp: "2026-06-04T00:00:00Z",
+          itemId: "agent-message-final",
+          delta: "delta",
+          phase: "final_answer",
+        },
+      },
+      canonicalEvent: {
+        method: "item/updated",
+        params: {
+          sessionId: "sess_external",
+          threadId: "thread_external",
+          turnId: "turn_external",
+          itemId: "msg_1",
+          sequence: 1,
+          ordinal: 0,
+          createdAtMs: 100,
+          updatedAtMs: 120,
+          kind: "agentMessage",
+          status: "inProgress",
+          payload: {
+            type: "agentMessage",
+            text: "delta",
+          },
+        },
+      },
     },
   };
   const routed = [];
+  const canonicalRouted = [];
   const router = new AppServerAgentEventRouter();
   const unsubscribe = router.subscribe((agentEvent, source) => {
     routed.push({
@@ -3607,14 +4559,35 @@ test("routes agent session event notifications for renderer projection", async (
       method: source.method,
     });
   });
+  const unsubscribeCanonical = router.subscribeCanonical(
+    (canonicalEvent, source) => {
+      canonicalRouted.push({
+        event: canonicalEvent,
+        method: source.method,
+      });
+    },
+  );
 
   assert.equal(isAgentSessionEventNotification(notification), true);
   assert.equal(
     agentSessionEventNotification(notification)?.params.event.payload.text,
     "delta",
   );
+  assert.equal(
+    agentSessionRuntimeEventNotification(notification)?.method,
+    "item/agentMessage/delta",
+  );
+  assert.equal(
+    agentSessionRuntimeEventNotification(notification)?.params.itemId,
+    "agent-message-final",
+  );
+  assert.equal(
+    canonicalThreadEventNotification(notification)?.params.itemId,
+    "msg_1",
+  );
   assert.equal(await router.dispatch(notification), true);
   unsubscribe();
+  unsubscribeCanonical();
   assert.equal(await router.dispatch(notification), true);
   assert.equal(
     await router.dispatch({
@@ -3626,6 +4599,12 @@ test("routes agent session event notifications for renderer projection", async (
   assert.deepEqual(routed, [
     {
       event,
+      method: METHOD_AGENT_SESSION_EVENT,
+    },
+  ]);
+  assert.deepEqual(canonicalRouted, [
+    {
+      event: notification.params.canonicalEvent,
       method: METHOD_AGENT_SESSION_EVENT,
     },
   ]);
@@ -3689,6 +4668,54 @@ test("connection buffers request responses read by idle notification loop", asyn
   ]);
   assert.equal(result.result.turn.turnId, "turn-1");
   assert.equal(notification.method, METHOD_AGENT_SESSION_EVENT);
+});
+
+test("connection server-message drain does not steal client responses", async () => {
+  const sent = [];
+  const waiters = [];
+  const connection = new AppServerConnection({
+    send(message) {
+      sent.push(message);
+    },
+    nextMessage() {
+      return new Promise((resolve) => {
+        waiters.push(resolve);
+      });
+    },
+  });
+
+  const serverMessagePromise = connection.nextServerMessage(1_000);
+  await waitFor(() => waiters.length === 1);
+  const responsePromise = connection.listSessions({});
+  await waitFor(() => sent.length === 1);
+
+  waiters.shift()({
+    id: 1,
+    result: {
+      sessions: [],
+    },
+  });
+  await waitFor(() => waiters.length === 1);
+  waiters.shift()({
+    id: "app-server-request:7",
+    method: METHOD_MCP_SERVER_ELICITATION_REQUEST,
+    params: {
+      server: "form-server",
+      message: "Choose a value",
+      requestedSchema: {
+        type: "object",
+        properties: {},
+      },
+    },
+  });
+
+  const [serverMessage, response] = await Promise.all([
+    serverMessagePromise,
+    responsePromise,
+  ]);
+  assert.equal(serverMessage.id, "app-server-request:7");
+  assert.equal(serverMessage.method, METHOD_MCP_SERVER_ELICITATION_REQUEST);
+  assert.deepEqual(response.result.sessions, []);
 });
 
 test("connection mirrors long request notifications for event drain", async () => {
@@ -3864,21 +4891,59 @@ test("uses agent-style stdio sidecar launch args", () => {
     "--app-policy",
     "/tmp/content-studio.policy.json",
   ]);
+  const dataDirConfig = stdioSidecar(
+    "/tmp/app-server",
+    "/tmp/content-studio.policy.json",
+    "/tmp/content-studio-app-server-data",
+  );
+  assert.equal(dataDirConfig.dataDir, "/tmp/content-studio-app-server-data");
+  assert.deepEqual(sidecarArgs(dataDirConfig), [
+    "--stdio",
+    "--backend",
+    "unavailable",
+    "--app-policy",
+    "/tmp/content-studio.policy.json",
+    "--data-dir",
+    "/tmp/content-studio-app-server-data",
+  ]);
+  const cleanupConfig = stdioSidecar(
+    "/tmp/app-server",
+    undefined,
+    "/tmp/content-studio-app-server-data",
+    "delete-file",
+  );
+  assert.equal(cleanupConfig.productDbMigrationCleanup, "delete-file");
+  assert.deepEqual(sidecarArgs(cleanupConfig), [
+    "--stdio",
+    "--backend",
+    "unavailable",
+    "--data-dir",
+    "/tmp/content-studio-app-server-data",
+    "--product-db-migration-cleanup",
+    "delete-file",
+  ]);
   assert.deepEqual(
     sidecarArgs({ binaryPath: "app-server", listenUrl: "stdio://" }),
     ["--stdio", "--backend", "unavailable"],
   );
   assert.deepEqual(
-    sidecarArgs({ binaryPath: "app-server", listenUrl: "local://ember" }),
-    ["--listen", "local://ember", "--backend", "unavailable"],
+    sidecarArgs({ binaryPath: "app-server", listenUrl: "local://lime" }),
+    ["--listen", "local://lime", "--backend", "unavailable"],
   );
   assert.deepEqual(
     sidecarArgs({
       binaryPath: "app-server",
       listenUrl: "stdio://",
       backendMode: "unavailable",
+      productDbMigrationCleanup: "drop-tables",
     }),
-    ["--stdio", "--backend", "unavailable"],
+    [
+      "--stdio",
+      "--backend",
+      "unavailable",
+      "--product-db-migration-cleanup",
+      "drop-tables",
+    ],
   );
   assert.deepEqual(
     sidecarArgs({
@@ -4148,6 +5213,7 @@ test("resolves sidecar config from manifest and packaged resources", () => {
       backendArgs: ["--workspace", "/app/workspace"],
       backendTimeoutMs: 45_000,
       appPolicyPath: "/app/content-studio.policy.json",
+      dataDir: "/app/user-data/app-server",
       platform: "darwin",
       arch: "arm64",
     }),
@@ -4167,6 +5233,7 @@ test("resolves sidecar config from manifest and packaged resources", () => {
         backendArgs: ["--workspace", "/app/workspace"],
         backendTimeoutMs: 45_000,
         appPolicyPath: "/app/content-studio.policy.json",
+        dataDir: "/app/user-data/app-server",
         expectedSha256: "abc",
         artifact: manifest.artifacts[0],
       },
@@ -4363,11 +5430,19 @@ test("verifies release artifact sha256 before sidecar launch", async () => {
   try {
     await writeFile(binaryPath, "sidecar-binary");
     const sha256 = sha256Hex("sidecar-binary");
-    const config = sidecarFromReleaseArtifact(binaryPath, {
-      platform: "darwin-arm64",
-      url: "https://example/app-server-darwin-arm64.tar.gz",
-      sha256,
-    });
+    const config = sidecarFromReleaseArtifact(
+      binaryPath,
+      {
+        platform: "darwin-arm64",
+        url: "https://example/app-server-darwin-arm64.tar.gz",
+        sha256,
+      },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      "drop-tables",
+    );
 
     assert.equal(config.expectedSha256, sha256);
     assert.equal(config.backendMode, DEFAULT_STANDALONE_BACKEND_MODE);
@@ -4375,6 +5450,8 @@ test("verifies release artifact sha256 before sidecar launch", async () => {
       "--stdio",
       "--backend",
       "unavailable",
+      "--product-db-migration-cleanup",
+      "drop-tables",
     ]);
     assert.doesNotThrow(() => assertSha256(sha256.toUpperCase(), sha256));
     await assert.doesNotReject(() => assertSidecarFileSha256(config));
@@ -4662,6 +5739,54 @@ test("connects sidecar with initialize and initialized handshake", async () => {
     } finally {
       await connected.sidecar.close();
     }
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("includes sidecar stderr when initialize exits before response", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "app-server-client-connect-fail-"));
+  const fakeSidecar = join(dir, "fake-connect-fail-sidecar.mjs");
+
+  try {
+    await writeFile(
+      fakeSidecar,
+      `
+        console.error('fixture initialize failed: schema mismatch');
+        process.exit(1);
+      `,
+    );
+
+    await assert.rejects(
+      () =>
+        connectAppServerSidecar(
+          stdioSidecar(process.execPath),
+          {
+            clientInfo: {
+              name: "content_studio",
+              version: "0.1.0",
+            },
+          },
+          {
+            args: [fakeSidecar],
+            initializeTimeoutMs: SIDECAR_TEST_TIMEOUT_MS,
+          },
+        ),
+      (error) => {
+        assert.match(
+          error.message,
+          /app-server exited before next message: code=1/,
+        );
+        assert.match(
+          error.message,
+          /fixture initialize failed: schema mismatch/,
+        );
+        assert.deepEqual(error.stderrLines, [
+          "fixture initialize failed: schema mismatch",
+        ]);
+        return true;
+      },
+    );
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

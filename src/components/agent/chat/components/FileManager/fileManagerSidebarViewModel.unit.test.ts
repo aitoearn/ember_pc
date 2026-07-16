@@ -55,7 +55,7 @@ describe("fileManagerSidebarViewModel", () => {
   });
 
   it("应识别应用入口和 Skill 包入口", () => {
-    expect(isApplicationEntry(fileEntry({ name: "Ember.app" }), "")).toBe(
+    expect(isApplicationEntry(fileEntry({ name: "Lime.app" }), "")).toBe(
       true,
     );
     expect(isApplicationEntry(fileEntry({ name: "Preview", isDir: false }), "applications"))

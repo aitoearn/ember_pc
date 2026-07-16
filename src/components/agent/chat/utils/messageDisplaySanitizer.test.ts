@@ -7,6 +7,32 @@ import {
 import type { ContentPart } from "../types";
 
 describe("messageDisplaySanitizer", () => {
+  it("不应在展示层改写图片命令用户原文", () => {
+    expect(
+      sanitizeMessageTextForDisplay(
+        "@配图 用 Agnes Generate一张深圳夏day午后的城市照片，真实摄影Style",
+        { role: "user" },
+      ),
+    ).toBe("@配图 用 Agnes Generate一张深圳夏day午后的城市照片，真实摄影Style");
+  });
+
+  it("不应在展示层改写图片命令 assistant 文案", () => {
+    expect(
+      sanitizeMessageTextForDisplay(
+        "好啊，先来Generate深圳夏day午后的城市照片，阳光明亮，真实摄影Style。",
+        { role: "assistant" },
+      ),
+    ).toBe("好啊，先来Generate深圳夏day午后的城市照片，阳光明亮，真实摄影Style。");
+  });
+
+  it("不应清洗正常英文展示文本", () => {
+    expect(
+      sanitizeMessageTextForDisplay("Generate landing page style guide", {
+        role: "assistant",
+      }),
+    ).toBe("Generate landing page style guide");
+  });
+
   it("应清理紧邻工具调用的调度自述文本", () => {
     const contentParts: ContentPart[] = [
       {
@@ -163,6 +189,36 @@ describe("messageDisplaySanitizer", () => {
       {
         type: "text",
         text: "## 国际新闻简报\n\n- 已确认主要来源。",
+      },
+    ];
+
+    expect(
+      sanitizeContentPartsForDisplay(contentParts, {
+        role: "assistant",
+      }),
+    ).toEqual(contentParts);
+  });
+
+  it("应保留 Codex 风格工具过程前的短导语", () => {
+    const contentParts: ContentPart[] = [
+      {
+        type: "text",
+        text: "我先联网核实目标页面来源。",
+      },
+      {
+        type: "tool_use",
+        toolCall: {
+          id: "tool-web-rendering-intro",
+          name: "WebSearch",
+          arguments: "{}",
+          status: "completed",
+          result: { success: true, output: "ok" },
+          startTime: new Date("2026-06-22T09:02:00.000Z"),
+        },
+      },
+      {
+        type: "text",
+        text: "网页搜索渲染结论：搜索来源已展开。",
       },
     ];
 
@@ -390,6 +446,53 @@ describe("messageDisplaySanitizer", () => {
     ).toEqual(contentParts);
   });
 
+  it("应保留工具后带结论与松散 Markdown 标题的最终正文", () => {
+    const contentParts: ContentPart[] = [
+      {
+        type: "tool_use",
+        toolCall: {
+          id: "tool-web-search-rendering",
+          name: "WebSearch",
+          arguments: "{}",
+          status: "completed",
+          result: { success: true, output: "ok" },
+          startTime: new Date("2026-06-20T09:00:00.000Z"),
+        },
+      },
+      {
+        type: "tool_use",
+        toolCall: {
+          id: "tool-web-fetch-rendering",
+          name: "WebFetch",
+          arguments: "{}",
+          status: "completed",
+          result: { success: true, output: "ok" },
+          startTime: new Date("2026-06-20T09:00:01.000Z"),
+        },
+      },
+      {
+        type: "text",
+        text: [
+          "网页搜索渲染结论：搜索来源已展开，读取页面已归入同一过程，最终正文继续输出。",
+          "五年级选购指南###",
+          "####如果孩子基础一般，优先看护眼、内容和家长管理。",
+          "**推荐 型号 **：Lime 学习机 S30",
+          "**理由 **：系统清晰，适合五年级基础巩固。",
+          "对比表：",
+          "| 品牌 | 型号 | 场景 |",
+          "| --- | --- | --- |",
+          "| Lime | S30 | 五年级巩固 |",
+        ].join("\n"),
+      },
+    ];
+
+    expect(
+      sanitizeContentPartsForDisplay(contentParts, {
+        role: "assistant",
+      }),
+    ).toEqual(contentParts);
+  });
+
   it("带结论的正常说明不应被误删", () => {
     const contentParts: ContentPart[] = [
       {
@@ -459,6 +562,20 @@ describe("messageDisplaySanitizer", () => {
     ).toBe("");
   });
 
+  it("应隐藏 assistant 历史里带尾部空白的运行时错误包络", () => {
+    const text = [
+      "Ran into this error: Request failed: error sending request for url (https://api.example.invalid/v1/chat/completions)",
+      "",
+      "Please retry if you think this is a transient or recoverable error.  ",
+    ].join("\n");
+
+    expect(
+      sanitizeMessageTextForDisplay(text, {
+        role: "assistant",
+      }),
+    ).toBe("");
+  });
+
   it("不应清理用户消息里引用的运行时错误包络文本", () => {
     const text = [
       "Ran into this error: Server error: upstream temporarily unavailable.",
@@ -512,6 +629,52 @@ describe("messageDisplaySanitizer", () => {
         role: "assistant",
       }),
     ).toBe("已收到图片");
+  });
+
+  it("用户消息已有结构化图片时应隐藏纯运行时附件占位文本", () => {
+    expect(
+      sanitizeMessageTextForDisplay("[Image #1]", {
+        role: "user",
+        hasImages: true,
+      }),
+    ).toBe("");
+    expect(
+      sanitizeMessageTextForDisplay("[Image #1]", {
+        role: "user",
+        hasImages: false,
+      }),
+    ).toBe("图片");
+  });
+
+  it("用户 markdown 图片旁边重复输出 alt 时应只保留图片结构", () => {
+    const text = [
+      "![图片附件未加载](asset://missing.png) 图片附件未加载",
+      "",
+      "这是用户补充说明。",
+    ].join("\n");
+
+    expect(
+      sanitizeMessageTextForDisplay(text, {
+        role: "user",
+      }),
+    ).toBe(
+      [
+        "![图片附件未加载](asset://missing.png)",
+        "",
+        "这是用户补充说明。",
+      ].join("\n"),
+    );
+  });
+
+  it("用户普通正文不应因为包含图片错误说明而被误删", () => {
+    expect(
+      sanitizeMessageTextForDisplay(
+        "这段文字说明图片无法链接，需要人工检查。",
+        {
+          role: "user",
+        },
+      ),
+    ).toBe("这段文字说明图片无法链接，需要人工检查。");
   });
 
   it("应去掉 assistant 消息里的 markdown 阶段结论标题", () => {

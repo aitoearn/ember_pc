@@ -7,10 +7,11 @@ import {
   type MutableRefObject,
   type SetStateAction,
 } from "react";
-import type { Character } from "@/lib/api/memory";
+import type { Character } from "@/lib/api/projectMemory";
 import { logAgentDebug } from "@/lib/agentDebug";
 import { recordAgentUiPerformanceMetric } from "@/lib/agentUiPerformanceMetrics";
 import type { TaskCenterDraftSendRequest } from "../homePendingPreview";
+import { rememberInitialSessionNavigationStart } from "./useWorkspaceInitialSessionNavigation";
 import {
   createTaskCenterDraftTabId,
   TASK_CENTER_DRAFT_SESSION_WARMUP_DELAY_MS,
@@ -30,8 +31,25 @@ type AgentEntry = "new-task" | "claw";
 
 type CreateFreshSession = (
   sessionName?: string,
-  options?: { preserveCurrentSnapshot?: boolean },
+  options?: {
+    preserveCurrentSnapshot?: boolean;
+    skipSessionStartHooks?: boolean;
+  },
 ) => Promise<string | null>;
+
+type SwitchMaterializedSession = (
+  sessionId: string,
+  options?: { forceRefresh?: boolean; allowDetachedSession?: boolean },
+) => Promise<unknown>;
+
+type PersistMaterializedSessionNavigation = (sessionId: string) => void;
+
+interface CommitMaterializedDraftOptions {
+  embedHomeSession?: boolean;
+  hydrateSession?: boolean;
+  preserveInput?: boolean;
+  syncRoute?: boolean;
+}
 
 interface UseTaskCenterDraftMaterializationRuntimeParams {
   activeTaskCenterDraftTabId: string | null;
@@ -58,6 +76,8 @@ interface UseTaskCenterDraftMaterializationRuntimeParams {
   >;
   setTaskCenterDraftTabs: Dispatch<SetStateAction<TaskCenterDraftTab[]>>;
   setTaskCenterTransitionTopicId: Dispatch<SetStateAction<string | null>>;
+  persistMaterializedSessionNavigation?: PersistMaterializedSessionNavigation;
+  switchMaterializedSession?: SwitchMaterializedSession;
   taskCenterDraftSurfaceActiveRef: MutableRefObject<boolean>;
   taskCenterDraftTabs: TaskCenterDraftTab[];
   taskCenterWorkspaceId?: string | null;
@@ -88,6 +108,8 @@ export function useTaskCenterDraftMaterializationRuntime({
   setTaskCenterDraftSendRequest,
   setTaskCenterDraftTabs,
   setTaskCenterTransitionTopicId,
+  persistMaterializedSessionNavigation,
+  switchMaterializedSession,
   taskCenterDraftSurfaceActiveRef,
   taskCenterDraftTabs,
   taskCenterWorkspaceId,
@@ -101,6 +123,7 @@ export function useTaskCenterDraftMaterializationRuntime({
   const taskCenterDraftMaterializedSessionIdsRef = useRef<Map<string, string>>(
     new Map(),
   );
+  const taskCenterDraftWarmupSessionIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     taskCenterDraftTabsRef.current = taskCenterDraftTabs;
@@ -114,7 +137,7 @@ export function useTaskCenterDraftMaterializationRuntime({
     (
       newSessionId: string,
       workspaceIdOverride?: string | null,
-      options?: { preserveInput?: boolean },
+      options?: { embedHomeSession?: boolean; preserveInput?: boolean },
     ) => {
       resetTopicLocalState();
       if (options?.preserveInput !== true) {
@@ -123,7 +146,9 @@ export function useTaskCenterDraftMaterializationRuntime({
       setSelectedText("");
       setMentionedCharacters([]);
       upsertTaskCenterOpenTab(newSessionId, workspaceIdOverride);
-      markTaskCenterEmbeddedHomeSession(newSessionId);
+      if (options?.embedHomeSession !== false) {
+        markTaskCenterEmbeddedHomeSession(newSessionId);
+      }
       markTaskCenterLocalSessionOverride(newSessionId);
     },
     [
@@ -137,59 +162,70 @@ export function useTaskCenterDraftMaterializationRuntime({
     ],
   );
 
-  const openTaskCenterDraftTab = useCallback(() => {
-    const draftTab = buildTaskCenterDraftTab({
-      id: createTaskCenterDraftTabId(),
-    });
+  const openTaskCenterDraftTab = useCallback(
+    (options?: { preservePendingSendRequest?: boolean }) => {
+      const draftTab = buildTaskCenterDraftTab({
+        id: createTaskCenterDraftTabId(),
+      });
 
-    taskCenterDraftSurfaceActiveRef.current = true;
-    resetLocalImageWorkbenchSessionScope();
-    clearMessages({ showToast: false });
-    startTransition(() => {
-      setTaskCenterTransitionTopicId(null);
-      setTaskCenterDetachedTopicId(null);
-      setActiveTaskCenterDraftTabId(draftTab.id);
-      setTaskCenterDraftSendRequest(null);
-      setHomePendingPreviewRequest(null);
-      setTaskCenterDraftTabs((current) =>
-        upsertTaskCenterDraftTab(current, draftTab),
+      taskCenterDraftSurfaceActiveRef.current = true;
+      activeTaskCenterDraftTabIdRef.current = draftTab.id;
+      taskCenterDraftTabsRef.current = upsertTaskCenterDraftTab(
+        taskCenterDraftTabsRef.current,
+        draftTab,
       );
-      resetTopicLocalState();
-      setInput("");
-      setSelectedText("");
-      setMentionedCharacters([]);
-    });
+      resetLocalImageWorkbenchSessionScope();
+      clearMessages({ showToast: false });
+      startTransition(() => {
+        setTaskCenterTransitionTopicId(null);
+        setTaskCenterDetachedTopicId(null);
+        setActiveTaskCenterDraftTabId(draftTab.id);
+        if (options?.preservePendingSendRequest !== true) {
+          setTaskCenterDraftSendRequest(null);
+          setHomePendingPreviewRequest(null);
+        }
+        setTaskCenterDraftTabs((current) =>
+          upsertTaskCenterDraftTab(current, draftTab),
+        );
+        resetTopicLocalState();
+        setInput("");
+        setSelectedText("");
+        setMentionedCharacters([]);
+      });
 
-    logAgentDebug("AgentChatPage", "taskCenter.draftTab.open", {
-      draftTabId: draftTab.id,
-      workspaceId: taskCenterWorkspaceId,
-    });
+      logAgentDebug("AgentChatPage", "taskCenter.draftTab.open", {
+        draftTabId: draftTab.id,
+        workspaceId: taskCenterWorkspaceId,
+      });
 
-    return draftTab.id;
-  }, [
-    clearMessages,
-    resetLocalImageWorkbenchSessionScope,
-    resetTopicLocalState,
-    setActiveTaskCenterDraftTabId,
-    setHomePendingPreviewRequest,
-    setInput,
-    setMentionedCharacters,
-    setSelectedText,
-    setTaskCenterDetachedTopicId,
-    setTaskCenterDraftSendRequest,
-    setTaskCenterDraftTabs,
-    setTaskCenterTransitionTopicId,
-    taskCenterDraftSurfaceActiveRef,
-    taskCenterWorkspaceId,
-  ]);
+      return draftTab.id;
+    },
+    [
+      clearMessages,
+      resetLocalImageWorkbenchSessionScope,
+      resetTopicLocalState,
+      setActiveTaskCenterDraftTabId,
+      setHomePendingPreviewRequest,
+      setInput,
+      setMentionedCharacters,
+      setSelectedText,
+      setTaskCenterDetachedTopicId,
+      setTaskCenterDraftSendRequest,
+      setTaskCenterDraftTabs,
+      setTaskCenterTransitionTopicId,
+      taskCenterDraftSurfaceActiveRef,
+      taskCenterWorkspaceId,
+    ],
+  );
 
   const commitMaterializedTaskCenterDraftTab = useCallback(
     (
       draftTabId: string,
       newSessionId: string,
-      options?: { preserveInput?: boolean },
+      options?: CommitMaterializedDraftOptions,
     ) => {
       taskCenterDraftSurfaceActiveRef.current = false;
+      taskCenterDraftWarmupSessionIdsRef.current.delete(draftTabId);
       startTransition(() => {
         setTaskCenterDraftTabs((current) =>
           removeTaskCenterDraftTab(current, draftTabId),
@@ -203,11 +239,35 @@ export function useTaskCenterDraftMaterializationRuntime({
           options,
         );
       });
+      if (options?.syncRoute !== false) {
+        rememberInitialSessionNavigationStart(newSessionId);
+        persistMaterializedSessionNavigation?.(newSessionId);
+        if (switchMaterializedSession && options?.hydrateSession !== false) {
+          void switchMaterializedSession(newSessionId, {
+            allowDetachedSession: true,
+            forceRefresh: true,
+          }).catch((error) => {
+            logAgentDebug(
+              "AgentChatPage",
+              "taskCenter.draftTab.commit.switchSessionError",
+              {
+                draftTabId,
+                error,
+                newSessionId,
+                workspaceId: taskCenterWorkspaceId,
+              },
+              { level: "error" },
+            );
+          });
+        }
+      }
     },
     [
       finalizeFreshTaskCenterConversation,
+      persistMaterializedSessionNavigation,
       setActiveTaskCenterDraftTabId,
       setTaskCenterDraftTabs,
+      switchMaterializedSession,
       taskCenterDraftSurfaceActiveRef,
       taskCenterWorkspaceId,
     ],
@@ -249,6 +309,9 @@ export function useTaskCenterDraftMaterializationRuntime({
       if (!draftExists) {
         return null;
       }
+      if (reason === "input_warmup") {
+        taskCenterDraftWarmupSessionIdsRef.current.add(draftTabId);
+      }
 
       const startedAt = Date.now();
       logAgentDebug("AgentChatPage", "taskCenter.draftTab.materialize.start", {
@@ -265,6 +328,7 @@ export function useTaskCenterDraftMaterializationRuntime({
       const materializePromise = (async () => {
         const newSessionId = await createFreshSession("新对话", {
           preserveCurrentSnapshot: false,
+          skipSessionStartHooks: true,
         });
         if (!newSessionId) {
           setTaskCenterDraftTabs((current) =>
@@ -276,6 +340,7 @@ export function useTaskCenterDraftMaterializationRuntime({
             sessionId: draftTabId,
             workspaceId: taskCenterWorkspaceId,
           });
+          taskCenterDraftWarmupSessionIdsRef.current.delete(draftTabId);
           return null;
         }
         taskCenterDraftMaterializedSessionIdsRef.current.set(
@@ -390,6 +455,7 @@ export function useTaskCenterDraftMaterializationRuntime({
     materializeTaskCenterDraftTab,
     openTaskCenterDraftTab,
     taskCenterDraftMaterializedSessionIdsRef,
+    taskCenterDraftWarmupSessionIdsRef,
     taskCenterDraftTabsRef,
   };
 }

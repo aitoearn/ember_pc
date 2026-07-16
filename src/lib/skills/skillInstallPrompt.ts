@@ -57,7 +57,7 @@ function normalizeOfficialSkillDetailUrl(downloadUrl: string): string {
   const segments = url.pathname.split("/").filter(Boolean);
   const skillsIndex = segments.indexOf("skills");
   if (
-    (hostname === "limeai.run" || hostname === "www.emberai.run") &&
+    (hostname === "limeai.run" || hostname === "www.limeai.run") &&
     skillsIndex >= 0
   ) {
     const skillSlug = normalizeText(segments[skillsIndex + 1]);
@@ -122,7 +122,7 @@ export function parseSkillInstallPromptInstruction(
 
 export async function installSkillFromPromptInstruction(
   instruction: SkillInstallPromptInstruction,
-  app: AppType = "ember",
+  app: AppType = "lime",
 ): Promise<SkillMarketplaceInstallResult> {
   return skillsApi.installFromDownloadUrl(
     {

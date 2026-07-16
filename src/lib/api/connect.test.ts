@@ -49,7 +49,7 @@ describe("connect API", () => {
     });
 
     await expect(
-      resolveConnectDeepLink("ember://connect?relay=relay-one&key=sk-relay-key"),
+      resolveConnectDeepLink("lime://connect?relay=relay-one&key=sk-relay-key"),
     ).resolves.toEqual({
       payload: {
         relay: "relay-one",
@@ -88,7 +88,7 @@ describe("connect API", () => {
     expect(appServerRequestMock).toHaveBeenCalledWith(
       METHOD_CONNECT_DEEP_LINK_RESOLVE,
       {
-        url: "ember://connect?relay=relay-one&key=sk-relay-key",
+        url: "lime://connect?relay=relay-one&key=sk-relay-key",
       },
     );
     expect(safeInvoke).not.toHaveBeenCalled();
@@ -109,7 +109,7 @@ describe("connect API", () => {
 
     await expect(
       resolveOpenDeepLink(
-        "ember://open?kind=skill&slug=viral-content-breakdown&action=install",
+        "lime://open?kind=skill&slug=viral-content-breakdown&action=install",
       ),
     ).resolves.toEqual({
       payload: {
@@ -124,7 +124,7 @@ describe("connect API", () => {
     expect(appServerRequestMock).toHaveBeenCalledWith(
       METHOD_CONNECT_OPEN_DEEP_LINK_RESOLVE,
       {
-        url: "ember://open?kind=skill&slug=viral-content-breakdown&action=install",
+        url: "lime://open?kind=skill&slug=viral-content-breakdown&action=install",
       },
     );
     expect(safeInvoke).not.toHaveBeenCalled();
@@ -223,9 +223,9 @@ describe("connect API", () => {
       });
 
     await expect(
-      resolveConnectDeepLink("ember://connect?relay=relay-one"),
+      resolveConnectDeepLink("lime://connect?relay=relay-one"),
     ).rejects.toThrow("connectDeepLink/resolve did not return payload");
-    await expect(resolveOpenDeepLink("ember://open?kind=skill")).rejects.toThrow(
+    await expect(resolveOpenDeepLink("lime://open?kind=skill")).rejects.toThrow(
       "connectOpenDeepLink/resolve did not return payload",
     );
     await expect(

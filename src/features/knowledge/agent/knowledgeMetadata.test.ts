@@ -26,8 +26,8 @@ function buildPack(
       maintainers: [],
       runtime: params.mode ? { mode: params.mode } : null,
     },
-    rootPath: `/tmp/project/.ember/knowledge/packs/${name}`,
-    knowledgePath: `/tmp/project/.ember/knowledge/packs/${name}/KNOWLEDGE.md`,
+    rootPath: `/tmp/project/.lime/knowledge/packs/${name}`,
+    knowledgePath: `/tmp/project/.lime/knowledge/packs/${name}/KNOWLEDGE.md`,
     defaultForWorkspace: params.defaultForWorkspace ?? false,
     updatedAt: 1,
     sourceCount: 1,
@@ -45,7 +45,7 @@ describe("knowledgeMetadata", () => {
         skillKind: "agent-skill",
         skillName: "personal-ip-knowledge-builder",
         normalizedPackType: "personal-profile",
-        emberTemplate: "personal-ip",
+        limeTemplate: "personal-ip",
         family: "persona",
         runtimeMode: "persona",
         deprecated: false,
@@ -64,7 +64,7 @@ describe("knowledgeMetadata", () => {
         kind: "agent-skill",
         skill_name: "personal-ip-knowledge-builder",
         pack_type: "personal-profile",
-        ember_template: "personal-ip",
+        lime_template: "personal-ip",
         family: "persona",
         runtime_mode: "persona",
         pack_name: "founder-personal-ip",
@@ -88,7 +88,7 @@ describe("knowledgeMetadata", () => {
         kind: "agent-skill",
         skill_name: "brand-persona-knowledge-builder",
         pack_type: "brand-persona",
-        ember_template: "brand-persona",
+        lime_template: "brand-persona",
         family: "persona",
         runtime_mode: "persona",
         pack_name: "official-brand",
@@ -114,7 +114,7 @@ describe("knowledgeMetadata", () => {
         kind: "agent-skill",
         skill_name: "content-operations-knowledge-builder",
         pack_type: "content-operations",
-        ember_template: "content-operations",
+        lime_template: "content-operations",
         family: "data",
         runtime_mode: "data",
         pack_name: "content-calendar",
@@ -145,7 +145,7 @@ describe("knowledgeMetadata", () => {
           kind: "agent-skill",
           skill_name: skillName,
           pack_type: packType,
-          ember_template: packType,
+          lime_template: packType,
           family: "data",
           runtime_mode: "data",
           pack_name: packType,
@@ -168,10 +168,10 @@ describe("knowledgeMetadata", () => {
       }),
     ).toEqual({
       knowledge_builder: {
-        kind: "ember-compat-compiler",
+        kind: "lime-compat-compiler",
         skill_name: "knowledge_builder",
         pack_type: "external-playbook",
-        ember_template: "external-playbook",
+        lime_template: "external-playbook",
         family: "data",
         runtime_mode: "data",
         pack_name: "external-playbook",
@@ -197,6 +197,25 @@ describe("knowledgeMetadata", () => {
         source: "knowledge_page",
         packs: [{ name: "founder-persona", activation: "implicit" }],
       }),
+      persona_context: {
+        source: "knowledge_pack",
+        scope: "style_context_only",
+        packs: [
+          {
+            name: "founder-persona",
+            activation: "implicit",
+            role: "companion",
+          },
+        ],
+        style_profile_contract: {
+          inherits_global_soul: true,
+          writes_back_to_global_soul: false,
+          formal_artifact_voice_source: "generation_brief_only",
+        },
+        boundaries: expect.arrayContaining([
+          expect.stringContaining("Soul Style Profile resolver"),
+        ]),
+      },
     });
   });
 
@@ -221,7 +240,13 @@ describe("knowledgeMetadata", () => {
           }),
         ],
       }),
-    ).toEqual([{ name: "founder-persona", activation: "implicit" }]);
+    ).toEqual([
+      {
+        name: "founder-persona",
+        activation: "implicit",
+        runtimeMode: "persona",
+      },
+    ]);
   });
 
   it("应允许在默认 persona 之外显式追加多个 data pack", () => {
@@ -248,8 +273,16 @@ describe("knowledgeMetadata", () => {
         ],
       }),
     ).toEqual([
-      { name: "founder-persona", activation: "implicit" },
-      { name: "launch-plan", activation: "explicit" },
+      {
+        name: "founder-persona",
+        activation: "implicit",
+        runtimeMode: "persona",
+      },
+      {
+        name: "launch-plan",
+        activation: "explicit",
+        runtimeMode: "data",
+      },
     ]);
   });
 

@@ -1,8 +1,13 @@
 import type {
+  AgentEvent,
   AgentEventMessage,
+  AgentEventReasoningEnded,
+  AgentEventReasoningStarted,
   AgentEventTextDelta,
   AgentEventTextDeltaBatch,
   AgentEventThinkingDelta,
+  AgentEventReasoningDelta,
+  AgentEventReasoningFinal,
 } from "@/lib/api/agentProtocol";
 import type {
   AgentUiProjectionContext,
@@ -13,6 +18,45 @@ import {
   buildAgentUiReasoningDeltaEvent,
   buildAgentUiTextDeltaEvent,
 } from "@embercloud/agent-runtime-projection";
+
+type ConversationProjectionEvent = Extract<
+  AgentEvent,
+  {
+    type:
+      | "message"
+      | "text_delta"
+      | "text_delta_batch"
+      | "thinking_delta"
+      | "reasoning_delta"
+      | "reasoning_final"
+      | "reasoning_started"
+      | "reasoning_ended";
+  }
+>;
+
+export function buildConversationProjectionEvents(
+  event: ConversationProjectionEvent,
+  context: AgentUiProjectionContext,
+): AgentUiProjectionEvent[] {
+  switch (event.type) {
+    case "message":
+      return [buildMessageSnapshotEvent(event, context)];
+    case "text_delta":
+    case "text_delta_batch":
+      return [buildTextDeltaEvent(event, context)];
+    case "thinking_delta":
+    case "reasoning_delta":
+    case "reasoning_final":
+      return [buildThinkingDeltaEvent(event, context)];
+    case "reasoning_started":
+    case "reasoning_ended":
+      return buildReasoningLifecycleEvents(event, context);
+    default: {
+      const exhaustive: never = event;
+      return exhaustive;
+    }
+  }
+}
 
 export function buildMessageSnapshotEvent(
   event: AgentEventMessage,
@@ -45,14 +89,29 @@ export function buildTextDeltaEvent(
 }
 
 export function buildThinkingDeltaEvent(
-  event: AgentEventThinkingDelta,
+  event:
+    | AgentEventThinkingDelta
+    | AgentEventReasoningDelta
+    | AgentEventReasoningFinal,
   context: AgentUiProjectionContext,
 ): AgentUiProjectionEvent {
   return buildAgentUiReasoningDeltaEvent(
     {
       sourceType: event.type,
-      text: event.text,
+      text:
+        event.type === "reasoning_delta"
+          ? event.text || event.delta || ""
+          : event.type === "reasoning_final"
+            ? event.text
+          : event.text,
     },
     context,
   );
+}
+
+export function buildReasoningLifecycleEvents(
+  _event: AgentEventReasoningStarted | AgentEventReasoningEnded,
+  _context: AgentUiProjectionContext,
+): AgentUiProjectionEvent[] {
+  return [];
 }

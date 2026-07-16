@@ -225,12 +225,12 @@ mod tests {
         conn.execute(
             "INSERT INTO workspaces (id, name, workspace_type, root_path, is_default, settings_json, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, 1, '{}', 0, 0)",
-            params!["workspace-default", "默认项目", "general", "/tmp/ember-default"],
+            params!["workspace-default", "默认项目", "general", "/tmp/lime-default"],
         )
         .expect("插入默认 workspace 失败");
 
         let path = get_default_workspace_path(&conn).expect("查询默认 workspace 失败");
 
-        assert_eq!(path.as_deref(), Some("/tmp/ember-default"));
+        assert_eq!(path.as_deref(), Some("/tmp/lime-default"));
     }
 }

@@ -1,38 +1,38 @@
 import {
-  getSupportedCodexSlashCommands,
-  getUnsupportedCodexSlashCommands,
+  getSupportedSlashCommands,
+  getUnsupportedSlashCommands,
 } from "./parser";
 import type {
-  CodexSlashStatusSnapshot,
-  ParsedCodexSlashCommand,
+  SlashCommandStatusSnapshot,
+  ParsedSlashCommand,
 } from "./types";
 
 function formatExecutionStrategyLabel(
-  strategy: CodexSlashStatusSnapshot["executionStrategy"],
+  strategy: SlashCommandStatusSnapshot["executionStrategy"],
 ): string {
   void strategy;
   return "对话执行";
 }
 
-export function buildCodexSlashHelpMessage(): string {
-  const supported = getSupportedCodexSlashCommands().map((command) => {
+export function buildSlashCommandHelpMessage(): string {
+  const supported = getSupportedSlashCommands().map((command) => {
     const suffix = command.argumentHint ? ` ${command.argumentHint}` : "";
     return `- ${command.commandPrefix}${suffix}：${command.description}`;
   });
-  const unsupported = getUnsupportedCodexSlashCommands()
+  const unsupported = getUnsupportedSlashCommands()
     .map((command) => command.commandPrefix)
     .join("、");
 
   return [
-    "可用 Ember 命令：",
+    "可用 Lime 命令：",
     ...supported,
     "",
     `暂未支持：${unsupported}`,
   ].join("\n");
 }
 
-export function buildCodexSlashStatusMessage(
-  snapshot: CodexSlashStatusSnapshot,
+export function buildSlashCommandStatusMessage(
+  snapshot: SlashCommandStatusSnapshot,
 ): string {
   const providerLabel = snapshot.providerType.trim() || "未设置";
   const modelLabel = snapshot.model.trim() || "未设置";
@@ -48,8 +48,8 @@ export function buildCodexSlashStatusMessage(
   ].join("\n");
 }
 
-export function buildCodexSlashModelMessage(
-  snapshot: CodexSlashStatusSnapshot,
+export function buildSlashCommandModelMessage(
+  snapshot: SlashCommandStatusSnapshot,
 ): string {
   const providerLabel = snapshot.providerType.trim() || "未设置";
   const modelLabel = snapshot.model.trim() || "未设置";
@@ -63,8 +63,8 @@ export function buildCodexSlashModelMessage(
   ].join("\n");
 }
 
-export function buildCodexSlashPrompt(
-  command: ParsedCodexSlashCommand,
+export function buildSlashCommandPrompt(
+  command: ParsedSlashCommand,
 ): string | null {
   const userInput = command.userInput.trim();
 
@@ -86,8 +86,8 @@ export function buildCodexSlashPrompt(
   }
 }
 
-export function buildUnsupportedCodexSlashCommandMessage(
-  command: ParsedCodexSlashCommand,
+export function buildUnsupportedSlashCommandMessage(
+  command: ParsedSlashCommand,
 ): string {
-  return `命令 ${command.definition.commandPrefix} 已识别，但当前 Ember 暂未支持。可先使用 /help 查看已接入命令。`;
+  return `命令 ${command.definition.commandPrefix} 已识别，但当前 Lime 暂未支持。可先使用 /help 查看已接入命令。`;
 }

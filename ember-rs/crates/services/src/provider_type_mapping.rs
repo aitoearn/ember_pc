@@ -2,9 +2,9 @@
 //!
 //! 统一 API Key Provider 主路径中历史 ProviderType 与 ApiProviderType 的映射规则。
 
-use ember_core::database::dao::api_key_provider::ApiProviderType;
-use ember_core::models::provider_type::is_custom_provider_id as core_is_custom_provider_id;
-use ember_core::models::RuntimeProviderType;
+use lime_core::database::dao::api_key_provider::ApiProviderType;
+use lime_core::models::provider_type::is_custom_provider_id as core_is_custom_provider_id;
+use lime_core::models::RuntimeProviderType;
 
 /// 是否为自定义 Provider ID（`custom-*`）
 pub(crate) fn is_custom_provider_id(provider_type: &str) -> bool {
@@ -74,8 +74,8 @@ mod tests {
         is_retired_credential_provider_label, resolve_runtime_provider_type,
         runtime_provider_type_to_api_type,
     };
-    use ember_core::database::dao::api_key_provider::ApiProviderType;
-    use ember_core::models::RuntimeProviderType;
+    use lime_core::database::dao::api_key_provider::ApiProviderType;
+    use lime_core::models::RuntimeProviderType;
 
     #[test]
     fn test_api_provider_type_to_runtime_provider_type_mapping() {

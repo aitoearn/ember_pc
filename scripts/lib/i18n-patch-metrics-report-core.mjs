@@ -1,4 +1,4 @@
-const REPORT_SCHEMA_VERSION = "ember.i18n.patchMetricsReport.v1";
+const REPORT_SCHEMA_VERSION = "lime.i18n.patchMetricsReport.v1";
 
 function asFiniteNumber(value, fallback = 0) {
   return Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -192,7 +192,7 @@ export function createI18nPatchMetricsReport({
 
 export function renderI18nPatchMetricsTextReport(report) {
   const lines = [
-    "Ember i18n Patch Metrics Report",
+    "Lime i18n Patch Metrics Report",
     `状态: ${report.status}`,
     `来源: ${report.sourcePath || "(未指定)"}`,
     `生成时间: ${report.generatedAt}`,

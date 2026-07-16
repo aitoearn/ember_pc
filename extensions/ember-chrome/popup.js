@@ -37,7 +37,7 @@ function buildObserverEndpoint(serverUrl, bridgeKey, profileKey) {
   if (!base || !key) {
     return "Observer URL: 未配置";
   }
-  return `Observer URL: ${base}/ember-chrome-observer/${encodeURIComponent(key)}?profileKey=${profile}`;
+  return `Observer URL: ${base}/lime-chrome-observer/${encodeURIComponent(key)}?profileKey=${profile}`;
 }
 
 function applyStatus(status) {
@@ -75,25 +75,25 @@ function applyStatus(status) {
 
   if (enabled && !configured) {
     statusHintEl.textContent =
-      "当前扩展还没有拿到 Ember 的连接配置。请回到 Ember 的“连接器”页重新同步扩展，或把复制的配置粘贴到下方后保存。";
+      "当前扩展还没有拿到 Lime 的连接配置。请回到 Lime 的“连接器”页重新同步扩展，或把复制的配置粘贴到下方后保存。";
   } else if (connected && controlConnected) {
     statusHintEl.textContent =
-      "浏览器扩展的 observer/control 双通道都已接入当前 Ember 运行时，后续会持续复用你当前已登录的 Chrome 标签页。";
+      "浏览器扩展的 observer/control 双通道都已接入当前 Lime 运行时，后续会持续复用你当前已登录的 Chrome 标签页。";
   } else if (connected && (controlConnecting || controlErrorText)) {
     statusHintEl.textContent = controlErrorText
       ? `页面观察已接入，但控制通道当前异常：${controlErrorText}`
       : "页面观察已接入，控制通道正在补连。";
   } else if (enabled && connecting) {
     statusHintEl.textContent =
-      "扩展已启用，正在尝试连接本地 Ember relay。保持当前 Chrome 打开即可，连接成功后会自动抓取当前标签页。";
+      "扩展已启用，正在尝试连接本地 Lime relay。保持当前 Chrome 打开即可，连接成功后会自动抓取当前标签页。";
   } else if (enabled && errorText) {
     statusHintEl.textContent = `扩展已启用，但当前连接失败：${errorText}`;
   } else if (enabled) {
     statusHintEl.textContent =
-      "扩展已启用，但当前还未连上 Ember。请确认桌面端已经启动，并检查连接器页中的地址和密钥。";
+      "扩展已启用，但当前还未连上 Lime。请确认桌面端已经启动，并检查连接器页中的地址和密钥。";
   } else {
     statusHintEl.textContent =
-      "扩展当前处于停用状态，不会自动重连。需要时点击“启用并连接”，或回到 Ember 的“连接器”页重新同步配置。";
+      "扩展当前处于停用状态，不会自动重连。需要时点击“启用并连接”，或回到 Lime 的“连接器”页重新同步配置。";
   }
 
   const latestPageInfo = status?.latestPageInfo;
@@ -155,7 +155,7 @@ async function loadInitialState() {
   try {
     await refreshStatus();
   } catch (error) {
-    console.warn("[EmberBridgePopup] 获取状态失败", error?.message || String(error));
+    console.warn("[LimeBridgePopup] 获取状态失败", error?.message || String(error));
   }
 }
 
@@ -197,7 +197,7 @@ async function saveAndReconnect() {
       saveBtnEl.textContent = originalText;
       saveBtnEl.disabled = false;
     }, 1200);
-    console.warn("[EmberBridgePopup] 保存设置失败", error?.message || String(error));
+    console.warn("[LimeBridgePopup] 保存设置失败", error?.message || String(error));
   }
 }
 
@@ -206,7 +206,7 @@ async function toggleConnection() {
     await sendMessage({ type: "TOGGLE_CONNECTION" });
     await refreshStatus();
   } catch (error) {
-    console.warn("[EmberBridgePopup] 切换连接失败", error?.message || String(error));
+    console.warn("[LimeBridgePopup] 切换连接失败", error?.message || String(error));
   }
 }
 
@@ -215,7 +215,7 @@ async function toggleMonitoring() {
     await sendMessage({ type: "TOGGLE_MONITORING" });
     await refreshStatus();
   } catch (error) {
-    console.warn("[EmberBridgePopup] 切换监控失败", error?.message || String(error));
+    console.warn("[LimeBridgePopup] 切换监控失败", error?.message || String(error));
   }
 }
 
@@ -228,7 +228,7 @@ async function capturePageNow() {
     await sendMessage({ type: "REQUEST_PAGE_CAPTURE" });
     await refreshStatus();
   } catch (error) {
-    console.warn("[EmberBridgePopup] 请求抓取失败", error?.message || String(error));
+    console.warn("[LimeBridgePopup] 请求抓取失败", error?.message || String(error));
   } finally {
     setTimeout(() => {
       captureBtnEl.textContent = originalText;
@@ -277,7 +277,7 @@ async function pasteConfigFromClipboard() {
       pasteBtn.textContent = originalText;
       pasteBtn.disabled = false;
     }, 1500);
-    console.warn("[EmberBridgePopup] 粘贴配置失败", error?.message || String(error));
+    console.warn("[LimeBridgePopup] 粘贴配置失败", error?.message || String(error));
   }
 }
 
@@ -320,10 +320,10 @@ async function pollStatusUntilConnected() {
 
 function openConnectorSettings() {
   try {
-    window.open("ember://connectors/browser?enable=true");
+    window.open("lime://connectors/browser?enable=true");
   } catch (error) {
     console.warn(
-      "[EmberBridgePopup] 打开 Ember 连接器页失败",
+      "[LimeBridgePopup] 打开 Lime 连接器页失败",
       error?.message || String(error),
     );
   }
@@ -338,7 +338,7 @@ captureBtnEl.addEventListener("click", capturePageNow);
 openConnectorPageBtnEl.addEventListener("click", openConnectorSettings);
 refreshStatusBtnEl.addEventListener("click", () => {
   refreshStatus().catch((error) => {
-    console.warn("[EmberBridgePopup] 刷新状态失败", error?.message || String(error));
+    console.warn("[LimeBridgePopup] 刷新状态失败", error?.message || String(error));
   });
 });
 document.getElementById("pasteConfigBtn").addEventListener("click", pasteConfigFromClipboard);

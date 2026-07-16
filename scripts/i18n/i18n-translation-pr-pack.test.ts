@@ -12,7 +12,7 @@ import {
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ember-i18n-pr-pack-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lime-i18n-pr-pack-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -51,7 +51,7 @@ describe("i18n translation PR pack", () => {
 
     const report = buildTranslationPrPackReport(resourcesDir, "zh-CN");
 
-    expect(report.schemaVersion).toBe("ember.i18n.translationPrPack.v1");
+    expect(report.schemaVersion).toBe("lime.i18n.translationPrPack.v1");
     expect(report.summary).toEqual(
       expect.objectContaining({
         localeCount: 2,
@@ -125,7 +125,7 @@ describe("i18n translation PR pack", () => {
     expect(writeSpy).not.toHaveBeenCalled();
     expect(JSON.parse(fs.readFileSync(outputPath, "utf8"))).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.translationPrPack.v1",
+        schemaVersion: "lime.i18n.translationPrPack.v1",
       }),
     );
   });

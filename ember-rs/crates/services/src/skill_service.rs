@@ -9,8 +9,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::time::timeout;
 
-use ember_core::app_paths;
-use ember_core::models::{
+use lime_core::app_paths;
+use lime_core::models::{
     parse_skill_manifest_from_content as parse_manifest_content, resolve_skill_source_kind,
     summarize_skill_resources_dir, AppType, ParsedSkillManifest, Skill, SkillCatalogSource,
     SkillPackageInspection, SkillRepo, SkillResourceSummary, SkillSourceKind,
@@ -21,7 +21,7 @@ const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60);
 const REMOTE_SKILLS_LIST_TIMEOUT: Duration = Duration::from_secs(8);
 const REMOTE_SKILLS_CACHE_TTL: Duration = Duration::from_secs(300);
 const REMOTE_SKILLS_ERROR_CACHE_TTL: Duration = Duration::from_secs(120);
-const GITHUB_CONTENTS_USER_AGENT: &str = "ember-skill-service";
+const GITHUB_CONTENTS_USER_AGENT: &str = "lime-skill-service";
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct RepoCacheKey {
@@ -140,7 +140,7 @@ impl SkillService {
 
     fn get_skills_dir(app_type: &AppType) -> Result<PathBuf> {
         let skills_dir = match app_type {
-            AppType::Ember => app_paths::resolve_skills_dir().map_err(|e| anyhow!(e))?,
+            AppType::Lime => app_paths::resolve_skills_dir().map_err(|e| anyhow!(e))?,
             AppType::Claude => dirs::home_dir()
                 .ok_or_else(|| anyhow!("Failed to get home directory"))?
                 .join(".claude")
@@ -167,17 +167,17 @@ impl SkillService {
         scope: LocalSkillCatalogScope,
     ) -> Result<Vec<CatalogSkillRoot>> {
         match app_type {
-            AppType::Ember => {
+            AppType::Lime => {
                 let mut roots = Vec::new();
                 if matches!(scope, LocalSkillCatalogScope::All) {
-                    for project_dir in app_paths::resolve_ember_project_skill_roots() {
+                    for project_dir in app_paths::resolve_lime_project_skill_roots() {
                         roots.push(CatalogSkillRoot {
                             source: SkillCatalogSource::Project,
                             path: project_dir,
                         });
                     }
                 }
-                for user_dir in app_paths::resolve_ember_user_skill_roots() {
+                for user_dir in app_paths::resolve_lime_user_skill_roots() {
                     roots.push(CatalogSkillRoot {
                         source: SkillCatalogSource::User,
                         path: user_dir,
@@ -1252,7 +1252,7 @@ impl SkillService {
                 ),
             };
 
-        Self::validate_ember_skill_metadata(
+        Self::validate_lime_skill_metadata(
             &metadata,
             &mut standard_compliance.validation_errors,
             |relative_path| read_relative_file(relative_path),
@@ -1272,18 +1272,18 @@ impl SkillService {
         }
     }
 
-    fn validate_ember_skill_metadata(
+    fn validate_lime_skill_metadata(
         metadata: &HashMap<String, String>,
         validation_errors: &mut Vec<String>,
         mut read_relative_file: impl FnMut(&str) -> Result<String>,
     ) {
-        let Some(workflow_ref) = metadata.get("ember_workflow_ref") else {
+        let Some(workflow_ref) = metadata.get("lime_workflow_ref") else {
             return;
         };
 
         let workflow_ref = workflow_ref.trim();
         if workflow_ref.is_empty() {
-            validation_errors.push("字段 `metadata.ember_workflow_ref` 不能为空".to_string());
+            validation_errors.push("字段 `metadata.lime_workflow_ref` 不能为空".to_string());
             return;
         }
 
@@ -1291,13 +1291,13 @@ impl SkillService {
             Ok(content) => {
                 if let Err(error) = Self::validate_workflow_content(workflow_ref, &content) {
                     validation_errors.push(format!(
-                        "字段 `metadata.ember_workflow_ref` 校验失败: {error}"
+                        "字段 `metadata.lime_workflow_ref` 校验失败: {error}"
                     ));
                 }
             }
             Err(error) => {
                 validation_errors.push(format!(
-                    "字段 `metadata.ember_workflow_ref` 校验失败: {error}"
+                    "字段 `metadata.lime_workflow_ref` 校验失败: {error}"
                 ));
             }
         }
@@ -1500,7 +1500,7 @@ impl SkillService {
 #[cfg(test)]
 mod tests {
     use super::{CatalogSkillRoot, LocalSkillCatalogScope, SkillService};
-    use ember_core::models::{AppType, SkillCatalogSource};
+    use lime_core::models::{AppType, SkillCatalogSource};
     use std::collections::HashMap;
     use std::io::{Cursor, Write};
     use std::path::{Path, PathBuf};
@@ -1668,8 +1668,8 @@ description: Generate social posts
 license: MIT
 compatibility: Requires network access for publishing.
 metadata:
-  ember_workflow_ref: references/workflow.json
-  ember_category: social
+  lime_workflow_ref: references/workflow.json
+  lime_category: social
 allowed-tools: Bash(git:*) Bash(jq:*) Read
 ---
 
@@ -1691,7 +1691,7 @@ allowed-tools: Bash(git:*) Bash(jq:*) Read
             Some("Requires network access for publishing.")
         );
         assert_eq!(
-            inspection.metadata.get("ember_category").map(String::as_str),
+            inspection.metadata.get("lime_category").map(String::as_str),
             Some("social")
         );
         assert_eq!(
@@ -1718,7 +1718,7 @@ allowed-tools: Bash(git:*) Bash(jq:*) Read
 name: Broken
 description: Broken workflow
 metadata:
-  ember_workflow_ref: ../outside.yaml
+  lime_workflow_ref: ../outside.yaml
 ---
 "#,
         )
@@ -1747,10 +1747,10 @@ metadata:
 name: Remote Broken
 description: Broken workflow
 metadata:
-  ember_workflow_ref: references/workflow.json
+  lime_workflow_ref: references/workflow.json
 ---
 "#,
-            ember_core::models::SkillResourceSummary {
+            lime_core::models::SkillResourceSummary {
                 has_references: true,
                 ..Default::default()
             },
@@ -1794,7 +1794,7 @@ metadata:
         let mut all_skills = HashMap::new();
         service
             .collect_local_skills(
-                &AppType::Ember,
+                &AppType::Lime,
                 &[
                     CatalogSkillRoot {
                         source: SkillCatalogSource::Project,
@@ -1817,7 +1817,7 @@ metadata:
     #[test]
     fn user_scope_catalog_roots_should_exclude_project_roots() {
         let roots =
-            SkillService::get_catalog_roots_for_scope(&AppType::Ember, LocalSkillCatalogScope::User)
+            SkillService::get_catalog_roots_for_scope(&AppType::Lime, LocalSkillCatalogScope::User)
                 .expect("resolve user skill roots");
 
         assert!(roots
@@ -1838,7 +1838,7 @@ metadata:
 name: Broken Workflow
 description: local validation
 metadata:
-  ember_workflow_ref: references/workflow.json
+  lime_workflow_ref: references/workflow.json
 ---
 "#,
         )
@@ -1847,7 +1847,7 @@ metadata:
         let mut all_skills = HashMap::new();
         service
             .collect_local_skills(
-                &AppType::Ember,
+                &AppType::Lime,
                 &[CatalogSkillRoot {
                     source: SkillCatalogSource::User,
                     path: user_root,

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { cwd } from "node:process";
 import { describe, expect, it } from "vitest";
+import { readAppServerApiSources } from "../../test/appServerApiSources";
 
 const RETIRED_IMPORT_DOCUMENT_COMMAND = "import_document";
 const RETIRED_IMPORT_DOCUMENT_TO_SESSION_COMMAND = "import_document_to_session";
@@ -52,9 +53,9 @@ describe("Document Import current App Server boundary", () => {
   });
 
   it("App Server protocol / client 应保留 fileSystem/readFilePreview current 方法", () => {
-    const appServerSource = readRepoFile("src/lib/api/appServer.ts");
-    const clientProtocolSource = readRepoFile(
-      "packages/app-server-client/src/protocol.ts",
+    const appServerSource = readAppServerApiSources();
+    const generatedClientProtocolSource = readRepoFile(
+      "packages/app-server-client/src/generated/protocol-types.ts",
     );
     const rustProtocolSource = readRepoFile(
       "ember-rs/crates/app-server-protocol/src/protocol/v0/method_names.rs",
@@ -63,8 +64,10 @@ describe("Document Import current App Server boundary", () => {
     expect(appServerSource).toContain(
       "APP_SERVER_METHOD_FILE_SYSTEM_READ_FILE_PREVIEW",
     );
-    expect(appServerSource).toContain("async readFilePreview(");
-    expect(clientProtocolSource).toContain(`"${CURRENT_FILE_PREVIEW_METHOD}"`);
+    expect(appServerSource).toContain("readFilePreview(");
+    expect(generatedClientProtocolSource).toContain(
+      `"${CURRENT_FILE_PREVIEW_METHOD}"`,
+    );
     expect(rustProtocolSource).toContain(`"${CURRENT_FILE_PREVIEW_METHOD}"`);
   });
 

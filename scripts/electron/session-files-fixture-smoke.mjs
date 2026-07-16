@@ -13,7 +13,7 @@ const DEFAULTS = {
   appUrl: "",
   evidenceDir: path.join(
     process.cwd(),
-    ".ember",
+    ".lime",
     "qc",
     "gui-evidence",
     "session-files-electron-fixture",
@@ -275,7 +275,7 @@ async function waitForRendererReady(page, options) {
   while (Date.now() - startedAt < options.timeoutMs) {
     const snapshot = await evaluatePageSnapshot(page, () => ({
       url: window.location.href,
-      electron: window.__EMBER_ELECTRON__ === true,
+      electron: window.__LIME_ELECTRON__ === true,
       hasInvokeBridge: typeof window.electronAPI?.invoke === "function",
       supportsAppServer:
         typeof window.electronAPI?.supportsCommand === "function" &&
@@ -285,7 +285,7 @@ async function waitForRendererReady(page, options) {
         window.electronAPI.supportsCommand("reveal_in_finder") &&
         window.electronAPI.supportsCommand("open_with_default_app"),
       startupVisible: Boolean(
-        document.querySelector("[data-ember-startup-shell]"),
+        document.querySelector("[data-lime-startup-shell]"),
       ),
       appSidebarVisible: Boolean(
         document.querySelector('[data-testid="app-sidebar"]'),
@@ -313,8 +313,8 @@ async function waitForRendererReady(page, options) {
 
 async function clearInvokeBuffers(page) {
   await page.evaluate(() => {
-    window.localStorage.removeItem("ember_invoke_error_buffer_v1");
-    window.localStorage.removeItem("ember_invoke_trace_buffer_v1");
+    window.localStorage.removeItem("lime_invoke_error_buffer_v1");
+    window.localStorage.removeItem("lime_invoke_trace_buffer_v1");
   });
 }
 
@@ -333,10 +333,10 @@ async function launchElectronFixture({
       ...appServerEnv,
       APP_SERVER_BACKEND_MODE: "unavailable",
       ELECTRON_E2E_USER_DATA_DIR: runtimeEnv.electronUserDataDir,
-      EMBER_ELECTRON_E2E: "1",
-      EMBER_ELECTRON_BRAND_DEV_APP: "0",
-      EMBER_ELECTRON_CLEAR_RENDERER_CACHE: "0",
-      EMBER_ELECTRON_DEV_HTTP_BRIDGE: "0",
+      LIME_ELECTRON_E2E: "1",
+      LIME_ELECTRON_BRAND_DEV_APP: "0",
+      LIME_ELECTRON_CLEAR_RENDERER_CACHE: "0",
+      LIME_ELECTRON_DEV_HTTP_BRIDGE: "0",
       ...(options.appUrl ? { VITE_DEV_SERVER_URL: options.appUrl } : {}),
     },
     timeout: options.timeoutMs,
@@ -499,8 +499,8 @@ async function runSessionFileFixture(page) {
         listedAfterDelete,
         requests,
         messages,
-        traceRaw: window.localStorage.getItem("ember_invoke_trace_buffer_v1"),
-        errorRaw: window.localStorage.getItem("ember_invoke_error_buffer_v1"),
+        traceRaw: window.localStorage.getItem("lime_invoke_trace_buffer_v1"),
+        errorRaw: window.localStorage.getItem("lime_invoke_error_buffer_v1"),
       };
     },
     {

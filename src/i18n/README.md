@@ -1,8 +1,8 @@
-# Ember i18n Guide
+# Lime i18n Guide
 
 ## Overview
 
-Ember is migrating from DOM Patch translation to key-based i18next resources.
+Lime is migrating from DOM Patch translation to key-based i18next resources.
 
 Current fact sources:
 
@@ -64,7 +64,7 @@ function App() {
 
 ```tsx
 import { useI18nPatch } from "@/i18n/legacy-patch/I18nPatchProvider";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { UI_LOCALE_OPTIONS, toLegacyPatchLanguage } from "@/i18n/locales";
 
 function LanguageSwitcher() {
@@ -75,7 +75,7 @@ function LanguageSwitcher() {
       defaultValue="auto"
       onChange={(event) => {
         const nextLocale = event.target.value;
-        void changeEmberLocale(nextLocale);
+        void changeLimeLocale(nextLocale);
         setLegacyPatchLanguage(toLegacyPatchLanguage(nextLocale));
       }}
     >
@@ -144,8 +144,8 @@ resources instead of increasing Patch hits.
 To turn exported runtime metrics into a stable artifact:
 
 ```bash
-npm run i18n:patch-report -- --input .ember/i18n/patch-metrics.json
-npm run i18n:patch-report:json -- --input .ember/i18n/patch-metrics.json
+npm run i18n:patch-report -- --input .lime/i18n/patch-metrics.json
+npm run i18n:patch-report:json -- --input .lime/i18n/patch-metrics.json
 npm run i18n:patch-report -- --check --max-matched-segments 0 --max-replaced-nodes 0
 ```
 
@@ -154,16 +154,16 @@ The input JSON should come from `window.__I18N_METRICS__` or
 signal; it does not replace current-path dependency audits.
 
 `npm run verify:gui-smoke` passes `--i18n-patch-metrics-output` to
-`smoke:knowledge-gui` by default, writes `.ember/i18n/patch-metrics.json`, and
-then writes `.ember/i18n/patch-metrics-report.json`, `.ember/governance/legacy-surface-report.json`,
+`smoke:knowledge-gui` by default, writes `.lime/i18n/patch-metrics.json`, and
+then writes `.lime/i18n/patch-metrics-report.json`, `.lime/governance/legacy-surface-report.json`,
 and runs `npm run i18n:patch-retirement-gate -- --check`. Use
 `--skip-i18n-patch-metrics` only when debugging unrelated GUI smoke failures.
 
 To combine Patch no-hit evidence with legacy surface dependency audit:
 
 ```bash
-npm run i18n:patch-retirement-gate -- --patch-report .ember/i18n/patch-metrics-report.json --legacy-report .ember/governance/legacy-surface-report.json
-npm run i18n:patch-retirement-gate -- --check --format json --patch-report .ember/i18n/patch-metrics-report.json --legacy-report .ember/governance/legacy-surface-report.json
+npm run i18n:patch-retirement-gate -- --patch-report .lime/i18n/patch-metrics-report.json --legacy-report .lime/governance/legacy-surface-report.json
+npm run i18n:patch-retirement-gate -- --check --format json --patch-report .lime/i18n/patch-metrics-report.json --legacy-report .lime/governance/legacy-surface-report.json
 ```
 
 The gate passes only when the Patch report is `no-hit` and the legacy surface
@@ -194,7 +194,7 @@ boundary inventory:
 ```bash
 npm run i18n:language-boundary-report
 npm run i18n:language-boundary-report:json
-npm run i18n:language-boundary-report:json -- --category contentTargetLanguage --output "docs/roadmap/i18n/evidence/content-target-language-boundary-report.json"
+npm run i18n:language-boundary-report:json -- --category contentTargetLanguage --output "internal/roadmap/i18n/evidence/content-target-language-boundary-report.json"
 ```
 
 For bundle footprint and chunk strategy review:

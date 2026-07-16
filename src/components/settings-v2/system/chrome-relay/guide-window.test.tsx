@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const {
   mockOpenDialog,
@@ -118,7 +118,7 @@ beforeEach(async () => {
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
@@ -134,17 +134,17 @@ beforeEach(async () => {
   mockGetBrowserConnectorSettings.mockResolvedValue({
     enabled: true,
     install_root_dir: "/Users/test/connectors",
-    install_dir: "/Users/test/connectors/Ember Browser Connector",
+    install_dir: "/Users/test/connectors/Lime Browser Connector",
     system_connectors: [],
     browser_action_capabilities: [],
   });
   mockGetBrowserConnectorInstallStatus.mockResolvedValue({
     status: "installed",
     install_root_dir: "/Users/test/connectors",
-    install_dir: "/Users/test/connectors/Ember Browser Connector",
-    bundled_name: "Ember Browser Connector",
+    install_dir: "/Users/test/connectors/Lime Browser Connector",
+    bundled_name: "Lime Browser Connector",
     bundled_version: "0.4.0",
-    installed_name: "Ember Browser Connector",
+    installed_name: "Lime Browser Connector",
     installed_version: "0.4.0",
     message: null,
   });
@@ -158,30 +158,30 @@ beforeEach(async () => {
   });
   mockGetBrowserBackendsStatus.mockResolvedValue({
     policy: {
-      priority: ["aster_compat", "ember_extension_bridge", "cdp_direct"],
+      priority: ["current", "lime_extension_bridge", "cdp_direct"],
       auto_fallback: true,
     },
     bridge_observer_count: 1,
     bridge_control_count: 1,
     running_profile_count: 1,
     cdp_alive_profile_count: 1,
-    aster_native_host_supported: true,
-    aster_native_host_configured: false,
+    agent_native_host_supported: true,
+    agent_native_host_configured: false,
     backends: [],
   });
   mockInstallBrowserConnectorExtension.mockResolvedValue({
     install_root_dir: "/Users/test/connectors",
-    install_dir: "/Users/test/connectors/Ember Browser Connector",
-    bundled_name: "Ember Browser Connector",
+    install_dir: "/Users/test/connectors/Lime Browser Connector",
+    bundled_name: "Lime Browser Connector",
     bundled_version: "0.4.0",
     installed_version: "0.4.0",
     auto_config_path:
-      "/Users/test/connectors/Ember Browser Connector/auto_config.json",
+      "/Users/test/connectors/Lime Browser Connector/auto_config.json",
   });
   mockSetBrowserConnectorInstallRoot.mockResolvedValue({
     enabled: true,
     install_root_dir: "/Users/test/connectors",
-    install_dir: "/Users/test/connectors/Ember Browser Connector",
+    install_dir: "/Users/test/connectors/Lime Browser Connector",
     system_connectors: [],
     browser_action_capabilities: [],
   });
@@ -201,7 +201,7 @@ afterEach(async () => {
   }
   vi.clearAllMocks();
   window.history.pushState({}, "", "/");
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("BrowserConnectorGuideWindow", () => {
@@ -209,7 +209,7 @@ describe("BrowserConnectorGuideWindow", () => {
     const container = renderGuide("/browser-connector-guide?mode=extension");
     await flushEffects();
 
-    expect(container.textContent).toContain("Install Ember Browser Bridge");
+    expect(container.textContent).toContain("Install Lime Browser Bridge");
     expect(container.textContent).toContain("Open chrome://extensions");
     expect(container.textContent).toContain(
       "Sync and open the extension folder",
@@ -217,7 +217,7 @@ describe("BrowserConnectorGuideWindow", () => {
     expect(container.textContent).toContain(
       "Do not load the repository source directory extensions/ember-chrome",
     );
-    expect(container.textContent).not.toContain("安装 Ember Browser Bridge");
+    expect(container.textContent).not.toContain("安装 Lime Browser Bridge");
     expect(container.textContent).not.toContain("settings.chromeRelay.guide");
 
     const openExtensionsButton = findButton(
@@ -275,7 +275,7 @@ describe("BrowserConnectorGuideWindow", () => {
     expect(container.textContent).toContain(
       "Open chrome://inspect/#remote-debugging",
     );
-    expect(container.textContent).toContain("Allow Ember to connect");
+    expect(container.textContent).toContain("Allow Lime to connect");
     expect(container.textContent).not.toContain("启用浏览器直连");
     expect(container.textContent).not.toContain("settings.chromeRelay.guide");
 
@@ -292,19 +292,19 @@ describe("BrowserConnectorGuideWindow", () => {
 
   it("index.html 壳入口应继续从查询参数识别 cdp 模式", async () => {
     const container = renderGuide(
-      "/index.html?ember_window=browser-connector-guide&mode=cdp",
+      "/index.html?lime_window=browser-connector-guide&mode=cdp",
     );
     await flushEffects();
 
     expect(container.textContent).toContain("Enable Direct Browser Connection");
-    expect(container.textContent).not.toContain("Install Ember Browser Bridge");
+    expect(container.textContent).not.toContain("Install Lime Browser Bridge");
   });
 
   it("未知 mode 应回退到扩展连接引导", async () => {
     const container = renderGuide("/browser-connector-guide?mode=unknown");
     await flushEffects();
 
-    expect(container.textContent).toContain("Install Ember Browser Bridge");
+    expect(container.textContent).toContain("Install Lime Browser Bridge");
     expect(container.textContent).not.toContain(
       "Enable Direct Browser Connection",
     );
@@ -336,14 +336,14 @@ describe("BrowserConnectorGuideWindow", () => {
     window.history.pushState(
       {},
       "",
-      "/index.html?ember_window=browser-connector-guide&mode=cdp",
+      "/index.html?lime_window=browser-connector-guide&mode=cdp",
     );
 
     expect(buildBrowserConnectorGuideShellUrl("extension")).toBe(
-      "index.html?ember_window=browser-connector-guide&mode=extension",
+      "index.html?lime_window=browser-connector-guide&mode=extension",
     );
     expect(buildBrowserConnectorGuideNavigationUrl("extension")).toBe(
-      "index.html?ember_window=browser-connector-guide&mode=extension",
+      "index.html?lime_window=browser-connector-guide&mode=extension",
     );
   });
 

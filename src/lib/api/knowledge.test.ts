@@ -28,7 +28,7 @@ describe("knowledge API", () => {
     appServerRequestMock.mockResolvedValueOnce({
       result: {
         workingDir: "/tmp/workspace",
-        rootPath: "/tmp/workspace/.ember/knowledge",
+        rootPath: "/tmp/workspace/.lime/knowledge",
         packs: [],
       },
     });
@@ -37,7 +37,7 @@ describe("knowledge API", () => {
       listKnowledgePacks({ workingDir: "/tmp/workspace" }),
     ).resolves.toEqual({
       workingDir: "/tmp/workspace",
-      rootPath: "/tmp/workspace/.ember/knowledge",
+      rootPath: "/tmp/workspace/.lime/knowledge",
       packs: [],
     });
 
@@ -51,7 +51,7 @@ describe("knowledge API", () => {
     appServerRequestMock.mockResolvedValueOnce({
       result: {
         workingDir: "/tmp/workspace",
-        rootPath: "/tmp/workspace/.ember/knowledge",
+        rootPath: "/tmp/workspace/.lime/knowledge",
         packs: [],
       },
     });
@@ -79,7 +79,7 @@ describe("knowledge API", () => {
     appServerRequestMock.mockResolvedValueOnce({
       result: {
         workingDir: "/tmp/workspace",
-        rootPath: "/tmp/workspace/.ember/knowledge",
+        rootPath: "/tmp/workspace/.lime/knowledge",
       },
     });
 
@@ -96,8 +96,8 @@ describe("knowledge API", () => {
   it("应通过 App Server current 网关代理全部知识包命令", async () => {
     const packDetail = {
       metadata: { name: "sample-product" },
-      rootPath: "/tmp/workspace/.ember/knowledge/sample-product",
-      knowledgePath: "/tmp/workspace/.ember/knowledge/sample-product",
+      rootPath: "/tmp/workspace/.lime/knowledge/sample-product",
+      knowledgePath: "/tmp/workspace/.lime/knowledge/sample-product",
       defaultForWorkspace: false,
       updatedAt: 0,
       sourceCount: 1,
@@ -112,19 +112,19 @@ describe("knowledge API", () => {
     };
     const sourceFile = {
       relativePath: "sources/brief.md",
-      absolutePath: "/tmp/workspace/.ember/knowledge/sample-product/sources/brief.md",
+      absolutePath: "/tmp/workspace/.lime/knowledge/sample-product/sources/brief.md",
       bytes: 10,
       updatedAt: 0,
     };
     const compiledView = {
       relativePath: "compiled/index.md",
-      absolutePath: "/tmp/workspace/.ember/knowledge/sample-product/compiled/index.md",
+      absolutePath: "/tmp/workspace/.lime/knowledge/sample-product/compiled/index.md",
       bytes: 20,
       updatedAt: 0,
     };
     const compileRun = {
       relativePath: "runs/compile.json",
-      absolutePath: "/tmp/workspace/.ember/knowledge/sample-product/runs/compile.json",
+      absolutePath: "/tmp/workspace/.lime/knowledge/sample-product/runs/compile.json",
       bytes: 30,
       updatedAt: 0,
     };
@@ -150,7 +150,7 @@ describe("knowledge API", () => {
       .mockResolvedValueOnce({
         result: {
           defaultPackName: "sample-product",
-          defaultMarkerPath: "/tmp/workspace/.ember/knowledge/default",
+          defaultMarkerPath: "/tmp/workspace/.lime/knowledge/default",
         },
       })
       .mockResolvedValueOnce({
@@ -211,7 +211,7 @@ describe("knowledge API", () => {
     ).resolves.toEqual(
       expect.objectContaining({
         defaultPackName: "sample-product",
-        defaultMarkerPath: "/tmp/workspace/.ember/knowledge/default",
+        defaultMarkerPath: "/tmp/workspace/.lime/knowledge/default",
       }),
     );
     await expect(
@@ -317,8 +317,8 @@ describe("knowledge API", () => {
   it("Knowledge 编译应向 App Server 透传 builderRuntime 请求", async () => {
     const packDetail = {
       metadata: { name: "sample-product" },
-      rootPath: "/tmp/workspace/.ember/knowledge/sample-product",
-      knowledgePath: "/tmp/workspace/.ember/knowledge/sample-product",
+      rootPath: "/tmp/workspace/.lime/knowledge/sample-product",
+      knowledgePath: "/tmp/workspace/.lime/knowledge/sample-product",
       defaultForWorkspace: false,
       updatedAt: 0,
       sourceCount: 1,
@@ -333,13 +333,13 @@ describe("knowledge API", () => {
     };
     const compiledView = {
       relativePath: "compiled/index.md",
-      absolutePath: "/tmp/workspace/.ember/knowledge/sample-product/compiled/index.md",
+      absolutePath: "/tmp/workspace/.lime/knowledge/sample-product/compiled/index.md",
       bytes: 20,
       updatedAt: 0,
     };
     const compileRun = {
       relativePath: "runs/compile.json",
-      absolutePath: "/tmp/workspace/.ember/knowledge/sample-product/runs/compile.json",
+      absolutePath: "/tmp/workspace/.lime/knowledge/sample-product/runs/compile.json",
       bytes: 30,
       updatedAt: 0,
     };
@@ -416,7 +416,7 @@ describe("knowledge API", () => {
       result: {
         pack: {
           metadata: { name: "sample-product" },
-          rootPath: "/tmp/workspace/.ember/knowledge/sample-product",
+          rootPath: "/tmp/workspace/.lime/knowledge/sample-product",
         },
       },
     });

@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const { mockUseOemCloudAccess } = vi.hoisted(() => {
   return {
@@ -25,23 +25,23 @@ const mounted: MountedPage[] = [];
 function createAccessState(overrides: Record<string, unknown> = {}) {
   return {
     runtime: {
-      baseUrl: "https://user.emberai.run",
-      controlPlaneBaseUrl: "https://user.emberai.run/api",
-      sceneBaseUrl: "https://user.emberai.run/scene-api",
-      gatewayBaseUrl: "https://user.emberai.run/gateway-api",
+      baseUrl: "https://user.limeai.run",
+      controlPlaneBaseUrl: "https://user.limeai.run/api",
+      sceneBaseUrl: "https://user.limeai.run/scene-api",
+      gatewayBaseUrl: "https://user.limeai.run/gateway-api",
       tenantId: "tenant-0001",
       sessionToken: null,
-      hubProviderName: "Ember Hub",
+      hubProviderName: "Lime Hub",
       loginPath: "/login",
       desktopClientId: "desktop-client",
-      desktopOauthRedirectUrl: "ember://oauth/callback",
+      desktopOauthRedirectUrl: "lime://oauth/callback",
       desktopOauthNextPath: "/welcome",
     },
     configuredTarget: {
-      baseUrl: "https://user.emberai.run",
+      baseUrl: "https://user.limeai.run",
       tenantId: "tenant-0001",
     },
-    hubProviderName: "Ember Hub",
+    hubProviderName: "Lime Hub",
     loginMode: "password",
     setLoginMode: vi.fn(),
     passwordForm: {
@@ -136,7 +136,7 @@ beforeEach(async () => {
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
   mockUseOemCloudAccess.mockReturnValue(createAccessState());
 });
 
@@ -155,7 +155,7 @@ afterEach(async () => {
     current.container.remove();
   }
 
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("UserCenterSessionSettings", () => {
@@ -248,7 +248,7 @@ describe("UserCenterSessionSettings", () => {
             basePath: "/gateway-api",
           },
         },
-        defaultProviderSummary: "Ember Hub primary service · gpt-5.2-pro",
+        defaultProviderSummary: "Lime Hub primary service · gpt-5.2-pro",
         handleLogout,
         openUserCenter,
       }),
@@ -266,9 +266,9 @@ describe("UserCenterSessionSettings", () => {
     expect(text).toContain("2 skills / 1 entries");
     expect(text).toContain("Status: Signed in");
     expect(text).toContain(
-      "Default service: Ember Hub primary service · gpt-5.2-pro",
+      "Default service: Lime Hub primary service · gpt-5.2-pro",
     );
-    expect(text).toContain("Ember Hub primary service · gpt-5.2-pro");
+    expect(text).toContain("Lime Hub primary service · gpt-5.2-pro");
     expect(text).toContain("Profile editing is unified in Account Center");
     expect(text).toContain("Edit profile in Account Center");
     expect(text).not.toContain("会话说明");

@@ -96,7 +96,7 @@ function printHelp() {
 Layered Design Model Slot HTTP JSON Executor Verifier
 
 用途:
-  验证本地或远端模型服务是否实现 Ember AI 图层化设计 standard JSON executor contract。
+  验证本地或远端模型服务是否实现 Lime AI 图层化设计 standard JSON executor contract。
 
 用法:
   node scripts/verify-layered-design-model-slot-http-json-executor.mjs --endpoint-url <url>

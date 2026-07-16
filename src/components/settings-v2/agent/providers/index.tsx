@@ -1,9 +1,13 @@
+import { useCallback, useState } from "react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ApiKeyProviderSection } from "@/components/api-key-provider";
 import { useOemCloudAccess } from "@/hooks/useOemCloudAccess";
-import type { SettingsProviderView } from "@/types/page";
+import type {
+  ProviderSettingsFocusContext,
+  SettingsProviderView,
+} from "@/types/page";
 import { cn } from "@/lib/utils";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 function NoticeBar(props: { tone: "error" | "success"; message: string }) {
   return (
@@ -27,11 +31,89 @@ function NoticeBar(props: { tone: "error" | "success"; message: string }) {
 
 export interface CloudProviderSettingsProps {
   initialView?: SettingsProviderView;
+  initialFocus?: ProviderSettingsFocusContext | null;
 }
 
-export function CloudProviderSettings(_props: CloudProviderSettingsProps) {
+export function CloudProviderSettings({
+  initialFocus,
+}: CloudProviderSettingsProps) {
   const { t } = useTranslation("settings");
-  const { errorMessage, infoMessage } = useOemCloudAccess();
+  const {
+    runtime,
+    hubProviderName,
+    session,
+    initializing,
+    openingGoogleLogin,
+    errorMessage,
+    infoMessage,
+    handleGoogleLogin,
+    openUserCenter,
+  } = useOemCloudAccess();
+
+  const isOemRuntime = Boolean(runtime);
+  const cloudBrandLabel =
+    hubProviderName?.trim() || t("settings.providers.cloud.brandFallback");
+  const [cloudOpenError, setCloudOpenError] = useState<string | null>(null);
+  const [cloudOpenInfo, setCloudOpenInfo] = useState<string | null>(null);
+
+  const handleOpenCloudUserCenter = useCallback(
+    async (path = "/welcome") => {
+      if (!runtime) {
+        setCloudOpenInfo(null);
+        setCloudOpenError(
+          t("settings.providers.cloud.message.userCenterMissing"),
+        );
+        return;
+      }
+
+      if (initializing || openingGoogleLogin) {
+        return;
+      }
+
+      setCloudOpenError(null);
+      setCloudOpenInfo(null);
+
+      try {
+        if (!session) {
+          await handleGoogleLogin();
+          setCloudOpenInfo(
+            t("settings.providers.cloud.message.loginOpened", {
+              brand: cloudBrandLabel,
+            }),
+          );
+          return;
+        }
+
+        await openUserCenter(path);
+        setCloudOpenInfo(
+          t("settings.providers.cloud.message.userCenterOpened", {
+            brand: cloudBrandLabel,
+          }),
+        );
+      } catch (error) {
+        const detail =
+          error instanceof Error && error.message.trim()
+            ? error.message.trim()
+            : t("settings.providers.cloud.message.browserRetry");
+        setCloudOpenError(
+          t("settings.providers.cloud.message.userCenterOpenFailed", {
+            brand: cloudBrandLabel,
+            detail,
+          }),
+        );
+      }
+    },
+    [
+      cloudBrandLabel,
+      handleGoogleLogin,
+      initializing,
+      openingGoogleLogin,
+      openUserCenter,
+      runtime,
+      session,
+      t,
+    ],
+  );
 
   return (
     <div className="space-y-4">
@@ -45,8 +127,21 @@ export function CloudProviderSettings(_props: CloudProviderSettingsProps) {
       </div>
       {errorMessage ? <NoticeBar tone="error" message={errorMessage} /> : null}
       {infoMessage ? <NoticeBar tone="success" message={infoMessage} /> : null}
+      {cloudOpenError ? (
+        <NoticeBar tone="error" message={cloudOpenError} />
+      ) : null}
+      {cloudOpenInfo ? (
+        <NoticeBar tone="success" message={cloudOpenInfo} />
+      ) : null}
 
-      <ApiKeyProviderSection className="h-[calc(100vh-280px)] min-h-[520px] max-h-[780px]" />
+      <ApiKeyProviderSection
+        className="h-[calc(100vh-280px)] min-h-[520px] max-h-[780px]"
+        initialFocus={initialFocus}
+        exposeOemLoginPrompt={isOemRuntime && !session}
+        onOemLogin={() => {
+          void handleOpenCloudUserCenter("/welcome");
+        }}
+      />
     </div>
   );
 }

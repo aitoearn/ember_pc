@@ -2,9 +2,9 @@ import { AppServerClient } from "@/lib/api/appServer";
 import type { AgentRun } from "@/lib/api/executionRun";
 import type { BrowserStreamMode } from "@/lib/webview-api";
 import type {
-  AsterApprovalPolicy,
-  AsterSandboxPolicy,
-} from "@/lib/api/agentRuntime";
+  AgentApprovalPolicy,
+  AgentSandboxPolicy,
+} from "@/lib/api/agentExecutionRuntime";
 import {
   METHOD_AUTOMATION_JOB_CREATE,
   METHOD_AUTOMATION_JOB_DELETE,
@@ -99,11 +99,13 @@ export interface AutomationStatus {
 export interface AgentTurnAutomationPayload {
   kind: "agent_turn";
   prompt: string;
+  session_id: string;
+  thread_id: string;
   system_prompt?: string | null;
   web_search: boolean;
   content_id?: string | null;
-  approval_policy?: AsterApprovalPolicy | null;
-  sandbox_policy?: AsterSandboxPolicy | null;
+  approval_policy?: AgentApprovalPolicy | null;
+  sandbox_policy?: AgentSandboxPolicy | null;
   request_metadata?: AutomationRequestMetadata | null;
 }
 
@@ -197,12 +199,16 @@ function normalizeAutomationStatusResponse(
   response: AppServerAutomationSchedulerStatusResponse | null | undefined,
 ): AutomationStatus {
   if (!response || typeof response !== "object") {
-    throw new Error("App Server automationScheduler/status did not return status");
+    throw new Error(
+      "App Server automationScheduler/status did not return status",
+    );
   }
 
   const status = response.status;
   if (!status || typeof status !== "object") {
-    throw new Error("App Server automationScheduler/status did not return status");
+    throw new Error(
+      "App Server automationScheduler/status did not return status",
+    );
   }
 
   return status as AutomationStatus;
@@ -298,7 +304,9 @@ function normalizeAutomationSchedulePreviewResponse(
   response: AppServerAutomationSchedulePreviewResponse | null | undefined,
 ): string | null {
   if (!response || typeof response !== "object") {
-    throw new Error("App Server automationSchedule/preview did not return nextRunAt");
+    throw new Error(
+      "App Server automationSchedule/preview did not return nextRunAt",
+    );
   }
 
   return response.nextRunAt ?? null;
@@ -308,7 +316,9 @@ function normalizeAutomationScheduleValidateResponse(
   response: AppServerAutomationScheduleValidateResponse | null | undefined,
 ): ScheduleValidationResult {
   if (!response || typeof response.valid !== "boolean") {
-    throw new Error("App Server automationSchedule/validate did not return valid");
+    throw new Error(
+      "App Server automationSchedule/validate did not return valid",
+    );
   }
 
   return {

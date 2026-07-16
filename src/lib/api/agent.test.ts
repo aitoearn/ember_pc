@@ -29,6 +29,7 @@ import {
   APP_SERVER_METHOD_AGENT_SESSION_ACTION_REPLAY,
   APP_SERVER_METHOD_AGENT_SESSION_ACTION_RESPOND,
   APP_SERVER_METHOD_AGENT_SESSION_ANALYSIS_HANDOFF_EXPORT,
+  APP_SERVER_METHOD_AGENT_SESSION_DELETE,
   APP_SERVER_METHOD_AGENT_SESSION_HANDOFF_BUNDLE_EXPORT,
   APP_SERVER_METHOD_AGENT_SESSION_QUEUED_TURN_PROMOTE,
   APP_SERVER_METHOD_AGENT_SESSION_READ,
@@ -37,35 +38,40 @@ import {
   APP_SERVER_METHOD_AGENT_SESSION_REVIEW_DECISION_TEMPLATE_EXPORT,
   APP_SERVER_METHOD_AGENT_SESSION_START,
   APP_SERVER_METHOD_AGENT_SESSION_THREAD_RESUME,
+  APP_SERVER_METHOD_AGENT_SESSION_TOOL_INVENTORY_READ,
   APP_SERVER_METHOD_AGENT_SESSION_UPDATE,
-  APP_SERVER_METHOD_AGENT_SESSION_TURN_CANCEL,
   APP_SERVER_METHOD_AGENT_SESSION_TURN_START,
   APP_SERVER_METHOD_EVIDENCE_EXPORT,
 } from "./appServer";
 import {
+  generateAgentRuntimeTitleResult,
+  generateAgentRuntimeTitle,
+  generateAgentRuntimeSessionTitle,
+} from "./agentRuntime/agentClient";
+import {
   exportAgentRuntimeAnalysisHandoff,
-  createAgentRuntimeSession,
-  deleteAgentRuntimeSession,
   exportAgentRuntimeEvidencePack,
   exportAgentRuntimeHandoffBundle,
   exportAgentRuntimeReplayCase,
   exportAgentRuntimeReviewDecisionTemplate,
   saveAgentRuntimeReviewDecision,
-  generateAgentRuntimeTitleResult,
-  generateAgentRuntimeTitle,
-  generateAgentRuntimeSessionTitle,
+} from "./agentRuntime/exportClient";
+import { getAgentRuntimeToolInventory } from "./agentRuntime/inventoryClient";
+import {
+  createAgentRuntimeSession,
+  deleteAgentRuntimeSession,
   getAgentRuntimeSession,
-  getAgentRuntimeThreadRead,
-  getAgentRuntimeToolInventory,
-  interruptAgentRuntimeTurn,
   listAgentRuntimeSessions,
+  updateAgentRuntimeSession,
+} from "./agentRuntime/sessionClient";
+import {
+  getAgentRuntimeThreadRead,
   promoteAgentRuntimeQueuedTurn,
   replayAgentRuntimeRequest,
   resumeAgentRuntimeThread,
   respondAgentRuntimeAction,
   submitAgentRuntimeTurn,
-  updateAgentRuntimeSession,
-} from "./agentRuntime";
+} from "./agentRuntime/threadClient";
 
 function line(value: unknown): string {
   return `${JSON.stringify(value)}\n`;
@@ -185,19 +191,22 @@ describe("Agent API 治理护栏", () => {
     });
 
     await submitAgentRuntimeTurn({
-      message: "runtime hello",
-      session_id: "session-runtime",
-      event_name: "event-runtime",
-      workspace_id: "workspace-runtime",
-      turn_config: {
-        execution_strategy: "react",
-        provider_config: {
-          provider_id: "provider-runtime",
-          provider_name: "Provider Runtime",
-          model_name: "model-runtime",
-        },
-        metadata: {
-          source: "hook-facade",
+      sessionId: "session-runtime",
+      input: { text: "runtime hello" },
+      runtimeOptions: {
+        stream: true,
+        eventName: "event-runtime",
+        runtimeRequest: {
+          workspaceId: "workspace-runtime",
+          executionStrategy: "react",
+          providerConfig: {
+            providerId: "provider-runtime",
+            providerName: "Provider Runtime",
+            modelName: "model-runtime",
+          },
+          metadata: {
+            source: "hook-facade",
+          },
         },
       },
     });
@@ -210,24 +219,16 @@ describe("Agent API 治理护栏", () => {
       runtimeOptions: {
         stream: true,
         eventName: "event-runtime",
-        metadata: {
-          source: "hook-facade",
-        },
-        hostOptions: {
-          asterChatRequest: {
-            message: "runtime hello",
-            session_id: "session-runtime",
-            event_name: "event-runtime",
-            workspace_id: "workspace-runtime",
-            execution_strategy: "react",
-            provider_config: {
-              provider_id: "provider-runtime",
-              provider_name: "Provider Runtime",
-              model_name: "model-runtime",
-            },
-            metadata: {
-              source: "hook-facade",
-            },
+        runtimeRequest: {
+          workspaceId: "workspace-runtime",
+          executionStrategy: "react",
+          providerConfig: {
+            providerId: "provider-runtime",
+            providerName: "Provider Runtime",
+            modelName: "model-runtime",
+          },
+          metadata: {
+            source: "hook-facade",
           },
         },
       },
@@ -245,17 +246,20 @@ describe("Agent API 治理护栏", () => {
     });
 
     await submitAgentRuntimeTurn({
-      message: "查一下今天的汇率",
-      session_id: "session-runtime-search",
-      event_name: "event-runtime-search",
-      workspace_id: "workspace-runtime-search",
-      queue_if_busy: true,
-      queued_turn_id: "queued-turn-1",
-      skip_pre_submit_resume: true,
-      turn_config: {
-        execution_strategy: "react",
-        web_search: true,
+      sessionId: "session-runtime-search",
+      input: { text: "查一下今天的汇率" },
+      runtimeOptions: {
+        stream: true,
+        eventName: "event-runtime-search",
+        queuedTurnId: "queued-turn-1",
+        runtimeRequest: {
+          workspaceId: "workspace-runtime-search",
+          executionStrategy: "react",
+          webSearch: true,
+        },
       },
+      queueIfBusy: true,
+      skipPreSubmitResume: true,
     });
 
     expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_TURN_START, {
@@ -267,17 +271,10 @@ describe("Agent API 治理护栏", () => {
         stream: true,
         eventName: "event-runtime-search",
         queuedTurnId: "queued-turn-1",
-        hostOptions: {
-          asterChatRequest: {
-            message: "查一下今天的汇率",
-            session_id: "session-runtime-search",
-            event_name: "event-runtime-search",
-            workspace_id: "workspace-runtime-search",
-            queue_if_busy: true,
-            queued_turn_id: "queued-turn-1",
-            execution_strategy: "react",
-            web_search: true,
-          },
+        runtimeRequest: {
+          workspaceId: "workspace-runtime-search",
+          executionStrategy: "react",
+          webSearch: true,
         },
       },
       queueIfBusy: true,
@@ -296,16 +293,19 @@ describe("Agent API 治理护栏", () => {
     });
 
     await submitAgentRuntimeTurn({
-      message: "请继续",
-      session_id: "session-runtime-preference",
-      event_name: "event-runtime-preference",
-      workspace_id: "workspace-runtime-preference",
-      turn_config: {
-        provider_preference: "custom-provider",
-        model_preference: "gpt-5.3-codex",
-        thinking_enabled: true,
-        approval_policy: "on-request",
-        sandbox_policy: "workspace-write",
+      sessionId: "session-runtime-preference",
+      input: { text: "请继续" },
+      runtimeOptions: {
+        stream: true,
+        eventName: "event-runtime-preference",
+        runtimeRequest: {
+          workspaceId: "workspace-runtime-preference",
+          providerPreference: "custom-provider",
+          modelPreference: "gpt-5.3-codex",
+          thinkingEnabled: true,
+          approvalPolicy: "on-request",
+          sandboxPolicy: "workspace-write",
+        },
       },
     });
 
@@ -317,20 +317,13 @@ describe("Agent API 治理护栏", () => {
       runtimeOptions: {
         stream: true,
         eventName: "event-runtime-preference",
-        providerPreference: "custom-provider",
-        modelPreference: "gpt-5.3-codex",
-        hostOptions: {
-          asterChatRequest: {
-            message: "请继续",
-            session_id: "session-runtime-preference",
-            event_name: "event-runtime-preference",
-            workspace_id: "workspace-runtime-preference",
-            provider_preference: "custom-provider",
-            model_preference: "gpt-5.3-codex",
-            thinking_enabled: true,
-            approval_policy: "on-request",
-            sandbox_policy: "workspace-write",
-          },
+        runtimeRequest: {
+          workspaceId: "workspace-runtime-preference",
+          providerPreference: "custom-provider",
+          modelPreference: "gpt-5.3-codex",
+          thinkingEnabled: true,
+          approvalPolicy: "on-request",
+          sandboxPolicy: "workspace-write",
         },
       },
     });
@@ -418,7 +411,7 @@ describe("Agent API 治理护栏", () => {
       confirmed: true,
       response: '{"answer":"继续"}',
       user_data: { answer: "继续" },
-      event_name: "aster_stream_session-runtime",
+      event_name: "agent_stream_session-runtime",
     });
 
     expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_ACTION_RESPOND, {
@@ -428,7 +421,7 @@ describe("Agent API 治理护栏", () => {
       confirmed: true,
       response: '{"answer":"继续"}',
       userData: { answer: "继续" },
-      eventName: "aster_stream_session-runtime",
+      eventName: "agent_stream_session-runtime",
     });
   });
 
@@ -576,13 +569,13 @@ describe("Agent API 治理护栏", () => {
       threadId: "thread-runtime-replay-case",
       workspaceRoot: "/tmp/workspace",
       replayRelativeRoot:
-        ".ember/harness/sessions/session-runtime-replay-case/replay",
+        ".lime/harness/sessions/session-runtime-replay-case/replay",
       replayAbsoluteRoot:
-        "/tmp/workspace/.ember/harness/sessions/session-runtime-replay-case/replay",
+        "/tmp/workspace/.lime/harness/sessions/session-runtime-replay-case/replay",
       handoffBundleRelativeRoot:
-        ".ember/harness/sessions/session-runtime-replay-case",
+        ".lime/harness/sessions/session-runtime-replay-case",
       evidencePackRelativeRoot:
-        ".ember/harness/sessions/session-runtime-replay-case/evidence",
+        ".lime/harness/sessions/session-runtime-replay-case/evidence",
       exportedAt: "2026-03-27T09:50:00.000Z",
       threadStatus: "waiting_request",
       pendingRequestCount: 1,
@@ -597,7 +590,7 @@ describe("Agent API 治理护栏", () => {
       exportAgentRuntimeReplayCase("session-runtime-replay-case"),
     ).resolves.toMatchObject({
       replay_relative_root:
-        ".ember/harness/sessions/session-runtime-replay-case/replay",
+        ".lime/harness/sessions/session-runtime-replay-case/replay",
       linked_handoff_artifact_count: 4,
     });
 
@@ -642,8 +635,7 @@ describe("Agent API 治理护栏", () => {
     );
   });
 
-  it("interruptAgentRuntimeTurn 与 updateAgentRuntimeSession 应经 Electron IPC 调 App Server", async () => {
-    mockAppServerResponse({});
+  it("updateAgentRuntimeSession 应经 Electron IPC 调 App Server", async () => {
     mockAppServerResponse({
       session: {
         sessionId: "session-runtime",
@@ -656,21 +648,13 @@ describe("Agent API 治理护栏", () => {
       },
     });
 
-    await interruptAgentRuntimeTurn({
-      session_id: "session-runtime",
-      turn_id: "turn-1",
-    });
     await updateAgentRuntimeSession({
       session_id: "session-runtime",
       name: "新标题",
       execution_strategy: "react",
     });
 
-    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_TURN_CANCEL, {
-      sessionId: "session-runtime",
-      turnId: "turn-1",
-    });
-    expectAppServerRequest(2, APP_SERVER_METHOD_AGENT_SESSION_UPDATE, {
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_UPDATE, {
       sessionId: "session-runtime",
       title: "新标题",
       executionStrategy: "react",
@@ -691,6 +675,14 @@ describe("Agent API 治理护栏", () => {
           executionStrategy: "react",
           workspaceId: "workspace-1",
           workingDir: "/tmp/workspace-1",
+          businessObjectRefMetadata: {
+            harness: {
+              plugin_history_restore: {
+                session_id: "session-runtime-1",
+                plugin_id: "content-factory@embercloud",
+              },
+            },
+          },
         },
       ],
     });
@@ -707,6 +699,14 @@ describe("Agent API 治理护栏", () => {
         workspace_id: "workspace-1",
         working_dir: "/tmp/workspace-1",
         execution_strategy: "react",
+        session_business_object_ref_metadata: {
+          harness: {
+            plugin_history_restore: {
+              session_id: "session-runtime-1",
+              plugin_id: "content-factory@embercloud",
+            },
+          },
+        },
       },
     ]);
     expectAppServerRequest(1, "agentSession/list", {});
@@ -811,40 +811,6 @@ describe("Agent API 治理护栏", () => {
         workspace_id: "workspace-2",
         working_dir: "/tmp/workspace-2",
         execution_strategy: "react",
-        child_subagent_sessions: [
-          {
-            id: "subagent-session-1",
-            name: "Image #1",
-            created_at: 1710001200,
-            updated_at: 1710001800,
-            session_type: "sub_agent",
-            model: "gpt-5.4-mini",
-            role_hint: "image_editor",
-            task_summary: "处理封面图优化",
-            origin_tool: "Agent",
-            runtime_status: "completed",
-          },
-        ],
-        subagent_parent_context: {
-          parent_session_id: "parent-session-1",
-          parent_session_name: "主线程会话",
-          role_hint: "image_editor",
-          task_summary: "处理封面图优化",
-          origin_tool: "Agent",
-          created_from_turn_id: "turn-2",
-          sibling_subagent_sessions: [
-            {
-              id: "subagent-session-2",
-              name: "Image #2",
-              created_at: 1710001250,
-              updated_at: 1710001850,
-              session_type: "sub_agent",
-              role_hint: "image_reviewer",
-              task_summary: "检查图片导出尺寸",
-              runtime_status: "running",
-            },
-          ],
-        },
         queued_turns: [
           {
             queued_turn_id: "queued-1",
@@ -900,6 +866,7 @@ describe("Agent API 治理护栏", () => {
 
     await expect(getAgentRuntimeSession("session-runtime-2")).resolves.toEqual({
       id: "session-runtime-2",
+      thread_id: "thread-runtime-2",
       name: "Runtime Detail",
       model: "gpt-5.4",
       created_at: 1710001000,
@@ -907,41 +874,6 @@ describe("Agent API 治理护栏", () => {
       workspace_id: "workspace-2",
       working_dir: "/tmp/workspace-2",
       execution_strategy: "react",
-      child_subagent_sessions: [
-        {
-          id: "subagent-session-1",
-          name: "Image #1",
-          created_at: 1710001200,
-          updated_at: 1710001800,
-          session_type: "sub_agent",
-          model: "gpt-5.4-mini",
-          role_hint: "image_editor",
-          task_summary: "处理封面图优化",
-          origin_tool: "Agent",
-          runtime_status: "completed",
-        },
-      ],
-      subagent_parent_context: {
-        parent_session_id: "parent-session-1",
-        parent_session_name: "主线程会话",
-        role_hint: "image_editor",
-        task_summary: "处理封面图优化",
-        origin_tool: "Agent",
-        created_from_turn_id: "turn-2",
-        sibling_subagent_sessions: [
-          {
-            id: "subagent-session-2",
-            name: "Image #2",
-            created_at: 1710001250,
-            updated_at: 1710001850,
-            session_type: "sub_agent",
-            origin_tool: undefined,
-            role_hint: "image_reviewer",
-            task_summary: "检查图片导出尺寸",
-            runtime_status: "running",
-          },
-        ],
-      },
       queued_turns: [
         {
           queued_turn_id: "queued-1",
@@ -955,6 +887,11 @@ describe("Agent API 治理护栏", () => {
       thread_read: {
         thread_id: "thread-runtime-2",
         status: "running",
+        profile_status: "running",
+        active_turn_id: undefined,
+        turns: [],
+        pending_requests: [],
+        incidents: [],
         queued_turns: [
           {
             queued_turn_id: "queued-2",
@@ -965,6 +902,7 @@ describe("Agent API 治理护栏", () => {
             position: 1,
           },
         ],
+        updated_at: "2026-06-06T00:00:02.000Z",
       },
       messages: [
         {
@@ -1090,9 +1028,9 @@ describe("Agent API 治理护栏", () => {
       sessionId: "session-runtime-3",
       threadId: "thread-runtime-3",
       workspaceRoot: "/tmp/workspace-3",
-      bundleRelativeRoot: ".ember/harness/sessions/session-runtime-3",
+      bundleRelativeRoot: ".lime/harness/sessions/session-runtime-3",
       bundleAbsoluteRoot:
-        "/tmp/workspace-3/.ember/harness/sessions/session-runtime-3",
+        "/tmp/workspace-3/.lime/harness/sessions/session-runtime-3",
       exportedAt: "2026-03-27T10:00:00Z",
       threadStatus: "running",
       latestTurnStatus: "completed",
@@ -1107,9 +1045,9 @@ describe("Agent API 治理护栏", () => {
         {
           kind: "handoff",
           title: "交接摘要",
-          relativePath: ".ember/harness/sessions/session-runtime-3/handoff.md",
+          relativePath: ".lime/harness/sessions/session-runtime-3/handoff.md",
           absolutePath:
-            "/tmp/workspace-3/.ember/harness/sessions/session-runtime-3/handoff.md",
+            "/tmp/workspace-3/.lime/harness/sessions/session-runtime-3/handoff.md",
           bytes: 512,
         },
       ],
@@ -1124,7 +1062,7 @@ describe("Agent API 治理护栏", () => {
       artifacts: [
         expect.objectContaining({
           kind: "handoff",
-          relative_path: ".ember/harness/sessions/session-runtime-3/handoff.md",
+          relative_path: ".lime/harness/sessions/session-runtime-3/handoff.md",
         }),
       ],
     });
@@ -1154,9 +1092,9 @@ describe("Agent API 治理护栏", () => {
       artifacts: [],
       exportedAt: "2026-06-06T00:00:04.000Z",
       evidencePack: {
-        packRelativeRoot: ".ember/harness/sessions/session-runtime-4/evidence",
+        packRelativeRoot: ".lime/harness/sessions/session-runtime-4/evidence",
         packAbsoluteRoot:
-          "/tmp/workspace-4/.ember/harness/sessions/session-runtime-4/evidence",
+          "/tmp/workspace-4/.lime/harness/sessions/session-runtime-4/evidence",
         exportedAt: "2026-06-06T00:00:05.000Z",
         threadStatus: "running",
         latestTurnStatus: "running",
@@ -1183,9 +1121,9 @@ describe("Agent API 治理护栏", () => {
             kind: "summary",
             title: "问题摘要",
             relativePath:
-              ".ember/harness/sessions/session-runtime-4/evidence/summary.md",
+              ".lime/harness/sessions/session-runtime-4/evidence/summary.md",
             absolutePath:
-              "/tmp/workspace-4/.ember/harness/sessions/session-runtime-4/evidence/summary.md",
+              "/tmp/workspace-4/.lime/harness/sessions/session-runtime-4/evidence/summary.md",
             bytes: 256,
           },
         ],
@@ -1199,9 +1137,9 @@ describe("Agent API 治理护栏", () => {
       thread_id: "thread-runtime-4",
       workspace_id: "workspace-runtime-4",
       workspace_root: "/tmp/workspace-4",
-      pack_relative_root: ".ember/harness/sessions/session-runtime-4/evidence",
+      pack_relative_root: ".lime/harness/sessions/session-runtime-4/evidence",
       pack_absolute_root:
-        "/tmp/workspace-4/.ember/harness/sessions/session-runtime-4/evidence",
+        "/tmp/workspace-4/.lime/harness/sessions/session-runtime-4/evidence",
       thread_status: "running",
       turn_count: 2,
       known_gaps: ["request telemetry unavailable"],
@@ -1219,7 +1157,7 @@ describe("Agent API 治理护栏", () => {
         expect.objectContaining({
           kind: "summary",
           relative_path:
-            ".ember/harness/sessions/session-runtime-4/evidence/summary.md",
+            ".lime/harness/sessions/session-runtime-4/evidence/summary.md",
         }),
       ],
     });
@@ -1238,30 +1176,30 @@ describe("Agent API 治理护栏", () => {
       threadId: "thread-runtime-4a",
       workspaceRoot: "/tmp/workspace-4a",
       analysisRelativeRoot:
-        ".ember/harness/sessions/session-runtime-4a/analysis",
+        ".lime/harness/sessions/session-runtime-4a/analysis",
       analysisAbsoluteRoot:
-        "/tmp/workspace-4a/.ember/harness/sessions/session-runtime-4a/analysis",
-      handoffBundleRelativeRoot: ".ember/harness/sessions/session-runtime-4a",
+        "/tmp/workspace-4a/.lime/harness/sessions/session-runtime-4a/analysis",
+      handoffBundleRelativeRoot: ".lime/harness/sessions/session-runtime-4a",
       evidencePackRelativeRoot:
-        ".ember/harness/sessions/session-runtime-4a/evidence",
+        ".lime/harness/sessions/session-runtime-4a/evidence",
       replayCaseRelativeRoot:
-        ".ember/harness/sessions/session-runtime-4a/replay",
+        ".lime/harness/sessions/session-runtime-4a/replay",
       exportedAt: "2026-03-27T10:08:00Z",
       title: "确认当前失败案例如何交给外部 AI 修复",
       threadStatus: "waiting_request",
       latestTurnStatus: "action_required",
       pendingRequestCount: 1,
       queuedTurnCount: 0,
-      sanitizedWorkspaceRoot: "/workspace/ember",
-      copyPrompt: "# Ember 外部诊断与修复任务",
+      sanitizedWorkspaceRoot: "/workspace/lime",
+      copyPrompt: "# Lime 外部诊断与修复任务",
       artifacts: [
         {
           kind: "analysis_brief",
           title: "外部分析简报",
           relativePath:
-            ".ember/harness/sessions/session-runtime-4a/analysis/analysis-brief.md",
+            ".lime/harness/sessions/session-runtime-4a/analysis/analysis-brief.md",
           absolutePath:
-            "/tmp/workspace-4a/.ember/harness/sessions/session-runtime-4a/analysis/analysis-brief.md",
+            "/tmp/workspace-4a/.lime/harness/sessions/session-runtime-4a/analysis/analysis-brief.md",
           bytes: 320,
         },
       ],
@@ -1272,12 +1210,12 @@ describe("Agent API 治理护栏", () => {
     ).resolves.toMatchObject({
       session_id: "session-runtime-4a",
       thread_status: "waiting_request",
-      copy_prompt: "# Ember 外部诊断与修复任务",
+      copy_prompt: "# Lime 外部诊断与修复任务",
       artifacts: [
         expect.objectContaining({
           kind: "analysis_brief",
           relative_path:
-            ".ember/harness/sessions/session-runtime-4a/analysis/analysis-brief.md",
+            ".lime/harness/sessions/session-runtime-4a/analysis/analysis-brief.md",
         }),
       ],
     });
@@ -1296,18 +1234,18 @@ describe("Agent API 治理护栏", () => {
       sessionId: "session-runtime-4b",
       threadId: "thread-runtime-4b",
       workspaceRoot: "/tmp/workspace-4b",
-      reviewRelativeRoot: ".ember/harness/sessions/session-runtime-4b/review",
+      reviewRelativeRoot: ".lime/harness/sessions/session-runtime-4b/review",
       reviewAbsoluteRoot:
-        "/tmp/workspace-4b/.ember/harness/sessions/session-runtime-4b/review",
+        "/tmp/workspace-4b/.lime/harness/sessions/session-runtime-4b/review",
       analysisRelativeRoot:
-        ".ember/harness/sessions/session-runtime-4b/analysis",
+        ".lime/harness/sessions/session-runtime-4b/analysis",
       analysisAbsoluteRoot:
-        "/tmp/workspace-4b/.ember/harness/sessions/session-runtime-4b/analysis",
-      handoffBundleRelativeRoot: ".ember/harness/sessions/session-runtime-4b",
+        "/tmp/workspace-4b/.lime/harness/sessions/session-runtime-4b/analysis",
+      handoffBundleRelativeRoot: ".lime/harness/sessions/session-runtime-4b",
       evidencePackRelativeRoot:
-        ".ember/harness/sessions/session-runtime-4b/evidence",
+        ".lime/harness/sessions/session-runtime-4b/evidence",
       replayCaseRelativeRoot:
-        ".ember/harness/sessions/session-runtime-4b/replay",
+        ".lime/harness/sessions/session-runtime-4b/replay",
       exportedAt: "2026-03-27T10:18:00Z",
       title: "记录人工审核决策",
       threadStatus: "waiting_request",
@@ -1351,7 +1289,7 @@ describe("Agent API 治理护栏", () => {
             resultRef:
               "agent-runtime://session/session-runtime-4b/thread/thread-runtime-4b/turn/turn-review/item/item-fix-2",
             artifactPaths: [
-              ".ember/harness/sessions/session-runtime-4b/evidence/runtime.json",
+              ".lime/harness/sessions/session-runtime-4b/evidence/runtime.json",
             ],
           },
         ],
@@ -1388,9 +1326,9 @@ describe("Agent API 治理护栏", () => {
           kind: "analysis_brief",
           title: "外部分析简报",
           relativePath:
-            ".ember/harness/sessions/session-runtime-4b/analysis/analysis-brief.md",
+            ".lime/harness/sessions/session-runtime-4b/analysis/analysis-brief.md",
           absolutePath:
-            "/tmp/workspace-4b/.ember/harness/sessions/session-runtime-4b/analysis/analysis-brief.md",
+            "/tmp/workspace-4b/.lime/harness/sessions/session-runtime-4b/analysis/analysis-brief.md",
           bytes: 320,
         },
       ],
@@ -1399,9 +1337,9 @@ describe("Agent API 治理护栏", () => {
           kind: "review_decision_json",
           title: "人工审核记录 JSON",
           relativePath:
-            ".ember/harness/sessions/session-runtime-4b/review/review-decision.json",
+            ".lime/harness/sessions/session-runtime-4b/review/review-decision.json",
           absolutePath:
-            "/tmp/workspace-4b/.ember/harness/sessions/session-runtime-4b/review/review-decision.json",
+            "/tmp/workspace-4b/.lime/harness/sessions/session-runtime-4b/review/review-decision.json",
           bytes: 256,
         },
       ],
@@ -1442,7 +1380,7 @@ describe("Agent API 治理护栏", () => {
             result_ref:
               "agent-runtime://session/session-runtime-4b/thread/thread-runtime-4b/turn/turn-review/item/item-fix-2",
             artifact_paths: [
-              ".ember/harness/sessions/session-runtime-4b/evidence/runtime.json",
+              ".lime/harness/sessions/session-runtime-4b/evidence/runtime.json",
             ],
           }),
         ],
@@ -1466,14 +1404,14 @@ describe("Agent API 治理护栏", () => {
         expect.objectContaining({
           kind: "analysis_brief",
           relative_path:
-            ".ember/harness/sessions/session-runtime-4b/analysis/analysis-brief.md",
+            ".lime/harness/sessions/session-runtime-4b/analysis/analysis-brief.md",
         }),
       ],
       artifacts: [
         expect.objectContaining({
           kind: "review_decision_json",
           relative_path:
-            ".ember/harness/sessions/session-runtime-4b/review/review-decision.json",
+            ".lime/harness/sessions/session-runtime-4b/review/review-decision.json",
         }),
       ],
     });
@@ -1492,18 +1430,18 @@ describe("Agent API 治理护栏", () => {
       sessionId: "session-runtime-4c",
       threadId: "thread-runtime-4c",
       workspaceRoot: "/tmp/workspace-4c",
-      reviewRelativeRoot: ".ember/harness/sessions/session-runtime-4c/review",
+      reviewRelativeRoot: ".lime/harness/sessions/session-runtime-4c/review",
       reviewAbsoluteRoot:
-        "/tmp/workspace-4c/.ember/harness/sessions/session-runtime-4c/review",
+        "/tmp/workspace-4c/.lime/harness/sessions/session-runtime-4c/review",
       analysisRelativeRoot:
-        ".ember/harness/sessions/session-runtime-4c/analysis",
+        ".lime/harness/sessions/session-runtime-4c/analysis",
       analysisAbsoluteRoot:
-        "/tmp/workspace-4c/.ember/harness/sessions/session-runtime-4c/analysis",
-      handoffBundleRelativeRoot: ".ember/harness/sessions/session-runtime-4c",
+        "/tmp/workspace-4c/.lime/harness/sessions/session-runtime-4c/analysis",
+      handoffBundleRelativeRoot: ".lime/harness/sessions/session-runtime-4c",
       evidencePackRelativeRoot:
-        ".ember/harness/sessions/session-runtime-4c/evidence",
+        ".lime/harness/sessions/session-runtime-4c/evidence",
       replayCaseRelativeRoot:
-        ".ember/harness/sessions/session-runtime-4c/replay",
+        ".lime/harness/sessions/session-runtime-4c/replay",
       exportedAt: "2026-03-27T10:25:00Z",
       title: "保存人工审核结论",
       threadStatus: "waiting_request",
@@ -1540,7 +1478,7 @@ describe("Agent API 治理护栏", () => {
         chosenFixStrategy: "先收口 runtime 命令，再补 UI 回归。",
         riskLevel: "medium",
         riskTags: ["runtime", "ui"],
-        humanReviewer: "Ember Maintainer",
+        humanReviewer: "Lime Maintainer",
         reviewedAt: "2026-03-27T10:25:00Z",
         followupActions: ["补充 HarnessStatusPanel 测试"],
         regressionRequirements: ["npm run test:contracts"],
@@ -1560,9 +1498,9 @@ describe("Agent API 治理护栏", () => {
           kind: "analysis_brief",
           title: "外部分析简报",
           relativePath:
-            ".ember/harness/sessions/session-runtime-4c/analysis/analysis-brief.md",
+            ".lime/harness/sessions/session-runtime-4c/analysis/analysis-brief.md",
           absolutePath:
-            "/tmp/workspace-4c/.ember/harness/sessions/session-runtime-4c/analysis/analysis-brief.md",
+            "/tmp/workspace-4c/.lime/harness/sessions/session-runtime-4c/analysis/analysis-brief.md",
           bytes: 320,
         },
       ],
@@ -1571,9 +1509,9 @@ describe("Agent API 治理护栏", () => {
           kind: "review_decision_markdown",
           title: "人工审核记录",
           relativePath:
-            ".ember/harness/sessions/session-runtime-4c/review/review-decision.md",
+            ".lime/harness/sessions/session-runtime-4c/review/review-decision.md",
           absolutePath:
-            "/tmp/workspace-4c/.ember/harness/sessions/session-runtime-4c/review/review-decision.md",
+            "/tmp/workspace-4c/.lime/harness/sessions/session-runtime-4c/review/review-decision.md",
           bytes: 512,
         },
       ],
@@ -1587,7 +1525,7 @@ describe("Agent API 治理护栏", () => {
         chosen_fix_strategy: "先收口 runtime 命令，再补 UI 回归。",
         risk_level: "medium",
         risk_tags: ["runtime", "ui"],
-        human_reviewer: "Ember Maintainer",
+        human_reviewer: "Lime Maintainer",
         reviewed_at: "2026-03-27T10:25:00Z",
         followup_actions: ["补充 HarnessStatusPanel 测试"],
         regression_requirements: ["npm run test:contracts"],
@@ -1628,7 +1566,7 @@ describe("Agent API 治理护栏", () => {
         chosenFixStrategy: "先收口 runtime 命令，再补 UI 回归。",
         riskLevel: "medium",
         riskTags: ["runtime", "ui"],
-        humanReviewer: "Ember Maintainer",
+        humanReviewer: "Lime Maintainer",
         followupActions: ["补充 HarnessStatusPanel 测试"],
         regressionRequirements: ["npm run test:contracts"],
         notes: "保持 review decision 主链单一。",
@@ -1649,7 +1587,7 @@ describe("Agent API 治理护栏", () => {
         chosen_fix_strategy: "直接接受。",
         risk_level: "low",
         risk_tags: ["permission"],
-        human_reviewer: "Ember Maintainer",
+        human_reviewer: "Lime Maintainer",
         reviewed_at: undefined,
         followup_actions: [],
         regression_requirements: [],
@@ -1667,7 +1605,7 @@ describe("Agent API 治理护栏", () => {
         chosenFixStrategy: "直接接受。",
         riskLevel: "low",
         riskTags: ["permission"],
-        humanReviewer: "Ember Maintainer",
+        humanReviewer: "Lime Maintainer",
         followupActions: [],
         regressionRequirements: [],
         notes: "",
@@ -1688,7 +1626,7 @@ describe("Agent API 治理护栏", () => {
         chosen_fix_strategy: "直接接受。",
         risk_level: "low",
         risk_tags: ["model-routing"],
-        human_reviewer: "Ember Maintainer",
+        human_reviewer: "Lime Maintainer",
         reviewed_at: undefined,
         followup_actions: [],
         regression_requirements: [],
@@ -1706,7 +1644,7 @@ describe("Agent API 治理护栏", () => {
         chosenFixStrategy: "直接接受。",
         riskLevel: "low",
         riskTags: ["model-routing"],
-        humanReviewer: "Ember Maintainer",
+        humanReviewer: "Lime Maintainer",
         followupActions: [],
         regressionRequirements: [],
         notes: "",
@@ -1715,80 +1653,83 @@ describe("Agent API 治理护栏", () => {
   });
 
   it("getAgentRuntimeToolInventory 应走统一 runtime inventory 命令", async () => {
-    mockSafeInvoke.mockResolvedValueOnce({
-      request: {
-        caller: "assistant",
-        surface: {
-          workbench: true,
-          browser_assist: true,
+    mockAppServerResponse({
+      inventory: {
+        request: {
+          caller: "assistant",
+          surface: {
+            workbench: true,
+            browser_assist: true,
+          },
         },
+        agent_initialized: true,
+        warnings: [],
+        mcp_servers: ["docs"],
+        default_allowed_tools: ["ToolSearch"],
+        counts: {
+          catalog_total: 1,
+          catalog_current_total: 1,
+          catalog_compat_total: 0,
+          catalog_deprecated_total: 0,
+          default_allowed_total: 1,
+          native_total: 1,
+          native_visible_total: 1,
+          native_catalog_unmapped_total: 0,
+          extension_surface_total: 1,
+          extension_mcp_bridge_total: 1,
+          extension_runtime_total: 0,
+          extension_tool_total: 1,
+          extension_tool_visible_total: 1,
+          mcp_server_total: 1,
+          mcp_tool_total: 1,
+          mcp_tool_visible_total: 1,
+        },
+        catalog_tools: [
+          {
+            name: "bash",
+            profiles: ["core"],
+            capabilities: ["execution"],
+            lifecycle: "current",
+            source: "agent_builtin",
+            permission_plane: "parameter_restricted",
+            workspace_default_allow: false,
+            execution_warning_policy: "shell_command_risk",
+            execution_warning_policy_source: "default",
+            execution_restriction_profile: "workspace_shell_command",
+            execution_restriction_profile_source: "runtime",
+            execution_sandbox_profile: "workspace_command",
+            execution_sandbox_profile_source: "persisted",
+          },
+        ],
+        native_tools: [
+          {
+            name: "bash",
+            description: "workspace bash",
+            catalog_entry_name: "bash",
+            catalog_source: "agent_builtin",
+            catalog_lifecycle: "current",
+            catalog_permission_plane: "parameter_restricted",
+            catalog_workspace_default_allow: false,
+            catalog_execution_warning_policy: "shell_command_risk",
+            catalog_execution_warning_policy_source: "default",
+            catalog_execution_restriction_profile: "workspace_shell_command",
+            catalog_execution_restriction_profile_source: "runtime",
+            catalog_execution_sandbox_profile: "workspace_command",
+            catalog_execution_sandbox_profile_source: "persisted",
+            deferred_loading: false,
+            always_visible: true,
+            allowed_callers: ["assistant"],
+            tags: [],
+            input_examples_count: 0,
+            has_output_schema: false,
+            caller_allowed: true,
+            visible_in_context: true,
+          },
+        ],
+        extension_surfaces: [],
+        extension_tools: [],
+        mcp_tools: [],
       },
-      agent_initialized: true,
-      warnings: [],
-      mcp_servers: ["docs"],
-      default_allowed_tools: ["ToolSearch"],
-      counts: {
-        catalog_total: 1,
-        catalog_current_total: 1,
-        catalog_compat_total: 0,
-        catalog_deprecated_total: 0,
-        default_allowed_total: 1,
-        registry_total: 1,
-        registry_visible_total: 1,
-        registry_catalog_unmapped_total: 0,
-        extension_surface_total: 1,
-        extension_mcp_bridge_total: 1,
-        extension_runtime_total: 0,
-        extension_tool_total: 1,
-        extension_tool_visible_total: 1,
-        mcp_server_total: 1,
-        mcp_tool_total: 1,
-        mcp_tool_visible_total: 1,
-      },
-      catalog_tools: [
-        {
-          name: "bash",
-          profiles: ["core"],
-          capabilities: ["execution"],
-          lifecycle: "current",
-          source: "aster_builtin",
-          permission_plane: "parameter_restricted",
-          workspace_default_allow: false,
-          execution_warning_policy: "shell_command_risk",
-          execution_warning_policy_source: "default",
-          execution_restriction_profile: "workspace_shell_command",
-          execution_restriction_profile_source: "runtime",
-          execution_sandbox_profile: "workspace_command",
-          execution_sandbox_profile_source: "persisted",
-        },
-      ],
-      registry_tools: [
-        {
-          name: "bash",
-          description: "workspace bash",
-          catalog_entry_name: "bash",
-          catalog_source: "aster_builtin",
-          catalog_lifecycle: "current",
-          catalog_permission_plane: "parameter_restricted",
-          catalog_workspace_default_allow: false,
-          catalog_execution_warning_policy: "shell_command_risk",
-          catalog_execution_warning_policy_source: "default",
-          catalog_execution_restriction_profile: "workspace_shell_command",
-          catalog_execution_restriction_profile_source: "runtime",
-          catalog_execution_sandbox_profile: "workspace_command",
-          catalog_execution_sandbox_profile_source: "persisted",
-          deferred_loading: false,
-          always_visible: true,
-          allowed_callers: ["assistant"],
-          tags: [],
-          input_examples_count: 0,
-          caller_allowed: true,
-          visible_in_context: true,
-        },
-      ],
-      extension_surfaces: [],
-      extension_tools: [],
-      mcp_tools: [],
     });
 
     await expect(
@@ -1817,54 +1758,55 @@ describe("Agent API 治理护栏", () => {
       ],
     });
 
-    expect(mockSafeInvoke).toHaveBeenCalledWith(
-      "agent_runtime_get_tool_inventory",
+    expectAppServerRequest(
+      1,
+      APP_SERVER_METHOD_AGENT_SESSION_TOOL_INVENTORY_READ,
       {
-        request: {
-          workbench: true,
-          browserAssist: true,
-          caller: "assistant",
-        },
+        workbench: true,
+        browserAssist: true,
+        caller: "assistant",
       },
     );
   });
 
   it("getAgentRuntimeToolInventory 应透传 metadata 以计算 effective policy", async () => {
-    mockSafeInvoke.mockResolvedValueOnce({
-      request: {
-        caller: "assistant",
-        surface: {
-          workbench: false,
-          browser_assist: false,
+    mockAppServerResponse({
+      inventory: {
+        request: {
+          caller: "assistant",
+          surface: {
+            workbench: false,
+            browser_assist: false,
+          },
         },
+        agent_initialized: true,
+        warnings: [],
+        mcp_servers: [],
+        default_allowed_tools: [],
+        counts: {
+          catalog_total: 0,
+          catalog_current_total: 0,
+          catalog_compat_total: 0,
+          catalog_deprecated_total: 0,
+          default_allowed_total: 0,
+          native_total: 0,
+          native_visible_total: 0,
+          native_catalog_unmapped_total: 0,
+          extension_surface_total: 0,
+          extension_mcp_bridge_total: 0,
+          extension_runtime_total: 0,
+          extension_tool_total: 0,
+          extension_tool_visible_total: 0,
+          mcp_server_total: 0,
+          mcp_tool_total: 0,
+          mcp_tool_visible_total: 0,
+        },
+        catalog_tools: [],
+        native_tools: [],
+        extension_surfaces: [],
+        extension_tools: [],
+        mcp_tools: [],
       },
-      agent_initialized: true,
-      warnings: [],
-      mcp_servers: [],
-      default_allowed_tools: [],
-      counts: {
-        catalog_total: 0,
-        catalog_current_total: 0,
-        catalog_compat_total: 0,
-        catalog_deprecated_total: 0,
-        default_allowed_total: 0,
-        registry_total: 0,
-        registry_visible_total: 0,
-        registry_catalog_unmapped_total: 0,
-        extension_surface_total: 0,
-        extension_mcp_bridge_total: 0,
-        extension_runtime_total: 0,
-        extension_tool_total: 0,
-        extension_tool_visible_total: 0,
-        mcp_server_total: 0,
-        mcp_tool_total: 0,
-        mcp_tool_visible_total: 0,
-      },
-      catalog_tools: [],
-      registry_tools: [],
-      extension_surfaces: [],
-      extension_tools: [],
-      mcp_tools: [],
     });
 
     await getAgentRuntimeToolInventory({
@@ -1882,18 +1824,17 @@ describe("Agent API 治理护栏", () => {
       },
     });
 
-    expect(mockSafeInvoke).toHaveBeenCalledWith(
-      "agent_runtime_get_tool_inventory",
+    expectAppServerRequest(
+      1,
+      APP_SERVER_METHOD_AGENT_SESSION_TOOL_INVENTORY_READ,
       {
-        request: {
-          caller: "assistant",
-          metadata: {
-            harness: {
-              executionPolicy: {
-                toolOverrides: {
-                  bash: {
-                    warningPolicy: "none",
-                  },
+        caller: "assistant",
+        metadata: {
+          harness: {
+            executionPolicy: {
+              toolOverrides: {
+                bash: {
+                  warningPolicy: "none",
                 },
               },
             },
@@ -1904,55 +1845,59 @@ describe("Agent API 治理护栏", () => {
   });
 
   it("getAgentRuntimeToolInventory 默认请求应传空对象", async () => {
-    mockSafeInvoke.mockResolvedValueOnce({
-      request: {
-        caller: "assistant",
-        surface: {
-          workbench: false,
-          browser_assist: false,
+    mockAppServerResponse({
+      inventory: {
+        request: {
+          caller: "assistant",
+          surface: {
+            workbench: false,
+            browser_assist: false,
+          },
         },
+        agent_initialized: false,
+        warnings: [],
+        mcp_servers: [],
+        default_allowed_tools: [],
+        counts: {
+          catalog_total: 0,
+          catalog_current_total: 0,
+          catalog_compat_total: 0,
+          catalog_deprecated_total: 0,
+          default_allowed_total: 0,
+          native_total: 0,
+          native_visible_total: 0,
+          native_catalog_unmapped_total: 0,
+          extension_surface_total: 0,
+          extension_mcp_bridge_total: 0,
+          extension_runtime_total: 0,
+          extension_tool_total: 0,
+          extension_tool_visible_total: 0,
+          mcp_server_total: 0,
+          mcp_tool_total: 0,
+          mcp_tool_visible_total: 0,
+        },
+        catalog_tools: [],
+        native_tools: [],
+        extension_surfaces: [],
+        extension_tools: [],
+        mcp_tools: [],
       },
-      agent_initialized: false,
-      warnings: [],
-      mcp_servers: [],
-      default_allowed_tools: [],
-      counts: {
-        catalog_total: 0,
-        catalog_current_total: 0,
-        catalog_compat_total: 0,
-        catalog_deprecated_total: 0,
-        default_allowed_total: 0,
-        registry_total: 0,
-        registry_visible_total: 0,
-        registry_catalog_unmapped_total: 0,
-        extension_surface_total: 0,
-        extension_mcp_bridge_total: 0,
-        extension_runtime_total: 0,
-        extension_tool_total: 0,
-        extension_tool_visible_total: 0,
-        mcp_server_total: 0,
-        mcp_tool_total: 0,
-        mcp_tool_visible_total: 0,
-      },
-      catalog_tools: [],
-      registry_tools: [],
-      extension_surfaces: [],
-      extension_tools: [],
-      mcp_tools: [],
     });
 
     await getAgentRuntimeToolInventory();
 
-    expect(mockSafeInvoke).toHaveBeenCalledWith(
-      "agent_runtime_get_tool_inventory",
-      {
-        request: {},
-      },
+    expectAppServerRequest(
+      1,
+      APP_SERVER_METHOD_AGENT_SESSION_TOOL_INVENTORY_READ,
+      {},
     );
   });
 
   it("deleteAgentRuntimeSession / updateAgentRuntimeSession 应走 current 边界，标题生成只做本地投影", async () => {
-    mockAppServerResponse({});
+    mockAppServerResponse({
+      sessionId: "session-runtime-3",
+      deleted: true,
+    });
     mockAppServerResponse({
       session: {
         sessionId: "session-runtime-3",
@@ -1977,9 +1922,8 @@ describe("Agent API 治理护栏", () => {
       ),
     ).resolves.toBe("新的智能标题");
 
-    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_UPDATE, {
+    expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_DELETE, {
       sessionId: "session-runtime-3",
-      archived: true,
     });
     expectAppServerRequest(2, APP_SERVER_METHOD_AGENT_SESSION_UPDATE, {
       sessionId: "session-runtime-3",

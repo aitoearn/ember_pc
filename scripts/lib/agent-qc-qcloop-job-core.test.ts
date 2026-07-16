@@ -53,13 +53,13 @@ describe("agent-qc-qcloop-job-core", () => {
   it("应按风险等级生成 qcloop job payload", () => {
     const payload = buildQCLoopJobPayload(manifest, {
       risks: ["P1"],
-      cwd: "/workspace/ember",
+      cwd: "/workspace/lime",
       generatedAt: "2026-05-10T00:00:00.000Z",
       maxExecutorRetries: 0,
     });
 
-    expect(payload.name).toBe("ember-agent-qc-p1-2026-05-10");
-    expect(payload.prompt_template).toContain("目标仓库 cwd: /workspace/ember");
+    expect(payload.name).toBe("lime-agent-qc-p1-2026-05-10");
+    expect(payload.prompt_template).toContain("目标仓库 cwd: /workspace/lime");
     expect(payload.prompt_template).toContain(
       "QCLOOP_WORKER_RESULT=PASS|FAIL|BLOCKED",
     );
@@ -76,7 +76,7 @@ describe("agent-qc-qcloop-job-core", () => {
     expect(JSON.parse(payload.items[0]).scenario_id).toBe(
       "knowledge-ingest-retrieve-summarize",
     );
-    expect(JSON.parse(payload.items[0]).cwd).toBe("/workspace/ember");
+    expect(JSON.parse(payload.items[0]).cwd).toBe("/workspace/lime");
     expect(validateQCLoopJobPayload(payload).valid).toBe(true);
   });
 

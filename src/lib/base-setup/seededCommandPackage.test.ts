@@ -8,7 +8,7 @@ describe("seededCommandPackage", () => {
   it("应提供 seeded command 的基础设置包事实源", () => {
     const pkg = createSeededCommandCatalogBaseSetupPackage();
 
-    expect(pkg.id).toBe("ember-seeded-command-catalog");
+    expect(pkg.id).toBe("lime-seeded-command-catalog");
     expect(pkg.version).toBe(SEEDED_SERVICE_SKILL_CATALOG_VERSION);
     expect(pkg.catalogProjections).toHaveLength(41);
     expect(pkg.bindingProfiles.map((profile) => profile.id)).toEqual(
@@ -26,6 +26,11 @@ describe("seededCommandPackage", () => {
     );
 
     expect(entries).toHaveLength(41);
+    expect(
+      entries.every(
+        (entry) => entry.binding?.skillLocator?.source === "catalog",
+      ),
+    ).toBe(true);
     expect(entries).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -37,8 +42,7 @@ describe("seededCommandPackage", () => {
             intentConfirmation: {
               id: "plain_image_generation",
               ruleKey: "agentChat.inputIntent.imageGeneration.rules",
-              confirmationKey:
-                "agentChat.inputIntent.imageGeneration.confirm",
+              confirmationKey: "agentChat.inputIntent.imageGeneration.confirm",
               systemPromptKey:
                 "agentChat.inputIntent.imageGeneration.systemPrompt",
             },
@@ -92,6 +96,7 @@ describe("seededCommandPackage", () => {
             skillId: "image_generate",
             executionKind: "task_queue",
             requestDefaults: expect.objectContaining({
+              providerId: "new-api",
               model: "gpt-images-2",
               executorMode: "responses_image_generation",
             }),
@@ -107,10 +112,14 @@ describe("seededCommandPackage", () => {
         expect.objectContaining({
           id: "command:voice_runtime",
           commandKey: "voice_runtime",
-          binding: {
+          binding: expect.objectContaining({
             skillId: "cloud-video-dubbing",
             executionKind: "agent_turn",
-          },
+            skillLocator: {
+              source: "catalog",
+              name: "voice_runtime",
+            },
+          }),
           renderContract: expect.objectContaining({
             resultKind: "tool_timeline",
             detailKind: "scene_detail",
@@ -123,10 +132,14 @@ describe("seededCommandPackage", () => {
         expect.objectContaining({
           id: "command:growth_runtime",
           commandKey: "growth_runtime",
-          binding: {
+          binding: expect.objectContaining({
             skillId: "account-performance-tracking",
             executionKind: "agent_turn",
-          },
+            skillLocator: {
+              source: "catalog",
+              name: "growth_runtime",
+            },
+          }),
           renderContract: expect.objectContaining({
             resultKind: "tool_timeline",
             detailKind: "scene_detail",
@@ -139,16 +152,20 @@ describe("seededCommandPackage", () => {
         expect.objectContaining({
           id: "command:writing_runtime",
           commandKey: "writing_runtime",
-          binding: {
+          binding: expect.objectContaining({
             skillId: "content_post_with_cover",
             executionKind: "native_skill",
-          },
+            skillLocator: {
+              source: "catalog",
+              name: "writing_runtime",
+            },
+          }),
           renderContract: expect.objectContaining({
             resultKind: "artifact",
             detailKind: "artifact_detail",
           }),
           triggers: expect.arrayContaining([
-            { mode: "mention", prefix: "@写作" },
+            { mode: "mention", prefix: "@文案" },
             { mode: "mention", prefix: "@Writing Partner" },
             { mode: "mention", prefix: "@Writers 1" },
             { mode: "mention", prefix: "@Blog 1" },
@@ -159,13 +176,17 @@ describe("seededCommandPackage", () => {
         expect.objectContaining({
           id: "command:code_runtime",
           commandKey: "code_runtime",
-          binding: {
+          binding: expect.objectContaining({
             skillId: undefined,
+            skillLocator: {
+              source: "catalog",
+              name: "code_runtime",
+            },
             executionKind: "agent_turn",
             requestDefaults: {
               executionStrategy: "react",
             },
-          },
+          }),
           renderContract: expect.objectContaining({
             resultKind: "tool_timeline",
             detailKind: "json",
@@ -288,10 +309,14 @@ describe("seededCommandPackage", () => {
         expect.objectContaining({
           id: "command:typesetting",
           commandKey: "typesetting",
-          binding: {
+          binding: expect.objectContaining({
             skillId: "typesetting",
             executionKind: "cli",
-          },
+            skillLocator: {
+              source: "catalog",
+              name: "typesetting",
+            },
+          }),
           renderContract: expect.objectContaining({
             resultKind: "tool_timeline",
             detailKind: "task_detail",
@@ -324,10 +349,14 @@ describe("seededCommandPackage", () => {
         expect.objectContaining({
           id: "command:file_read_runtime",
           commandKey: "file_read_runtime",
-          binding: {
+          binding: expect.objectContaining({
             skillId: "summary",
             executionKind: "agent_turn",
-          },
+            skillLocator: {
+              source: "catalog",
+              name: "file_read_runtime",
+            },
+          }),
           renderContract: expect.objectContaining({
             resultKind: "tool_timeline",
             detailKind: "json",
@@ -362,10 +391,14 @@ describe("seededCommandPackage", () => {
         expect.objectContaining({
           id: "command:logo_decomposition",
           commandKey: "logo_decomposition",
-          binding: {
+          binding: expect.objectContaining({
             skillId: "analysis",
             executionKind: "agent_turn",
-          },
+            skillLocator: {
+              source: "catalog",
+              name: "logo_decomposition",
+            },
+          }),
           renderContract: expect.objectContaining({
             resultKind: "tool_timeline",
             detailKind: "json",

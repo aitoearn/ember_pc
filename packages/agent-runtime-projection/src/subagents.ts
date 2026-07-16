@@ -1,11 +1,15 @@
 import type {
   AgentRuntimeExecutionEvent,
+  AgentUiCollaborationFactsView,
   AgentUiSubagentActivityView,
   AgentUiSubagentDelegationView,
   AgentUiSubagentIsolationView,
   AgentUiSubagentsModel,
   AgentUiSubagentThreadView,
 } from "@embercloud/agent-ui-contracts";
+
+import { buildAgentUiCollaborationPayloadMetadata } from "./collaborationFacts.js";
+import { readRecord } from "./normalization.js";
 
 function isRecord(input: unknown): input is Record<string, unknown> {
   return typeof input === "object" && input !== null && !Array.isArray(input);
@@ -67,7 +71,64 @@ function compact<T extends object>(input: T): T {
   ) as T;
 }
 
-function subagentThreadId(event: AgentRuntimeExecutionEvent): string | undefined {
+function collaborationForEvent(
+  event: AgentRuntimeExecutionEvent,
+): AgentUiCollaborationFactsView | undefined {
+  const payload = readRecord(event.payload);
+  const metadata = readRecord(payload?.metadata);
+  const collaboration = buildAgentUiCollaborationPayloadMetadata({
+    sourceType: event.eventClass,
+    collaborationKind: payloadString(
+      event,
+      "collaborationKind",
+      "collaboration_kind",
+    ),
+    surface: payloadString(
+      event,
+      "collaborationSurface",
+      "collaboration_surface",
+    ),
+    phase:
+      event.phase ??
+      payloadString(event, "collaborationPhase", "collaboration_phase"),
+    status: event.status,
+    runtimeEntity: payloadString(event, "runtimeEntity", "runtime_entity"),
+    runtimeStatus: payloadString(event, "runtimeStatus", "runtime_status"),
+    latestTurnStatus: payloadString(
+      event,
+      "latestTurnStatus",
+      "latest_turn_status",
+    ),
+    taskId: event.taskId ?? payloadString(event, "taskId", "task_id"),
+    agentId: event.subagentId ?? event.workerId,
+    parentThreadId: parentThreadId(event),
+    transcriptRef: payloadString(event, "transcriptRef", "transcript_ref"),
+    handoffId: event.handoffId,
+    metadata,
+    payload,
+  });
+  return Object.keys(collaboration.collaborationFacts ?? {}).length
+    ? collaboration
+    : undefined;
+}
+
+function cloneCollaboration(
+  collaboration: AgentUiCollaborationFactsView | undefined,
+): AgentUiCollaborationFactsView | undefined {
+  if (!collaboration) {
+    return undefined;
+  }
+  return {
+    ...collaboration,
+    collaborationFacts: collaboration.collaborationFacts
+      ? { ...collaboration.collaborationFacts }
+      : undefined,
+  };
+}
+
+function subagentThreadId(
+  event: AgentRuntimeExecutionEvent,
+): string | undefined {
   return (
     event.subagentId ??
     event.workerId ??
@@ -85,13 +146,7 @@ function subagentThreadId(event: AgentRuntimeExecutionEvent): string | undefined
 
 function parentThreadId(event: AgentRuntimeExecutionEvent): string | undefined {
   return (
-    payloadString(
-      event,
-      "parentThreadId",
-      "parent_thread_id",
-      "parentSessionId",
-      "parent_session_id",
-    ) ?? event.threadId
+    payloadString(event, "parentThreadId", "parent_thread_id") ?? event.threadId
   );
 }
 
@@ -99,10 +154,13 @@ function isSubagentEvent(event: AgentRuntimeExecutionEvent): boolean {
   const eventClass = event.eventClass ?? "";
   return Boolean(
     subagentThreadId(event) ||
-      eventClass.startsWith("subagent.") ||
-      eventClass.startsWith("handoff.") ||
-      eventClass === "agent.spawned" ||
-      eventClass === "agent.completed",
+    eventClass.startsWith("subagent.") ||
+    eventClass.startsWith("handoff.") ||
+    eventClass.startsWith("channel.") ||
+    eventClass.startsWith("review.") ||
+    eventClass === "agent.spawned" ||
+    eventClass === "agent.completed" ||
+    eventClass === "agent.changed",
   );
 }
 
@@ -117,7 +175,48 @@ function isDelegationEvent(event: AgentRuntimeExecutionEvent): boolean {
 }
 
 function isTerminalStatus(status: string): boolean {
-  return status === "completed" || status === "failed";
+  return (
+    status === "completed" ||
+    status === "failed" ||
+    status === "canceled" ||
+    status === "cancelled" ||
+    status === "aborted" ||
+    status === "closed" ||
+    status === "not_found"
+  );
+}
+
+function isFailedTerminalStatus(status: string): boolean {
+  return (
+    status === "failed" ||
+    status === "canceled" ||
+    status === "cancelled" ||
+    status === "aborted" ||
+    status === "closed" ||
+    status === "not_found"
+  );
+}
+
+function statusForThread(
+  current: AgentUiSubagentThreadView | undefined,
+  event: AgentRuntimeExecutionEvent,
+): AgentRuntimeExecutionEvent["status"] {
+  const eventClass = event.eventClass ?? "";
+  if (!current) return event.status;
+  if (
+    eventClass.startsWith("subagent.") ||
+    eventClass.startsWith("task.") ||
+    eventClass === "agent.spawned" ||
+    eventClass === "agent.completed" ||
+    eventClass === "agent.changed" ||
+    eventClass === "agent.handoff"
+  ) {
+    return event.status;
+  }
+  if (eventClass === "handoff.requested" && event.status === "blocked") {
+    return event.status;
+  }
+  return current.status;
 }
 
 function activityKind(event: AgentRuntimeExecutionEvent): string {
@@ -125,12 +224,32 @@ function activityKind(event: AgentRuntimeExecutionEvent): string {
   if (eventClass.includes("started") || eventClass === "agent.spawned") {
     return "started";
   }
+  if (
+    eventClass.includes("cancel") ||
+    eventClass.includes("abort") ||
+    eventClass.includes("interrupt") ||
+    eventClass.includes("closed") ||
+    event.status === "canceled" ||
+    event.status === "cancelled" ||
+    event.status === "aborted" ||
+    event.status === "closed"
+  ) {
+    return "interrupted";
+  }
   if (eventClass.includes("completed") || eventClass === "agent.completed") {
     return "completed";
   }
   if (eventClass.includes("failed")) return "failed";
   if (eventClass.startsWith("handoff.")) return "handoff";
   if (eventClass.startsWith("review.")) return "review";
+  if (
+    eventClass.startsWith("channel.") ||
+    eventClass.startsWith("tool.") ||
+    eventClass.startsWith("model.") ||
+    eventClass.startsWith("artifact.")
+  ) {
+    return "interacted";
+  }
   if (eventClass.startsWith("tool.") || eventClass.startsWith("model.")) {
     return "interacted";
   }
@@ -155,14 +274,23 @@ function isolationForEvent(
   event: AgentRuntimeExecutionEvent,
 ): AgentUiSubagentIsolationView | undefined {
   const isolation = compact<AgentUiSubagentIsolationView>({
-    runtimeProfileId: payloadString(event, "runtimeProfileId", "runtime_profile_id"),
+    runtimeProfileId: payloadString(
+      event,
+      "runtimeProfileId",
+      "runtime_profile_id",
+    ),
     modelProfileId: payloadString(event, "modelProfileId", "model_profile_id"),
     isolationProfileId: payloadString(
       event,
       "isolationProfileId",
       "isolation_profile_id",
     ),
-    workspaceRef: payloadString(event, "workspaceRef", "workspace_ref", "cwdRef"),
+    workspaceRef: payloadString(
+      event,
+      "workspaceRef",
+      "workspace_ref",
+      "cwdRef",
+    ),
     permissionProfile: payloadString(
       event,
       "permissionProfile",
@@ -205,12 +333,11 @@ function mergeThread(
       current?.taskPath ??
       payloadString(event, "taskPath", "task_path", "agentPath", "agent_path"),
     role:
-      current?.role ??
-      payloadString(event, "role", "agentRole", "agent_role"),
+      current?.role ?? payloadString(event, "role", "agentRole", "agent_role"),
     nickname:
       current?.nickname ??
       payloadString(event, "nickname", "agentNickname", "agent_nickname"),
-    status: event.status,
+    status: statusForThread(current, event),
     title: current?.title ?? event.title,
     summary:
       payloadString(event, "summary", "resultSummary", "outputSummary") ??
@@ -218,15 +345,25 @@ function mergeThread(
     promptPreview:
       current?.promptPreview ??
       safePreview(
-        payloadString(event, "promptPreview", "prompt_preview", "prompt", "input"),
+        payloadString(
+          event,
+          "promptPreview",
+          "prompt_preview",
+          "prompt",
+          "input",
+        ),
       ),
-    lastActivityAt: event.completedAt ?? event.createdAt ?? current?.lastActivityAt,
+    lastActivityAt:
+      event.completedAt ?? event.createdAt ?? current?.lastActivityAt,
     createdAt: current?.createdAt ?? event.createdAt,
-    completedAt: event.completedAt ?? (isTerminalStatus(event.status) ? event.createdAt : current?.completedAt),
+    completedAt:
+      event.completedAt ??
+      (isTerminalStatus(event.status) ? event.createdAt : current?.completedAt),
     artifactRefs: Array.from(artifactRefs),
     evidenceRefs: Array.from(evidenceRefs),
     sourceEventIds: Array.from(sourceEventIds),
     isolation: current?.isolation ?? isolationForEvent(event),
+    collaboration: collaborationForEvent(event) ?? current?.collaboration,
   });
 }
 
@@ -247,10 +384,17 @@ function delegationForEvent(
     status: event.status,
     title: event.title,
     promptPreview: safePreview(
-      payloadString(event, "promptPreview", "prompt_preview", "prompt", "input"),
+      payloadString(
+        event,
+        "promptPreview",
+        "prompt_preview",
+        "prompt",
+        "input",
+      ),
     ),
     createdAt: event.createdAt,
     completedAt: event.completedAt,
+    collaboration: collaborationForEvent(event),
   });
 }
 
@@ -266,44 +410,100 @@ function activityForEvent(
     status: event.status,
     title: event.title,
     createdAt: event.createdAt,
+    collaboration: collaborationForEvent(event),
   });
 }
 
 export function buildAgentUiSubagentsModel(
   events: readonly AgentRuntimeExecutionEvent[] = [],
 ): AgentUiSubagentsModel {
+  const accumulator = createAgentUiSubagentsModelAccumulator();
+  for (const event of events) {
+    accumulator.apply(event);
+  }
+  return accumulator.getModel();
+}
+
+export interface AgentUiSubagentsModelAccumulator {
+  apply(event: AgentRuntimeExecutionEvent): AgentUiSubagentsModel;
+  getModel(): AgentUiSubagentsModel;
+  reset(): AgentUiSubagentsModel;
+}
+
+export function createAgentUiSubagentsModelAccumulator(): AgentUiSubagentsModelAccumulator {
   const threads = new Map<string, AgentUiSubagentThreadView>();
   const delegationCalls = new Map<string, AgentUiSubagentDelegationView>();
   const activities: AgentUiSubagentActivityView[] = [];
+  let model = buildModel();
 
-  events.forEach((event) => {
-    if (!isSubagentEvent(event)) return;
-    const threadId = subagentThreadId(event);
-    if (!threadId) return;
+  function buildModel(): AgentUiSubagentsModel {
+    const threadList = Array.from(threads.values());
+    return {
+      hasSubagents: threadList.length > 0,
+      threads: threadList.map((thread) => ({
+        ...thread,
+        artifactRefs: [...thread.artifactRefs],
+        evidenceRefs: [...thread.evidenceRefs],
+        sourceEventIds: [...thread.sourceEventIds],
+        isolation: thread.isolation ? { ...thread.isolation } : undefined,
+        collaboration: cloneCollaboration(thread.collaboration),
+      })),
+      delegationCalls: Array.from(delegationCalls.values()).map(
+        (delegation) => ({
+          ...delegation,
+          targetThreadIds: [...delegation.targetThreadIds],
+          collaboration: cloneCollaboration(delegation.collaboration),
+        }),
+      ),
+      activities: activities.map((activity) => ({
+        ...activity,
+        collaboration: cloneCollaboration(activity.collaboration),
+      })),
+      activeThreadIds: threadList
+        .filter(
+          (thread) =>
+            thread.status === "pending" ||
+            thread.status === "running" ||
+            thread.status === "blocked",
+        )
+        .map((thread) => thread.threadId),
+      completedThreadIds: threadList
+        .filter((thread) => thread.status === "completed")
+        .map((thread) => thread.threadId),
+      failedThreadIds: threadList
+        .filter((thread) => isFailedTerminalStatus(thread.status))
+        .map((thread) => thread.threadId),
+    };
+  }
 
-    threads.set(threadId, mergeThread(threads.get(threadId), event, threadId));
-    activities.push(activityForEvent(event, threadId));
-
-    if (isDelegationEvent(event)) {
-      const delegation = delegationForEvent(event, threadId);
-      delegationCalls.set(delegation.callId, delegation);
-    }
-  });
-
-  const threadList = Array.from(threads.values());
   return {
-    hasSubagents: threadList.length > 0,
-    threads: threadList,
-    delegationCalls: Array.from(delegationCalls.values()),
-    activities,
-    activeThreadIds: threadList
-      .filter((thread) => thread.status === "pending" || thread.status === "running" || thread.status === "blocked")
-      .map((thread) => thread.threadId),
-    completedThreadIds: threadList
-      .filter((thread) => thread.status === "completed")
-      .map((thread) => thread.threadId),
-    failedThreadIds: threadList
-      .filter((thread) => thread.status === "failed")
-      .map((thread) => thread.threadId),
+    apply(event) {
+      if (!isSubagentEvent(event)) return model;
+      const threadId = subagentThreadId(event);
+      if (!threadId) return model;
+
+      threads.set(
+        threadId,
+        mergeThread(threads.get(threadId), event, threadId),
+      );
+      activities.push(activityForEvent(event, threadId));
+
+      if (isDelegationEvent(event)) {
+        const delegation = delegationForEvent(event, threadId);
+        delegationCalls.set(delegation.callId, delegation);
+      }
+      model = buildModel();
+      return model;
+    },
+    getModel() {
+      return model;
+    },
+    reset() {
+      threads.clear();
+      delegationCalls.clear();
+      activities.length = 0;
+      model = buildModel();
+      return model;
+    },
   };
 }

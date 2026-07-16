@@ -1,8 +1,8 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { AgentThreadItem, AgentThreadTurn } from "@/lib/api/agentProtocol";
-import type { QueuedTurnSnapshot } from "@/lib/api/agentRuntime";
+import type { QueuedTurnSnapshot } from "@/lib/api/queuedTurn";
 import type { Message } from "../types";
-import type { AgentRuntimeStatusPresentation } from "../utils/fastResponseRouting";
+import type { InterruptedInputDraftSnapshot } from "./agentStreamInputRestoreTypes";
 import {
   removeThreadItemState,
   removeThreadTurnState,
@@ -14,6 +14,10 @@ import {
   formatAgentRuntimeStatusSummary,
 } from "../utils/agentRuntimeStatus";
 import type { AgentUiPerformanceTraceMetadata } from "./agentStreamPerformanceMetrics";
+import {
+  removeQueuedTurnSnapshots,
+  upsertQueuedTurnSnapshot,
+} from "./agentQueuedTurnProjection";
 
 export interface ActiveStreamState {
   assistantMsgId: string;
@@ -22,14 +26,19 @@ export interface ActiveStreamState {
   turnId?: string;
   pendingTurnKey?: string;
   pendingItemKey?: string;
+  submittedDraft?: InterruptedInputDraftSnapshot | null;
 }
 
 export interface StreamRequestState {
   accumulatedContent: string;
   hasMeaningfulCompletionSignal?: boolean;
+  hasFinalAnswerRequiredProcessBoundary?: boolean;
+  hasAssistantTextAfterLatestFinalAnswerRequiredProcessBoundary?: boolean;
   requestLogId: string | null;
   requestStartedAt: number;
   submissionDispatchedAt?: number | null;
+  submissionAcceptedAt?: number | null;
+  startTerminalRecoveryPoll?: () => void;
   listenerBoundAt?: number | null;
   firstEventReceivedAt?: number | null;
   firstRuntimeStatusAt?: number | null;
@@ -44,11 +53,61 @@ export interface StreamRequestState {
   maxTextDeltaBacklogChars?: number;
   requestFinished: boolean;
   queuedTurnId: string | null;
+  currentTurnId?: string | null;
   queuedDraftCleanupTimerId?: ReturnType<typeof setTimeout> | null;
   pendingTextRenderTimerId?: ReturnType<typeof setTimeout> | null;
   renderedContent?: string;
   preservedAssistantContentInitialized?: boolean;
+  activeTextSegmentTurnId?: string | null;
+  activeTextSegmentSequence?: number | null;
+  latestAssistantTextEventSequence?: number | null;
+  maxProcessEventSequence?: number | null;
+  maxFinalAnswerRequiredProcessEventSequence?: number | null;
   performanceTrace?: AgentUiPerformanceTraceMetadata | null;
+}
+
+function normalizeUserMessageContent(value: string | undefined): string {
+  return (value || "").replace(/\s+/g, " ").trim();
+}
+
+function messageImageCount(message: Message): number {
+  return message.images?.length ?? 0;
+}
+
+function findEquivalentPendingUserMessage(
+  messages: Message[],
+  userMsg: Message | null,
+): Message | null {
+  if (!userMsg) {
+    return null;
+  }
+
+  const expectedContent = normalizeUserMessageContent(userMsg.content);
+  if (!expectedContent) {
+    return null;
+  }
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role !== "user") {
+      continue;
+    }
+
+    if (message.runtimeTurnId?.trim()) {
+      return null;
+    }
+
+    const currentContent = normalizeUserMessageContent(message.content);
+    if (
+      currentContent === expectedContent &&
+      messageImageCount(message) === messageImageCount(userMsg)
+    ) {
+      return message;
+    }
+    return null;
+  }
+
+  return null;
 }
 
 interface CreateSubmissionLifecycleOptions {
@@ -58,7 +117,7 @@ interface CreateSubmissionLifecycleOptions {
   userMsg?: Message | null;
   content: string;
   expectingQueue: boolean;
-  runtimeStatusPresentation?: AgentRuntimeStatusPresentation;
+  submittedDraft?: InterruptedInputDraftSnapshot | null;
   initialThreadId: string;
   listenerMapRef: MutableRefObject<Map<string, () => void>>;
   setActiveStream: (nextActive: ActiveStreamState | null) => void;
@@ -87,7 +146,7 @@ export function createAgentStreamSubmissionLifecycle(
     userMsg,
     content,
     expectingQueue,
-    runtimeStatusPresentation = "timeline",
+    submittedDraft,
     initialThreadId,
     listenerMapRef,
     setActiveStream,
@@ -103,9 +162,12 @@ export function createAgentStreamSubmissionLifecycle(
   const requestState: StreamRequestState = {
     accumulatedContent: "",
     hasMeaningfulCompletionSignal: false,
+    hasFinalAnswerRequiredProcessBoundary: false,
+    hasAssistantTextAfterLatestFinalAnswerRequiredProcessBoundary: false,
     requestLogId: null,
     requestStartedAt: 0,
     submissionDispatchedAt: null,
+    submissionAcceptedAt: null,
     listenerBoundAt: null,
     firstEventReceivedAt: null,
     firstRuntimeStatusAt: null,
@@ -123,48 +185,45 @@ export function createAgentStreamSubmissionLifecycle(
     queuedDraftCleanupTimerId: null,
     pendingTextRenderTimerId: null,
     renderedContent: "",
+    activeTextSegmentTurnId: null,
+    activeTextSegmentSequence: null,
+    latestAssistantTextEventSequence: null,
+    maxProcessEventSequence: null,
+    maxFinalAnswerRequiredProcessEventSequence: null,
     performanceTrace: null,
   };
   const optimisticStartedAt = assistantMsg.timestamp.toISOString();
   const pendingTurnKey = createPendingTurnKey();
   const pendingItemKey = createPendingItemKey(pendingTurnKey);
   const requestTurnId = crypto.randomUUID();
-  const eventName = `aster_stream_${assistantMsgId}`;
-  const shouldCreateRuntimeSummary = runtimeStatusPresentation !== "transient";
+  const optimisticRuntimeTurnId = expectingQueue
+    ? requestTurnId
+    : pendingTurnKey;
+  const eventName = `agent_stream_${assistantMsgId}`;
+  const turnUserMsg = userMsg
+    ? {
+        ...userMsg,
+        runtimeTurnId: userMsg.runtimeTurnId || optimisticRuntimeTurnId,
+      }
+    : null;
+  const turnAssistantMsg = {
+    ...assistantMsg,
+    runtimeTurnId: assistantMsg.runtimeTurnId || optimisticRuntimeTurnId,
+  };
   const toolLogIdByToolId = new Map<string, string>();
   const toolStartedAtByToolId = new Map<string, number>();
   const toolNameByToolId = new Map<string, string>();
   const actionLoggedKeys = new Set<string>();
 
   const upsertQueuedTurn = (nextQueuedTurn: QueuedTurnSnapshot) => {
-    setQueuedTurns((prev) =>
-      [
-        ...prev.filter(
-          (item) => item.queued_turn_id !== nextQueuedTurn.queued_turn_id,
-        ),
-        nextQueuedTurn,
-      ].sort((left, right) => {
-        if (left.position !== right.position) {
-          return left.position - right.position;
-        }
-        return left.created_at - right.created_at;
-      }),
-    );
+    setQueuedTurns((prev) => upsertQueuedTurnSnapshot(prev, nextQueuedTurn));
   };
 
-  const removeQueuedTurnState = (queuedTurnIds: string[]) => {
+  const removeQueuedTurnsFromProjection = (queuedTurnIds: string[]) => {
     if (queuedTurnIds.length === 0) {
       return;
     }
-    setQueuedTurns((prev) => {
-      const idSet = new Set(queuedTurnIds);
-      return prev
-        .filter((item) => !idSet.has(item.queued_turn_id))
-        .map((item, index) => ({
-          ...item,
-          position: index + 1,
-        }));
-    });
+    setQueuedTurns((prev) => removeQueuedTurnSnapshots(prev, queuedTurnIds));
   };
 
   const removeQueuedDraftMessages = () => {
@@ -257,18 +316,24 @@ export function createAgentStreamSubmissionLifecycle(
       turnId: requestTurnId,
       pendingTurnKey,
       pendingItemKey,
+      submittedDraft: submittedDraft ?? null,
     });
     setMessages((prev) => {
+      const equivalentPendingUserMsg = findEquivalentPendingUserMessage(
+        prev,
+        turnUserMsg,
+      );
       const hasUserMsg = userMsg
-        ? prev.some((msg) => msg.id === userMsg.id)
+        ? prev.some((msg) => msg.id === userMsg.id) ||
+          Boolean(equivalentPendingUserMsg)
         : true;
       const hasAssistantMsg = prev.some((msg) => msg.id === assistantMsgId);
       let nextMessages = prev;
 
       if (!hasAssistantMsg) {
-        nextMessages = [...nextMessages, assistantMsg];
+        nextMessages = [...nextMessages, turnAssistantMsg];
       }
-      if (!hasUserMsg && userMsg) {
+      if (!hasUserMsg && turnUserMsg) {
         const assistantIndex = nextMessages.findIndex(
           (msg) => msg.id === assistantMsgId,
         );
@@ -276,19 +341,27 @@ export function createAgentStreamSubmissionLifecycle(
           assistantIndex >= 0
             ? [
                 ...nextMessages.slice(0, assistantIndex),
-                userMsg,
+                turnUserMsg,
                 ...nextMessages.slice(assistantIndex),
               ]
-            : [...nextMessages, userMsg];
+            : [...nextMessages, turnUserMsg];
       }
       return nextMessages.map((msg) =>
-        msg.id === assistantMsgId
+        (msg.id === userMsgId ||
+          (equivalentPendingUserMsg &&
+            msg.id === equivalentPendingUserMsg.id)) &&
+        turnUserMsg
           ? {
               ...msg,
-              runtimeStatus: effectiveWaitingRuntimeStatus,
               runtimeTurnId: msg.runtimeTurnId || pendingTurnKey,
             }
-          : msg,
+          : msg.id === assistantMsgId
+            ? {
+                ...msg,
+                runtimeStatus: effectiveWaitingRuntimeStatus,
+                runtimeTurnId: msg.runtimeTurnId || pendingTurnKey,
+              }
+            : msg,
       );
     });
 
@@ -308,21 +381,19 @@ export function createAgentStreamSubmissionLifecycle(
         updated_at: updatedAt,
       }),
     );
-    if (shouldCreateRuntimeSummary) {
-      setThreadItems((prev) =>
-        upsertThreadItemState(prev, {
-          id: pendingItemKey,
-          thread_id: activeSessionId,
-          turn_id: pendingTurnKey,
-          sequence: 0,
-          status: "in_progress",
-          started_at: optimisticStartedAt,
-          updated_at: updatedAt,
-          type: "turn_summary",
-          text: formatAgentRuntimeStatusSummary(effectiveWaitingRuntimeStatus),
-        }),
-      );
-    }
+    setThreadItems((prev) =>
+      upsertThreadItemState(prev, {
+        id: pendingItemKey,
+        thread_id: activeSessionId,
+        turn_id: pendingTurnKey,
+        sequence: 0,
+        status: "in_progress",
+        started_at: optimisticStartedAt,
+        updated_at: updatedAt,
+        type: "turn_summary",
+        text: formatAgentRuntimeStatusSummary(effectiveWaitingRuntimeStatus),
+      }),
+    );
   };
 
   const registerListener = (nextUnlisten: () => void) => {
@@ -330,17 +401,23 @@ export function createAgentStreamSubmissionLifecycle(
     listenerMapRef.current.set(eventName, nextUnlisten);
   };
 
-  if (!expectingQueue) {
-    setMessages((prev) =>
-      prev.map((msg) =>
-        msg.id === assistantMsgId
+  setMessages((prev) =>
+    prev.map((msg) =>
+      msg.id === userMsgId && turnUserMsg
+        ? {
+            ...msg,
+            runtimeTurnId: msg.runtimeTurnId || optimisticRuntimeTurnId,
+          }
+        : msg.id === assistantMsgId
           ? {
               ...msg,
-              runtimeTurnId: msg.runtimeTurnId || pendingTurnKey,
+              runtimeTurnId: msg.runtimeTurnId || optimisticRuntimeTurnId,
             }
           : msg,
-      ),
-    );
+    ),
+  );
+
+  if (!expectingQueue) {
     setThreadTurns((prev) =>
       upsertThreadTurnState(prev, {
         id: pendingTurnKey,
@@ -352,21 +429,19 @@ export function createAgentStreamSubmissionLifecycle(
         updated_at: optimisticStartedAt,
       }),
     );
-    if (shouldCreateRuntimeSummary) {
-      setThreadItems((prev) =>
-        upsertThreadItemState(prev, {
-          id: pendingItemKey,
-          thread_id: initialThreadId,
-          turn_id: pendingTurnKey,
-          sequence: 0,
-          status: "in_progress",
-          started_at: optimisticStartedAt,
-          updated_at: optimisticStartedAt,
-          type: "turn_summary",
-          text: formatAgentRuntimeStatusSummary(assistantMsg.runtimeStatus),
-        }),
-      );
-    }
+    setThreadItems((prev) =>
+      upsertThreadItemState(prev, {
+        id: pendingItemKey,
+        thread_id: initialThreadId,
+        turn_id: pendingTurnKey,
+        sequence: 0,
+        status: "in_progress",
+        started_at: optimisticStartedAt,
+        updated_at: optimisticStartedAt,
+        type: "turn_summary",
+        text: formatAgentRuntimeStatusSummary(assistantMsg.runtimeStatus),
+      }),
+    );
     setCurrentTurnId(pendingTurnKey);
   }
 
@@ -385,7 +460,7 @@ export function createAgentStreamSubmissionLifecycle(
     clearOptimisticTurn,
     disposeListener,
     upsertQueuedTurn,
-    removeQueuedTurnState,
+    removeQueuedTurnsFromProjection,
     removeQueuedDraftMessages,
     markOptimisticFailure,
     registerListener,

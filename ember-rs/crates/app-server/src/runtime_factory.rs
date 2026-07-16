@@ -1,3 +1,4 @@
+use crate::execution_process::ExecutionProcessServer;
 use crate::AppServer;
 use crate::ArtifactContentProvider;
 use crate::CapabilitySource;
@@ -8,9 +9,7 @@ use crate::MockBackend;
 use crate::RuntimeBackend;
 use crate::RuntimeCore;
 use crate::UnavailableBackend;
-#[cfg(feature = "aster-backend")]
-use crate::{AsterBackend, AsterBackendHost};
-use ember_core::database::DbConnection;
+use lime_core::database::DbConnection;
 use std::sync::Arc;
 use thiserror::Error;
 
@@ -94,30 +93,47 @@ impl AppServerRuntimeFactory {
     }
 
     pub fn runtime_backend_core() -> RuntimeCore {
-        RuntimeCore::with_backend(Arc::new(RuntimeBackend::new()))
+        let execution_process = ExecutionProcessServer::default();
+        RuntimeCore::with_backend(Arc::new(RuntimeBackend::with_execution_process_server(
+            execution_process.clone(),
+        )))
+        .with_execution_process_server(execution_process)
     }
 
     pub fn runtime_backend_core_with_db(db: DbConnection) -> RuntimeCore {
-        RuntimeCore::with_backend(Arc::new(RuntimeBackend::with_db(db)))
+        let execution_process = ExecutionProcessServer::default();
+        RuntimeCore::with_backend(Arc::new(
+            RuntimeBackend::with_db_and_execution_process_server(db, execution_process.clone()),
+        ))
+        .with_execution_process_server(execution_process)
     }
 
     pub fn runtime_backend_core_with_capability_source(
         capability_source: Arc<dyn CapabilitySource>,
     ) -> RuntimeCore {
+        let execution_process = ExecutionProcessServer::default();
         RuntimeCore::with_backend_and_capability_source(
-            Arc::new(RuntimeBackend::new()),
+            Arc::new(RuntimeBackend::with_execution_process_server(
+                execution_process.clone(),
+            )),
             capability_source,
         )
+        .with_execution_process_server(execution_process)
     }
 
     pub fn runtime_backend_core_with_db_and_capability_source(
         db: DbConnection,
         capability_source: Arc<dyn CapabilitySource>,
     ) -> RuntimeCore {
+        let execution_process = ExecutionProcessServer::default();
         RuntimeCore::with_backend_and_capability_source(
-            Arc::new(RuntimeBackend::with_db(db)),
+            Arc::new(RuntimeBackend::with_db_and_execution_process_server(
+                db,
+                execution_process.clone(),
+            )),
             capability_source,
         )
+        .with_execution_process_server(execution_process)
     }
 
     pub fn runtime_app_server() -> AppServer {
@@ -198,55 +214,6 @@ impl AppServerRuntimeFactory {
             capability_source,
         ))
     }
-
-    #[cfg(feature = "aster-backend")]
-    pub fn aster_runtime_core(host: Arc<dyn AsterBackendHost>) -> RuntimeCore {
-        RuntimeCore::with_backend(Arc::new(AsterBackend::new(host)))
-    }
-
-    #[cfg(feature = "aster-backend")]
-    pub fn aster_runtime_core_with_capability_source(
-        host: Arc<dyn AsterBackendHost>,
-        capability_source: Arc<dyn CapabilitySource>,
-    ) -> RuntimeCore {
-        RuntimeCore::with_backend_and_capability_source(
-            Arc::new(AsterBackend::new(host)),
-            capability_source,
-        )
-    }
-
-    #[cfg(feature = "aster-backend")]
-    pub fn aster_runtime_core_with_sources(
-        host: Arc<dyn AsterBackendHost>,
-        capability_source: Arc<dyn CapabilitySource>,
-        artifact_content_provider: Arc<dyn ArtifactContentProvider>,
-    ) -> RuntimeCore {
-        RuntimeCore::with_backend_capability_source_and_artifact_content_provider(
-            Arc::new(AsterBackend::new(host)),
-            capability_source,
-            artifact_content_provider,
-        )
-    }
-
-    #[cfg(feature = "aster-backend")]
-    pub fn aster_runtime_core_with_sources_and_evidence_export_provider(
-        host: Arc<dyn AsterBackendHost>,
-        capability_source: Arc<dyn CapabilitySource>,
-        artifact_content_provider: Arc<dyn ArtifactContentProvider>,
-        evidence_export_provider: Arc<dyn EvidenceExportProvider>,
-    ) -> RuntimeCore {
-        RuntimeCore::with_backend_capability_source_artifact_content_provider_and_evidence_export_provider(
-            Arc::new(AsterBackend::new(host)),
-            capability_source,
-            artifact_content_provider,
-            evidence_export_provider,
-        )
-    }
-
-    #[cfg(feature = "aster-backend")]
-    pub fn aster_app_server(host: Arc<dyn AsterBackendHost>) -> AppServer {
-        AppServer::with_runtime(Self::aster_runtime_core(host))
-    }
 }
 
 #[cfg(test)]
@@ -280,8 +247,8 @@ mod tests {
             AppServerBackendMode::Unavailable
         );
 
-        let error = AppServerBackendMode::parse("aster").expect_err("unsupported mode");
-        assert_eq!(error.value(), "aster");
+        let error = AppServerBackendMode::parse("agent").expect_err("unsupported mode");
+        assert_eq!(error.value(), "agent");
     }
 
     #[test]

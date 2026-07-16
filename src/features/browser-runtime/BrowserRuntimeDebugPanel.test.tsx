@@ -1,6 +1,6 @@
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
   cleanupMountedBrowserRuntimeDebugPanels,
   clickButtonByText,
@@ -66,14 +66,14 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   mockUseBrowserRuntimeDebug.mockReturnValue(createDefaultRuntimeState());
   mockGetBrowserRuntimeAuditLogs.mockResolvedValue([]);
   mockListBrowserProfiles.mockResolvedValue([]);
   mockGetChromeBridgeStatus.mockResolvedValue(createChromeBridgeStatus());
   mockBrowserExecuteAction.mockResolvedValue({
     success: true,
-    backend: "ember_extension_bridge",
+    backend: "lime_extension_bridge",
     action: "read_page",
     request_id: "browser-attach-default",
     attempts: [],
@@ -118,7 +118,7 @@ describe("BrowserRuntimeDebugPanel", () => {
   });
 
   it("英文界面应使用 workspace namespace 调试面板外壳文案", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
 
     const container = await renderPanel();
 
@@ -202,7 +202,7 @@ describe("BrowserRuntimeDebugPanel", () => {
         success: true,
         attempts: [
           {
-            backend: "aster_compat",
+            backend: "current",
             success: true,
             message: "执行成功",
           },
@@ -273,7 +273,7 @@ describe("BrowserRuntimeDebugPanel", () => {
   });
 
   it("英文界面应使用 workspace namespace 附着 Chrome presentation 文案", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     mockUseBrowserRuntimeDebug.mockReturnValue({
       ...createDefaultRuntimeState(),
       selectedProfileKey: "weibo_attach",
@@ -384,7 +384,7 @@ describe("BrowserRuntimeDebugPanel", () => {
     mockBrowserExecuteAction
       .mockResolvedValueOnce({
         success: true,
-        backend: "ember_extension_bridge",
+        backend: "lime_extension_bridge",
         action: "list_tabs",
         request_id: "browser-tabs-1",
         attempts: [],
@@ -411,7 +411,7 @@ describe("BrowserRuntimeDebugPanel", () => {
       })
       .mockResolvedValueOnce({
         success: true,
-        backend: "ember_extension_bridge",
+        backend: "lime_extension_bridge",
         action: "switch_tab",
         request_id: "browser-switch-1",
         attempts: [],
@@ -426,7 +426,7 @@ describe("BrowserRuntimeDebugPanel", () => {
       })
       .mockResolvedValueOnce({
         success: true,
-        backend: "ember_extension_bridge",
+        backend: "lime_extension_bridge",
         action: "list_tabs",
         request_id: "browser-tabs-2",
         attempts: [],
@@ -463,7 +463,7 @@ describe("BrowserRuntimeDebugPanel", () => {
 
     expect(mockBrowserExecuteAction).toHaveBeenNthCalledWith(1, {
       profile_key: "weibo_attach",
-      backend: "ember_extension_bridge",
+      backend: "lime_extension_bridge",
       action: "list_tabs",
       timeout_ms: 30000,
     });
@@ -473,7 +473,7 @@ describe("BrowserRuntimeDebugPanel", () => {
 
     expect(mockBrowserExecuteAction).toHaveBeenNthCalledWith(2, {
       profile_key: "weibo_attach",
-      backend: "ember_extension_bridge",
+      backend: "lime_extension_bridge",
       action: "switch_tab",
       args: {
         target: "202",
@@ -483,7 +483,7 @@ describe("BrowserRuntimeDebugPanel", () => {
     });
     expect(mockBrowserExecuteAction).toHaveBeenNthCalledWith(3, {
       profile_key: "weibo_attach",
-      backend: "ember_extension_bridge",
+      backend: "lime_extension_bridge",
       action: "list_tabs",
       timeout_ms: 30000,
     });
@@ -536,7 +536,7 @@ describe("BrowserRuntimeDebugPanel", () => {
       .mockImplementationOnce(() => deferredReadPage.promise)
       .mockResolvedValueOnce({
         success: true,
-        backend: "ember_extension_bridge",
+        backend: "lime_extension_bridge",
         action: "list_tabs",
         request_id: "browser-tabs-race-1",
         attempts: [],
@@ -563,7 +563,7 @@ describe("BrowserRuntimeDebugPanel", () => {
       })
       .mockResolvedValueOnce({
         success: true,
-        backend: "ember_extension_bridge",
+        backend: "lime_extension_bridge",
         action: "switch_tab",
         request_id: "browser-switch-race-1",
         attempts: [],
@@ -578,7 +578,7 @@ describe("BrowserRuntimeDebugPanel", () => {
       })
       .mockResolvedValueOnce({
         success: true,
-        backend: "ember_extension_bridge",
+        backend: "lime_extension_bridge",
         action: "list_tabs",
         request_id: "browser-tabs-race-2",
         attempts: [],
@@ -619,7 +619,7 @@ describe("BrowserRuntimeDebugPanel", () => {
     await act(async () => {
       deferredReadPage.resolve({
         success: true,
-        backend: "ember_extension_bridge",
+        backend: "lime_extension_bridge",
         action: "read_page",
         request_id: "browser-read-race-1",
         attempts: [],

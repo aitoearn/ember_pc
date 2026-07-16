@@ -1,6 +1,6 @@
 import type { Editor, Range } from "@tiptap/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { createExtensions } from "./extensions";
 import {
   createSlashCommandItems,
@@ -26,7 +26,7 @@ describe("Document SlashCommand i18n", () => {
   });
 
   it("英文 locale 下命令项与图片 URL prompt 应来自 workspace namespace", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
 
     const items = createSlashCommandItems();
     expect(items.map((item) => item.title)).toContain("Heading 1");

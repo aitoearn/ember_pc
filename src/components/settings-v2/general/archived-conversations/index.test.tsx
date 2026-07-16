@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const { mockListAgentRuntimeSessions, mockUpdateAgentRuntimeSession, mockToast } =
   vi.hoisted(() => ({
@@ -13,7 +13,7 @@ const { mockListAgentRuntimeSessions, mockUpdateAgentRuntimeSession, mockToast }
     },
   }));
 
-vi.mock("@/lib/api/agentRuntime", () => ({
+vi.mock("@/lib/api/agentRuntime/sessionClient", () => ({
   listAgentRuntimeSessions: mockListAgentRuntimeSessions,
   updateAgentRuntimeSession: mockUpdateAgentRuntimeSession,
 }));
@@ -59,7 +59,7 @@ beforeEach(async () => {
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   mockListAgentRuntimeSessions.mockResolvedValue([
     {
       id: "session-archived",
@@ -96,7 +96,7 @@ afterEach(async () => {
   }
 
   vi.clearAllMocks();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("ArchivedConversationsSettings", () => {

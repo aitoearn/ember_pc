@@ -1,10 +1,15 @@
-import type { AsterExecutionStrategy } from "@/lib/api/agentRuntime";
+import type { AgentExecutionStrategy } from "@/lib/api/agentExecutionRuntime";
 import type {
   AgentContextTraceStep as ContextTraceStep,
   AgentRuntimeStatusMetadata,
 } from "@/lib/api/agentProtocol";
 import type { AgentRuntimeStatus } from "../types";
 import { resolveAgentRuntimeErrorPresentation } from "./agentRuntimeErrorPresentation";
+import type {
+  SoulCopyDescriptor,
+  SoulInteractionCopy,
+} from "@/lib/soul/interactionCopy";
+import { resolveSoulInteractionCopy } from "@/lib/soul/interactionCopy";
 
 export function buildDiagnosticsRuntimeStatusMetadata(
   extra?: AgentRuntimeStatusMetadata,
@@ -24,51 +29,62 @@ export function buildDiagnosticsRuntimeStatusMetadata(
   };
 }
 
-function buildExecutionLabel(strategy: AsterExecutionStrategy): string {
-  void strategy;
-  return "对话执行";
-}
-
 function normalizeRuntimeErrorDetail(errorMessage: string): string {
   return resolveAgentRuntimeErrorPresentation(errorMessage).displayMessage;
 }
 
+export function buildSoulRuntimeStatusMetadata(
+  descriptor: SoulCopyDescriptor,
+): AgentRuntimeStatusMetadata {
+  return {
+    soul_copy: descriptor,
+    soul_surface: descriptor.surface,
+    soul_phase: descriptor.phase,
+    style_level: descriptor.styleLevel,
+    risk_level: descriptor.riskLevel,
+    tone_variant: descriptor.toneVariant,
+    ...(descriptor.profileId ? { profile_id: descriptor.profileId } : {}),
+    ...(descriptor.packId ? { pack_id: descriptor.packId } : {}),
+  };
+}
+
 export function buildInitialAgentRuntimeStatus(options: {
-  executionStrategy: AsterExecutionStrategy;
+  executionStrategy: AgentExecutionStrategy;
   skipUserMessage?: boolean;
+  soulCopy?: SoulInteractionCopy;
 }): AgentRuntimeStatus {
+  const copy = options.soulCopy ?? resolveSoulInteractionCopy();
   const checkpoints = [
-    buildExecutionLabel(options.executionStrategy),
-    "工具由模型按需判断",
-    "推理强度由模型按任务复杂度判断",
+    ...copy.initialRuntimeCheckpoints,
     options.skipUserMessage ? "系统引导请求" : "用户请求已入队",
   ];
 
   return {
     phase: "preparing",
-    title: "正在准备处理",
-    detail: "正在理解你的需求并准备当前阶段。",
+    title: copy.initialRuntimeTitle,
+    detail: copy.initialRuntimeDetail,
     checkpoints,
-    metadata: buildDiagnosticsRuntimeStatusMetadata(),
+    metadata: buildDiagnosticsRuntimeStatusMetadata(
+      buildSoulRuntimeStatusMetadata(copy.descriptors.initialRuntimeTitle),
+    ),
   };
 }
 
 export function buildWaitingAgentRuntimeStatus(options: {
-  executionStrategy: AsterExecutionStrategy;
+  executionStrategy: AgentExecutionStrategy;
+  soulCopy?: SoulInteractionCopy;
 }): AgentRuntimeStatus {
-  const checkpoints = [
-    "会话已建立",
-    buildExecutionLabel(options.executionStrategy),
-    "先理解意图，再由模型决定工具使用",
-    "等待首个模型事件",
-  ];
+  void options.executionStrategy;
+  const copy = options.soulCopy ?? resolveSoulInteractionCopy();
 
   return {
     phase: "routing",
-    title: "正在启动处理流程",
-    detail: "已开始处理，正在准备环境并等待第一条进展。",
-    checkpoints,
-    metadata: buildDiagnosticsRuntimeStatusMetadata(),
+    title: copy.waitingRuntimeTitle,
+    detail: copy.waitingRuntimeDetail,
+    checkpoints: copy.waitingRuntimeCheckpoints,
+    metadata: buildDiagnosticsRuntimeStatusMetadata(
+      buildSoulRuntimeStatusMetadata(copy.descriptors.waitingRuntimeTitle),
+    ),
   };
 }
 
@@ -101,6 +117,7 @@ export function buildActionResumeRuntimeStatus(): AgentRuntimeStatus {
 
 export function buildFailedAgentRuntimeStatus(
   errorMessage: string,
+  soulCopy: SoulInteractionCopy = resolveSoulInteractionCopy(),
 ): AgentRuntimeStatus {
   return {
     phase: "failed",
@@ -111,14 +128,18 @@ export function buildFailedAgentRuntimeStatus(
       "可修正问题后重试",
       "如需继续可补充更明确的输入",
     ],
+    metadata: buildDiagnosticsRuntimeStatusMetadata(
+      buildSoulRuntimeStatusMetadata(soulCopy.descriptors.failurePrefix),
+    ),
   };
 }
 
 export function buildFailedAgentMessageContent(
   errorMessage: string,
   partialContent?: string,
+  soulCopy: SoulInteractionCopy = resolveSoulInteractionCopy(),
 ): string {
-  const failureText = `执行失败：${normalizeRuntimeErrorDetail(errorMessage)}`;
+  const failureText = `${soulCopy.failurePrefix}${normalizeRuntimeErrorDetail(errorMessage)}`;
   const trimmedPartialContent = partialContent?.trim();
   return trimmedPartialContent
     ? `${trimmedPartialContent}\n\n${failureText}`

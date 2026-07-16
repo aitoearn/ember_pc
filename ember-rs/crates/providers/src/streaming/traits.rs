@@ -14,7 +14,7 @@ use crate::streaming::StreamError;
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::Stream;
-use ember_core::models::openai::ChatCompletionRequest;
+use lime_core::models::openai::ChatCompletionRequest;
 use std::pin::Pin;
 
 /// 流式响应类型别名

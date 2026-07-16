@@ -4,7 +4,7 @@
 
 use super::types::{ModelStats, ProviderStats, RequestLog, RequestStatus, StatsSummary, TimeRange};
 use chrono::{Duration, Utc};
-use ember_core::ProviderType;
+use lime_core::ProviderType;
 use parking_lot::RwLock;
 use std::collections::{HashMap, VecDeque};
 

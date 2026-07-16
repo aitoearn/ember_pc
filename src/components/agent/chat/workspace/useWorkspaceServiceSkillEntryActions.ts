@@ -1,19 +1,19 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { siteGetAdapterLaunchReadiness } from "@/lib/webview-api";
 import { createAutomationJob } from "@/lib/api/automation";
 import { recordAutomationJobAgentUiProjection } from "../projection/automationJobAgentUiProjection";
-import {
-  createContent,
-  getOrCreateDefaultProject,
-  listProjects,
-  type Project,
-} from "@/lib/api/project";
+import { createContent, listProjects, type Project } from "@/lib/api/project";
 import {
   type AutomationJobDialogInitialValues,
   type AutomationJobDialogSubmit,
 } from "@/components/settings-v2/system/automation/AutomationJobDialog";
-import type { A2UIFormData, A2UIResponse } from "@/components/workspace/a2ui/types";
+import { normalizeAutomationThreadLineage } from "@/components/settings-v2/system/automation/automationThreadLineage";
+import type {
+  A2UIFormData,
+  A2UIResponse,
+} from "@/components/workspace/a2ui/types";
 import type { BrowserRuntimePageParams, Page, PageParams } from "@/types/page";
 import type { ChatToolPreferences } from "../utils/chatToolPreferences";
 import type { CreationMode } from "../components/types";
@@ -27,9 +27,7 @@ import {
   composeServiceSkillPrompt,
   validateServiceSkillSlotValues,
 } from "../service-skills/promptComposer";
-import {
-  supportsServiceSkillLocalAutomation,
-} from "../service-skills/automationDraft";
+import { supportsServiceSkillLocalAutomation } from "../service-skills/automationDraft";
 import { recordServiceSkillAutomationLink } from "../service-skills/automationLinkStorage";
 import {
   buildServiceSkillLaunchA2UIResponse,
@@ -54,8 +52,6 @@ import type {
   ServiceSkillHomeItem,
   ServiceSkillSlotValues,
 } from "../service-skills/types";
-import type { TeamDefinition } from "../utils/teamDefinitions";
-import { attachSelectedTeamToRequestMetadata } from "../utils/teamRequestMetadata";
 import {
   buildFallbackAutomationWorkspace,
   buildServiceSkillAutomationSetupState,
@@ -81,13 +77,15 @@ interface UseWorkspaceServiceSkillEntryActionsParams {
   creationMode: CreationMode;
   projectId?: string | null;
   contentId?: string | null;
+  sessionId?: string | null;
+  threadId?: string | null;
+  ensureSessionForThreadLineage?: (options?: {
+    skipSessionRestore?: boolean;
+    skipSessionStartHooks?: boolean;
+  }) => Promise<string | null>;
   input: string;
   chatToolPreferences: ChatToolPreferences;
   creationReplay?: CreationReplayMetadata;
-  preferredTeamPresetId?: string | null;
-  selectedTeam?: TeamDefinition | null;
-  selectedTeamLabel?: string | null;
-  selectedTeamSummary?: string | null;
   onNavigate?: (page: Page, params?: PageParams) => void;
   recordServiceSkillUsage: (input: RecordServiceSkillUsageInput) => void;
 }
@@ -97,16 +95,16 @@ export function useWorkspaceServiceSkillEntryActions({
   creationMode,
   projectId,
   contentId,
+  sessionId,
+  threadId,
+  ensureSessionForThreadLineage,
   input,
   chatToolPreferences,
   creationReplay,
-  preferredTeamPresetId,
-  selectedTeam,
-  selectedTeamLabel,
-  selectedTeamSummary,
   onNavigate,
   recordServiceSkillUsage,
 }: UseWorkspaceServiceSkillEntryActionsParams) {
+  const { t } = useTranslation("settings");
   const [automationDialogOpen, setAutomationDialogOpen] = useState(false);
   const [automationDialogInitialValues, setAutomationDialogInitialValues] =
     useState<AutomationJobDialogInitialValues | null>(null);
@@ -122,36 +120,35 @@ export function useWorkspaceServiceSkillEntryActions({
 
   const currentProjectId = normalizeProjectId(projectId);
   const currentContentId = contentId?.trim() || null;
+  const resolveAutomationThreadLineage = useCallback(async () => {
+    const currentLineage = normalizeAutomationThreadLineage({
+      sessionId,
+      threadId: threadId ?? sessionId,
+    });
+    if (currentLineage) {
+      return currentLineage;
+    }
+
+    const ensuredSessionId =
+      (await ensureSessionForThreadLineage?.())?.trim() || null;
+    if (!ensuredSessionId) {
+      return null;
+    }
+
+    return normalizeAutomationThreadLineage({
+      sessionId: ensuredSessionId,
+      threadId: ensuredSessionId,
+    });
+  }, [ensureSessionForThreadLineage, sessionId, threadId]);
 
   const navigateToServiceSkillWorkspace = useCallback(
     (payload: WorkspaceEntryPayload): boolean => {
-      const payloadWithSelectedTeamMetadata: WorkspaceEntryPayload = {
-        ...payload,
-        initialRequestMetadata: attachSelectedTeamToRequestMetadata(
-          payload.initialRequestMetadata,
-          {
-            preferredTeamPresetId,
-            selectedTeam,
-            selectedTeamLabel,
-            selectedTeamSummary,
-          },
-        ),
-        initialAutoSendRequestMetadata: attachSelectedTeamToRequestMetadata(
-          payload.initialAutoSendRequestMetadata,
-          {
-            preferredTeamPresetId,
-            selectedTeam,
-            selectedTeamLabel,
-            selectedTeamSummary,
-          },
-        ),
-      };
       const resolved = resolveWorkspaceEntry({
         projectId: payload.projectId ?? currentProjectId,
         activeTheme,
         creationMode,
         defaultToolPreferences: chatToolPreferences,
-        payload: payloadWithSelectedTeamMetadata,
+        payload,
       });
 
       if (!resolved.ok) {
@@ -176,10 +173,6 @@ export function useWorkspaceServiceSkillEntryActions({
       chatToolPreferences,
       creationMode,
       currentProjectId,
-      preferredTeamPresetId,
-      selectedTeam,
-      selectedTeamLabel,
-      selectedTeamSummary,
       onNavigate,
     ],
   );
@@ -232,13 +225,7 @@ export function useWorkspaceServiceSkillEntryActions({
         return currentProjectId;
       }
 
-      const defaultProject = await getOrCreateDefaultProject();
-      const defaultProjectId = normalizeProjectId(defaultProject?.id);
-      if (!defaultProjectId) {
-        throw new Error("当前技能需要项目工作区，但默认项目准备失败。");
-      }
-
-      return defaultProjectId;
+      throw new Error("当前技能需要项目工作区，请先进入项目工作。");
     },
     [currentProjectId],
   );
@@ -508,9 +495,7 @@ export function useWorkspaceServiceSkillEntryActions({
     ): Promise<boolean> => {
       const persistedLaunchUserInput =
         options && "launchUserInput" in options
-          ? normalizeWorkspaceServiceSkillOptionalText(
-              options.launchUserInput,
-            )
+          ? normalizeWorkspaceServiceSkillOptionalText(options.launchUserInput)
           : undefined;
 
       if (isServiceSkillExecutableAsSiteAdapter(skill)) {
@@ -747,6 +732,14 @@ export function useWorkspaceServiceSkillEntryActions({
       }
 
       try {
+        const automationThreadLineage = await resolveAutomationThreadLineage();
+        if (!automationThreadLineage) {
+          toast.error(
+            t("settings.automation.jobDialog.validation.threadLineageRequired"),
+          );
+          return;
+        }
+
         let workspaces: Project[];
         try {
           workspaces = prioritizeAutomationWorkspaces(
@@ -768,6 +761,7 @@ export function useWorkspaceServiceSkillEntryActions({
           slotValues,
           input,
           workspaceId: currentProjectId,
+          threadLineage: automationThreadLineage,
         });
 
         setAutomationWorkspaces(workspaces);
@@ -788,7 +782,9 @@ export function useWorkspaceServiceSkillEntryActions({
       currentProjectId,
       handleServiceSkillLaunch,
       input,
+      resolveAutomationThreadLineage,
       setPendingServiceSkillLaunchInput,
+      t,
     ],
   );
 
@@ -902,6 +898,8 @@ export function useWorkspaceServiceSkillEntryActions({
     pendingServiceSkillLaunchSource,
     automationDialogOpen,
     automationDialogInitialValues,
+    automationThreadLineage:
+      pendingServiceSkillAutomation?.threadLineage ?? null,
     automationWorkspaces,
     automationJobSaving,
     handleServiceSkillSelect,

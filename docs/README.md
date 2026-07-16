@@ -2,48 +2,41 @@
 
 ## 目录定位
 
-`docs/` 是 Ember / 熠测 仓库的**统一文档根目录**，承接：
+`docs/` 是 Lime 的文档站包，只承载对外文档站页面、站点配置和站点资源。
 
-- **工程事实源**：工程规则、路线图、执行计划、测试策略与长期技术专题（原 `internal/`）
-- **产品资料**：README 配图（`images/`）、功能设计稿（`superpowers/`）
+内部工程事实源已经迁移到 `../internal/`。Agent 协作规则、执行计划、路线图、测试策略、研究资料、PRD、技术专题和私有运营材料都不再放在本目录。
 
-## 核心入口
+## 当前边界
 
-| 目录 | 用途 |
-| --- | --- |
-| `aiprompts/` | 模块级工程导航、架构说明、质量流程、命令边界、治理规则 |
-| `exec-plans/` | 执行计划、进度日志、技术债追踪 |
-| `refactor/` | 渐进式重构方案（文件体量治理、目录架构蓝图） |
-| `roadmap/` | 平台与产品路线图 |
-| `test/`、`tests/`、`testing/` | 测试策略、场景、manifest、QC 与 E2E 资料 |
-| `develop/` | 开发流程、专项技术计划与协作规范 |
-| `images/` | README 与对外展示配图 |
-| `superpowers/` | 功能设计 spec 与实现计划 |
+`docs/` 只允许保留以下类型内容：
 
-## 路线图子域
+- `content/`：Nuxt Content / Docus 文档站页面
+- `images/`：文档站图片资源
+- `index.md`、`specification.md`、`ops.md`：文档站顶层页面
+- `app.config.ts`、`nuxt.config.ts`、`package.json`、`package-lock.json`：文档站配置与依赖锁定
+- `README.md`：本文档站包说明
 
-- `appserver/` — App Server / Electron Desktop Host 架构与协议
-- `agentruntime/` — Agent Runtime 主链
-- `agentui/` — Agent UI 标准包与 projection 迁移
-- `agentapp/` — Agent App 能力面
-- `device-ui-agent/` — 端自动化 / 设备镜像（熠测核心能力）
-- `harness-engine/` — Harness Engine 证据与回放治理
-- `test/` — Vitest 分层与测试治理
-- `task/` — 任务分层 / 模型经济调度
-- `warp/` — Modality 能力矩阵与 artifact graph（守卫事实源）
-- `artifacts/` — Artifact 框架边界
-- `i18n/` — 术语表（`glossary.md`）
+不要在 `docs/` 新增内部工程目录。需要记录工程事实源时，使用 `../internal/README.md` 和对应子目录。
 
-## 阅读顺序
+## 内部入口
 
-1. 根目录 `../AGENTS.md` — 仓库级硬规则
-2. `aiprompts/README.md` — 按场景进入模块级工程文档
-3. `exec-plans/README.md` — 长期任务与进度
-4. `aiprompts/governance.md` — 旧路径迁移与 compat 收口
+- 仓库级 Agent 规则：`../AGENTS.md`
+- 内部事实源总入口：`../internal/README.md`
+- 模块级工程导航：`../internal/aiprompts/README.md`
+- 全局架构图：`../internal/aiprompts/architecture.md`
+- 执行计划：`../internal/exec-plans/`
+- 路线图：`../internal/roadmap/`
+- 测试与质量资料：`../internal/test/`、`../internal/tests/`、`../internal/testing/`
+- 研究、PRD、技术专题：`../internal/research/`、`../internal/prd/`、`../internal/tech/`
+- Electron 打包 / 发布 / updater 规则：`../AGENTS.md`、`../internal/aiprompts/quality-workflow.md`、`../internal/roadmap/appserver/release-updater.md`；current 打包事实源是 `forge.config.mjs` 与 Electron Forge。
+- Rust 迁移 / command 清理规则：`../AGENTS.md`、`../internal/aiprompts/commands.md`、`../internal/aiprompts/governance.md`、`../internal/aiprompts/quality-workflow.md`、`../internal/roadmap/appserver/README.md`；`ember-rs/src/**` 旧主 crate / legacy facade / 迁移来源目录已于 `2026-06-10` 物理删除，当前 Rust 事实源是 `ember-rs/crates/**` 与 Electron Desktop Host 壳能力。不得恢复 `ember-rs/src/**`、`ember-rs/src/commands/**`、旧 Tauri wrapper、fail-closed stub、tombstone 或 thin facade；历史路径只允许作为 retired guard、执行计划证据或 git history 参考。非生成代码接近 `800` 行进入拆分预警，超过 `1000` 行时必须按最佳实践拆分，或登记无法拆分的 blocker、风险和退出条件。
+- Codex-first Agent 删除边界：`../AGENTS.md`、`../internal/aiprompts/governance.md`；已退役 runtime 的 vendor、workspace crate、迁移目录与专用 skill 已删除且禁止恢复。能力缺口只可参考 `/Users/coso/Documents/dev/rust/codex` 在 Lime current owner 重建并接入真实 App Server / 前端 / Evidence 主链，不得恢复旧依赖、catalog、文档入口或 fallback。
+- 复核 / 判死快速口径：`../AGENTS.md`、`../internal/aiprompts/governance.md`、`../internal/aiprompts/commands.md`、`../internal/aiprompts/quality-workflow.md`；用户只问结论时先给短结论，不自动扩展成全量治理、命令 inventory 或质量矩阵。目录级旧实现满足脱离构建图、已删除、有 current owner、守卫防回流时，可直接判 `dead / deleted / forbidden-to-restore`，历史 checkpoint 默认只作 evidence。
+- 前端 DevBridge 治理规则：`../AGENTS.md`、`../internal/aiprompts/commands.md`、`../internal/aiprompts/governance.md`、`../internal/exec-plans/tech-debt-tracker.md`；`src/lib/dev-bridge/**` 不是旧 Rust DevBridge 的整体删除对象，`safeInvoke`、HTTP client、`app_server_handle_json_lines` 和 bridge availability 是 current renderer bridge，旧命令 policy / mock fallback 才是后续治理对象。跨命令组长期 residual 必须回挂 `CCD-012`，不能只留在聊天、handoff 或临时计划备注。
 
 ## 维护规则
 
-1. 工程长期事实源落在 `docs/` 对应子目录，不散落到仓库其他位置。
-2. 新增一级目录时同步更新本文件与根 `AGENTS.md` 导航。
-3. 能机械验证的规则优先补脚本或测试守卫。
-4. 私有材料继续遵循 `.gitignore` 的 `docs/` 子目录规则。
+1. 更新文档站页面时，优先改 `content/` 或顶层站点页面。
+2. 更新工程规则、执行计划、路线图、测试策略或私有材料时，必须落到 `../internal/`。
+3. 新增内部事实源目录前，先同步更新 `../internal/README.md`。
+4. 文档站边界由根仓库 `npm run docs:boundary` 检查。

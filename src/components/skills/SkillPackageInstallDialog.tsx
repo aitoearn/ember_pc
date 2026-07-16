@@ -72,7 +72,7 @@ export function SkillPackageInstallDialog({
     setSelectedFilePath("SKILL.md");
 
     void skillsApi
-      .inspectLocalSkillPackage(sourcePath, "ember")
+      .inspectLocalSkillPackage(sourcePath, "lime")
       .then((result) => {
         if (requestIdRef.current !== requestId) {
           return;
@@ -133,7 +133,7 @@ export function SkillPackageInstallDialog({
     try {
       const result = await skillsApi.installLocalSkillPackage(
         sourcePath,
-        "ember",
+        "lime",
       );
       toast.success(
         t("skills.localPackage.install.success", {
@@ -159,14 +159,14 @@ export function SkillPackageInstallDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="ember-workbench-theme-scope ember-workbench-surface-scope overflow-hidden rounded-[18px] border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface)] p-0 text-[color:var(--ember-text)]"
+        className="lime-workbench-theme-scope lime-workbench-surface-scope overflow-hidden rounded-[18px] border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface)] p-0 text-[color:var(--lime-text)]"
         maxWidth="max-w-[1080px]"
       >
         <div
-          className="flex max-h-[calc(100vh-3rem)] min-h-[620px] flex-col bg-[color:var(--ember-surface)]"
+          className="flex max-h-[calc(100vh-3rem)] min-h-[620px] flex-col bg-[color:var(--lime-surface)]"
           data-testid="skill-package-install-dialog"
         >
-          <div className="shrink-0 border-b border-[color:var(--ember-surface-border)] px-6 py-5 pr-16">
+          <div className="shrink-0 border-b border-[color:var(--lime-surface-border)] px-6 py-5 pr-16">
             <DialogHeader className="space-y-0 text-left">
               <div className="flex items-start justify-between gap-5">
                 <div className="flex min-w-0 items-start gap-3">
@@ -174,17 +174,17 @@ export function SkillPackageInstallDialog({
                     <Package className="h-5 w-5" />
                   </span>
                   <div className="min-w-0">
-                    <DialogTitle className="line-clamp-1 text-[22px] font-semibold leading-7 text-[color:var(--ember-text-strong)]">
+                    <DialogTitle className="line-clamp-1 text-[22px] font-semibold leading-7 text-[color:var(--lime-text-strong)]">
                       {t("skills.localPackage.dialog.title", {
                         name:
                           packageName ||
                           t("skills.localPackage.dialog.fallbackName"),
                       })}
                     </DialogTitle>
-                    <p className="mt-1 line-clamp-1 text-[13px] leading-5 text-[color:var(--ember-text-muted)]">
+                    <p className="mt-1 line-clamp-1 text-[13px] leading-5 text-[color:var(--lime-text-muted)]">
                       {t("skills.localPackage.dialog.subtitle")}
                     </p>
-                    <p className="mt-2 line-clamp-1 text-[12px] leading-5 text-[color:var(--ember-text-muted)]">
+                    <p className="mt-2 line-clamp-1 text-[12px] leading-5 text-[color:var(--lime-text-muted)]">
                       {sourceName ||
                         (sourcePath ? basenameFromPath(sourcePath) : "")}
                     </p>
@@ -195,7 +195,7 @@ export function SkillPackageInstallDialog({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-9 rounded-full border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface)] px-4 text-sm font-semibold text-[color:var(--ember-text)] shadow-none hover:bg-[color:var(--ember-surface-hover)]"
+                    className="h-9 rounded-full border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface)] px-4 text-sm font-semibold text-[color:var(--lime-text)] shadow-none hover:bg-[color:var(--lime-surface-hover)]"
                     disabled={installing}
                     onClick={() => onOpenChange(false)}
                   >
@@ -205,7 +205,7 @@ export function SkillPackageInstallDialog({
                   <Button
                     type="button"
                     size="sm"
-                    className="h-9 rounded-full bg-[color:var(--ember-text-strong)] px-5 text-sm font-semibold text-[color:var(--ember-surface)] shadow-none hover:opacity-90"
+                    className="h-9 rounded-full bg-[color:var(--lime-text-strong)] px-5 text-sm font-semibold text-[color:var(--lime-surface)] shadow-none hover:opacity-90"
                     disabled={!canInstall || installing}
                     onClick={() => void handleInstall()}
                   >
@@ -219,19 +219,19 @@ export function SkillPackageInstallDialog({
           </div>
 
           <div className="grid min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)] overflow-hidden">
-            <aside className="min-h-0 border-r border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface-soft)]">
-              <div className="border-b border-[color:var(--ember-surface-border)] px-4 py-3">
-                <div className="text-[12px] font-semibold text-[color:var(--ember-text-strong)]">
+            <aside className="min-h-0 border-r border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface-soft)]">
+              <div className="border-b border-[color:var(--lime-surface-border)] px-4 py-3">
+                <div className="text-[12px] font-semibold text-[color:var(--lime-text-strong)]">
                   {t("skills.localPackage.files.title")}
                 </div>
-                <div className="mt-1 truncate text-[11px] text-[color:var(--ember-text-muted)]">
+                <div className="mt-1 truncate text-[11px] text-[color:var(--lime-text-muted)]">
                   {sourceName ||
                     (sourcePath ? basenameFromPath(sourcePath) : "")}
                 </div>
               </div>
               <div className="max-h-full min-h-0 overflow-y-auto p-2">
                 {loading ? (
-                  <div className="rounded-lg border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface)] px-3 py-6 text-center text-sm text-[color:var(--ember-text-muted)]">
+                  <div className="rounded-lg border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface)] px-3 py-6 text-center text-sm text-[color:var(--lime-text-muted)]">
                     {t("skills.localPackage.loading")}
                   </div>
                 ) : null}
@@ -254,7 +254,7 @@ export function SkillPackageInstallDialog({
               </div>
             </aside>
 
-            <main className="flex min-h-0 flex-col overflow-hidden bg-[color:var(--ember-surface)]">
+            <main className="flex min-h-0 flex-col overflow-hidden bg-[color:var(--lime-surface)]">
               {error ? (
                 <div className="mx-6 mt-5 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -277,12 +277,12 @@ export function SkillPackageInstallDialog({
               ) : null}
 
               <article className="flex min-h-0 flex-1 flex-col text-left">
-                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[color:var(--ember-surface-border)] px-6 py-3">
-                  <h3 className="text-sm font-semibold text-[color:var(--ember-text-strong)]">
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[color:var(--lime-surface-border)] px-6 py-3">
+                  <h3 className="text-sm font-semibold text-[color:var(--lime-text-strong)]">
                     {t("skills.localPackage.preview.title")}
                   </h3>
                   {selectedFile?.path || inspectionResult?.directory ? (
-                    <span className="rounded-full border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface-soft)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--ember-text-muted)]">
+                    <span className="rounded-full border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface-soft)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--lime-text-muted)]">
                       {selectedFile?.path || inspectionResult?.directory}
                     </span>
                   ) : null}
@@ -290,7 +290,7 @@ export function SkillPackageInstallDialog({
                 <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
                   <div className="mx-auto max-w-[760px] pb-8">
                     {loading ? (
-                      <div className="rounded-lg border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface-soft)] px-4 py-10 text-center text-sm text-[color:var(--ember-text-muted)]">
+                      <div className="rounded-lg border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface-soft)] px-4 py-10 text-center text-sm text-[color:var(--lime-text-muted)]">
                         {t("skills.localPackage.loading")}
                       </div>
                     ) : selectedFile ? (
@@ -302,7 +302,7 @@ export function SkillPackageInstallDialog({
                     ) : inspectionResult ? (
                       renderSkillMarkdown(inspectionResult.inspection.content)
                     ) : error ? null : (
-                      <div className="rounded-lg border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface-soft)] px-4 py-10 text-center text-sm text-[color:var(--ember-text-muted)]">
+                      <div className="rounded-lg border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface-soft)] px-4 py-10 text-center text-sm text-[color:var(--lime-text-muted)]">
                         {t("skills.localPackage.preview.empty")}
                       </div>
                     )}

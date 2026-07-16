@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import type { Artifact } from "@/lib/artifact/types";
 import { CanvasAdapter } from "./CanvasAdapter";
 
@@ -80,7 +80,7 @@ beforeEach(async () => {
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 afterEach(async () => {
@@ -96,7 +96,7 @@ afterEach(async () => {
     mounted.container.remove();
   }
 
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("CanvasAdapter", () => {

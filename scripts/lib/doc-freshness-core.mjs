@@ -2,79 +2,38 @@ import path from "node:path";
 
 export const DOC_FRESHNESS_SPECS = [
   {
-    path: "docs/tech/harness/README.md",
+    path: "internal/tech/harness/README.md",
     requiredMentions: [
-      "iteration-roadmap.md",
-      "review-decision-workflow.md",
-      "tooling-roadmap.md",
-      "entropy-governance-workflow.md",
-    ],
-  },
-  {
-    path: "docs/tech/harness/iteration-roadmap.md",
-    requiredMentions: [
-      "review-decision-workflow.md",
-      "tooling-roadmap.md",
-      "entropy-governance-workflow.md",
-      "scripts/report-generated-slop.mjs",
-      "scripts/check-doc-freshness.mjs",
-    ],
-  },
-  {
-    path: "docs/tech/harness/tooling-roadmap.md",
-    requiredMentions: [
+      "harness-engine-governance.md",
+      "state-history-telemetry.md",
+      "quality-workflow.md",
       "harness-evals.md",
+    ],
+  },
+  {
+    path: "internal/tech/harness/external-analysis-handoff.md",
+    requiredMentions: [
+      "harness-engine-governance.md",
+      "state-history-telemetry.md",
+      "quality-workflow.md",
+      "scripts/harness/analysis-brief.mjs",
+    ],
+  },
+  {
+    path: "internal/test/harness-evals.md",
+    requiredMentions: [
+      "harness-engine-governance.md",
+      "quality-workflow.md",
       "scripts/report-generated-slop.mjs",
       "scripts/check-doc-freshness.mjs",
     ],
   },
   {
-    path: "docs/tech/harness/entropy-governance-workflow.md",
-    requiredMentions: [
-      "iteration-roadmap.md",
-      "tooling-roadmap.md",
-      "harness-evals.md",
-      "scripts/report-generated-slop.mjs",
-      "scripts/check-doc-freshness.mjs",
-    ],
-  },
-  {
-    path: "docs/tech/harness/review-decision-workflow.md",
-    requiredMentions: [
-      "external-analysis-handoff.md",
-      "iteration-roadmap.md",
-    ],
-  },
-  {
-    path: "docs/tech/harness/external-analysis-handoff.md",
-    requiredMentions: [
-      "iteration-roadmap.md",
-      "review-decision-workflow.md",
-      "tooling-roadmap.md",
-    ],
-  },
-  {
-    path: "docs/tech/harness/implementation-blueprint.md",
-    requiredMentions: [
-      "harness-evals.md",
-      "scripts/report-generated-slop.mjs",
-    ],
-  },
-  {
-    path: "docs/test/harness-evals.md",
-    requiredMentions: [
-      "tooling-roadmap.md",
-      "entropy-governance-workflow.md",
-      "scripts/report-generated-slop.mjs",
-      "scripts/check-doc-freshness.mjs",
-    ],
-  },
-  {
-    path: "docs/aiprompts/governance.md",
+    path: "internal/aiprompts/governance.md",
     requiredMentions: [],
   },
   {
-    path: "docs/aiprompts/quality-workflow.md",
+    path: "internal/aiprompts/quality-workflow.md",
     requiredMentions: [],
   },
 ];
@@ -355,23 +314,23 @@ export function buildDocFreshnessReport({
 
 export function renderDocFreshnessText(report) {
   const lines = [
-    "[ember] doc freshness report",
-    `[ember] monitored docs: ${report.summary.monitoredDocumentCount}`,
-    `[ember] existing docs: ${report.summary.existingDocumentCount}`,
-    `[ember] issues: ${report.summary.issueCount}`,
-    `[ember] missing docs: ${report.summary.missingDocumentCount}`,
-    `[ember] missing required refs: ${report.summary.missingRequiredReferenceCount}`,
-    `[ember] broken markdown links: ${report.summary.brokenMarkdownLinkCount}`,
-    `[ember] broken code path refs: ${report.summary.brokenCodePathReferenceCount}`,
-    `[ember] deleted surface refs: ${report.summary.deletedSurfaceReferenceCount}`,
+    "[lime] doc freshness report",
+    `[lime] monitored docs: ${report.summary.monitoredDocumentCount}`,
+    `[lime] existing docs: ${report.summary.existingDocumentCount}`,
+    `[lime] issues: ${report.summary.issueCount}`,
+    `[lime] missing docs: ${report.summary.missingDocumentCount}`,
+    `[lime] missing required refs: ${report.summary.missingRequiredReferenceCount}`,
+    `[lime] broken markdown links: ${report.summary.brokenMarkdownLinkCount}`,
+    `[lime] broken code path refs: ${report.summary.brokenCodePathReferenceCount}`,
+    `[lime] deleted surface refs: ${report.summary.deletedSurfaceReferenceCount}`,
   ];
 
   if (report.issues.length === 0) {
-    lines.push("[ember] doc freshness: clean");
+    lines.push("[lime] doc freshness: clean");
     return `${lines.join("\n")}\n`;
   }
 
-  lines.push("[ember] issues:");
+  lines.push("[lime] issues:");
   for (const issue of report.issues) {
     lines.push(`  - [${issue.kind}] ${issue.documentPath} -> ${issue.detail}`);
   }

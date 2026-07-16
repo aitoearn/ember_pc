@@ -7,8 +7,17 @@ import {
   RUST_TEST_LAYER_NAMES,
   classifyRustTestFiles,
 } from "./rust-test-layer-classifier.mjs";
+import {
+  DEFAULT_CHANGED_REF,
+  expandWithWorkspaceDependents,
+  resolvePathScopedCargoArgs,
+  resolveRustPathSelection,
+} from "./lib/rust-test-scope-core.mjs";
+
+export { expandWithWorkspaceDependents, resolveRustPathSelection };
 
 const MANIFEST_PATH = "ember-rs/Cargo.toml";
+const DEFAULT_DARWIN_RUST_MIN_STACK = "8388608";
 const CARGO_OPTIONS_WITH_VALUE = new Set([
   "-j",
   "-p",
@@ -32,8 +41,30 @@ const CARGO_OPTIONS_WITH_VALUE = new Set([
 
 function liveProviderSmokeAllowed() {
   return (
-    process.env.EMBER_REAL_API_TEST === "1" ||
+    process.env.LIME_REAL_API_TEST === "1" ||
     process.env.PROXYCAST_REAL_API_TEST === "1"
+  );
+}
+
+export function resolveRustTestEnv(
+  env = process.env,
+  platform = process.platform,
+) {
+  const resolved = { ...env };
+  if (platform === "darwin" && !resolved.RUST_MIN_STACK?.trim()) {
+    resolved.RUST_MIN_STACK = DEFAULT_DARWIN_RUST_MIN_STACK;
+  }
+  return resolved;
+}
+
+function looksLikeGitRef(value) {
+  return (
+    value === "HEAD" ||
+    value === "@" ||
+    value.startsWith("refs/") ||
+    value.includes("/") ||
+    value.includes("..") ||
+    /^[0-9a-f]{7,40}$/i.test(value)
   );
 }
 
@@ -48,17 +79,27 @@ Options:
   --list       只列出当前层 Rust 测试文件，不执行
   --json       以 JSON 输出列表
   --explain    列表输出包含分类原因
+  --changed[=<ref>]
+               按 Git diff 推导受影响 workspace crate，默认 ref 为 HEAD
+  --related <paths...>
+               按给定 Rust 路径推导受影响 workspace crate
   --help       显示帮助
 
 说明:
-  --list 会遵循相同的 Cargo package scope；默认只列 ember，传 --workspace 列全 workspace，传 -p <crate> 列目标 crate。
+  --list 会遵循相同的 Cargo package scope；默认只列 lime，传 --workspace 列全 workspace，传 -p <crate> 列目标 crate。
+  --changed / --related 会先映射所属 crate，再用 cargo metadata 扩展反向依赖；Cargo.toml / Cargo.lock 等 workspace 边界会扩大到 --workspace。
+  若 Rust 路径无法映射到当前 workspace crate，命令会失败，避免静默通过 0 个测试。
+  macOS Cargo test worker 默认使用 8 MiB 栈；显式 RUST_MIN_STACK 会覆盖该默认值。
 
 Examples:
   npm run test:rust:unit
-  npm run test:rust:unit -- -p ember-agent request_tool_policy
+  npm run test:rust:changed
+  npm run test:rust:related -- ember-rs/crates/agent/src/request_tool_policy.rs
+  npm run test:rust:unit -- -p lime-agent request_tool_policy
+  npm run test:rust:unit -- --changed=origin/main request_tool_policy
   npm run test:rust:unit -- --workspace
   npm run test:rust:integration -- -- --nocapture
-  EMBER_REAL_API_TEST=1 npm run test:rust:e2e -- -- --ignored --nocapture
+  LIME_REAL_API_TEST=1 npm run test:rust:e2e -- -- --ignored --nocapture
 `);
 }
 
@@ -70,19 +111,52 @@ export function parseArgs(argv) {
   const testArgs = separatorIndex >= 0 ? rest.slice(separatorIndex + 1) : [];
 
   const options = {
+    changed: false,
+    changedRef: DEFAULT_CHANGED_REF,
     explain: false,
     json: false,
     list: false,
+    related: false,
+    relatedPaths: [],
   };
   const cargoArgs = [];
 
-  for (const arg of runnerArgs) {
+  for (let index = 0; index < runnerArgs.length; index += 1) {
+    const arg = runnerArgs[index];
     if (arg === "--explain") {
       options.explain = true;
     } else if (arg === "--json") {
       options.json = true;
     } else if (arg === "--list") {
       options.list = true;
+    } else if (arg === "--changed") {
+      options.changed = true;
+      const next = runnerArgs[index + 1];
+      if (next && !next.startsWith("-") && looksLikeGitRef(next)) {
+        options.changedRef = next;
+        index += 1;
+      }
+    } else if (arg.startsWith("--changed=")) {
+      options.changed = true;
+      options.changedRef =
+        arg.slice("--changed=".length) || DEFAULT_CHANGED_REF;
+    } else if (arg === "--related") {
+      options.related = true;
+      while (runnerArgs[index + 1] && !runnerArgs[index + 1].startsWith("-")) {
+        options.relatedPaths.push(runnerArgs[index + 1]);
+        index += 1;
+      }
+    } else if (arg.startsWith("--related=")) {
+      options.related = true;
+      const value = arg.slice("--related=".length);
+      if (value) {
+        options.relatedPaths.push(
+          ...value
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean),
+        );
+      }
     } else if (arg === "--help" || arg === "-h") {
       options.help = true;
     } else {
@@ -243,7 +317,7 @@ function runCargo(layer, cargoArgs, testArgs) {
   );
   const result = spawnSync("cargo", args, {
     encoding: failOnZeroExecutedTests ? "utf8" : undefined,
-    env: process.env,
+    env: resolveRustTestEnv(),
     maxBuffer: 50 * 1024 * 1024,
     stdio: failOnZeroExecutedTests ? "pipe" : "inherit",
   });
@@ -289,19 +363,31 @@ function main() {
     process.exit(1);
   }
 
+  let scopedCargoArgs = cargoArgs;
+  try {
+    const scoped = resolvePathScopedCargoArgs(options, cargoArgs);
+    if (scoped.skipped) {
+      return;
+    }
+    scopedCargoArgs = scoped.cargoArgs;
+  } catch (error) {
+    console.error(`[rust-layer] ${error.message}`);
+    process.exit(1);
+  }
+
   if (options.list) {
-    listLayerEntries(layer, options, cargoArgs);
+    listLayerEntries(layer, options, scopedCargoArgs);
     return;
   }
 
   if (layer === "e2e" && !liveProviderSmokeAllowed()) {
     console.log(
-      "[rust-layer] e2e/live Rust tests are gated. Set EMBER_REAL_API_TEST=1 to run ignored live tests.",
+      "[rust-layer] e2e/live Rust tests are gated. Set LIME_REAL_API_TEST=1 to run ignored live tests.",
     );
     return;
   }
 
-  process.exit(runCargo(layer, cargoArgs, testArgs));
+  process.exit(runCargo(layer, scopedCargoArgs, testArgs));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

@@ -32,7 +32,7 @@ describe("agent-qc-gui-owner-core", () => {
       manifest,
       statusSidecars: [
         {
-          path: ".ember/qc/qcloop-status.contract.json",
+          path: ".lime/qc/qcloop-status.contract.json",
           status: {
             job: { id: "job-1", status: "completed" },
             verdict: { status: "complete" },
@@ -57,7 +57,7 @@ describe("agent-qc-gui-owner-core", () => {
       manifest,
       statusSidecars: [
         {
-          path: ".ember/qc/qcloop-status.gui.json",
+          path: ".lime/qc/qcloop-status.gui.json",
           status: {
             job: { id: "job-gui", status: "running" },
             verdict: { status: "stale" },
@@ -114,8 +114,8 @@ describe("agent-qc-gui-owner-core", () => {
     const report = createAgentQcGuiOwnerReport({
       manifest,
       statusSidecars: [
-        { path: ".ember/qc/qcloop-status.gui-current.json", status: sidecar },
-        { path: ".ember/qc/qcloop-status.gui-stale.json", status: sidecar },
+        { path: ".lime/qc/qcloop-status.gui-current.json", status: sidecar },
+        { path: ".lime/qc/qcloop-status.gui-stale.json", status: sidecar },
       ],
     });
 
@@ -127,7 +127,7 @@ describe("agent-qc-gui-owner-core", () => {
       manifest,
       statusSidecars: [
         {
-          path: ".ember/qc/qcloop-status.gui-pending.json",
+          path: ".lime/qc/qcloop-status.gui-pending.json",
           status: {
             job: { id: "job-pending", status: "pending", terminal: false },
             verdict: { status: "running" },
@@ -174,11 +174,11 @@ describe("agent-qc-gui-owner-core", () => {
       manifest,
       statusSidecars: [
         {
-          path: ".ember/qc/qcloop-status.gui-older.json",
+          path: ".lime/qc/qcloop-status.gui-older.json",
           status: createSidecar(600, "2026-05-10T00:00:00.000Z"),
         },
         {
-          path: ".ember/qc/qcloop-status.gui-current.json",
+          path: ".lime/qc/qcloop-status.gui-current.json",
           status: createSidecar(900, "2026-05-10T00:05:00.000Z"),
         },
       ],
@@ -187,7 +187,7 @@ describe("agent-qc-gui-owner-core", () => {
     expect(report.ownerCount).toBe(1);
     expect(report.oldestStaleSeconds).toBe(900);
     expect(report.activeOwners[0].path).toBe(
-      ".ember/qc/qcloop-status.gui-current.json",
+      ".lime/qc/qcloop-status.gui-current.json",
     );
   });
 
@@ -219,11 +219,11 @@ describe("agent-qc-gui-owner-core", () => {
       manifest,
       statusSidecars: [
         {
-          path: ".ember/qc/qcloop-status.gui-current.json",
+          path: ".lime/qc/qcloop-status.gui-current.json",
           status: runningSidecar,
         },
         {
-          path: ".ember/qc/qcloop-status.gui-completed.json",
+          path: ".lime/qc/qcloop-status.gui-completed.json",
           status: terminalSidecar,
         },
       ],
@@ -252,7 +252,7 @@ describe("agent-qc-gui-owner-core", () => {
       generatedAt: "2026-05-10T00:00:00.000Z",
       statusSidecars: [
         {
-          path: ".ember/qc/qcloop-status.gui.json",
+          path: ".lime/qc/qcloop-status.gui.json",
           status: {
             job: { id: "job-gui", status: "running" },
             verdict: { status: "stale" },

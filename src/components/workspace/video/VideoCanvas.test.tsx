@@ -10,7 +10,7 @@ import {
   setupReactActEnvironment,
   type MountedRoot,
 } from "@/components/workspace/hooks/testUtils";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
   emitCanvasImageInsertRequest,
   onCanvasImageInsertAck,
@@ -101,7 +101,7 @@ function ControlledVideoCanvas({
 describe("VideoCanvas 全局默认模型", () => {
   beforeEach(async () => {
     setupReactActEnvironment();
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
     localStorage.clear();
     vi.clearAllMocks();
     mockGetProviders.mockResolvedValue([
@@ -160,7 +160,7 @@ describe("VideoCanvas 全局默认模型", () => {
   });
 
   it("英文界面应使用 workspace namespace 渲染侧栏折叠按钮 title", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
 
     const mounted = mountHarness(
       ControlledVideoCanvas,
@@ -184,7 +184,7 @@ describe("VideoCanvas 全局默认模型", () => {
   });
 
   it("英文界面画布图片插入反馈应使用 workspace namespace", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const observedStateChanges: VideoCanvasState[] = [];
     const observedAcks: CanvasImageInsertAck[] = [];
     const unsubscribeAck = onCanvasImageInsertAck((ack) => {

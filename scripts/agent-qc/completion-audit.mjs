@@ -47,7 +47,7 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Agent QC Completion Audit
+Lime Agent QC Completion Audit
 
 用法:
   npm run agent-qc:audit
@@ -183,13 +183,13 @@ function containsAgentQcAction(value) {
 
 function loadFacts() {
   const scenarioManifest = readJson(
-    "docs/test/agent-qc-scenarios.manifest.json",
+    "internal/test/agent-qc-scenarios.manifest.json",
   );
   const guiFlowManifest = readJson(
-    "docs/test/agent-qc-gui-flows.manifest.json",
+    "internal/test/agent-qc-gui-flows.manifest.json",
   );
   const evidenceSchema = readJson(
-    "docs/test/agent-qc-evidence.schema.json",
+    "internal/test/agent-qc-evidence.schema.json",
   );
   const packageJson = readJson("package.json");
   const scenarioReport = createAgentQcReport({
@@ -226,9 +226,9 @@ function loadFacts() {
     ? readText("scripts/lib/agent-qc-gui-owner-core.mjs")
     : "";
   const staleOwnerInterventionDoc = exists(
-    "docs/tests/ember-agent-qc-stale-owner-intervention.md",
+    "internal/tests/lime-agent-qc-stale-owner-intervention.md",
   )
-    ? readText("docs/tests/ember-agent-qc-stale-owner-intervention.md")
+    ? readText("internal/tests/lime-agent-qc-stale-owner-intervention.md")
     : "";
   const nightly = exists(".github/workflows/harness-nightly.yml")
     ? readText(".github/workflows/harness-nightly.yml")
@@ -239,46 +239,46 @@ function loadFacts() {
 
   return {
     files: {
-      agentOpsQc: exists("docs/tests/agent-ops-qc.md"),
-      p0Scenarios: exists("docs/tests/agent-qc-p0-scenarios.md"),
-      limeRolloutPlan: exists("docs/tests/ember-agent-qc-rollout-plan.md"),
-      testsReadme: exists("docs/tests/README.md"),
-      evidenceSchema: exists("docs/test/agent-qc-evidence.schema.json"),
+      agentOpsQc: exists("internal/tests/agent-ops-qc.md"),
+      p0Scenarios: exists("internal/tests/agent-qc-p0-scenarios.md"),
+      limeRolloutPlan: exists("internal/tests/lime-agent-qc-rollout-plan.md"),
+      testsReadme: exists("internal/tests/README.md"),
+      evidenceSchema: exists("internal/test/agent-qc-evidence.schema.json"),
       qcloopJobScript: exists("scripts/agent-qc/qcloop-job.mjs"),
       payloadCoverageScript: exists("scripts/agent-qc/payload-coverage.mjs"),
       guiOwnerCheckScript: exists("scripts/agent-qc/gui-owner-check.mjs"),
       qcloopStatusScript: exists("scripts/agent-qc/qcloop-status.mjs"),
       qcloopPreflightScript: exists("scripts/agent-qc/qcloop-preflight.mjs"),
       qcloopOperationsDoc: exists(
-        "docs/tests/ember-agent-qc-qcloop-operations.md",
+        "internal/tests/lime-agent-qc-qcloop-operations.md",
       ),
       evidenceContractDoc: exists(
-        "docs/tests/ember-agent-qc-evidence-contract.md",
+        "internal/tests/lime-agent-qc-evidence-contract.md",
       ),
       staleOwnerInterventionDoc: exists(
-        "docs/tests/ember-agent-qc-stale-owner-intervention.md",
+        "internal/tests/lime-agent-qc-stale-owner-intervention.md",
       ),
       exportEvidenceScript: exists("scripts/agent-qc/export-evidence.mjs"),
       releaseSummaryScript: exists("scripts/agent-qc/release-summary.mjs"),
-      realGuiEvidence: exists(".ember/qc/gui-evidence"),
+      realGuiEvidence: exists(".lime/qc/gui-evidence"),
     },
     realEvidencePack: readOptionalEvidencePack(
-      ".ember/qc/agent-qc-evidence.json",
+      ".lime/qc/agent-qc-evidence.json",
     ),
-    localVerify: readOptionalJson(".ember/qc/verify-local-current.json", {
+    localVerify: readOptionalJson(".lime/qc/verify-local-current.json", {
       exists: false,
       status: "",
       failedStage: "",
       error: "",
     }),
-    guiSmoke: readOptionalJson(".ember/qc/verify-gui-smoke-current.json", {
+    guiSmoke: readOptionalJson(".lime/qc/verify-gui-smoke-current.json", {
       exists: false,
       status: "",
       failedStage: "",
       error: "",
     }),
     payloadCoverage: readOptionalJson(
-      ".ember/qc/qcloop-p0-single-owner-ready-coverage-current.json",
+      ".lime/qc/qcloop-p0-single-owner-ready-coverage-current.json",
       {
         exists: false,
         status: "",
@@ -286,8 +286,8 @@ function loadFacts() {
         ownerGate: null,
       },
     ),
-    realEvidenceSidecars: readEvidenceSidecars(".ember/qc"),
-    qcloopStatusSidecars: readQcloopStatusSidecars(".ember/qc"),
+    realEvidenceSidecars: readEvidenceSidecars(".lime/qc"),
+    qcloopStatusSidecars: readQcloopStatusSidecars(".lime/qc"),
     scenarioReport,
     guiFlowReport,
     qcloopPayload: {

@@ -11,28 +11,23 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { brandMacHelperApps } from "./brand-mac-helper-apps.mjs";
-import { PRODUCT_DISPLAY_NAME, PRODUCT_NAME } from "./productIdentity.mjs";
 
 const tmpRoots = [];
 
 function createAppOutDir(helperInfoPlistContent) {
-  const root = mkdtempSync(path.join(tmpdir(), "ember-electron-helper-brand-"));
+  const root = mkdtempSync(path.join(tmpdir(), "lime-electron-helper-brand-"));
   tmpRoots.push(root);
   const appOutDir = path.join(root, "mac-arm64");
-  const mainContents = path.join(
-    appOutDir,
-    `${PRODUCT_DISPLAY_NAME}.app`,
-    "Contents",
-  );
+  const mainContents = path.join(appOutDir, "Lime.app", "Contents");
   const resourcesDir = path.join(mainContents, "Resources");
   mkdirSync(resourcesDir, { recursive: true });
   const mainInfoPlistPath = path.join(mainContents, "Info.plist");
   writeFileSync(
     mainInfoPlistPath,
     buildInfoPlist([
-      ["CFBundleDisplayName", "Ember"],
-      ["CFBundleName", "Ember"],
-      ["CFBundleExecutable", "Ember"],
+      ["CFBundleDisplayName", "Lime"],
+      ["CFBundleName", "Lime"],
+      ["CFBundleExecutable", "Lime"],
       ["CFBundleIdentifier", "com.embercloud.ember"],
       ["CFBundleIconFile", "electron.icns"],
     ]),
@@ -41,10 +36,10 @@ function createAppOutDir(helperInfoPlistContent) {
 
   const helperContents = path.join(
     appOutDir,
-    `${PRODUCT_DISPLAY_NAME}.app`,
+    "Lime.app",
     "Contents",
     "Frameworks",
-    "Ember Helper (GPU).app",
+    "Lime Helper (GPU).app",
     "Contents",
   );
   mkdirSync(helperContents, { recursive: true });
@@ -75,20 +70,16 @@ afterEach(() => {
 });
 
 describe("brand-electron-mac-helper-apps", () => {
-  it("把 macOS helper app Info.plist 中的 Electron Helper 品牌改为 Ember", () => {
+  it("把 macOS helper app Info.plist 中的 Electron Helper 品牌改为 Lime", () => {
     const { appOutDir, infoPlistPath, mainInfoPlistPath } = createAppOutDir(
       buildInfoPlist([
-        ["CFBundleDisplayName", "Ember Helper (GPU)"],
+        ["CFBundleDisplayName", "Lime Helper (GPU)"],
         ["CFBundleName", "Electron Helper (GPU)"],
         ["CFBundleExecutable", "Electron Helper (GPU)"],
       ]),
     );
 
-    const result = brandMacHelperApps({
-      appOutDir,
-      productName: PRODUCT_NAME,
-      bundleName: PRODUCT_DISPLAY_NAME,
-    });
+    const result = brandMacHelperApps({ appOutDir, productName: "Lime" });
     const content = readFileSync(infoPlistPath, "utf8");
 
     expect(result).toEqual([
@@ -98,26 +89,20 @@ describe("brand-electron-mac-helper-apps", () => {
       }),
       expect.objectContaining({ changed: true, infoPlistPath }),
     ]);
-    expect(content).toContain("<string>Ember Helper (GPU)</string>");
+    expect(content).toContain("<string>Lime Helper (GPU)</string>");
     expect(content).not.toContain("Electron Helper");
-    const mainContent = readFileSync(mainInfoPlistPath, "utf8");
-    expect(mainContent).toContain(`<string>${PRODUCT_DISPLAY_NAME}</string>`);
   });
 
-  it("把主 app 图标 plist 从 Electron 默认名改为 Ember current icon 文件名", () => {
+  it("把主 app 图标 plist 从 Electron 默认名改为 Lime current icon 文件名", () => {
     const { appOutDir, mainInfoPlistPath, resourcesDir } = createAppOutDir(
       buildInfoPlist([
-        ["CFBundleDisplayName", "Ember Helper (GPU)"],
-        ["CFBundleName", "Ember Helper (GPU)"],
-        ["CFBundleExecutable", "Ember Helper (GPU)"],
+        ["CFBundleDisplayName", "Lime Helper (GPU)"],
+        ["CFBundleName", "Lime Helper (GPU)"],
+        ["CFBundleExecutable", "Lime Helper (GPU)"],
       ]),
     );
 
-    const result = brandMacHelperApps({
-      appOutDir,
-      productName: PRODUCT_NAME,
-      bundleName: PRODUCT_DISPLAY_NAME,
-    });
+    const result = brandMacHelperApps({ appOutDir, productName: "Lime" });
     const content = readFileSync(mainInfoPlistPath, "utf8");
 
     expect(result).toContainEqual(
@@ -133,12 +118,12 @@ describe("brand-electron-mac-helper-apps", () => {
 
   it("没有 macOS app bundle 时保持空结果", () => {
     const root = mkdtempSync(
-      path.join(tmpdir(), "ember-electron-helper-brand-"),
+      path.join(tmpdir(), "lime-electron-helper-brand-"),
     );
     tmpRoots.push(root);
 
     expect(
-      brandMacHelperApps({ appOutDir: root, productName: "Ember" }),
+      brandMacHelperApps({ appOutDir: root, productName: "Lime" }),
     ).toEqual([]);
   });
 });

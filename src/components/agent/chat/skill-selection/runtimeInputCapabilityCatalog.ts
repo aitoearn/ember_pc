@@ -6,7 +6,8 @@ import {
   type SkillCatalog,
   type SkillCatalogCommandEntry,
 } from "@/lib/api/skillCatalog";
-import type { AsterExecutionStrategy } from "@/lib/api/agentRuntime";
+import type { AgentExecutionStrategy } from "@/lib/api/agentExecutionRuntime";
+import { normalizeExecutionStrategyToReact } from "@/lib/api/agentRuntime/executionStrategyCompat";
 import {
   INPUTBAR_BUILTIN_COMMANDS,
   listBuiltinCommandsFromSkillCatalog,
@@ -17,7 +18,7 @@ import {
 
 export interface RuntimeMentionAgentTurnRoute {
   commandKey: string;
-  executionStrategy?: AsterExecutionStrategy;
+  executionStrategy?: AgentExecutionStrategy;
 }
 
 export interface RuntimeInputCapabilityCatalog {
@@ -79,15 +80,6 @@ function buildMentionCommandPrefixKeyMap(
   );
 }
 
-export function parseCatalogExecutionStrategy(
-  value?: string,
-): "react" | undefined {
-  if (value === "react" || value === "code_orchestrated" || value === "auto") {
-    return "react";
-  }
-  return undefined;
-}
-
 function buildAgentTurnRoute(
   entry: SkillCatalogCommandEntry,
 ): RuntimeMentionAgentTurnRoute | null {
@@ -97,9 +89,10 @@ function buildAgentTurnRoute(
   }
 
   const requestDefaults = entry.binding.requestDefaults ?? {};
-  const executionStrategy = parseCatalogExecutionStrategy(
-    requestDefaults.executionStrategy ?? requestDefaults.execution_strategy,
-  );
+  const executionStrategy =
+    normalizeExecutionStrategyToReact(
+      requestDefaults.executionStrategy ?? requestDefaults.execution_strategy,
+    ) ?? undefined;
 
   if (!executionStrategy) {
     return null;
@@ -117,9 +110,7 @@ function buildMentionAgentTurnRouteMap(
   return new Map(
     listSkillCatalogCommandEntries(catalog)
       .map((entry) => buildAgentTurnRoute(entry))
-      .filter(
-        (route): route is RuntimeMentionAgentTurnRoute => Boolean(route),
-      )
+      .filter((route): route is RuntimeMentionAgentTurnRoute => Boolean(route))
       .map((route) => [route.commandKey, route] as const),
   );
 }

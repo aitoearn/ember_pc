@@ -22,15 +22,15 @@ const StarterButton = styled.button<{ $primary?: boolean }>`
   border: 1px solid
     ${({ $primary }) =>
       $primary
-        ? "var(--ember-brand-strong, rgba(47, 83, 60, 0.96))"
-        : "var(--ember-surface-border, rgba(209, 220, 204, 0.92))"};
+        ? "var(--lime-brand-strong, rgba(47, 83, 60, 0.96))"
+        : "var(--lime-surface-border, rgba(209, 220, 204, 0.92))"};
   background: ${({ $primary }) =>
     $primary
-      ? "var(--ember-brand-strong, #2f533c)"
-      : "var(--ember-surface-soft, rgba(239, 244, 236, 0.96))"};
+      ? "var(--lime-brand-strong, #2f533c)"
+      : "var(--lime-surface-soft, rgba(239, 244, 236, 0.96))"};
   padding: 0.46rem 0.78rem;
   color: ${({ $primary }) =>
-    $primary ? "#fff" : "var(--ember-text, rgb(71 85 105))"};
+    $primary ? "#fff" : "var(--lime-text, rgb(71 85 105))"};
   font-size: 12px;
   font-weight: 700;
   line-height: 1;
@@ -44,12 +44,12 @@ const StarterButton = styled.button<{ $primary?: boolean }>`
     transform: translateY(-1px);
     border-color: ${({ $primary }) =>
       $primary
-        ? "var(--ember-brand-strong, #2f533c)"
-        : "var(--ember-surface-border-strong, rgba(148, 163, 184, 0.72))"};
+        ? "var(--lime-brand-strong, #2f533c)"
+        : "var(--lime-surface-border-strong, rgba(148, 163, 184, 0.72))"};
     background: ${({ $primary }) =>
-      $primary ? "var(--ember-brand-strong, #2f533c)" : "#fff"};
+      $primary ? "var(--lime-brand-strong, #2f533c)" : "#fff"};
     color: ${({ $primary }) =>
-      $primary ? "#fff" : "var(--ember-text-strong, rgb(15 23 42))"};
+      $primary ? "#fff" : "var(--lime-text-strong, rgb(15 23 42))"};
   }
 `;
 

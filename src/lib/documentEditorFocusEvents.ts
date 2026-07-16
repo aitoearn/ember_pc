@@ -1,4 +1,4 @@
-const DOCUMENT_EDITOR_FOCUS_EVENT = "ember:document-editor-focus";
+const DOCUMENT_EDITOR_FOCUS_EVENT = "lime:document-editor-focus";
 
 interface DocumentEditorFocusDetail {
   focused: boolean;

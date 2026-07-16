@@ -20,7 +20,7 @@ class StartupPerformanceTracker {
     this.startTime = performance.now();
     this.enabled =
       typeof window !== "undefined" &&
-      (window.localStorage.getItem("ember.debug.startup") === "true" ||
+      (window.localStorage.getItem("lime.debug.startup") === "true" ||
         new URLSearchParams(window.location.search).has("debug-startup"));
   }
 

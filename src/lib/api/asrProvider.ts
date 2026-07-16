@@ -14,10 +14,13 @@ import {
   APP_SERVER_METHOD_VOICE_INSTRUCTION_DELETE,
   APP_SERVER_METHOD_VOICE_INSTRUCTION_LIST,
   APP_SERVER_METHOD_VOICE_INSTRUCTION_SAVE,
+  APP_SERVER_METHOD_VOICE_TRANSCRIPTION_POLISH_TEXT,
+  APP_SERVER_METHOD_VOICE_TRANSCRIPTION_TRANSCRIBE_AUDIO,
   createAppServerClient,
   type AppServerVoiceAsrCredential,
   type AppServerVoiceAsrCredentialCreateParams,
   type AppServerVoiceAsrProviderType,
+  type AppServerVoiceTranscriptionTranscribeAudioResponse,
 } from "./appServer";
 import { getConfig, saveConfig, type Config } from "./appConfig";
 
@@ -176,7 +179,7 @@ const DEFAULT_VOICE_INPUT_CONFIG: VoiceInputConfig = {
 };
 
 const VOICE_REALTIME_CURRENT_BLOCKED_MESSAGE =
-  "语音转写、润色、输出与录音控制尚未接入 App Server / Electron current 通道";
+  "旧实时语音转写、润色、输出与录音控制入口已退役，请使用 App Server current 语音转写通道";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -518,6 +521,31 @@ export interface TranscribeResult {
   provider: string;
 }
 
+export interface VoiceInputTranscriptionRequest {
+  audioBase64: string;
+  mimeType: string;
+  credentialId?: string;
+}
+
+export interface VoiceInputTranscriptionResult {
+  text: string;
+  provider: AsrProviderType;
+  durationSecs: number;
+  sampleRate: number;
+  language?: string;
+}
+
+export interface VoiceInputPolishRequest {
+  text: string;
+  instructionId?: string;
+}
+
+export interface VoiceInputPolishResult {
+  text: string;
+  instructionName: string;
+  polished: boolean;
+}
+
 /** 润色结果 */
 export interface PolishResult {
   text: string;
@@ -534,6 +562,76 @@ export async function transcribeAudio(
   void sampleRate;
   void credentialId;
   failClosedRetiredVoiceInputCommand();
+}
+
+export async function transcribeVoiceInputAudio({
+  audioBase64,
+  mimeType,
+  credentialId,
+}: VoiceInputTranscriptionRequest): Promise<VoiceInputTranscriptionResult> {
+  const params: {
+    audio_base64: string;
+    mime_type: string;
+    credential_id?: string;
+  } = {
+    audio_base64: audioBase64,
+    mime_type: mimeType,
+  };
+  if (credentialId) {
+    params.credential_id = credentialId;
+  }
+  const response = await createAppServerClient().transcribeVoiceAudio(params);
+  const result = response.result;
+  if (
+    !isRecord(result) ||
+    typeof result.text !== "string" ||
+    typeof result.provider !== "string" ||
+    typeof result.duration_secs !== "number" ||
+    typeof result.sample_rate !== "number"
+  ) {
+    throw new Error(
+      `${APP_SERVER_METHOD_VOICE_TRANSCRIPTION_TRANSCRIBE_AUDIO} did not return a transcription result`,
+    );
+  }
+  const typedResult =
+    result as AppServerVoiceTranscriptionTranscribeAudioResponse;
+  return {
+    text: typedResult.text,
+    provider: asrProviderFromAppServer(typedResult.provider),
+    durationSecs: typedResult.duration_secs,
+    sampleRate: typedResult.sample_rate,
+    language: typedResult.language ?? undefined,
+  };
+}
+
+export async function polishVoiceInputText({
+  text,
+  instructionId,
+}: VoiceInputPolishRequest): Promise<VoiceInputPolishResult> {
+  const params: {
+    text: string;
+    instruction_id?: string;
+  } = { text };
+  if (instructionId) {
+    params.instruction_id = instructionId;
+  }
+  const response = await createAppServerClient().polishVoiceText(params);
+  const result = response.result;
+  if (
+    !isRecord(result) ||
+    typeof result.text !== "string" ||
+    typeof result.instruction_name !== "string" ||
+    typeof result.polished !== "boolean"
+  ) {
+    throw new Error(
+      `${APP_SERVER_METHOD_VOICE_TRANSCRIPTION_POLISH_TEXT} did not return a polish result`,
+    );
+  }
+  return {
+    text: result.text,
+    instructionName: result.instruction_name,
+    polished: result.polished,
+  };
 }
 
 /** 润色文本 */

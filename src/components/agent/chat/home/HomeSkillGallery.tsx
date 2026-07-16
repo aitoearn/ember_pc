@@ -29,17 +29,10 @@ const HeaderText = styled.div`
 
 const Title = styled.h2`
   margin: 0;
-  color: var(--ember-text-strong, rgb(15 23 42));
+  color: var(--lime-text-strong, rgb(15 23 42));
   font-size: 18px;
   font-weight: 760;
   line-height: 1.35;
-`;
-
-const Description = styled.p`
-  margin: 0;
-  color: var(--ember-text-muted, rgb(100 116 139));
-  font-size: 12px;
-  line-height: 1.6;
 `;
 
 const Grid = styled.div`
@@ -63,8 +56,8 @@ const Card = styled.button`
   flex-direction: column;
   overflow: hidden;
   border-radius: 24px;
-  border: 1px solid var(--ember-surface-border, rgba(226, 232, 240, 0.92));
-  background: var(--ember-surface, #fff);
+  border: 1px solid var(--lime-surface-border, rgba(226, 232, 240, 0.92));
+  background: var(--lime-surface, #fff);
   padding: 0;
   text-align: left;
   transition:
@@ -73,9 +66,9 @@ const Card = styled.button`
     transform 160ms ease;
 
   &:hover {
-    border-color: var(--ember-surface-border-strong, rgba(203, 213, 225, 0.98));
+    border-color: var(--lime-surface-border-strong, rgba(203, 213, 225, 0.98));
     box-shadow: 0 18px 44px -36px
-      var(--ember-shadow-color, rgba(15, 23, 42, 0.3));
+      var(--lime-shadow-color, rgba(15, 23, 42, 0.3));
     transform: translateY(-1px);
   }
 `;
@@ -104,7 +97,7 @@ const Body = styled.span`
 `;
 
 const CardTitle = styled.span`
-  color: var(--ember-text-strong, rgb(15 23 42));
+  color: var(--lime-text-strong, rgb(15 23 42));
   font-size: 14px;
   font-weight: 780;
   line-height: 1.45;
@@ -113,7 +106,7 @@ const CardTitle = styled.span`
 const CardSummary = styled.span`
   display: -webkit-box;
   overflow: hidden;
-  color: var(--ember-text-muted, rgb(100 116 139));
+  color: var(--lime-text-muted, rgb(100 116 139));
   font-size: 12px;
   line-height: 1.55;
   -webkit-box-orient: vertical;
@@ -141,7 +134,7 @@ function resolveCoverGradient(token: string): string {
 
 interface HomeSkillGalleryProps {
   items: HomeSkillSurfaceItem[];
-  copy: Pick<HomeSurfaceChromeCopy, "galleryDescription" | "galleryTitle">;
+  copy: Pick<HomeSurfaceChromeCopy, "galleryTitle">;
   onSelectItem: (item: HomeSkillSurfaceItem) => void;
 }
 
@@ -159,7 +152,6 @@ export function HomeSkillGallery({
       <GalleryHeader>
         <HeaderText>
           <Title>{copy.galleryTitle}</Title>
-          <Description>{copy.galleryDescription}</Description>
         </HeaderText>
       </GalleryHeader>
       <Grid>

@@ -1,5 +1,9 @@
 import type { AgentToolCallState as ToolCallState } from "@/lib/api/agentProtocol";
 import type { AgentThreadItem } from "../../types";
+import {
+  resolveTimelineItemStatusLabel,
+  resolveTimelineSubagentStatusLabel,
+} from "./timelineCopy";
 
 export function mapItemStatus(
   status: AgentThreadItem["status"],
@@ -19,35 +23,36 @@ export function resolveStatusBadgeVariant(
   return status === "completed" ? "outline" : "secondary";
 }
 
-export function resolveItemStatusLabel(status: AgentThreadItem["status"]): string {
-  switch (status) {
-    case "in_progress":
-      return "执行中";
-    case "failed":
-      return "失败";
-    case "completed":
-    default:
-      return "已完成";
-  }
+export function resolveItemStatusLabel(
+  status: AgentThreadItem["status"],
+): string {
+  return resolveTimelineItemStatusLabel(status);
 }
 
 export function resolveSubagentStatusLabel(
   statusLabel: string | undefined,
   status: AgentThreadItem["status"],
 ): string {
-  const normalized = statusLabel?.trim().toLowerCase();
-  switch (normalized) {
+  return resolveTimelineSubagentStatusLabel(statusLabel, status);
+}
+
+export function resolveSubagentStatusBadgeVariant(
+  statusLabel: string | undefined,
+  status: AgentThreadItem["status"],
+): "secondary" | "outline" | "destructive" {
+  switch (statusLabel?.trim().toLowerCase()) {
+    case "started":
+    case "interacted":
     case "queued":
-      return "稍后开始";
     case "running":
-      return "处理中";
-    case "completed":
-      return "已完成";
+      return "secondary";
+    case "interrupted":
     case "failed":
-      return "失败";
     case "aborted":
-      return "已暂停";
+      return "destructive";
+    case "completed":
+      return "outline";
     default:
-      return statusLabel || resolveItemStatusLabel(status);
+      return resolveStatusBadgeVariant(status);
   }
 }

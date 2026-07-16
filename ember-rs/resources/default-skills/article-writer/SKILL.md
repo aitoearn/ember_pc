@@ -2,12 +2,12 @@
 name: article-writer
 description: 内容工厂专用写作 Skill，生成批量文案、短视频脚本和图片提示词，并输出可回写的 contentFactoryWorkspacePatch。
 metadata:
-  ember_argument_hint: 输入项目资料、平台、目标人群、场景、数量目标和已确认素材。
-  ember_when_to_use: 内容工厂 App 需要生成本轮内容包、脚本批次或补齐缺口时使用。
-  ember_version: 0.1.1
-  ember_execution_mode: prompt
-  ember_surface: agent_app
-  ember_category: content_factory
+  lime_argument_hint: 输入项目资料、平台、目标人群、场景、数量目标和已确认素材。
+  lime_when_to_use: 内容工厂 App 需要生成本轮内容包、脚本批次或补齐缺口时使用。
+  lime_version: 0.1.1
+  lime_execution_mode: prompt
+  lime_surface: plugin
+  lime_category: content_factory
 ---
 
 # 内容工厂写作 Skill
@@ -18,7 +18,7 @@ metadata:
 
 1. 先读取用户消息里的项目资料、目标平台、场景、数量目标、缺口数量和质量约束。
 2. 若资料不足，基于已有事实和合理假设生成可审核草稿，并把假设写入 `evidence` 或 `quality_check`，不要停在索要资料。
-3. 若需要补充行业常识或平台规则，可以最小化调用 `search_query`；没有检索时不要伪造来源。
+3. 若需要补充行业常识或平台规则，可以最小化调用 `WebSearch`；没有检索时不要伪造来源。
 4. 输出必须服务内容工厂页面当前阶段，不能写成独立长文文件、不能输出 `<write_file>`、不能要求用户跳回 Claw。
 5. 最终必须输出 JSON，顶层包含 `contentFactoryWorkspacePatch` 或 `workspacePatch`。
 

@@ -14,7 +14,7 @@ import {
 const tempDirs: string[] = [];
 
 function createTempResourcesDir() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ember-i18n-check-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lime-i18n-check-"));
   tempDirs.push(dir);
   return dir;
 }

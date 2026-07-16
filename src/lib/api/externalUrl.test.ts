@@ -18,11 +18,11 @@ describe("externalUrl API", () => {
     vi.mocked(safeInvoke).mockResolvedValueOnce(undefined);
 
     await expect(
-      openExternalUrlWithSystemBrowser("https://user.emberai.run/login"),
+      openExternalUrlWithSystemBrowser("https://user.limeai.run/login"),
     ).resolves.toBeUndefined();
 
     expect(safeInvoke).toHaveBeenCalledWith("open_external_url", {
-      url: "https://user.emberai.run/login",
+      url: "https://user.limeai.run/login",
     });
   });
 
@@ -49,7 +49,7 @@ describe("externalUrl API", () => {
     });
 
     await expect(
-      openExternalUrlWithSystemBrowser("https://user.emberai.run/login"),
+      openExternalUrlWithSystemBrowser("https://user.limeai.run/login"),
     ).rejects.toThrow(
       "open_external_url 尚未接入真实外部链接 current 通道，收到 electron-host-diagnostic 诊断返回。",
     );
@@ -67,15 +67,15 @@ describe("externalUrl API", () => {
       });
 
     await expect(
-      openExternalUrlWithSystemBrowser("https://user.emberai.run/login"),
+      openExternalUrlWithSystemBrowser("https://user.limeai.run/login"),
     ).resolves.toBeUndefined();
     await expect(
-      openExternalUrlWithSystemBrowser("https://user.emberai.run/login"),
+      openExternalUrlWithSystemBrowser("https://user.limeai.run/login"),
     ).rejects.toThrow(
       "open_external_url did not return empty Electron host result",
     );
     await expect(
-      openExternalUrlWithSystemBrowser("https://user.emberai.run/login"),
+      openExternalUrlWithSystemBrowser("https://user.limeai.run/login"),
     ).rejects.toThrow(
       "open_external_url did not return empty Electron host result",
     );

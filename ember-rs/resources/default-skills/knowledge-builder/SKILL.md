@@ -2,12 +2,12 @@
 name: knowledge-builder
 description: 内容工厂专用知识整理 Skill，把项目资料、素材和运营经验整理成场景生成与内容生产可用的事实输入。
 metadata:
-  ember_argument_hint: 输入品牌产品资料、项目资料、素材、目标人群、运营目标和缺失信息。
-  ember_when_to_use: 内容工厂 App 需要整理三层知识库、生成场景地图或补齐内容生产依据时使用。
-  ember_version: 0.1.1
-  ember_execution_mode: prompt
-  ember_surface: agent_app
-  ember_category: content_factory
+  lime_argument_hint: 输入品牌产品资料、项目资料、素材、目标人群、运营目标和缺失信息。
+  lime_when_to_use: 内容工厂 App 需要整理三层知识库、生成场景地图或补齐内容生产依据时使用。
+  lime_version: 0.1.1
+  lime_execution_mode: prompt
+  lime_surface: plugin
+  lime_category: content_factory
 ---
 
 # 内容工厂知识整理 Skill

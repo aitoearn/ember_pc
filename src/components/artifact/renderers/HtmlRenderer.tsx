@@ -121,11 +121,11 @@ function appendPreviewRefreshNonce(url: string, nonce: number): string {
 
   try {
     const parsedUrl = new URL(url);
-    parsedUrl.searchParams.set("ember_preview_reload", String(nonce));
+    parsedUrl.searchParams.set("lime_preview_reload", String(nonce));
     return parsedUrl.toString();
   } catch {
     const separator = url.includes("?") ? "&" : "?";
-    return `${url}${separator}ember_preview_reload=${nonce}`;
+    return `${url}${separator}lime_preview_reload=${nonce}`;
   }
 }
 

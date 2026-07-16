@@ -75,7 +75,7 @@ function sanitizeFileName(value: string): string {
       .trim()
       .replace(/[\\/:*?"<>|]/g, "-")
       .replace(/\s+/g, " ")
-      .slice(0, 80) || "ember-resource"
+      .slice(0, 80) || "lime-resource"
   );
 }
 

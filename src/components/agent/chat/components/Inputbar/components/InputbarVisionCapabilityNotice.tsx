@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { AlertCircle } from "lucide-react";
 import {
   findConfiguredProviderBySelection,
@@ -7,16 +7,32 @@ import {
 import { useProviderModels } from "@/hooks/useProviderModels";
 import { resolveVisionModel } from "@/lib/model/visionModelResolver";
 import { resolveProviderModelLoadOptions } from "@/lib/model/providerModelLoadOptions";
+import {
+  buildModelCapabilitySendGateInput,
+  evaluateModelInputCapability,
+  resolveModelCapabilitySummaryForSelection,
+} from "@/lib/model/modelCapabilitySendGate";
+import {
+  buildModelInputSendPolicy,
+  type ModelInputSendPolicy,
+} from "@/lib/model/modelInputSendPolicy";
+
+function hasDeclaredProviderModels(
+  provider: { customModels?: string[] } | null | undefined,
+): boolean {
+  return Boolean(provider?.customModels?.some((modelId) => modelId.trim()));
+}
 
 interface InputbarVisionCapabilityNoticeProps {
   providerType: string;
   model: string;
   hasPendingImages: boolean;
+  onPolicyChange?: (policy: ModelInputSendPolicy) => void;
 }
 
 export const InputbarVisionCapabilityNotice: React.FC<
   InputbarVisionCapabilityNoticeProps
-> = ({ providerType, model, hasPendingImages }) => {
+> = ({ providerType, model, hasPendingImages, onPolicyChange }) => {
   const shouldInspectCapability = hasPendingImages;
 
   const { providers, loading: providersLoading } = useConfiguredProviders({
@@ -33,12 +49,10 @@ export const InputbarVisionCapabilityNotice: React.FC<
         providerId: selectedProvider?.providerId,
         providerType: selectedProvider?.type,
         apiHost: selectedProvider?.apiHost,
+        hasApiKey: selectedProvider?.hasApiKey,
+        hasDeclaredModels: hasDeclaredProviderModels(selectedProvider),
       }),
-    [
-      selectedProvider?.apiHost,
-      selectedProvider?.providerId,
-      selectedProvider?.type,
-    ],
+    [selectedProvider],
   );
 
   const { models, loading: modelsLoading } = useProviderModels(
@@ -50,11 +64,43 @@ export const InputbarVisionCapabilityNotice: React.FC<
     },
   );
 
+  const capabilityInspectionPending = providersLoading || modelsLoading;
+
+  const policy = useMemo<ModelInputSendPolicy>(() => {
+    const gateInput = buildModelCapabilitySendGateInput({
+      imageCount: shouldInspectCapability ? 1 : 0,
+    });
+    const summary =
+      !capabilityInspectionPending && selectedProvider && model.trim()
+        ? resolveModelCapabilitySummaryForSelection({
+            models,
+            providerType,
+            model,
+          })
+        : null;
+
+    return buildModelInputSendPolicy(
+      evaluateModelInputCapability(summary, gateInput),
+      {
+        failClosedOnUnknownMedia: !capabilityInspectionPending,
+      },
+    );
+  }, [
+    capabilityInspectionPending,
+    model,
+    models,
+    providerType,
+    selectedProvider,
+    shouldInspectCapability,
+  ]);
+
   const warningMessage = useMemo(() => {
-    if (!shouldInspectCapability || !model.trim()) {
-      return null;
-    }
-    if (providersLoading || modelsLoading || !selectedProvider) {
+    if (
+      !shouldInspectCapability ||
+      !model.trim() ||
+      capabilityInspectionPending ||
+      !selectedProvider
+    ) {
       return null;
     }
 
@@ -76,13 +122,16 @@ export const InputbarVisionCapabilityNotice: React.FC<
       ? `当前模型 ${model} 不支持多模态图片理解，建议切换到 ${suggestedModel} 后再发送图片`
       : `当前模型 ${model} 不支持多模态图片理解，请切换到支持多模态的模型后再发送图片`;
   }, [
+    capabilityInspectionPending,
     model,
     models,
-    modelsLoading,
-    providersLoading,
     selectedProvider,
     shouldInspectCapability,
   ]);
+
+  useEffect(() => {
+    onPolicyChange?.(policy);
+  }, [onPolicyChange, policy]);
 
   if (!warningMessage) {
     return null;
@@ -91,6 +140,7 @@ export const InputbarVisionCapabilityNotice: React.FC<
   return (
     <div
       data-testid="inputbar-vision-warning"
+      data-policy={policy.status}
       className="mx-3 mb-2 flex items-start gap-2 rounded-2xl border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-[11px] leading-5 text-amber-800"
     >
       <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />

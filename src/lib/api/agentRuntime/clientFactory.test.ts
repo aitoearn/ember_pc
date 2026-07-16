@@ -67,6 +67,16 @@ function appServerClientMock(): AgentRuntimeAppServerClient {
           updatedAt: "2026-06-06T00:00:00.000Z",
         },
         turns: [],
+        detail: {
+          id: "session-1",
+          thread_id: "thread-1",
+          name: "Session 1",
+          created_at: 1780704000000,
+          updated_at: 1780704000000,
+          workspace_id: "workspace-1",
+          messages_count: 0,
+          messages: [],
+        },
       },
       response: {
         id: 1,
@@ -80,6 +90,16 @@ function appServerClientMock(): AgentRuntimeAppServerClient {
             updatedAt: "2026-06-06T00:00:00.000Z",
           },
           turns: [],
+          detail: {
+            id: "session-1",
+            thread_id: "thread-1",
+            name: "Session 1",
+            created_at: 1780704000000,
+            updated_at: 1780704000000,
+            workspace_id: "workspace-1",
+            messages_count: 0,
+            messages: [],
+          },
         },
       },
       messages: [],
@@ -110,6 +130,19 @@ function appServerClientMock(): AgentRuntimeAppServerClient {
       result: {
         updatedSessionIds: ["session-1"],
         updatedCount: 1,
+      },
+      response: {
+        id: 1,
+        result: {},
+      },
+      messages: [],
+      notifications: [],
+    }),
+    deleteSession: vi.fn().mockResolvedValue({
+      id: 1,
+      result: {
+        sessionId: "session-1",
+        deleted: true,
       },
       response: {
         id: 1,
@@ -309,7 +342,7 @@ function appServerClientMock(): AgentRuntimeAppServerClient {
         threadId: "thread-1",
         checkpoint: appServerCheckpointSummary,
         livePath: "/tmp/work/src/App.tsx",
-        snapshotPath: "/tmp/work/.ember/checkpoints/checkpoint-1/App.tsx",
+        snapshotPath: "/tmp/work/.lime/checkpoints/checkpoint-1/App.tsx",
         versionHistory: [],
         validationIssues: [],
       },
@@ -342,9 +375,27 @@ function appServerClientMock(): AgentRuntimeAppServerClient {
         threadId: "thread-1",
         checkpoint: appServerCheckpointSummary,
         livePath: "src/App.tsx",
-        snapshotPath: ".ember/checkpoints/checkpoint-1/App.tsx",
+        snapshotPath: ".lime/checkpoints/checkpoint-1/App.tsx",
         backupPath: null,
         restoredAt: "2026-06-06T00:00:01.000Z",
+      },
+      response: {
+        id: 1,
+        result: {},
+      },
+      messages: [],
+      notifications: [],
+    }),
+    listCapabilities: vi.fn().mockResolvedValue({
+      id: 1,
+      result: {
+        capabilities: [],
+        runtimeCapabilityManifest: {
+          schemaVersion: "lime-runtime-capability-manifest/v0.1",
+          runtimeId: "app-server",
+          generatedAt: "2026-06-12T00:00:00.000Z",
+          capabilities: [],
+        },
       },
       response: {
         id: 1,
@@ -443,9 +494,9 @@ function appServerClientMock(): AgentRuntimeAppServerClient {
         artifacts: [],
         exportedAt: "2026-06-06T00:00:04.000Z",
         evidencePack: {
-          packRelativeRoot: ".ember/harness/sessions/session-1/evidence",
+          packRelativeRoot: ".lime/harness/sessions/session-1/evidence",
           packAbsoluteRoot:
-            "/tmp/work/.ember/harness/sessions/session-1/evidence",
+            "/tmp/work/.lime/harness/sessions/session-1/evidence",
           exportedAt: "2026-06-06T00:00:05.000Z",
           threadStatus: "running",
           latestTurnStatus: "accepted",
@@ -472,8 +523,8 @@ function appServerClientMock(): AgentRuntimeAppServerClient {
         threadId: "thread-1",
         workspaceId: "workspace-1",
         workspaceRoot: "/tmp/work",
-        bundleRelativeRoot: ".ember/harness/sessions/session-1",
-        bundleAbsoluteRoot: "/tmp/work/.ember/harness/sessions/session-1",
+        bundleRelativeRoot: ".lime/harness/sessions/session-1",
+        bundleAbsoluteRoot: "/tmp/work/.lime/harness/sessions/session-1",
         exportedAt: "2026-06-06T00:00:06.000Z",
         threadStatus: "running",
         pendingRequestCount: 1,
@@ -487,9 +538,9 @@ function appServerClientMock(): AgentRuntimeAppServerClient {
           {
             kind: "handoff",
             title: "handoff.md",
-            relativePath: ".ember/harness/sessions/session-1/handoff.md",
+            relativePath: ".lime/harness/sessions/session-1/handoff.md",
             absolutePath:
-              "/tmp/work/.ember/harness/sessions/session-1/handoff.md",
+              "/tmp/work/.lime/harness/sessions/session-1/handoff.md",
             bytes: 128,
           },
         ],
@@ -508,10 +559,10 @@ function appServerClientMock(): AgentRuntimeAppServerClient {
         threadId: "thread-1",
         workspaceId: "workspace-1",
         workspaceRoot: "/tmp/work",
-        replayRelativeRoot: ".ember/harness/sessions/session-1/replay",
-        replayAbsoluteRoot: "/tmp/work/.ember/harness/sessions/session-1/replay",
-        handoffBundleRelativeRoot: ".ember/harness/sessions/session-1",
-        evidencePackRelativeRoot: ".ember/harness/sessions/session-1/evidence",
+        replayRelativeRoot: ".lime/harness/sessions/session-1/replay",
+        replayAbsoluteRoot: "/tmp/work/.lime/harness/sessions/session-1/replay",
+        handoffBundleRelativeRoot: ".lime/harness/sessions/session-1",
+        evidencePackRelativeRoot: ".lime/harness/sessions/session-1/evidence",
         exportedAt: "2026-06-06T00:00:07.000Z",
         threadStatus: "running",
         pendingRequestCount: 1,
@@ -536,12 +587,12 @@ function appServerClientMock(): AgentRuntimeAppServerClient {
         workspaceId: "workspace-1",
         workspaceRoot: "/tmp/work",
         sanitizedWorkspaceRoot: "/tmp/work",
-        analysisRelativeRoot: ".ember/harness/sessions/session-1/analysis",
+        analysisRelativeRoot: ".lime/harness/sessions/session-1/analysis",
         analysisAbsoluteRoot:
-          "/tmp/work/.ember/harness/sessions/session-1/analysis",
-        handoffBundleRelativeRoot: ".ember/harness/sessions/session-1",
-        evidencePackRelativeRoot: ".ember/harness/sessions/session-1/evidence",
-        replayCaseRelativeRoot: ".ember/harness/sessions/session-1/replay",
+          "/tmp/work/.lime/harness/sessions/session-1/analysis",
+        handoffBundleRelativeRoot: ".lime/harness/sessions/session-1",
+        evidencePackRelativeRoot: ".lime/harness/sessions/session-1/evidence",
+        replayCaseRelativeRoot: ".lime/harness/sessions/session-1/replay",
         exportedAt: "2026-06-06T00:00:08.000Z",
         threadStatus: "running",
         pendingRequestCount: 1,
@@ -564,14 +615,14 @@ function appServerClientMock(): AgentRuntimeAppServerClient {
         threadId: "thread-1",
         workspaceId: "workspace-1",
         workspaceRoot: "/tmp/work",
-        reviewRelativeRoot: ".ember/harness/sessions/session-1/review",
-        reviewAbsoluteRoot: "/tmp/work/.ember/harness/sessions/session-1/review",
-        analysisRelativeRoot: ".ember/harness/sessions/session-1/analysis",
+        reviewRelativeRoot: ".lime/harness/sessions/session-1/review",
+        reviewAbsoluteRoot: "/tmp/work/.lime/harness/sessions/session-1/review",
+        analysisRelativeRoot: ".lime/harness/sessions/session-1/analysis",
         analysisAbsoluteRoot:
-          "/tmp/work/.ember/harness/sessions/session-1/analysis",
-        handoffBundleRelativeRoot: ".ember/harness/sessions/session-1",
-        evidencePackRelativeRoot: ".ember/harness/sessions/session-1/evidence",
-        replayCaseRelativeRoot: ".ember/harness/sessions/session-1/replay",
+          "/tmp/work/.lime/harness/sessions/session-1/analysis",
+        handoffBundleRelativeRoot: ".lime/harness/sessions/session-1",
+        evidencePackRelativeRoot: ".lime/harness/sessions/session-1/evidence",
+        replayCaseRelativeRoot: ".lime/harness/sessions/session-1/replay",
         exportedAt: "2026-06-06T00:00:09.000Z",
         threadStatus: "running",
         pendingRequestCount: 1,
@@ -605,14 +656,14 @@ function appServerClientMock(): AgentRuntimeAppServerClient {
         threadId: "thread-1",
         workspaceId: "workspace-1",
         workspaceRoot: "/tmp/work",
-        reviewRelativeRoot: ".ember/harness/sessions/session-1/review",
-        reviewAbsoluteRoot: "/tmp/work/.ember/harness/sessions/session-1/review",
-        analysisRelativeRoot: ".ember/harness/sessions/session-1/analysis",
+        reviewRelativeRoot: ".lime/harness/sessions/session-1/review",
+        reviewAbsoluteRoot: "/tmp/work/.lime/harness/sessions/session-1/review",
+        analysisRelativeRoot: ".lime/harness/sessions/session-1/analysis",
         analysisAbsoluteRoot:
-          "/tmp/work/.ember/harness/sessions/session-1/analysis",
-        handoffBundleRelativeRoot: ".ember/harness/sessions/session-1",
-        evidencePackRelativeRoot: ".ember/harness/sessions/session-1/evidence",
-        replayCaseRelativeRoot: ".ember/harness/sessions/session-1/replay",
+          "/tmp/work/.lime/harness/sessions/session-1/analysis",
+        handoffBundleRelativeRoot: ".lime/harness/sessions/session-1",
+        evidencePackRelativeRoot: ".lime/harness/sessions/session-1/evidence",
+        replayCaseRelativeRoot: ".lime/harness/sessions/session-1/replay",
         exportedAt: "2026-06-06T00:00:10.000Z",
         threadStatus: "running",
         pendingRequestCount: 1,
@@ -711,6 +762,10 @@ describe("agentRuntime clientFactory", () => {
 
     expect(appServerClient.resumeAgentSessionThread).toHaveBeenCalledWith({
       sessionId: "session-1",
+      resumeContract: expect.objectContaining({
+        schemaVersion: "lime-runtime-resume-contract/v0.1",
+        sessionId: "session-1",
+      }),
     });
     expect(invoke).not.toHaveBeenCalled();
   });
@@ -728,6 +783,10 @@ describe("agentRuntime clientFactory", () => {
 
     expect(appServerClient.resumeAgentSessionThread).toHaveBeenCalledWith({
       sessionId: "session-1",
+      resumeContract: expect.objectContaining({
+        schemaVersion: "lime-runtime-resume-contract/v0.1",
+        sessionId: "session-1",
+      }),
     });
     expect(bridgeInvoke).not.toHaveBeenCalled();
   });
@@ -787,9 +846,8 @@ describe("agentRuntime clientFactory", () => {
       title: "新标题",
       archived: true,
     });
-    expect(appServerClient.updateSession).toHaveBeenCalledWith({
+    expect(appServerClient.deleteSession).toHaveBeenCalledWith({
       sessionId: "session-1",
-      archived: true,
     });
     expect(bridgeInvoke).not.toHaveBeenCalled();
   });
@@ -874,11 +932,16 @@ describe("agentRuntime clientFactory", () => {
     ).resolves.toMatchObject({
       id: "session-failed",
       messages: [],
-      turns: [],
+      turns: [
+        {
+          id: "turn-failed",
+          thread_id: "thread-failed",
+          status: "failed",
+        },
+      ],
       items: [],
       queued_turns: [],
       todo_items: [],
-      child_subagent_sessions: [],
       thread_read: {
         status: "failed",
       },
@@ -895,10 +958,13 @@ describe("agentRuntime clientFactory", () => {
     });
 
     await client.submitAgentRuntimeTurn({
-      message: "继续",
-      session_id: "session-1",
-      event_name: "event-1",
-      workspace_id: "workspace-1",
+      sessionId: "session-1",
+      input: { text: "继续" },
+      runtimeOptions: {
+        stream: true,
+        eventName: "event-1",
+        runtimeRequest: { workspaceId: "workspace-1" },
+      },
     });
 
     expect(appServerClient.startTurn).toHaveBeenCalledWith({
@@ -909,20 +975,15 @@ describe("agentRuntime clientFactory", () => {
       runtimeOptions: {
         stream: true,
         eventName: "event-1",
-        hostOptions: {
-          asterChatRequest: {
-            message: "继续",
-            session_id: "session-1",
-            event_name: "event-1",
-            workspace_id: "workspace-1",
-          },
+        runtimeRequest: {
+          workspaceId: "workspace-1",
         },
       },
     });
     expect(bridgeInvoke).not.toHaveBeenCalled();
   });
 
-  it("turn lifecycle 可由标准 runtime client facade 注入，聚合工厂不直连旧命令", async () => {
+  it("turn lifecycle 可注入标准 client，session read 保持 App Server current owner", async () => {
     const appServerClient = appServerClientMock();
     const standardRuntimeClient = standardRuntimeClientMock();
     const bridgeInvoke = vi.fn();
@@ -935,9 +996,12 @@ describe("agentRuntime clientFactory", () => {
 
     await expect(
       client.submitAgentRuntimeTurn({
-        message: "继续",
-        session_id: "session-1",
-        event_name: "event-1",
+        sessionId: "session-1",
+        input: { text: "继续" },
+        runtimeOptions: {
+          stream: true,
+          eventName: "event-1",
+        },
       }),
     ).resolves.toBeUndefined();
     await expect(
@@ -955,21 +1019,13 @@ describe("agentRuntime clientFactory", () => {
       runtimeOptions: {
         stream: true,
         eventName: "event-1",
-        hostOptions: {
-          asterChatRequest: {
-            message: "继续",
-            session_id: "session-1",
-            event_name: "event-1",
-            workspace_id: "",
-          },
-        },
       },
     });
-    expect(standardRuntimeClient.readThread).toHaveBeenCalledWith({
+    expect(standardRuntimeClient.readThread).not.toHaveBeenCalled();
+    expect(appServerClient.readSession).toHaveBeenCalledWith({
       sessionId: "session-1",
     });
     expect(appServerClient.startTurn).not.toHaveBeenCalled();
-    expect(appServerClient.readSession).not.toHaveBeenCalled();
     expect(bridgeInvoke).not.toHaveBeenCalled();
   });
 
@@ -1011,7 +1067,7 @@ describe("agentRuntime clientFactory", () => {
     ).resolves.toMatchObject({
       session_id: "session-1",
       thread_id: "thread-1",
-      pack_relative_root: ".ember/harness/sessions/session-1/evidence",
+      pack_relative_root: ".lime/harness/sessions/session-1/evidence",
     });
 
     expect(appServerClient.exportEvidence).toHaveBeenCalledWith({
@@ -1033,14 +1089,15 @@ describe("agentRuntime clientFactory", () => {
     });
 
     await expect(
-      client.exportAgentRuntimeHandoffBundle("session-1"),
+      client.exportAgentRuntimeHandoffBundle("session-1", { locale: "en-US" }),
     ).resolves.toMatchObject({
       session_id: "session-1",
       thread_id: "thread-1",
-      bundle_relative_root: ".ember/harness/sessions/session-1",
+      bundle_relative_root: ".lime/harness/sessions/session-1",
     });
 
     expect(appServerClient.exportHandoffBundle).toHaveBeenCalledWith({
+      locale: "en-US",
       sessionId: "session-1",
     });
     expect(bridgeInvoke).not.toHaveBeenCalled();

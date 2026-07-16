@@ -55,7 +55,7 @@ interface HarnessProps {
   onReady: (value: HookValue) => void;
 }
 
-function HookHarness({ app = "ember", includeRepos, onReady }: HarnessProps) {
+function HookHarness({ app = "lime", includeRepos, onReady }: HarnessProps) {
   const value = useSkills(app, { includeRepos });
 
   useEffect(() => {
@@ -122,9 +122,9 @@ describe("useSkills", () => {
     const localSkill = createSkill();
     mockGetLocal.mockResolvedValue([localSkill]);
 
-    await renderHook("ember");
+    await renderHook("lime");
 
-    expect(mockGetLocal).toHaveBeenCalledWith("ember");
+    expect(mockGetLocal).toHaveBeenCalledWith("lime");
     expect(mockGetRepos).toHaveBeenCalledTimes(1);
     expect(mockGetAll).not.toHaveBeenCalled();
     expect(getLatestValue().skills).toEqual([localSkill]);

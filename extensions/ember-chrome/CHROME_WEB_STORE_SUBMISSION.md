@@ -1,50 +1,50 @@
-# Ember Browser Bridge Chrome 商店提交底稿
+# Lime Browser Bridge Chrome 商店提交底稿
 
 本文档用于填写 Chrome Web Store 开发者后台的上架表单、审核备注与数据使用说明。
 
 ## 基础信息
 
-- 扩展名称：`Ember Browser Bridge`
+- 扩展名称：`Lime Browser Bridge`
 - 当前版本：`0.4.0`
-- 上传包：`tmp/ember-chrome-0.4.0.zip`
+- 上传包：`tmp/lime-chrome-0.4.0.zip`
 - 上传包 SHA-256：`059b6c17a8fea130d78709cd85e3cc16e687438da4ab4aab6bd0ed898bd3818b`
 - 建议分类：`Productivity`
 - 建议语言：`English`
 
 ## 单一句用途
 
-`Ember Browser Bridge` 的单一用途是把用户当前 Chrome 标签页连接到本地运行的 Ember 桌面端，让 Ember 在用户明确触发浏览器相关任务时读取当前页面上下文，并在当前浏览器中执行对应操作。
+`Lime Browser Bridge` 的单一用途是把用户当前 Chrome 标签页连接到本地运行的 Lime 桌面端，让 Lime 在用户明确触发浏览器相关任务时读取当前页面上下文，并在当前浏览器中执行对应操作。
 
 ## Short Description
 
-Connect Ember to your current Chrome tab so Ember can read page context and perform browser actions through your local desktop runtime.
+Connect Lime to your current Chrome tab so Lime can read page context and perform browser actions through your local desktop runtime.
 
 ## Detailed Description
 
-Ember Browser Bridge is the companion Chrome extension for the Ember desktop app.
+Lime Browser Bridge is the companion Chrome extension for the Lime desktop app.
 
-It connects your current Chrome session to a locally running Ember runtime so Ember can:
+It connects your current Chrome session to a locally running Lime runtime so Lime can:
 
 - read the active page title, URL, and page content
 - execute browser actions such as open URL, click, type, scroll, switch tab, and go back
 - keep browser control attached to the tabs you are already using instead of launching a separate managed browser
-- reconnect automatically when Ember is running again
+- reconnect automatically when Lime is running again
 
-This extension is designed for users who already use Ember on their desktop and want browser-aware AI workflows inside their existing Chrome session.
+This extension is designed for users who already use Lime on their desktop and want browser-aware AI workflows inside their existing Chrome session.
 
-The extension does not provide a consumer cloud service by itself. It works only with a user-configured or locally exported Ember connection and only operates on pages the user chooses to open or control.
+The extension does not provide a consumer cloud service by itself. It works only with a user-configured or locally exported Lime connection and only operates on pages the user chooses to open or control.
 
 ## 审核备注
 
 可直接粘贴给审核团队：
 
-This extension is a companion bridge for the Ember desktop application. Its single purpose is to connect the user's existing Chrome tabs to a locally running Ember runtime so Ember can inspect the current page and perform browser actions requested by the user.
+This extension is a companion bridge for the Lime desktop application. Its single purpose is to connect the user's existing Chrome tabs to a locally running Lime runtime so Lime can inspect the current page and perform browser actions requested by the user.
 
 The `debugger` permission is required because some actions rely on Chrome DevTools Protocol, including screenshot capture, coordinate-based interactions, raw keyboard input, and page lifecycle inspection. Chrome will show its standard debugger banner during those actions.
 
-The `<all_urls>` host permission is required because users may ask Ember to work with arbitrary websites in their existing session. The extension does not run on `chrome://` pages and does not inject persistent scripts into every site by default; it injects scripts on demand when a read or action request occurs.
+The `<all_urls>` host permission is required because users may ask Lime to work with arbitrary websites in their existing session. The extension does not run on `chrome://` pages and does not inject persistent scripts into every site by default; it injects scripts on demand when a read or action request occurs.
 
-The extension stores only local configuration and recent bridge status in Chrome storage. It sends page data only to the user-configured Ember runtime endpoint, which is local by default.
+The extension stores only local configuration and recent bridge status in Chrome storage. It sends page data only to the user-configured Lime runtime endpoint, which is local by default.
 
 ## 权限说明
 
@@ -59,7 +59,7 @@ The extension stores only local configuration and recent bridge status in Chrome
 
 ### `tabs` / `tabGroups` / `windows` / `activeTab`
 
-用于读取当前标签页、切换标签页、聚合 Ember Agent 打开的标签页，并把用户带回正确的窗口。
+用于读取当前标签页、切换标签页、聚合 Lime Agent 打开的标签页，并把用户带回正确的窗口。
 
 ### `scripting`
 
@@ -78,7 +78,7 @@ The extension stores only local configuration and recent bridge status in Chrome
 
 ### `clipboardRead`
 
-仅在用户点击弹窗中的粘贴配置操作时使用，用于把 Ember 导出的配置粘贴到扩展设置。
+仅在用户点击弹窗中的粘贴配置操作时使用，用于把 Lime 导出的配置粘贴到扩展设置。
 
 ### `alarms`
 
@@ -90,7 +90,7 @@ The extension stores only local configuration and recent bridge status in Chrome
 
 ### `<all_urls>`
 
-用于支持用户在任意常规网页上让 Ember 读取内容或执行浏览器动作。该权限不会用于 `chrome://` 等 Chrome 内部页面。
+用于支持用户在任意常规网页上让 Lime 读取内容或执行浏览器动作。该权限不会用于 `chrome://` 等 Chrome 内部页面。
 
 ## 数据使用填写建议
 
@@ -126,7 +126,7 @@ The extension stores only local configuration and recent bridge status in Chrome
 
 ### 数据传输说明
 
-- Page data is sent only to the user-configured Ember runtime endpoint.
+- Page data is sent only to the user-configured Lime runtime endpoint.
 - The default endpoint is local (`ws://127.0.0.1:8999`).
 - The extension does not include analytics, ad SDKs, or third-party tracking code.
 
@@ -136,7 +136,7 @@ The extension stores only local configuration and recent bridge status in Chrome
 
 1. 安装引导页
 2. 扩展状态/连接页
-3. 连接后由 Ember 控制当前浏览器标签页的示意页
+3. 连接后由 Lime 控制当前浏览器标签页的示意页
 
 已生成的本地截图草稿：
 

@@ -91,16 +91,16 @@ describe("CharacterMention slash recent entries", () => {
         createSkill("写作助手", "skill-writer", true, {
           description: "本地补充技能",
           metadata: {
-            ember_when_to_use: "当你需要复用本地写作 Skill 时使用。",
-            ember_argument_hint: "主题、受众与语气要求",
+            lime_when_to_use: "当你需要复用本地写作 Skill 时使用。",
+            lime_argument_hint: "主题、受众与语气要求",
           },
         }),
         createSkill("脚本助手", "skill-script", true, {
           description: "脚本改写做法",
           metadata: {
-            ember_when_to_use:
+            lime_when_to_use:
               "当你已经有一版脚本，想继续整理成更适合生成的做法时使用。",
-            ember_argument_hint: "已有脚本、目标平台或表达方式",
+            lime_argument_hint: "已有脚本、目标平台或表达方式",
           },
         }),
       ],
@@ -134,8 +134,8 @@ describe("CharacterMention slash recent entries", () => {
         createSkill("写作助手", "skill-writer", true, {
           description: "本地补充技能",
           metadata: {
-            ember_when_to_use: "当你需要复用本地写作 Skill 时使用。",
-            ember_argument_hint: "主题、受众与语气要求",
+            lime_when_to_use: "当你需要复用本地写作 Skill 时使用。",
+            lime_argument_hint: "主题、受众与语气要求",
           },
         }),
       ],

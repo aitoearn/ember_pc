@@ -26,8 +26,8 @@ describe("hasNativeStartupScreen", () => {
 
   afterEach(() => {
     document.body.innerHTML = "";
-    document.documentElement.removeAttribute("data-ember-native-startup");
-    document.documentElement.removeAttribute("data-ember-native-startup-ready");
+    document.documentElement.removeAttribute("data-lime-native-startup");
+    document.documentElement.removeAttribute("data-lime-native-startup-ready");
     window.history.replaceState(null, "", "/");
     vi.unstubAllGlobals();
     vi.useRealTimers();
@@ -56,31 +56,29 @@ describe("hasNativeStartupScreen", () => {
 
   it("主界面首帧准备后应淡出并移除 index.html 静态启动层", async () => {
     window.history.replaceState(null, "", "/?nativeStartup=1");
-    document.documentElement.dataset.emberNativeStartup = "1";
+    document.documentElement.dataset.limeNativeStartup = "1";
     const overlay = document.createElement("main");
-    overlay.setAttribute("data-ember-startup-shell", "");
+    overlay.setAttribute("data-lime-startup-shell", "");
     document.body.appendChild(overlay);
 
     hideNativeStartupOverlayWhenReady();
 
-    expect(document.querySelector("[data-ember-startup-shell]")).toBe(overlay);
-    expect(document.documentElement.dataset.emberNativeStartupReady).toBe(
+    expect(document.querySelector("[data-lime-startup-shell]")).toBe(overlay);
+    expect(document.documentElement.dataset.limeNativeStartupReady).toBe(
       undefined,
     );
 
-    // 依次推进：最短可见时长 setTimeout → 两帧 requestAnimationFrame。
-    await vi.runOnlyPendingTimersAsync();
     await vi.runOnlyPendingTimersAsync();
     await vi.runOnlyPendingTimersAsync();
 
-    expect(document.documentElement.dataset.emberNativeStartupReady).toBe("1");
-    expect(document.querySelector("[data-ember-startup-shell]")).toBe(overlay);
+    expect(document.documentElement.dataset.limeNativeStartupReady).toBe("1");
+    expect(document.querySelector("[data-lime-startup-shell]")).toBe(overlay);
 
     await vi.advanceTimersByTimeAsync(180);
 
-    expect(document.querySelector("[data-ember-startup-shell]")).toBeNull();
-    expect(document.documentElement.dataset.emberNativeStartup).toBe(undefined);
-    expect(document.documentElement.dataset.emberNativeStartupReady).toBe(
+    expect(document.querySelector("[data-lime-startup-shell]")).toBeNull();
+    expect(document.documentElement.dataset.limeNativeStartup).toBe(undefined);
+    expect(document.documentElement.dataset.limeNativeStartupReady).toBe(
       undefined,
     );
   });

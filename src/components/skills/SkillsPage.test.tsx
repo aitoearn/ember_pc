@@ -1,7 +1,7 @@
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { SkillsPage } from "./SkillsPage";
 import {
   filterSkillsByQueryAndStatus,
@@ -131,7 +131,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 
   mockUseSkills.mockReturnValue({
     skills: [],
@@ -213,7 +213,7 @@ afterEach(async () => {
     });
     mounted.container.remove();
   }
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("filterSkillsByQueryAndStatus", () => {
@@ -269,7 +269,7 @@ describe("groupSkillsBySourceKind", () => {
 
 describe("SkillsPage", () => {
   it("高级入口 chrome 应通过 agent namespace 渲染英文资源", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     renderSkillsPage({ hideHeader: false });
 
     expect(getBodyText()).toContain("Manage and use AI skill extensions");
@@ -333,7 +333,7 @@ describe("SkillsPage", () => {
           name: "Remote Skill",
           directory: "remote-skill",
           catalogSource: "remote",
-          repoOwner: "ember",
+          repoOwner: "lime",
           repoName: "skills",
           sourceKind: "other",
         }),
@@ -467,7 +467,7 @@ describe("SkillsPage", () => {
       button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(mockInspectLocalSkill).toHaveBeenCalledWith("local-skill", "ember");
+    expect(mockInspectLocalSkill).toHaveBeenCalledWith("local-skill", "lime");
     expect(mockInspectRemoteSkill).not.toHaveBeenCalled();
   });
 
@@ -481,7 +481,7 @@ describe("SkillsPage", () => {
           installed: false,
           sourceKind: "other",
           catalogSource: "remote",
-          repoOwner: "ember",
+          repoOwner: "lime",
           repoName: "skills",
           repoBranch: "main",
         }),
@@ -507,7 +507,7 @@ describe("SkillsPage", () => {
     });
 
     expect(mockInspectRemoteSkill).toHaveBeenCalledWith({
-      owner: "ember",
+      owner: "lime",
       name: "skills",
       branch: "main",
       directory: "remote-skill",
@@ -571,7 +571,7 @@ describe("SkillsPage", () => {
         name: "Draft Skill",
         description: "Create a standard scaffold",
       },
-      "ember",
+      "lime",
     );
     expect(refresh).toHaveBeenCalledTimes(1);
   });
@@ -696,7 +696,7 @@ describe("SkillsPage", () => {
         steps: ["先确认目标，再沿用结构。"],
         fallbackStrategy: ["信息不足时先补问。"],
       },
-      "ember",
+      "lime",
     );
   });
 
@@ -768,7 +768,7 @@ describe("SkillsPage", () => {
     });
     expect(mockImportLocalSkill).toHaveBeenCalledWith(
       "/tmp/imported-skill",
-      "ember",
+      "lime",
     );
     expect(refresh).toHaveBeenCalledTimes(1);
   });

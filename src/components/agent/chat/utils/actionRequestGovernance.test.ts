@@ -62,7 +62,7 @@ describe("actionRequestGovernance", () => {
             title: "是否加入 CTA",
           },
         },
-        "x-ember-ask-user-questions": [
+        "x-lime-ask-user-questions": [
           {
             question: "主题是什么？",
             header: "topic",
@@ -93,7 +93,7 @@ describe("actionRequestGovernance", () => {
           title: "主题",
         },
       },
-      "x-ember-ask-user-questions": [
+      "x-lime-ask-user-questions": [
         {
           question: "主题是什么？",
           header: "topic",

@@ -11,19 +11,20 @@ describe("agentUiProjectionSummary", () => {
   it("应按 Agent UI v0.6 Subagents surface 聚合专用 lane", () => {
     const events: AgentUiProjectionEvent[] = [
       {
-        type: "team.changed",
-        sourceType: "runtime_status",
+        type: "agent.changed",
+        sourceType: "item_completed",
         sequence: 1,
         sessionId: "session-team-1",
-        owner: "team",
-        scope: "team",
+        owner: "agent",
+        scope: "agent",
         phase: "acting",
         surface: "team_roster",
         persistence: "snapshot",
+        runtimeEntity: "subagent_turn",
       },
       {
         type: "agent.spawned",
-        sourceType: "subagent_status_changed",
+        sourceType: "item_completed",
         sequence: 2,
         sessionId: "session-team-1",
         agentId: "child-1",
@@ -36,7 +37,7 @@ describe("agentUiProjectionSummary", () => {
       },
       {
         type: "worker.notification",
-        sourceType: "subagent_status_changed",
+        sourceType: "item_completed",
         sequence: 3,
         sessionId: "session-team-1",
         agentId: "child-1",
@@ -132,12 +133,12 @@ describe("agentUiProjectionSummary", () => {
         runtimeEntity: "work_item",
       },
       {
-        type: "team.changed",
-        sourceType: "runtime_status",
+        type: "task.changed",
+        sourceType: "team_control_projection",
         sequence: 3,
         sessionId: "session-team-1",
-        owner: "team",
-        scope: "team",
+        owner: "task",
+        scope: "task",
         phase: "acting",
         surface: "team_policy",
         persistence: "snapshot",
@@ -178,7 +179,7 @@ describe("agentUiProjectionSummary", () => {
         from: "child-session-1",
         deliveryTarget: "team-lead",
         awaitingLeaderApproval: true,
-        planFilePath: ".ember/plans/child-session-1.md",
+        planFilePath: ".lime/plans/child-session-1.md",
       },
     };
     const resolvedEvent: AgentUiProjectionEvent = {
@@ -199,7 +200,7 @@ describe("agentUiProjectionSummary", () => {
         approved: true,
         permissionMode: "ask",
         targetSessionId: "child-session-1",
-        planFile: ".ember/plans/child-session-1.md",
+        planFile: ".lime/plans/child-session-1.md",
         planId: "plan-1",
       },
     };
@@ -208,13 +209,13 @@ describe("agentUiProjectionSummary", () => {
       "plan_approval_request",
     );
     expect(formatAgentUiProjectionEventAuxiliaryDetail(requiredEvent)).toBe(
-      "决策：plan_approval_request / 请求方：child-session-1 / 投递：team-lead / 等待 leader 审批 / 计划：.ember/plans/child-session-1.md",
+      "决策：plan_approval_request / 请求方：child-session-1 / 投递：team-lead / 等待 leader 审批 / 计划：.lime/plans/child-session-1.md",
     );
     expect(formatAgentUiProjectionEventDetail(resolvedEvent)).toBe(
       "plan_approval_response",
     );
     expect(formatAgentUiProjectionEventAuxiliaryDetail(resolvedEvent)).toBe(
-      "决策：plan_approval_response / 目标：child-session-1 / 权限：ask / 结果：已批准 / 计划：.ember/plans/child-session-1.md / Plan：plan-1",
+      "决策：plan_approval_response / 目标：child-session-1 / 权限：ask / 结果：已批准 / 计划：.lime/plans/child-session-1.md / Plan：plan-1",
     );
   });
 
@@ -233,7 +234,7 @@ describe("agentUiProjectionSummary", () => {
         persistence: "evidence_pack",
         payload: {
           decisionStatus: "rejected",
-          reviewer: "Ember Maintainer",
+          reviewer: "Lime Maintainer",
           riskLevel: "medium",
           checklistCount: 2,
           followupActionCount: 1,
@@ -243,7 +244,7 @@ describe("agentUiProjectionSummary", () => {
         },
       }),
     ).toBe(
-      "决策：rejected / 审核人：Ember Maintainer / 风险：medium / 清单 2 / 后续 1 / 回归 2 / 修复：补齐权限确认证据 +1 / 回归项：npm run test:contracts",
+      "决策：rejected / 审核人：Lime Maintainer / 风险：medium / 清单 2 / 后续 1 / 回归 2 / 修复：补齐权限确认证据 +1 / 回归项：npm run test:contracts",
     );
   });
 

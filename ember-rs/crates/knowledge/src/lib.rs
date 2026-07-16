@@ -12,7 +12,7 @@ use std::fs;
 use std::io::ErrorKind;
 use std::path::{Component, Path, PathBuf};
 
-const KNOWLEDGE_ROOT_RELATIVE: &str = ".ember/knowledge/packs";
+const KNOWLEDGE_ROOT_RELATIVE: &str = ".lime/knowledge/packs";
 const KNOWLEDGE_FILE_NAME: &str = "KNOWLEDGE.md";
 const DEFAULT_COMPILED_VIEW_NAME: &str = "brief.md";
 const COMPILED_INDEX_NAME: &str = "index.json";
@@ -1522,10 +1522,10 @@ struct NormalizedPackType {
 
 fn normalize_pack_type(value: &str) -> NormalizedPackType {
     let trimmed = value.trim();
-    let (pack_type, ember_template) = match trimmed {
+    let (pack_type, lime_template) = match trimmed {
         "personal-ip" => ("personal-profile".to_string(), Some("personal-ip")),
         "brand-persona" => ("brand-persona".to_string(), Some("brand-persona")),
-        "growth-strategy" | "custom:ember-growth-strategy" => {
+        "growth-strategy" | "custom:lime-growth-strategy" => {
             ("growth-strategy".to_string(), Some("growth-strategy"))
         }
         "brand-product" => ("brand-product".to_string(), Some("brand-product")),
@@ -1550,9 +1550,9 @@ fn normalize_pack_type(value: &str) -> NormalizedPackType {
         other => (other.to_string(), None),
     };
     let mut metadata = BTreeMap::new();
-    if let Some(template) = ember_template {
+    if let Some(template) = lime_template {
         metadata.insert(
-            "emberTemplate".to_string(),
+            "limeTemplate".to_string(),
             serde_json::Value::String(template.to_string()),
         );
     }
@@ -1653,7 +1653,7 @@ fn build_context_run_record(
             .to_string(),
         status: status.to_string(),
         resolver: Some(KnowledgeContextRunResolver {
-            tool: "ember-knowledge".to_string(),
+            tool: "lime-knowledge".to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
             strategy: resolver_strategy.to_string(),
         }),
@@ -2088,7 +2088,7 @@ fn pack_root(working_dir: &Path, pack_name: &str) -> PathBuf {
 }
 
 fn default_marker_path(working_dir: &Path) -> PathBuf {
-    working_dir.join(".ember/knowledge/default-pack.txt")
+    working_dir.join(".lime/knowledge/default-pack.txt")
 }
 
 fn normalize_working_dir(value: &str) -> Result<PathBuf, String> {
@@ -2280,21 +2280,21 @@ fn canonicalize_pack_metadata(mut metadata: KnowledgePackMetadata) -> KnowledgeP
             metadata.pack_type = "personal-profile".to_string();
             metadata
                 .metadata
-                .entry("emberTemplate".to_string())
+                .entry("limeTemplate".to_string())
                 .or_insert(serde_json::Value::String("personal-ip".to_string()));
         }
-        "growth-strategy" | "custom:ember-growth-strategy" => {
+        "growth-strategy" | "custom:lime-growth-strategy" => {
             metadata.pack_type = "growth-strategy".to_string();
             metadata
                 .metadata
-                .entry("emberTemplate".to_string())
+                .entry("limeTemplate".to_string())
                 .or_insert(serde_json::Value::String("growth-strategy".to_string()));
         }
         "organization-know-how" => {
             metadata.pack_type = "organization-knowhow".to_string();
             metadata
                 .metadata
-                .entry("emberTemplate".to_string())
+                .entry("limeTemplate".to_string())
                 .or_insert(serde_json::Value::String(
                     "organization-knowhow".to_string(),
                 ));
@@ -2379,7 +2379,7 @@ fn build_builder_runtime_user_input(
     builder_skill_version: &str,
 ) -> String {
     format!(
-        "请按 `{}` 的 Ember Runtime Binding 契约整理知识包 `{}`。\n\
+        "请按 `{}` 的 Lime Runtime Binding 契约整理知识包 `{}`。\n\
          只返回一个 JSON 对象，不要输出 Markdown fence 之外的解释。\n\
          JSON schema:\n\
          {{\n\
@@ -2749,7 +2749,7 @@ fn sha256_text(value: &str) -> String {
 
 fn compat_builder_skill_run_record() -> KnowledgeBuilderSkillRunRecord {
     KnowledgeBuilderSkillRunRecord {
-        kind: "ember-compat-compiler".to_string(),
+        kind: "lime-compat-compiler".to_string(),
         name: "knowledge_builder".to_string(),
         version: COMPAT_KNOWLEDGE_BUILDER_SKILL_VERSION.to_string(),
         digest: None,
@@ -2766,10 +2766,10 @@ fn compat_builder_skill_run_record() -> KnowledgeBuilderSkillRunRecord {
 fn builtin_builder_skill_digest(spec: BuiltinBuilderSkillSpec) -> String {
     let mut hasher = Sha256::new();
     hasher.update(spec.skill_content.as_bytes());
-    hasher.update(b"\n---ember-skill-resource---\n");
+    hasher.update(b"\n---lime-skill-resource---\n");
     for content in spec.resource_contents {
         hasher.update(content.as_bytes());
-        hasher.update(b"\n---ember-skill-resource---\n");
+        hasher.update(b"\n---lime-skill-resource---\n");
     }
     format!("{:x}", hasher.finalize())
 }
@@ -3891,7 +3891,7 @@ mod tests {
     }
 
     #[test]
-    fn ember_templates_should_be_normalized_to_standard_types() {
+    fn lime_templates_should_be_normalized_to_standard_types() {
         let temp = tempdir().expect("create temp dir");
         let working_dir = temp.path().to_string_lossy().to_string();
 
@@ -3923,7 +3923,7 @@ mod tests {
                 .summary
                 .metadata
                 .metadata
-                .get("emberTemplate")
+                .get("limeTemplate")
                 .and_then(serde_json::Value::as_str),
             Some("personal-ip")
         );
@@ -4200,7 +4200,7 @@ mod tests {
                 .summary
                 .metadata
                 .metadata
-                .get("emberTemplate")
+                .get("limeTemplate")
                 .and_then(serde_json::Value::as_str),
             Some("brand-persona")
         );
@@ -4864,7 +4864,7 @@ mod tests {
                 .summary
                 .metadata
                 .metadata
-                .get("emberTemplate")
+                .get("limeTemplate")
                 .and_then(serde_json::Value::as_str),
             Some("growth-strategy")
         );

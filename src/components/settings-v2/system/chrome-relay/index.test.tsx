@@ -1,6 +1,6 @@
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
   cleanupMountedChromeRelaySettings,
   cloneBrowserActionCapabilities,
@@ -116,7 +116,7 @@ beforeEach(async () => {
     },
   });
 
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 
   mockWriteClipboardText.mockResolvedValue(undefined);
 
@@ -147,7 +147,7 @@ beforeEach(async () => {
   mockSetBrowserConnectorInstallRoot.mockResolvedValue({
     enabled: true,
     install_root_dir: "/Users/test/connectors",
-    install_dir: "/Users/test/connectors/Ember Browser Connector",
+    install_dir: "/Users/test/connectors/Lime Browser Connector",
     browser_action_capabilities: cloneBrowserActionCapabilities(),
     system_connectors: [
       {
@@ -167,7 +167,7 @@ beforeEach(async () => {
     status: "not_installed",
     install_root_dir: null,
     install_dir: null,
-    bundled_name: "Ember Browser Connector",
+    bundled_name: "Lime Browser Connector",
     bundled_version: "0.2.0",
     installed_name: null,
     installed_version: null,
@@ -175,12 +175,12 @@ beforeEach(async () => {
   });
   mockInstallBrowserConnectorExtension.mockResolvedValue({
     install_root_dir: "/Users/test/connectors",
-    install_dir: "/Users/test/connectors/Ember Browser Connector",
-    bundled_name: "Ember Browser Connector",
+    install_dir: "/Users/test/connectors/Lime Browser Connector",
+    bundled_name: "Lime Browser Connector",
     bundled_version: "0.2.0",
     installed_version: "0.2.0",
     auto_config_path:
-      "/Users/test/connectors/Ember Browser Connector/auto_config.json",
+      "/Users/test/connectors/Lime Browser Connector/auto_config.json",
   });
   mockSetBrowserConnectorEnabled.mockResolvedValue({
     enabled: false,
@@ -281,7 +281,7 @@ beforeEach(async () => {
       profile_key: "search_google",
       target_id: "mock-target",
       target_title: "Mock Target",
-      target_url: "https://www.google.com/search?q=ember+browser+assist",
+      target_url: "https://www.google.com/search?q=lime+browser+assist",
       remote_debugging_port: 13001,
       ws_debugger_url: "ws://127.0.0.1:13001/devtools/page/mock-target",
       created_at: "2026-03-14T00:00:00Z",
@@ -319,20 +319,20 @@ beforeEach(async () => {
     },
   });
   mockGetBrowserBackendPolicy.mockResolvedValue({
-    priority: ["aster_compat", "ember_extension_bridge", "cdp_direct"],
+    priority: ["current", "lime_extension_bridge", "cdp_direct"],
     auto_fallback: true,
   });
   mockGetBrowserBackendsStatus.mockResolvedValue({
     policy: {
-      priority: ["aster_compat", "ember_extension_bridge", "cdp_direct"],
+      priority: ["current", "lime_extension_bridge", "cdp_direct"],
       auto_fallback: true,
     },
     bridge_observer_count: 0,
     bridge_control_count: 0,
     running_profile_count: 0,
     cdp_alive_profile_count: 0,
-    aster_native_host_supported: true,
-    aster_native_host_configured: false,
+    agent_native_host_supported: true,
+    agent_native_host_configured: false,
     backends: [],
   });
 });
@@ -340,7 +340,7 @@ beforeEach(async () => {
 afterEach(async () => {
   cleanupMountedChromeRelaySettings();
   vi.clearAllMocks();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("ChromeRelaySettings", () => {
@@ -448,7 +448,7 @@ describe("ChromeRelaySettings", () => {
     expect(mockLaunchBrowserSession).toHaveBeenCalledTimes(1);
     expect(mockLaunchBrowserSession).toHaveBeenCalledWith({
       profile_key: "search_google",
-      url: "https://www.google.com/search?q=ember+browser+assist",
+      url: "https://www.google.com/search?q=lime+browser+assist",
       open_window: true,
       stream_mode: "both",
     });
@@ -554,15 +554,15 @@ describe("ChromeRelaySettings", () => {
     });
     mockGetBrowserBackendsStatus.mockResolvedValue({
       policy: {
-        priority: ["aster_compat", "ember_extension_bridge", "cdp_direct"],
+        priority: ["current", "lime_extension_bridge", "cdp_direct"],
         auto_fallback: true,
       },
       bridge_observer_count: 1,
       bridge_control_count: 1,
       running_profile_count: 1,
       cdp_alive_profile_count: 1,
-      aster_native_host_supported: true,
-      aster_native_host_configured: false,
+      agent_native_host_supported: true,
+      agent_native_host_configured: false,
       backends: [],
     });
 
@@ -615,18 +615,18 @@ describe("ChromeRelaySettings", () => {
   it("默认不再展示扩展桥接诊断详情与能力清单", async () => {
     mockGetBrowserBackendsStatus.mockResolvedValueOnce({
       policy: {
-        priority: ["aster_compat", "ember_extension_bridge", "cdp_direct"],
+        priority: ["current", "lime_extension_bridge", "cdp_direct"],
         auto_fallback: true,
       },
       bridge_observer_count: 1,
       bridge_control_count: 1,
       running_profile_count: 1,
       cdp_alive_profile_count: 1,
-      aster_native_host_supported: true,
-      aster_native_host_configured: false,
+      agent_native_host_supported: true,
+      agent_native_host_configured: false,
       backends: [
         {
-          backend: "ember_extension_bridge",
+          backend: "lime_extension_bridge",
           available: true,
           capabilities: [
             "navigate",
@@ -657,7 +657,7 @@ describe("ChromeRelaySettings", () => {
     expect(container.textContent).not.toContain("QoderWork");
     expect(container.textContent).not.toContain("查看诊断详情");
     expect(container.textContent).not.toContain("收起诊断详情");
-    expect(container.textContent).not.toContain("Ember Browser Bridge 负责");
+    expect(container.textContent).not.toContain("Lime Browser Bridge 负责");
     expect(container.textContent).not.toContain("页面文本");
     expect(container.textContent).not.toContain("表单输入");
     expect(container.textContent).not.toContain("返回上一页");
@@ -670,18 +670,18 @@ describe("ChromeRelaySettings", () => {
   it("后端策略页应渲染策略配置与可用性摘要", async () => {
     mockGetBrowserBackendsStatus.mockResolvedValueOnce({
       policy: {
-        priority: ["aster_compat", "ember_extension_bridge", "cdp_direct"],
+        priority: ["current", "lime_extension_bridge", "cdp_direct"],
         auto_fallback: true,
       },
       bridge_observer_count: 0,
       bridge_control_count: 0,
       running_profile_count: 0,
       cdp_alive_profile_count: 0,
-      aster_native_host_supported: true,
-      aster_native_host_configured: false,
+      agent_native_host_supported: true,
+      agent_native_host_configured: false,
       backends: [
         {
-          backend: "aster_compat",
+          backend: "current",
           available: false,
           reason: null,
           capabilities: [],
@@ -708,7 +708,7 @@ describe("ChromeRelaySettings", () => {
       "Capabilities: Waiting for runtime response",
     );
     expect(container.textContent).toContain(
-      "Aster native-host: Not configured",
+      "Agent native-host: Not configured",
     );
     expect(container.textContent).toContain("Platform Support: Yes");
     expect(

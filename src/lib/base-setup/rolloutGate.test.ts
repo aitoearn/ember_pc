@@ -12,7 +12,7 @@ function createBaseSetupPackage(): BaseSetupPackage {
       {
         id: "voice-bundle",
         source: "remote",
-        pathOrUri: "ember://bundles/voice",
+        pathOrUri: "lime://bundles/voice",
         kind: "skill_bundle",
       },
     ],

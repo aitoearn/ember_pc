@@ -1,10 +1,9 @@
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
   createHarnessState,
-  findButtonByText,
-  renderPanel,
+  renderExpandedPanel as renderPanel,
   getHarnessPanelTestMocks,
 } from "./HarnessStatusPanel.testFixtures";
 
@@ -29,55 +28,29 @@ describe("HarnessStatusPanel runtime", () => {
     expect(document.body.textContent).toContain("429 rate limit");
   });
 
-  it("存在 selectedTeam 时应在工作台展示当前 Subagents", () => {
+  it("存在 canonical child roster 时应展示子任务摘要", () => {
     renderPanel({
-      selectedTeamLabel: "前端联调团队",
-      selectedTeamSummary: "分析、实现、验证三段式推进。",
-      selectedTeamRoles: [
+      canonicalChildren: [
         {
-          id: "explorer",
-          label: "分析",
-          summary: "负责定位问题、澄清范围。",
-          profileId: "code-explorer",
-          roleKey: "explorer",
-          skillIds: ["repo-exploration", "source-grounding"],
-        },
-      ],
-    });
-
-    expect(document.body.textContent).toContain("Subagents");
-    expect(document.body.textContent).toContain("当前 Subagents");
-    expect(document.body.textContent).toContain("前端联调团队");
-    expect(document.body.textContent).toContain("分析、实现、验证三段式推进。");
-    expect(document.body.textContent).toContain("模板 code-explorer");
-    expect(document.body.textContent).toContain("职责 explorer");
-    expect(document.body.textContent).toContain("repo-exploration");
-  });
-
-  it("存在真实 child session 时应优先展示子任务摘要", () => {
-    renderPanel({
-      childSubagentSessions: [
-        {
-          id: "child-1",
           name: "研究代理",
-          created_at: 1_710_000_000,
-          updated_at: 1_710_000_200,
-          session_type: "sub_agent",
-          runtime_status: "running",
-          latest_turn_status: "running",
-          task_summary: "并行整理竞品与证据链",
-          role_hint: "explorer",
+          parentThreadId: "thread-parent",
+          role: "explorer",
+          sessionId: "session-research",
+          status: "running",
+          taskSummary: "并行整理竞品与证据链",
+          threadId: "thread-research",
+          updatedAtMs: 1_710_000_200_000,
         },
         {
-          id: "child-2",
+          modelProvider: "openai",
           name: "实现代理",
-          created_at: 1_710_000_010,
-          updated_at: 1_710_000_220,
-          session_type: "sub_agent",
-          runtime_status: "queued",
-          latest_turn_status: "queued",
-          task_summary: "起草第一版落地方案",
-          role_hint: "executor",
+          parentThreadId: "thread-parent",
+          role: "executor",
+          sessionId: null,
+          status: "pendingInit",
+          taskSummary: "起草第一版落地方案",
+          threadId: "thread-implementation",
+          updatedAtMs: 1_710_000_220_000,
         },
       ],
     });
@@ -86,11 +59,17 @@ describe("HarnessStatusPanel runtime", () => {
     expect(document.body.textContent).toContain("子任务");
     expect(document.body.textContent).toContain("当前子任务");
     expect(document.body.textContent).toContain("实时子任务");
-    expect(document.body.textContent).toContain("类型：子任务");
-    expect(document.body.textContent).not.toContain("协作回退");
-    expect(document.body.textContent).not.toContain("回退链路");
     expect(document.body.textContent).toContain("研究代理");
     expect(document.body.textContent).toContain("实现代理");
+    expect(document.body.textContent).toContain("explorer");
+    expect(document.body.textContent).toContain("openai");
+  });
+
+  it("空 canonical child roster 不应渲染子任务区块", () => {
+    renderPanel({ canonicalChildren: [] });
+
+    expect(document.body.textContent).not.toContain("实时子任务");
+    expect(document.body.textContent).not.toContain("当前子任务");
   });
 
   it("仅有计划摘要兜底时也应在工作台显示已就绪计划状态", () => {
@@ -172,7 +151,6 @@ describe("HarnessStatusPanel runtime", () => {
         model: "gpt-5.4",
         executionStrategy: "react",
         activeTheme: "default",
-        selectedTeamLabel: "代码团队",
       },
       harnessState: createHarnessState({
         activeFileWrites: [
@@ -198,7 +176,7 @@ describe("HarnessStatusPanel runtime", () => {
             summary: "vitest 已执行图片卡片历史切换回归测试。",
             preview: "1 test passed",
             content: "PASS ImageCard.test.tsx\n1 test passed",
-            outputFile: "/tmp/workspace/.ember/runtime/vitest-output.txt",
+            outputFile: "/tmp/workspace/.lime/runtime/vitest-output.txt",
             exitCode: 0,
           },
         ],
@@ -257,7 +235,7 @@ describe("HarnessStatusPanel runtime", () => {
     expect(outputsSection?.textContent).toContain("输出位置");
     expect(outputsSection?.textContent).toContain("输出文件");
     expect(outputsSection?.textContent).toContain(
-      "/tmp/workspace/.ember/runtime/vitest-output.txt",
+      "/tmp/workspace/.lime/runtime/vitest-output.txt",
     );
     expect(approvalsSection?.textContent).toContain(
       "确认写入图片卡片历史切换回归测试",
@@ -275,6 +253,10 @@ describe("HarnessStatusPanel runtime", () => {
     expect(approvalsSection?.textContent).toContain(
       "请求标识：approval-code-write",
     );
+    expect(approvalsSection?.textContent).toContain(
+      "请在对话输入区完成这类请求。",
+    );
+    expect(approvalsSection?.textContent).toContain("允许会继续当前编程运行");
     expect(fileReviewSection?.textContent).toContain("确认本轮文件应用状态");
     expect(fileReviewSection?.textContent).toContain("待处理 1");
     expect(fileReviewSection?.textContent).toContain("ImageCard.test.tsx");
@@ -283,30 +265,12 @@ describe("HarnessStatusPanel runtime", () => {
     );
     expect(filesSection?.textContent).toContain("ImageCard.test.tsx");
     expect(filesSection?.textContent).toContain("新增图片卡片历史切换回归测试");
-
-    const approveButton = findButtonByText("允许并继续");
-    expect(approveButton).not.toBeNull();
-    act(() => {
-      approveButton?.click();
-    });
-    expect(onRespondToAction).toHaveBeenCalledWith({
-      requestId: "approval-code-write",
-      actionType: "tool_confirmation",
-      confirmed: true,
-      response: "approved",
-    });
-
-    const rejectButton = findButtonByText("拒绝");
-    expect(rejectButton).not.toBeNull();
-    act(() => {
-      rejectButton?.click();
-    });
-    expect(onRespondToAction).toHaveBeenCalledWith({
-      requestId: "approval-code-write",
-      actionType: "tool_confirmation",
-      confirmed: false,
-      response: "rejected",
-    });
+    expect(
+      Array.from(approvalsSection?.querySelectorAll("button") ?? []).map(
+        (button) => button.textContent?.trim(),
+      ),
+    ).toEqual([]);
+    expect(onRespondToAction).not.toHaveBeenCalled();
   });
 
   it("运行时面板应将 patch/diff 输出渲染为代码变更概览", () => {
@@ -338,7 +302,6 @@ describe("HarnessStatusPanel runtime", () => {
         model: "gpt-5.4",
         executionStrategy: "react",
         activeTheme: "default",
-        selectedTeamLabel: "代码团队",
       },
       harnessState: createHarnessState({
         outputSignals: [
@@ -397,7 +360,7 @@ describe("HarnessStatusPanel runtime", () => {
   });
 
   it("文件变更处理区块应使用 locale 资源展示动作、类型和写入阶段", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
 
     renderPanel({
       harnessState: createHarnessState({

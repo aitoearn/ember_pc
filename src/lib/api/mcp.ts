@@ -4,11 +4,14 @@ import {
   METHOD_MCP_PROMPT_LIST,
   METHOD_MCP_RESOURCE_LIST,
   METHOD_MCP_RESOURCE_READ,
+  METHOD_MCP_RESOURCE_SUBSCRIBE,
+  METHOD_MCP_RESOURCE_UNSUBSCRIBE,
   METHOD_MCP_SERVER_CREATE,
   METHOD_MCP_SERVER_DELETE,
   METHOD_MCP_SERVER_ENABLED_SET,
   METHOD_MCP_SERVER_IMPORT_FROM_APP,
   METHOD_MCP_SERVER_LIST,
+  METHOD_MCP_SERVER_OAUTH_LOGIN,
   METHOD_MCP_SERVER_SYNC_ALL_TO_LIVE,
   METHOD_MCP_SERVER_START,
   METHOD_MCP_SERVER_STATUS_LIST,
@@ -23,109 +26,44 @@ import {
   type McpPromptListResponse as AppServerMcpPromptListResponse,
   type McpResourceListResponse as AppServerMcpResourceListResponse,
   type McpResourceReadResponse as AppServerMcpResourceReadResponse,
+  type McpResourceSubscriptionResponse as AppServerMcpResourceSubscriptionResponse,
   type McpServerImportFromAppResponse as AppServerMcpServerImportFromAppResponse,
   type McpServerLifecycleResponse as AppServerMcpServerLifecycleResponse,
   type McpServerListResponse as AppServerMcpServerListResponse,
+  type McpServerOauthLoginResponse as AppServerMcpServerOauthLoginResponse,
   type McpServerStatusListResponse as AppServerMcpServerStatusListResponse,
   type McpToolCallResponse as AppServerMcpToolCallResponse,
   type McpToolListResponse as AppServerMcpToolListResponse,
 } from "../../../packages/app-server-client/src/protocol";
-
-// ============================================================================
-// 基础类型定义
-// ============================================================================
-
-export interface McpServer {
-  id: string;
-  name: string;
-  server_config: {
-    command: string;
-    args?: string[];
-    env?: Record<string, string>;
-    cwd?: string;
-    timeout?: number;
-  };
-  description?: string;
-  enabled_ember: boolean;
-  enabled_claude: boolean;
-  enabled_codex: boolean;
-  enabled_gemini: boolean;
-  created_at?: number;
-}
-
-/** MCP 服务器能力信息 */
-export interface McpServerCapabilities {
-  name: string;
-  version: string;
-  supports_tools: boolean;
-  supports_prompts: boolean;
-  supports_resources: boolean;
-}
-
-/** MCP 服务器信息（包含运行状态） */
-export interface McpServerInfo {
-  id: string;
-  name: string;
-  description?: string;
-  config: McpServer["server_config"];
-  is_running: boolean;
-  server_info?: McpServerCapabilities;
-  enabled_ember: boolean;
-  enabled_claude: boolean;
-  enabled_codex: boolean;
-  enabled_gemini: boolean;
-}
-
-// ============================================================================
-// 工具类型
-// ============================================================================
-
-/** MCP 工具定义。`name` 当前格式固定为 `mcp__<server>__<tool>`。 */
-export interface McpToolDefinition {
-  name: string;
-  description: string;
-  input_schema: Record<string, unknown>;
-  server_name: string;
-  deferred_loading?: boolean;
-  always_visible?: boolean;
-  allowed_callers?: string[];
-  input_examples?: unknown[];
-  tags?: string[];
-}
-
-/** MCP 内容类型 */
-export type McpContent =
-  | { type: "text"; text: string }
-  | { type: "image"; data: string; mime_type: string }
-  | { type: "resource"; uri: string; text?: string; blob?: string };
-
-/** MCP 工具调用结果 */
-export interface McpToolResult {
-  content: McpContent[];
-  is_error: boolean;
-}
-
-/** 从 runtime 名 `mcp__<server>__<tool>` 提取 inner tool 名。 */
-export function getMcpInnerToolName(
-  toolName: string,
-  serverName?: string,
-): string {
-  if (!toolName) return toolName;
-
-  if (serverName) {
-    const prefixedName = `mcp__${serverName}__`;
-    if (toolName.startsWith(prefixedName)) {
-      return toolName.slice(prefixedName.length);
-    }
-  }
-
-  if (!toolName.startsWith("mcp__")) {
-    return toolName;
-  }
-
-  const parts = toolName.split("__");
-  return parts.length >= 3 ? parts.slice(2).join("__") : toolName;
-}
+import type {
+  McpPromptDefinition,
+  McpPromptResult,
+  McpCallProofRequest,
+  McpCallProofResult,
+  McpPrepareRequest,
+  McpPrepareResult,
+  McpResourceContent,
+  McpResourceDefinition,
+  McpResourceListResult,
+  McpServer,
+  McpServerInfo,
+  McpServerOAuthLoginOptions,
+  McpServerOAuthLoginResponse,
+  McpToolDefinition,
+  McpToolResult,
+} from "./mcpTypes";
+import {
+  assertArrayField,
+  assertEmptyResponse,
+  assertLifecycleResponse,
+  assertMcpPromptResult,
+  assertMcpResourceContent,
+  assertMcpResourceListResponse,
+  assertMcpToolResult,
+  assertOAuthLoginResponse,
+  assertServerListResponse,
+} from "./mcpResponseGuards";
+export * from "./mcpTypes";
 
 type McpAppServerClient = Pick<AppServerClient, "request">;
 
@@ -138,172 +76,28 @@ async function requestMcpAppServer<T>(
   return response.result;
 }
 
-function assertArrayField<T>(
-  method: string,
-  response: unknown,
-  field: string,
-): T[] {
-  if (
-    !response ||
-    typeof response !== "object" ||
-    !Array.isArray((response as Record<string, unknown>)[field])
-  ) {
-    throw new Error(`${method} did not return ${field}`);
+function requireMcpResourceTarget(server: string, uri: string) {
+  const normalizedServer = server.trim();
+  const normalizedUri = uri.trim();
+  if (!normalizedServer) {
+    throw new Error("MCP resource server cannot be empty");
   }
-  return (response as Record<string, T[]>)[field];
-}
-
-function assertRecord(
-  method: string,
-  response: unknown,
-  description: string,
-): Record<string, unknown> {
-  if (!response || typeof response !== "object" || Array.isArray(response)) {
-    throw new Error(`${method} did not return ${description}`);
+  if (!normalizedUri) {
+    throw new Error("MCP resource URI cannot be empty");
   }
-  return response as Record<string, unknown>;
+  return { server: normalizedServer, uri: normalizedUri };
 }
 
-function assertServerListResponse(method: string, response: unknown): void {
-  assertArrayField<McpServer>(method, response, "servers");
-}
-
-function assertLifecycleResponse(method: string, response: unknown): void {
-  const record = assertRecord(method, response, "empty lifecycle result");
-  if (Object.keys(record).length > 0) {
-    throw new Error(`${method} did not return empty lifecycle result`);
+function requireMcpPromptTarget(server: string, name: string) {
+  const normalizedServer = server.trim();
+  const normalizedName = name.trim();
+  if (!normalizedServer) {
+    throw new Error("MCP prompt server cannot be empty");
   }
-}
-
-function isMcpContent(value: unknown): value is McpContent {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
+  if (!normalizedName) {
+    throw new Error("MCP prompt name cannot be empty");
   }
-  const record = value as Record<string, unknown>;
-  if (record.type === "text") {
-    return typeof record.text === "string";
-  }
-  if (record.type === "image") {
-    return (
-      typeof record.data === "string" && typeof record.mime_type === "string"
-    );
-  }
-  if (record.type === "resource") {
-    return (
-      typeof record.uri === "string" &&
-      (record.text === undefined || typeof record.text === "string") &&
-      (record.blob === undefined || typeof record.blob === "string")
-    );
-  }
-  return false;
-}
-
-function assertMcpToolResult(
-  method: string,
-  response: unknown,
-): McpToolResult {
-  const record = assertRecord(method, response, "tool result");
-  if (
-    !Array.isArray(record.content) ||
-    typeof record.is_error !== "boolean" ||
-    !record.content.every(isMcpContent)
-  ) {
-    throw new Error(`${method} did not return tool result`);
-  }
-  return response as McpToolResult;
-}
-
-function assertMcpPromptResult(
-  method: string,
-  response: unknown,
-): McpPromptResult {
-  const record = assertRecord(method, response, "prompt result");
-  const hasValidDescription =
-    record.description === undefined || typeof record.description === "string";
-  const hasValidMessages =
-    Array.isArray(record.messages) &&
-    record.messages.every((message) => {
-      if (!message || typeof message !== "object" || Array.isArray(message)) {
-        return false;
-      }
-      const messageRecord = message as Record<string, unknown>;
-      return (
-        typeof messageRecord.role === "string" &&
-        isMcpContent(messageRecord.content)
-      );
-    });
-  if (!hasValidDescription || !hasValidMessages) {
-    throw new Error(`${method} did not return prompt result`);
-  }
-  return response as McpPromptResult;
-}
-
-function assertMcpResourceContent(
-  method: string,
-  response: unknown,
-): McpResourceContent {
-  const record = assertRecord(method, response, "resource content");
-  if (
-    typeof record.uri !== "string" ||
-    (record.mime_type !== undefined && typeof record.mime_type !== "string") ||
-    (record.text !== undefined && typeof record.text !== "string") ||
-    (record.blob !== undefined && typeof record.blob !== "string")
-  ) {
-    throw new Error(`${method} did not return resource content`);
-  }
-  return response as McpResourceContent;
-}
-
-// ============================================================================
-// 提示词类型
-// ============================================================================
-
-/** MCP 提示词参数 */
-export interface McpPromptArgument {
-  name: string;
-  description?: string;
-  required: boolean;
-}
-
-/** MCP 提示词定义 */
-export interface McpPromptDefinition {
-  name: string;
-  description?: string;
-  arguments: McpPromptArgument[];
-  server_name: string;
-}
-
-/** MCP 提示词消息 */
-export interface McpPromptMessage {
-  role: string;
-  content: McpContent;
-}
-
-/** MCP 提示词结果 */
-export interface McpPromptResult {
-  description?: string;
-  messages: McpPromptMessage[];
-}
-
-// ============================================================================
-// 资源类型
-// ============================================================================
-
-/** MCP 资源定义 */
-export interface McpResourceDefinition {
-  uri: string;
-  name: string;
-  description?: string;
-  mime_type?: string;
-  server_name: string;
-}
-
-/** MCP 资源内容 */
-export interface McpResourceContent {
-  uri: string;
-  mime_type?: string;
-  text?: string;
-  blob?: string;
+  return { server: normalizedServer, name: normalizedName };
 }
 
 // ============================================================================
@@ -426,6 +220,22 @@ export const mcpApi = {
       return undefined;
     }),
 
+  /** 启动 streamable HTTP MCP OAuth 授权登录 */
+  loginOAuthServer: (
+    name: string,
+    options: McpServerOAuthLoginOptions = {},
+  ): Promise<McpServerOAuthLoginResponse> =>
+    requestMcpAppServer<AppServerMcpServerOauthLoginResponse>(
+      METHOD_MCP_SERVER_OAUTH_LOGIN,
+      {
+        name,
+        ...(options.scopes ? { scopes: options.scopes } : {}),
+        ...(options.timeoutSecs ? { timeoutSecs: options.timeoutSecs } : {}),
+      },
+    ).then((response) =>
+      assertOAuthLoginResponse(METHOD_MCP_SERVER_OAUTH_LOGIN, response),
+    ),
+
   // --------------------------------------------------------------------------
   // 工具管理 API
   // --------------------------------------------------------------------------
@@ -523,16 +333,21 @@ export const mcpApi = {
     ),
 
   /** 获取提示词内容 */
-  getPrompt: (
+  getPrompt: async (
+    server: string,
     name: string,
     args: Record<string, unknown>,
-  ): Promise<McpPromptResult> =>
-    requestMcpAppServer<AppServerMcpPromptGetResponse>(METHOD_MCP_PROMPT_GET, {
-      name,
-      arguments: args,
-    }).then((response) =>
-      assertMcpPromptResult(METHOD_MCP_PROMPT_GET, response),
-    ),
+  ): Promise<McpPromptResult> => {
+    const target = requireMcpPromptTarget(server, name);
+    const response = await requestMcpAppServer<AppServerMcpPromptGetResponse>(
+      METHOD_MCP_PROMPT_GET,
+      {
+        ...target,
+        arguments: args,
+      },
+    );
+    return assertMcpPromptResult(METHOD_MCP_PROMPT_GET, response);
+  },
 
   // --------------------------------------------------------------------------
   // 资源管理 API
@@ -542,20 +357,222 @@ export const mcpApi = {
   listResources: (): Promise<McpResourceDefinition[]> =>
     requestMcpAppServer<AppServerMcpResourceListResponse>(
       METHOD_MCP_RESOURCE_LIST,
+    )
+      .then((response) =>
+        assertMcpResourceListResponse(METHOD_MCP_RESOURCE_LIST, response),
+      )
+      .then((response) => response.resources),
+
+  /** 获取所有可用资源及资源模板 */
+  listResourcesWithTemplates: (): Promise<McpResourceListResult> =>
+    requestMcpAppServer<AppServerMcpResourceListResponse>(
+      METHOD_MCP_RESOURCE_LIST,
     ).then((response) =>
-      assertArrayField<McpResourceDefinition>(
-        METHOD_MCP_RESOURCE_LIST,
-        response,
-        "resources",
-      ),
+      assertMcpResourceListResponse(METHOD_MCP_RESOURCE_LIST, response),
     ),
 
   /** 读取资源内容 */
-  readResource: (uri: string): Promise<McpResourceContent> =>
-    requestMcpAppServer<AppServerMcpResourceReadResponse>(
-      METHOD_MCP_RESOURCE_READ,
-      { uri },
-    ).then((response) =>
-      assertMcpResourceContent(METHOD_MCP_RESOURCE_READ, response),
-    ),
+  readResource: async (
+    server: string,
+    uri: string,
+  ): Promise<McpResourceContent> => {
+    const target = requireMcpResourceTarget(server, uri);
+    const response =
+      await requestMcpAppServer<AppServerMcpResourceReadResponse>(
+        METHOD_MCP_RESOURCE_READ,
+        target,
+      );
+    return assertMcpResourceContent(METHOD_MCP_RESOURCE_READ, response);
+  },
+
+  /** 订阅资源更新 */
+  subscribeResource: async (server: string, uri: string): Promise<void> => {
+    const target = requireMcpResourceTarget(server, uri);
+    const response =
+      await requestMcpAppServer<AppServerMcpResourceSubscriptionResponse>(
+        METHOD_MCP_RESOURCE_SUBSCRIBE,
+        target,
+      );
+    assertEmptyResponse(METHOD_MCP_RESOURCE_SUBSCRIBE, response);
+  },
+
+  /** 取消订阅资源更新 */
+  unsubscribeResource: async (server: string, uri: string): Promise<void> => {
+    const target = requireMcpResourceTarget(server, uri);
+    const response =
+      await requestMcpAppServer<AppServerMcpResourceSubscriptionResponse>(
+        METHOD_MCP_RESOURCE_UNSUBSCRIBE,
+        target,
+      );
+    assertEmptyResponse(METHOD_MCP_RESOURCE_UNSUBSCRIBE, response);
+  },
+
+  executePrepareRequests: async (
+    requests: McpPrepareRequest[],
+  ): Promise<McpPrepareResult[]> => {
+    const results: McpPrepareResult[] = [];
+    for (const request of requests) {
+      results.push(await executeMcpPrepareRequest(request));
+    }
+    return results;
+  },
+
+  executeCallProofRequests: async (
+    requests: McpCallProofRequest[],
+  ): Promise<McpCallProofResult[]> => {
+    const results: McpCallProofResult[] = [];
+    for (const request of requests) {
+      results.push(await executeMcpCallProofRequest(request));
+    }
+    return results;
+  },
 };
+
+function assertPrepareCandidate(request: McpPrepareRequest): void {
+  if (request.status !== "candidate") {
+    throw new Error("MCP prepare request must be candidate");
+  }
+}
+
+function getPrepareParams(
+  method: string,
+  params: McpPrepareRequest["params"],
+): Record<string, unknown> {
+  if (!params || typeof params !== "object" || Array.isArray(params)) {
+    throw new Error(`${method} did not provide prepare params`);
+  }
+  return params;
+}
+
+function readStringPrepareParam(
+  method: string,
+  params: Record<string, unknown>,
+  field: string,
+): string {
+  const value = params[field];
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`${method} prepare params require ${field}`);
+  }
+  return value;
+}
+
+function readOptionalStringPrepareParam(
+  method: string,
+  params: Record<string, unknown>,
+  field: string,
+): string | undefined {
+  const value = params[field];
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    throw new Error(`${method} prepare params require ${field} string`);
+  }
+  return value;
+}
+
+function readOptionalBooleanPrepareParam(
+  method: string,
+  params: Record<string, unknown>,
+  field: string,
+): boolean {
+  const value = params[field];
+  if (value === undefined) {
+    return false;
+  }
+  if (typeof value !== "boolean") {
+    throw new Error(`${method} prepare params require ${field} boolean`);
+  }
+  return value;
+}
+
+function readRecordPrepareParam(
+  method: string,
+  params: Record<string, unknown>,
+  field: string,
+): Record<string, unknown> {
+  const value = params[field];
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${method} prepare params require ${field} object`);
+  }
+  return value as Record<string, unknown>;
+}
+
+async function executeMcpPrepareRequest(
+  request: McpPrepareRequest,
+): Promise<McpPrepareResult> {
+  assertPrepareCandidate(request);
+  if (request.method === METHOD_MCP_SERVER_IMPORT_FROM_APP) {
+    const params = getPrepareParams(request.method, request.params);
+    const appType = readStringPrepareParam(request.method, params, "appType");
+    const importedCount = await mcpApi.importFromApp(appType);
+    return {
+      method: METHOD_MCP_SERVER_IMPORT_FROM_APP,
+      status: "completed",
+      importedCount,
+    };
+  }
+  if (request.method === METHOD_MCP_SERVER_START) {
+    const params = getPrepareParams(request.method, request.params);
+    const name = readStringPrepareParam(request.method, params, "name");
+    await mcpApi.startServer(name);
+    return {
+      method: METHOD_MCP_SERVER_START,
+      status: "completed",
+    };
+  }
+  if (request.method === METHOD_MCP_TOOL_LIST_FOR_CONTEXT) {
+    const params = getPrepareParams(request.method, request.params);
+    const caller = readOptionalStringPrepareParam(
+      request.method,
+      params,
+      "caller",
+    );
+    const includeDeferred = readOptionalBooleanPrepareParam(
+      request.method,
+      params,
+      "includeDeferred",
+    );
+    const tools = await mcpApi.listToolsForContext(caller, includeDeferred);
+    return {
+      method: METHOD_MCP_TOOL_LIST_FOR_CONTEXT,
+      status: "completed",
+      toolCount: tools.length,
+      tools,
+    };
+  }
+  throw new Error(
+    `Unsupported MCP prepare request method: ${String(request.method)}`,
+  );
+}
+
+function assertCallProofCandidate(request: McpCallProofRequest): void {
+  if (request.status !== "candidate") {
+    throw new Error("MCP call proof request must be candidate");
+  }
+}
+
+async function executeMcpCallProofRequest(
+  request: McpCallProofRequest,
+): Promise<McpCallProofResult> {
+  assertCallProofCandidate(request);
+  if (request.method !== METHOD_MCP_TOOL_CALL_WITH_CALLER) {
+    throw new Error(
+      `Unsupported MCP call proof request method: ${String(request.method)}`,
+    );
+  }
+
+  const params = getPrepareParams(request.method, request.params);
+  const toolName = readStringPrepareParam(request.method, params, "toolName");
+  const caller = readStringPrepareParam(request.method, params, "caller");
+  const args = readRecordPrepareParam(request.method, params, "arguments");
+  const result = await mcpApi.callToolWithCaller(toolName, args, caller);
+  if (result.is_error) {
+    throw new Error("MCP call proof returned tool error");
+  }
+  return {
+    method: METHOD_MCP_TOOL_CALL_WITH_CALLER,
+    status: "completed",
+    result,
+  };
+}

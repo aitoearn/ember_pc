@@ -63,7 +63,7 @@ describe("voiceModels API", () => {
       model_id: "sensevoice-small-int8-2024-07-17",
       installed: false,
       installing: false,
-      install_dir: "/mock/ember/models/voice/sensevoice-small-int8-2024-07-17",
+      install_dir: "/mock/lime/models/voice/sensevoice-small-int8-2024-07-17",
       installed_bytes: 0,
       missing_files: ["model.int8.onnx"],
     };
@@ -162,7 +162,7 @@ describe("voiceModels API", () => {
     );
     expect(appServerMocks.setDefaultVoiceModel).toHaveBeenCalledWith({
       model_id: "sensevoice-small-int8-2024-07-17",
-      install_dir: "/mock/ember/models/voice/sensevoice-small-int8-2024-07-17",
+      install_dir: "/mock/lime/models/voice/sensevoice-small-int8-2024-07-17",
     });
     expect(safeInvoke).not.toHaveBeenCalledWith(
       "voice_models_test_transcribe_file",
@@ -197,7 +197,7 @@ describe("voiceModels API", () => {
       model_id: DEFAULT_SENSEVOICE_MODEL_ID,
       installed: false,
       installing: false,
-      install_dir: "/mock/ember/models/voice/sensevoice-small-int8-2024-07-17",
+      install_dir: "/mock/lime/models/voice/sensevoice-small-int8-2024-07-17",
       installed_bytes: 0,
       missing_files: ["model.int8.onnx"],
     });
@@ -291,7 +291,7 @@ describe("voiceModels API", () => {
       model_id: "sensevoice-small-int8-2024-07-17",
       installed: true,
       installing: false,
-      install_dir: "/mock/ember/models/voice/sensevoice-small-int8-2024-07-17",
+      install_dir: "/mock/lime/models/voice/sensevoice-small-int8-2024-07-17",
       installed_bytes: 1024,
       missing_files: [],
     });
@@ -319,7 +319,7 @@ describe("voiceModels API", () => {
     });
     expect(appServerMocks.setDefaultVoiceModel).toHaveBeenCalledWith({
       model_id: "sensevoice-small-int8-2024-07-17",
-      install_dir: "/mock/ember/models/voice/sensevoice-small-int8-2024-07-17",
+      install_dir: "/mock/lime/models/voice/sensevoice-small-int8-2024-07-17",
     });
   });
 
@@ -328,7 +328,7 @@ describe("voiceModels API", () => {
       model_id: "sensevoice-small-int8-2024-07-17",
       installed: true,
       installing: false,
-      install_dir: "/mock/ember/models/voice/sensevoice-small-int8-2024-07-17",
+      install_dir: "/mock/lime/models/voice/sensevoice-small-int8-2024-07-17",
       installed_bytes: 1024,
       missing_files: [],
     });
@@ -366,7 +366,7 @@ describe("voiceModels API", () => {
       model_id: DEFAULT_SENSEVOICE_MODEL_ID,
       installed: false,
       installing: false,
-      install_dir: "/mock/ember/models/voice/sensevoice-small-int8-2024-07-17",
+      install_dir: "/mock/lime/models/voice/sensevoice-small-int8-2024-07-17",
       installed_bytes: 0,
       missing_files: ["model.int8.onnx"],
     });
@@ -402,7 +402,7 @@ describe("voiceModels API", () => {
     expect(safeInvoke).not.toHaveBeenCalledWith("get_asr_credentials");
   });
 
-  it("应优先使用 embercore 下发的语音模型目录并传给下载命令", async () => {
+  it("应优先使用 limecore 下发的语音模型目录并传给下载命令", async () => {
     vi.mocked(resolveOemCloudRuntimeContext).mockReturnValue({
       baseUrl: "https://cloud.example.com",
       controlPlaneBaseUrl: "https://cloud.example.com/api",
@@ -413,8 +413,9 @@ describe("voiceModels API", () => {
       hubProviderName: null,
       loginPath: "/login",
       desktopClientId: "desktop-client",
-      desktopOauthRedirectUrl: "ember://oauth/callback",
+      desktopOauthRedirectUrl: "lime://oauth/callback",
       desktopOauthNextPath: "/welcome",
+      pluginSignatureTrustRoots: [],
     });
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -456,7 +457,7 @@ describe("voiceModels API", () => {
         model_id: "sensevoice-small-int8-2024-07-17",
         installed: true,
         installing: false,
-        install_dir: "/mock/ember/models/voice/sensevoice-small-int8-2024-07-17",
+        install_dir: "/mock/lime/models/voice/sensevoice-small-int8-2024-07-17",
         installed_bytes: 1024,
         missing_files: [],
       },
@@ -488,7 +489,7 @@ describe("voiceModels API", () => {
     });
   });
 
-  it("列出语音模型目录时应优先使用 embercore 下发目录", async () => {
+  it("列出语音模型目录时应优先使用 limecore 下发目录", async () => {
     vi.mocked(resolveOemCloudRuntimeContext).mockReturnValue({
       baseUrl: "https://cloud.example.com",
       controlPlaneBaseUrl: "https://cloud.example.com/api",
@@ -499,8 +500,9 @@ describe("voiceModels API", () => {
       hubProviderName: null,
       loginPath: "/login",
       desktopClientId: "desktop-client",
-      desktopOauthRedirectUrl: "ember://oauth/callback",
+      desktopOauthRedirectUrl: "lime://oauth/callback",
       desktopOauthNextPath: "/welcome",
+      pluginSignatureTrustRoots: [],
     });
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -535,99 +537,6 @@ describe("voiceModels API", () => {
     ]);
 
     expect(safeInvoke).not.toHaveBeenCalled();
-  });
-
-  it("OEM 语音模型目录 404 或网络失败时应回退本地 voice_models_list_catalog", async () => {
-    vi.mocked(resolveOemCloudRuntimeContext).mockReturnValue({
-      baseUrl: "https://user.emberai.run",
-      controlPlaneBaseUrl: "https://user.emberai.run/api",
-      sceneBaseUrl: "https://user.emberai.run/scene-api",
-      gatewayBaseUrl: "https://user.emberai.run/gateway-api",
-      tenantId: "tenant-0001",
-      sessionToken: null,
-      hubProviderName: null,
-      loginPath: "/login",
-      desktopClientId: "desktop-client",
-      desktopOauthRedirectUrl: "ember://oauth/callback",
-      desktopOauthNextPath: "/welcome",
-    });
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 404,
-      json: async () => ({ message: "not found" }),
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    vi.mocked(safeInvoke).mockResolvedValueOnce([
-      {
-        id: "sensevoice-small-int8-2024-07-17",
-        name: "SenseVoice Small INT8",
-        provider: "FunAudioLLM / sherpa-onnx",
-        description: "本地离线 ASR",
-        version: "2024-07-17",
-        languages: ["zh", "en"],
-        size_bytes: 262144000,
-        download_url: "https://models.example.com/voice/sensevoice.tar.bz2",
-        vad_model_id: null,
-        vad_download_url: null,
-        runtime: "sherpa-onnx",
-        bundled: false,
-        checksum_sha256: null,
-      },
-    ]);
-
-    await expect(listVoiceModelCatalog()).resolves.toEqual([
-      expect.objectContaining({
-        id: "sensevoice-small-int8-2024-07-17",
-      }),
-    ]);
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(safeInvoke).toHaveBeenCalledWith("voice_models_list_catalog");
-  });
-
-  it("OEM 语音模型目录 fetch 抛错时应回退本地 voice_models_list_catalog", async () => {
-    vi.mocked(resolveOemCloudRuntimeContext).mockReturnValue({
-      baseUrl: "https://user.emberai.run",
-      controlPlaneBaseUrl: "https://user.emberai.run/api",
-      sceneBaseUrl: "https://user.emberai.run/scene-api",
-      gatewayBaseUrl: "https://user.emberai.run/gateway-api",
-      tenantId: "tenant-0001",
-      sessionToken: null,
-      hubProviderName: null,
-      loginPath: "/login",
-      desktopClientId: "desktop-client",
-      desktopOauthRedirectUrl: "ember://oauth/callback",
-      desktopOauthNextPath: "/welcome",
-    });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockRejectedValue(new TypeError("Failed to fetch")),
-    );
-    vi.mocked(safeInvoke).mockResolvedValueOnce([
-      {
-        id: "sensevoice-small-int8-2024-07-17",
-        name: "SenseVoice Small INT8",
-        provider: "FunAudioLLM / sherpa-onnx",
-        description: "本地离线 ASR",
-        version: "2024-07-17",
-        languages: ["zh", "en"],
-        size_bytes: 262144000,
-        download_url: "https://models.example.com/voice/sensevoice.tar.bz2",
-        vad_model_id: null,
-        vad_download_url: null,
-        runtime: "sherpa-onnx",
-        bundled: false,
-        checksum_sha256: null,
-      },
-    ]);
-
-    await expect(listVoiceModelCatalog()).resolves.toEqual([
-      expect.objectContaining({
-        id: "sensevoice-small-int8-2024-07-17",
-      }),
-    ]);
-
-    expect(safeInvoke).toHaveBeenCalledWith("voice_models_list_catalog");
   });
 
   it("应通过 API 网关监听语音模型下载进度事件", async () => {

@@ -1,31 +1,23 @@
-import {
-  areArtifactProtocolPathsEquivalent,
-  resolveArtifactProtocolFilePath,
-} from "@/lib/artifact-protocol";
+import { areArtifactProtocolPathsEquivalent } from "@/lib/artifact-protocol";
 import { isHiddenConversationArtifactPath } from "../utils/internalArtifactVisibility";
-import { resolveLatestProjectFileSavedSiteContentTargetFromMessage } from "../utils/latestSavedSiteContentTarget";
 import { isPureRuntimePeerMessageText } from "../utils/runtimePeerMessageDisplay";
-import {
-  resolveSiteSavedContentTargetDisplayName,
-  resolveSiteSavedContentTargetRelativePath,
-} from "../utils/siteToolResultSummary";
 import {
   sanitizeContentPartsForDisplay,
   sanitizeMessageTextForDisplay,
 } from "../utils/messageDisplaySanitizer";
-import { shouldUseAgentMessageAsFinalText } from "../utils/agentMessagePhase";
 import { hasStructuredHistoricalContentHint } from "../projection/historicalMessageHydrationProjection";
-import { isRuntimeStatusDiagnosticsOnly } from "../utils/turnSummaryPresentation";
-import type { MessageListRenderGroup } from "./MessageList.types";
-import type { AgentStreamTextOverlaySnapshot } from "../hooks/agentStreamTextOverlayStore";
-import type { AgentThreadItem, Message, PendingA2UISource } from "../types";
+import { shouldUseAgentMessageAsFinalText } from "../utils/agentMessagePhase";
+import {
+  appendInterruptedPlaceholderText,
+  contentHasInterruptedPlaceholder,
+  contentPartsHaveInterruptedPlaceholder,
+} from "../hooks/agentInterruptedMessageContent";
 import { buildHistoricalMessagePreview } from "./messageListHistoricalPreviewText";
 import {
   parseLeadingUserCommandTag,
   resolveInstalledSkillMessageLabel,
 } from "./messageListUserContentState";
-import { toActionRequired } from "./timeline-utils/itemConverters";
-import { resolveKnowledgeSourceFromArtifacts } from "./messageListKnowledgeSource";
+import { buildTimelineInlineContentParts } from "./messageListTimelineContentParts";
 import {
   resolveImageWorkbenchMessageDisplayState,
   resolveImageWorkbenchProcessDisplayState,
@@ -39,13 +31,11 @@ import {
   isDeferredTimelineItem,
   mergeStreamingOverlayContentParts,
   resolveInlineProcessCoverage,
-  resolveInlineThinkingContent,
+  hasPersistedReasoningTimelineItem,
   shouldKeepInlineProcessForActiveAssistant,
   shouldRenderConversationTimelineItem,
   shouldSuppressPreAnswerThinkingTimeline,
 } from "./messageListInlineProcess";
-import { shouldRenderAssistantRuntimeStatusPill } from "./messageAssistantMetaFooterState";
-import { resolveAgentRuntimeErrorPresentation } from "../utils/agentRuntimeErrorPresentation";
 import {
   MESSAGE_LIST_COMPACT_HISTORICAL_ASSISTANT_PREVIEW_CHARS,
   MESSAGE_LIST_COMPACT_HISTORICAL_ASSISTANT_THRESHOLD,
@@ -53,479 +43,44 @@ import {
   MESSAGE_LIST_LONG_HISTORICAL_MESSAGE_PREVIEW_CHARS,
   MESSAGE_LIST_LONG_HISTORICAL_MESSAGE_THRESHOLD,
 } from "./messageListConstants";
-
-function normalizeFailureContentForCompare(value?: string | null): string {
-  return (value || "").trim().replace(/\s+/g, " ");
-}
-
-function isRuntimeFailureOnlyAssistantText(
-  message: Message,
-  actionContent: string,
-): boolean {
-  if (
-    message.role !== "assistant" ||
-    message.runtimeStatus?.phase !== "failed"
-  ) {
-    return false;
-  }
-
-  const detailText = normalizeFailureContentForCompare(
-    message.runtimeStatus.detail,
-  );
-  const contentText = normalizeFailureContentForCompare(actionContent);
-  if (!detailText || !contentText) {
-    return false;
-  }
-
-  const rawFailureText = contentText.replace(/^执行失败：/, "").trim();
-  if (rawFailureText && rawFailureText !== contentText) {
-    const presentedFailureText = normalizeFailureContentForCompare(
-      resolveAgentRuntimeErrorPresentation(rawFailureText).displayMessage,
-    );
-    if (presentedFailureText === detailText) {
-      return true;
-    }
-  }
-
-  return (
-    contentText === detailText ||
-    contentText === `执行失败：${detailText}` ||
-    contentText === `当前处理失败 ${detailText}`
-  );
-}
-
-function hasInlineProcessContentParts(
-  message: Message,
-  options: {
-    displayContent: string;
-    timelineItems?: AgentThreadItem[];
-  },
-): boolean {
-  const contentParts = message.contentParts || [];
-  const hasNonThinkingProcessPart = contentParts.some(
-    (part) =>
-      part.type === "tool_use" ||
-      part.type === "action_required" ||
-      part.type === "file_changes_batch",
-  );
-  if (hasNonThinkingProcessPart) {
-    return true;
-  }
-
-  const hasThinkingPart = contentParts.some(
-    (part) => part.type === "thinking" && part.text.trim().length > 0,
-  );
-  if (!hasThinkingPart) {
-    return false;
-  }
-
-  if (
-    message.isThinking &&
-    !options.displayContent.trim() &&
-    isRuntimeStatusDiagnosticsOnly(message.runtimeStatus)
-  ) {
-    return false;
-  }
-
-  return Boolean(
-    options.displayContent.trim() ||
-    options.timelineItems?.some((item) => item.type === "reasoning"),
-  );
-}
-
-type MessageContentPart = NonNullable<Message["contentParts"]>[number];
-
-function stringifyTimelineArguments(value: unknown): string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
-}
-
-function resolveTimelineToolStatus(
-  status: AgentThreadItem["status"],
-): Extract<
-  NonNullable<Message["toolCalls"]>[number]["status"],
-  "running" | "completed" | "failed"
-> {
-  if (status === "in_progress") {
-    return "running";
-  }
-  return status;
-}
-
-function appendTextContentPart(
-  parts: MessageContentPart[],
-  text: string | undefined,
-) {
-  const normalized = text?.trim();
-  if (!normalized) {
-    return;
-  }
-
-  const lastPart = parts[parts.length - 1];
-  if (lastPart?.type === "text") {
-    lastPart.text = `${lastPart.text}\n${normalized}`;
-    return;
-  }
-
-  parts.push({ type: "text", text: normalized });
-}
-
-function appendThinkingContentPart(
-  parts: MessageContentPart[],
-  text: string | undefined,
-) {
-  const normalized = text?.trim();
-  if (!normalized) {
-    return;
-  }
-
-  const lastPart = parts[parts.length - 1];
-  if (lastPart?.type === "thinking") {
-    lastPart.text = `${lastPart.text}\n\n${normalized}`;
-    return;
-  }
-
-  parts.push({ type: "thinking", text: normalized });
-}
-
-function hasProcessBoundaryContentPart(
-  parts?: Message["contentParts"],
-): boolean {
-  return Boolean(
-    parts?.some(
-      (part) =>
-        part.type === "tool_use" ||
-        part.type === "action_required" ||
-        part.type === "file_changes_batch",
-    ),
-  );
-}
-
-function collectFileChangeBatchPaths(
-  parts?: Message["contentParts"],
-): string[] {
-  return (parts || []).flatMap((part) =>
-    part.type === "file_changes_batch"
-      ? part.aggregate.files.map((file) => file.path)
-      : [],
-  );
-}
-
-function resolveFinalTextFromContentParts(
-  parts?: Message["contentParts"],
-): string {
-  const textParts =
-    parts?.filter(
-      (part): part is Extract<MessageContentPart, { type: "text" }> =>
-        part.type === "text" && part.text.trim().length > 0,
-    ) || [];
-
-  return textParts[textParts.length - 1]?.text.trim() || "";
-}
-
-function resolveAssistantActionContent(params: {
-  displayContent: string;
-  conversationContentParts?: Message["contentParts"];
-  useProcessSeparatedFinalText: boolean;
-}): string {
-  if (params.useProcessSeparatedFinalText) {
-    return resolveFinalTextFromContentParts(params.conversationContentParts);
-  }
-
-  return params.displayContent.trim();
-}
-
-function hasFinalTextAfterProcessBoundary(
-  parts?: Message["contentParts"],
-): boolean {
-  const normalizedParts = parts || [];
-  const firstProcessIndex = normalizedParts.findIndex(
-    (part) =>
-      part.type === "tool_use" ||
-      part.type === "action_required" ||
-      part.type === "file_changes_batch",
-  );
-  if (firstProcessIndex < 0) {
-    return false;
-  }
-
-  return normalizedParts.some(
-    (part, index) =>
-      index > firstProcessIndex &&
-      part.type === "text" &&
-      part.text.trim().length > 0,
-  );
-}
-
-function resolveProcessSeparatedContentParts(
-  parts?: Message["contentParts"],
-): Message["contentParts"] | undefined {
-  if (!hasProcessBoundaryContentPart(parts)) {
-    return parts;
-  }
-
-  const hasActionBoundary = Boolean(
-    parts?.some((part) => part.type === "action_required"),
-  );
-  if (hasActionBoundary) {
-    return parts;
-  }
-
-  const firstProcessIndex = (parts || []).findIndex(
-    (part) =>
-      part.type === "tool_use" ||
-      part.type === "action_required" ||
-      part.type === "file_changes_batch",
-  );
-  const lastTextIndex = (parts || []).reduce(
-    (lastIndex, part, index) =>
-      part.type === "text" && part.text.trim().length > 0 ? index : lastIndex,
-    -1,
-  );
-
-  const filtered = (parts || []).filter((part, index) => {
-    if (part.type !== "text") {
-      return true;
-    }
-    return index < firstProcessIndex || index === lastTextIndex;
-  });
-
-  return filtered.length > 0 ? filtered : undefined;
-}
-
-function buildTimelineToolContentPart(
-  item: AgentThreadItem,
-): MessageContentPart | null {
-  if (item.type === "tool_call") {
-    const status = resolveTimelineToolStatus(item.status);
-    return {
-      type: "tool_use",
-      toolCall: {
-        id: item.id,
-        name: item.tool_name,
-        arguments: stringifyTimelineArguments(item.arguments),
-        status,
-        startTime: new Date(item.started_at),
-        endTime: item.completed_at ? new Date(item.completed_at) : undefined,
-        result:
-          status === "running"
-            ? undefined
-            : {
-                success: item.success !== false && !item.error,
-                output: item.output || "",
-                error: item.error || undefined,
-                metadata:
-                  item.metadata &&
-                  typeof item.metadata === "object" &&
-                  !Array.isArray(item.metadata)
-                    ? (item.metadata as Record<string, unknown>)
-                    : undefined,
-              },
-      },
-    };
-  }
-
-  if (item.type === "command_execution") {
-    const status = resolveTimelineToolStatus(item.status);
-    return {
-      type: "tool_use",
-      toolCall: {
-        id: item.id,
-        name: "Bash",
-        arguments: stringifyTimelineArguments({
-          command: item.command,
-          cwd: item.cwd,
-        }),
-        status,
-        startTime: new Date(item.started_at),
-        endTime: item.completed_at ? new Date(item.completed_at) : undefined,
-        result:
-          status === "running"
-            ? undefined
-            : {
-                success: item.exit_code === undefined || item.exit_code === 0,
-                output: item.aggregated_output || "",
-                error: item.error || undefined,
-                metadata:
-                  item.exit_code === undefined
-                    ? undefined
-                    : { exit_code: item.exit_code },
-              },
-      },
-    };
-  }
-
-  if (item.type === "web_search") {
-    const status = resolveTimelineToolStatus(item.status);
-    return {
-      type: "tool_use",
-      toolCall: {
-        id: item.id,
-        name: "web_search",
-        arguments: stringifyTimelineArguments({
-          action: item.action || "web_search",
-          query: item.query || item.action || "",
-        }),
-        status,
-        startTime: new Date(item.started_at),
-        endTime: item.completed_at ? new Date(item.completed_at) : undefined,
-        result:
-          status === "running"
-            ? undefined
-            : {
-                success: status !== "failed",
-                output: item.output || "",
-              },
-      },
-    };
-  }
-
-  return null;
-}
-
-function buildTimelineActionContentPart(
-  item: AgentThreadItem,
-): MessageContentPart | null {
-  if (item.type !== "approval_request" && item.type !== "request_user_input") {
-    return null;
-  }
-
-  const actionRequired = toActionRequired(item);
-  if (!actionRequired) {
-    return null;
-  }
-
-  return {
-    type: "action_required",
-    actionRequired,
-  };
-}
-
-function buildTimelineInlineContentParts(params: {
-  displayContent: string;
-  existingContentParts?: Message["contentParts"];
-  items?: AgentThreadItem[];
-}): Message["contentParts"] | undefined {
-  const items = params.items || [];
-  const hasAgentMessage = items.some(
-    (item) =>
-      item.type === "agent_message" &&
-      shouldUseAgentMessageAsFinalText(item.phase) &&
-      item.text.trim().length > 0,
-  );
-  if (!hasAgentMessage) {
-    return undefined;
-  }
-
-  const reasoningCount = items.filter(
-    (item) => item.type === "reasoning" && item.text.trim().length > 0,
-  ).length;
-  const toolLikeCount = items.filter(
-    (item) =>
-      item.type === "tool_call" ||
-      item.type === "command_execution" ||
-      item.type === "web_search",
-  ).length;
-  const actionLikeCount = items.filter(
-    (item) =>
-      item.type === "approval_request" || item.type === "request_user_input",
-  ).length;
-  if (reasoningCount < 2 && toolLikeCount === 0 && actionLikeCount === 0) {
-    return undefined;
-  }
-
-  const parts: MessageContentPart[] = [];
-  for (const item of items) {
-    if (item.type === "reasoning") {
-      appendThinkingContentPart(parts, item.text);
-      continue;
-    }
-
-    if (
-      item.type === "agent_message" &&
-      shouldUseAgentMessageAsFinalText(item.phase)
-    ) {
-      appendTextContentPart(parts, item.text);
-      continue;
-    }
-
-    const toolPart = buildTimelineToolContentPart(item);
-    if (toolPart) {
-      parts.push(toolPart);
-      continue;
-    }
-
-    const actionPart = buildTimelineActionContentPart(item);
-    if (actionPart) {
-      parts.push(actionPart);
-    }
-  }
-
-  const hasTextPart = parts.some(
-    (part) => part.type === "text" && part.text.trim().length > 0,
-  );
-  if (!hasTextPart) {
-    return undefined;
-  }
-
-  const fileChangeParts = (params.existingContentParts || []).filter(
-    (part) => part.type === "file_changes_batch",
-  );
-  if (fileChangeParts.length > 0) {
-    parts.push(...fileChangeParts);
-  }
-
-  return parts;
-}
-
-function ensureInlineThinkingContentPart(params: {
-  parts?: Message["contentParts"];
-  thinkingContent?: string;
-  shouldEnsure: boolean;
-}): Message["contentParts"] | undefined {
-  const normalizedThinking = params.thinkingContent?.trim();
-  if (!params.shouldEnsure || !normalizedThinking) {
-    return params.parts;
-  }
-
-  const parts = params.parts || [];
-  const hasThinkingPart = parts.some(
-    (part) => part.type === "thinking" && part.text.trim().length > 0,
-  );
-  if (hasThinkingPart) {
-    return params.parts;
-  }
-
-  return [{ type: "thinking", text: normalizedThinking }, ...parts];
-}
-
-export interface ResolveMessageListItemProjectionOptions {
-  activeCurrentTurnId: string | null;
-  activePendingA2UISource: PendingA2UISource | null;
-  canOpenSavedSiteContent: boolean;
-  expandedHistoricalAssistantMessageIds: Set<string>;
-  expandedHistoricalTimelineKeys: Set<string>;
-  expandedLongHistoricalMessageIds: Set<string>;
-  focusedTimelineItemId?: string | null;
-  group: MessageListRenderGroup;
-  hasActiveInteractiveRuntime: boolean;
-  isRestoredHistoryWindow: boolean;
-  isSending: boolean;
-  lastAssistantMessageId: string | null;
-  message: Message;
-  shouldDeferHistoricalAssistantMessageDetails: (message: Message) => boolean;
-  shouldDeferThreadItemsScan: boolean;
-  streamingTextOverlay?: AgentStreamTextOverlaySnapshot | null;
-}
+import {
+  collectFileChangeBatchPaths,
+  ensureInlineThinkingContentPart,
+  hasFinalTextAfterProcessBoundary,
+  hasInlineProcessContentParts,
+  hasInlineToolUseContentPart,
+  normalizeInlineThinkingContentParts,
+  resolveAssistantActionContent,
+  resolveDeferredTextContentParts,
+  resolveProcessSeparatedContentParts,
+} from "./messageListProjectionContentParts";
+import {
+  hasCompletedOrRunningWebRetrievalTimelineItem,
+  hasFinalAnswerTextAfterRunningWebRetrieval,
+  hasFinalAnswerTextTimelineItem,
+  hasRunningWebRetrievalContentPart,
+  hasRunningWebRetrievalTimelineItem,
+  hideFinalAnswerContentPartsWhileRunning,
+  isActiveThreadTurnStatus,
+  normalizeInactiveRunningWebRetrievalContentParts,
+  normalizeInactiveRunningWebRetrievalTimelineItems,
+} from "./messageListProjectionWebRetrieval";
+import {
+  canMergeTimelineAsSparseProcessPatch,
+  canTimelineOwnInlineProcessFlow,
+  isRuntimeFailureDiagnosticAliasText,
+  isRuntimeFailureOnlyAssistantText,
+  isTrivialAssistantFinalText,
+  resolveRuntimeFailureFallbackAssistantText,
+  resolveMessageInteractiveProjectionState,
+  resolveTimelineOwnedVisibleText,
+  sanitizeRuntimeFailureAssistantText,
+  sanitizeProjectedMessageText,
+  shouldUseFirstTokenRuntimeStatus,
+} from "./messageListItemProjectionHelpers";
+import { resolveMessageListItemArtifactProjection } from "./messageListItemProjectionArtifacts";
+import type { ResolveMessageListItemProjectionOptions } from "./messageListItemProjectionTypes";
+import type { Message } from "../types";
 
 export function resolveMessageListItemProjection({
   activeCurrentTurnId,
@@ -545,25 +100,30 @@ export function resolveMessageListItemProjection({
   shouldDeferThreadItemsScan,
   streamingTextOverlay = null,
 }: ResolveMessageListItemProjectionOptions) {
-  const rawDisplayContent =
-    message.role === "assistant" && streamingTextOverlay?.content
+  const rawStreamingFinalTextOverlayContent =
+    message.role === "assistant" &&
+    streamingTextOverlay?.content &&
+    shouldUseAgentMessageAsFinalText(streamingTextOverlay.phase)
       ? streamingTextOverlay.content
-      : message.content || "";
+      : null;
+  const rawDisplayContent = message.content || "";
   const hasImages = Array.isArray(message.images) && message.images.length > 0;
   const imageWorkbenchDisplayState = resolveImageWorkbenchMessageDisplayState({
     message,
     rawDisplayContent,
-    thinkingContent:
-      message.role === "assistant" && message.imageWorkbenchPreview
-        ? resolveInlineThinkingContent(message)
-        : undefined,
   });
   const shouldSuppressStandaloneImageWorkbenchProcess =
     imageWorkbenchDisplayState.shouldSuppressStandaloneProcess;
   const shouldSuppressImageProcessFlow =
     imageWorkbenchDisplayState.shouldSuppressProcessFlow;
-  const visibleRawDisplayContent =
+  const rawVisibleDisplayContent =
     imageWorkbenchDisplayState.visibleRawDisplayContent;
+  const visibleRawDisplayContent =
+    message.role === "assistant" &&
+    contentPartsHaveInterruptedPlaceholder(message.contentParts) &&
+    !contentHasInterruptedPlaceholder(rawVisibleDisplayContent)
+      ? appendInterruptedPlaceholderText(rawVisibleDisplayContent)
+      : rawVisibleDisplayContent;
   const displayContent = sanitizeMessageTextForDisplay(
     visibleRawDisplayContent,
     {
@@ -578,7 +138,10 @@ export function resolveMessageListItemProjection({
     rawRuntimePeerContent.length > 0 &&
     isPureRuntimePeerMessageText(rawRuntimePeerContent);
   const sanitizedDisplayContentParts = shouldDeferMessageDetails
-    ? undefined
+    ? resolveDeferredTextContentParts(message.contentParts, {
+        role: message.role,
+        hasImages,
+      })
     : sanitizeContentPartsForDisplay(message.contentParts, {
         role: message.role,
         hasImages,
@@ -588,93 +151,308 @@ export function resolveMessageListItemProjection({
       message,
       sanitizedContentParts: sanitizedDisplayContentParts,
       shouldDeferMessageDetails,
+      shouldFoldSuppressedProcessFlow:
+        imageWorkbenchDisplayState.shouldFoldSuppressedProcessFlow,
       shouldSuppressImageProcessFlow,
     });
   const {
-    displayContentParts,
+    displayContentParts: rawDisplayContentParts,
     shouldFoldSuppressedProcessFlow,
     shouldSuppressRendererProcessFlow,
   } = imageWorkbenchProcessDisplayState;
   const isConversationTailAssistant =
     message.role === "assistant" && message.id === group.lastAssistantId;
+  const isTimelineOwnerAssistant =
+    message.role === "assistant" &&
+    group.timeline !== null &&
+    (group.timelineMessageId === message.id ||
+      (!group.timelineMessageId && isConversationTailAssistant));
   const timeline =
     message.role !== "assistant"
       ? null
-      : isConversationTailAssistant
+      : isTimelineOwnerAssistant
         ? group.timeline
         : null;
-  const hasProcessTimelineItems = hasTimelineProcessItems(timeline?.items);
+  const rawTimelineItems = timeline?.items;
+  const hasProcessTimelineItems = hasTimelineProcessItems(rawTimelineItems);
+  const hasPersistedReasoningTimeline =
+    hasPersistedReasoningTimelineItem(rawTimelineItems);
+  const hasRunningTimelineProcess =
+    timeline !== null && hasRunningWebRetrievalTimelineItem(rawTimelineItems);
+  const hasCompletedOrRunningWebRetrievalTimelineProcess =
+    timeline !== null &&
+    hasCompletedOrRunningWebRetrievalTimelineItem(rawTimelineItems);
+  const hasRunningWebRetrievalPart = hasRunningWebRetrievalContentPart(
+    rawDisplayContentParts,
+  );
+  const hasInlineNonThinkingProcessPart = Boolean(
+    rawDisplayContentParts?.some(
+      (part) =>
+        part.type === "tool_use" ||
+        part.type === "action_required" ||
+        part.type === "file_changes_batch",
+    ),
+  );
+  const hasInlineToolUseProcessPart = hasInlineToolUseContentPart(
+    rawDisplayContentParts,
+  );
+  const hasActiveTimelineTurn =
+    timeline !== null && isActiveThreadTurnStatus(timeline.turn.status);
+  const isLegacyUnphasedStreamingOverlay =
+    message.role === "assistant" &&
+    Boolean(rawStreamingFinalTextOverlayContent?.trim()) &&
+    !streamingTextOverlay?.phase?.trim();
+  const hasStructuredProcessBoundaryForActiveTurn =
+    hasProcessTimelineItems ||
+    hasCompletedOrRunningWebRetrievalTimelineProcess ||
+    hasRunningWebRetrievalPart ||
+    hasInlineToolUseProcessPart;
+  const shouldHideLegacyUnphasedOverlayDuringProcess =
+    isLegacyUnphasedStreamingOverlay &&
+    hasStructuredProcessBoundaryForActiveTurn &&
+    (message.isThinking || isSending || hasActiveTimelineTurn);
+  const streamingFinalTextOverlay = shouldHideLegacyUnphasedOverlayDuringProcess
+    ? null
+    : rawStreamingFinalTextOverlayContent
+      ? streamingTextOverlay
+      : null;
+  const streamingFinalTextOverlayContent =
+    streamingFinalTextOverlay?.content ?? null;
+  const hasFinalAnswerAfterRunningWebRetrieval =
+    hasFinalAnswerTextAfterRunningWebRetrieval(rawTimelineItems);
+  const hasFinalAnswerTimelineItem =
+    hasFinalAnswerTextTimelineItem(rawTimelineItems);
+  const hasRuntimeFailureTimelineErrorItem = Boolean(
+    rawTimelineItems?.some((item) => item.type === "error"),
+  );
+  const isActiveAssistantOutput =
+    message.isThinking ||
+    isSending ||
+    Boolean(streamingFinalTextOverlayContent?.trim()) ||
+    hasActiveTimelineTurn;
+  const shouldHoldRunningWebRetrieval =
+    (hasRunningTimelineProcess || hasRunningWebRetrievalPart) &&
+    isActiveAssistantOutput;
+  const shouldNormalizeInactiveRunningWebRetrieval =
+    message.role === "assistant" && !shouldHoldRunningWebRetrieval;
+  const displayContentParts = normalizeInactiveRunningWebRetrievalContentParts(
+    rawDisplayContentParts,
+    shouldNormalizeInactiveRunningWebRetrieval,
+  );
+  const timelineItemsForDisplay =
+    normalizeInactiveRunningWebRetrievalTimelineItems(
+      rawTimelineItems,
+      shouldNormalizeInactiveRunningWebRetrieval,
+    );
+  const terminalApprovalRequestIds = new Set(
+    (timelineItemsForDisplay || []).flatMap((item) =>
+      item.type === "approval_request" &&
+      (item.status === "completed" || item.status === "failed")
+        ? [item.request_id]
+        : [],
+    ),
+  );
+  const filterTerminalApprovalActionRequests = (
+    actionRequests: Message["actionRequests"],
+  ): Message["actionRequests"] => {
+    if (!actionRequests?.length || terminalApprovalRequestIds.size === 0) {
+      return actionRequests;
+    }
+    return actionRequests.filter(
+      (request) =>
+        request.actionType !== "tool_confirmation" ||
+        !terminalApprovalRequestIds.has(request.requestId),
+    );
+  };
+  const filteredDisplayContentParts = displayContentParts?.filter(
+    (part) =>
+      part.type !== "action_required" ||
+      part.actionRequired.actionType !== "tool_confirmation" ||
+      !terminalApprovalRequestIds.has(part.actionRequired.requestId),
+  );
+  const filteredActionRequests = filterTerminalApprovalActionRequests(
+    message.actionRequests,
+  );
+  const messageWithoutTerminalApprovalDuplicates =
+    terminalApprovalRequestIds.size > 0
+      ? {
+          ...message,
+          actionRequests: filteredActionRequests,
+          contentParts: filteredDisplayContentParts,
+        }
+      : message;
+  const isTerminalRuntimeFailure =
+    message.role === "assistant" && message.runtimeStatus?.phase === "failed";
+  const hasMeaningfulAssistantTextContentPart = Boolean(
+    displayContentParts?.some(
+      (part) => part.type === "text" && !isTrivialAssistantFinalText(part.text),
+    ),
+  );
+  const hasUserVisibleRuntimeFailureAnswer =
+    isTerminalRuntimeFailure &&
+    (!isTrivialAssistantFinalText(displayContent) ||
+      hasMeaningfulAssistantTextContentPart ||
+      hasFinalAnswerTimelineItem);
+  const shouldSuppressRuntimeFailureProcessFlow =
+    isTerminalRuntimeFailure && !hasUserVisibleRuntimeFailureAnswer;
+  const hasTimelinePlanItem = Boolean(
+    timelineItemsForDisplay?.some((item) => item.type === "plan"),
+  );
+  const primaryTimelineKey = timeline ? `leading:${timeline.turn.id}` : null;
+  const shouldPreferCompactHistoricalTimeline =
+    Boolean(primaryTimelineKey) &&
+    isRestoredHistoryWindow &&
+    !focusedTimelineItemId &&
+    timeline?.turn.status === "completed" &&
+    timeline.turn.id !== activeCurrentTurnId &&
+    !expandedHistoricalTimelineKeys.has(primaryTimelineKey!) &&
+    (shouldDeferThreadItemsScan ||
+      (timelineItemsForDisplay?.length || 0) >=
+        MESSAGE_LIST_HISTORICAL_TIMELINE_COMPACT_ITEM_THRESHOLD);
+  const shouldKeepExpandedHistoricalTimelineInTimeline =
+    Boolean(primaryTimelineKey) &&
+    isRestoredHistoryWindow &&
+    !focusedTimelineItemId &&
+    timeline?.turn.status === "completed" &&
+    timeline.turn.id !== activeCurrentTurnId &&
+    expandedHistoricalTimelineKeys.has(primaryTimelineKey!);
+  const hasStreamingOverlayText = Boolean(
+    streamingFinalTextOverlayContent?.trim(),
+  );
+  const hasStructuredFinalTextAfterProcessBoundary =
+    hasFinalTextAfterProcessBoundary(displayContentParts);
+  const shouldHideAssistantTextWhileRunning =
+    shouldHoldRunningWebRetrieval &&
+    !hasFinalAnswerTimelineItem &&
+    !hasStreamingOverlayText &&
+    !hasStructuredFinalTextAfterProcessBoundary &&
+    (hasFinalAnswerAfterRunningWebRetrieval ||
+      Boolean(displayContent.trim()) ||
+      !message.thinkingContent?.trim());
+  const isActiveProcessOnlyOutput =
+    message.role === "assistant" &&
+    isActiveAssistantOutput &&
+    !hasFinalAnswerTimelineItem &&
+    !displayContent.trim() &&
+    (hasCompletedOrRunningWebRetrievalTimelineProcess ||
+      hasRunningWebRetrievalPart);
+  const messageContentPartsOwnInlineProcessFlow =
+    message.role === "assistant" &&
+    hasInlineProcessContentParts(messageWithoutTerminalApprovalDuplicates, {
+      displayContent,
+      timelineItems: timelineItemsForDisplay,
+    });
+  const timelineOwnsInlineProcessFlow =
+    !messageContentPartsOwnInlineProcessFlow &&
+    canTimelineOwnInlineProcessFlow(timelineItemsForDisplay);
+  const shouldMergeTimelineProcessWithInlineThinking =
+    messageContentPartsOwnInlineProcessFlow &&
+    !hasInlineNonThinkingProcessPart &&
+    canTimelineOwnInlineProcessFlow(timelineItemsForDisplay);
   const timelineInlineContentParts =
-    message.role === "assistant"
+    message.role === "assistant" &&
+    !shouldSuppressRuntimeFailureProcessFlow &&
+    (timelineOwnsInlineProcessFlow ||
+      (messageContentPartsOwnInlineProcessFlow &&
+        canMergeTimelineAsSparseProcessPatch(timelineItemsForDisplay)) ||
+      shouldMergeTimelineProcessWithInlineThinking) &&
+    !shouldPreferCompactHistoricalTimeline &&
+    !shouldKeepExpandedHistoricalTimelineInTimeline
       ? buildTimelineInlineContentParts({
-          displayContent,
-          existingContentParts: displayContentParts,
-          items: timeline?.items,
+          displayContent: shouldHideAssistantTextWhileRunning
+            ? ""
+            : displayContent,
+          processPrefaceContent:
+            shouldHideAssistantTextWhileRunning &&
+            !message.thinkingContent?.trim()
+              ? displayContent
+              : undefined,
+          existingContentParts: filteredDisplayContentParts,
+          items: timelineItemsForDisplay,
         })
       : undefined;
   const includeInlineProcessFlow =
     !shouldDeferMessageDetails &&
     !shouldSuppressRendererProcessFlow &&
     message.role === "assistant" &&
+    !shouldSuppressRuntimeFailureProcessFlow &&
     (Boolean(timelineInlineContentParts?.length) ||
       shouldFoldSuppressedProcessFlow ||
       shouldKeepInlineProcessForActiveAssistant(
         message,
         isConversationTailAssistant,
         hasProcessTimelineItems,
+        hasPersistedReasoningTimeline,
         Boolean(timeline),
         displayContent,
         isSending,
       ) ||
       // 消息 contentParts 已经持有过程顺序时，始终保留 inline process flow，
       // 让思考、工具、确认与文件改动按时间序穿插显示。
-      hasInlineProcessContentParts(message, {
-        displayContent,
-        timelineItems: timeline?.items,
-      }));
-  const conversationContentParts =
+      messageContentPartsOwnInlineProcessFlow);
+  const ensuredConversationContentParts =
     message.role === "assistant"
       ? ensureInlineThinkingContentPart({
-          parts: mergeStreamingOverlayContentParts(
-            timelineInlineContentParts ||
-              filterConversationDisplayContentParts(displayContentParts, {
-                includeProcessFlow: includeInlineProcessFlow,
-                preserveToolUseParts: !hasProcessTimelineItems,
-              }),
-            streamingTextOverlay?.content || null,
+          parts: hideFinalAnswerContentPartsWhileRunning(
+            mergeStreamingOverlayContentParts(
+              timelineInlineContentParts ||
+                filterConversationDisplayContentParts(
+                  filteredDisplayContentParts,
+                  {
+                    includeProcessFlow: includeInlineProcessFlow,
+                    preserveToolUseParts: !hasProcessTimelineItems,
+                  },
+                ),
+              shouldHideAssistantTextWhileRunning
+                ? null
+                : streamingFinalTextOverlay,
+            ),
+            shouldHideAssistantTextWhileRunning,
           ),
           thinkingContent: message.thinkingContent,
           shouldEnsure:
             includeInlineProcessFlow &&
-            Boolean(streamingTextOverlay?.content?.trim()),
+            Boolean(message.thinkingContent?.trim()) &&
+            (Boolean(streamingFinalTextOverlayContent?.trim()) ||
+              hasActiveTimelineTurn ||
+              !hasPersistedReasoningTimeline),
         })
-      : displayContentParts;
+      : filteredDisplayContentParts;
+  const conversationContentParts =
+    message.role === "assistant"
+      ? normalizeInlineThinkingContentParts(ensuredConversationContentParts)
+      : ensuredConversationContentParts;
   const conversationThinkingContent =
     message.role === "assistant" && includeInlineProcessFlow
       ? message.thinkingContent
       : undefined;
-  const imageWorkbenchThinkingContent =
-    imageWorkbenchDisplayState.thinkingContent;
-  const conversationToolCalls =
-    message.role === "assistant" && includeInlineProcessFlow
-      ? message.toolCalls
-      : undefined;
+  const shouldAllowLegacyToolCallsProcess =
+    message.role === "assistant" &&
+    includeInlineProcessFlow &&
+    !hasProcessTimelineItems;
+  const conversationToolCalls = shouldAllowLegacyToolCallsProcess
+    ? message.toolCalls
+    : undefined;
   const inlineProcessCoverage = resolveInlineProcessCoverage({
     contentParts: conversationContentParts,
     thinkingContent: conversationThinkingContent,
     toolCalls: conversationToolCalls,
-    actionRequests: message.actionRequests,
+    actionRequests: filteredActionRequests,
   });
   const shouldLetInlineProcessOwnActiveTurn =
     timeline !== null &&
-    timeline.turn.status !== "completed" &&
+    hasActiveTimelineTurn &&
     includeInlineProcessFlow &&
     inlineProcessCoverage.hasInlineProcessEntries;
   const timelineConversationItems = timeline
-    ? timeline.items.filter((item) =>
-        shouldRenderConversationTimelineItem(item, timeline.items, {
-          hasInlineRuntimeStatus: Boolean(message.runtimeStatus),
-        }),
+    ? (timelineItemsForDisplay || []).filter((item) =>
+        shouldRenderConversationTimelineItem(
+          item,
+          timelineItemsForDisplay || [],
+          {
+            hasInlineRuntimeStatus: Boolean(message.runtimeStatus),
+          },
+        ),
       )
     : [];
   const timelineConversationItemIds =
@@ -685,7 +463,10 @@ export function resolveMessageListItemProjection({
     inlineProcessCoverage,
   );
   const primaryTimelineItems = timeline
-    ? timeline.items.filter((item) => {
+    ? (shouldSuppressRuntimeFailureProcessFlow
+        ? []
+        : timelineItemsForDisplay || []
+      ).filter((item) => {
         if (shouldLetInlineProcessOwnActiveTurn) {
           return false;
         }
@@ -770,7 +551,7 @@ export function resolveMessageListItemProjection({
   ];
   const timelineActionRequests = inlineProcessCoverage.actionRequestCounts.size
     ? undefined
-    : message.actionRequests;
+    : filteredActionRequests;
   const primaryActionRequests =
     visiblePrimaryTimelineItems.length > 0 ? timelineActionRequests : undefined;
   const trailingActionRequests =
@@ -779,59 +560,73 @@ export function resolveMessageListItemProjection({
       : undefined;
   const shouldSuppressInlineA2UI = false;
   const suppressedActionRequestId = null;
-  const hasActivePendingSourceForMessage =
-    activePendingA2UISource?.kind === "assistant_message"
-      ? activePendingA2UISource.messageId === message.id
-      : activePendingA2UISource?.kind === "action_request"
-        ? (message.actionRequests || []).some(
-            (request) =>
-              request.requestId === activePendingA2UISource.requestId,
-          ) ||
-          (message.contentParts || []).some(
-            (part) =>
-              part.type === "action_required" &&
-              part.actionRequired.requestId ===
-                activePendingA2UISource.requestId,
-          )
-        : false;
-  const hasPendingActionRequestForMessage =
-    (message.actionRequests || []).some(
-      (request) => request.status !== "submitted",
-    ) ||
-    (message.contentParts || []).some(
-      (part) =>
-        part.type === "action_required" &&
-        part.actionRequired.status !== "submitted",
-    );
   const hasActiveStreamingOverlay = Boolean(
-    streamingTextOverlay?.content?.trim(),
+    streamingFinalTextOverlayContent?.trim(),
   );
-  const isCurrentInteractiveAssistantMessage =
-    message.role === "assistant" &&
-    (hasActivePendingSourceForMessage ||
-      hasActiveStreamingOverlay ||
-      (message.id === lastAssistantMessageId &&
-        hasActiveInteractiveRuntime &&
-        (isSending || hasPendingActionRequestForMessage)));
-  const shouldReadOnlyInteractiveContent =
-    message.role === "assistant" && !isCurrentInteractiveAssistantMessage;
+  const {
+    isCurrentInteractiveAssistantMessage,
+    shouldReadOnlyInteractiveContent,
+  } = resolveMessageInteractiveProjectionState({
+    activePendingA2UISource,
+    hasActiveInteractiveRuntime,
+    hasActiveStreamingOverlay,
+    isActiveProcessOnlyOutput,
+    isSending,
+    lastAssistantMessageId,
+    message,
+  });
   const usesProcessSeparatedFinalText =
+    messageContentPartsOwnInlineProcessFlow &&
     includeInlineProcessFlow &&
     hasFinalTextAfterProcessBoundary(conversationContentParts);
   const rendererConversationContentParts = usesProcessSeparatedFinalText
     ? resolveProcessSeparatedContentParts(conversationContentParts)
     : conversationContentParts;
-  const rawActionContent = resolveAssistantActionContent({
-    displayContent,
-    conversationContentParts,
-    useProcessSeparatedFinalText: usesProcessSeparatedFinalText,
-  });
+  const timelineOwnedActionContent =
+    timelineOwnsInlineProcessFlow &&
+    (messageContentPartsOwnInlineProcessFlow || !displayContent.trim())
+      ? resolveTimelineOwnedVisibleText(conversationContentParts)
+      : null;
+  const rawActionContent =
+    timelineOwnedActionContent ??
+    resolveAssistantActionContent({
+      displayContent: shouldHideAssistantTextWhileRunning ? "" : displayContent,
+      conversationContentParts: usesProcessSeparatedFinalText
+        ? rendererConversationContentParts
+        : conversationContentParts,
+      useProcessSeparatedFinalText: usesProcessSeparatedFinalText,
+    });
+  const sanitizedRawActionContent = sanitizeProjectedMessageText(
+    message,
+    rawActionContent,
+  );
+  const runtimeFailureSanitizedActionContent =
+    sanitizeRuntimeFailureAssistantText(message, sanitizedRawActionContent);
   const shouldSuppressDuplicatedFailureText =
-    Boolean(timeline) &&
-    isRuntimeFailureOnlyAssistantText(message, rawActionContent);
+    hasRuntimeFailureTimelineErrorItem &&
+    isRuntimeFailureOnlyAssistantText(message, sanitizedRawActionContent) &&
+    isRuntimeFailureDiagnosticAliasText(message, sanitizedRawActionContent);
+  const shouldUseRuntimeFailureSanitizedText =
+    runtimeFailureSanitizedActionContent !== sanitizedRawActionContent;
+  const shouldBackfillEmptyRuntimeFailureText =
+    message.role === "assistant" &&
+    message.runtimeStatus?.phase === "failed" &&
+    isTrivialAssistantFinalText(runtimeFailureSanitizedActionContent);
+  const shouldUseRuntimeFailureFallbackText =
+    !shouldSuppressDuplicatedFailureText &&
+    shouldBackfillEmptyRuntimeFailureText;
+  const runtimeFailureFallbackActionContent =
+    shouldUseRuntimeFailureFallbackText
+      ? resolveRuntimeFailureFallbackAssistantText(
+          message,
+          sanitizedRawActionContent,
+        )
+      : "";
   const actionContent = shouldSuppressDuplicatedFailureText
     ? ""
-    : rawActionContent;
+    : shouldUseRuntimeFailureFallbackText
+      ? runtimeFailureFallbackActionContent
+      : runtimeFailureSanitizedActionContent;
   const installedSkillMessageLabel =
     message.role === "user" ? resolveInstalledSkillMessageLabel(message) : null;
   const isUserCommandMessage =
@@ -867,7 +662,7 @@ export function resolveMessageListItemProjection({
     !focusedTimelineItemId &&
     !includeInlineProcessFlow &&
     !hasNonTextConversationContentParts &&
-    !((message.actionRequests || []).length > 0) &&
+    !((filteredActionRequests || []).length > 0) &&
     !actionContent.includes("```a2ui") &&
     actionContent.length >
       MESSAGE_LIST_COMPACT_HISTORICAL_ASSISTANT_THRESHOLD &&
@@ -893,30 +688,62 @@ export function resolveMessageListItemProjection({
         MESSAGE_LIST_LONG_HISTORICAL_MESSAGE_PREVIEW_CHARS,
       )
     : actionContent;
-  const rendererRawContent = shouldSuppressDuplicatedFailureText
-    ? ""
-    : shouldCollapseLongHistoricalMessage ||
-        shouldFlattenHistoricalAssistantContent
-      ? rendererContent
-      : usesProcessSeparatedFinalText
-        ? actionContent
-        : actionContent || visibleRawDisplayContent;
+  const rawRendererRawContent = shouldSuppressDuplicatedFailureText
+    ? actionContent
+    : shouldUseRuntimeFailureSanitizedText
+      ? actionContent
+      : shouldCollapseLongHistoricalMessage ||
+          shouldFlattenHistoricalAssistantContent
+        ? rendererContent
+        : usesProcessSeparatedFinalText
+          ? actionContent
+          : actionContent ||
+            (shouldHideAssistantTextWhileRunning
+              ? ""
+              : visibleRawDisplayContent);
+  const rendererRawContent = sanitizeProjectedMessageText(
+    message,
+    rawRendererRawContent,
+  );
+  const runtimeFailureTextContentParts =
+    (shouldUseRuntimeFailureSanitizedText ||
+      shouldUseRuntimeFailureFallbackText) &&
+    actionContent
+      ? ([{ type: "text" as const, text: actionContent }] satisfies NonNullable<
+          typeof rendererConversationContentParts
+        >)
+      : undefined;
   const rendererContentParts =
     shouldSuppressDuplicatedFailureText ||
     shouldCollapseLongHistoricalMessage ||
     shouldFlattenHistoricalAssistantContent
       ? undefined
-      : rendererConversationContentParts;
+      : runtimeFailureTextContentParts || rendererConversationContentParts;
+  const rendererHasProvenanceThinkingContentPart = Boolean(
+    rendererContentParts?.some(
+      (part) =>
+        part.type === "thinking" &&
+        part.text.trim().length > 0 &&
+        (part.metadata?.source ||
+          part.metadata?.threadItemId ||
+          part.metadata?.turnId ||
+          typeof part.metadata?.sequence === "number"),
+    ),
+  );
   const rendererThinkingContent = shouldCollapseLongHistoricalMessage
     ? undefined
-    : conversationThinkingContent;
-  const rendererToolCalls = shouldCollapseLongHistoricalMessage
-    ? undefined
-    : conversationToolCalls;
+    : rendererHasProvenanceThinkingContentPart
+      ? undefined
+      : conversationThinkingContent;
+  const rendererToolCalls =
+    shouldCollapseLongHistoricalMessage ||
+    hasInlineToolUseContentPart(rendererConversationContentParts)
+      ? undefined
+      : conversationToolCalls;
   const rendererActionRequests =
     shouldCollapseLongHistoricalMessage || shouldSuppressRendererProcessFlow
       ? undefined
-      : message.actionRequests;
+      : filteredActionRequests;
   const rendererMarkdownRenderMode =
     shouldCollapseLongHistoricalMessage ||
     shouldFlattenHistoricalAssistantContent
@@ -931,56 +758,23 @@ export function resolveMessageListItemProjection({
     actionContent &&
     actionContent.length >= 24,
   );
-  const canSaveMessageAsInspiration = Boolean(
-    message.role === "assistant" &&
-    !message.imageWorkbenchPreview &&
-    !message.isThinking &&
-    actionContent &&
-    actionContent.length >= 24,
-  );
-  const knowledgeArtifactSource =
-    message.role === "assistant"
-      ? resolveKnowledgeSourceFromArtifacts(message.artifacts)
-      : null;
-  const knowledgeSaveContent =
-    knowledgeArtifactSource?.content.trim() || actionContent;
-  const canSaveMessageAsKnowledge = Boolean(
-    message.role === "assistant" &&
-    !message.imageWorkbenchPreview &&
-    !message.isThinking &&
-    knowledgeSaveContent &&
-    knowledgeSaveContent.length >= 24,
-  );
-  const messageSavedSiteContentTarget =
-    message.role === "assistant"
-      ? resolveLatestProjectFileSavedSiteContentTargetFromMessage(message)
-      : null;
-  const visibleAssistantArtifacts =
-    message.role === "assistant" && !shouldSuppressImageProcessFlow
-      ? (message.artifacts || []).filter((artifact) => {
-          const artifactPath = resolveArtifactProtocolFilePath(artifact);
-          if (isHiddenConversationArtifactPath(artifactPath)) {
-            return false;
-          }
-
-          return !alreadyRenderedArtifactPaths.some((renderedPath) =>
-            areArtifactProtocolPathsEquivalent(artifactPath, renderedPath),
-          );
-        })
-      : [];
-  const shouldRenderMessageCanvasShortcut = Boolean(
-    messageSavedSiteContentTarget &&
-    canOpenSavedSiteContent &&
-    !message.imageWorkbenchPreview &&
-    !hasTrailingArtifactTimelineItems,
-  );
-  const messageCanvasShortcutTitle = messageSavedSiteContentTarget
-    ? resolveSiteSavedContentTargetDisplayName(messageSavedSiteContentTarget) ||
-      "导出稿"
-    : "文件";
-  const messageCanvasShortcutPath = messageSavedSiteContentTarget
-    ? resolveSiteSavedContentTargetRelativePath(messageSavedSiteContentTarget)
-    : null;
+  const {
+    canSaveMessageAsKnowledge,
+    hasArticleArtifactFrame,
+    knowledgeArtifactSource,
+    messageCanvasShortcutPath,
+    messageCanvasShortcutTitle,
+    messageSavedSiteContentTarget,
+    shouldRenderMessageCanvasShortcut,
+    visibleAssistantArtifacts,
+  } = resolveMessageListItemArtifactProjection({
+    actionContent,
+    alreadyRenderedArtifactPaths,
+    canOpenSavedSiteContent,
+    hasTrailingArtifactTimelineItems,
+    message,
+    shouldSuppressImageProcessFlow,
+  });
   const shouldDeferHistoricalMarkdownRender =
     shouldDeferMessageDetails &&
     message.role === "assistant" &&
@@ -993,23 +787,34 @@ export function resolveMessageListItemProjection({
     !message.imageWorkbenchPreview &&
     !message.taskPreview &&
     !hasStructuredHistoricalContentHint(actionContent);
+  const hasAssistantRenderableContentBeforeFirstToken =
+    hasVisibleAssistantText ||
+    Boolean(conversationContentParts?.length) ||
+    Boolean(message.thinkingContent?.trim()) ||
+    Boolean(conversationThinkingContent?.trim()) ||
+    Boolean(conversationToolCalls?.length) ||
+    Boolean((rendererActionRequests || []).length > 0) ||
+    Boolean(primaryTimeline) ||
+    Boolean(trailingTimeline) ||
+    Boolean((message.images || []).length > 0) ||
+    visibleAssistantArtifacts.length > 0 ||
+    shouldRenderMessageCanvasShortcut ||
+    Boolean(message.imageWorkbenchPreview) ||
+    Boolean(message.taskPreview);
+  const hasLocalFirstTokenRuntime =
+    message.isThinking || (isSending && message.id === lastAssistantMessageId);
+  const hasActiveFirstTokenRuntime =
+    hasActiveTimelineTurn || hasLocalFirstTokenRuntime;
   const shouldRenderFirstTokenRuntimeStatus =
     message.role === "assistant" &&
-    message.isThinking &&
-    !shouldSuppressRendererProcessFlow &&
-    !shouldRenderAssistantRuntimeStatusPill(message.runtimeStatus) &&
-    !hasVisibleAssistantText &&
-    !conversationContentParts?.length &&
-    !conversationThinkingContent?.trim() &&
-    !conversationToolCalls?.length &&
-    !((rendererActionRequests || []).length > 0) &&
-    !((message.images || []).length > 0) &&
-    visibleAssistantArtifacts.length === 0 &&
-    !shouldRenderMessageCanvasShortcut &&
-    !message.imageWorkbenchPreview &&
-    !message.taskPreview;
+    isConversationTailAssistant &&
+    !isRestoredHistoryWindow &&
+    hasActiveFirstTokenRuntime &&
+    shouldUseFirstTokenRuntimeStatus(message.runtimeStatus) &&
+    !hasAssistantRenderableContentBeforeFirstToken;
   const shouldCollapseAssistantShell =
     message.role === "assistant" &&
+    !shouldRenderFirstTokenRuntimeStatus &&
     !hasVisibleAssistantText &&
     !conversationContentParts?.length &&
     !conversationThinkingContent?.trim() &&
@@ -1027,18 +832,13 @@ export function resolveMessageListItemProjection({
   const imageWorkbenchRendererState = resolveImageWorkbenchRendererProcessState(
     {
       actionContent,
-      imageWorkbenchThinkingContent,
       message,
       rendererActionRequests,
       rendererContentParts,
-      rendererThinkingContent,
       rendererToolCalls,
       shouldSuppressRendererProcessFlow,
     },
   );
-  const primaryTimelineKey = primaryTimeline
-    ? `leading:${primaryTimeline.turn.id}`
-    : null;
   const arePrimaryTimelineDetailsDeferred =
     Boolean(primaryTimeline) &&
     shouldDeferThreadItemsScan &&
@@ -1050,17 +850,13 @@ export function resolveMessageListItemProjection({
     !focusedTimelineItemId &&
     primaryTimeline?.turn.status === "completed" &&
     primaryTimeline.turn.id !== activeCurrentTurnId &&
-    (arePrimaryTimelineDetailsDeferred ||
-      primaryTimeline.items.length >=
-        MESSAGE_LIST_HISTORICAL_TIMELINE_COMPACT_ITEM_THRESHOLD) &&
+    shouldPreferCompactHistoricalTimeline &&
     !expandedHistoricalTimelineKeys.has(primaryTimelineKey!);
   const shouldRenderPrimaryTimelineOutsideBubble =
     message.role === "assistant" &&
     Boolean(primaryTimeline) &&
-    hasVisibleAssistantText;
-  const shouldRenderProposedPlanBlocks = !primaryTimeline?.items.some(
-    (item) => item.type === "plan",
-  );
+    (hasVisibleAssistantText || !hasAssistantBodyContent);
+  const shouldRenderProposedPlanBlocks = !hasTimelinePlanItem;
   const shouldRenderImageWorkbenchBareBubble =
     message.role === "assistant" &&
     Boolean(message.imageWorkbenchPreview) &&
@@ -1076,7 +872,6 @@ export function resolveMessageListItemProjection({
     arePrimaryTimelineDetailsDeferred,
     canCopyMessage,
     canQuoteMessage,
-    canSaveMessageAsInspiration,
     canSaveMessageAsKnowledge,
     canSaveMessageAsSkill,
     displayContent,
@@ -1086,6 +881,7 @@ export function resolveMessageListItemProjection({
     imageWorkbenchRendererState,
     inlineProcessCoverage,
     installedSkillMessageLabel,
+    isActiveProcessOnlyOutput,
     isConversationTailAssistant,
     isCurrentInteractiveAssistantMessage,
     isUserCommandMessage,
@@ -1122,5 +918,6 @@ export function resolveMessageListItemProjection({
     trailingActionRequests,
     trailingTimeline,
     visibleAssistantArtifacts,
+    hasArticleArtifactFrame,
   };
 }

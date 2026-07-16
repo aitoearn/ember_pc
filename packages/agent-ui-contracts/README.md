@@ -1,6 +1,6 @@
 # @embercloud/agent-ui-contracts
 
-`@embercloud/agent-ui-contracts` 是 Ember Agent UI / Runtime 共享的契约事实源。它导出 TypeScript 类型、标准 conformance fixtures 和轻量 validation helpers，不包含投影逻辑、React 组件、JSON-RPC client 或 Electron bridge。
+`@embercloud/agent-ui-contracts` 是 Lime Agent UI / Runtime 共享的契约事实源。它导出 TypeScript 类型、标准 conformance fixtures 和轻量 validation helpers，不包含投影逻辑、React 组件、JSON-RPC client 或 Electron bridge。
 
 ## Boundary
 
@@ -77,7 +77,7 @@ export function toolStartedEvent(params: {
 }): AgentRuntimeExecutionEvent {
   return {
     id: `tool:${params.toolCallId}:started`,
-    schemaVersion: "ember-runtime-event/v0.1",
+    schemaVersion: "lime-runtime-event/v0.1",
     runtimeId: "runtime-1",
     threadId: "thread-1",
     turnId: params.turnId,
@@ -116,6 +116,8 @@ export interface HostAgentPanelState {
 
 `AgentUiProjectionState.subagents` 是标准子代理模型。React 组件和产品应用不能再从 `graph`、`readModel.visibleEvents`、assistant 正文或本地 state 重新解释 subagent、handoff、review 事实；这些解释必须在 projection 层完成。
 
+Subagents view model 的 thread、delegation 和 activity 都可以携带 `AgentUiCollaborationFactsView`。该 view 只保存结构化 `collaborationFacts`、`collaborationSurface`、`collaborationPhase`、`styleLevel`、`riskLevel`、`profileId`、`packId` 和 `toneVariant`；UI / 宿主可以把它暴露为 DOM contract 或事实标签，但不得把它扩展成 profile-specific 本地句库。
+
 ## Core Event Taxonomy
 
 Contracts 层只定义事实 envelope 和稳定枚举，不规定传输方式。事件族按 `eventClass` 划分：
@@ -128,7 +130,7 @@ Contracts 层只定义事实 envelope 和稳定枚举，不规定传输方式。
 | `action.*` | `actionId` | ActionRequired。 |
 | `artifact.*` | `artifactId` 或 `artifactRefs` | ArtifactRef / artifact workspace。 |
 | `evidence.*` / `review.*` | `evidenceId` 或 `evidenceRefs` | EvidenceRef、review lane。 |
-| `task.*` / `subagent.*` / `handoff.*` | `taskId`、`subagentId`、`handoffId` | ExecutionGraph、Subagents。 |
+| `task.*` / `subagent.*` / `handoff.*` | `taskId`、`subagentId`、`handoffId` | ExecutionGraph、Subagents；协作 facts 通过 `AgentUiCollaborationFactsView` 随 Subagents view 传递。 |
 | `snapshot.*` / `stream.*` | sequence / cursor | hydration、repair diagnostics。 |
 
 新增事件族时先补 contracts fixture 和 validation 文档，再让 projection / UI 包消费；不要先在产品组件里私有解释。
@@ -199,7 +201,7 @@ Validation helpers 只做合同层最小检查：必需字段、scope id、seque
 }
 ```
 
-缺少这些字段时，projection state 不符合 Ember AgentUI 标准。
+缺少这些字段时，projection state 不符合 Lime AgentUI 标准。
 
 边界层建议使用 `collect*ValidationIssues` 做非抛错检查，把问题汇入宿主诊断：
 
@@ -232,7 +234,7 @@ Product App runtime service
 
 ## Conformance
 
-一个 runtime provider 或产品 adapter 声称兼容 Ember AgentUI contracts 时，至少要证明：
+一个 runtime provider 或产品 adapter 声称兼容 Lime AgentUI contracts 时，至少要证明：
 
 | Slice | Required proof |
 | --- | --- |
@@ -242,7 +244,7 @@ Product App runtime service
 | Artifact / evidence | refs 不内联大 payload，不泄露 secret-bearing key。 |
 | Stream repair | sequence gap 只在声明 repair diagnostics 的 fixture 中允许。 |
 | Subagents | `subagent-handoff` 能表达 task、subagent、handoff、review scope。 |
-| Subagents | projection state 包含完整 `subagents` 字段。 |
+| Subagents | projection state 包含完整 `subagents` 字段，且协作事件可以保留 `AgentUiCollaborationFactsView`。 |
 
 下游包应从 `agentUiConformanceFixtures` 读取标准样本，而不是在自己的测试里复制一套私有 fixture。
 

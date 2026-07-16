@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
-import type { AsterSessionExecutionRuntime } from "@/lib/api/agentExecutionRuntime";
-import type { AsterSessionDetail } from "@/lib/api/agentRuntime";
+import type { AgentSessionExecutionRuntime } from "@/lib/api/agentExecutionRuntime";
+import type { AgentSessionDetail } from "@/lib/api/agentRuntime/sessionTypes";
 import type { AgentThreadItem, AgentThreadTurn, Message } from "../types";
 import {
   buildHydratedAgentSessionSnapshot,
   createEmptyAgentSessionSnapshot,
+  hasActiveRuntimeTurn,
   hasSessionHydrationActivity,
   resolveMissingSessionFromTopicsAction,
   resolveRestorableTopicSessionId,
   shouldDeferSessionDetailHydration,
+  shouldPreserveActiveLocalSessionDuringBackgroundRestoreInitialization,
+  shouldSkipAlreadyHydratedSession,
 } from "./agentSessionState";
 
 function createMessage(overrides: Partial<Message> = {}): Message {
@@ -61,7 +64,7 @@ describe("agentSessionState", () => {
       provider_name: "openai",
       model_name: "gpt-5.4-mini",
       source: "session",
-    } satisfies AsterSessionExecutionRuntime;
+    } satisfies AgentSessionExecutionRuntime;
 
     const snapshot = createEmptyAgentSessionSnapshot({
       executionRuntime: runtime,
@@ -71,6 +74,52 @@ describe("agentSessionState", () => {
     expect(snapshot.messages).toEqual([]);
     expect(snapshot.threadTurns).toEqual([]);
     expect(snapshot.executionRuntime).toBe(runtime);
+  });
+
+  it("后台恢复初始化不应覆盖首发后正在运行的本地会话", () => {
+    expect(
+      shouldPreserveActiveLocalSessionDuringBackgroundRestoreInitialization({
+        activeStreamingTimeline: false,
+        messagesCount: 2,
+        sessionId: "session-active-local",
+        shouldRestoreSessionInForeground: false,
+        threadItemsCount: 0,
+        threadTurnsCount: 1,
+      }),
+    ).toBe(true);
+    expect(
+      shouldPreserveActiveLocalSessionDuringBackgroundRestoreInitialization({
+        activeStreamingTimeline: true,
+        messagesCount: 0,
+        sessionId: "session-active-stream",
+        shouldRestoreSessionInForeground: false,
+        threadItemsCount: 0,
+        threadTurnsCount: 0,
+      }),
+    ).toBe(true);
+  });
+
+  it("前台恢复或没有本地 session 时不启用后台首发保护", () => {
+    expect(
+      shouldPreserveActiveLocalSessionDuringBackgroundRestoreInitialization({
+        activeStreamingTimeline: true,
+        messagesCount: 2,
+        sessionId: "session-foreground",
+        shouldRestoreSessionInForeground: true,
+        threadItemsCount: 1,
+        threadTurnsCount: 1,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPreserveActiveLocalSessionDuringBackgroundRestoreInitialization({
+        activeStreamingTimeline: true,
+        messagesCount: 2,
+        sessionId: null,
+        shouldRestoreSessionInForeground: false,
+        threadItemsCount: 1,
+        threadTurnsCount: 1,
+      }),
+    ).toBe(false);
   });
 
   it("应在 restore 目标失效时回退到最新有效话题", () => {
@@ -185,6 +234,79 @@ describe("agentSessionState", () => {
     ).toBe(false);
   });
 
+  it("pending shell 空壳命中历史 topic 时不应跳过 detail hydration", () => {
+    expect(
+      shouldSkipAlreadyHydratedSession({
+        currentTurnId: null,
+        hydratedSessionId: "topic-history",
+        messagesCount: 0,
+        queuedTurnsCount: 0,
+        selectedTopic: {
+          messagesCount: 2,
+          status: "done",
+        },
+        sessionId: "topic-history",
+        threadItemsCount: 0,
+        threadTurnsCount: 0,
+      }),
+    ).toBe(false);
+  });
+
+  it("已 hydrate 且本地已有内容时应跳过重复 detail hydration", () => {
+    expect(
+      shouldSkipAlreadyHydratedSession({
+        currentTurnId: null,
+        hydratedSessionId: "topic-history",
+        messagesCount: 1,
+        queuedTurnsCount: 0,
+        selectedTopic: {
+          messagesCount: 2,
+          status: "done",
+        },
+        sessionId: "topic-history",
+        threadItemsCount: 0,
+        threadTurnsCount: 0,
+      }),
+    ).toBe(true);
+  });
+
+  it("已 hydrate 且 read model 仍在运行时应跳过重复 detail hydration", () => {
+    expect(
+      shouldSkipAlreadyHydratedSession({
+        currentTurnId: null,
+        hydratedSessionId: "topic-running",
+        messagesCount: 0,
+        queuedTurnsCount: 0,
+        selectedTopic: {
+          messagesCount: 0,
+          status: "running",
+        },
+        sessionId: "topic-running",
+        threadReadStatus: "running",
+        threadItemsCount: 0,
+        threadTurnsCount: 0,
+      }),
+    ).toBe(true);
+  });
+
+  it("已 hydrate 的空草稿 topic 应跳过 detail hydration", () => {
+    expect(
+      shouldSkipAlreadyHydratedSession({
+        currentTurnId: null,
+        hydratedSessionId: "topic-draft",
+        messagesCount: 0,
+        queuedTurnsCount: 0,
+        selectedTopic: {
+          messagesCount: 0,
+          status: "draft",
+        },
+        sessionId: "topic-draft",
+        threadItemsCount: 0,
+        threadTurnsCount: 0,
+      }),
+    ).toBe(true);
+  });
+
   it("会话未出现在 topics 时应按状态决定清空、跳过或远程校验", () => {
     const base = {
       currentTurnId: null,
@@ -204,6 +326,18 @@ describe("agentSessionState", () => {
     expect(
       resolveMissingSessionFromTopicsAction({
         ...base,
+        remoteConfirmed: true,
+      }),
+    ).toEqual({ kind: "verify_remote" });
+    expect(
+      resolveMissingSessionFromTopicsAction({
+        ...base,
+        restoreCandidateMayLagTopics: true,
+      }),
+    ).toEqual({ kind: "verify_remote" });
+    expect(
+      resolveMissingSessionFromTopicsAction({
+        ...base,
         currentTurnId: "turn-1",
       }),
     ).toEqual({ kind: "verify_remote" });
@@ -219,6 +353,161 @@ describe("agentSessionState", () => {
         sessionId: "title-gen-session-1",
       }),
     ).toEqual({ kind: "clear_auxiliary" });
+  });
+
+  it("stale queued read model 不应单独阻塞下一轮用户提交", () => {
+    expect(
+      hasActiveRuntimeTurn({
+        queuedTurnsCount: 0,
+        threadReadStatus: "queued",
+        turns: [createTurn({ status: "completed" })],
+      }),
+    ).toBe(false);
+
+    expect(
+      hasActiveRuntimeTurn({
+        queuedTurnsCount: 1,
+        threadReadStatus: "queued",
+        turns: [createTurn({ status: "completed" })],
+      }),
+    ).toBe(true);
+
+    expect(
+      hasActiveRuntimeTurn({
+        queuedTurnsCount: 0,
+        threadRead: {
+          thread_id: "thread-queued",
+          status: "queued",
+          pending_requests: [],
+          incidents: [],
+          queued_turns: [
+            {
+              queued_turn_id: "queued-1",
+              message_preview: "继续输出",
+            } as never,
+          ],
+        },
+        threadReadStatus: "queued",
+        turns: [createTurn({ status: "completed" })],
+      }),
+    ).toBe(true);
+
+    expect(
+      hasActiveRuntimeTurn({
+        queuedTurnsCount: 0,
+        threadReadStatus: "queued",
+        turns: [
+          createTurn({
+            status: "running",
+            started_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }),
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it("无权威 read model 时陈旧本地 running turn 不应永久阻塞输入框", () => {
+    expect(
+      hasActiveRuntimeTurn({
+        queuedTurnsCount: 0,
+        threadReadStatus: null,
+        turns: [
+          createTurn({
+            status: "running",
+            started_at: "2026-03-29T00:00:00.000Z",
+            updated_at: "2026-03-29T00:00:01.000Z",
+          }),
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it("无权威 read model 时近期本地 running turn 可短暂阻塞重复提交", () => {
+    expect(
+      hasActiveRuntimeTurn({
+        queuedTurnsCount: 0,
+        threadReadStatus: null,
+        turns: [
+          createTurn({
+            status: "running",
+            started_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }),
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it("running read model 只有 active_turn_id 时也应阻塞下一轮用户提交", () => {
+    expect(
+      hasActiveRuntimeTurn({
+        queuedTurnsCount: 0,
+        threadReadStatus: "running",
+        threadRead: {
+          thread_id: "thread-running",
+          status: "running",
+          active_turn_id: "turn-running",
+          turns: [],
+        },
+        turns: [],
+      }),
+    ).toBe(true);
+  });
+
+  it("read model 已明确 idle 时不应被残留 running turn 判定为 active runtime", () => {
+    expect(
+      hasActiveRuntimeTurn({
+        queuedTurnsCount: 0,
+        threadReadStatus: "idle",
+        threadRead: {
+          thread_id: "thread-1",
+          status: "idle",
+          turns: [
+            {
+              turn_id: "turn-running-1",
+              status: "running",
+            },
+          ],
+        },
+        turns: [],
+      }),
+    ).toBe(false);
+
+    expect(
+      hasActiveRuntimeTurn({
+        queuedTurnsCount: 0,
+        threadReadStatus: "idle",
+        threadRead: {
+          thread_id: "thread-1",
+          status: "idle",
+          profile_status: "running",
+          turns: [],
+        },
+        turns: [],
+      }),
+    ).toBe(true);
+  });
+
+  it("显式终态 read model 不应被残留 running turn 判定为 active runtime", () => {
+    expect(
+      hasActiveRuntimeTurn({
+        queuedTurnsCount: 0,
+        threadReadStatus: "failed",
+        threadRead: {
+          thread_id: "thread-1",
+          status: "failed",
+          active_turn_id: "turn-stale",
+          turns: [
+            {
+              turn_id: "turn-stale",
+              status: "running",
+            },
+          ],
+        },
+        turns: [createTurn({ status: "running" })],
+      }),
+    ).toBe(false);
   });
 
   it("topics 未就绪、无 session 或 topic 已存在时不应处理缺失会话", () => {
@@ -275,7 +564,7 @@ describe("agentSessionState", () => {
       provider_name: "openai",
       model_name: "gpt-5.4-mini",
       source: "session",
-    } satisfies AsterSessionExecutionRuntime;
+    } satisfies AgentSessionExecutionRuntime;
     const detail = {
       id: "topic-1",
       created_at: 1700000000,
@@ -293,7 +582,7 @@ describe("agentSessionState", () => {
           position: 1,
         },
       ],
-    } satisfies AsterSessionDetail;
+    } satisfies AgentSessionDetail;
 
     const result = buildHydratedAgentSessionSnapshot({
       topicId: "topic-1",
@@ -308,6 +597,7 @@ describe("agentSessionState", () => {
     });
 
     expect(result.snapshot.sessionId).toBe("topic-1");
+    expect(result.snapshot.workingDir).toBeNull();
     expect(result.snapshot.messages).toEqual(currentMessages);
     expect(result.snapshot.threadTurns.map((turn) => turn.id)).toEqual([
       "turn-local",
@@ -329,6 +619,80 @@ describe("agentSessionState", () => {
         position: 1,
       },
     ]);
+  });
+
+  it("hydrate 会把 App Server session working_dir 作为会话工作目录事实源", () => {
+    const detail = {
+      id: "topic-with-working-dir",
+      created_at: 1700000000,
+      updated_at: 1700000001,
+      working_dir: " /workspace/runtime-cwd ",
+      messages: [],
+    } satisfies AgentSessionDetail;
+
+    const result = buildHydratedAgentSessionSnapshot({
+      topicId: "topic-with-working-dir",
+      detail,
+      currentSessionId: null,
+      currentMessages: [],
+      currentThreadTurns: [],
+      currentThreadItems: [],
+      currentExecutionRuntime: null,
+      currentExecutionStrategy: "react",
+      topics: [],
+      syncSessionId: true,
+    });
+
+    expect(result.snapshot.sessionId).toBe("topic-with-working-dir");
+    expect(result.snapshot.workingDir).toBe("/workspace/runtime-cwd");
+  });
+
+  it("同一 canonical SubAgent item 经 live 后 cold hydrate 仍只保留一个 durable identity", () => {
+    const liveItem = createItem({
+      id: "item_subagent-call-1",
+      type: "subagent_activity",
+      status: "completed",
+      status_label: "started",
+      session_id: "thread-child",
+    } as Partial<AgentThreadItem>);
+    const coldItem = createItem({
+      id: "item_subagent-call-1",
+      type: "subagent_activity",
+      status: "completed",
+      status_label: "interacted",
+      session_id: "thread-child",
+    } as Partial<AgentThreadItem>);
+    const detail = {
+      id: "topic-subagent",
+      thread_id: "thread-1",
+      created_at: 1700000000,
+      updated_at: 1700000001,
+      messages: [],
+      turns: [createTurn()],
+      items: [coldItem],
+      thread_read: {
+        thread_id: "thread-1",
+        thread_items: [coldItem],
+      },
+    } satisfies AgentSessionDetail;
+
+    const result = buildHydratedAgentSessionSnapshot({
+      topicId: "topic-subagent",
+      detail,
+      currentSessionId: "topic-subagent",
+      currentMessages: [],
+      currentThreadTurns: [createTurn()],
+      currentThreadItems: [liveItem],
+      currentExecutionRuntime: null,
+      currentExecutionStrategy: "react",
+      topics: [],
+    });
+
+    expect(
+      result.snapshot.threadItems.filter(
+        (item) => item.id === "item_subagent-call-1",
+      ),
+    ).toEqual([expect.objectContaining({ status_label: "interacted" })]);
   });
 
   it("同会话 hydrate 时远端纯正文不应刷新掉本地 assistant 执行过程", () => {
@@ -403,7 +767,7 @@ describe("agentSessionState", () => {
           content: [{ type: "text", text: "内容已保存到项目目录。" }],
         },
       ],
-    } satisfies AsterSessionDetail;
+    } satisfies AgentSessionDetail;
 
     const result = buildHydratedAgentSessionSnapshot({
       topicId: "topic-1",
@@ -449,6 +813,95 @@ describe("agentSessionState", () => {
       id: "tool-site-1",
       status: "completed",
     });
+  });
+
+  it("同会话 hydrate 时远端短正文片段不应截断本地已完成 assistant 输出", () => {
+    const currentMessages = [
+      createMessage({
+        id: "local-user-search",
+        role: "user",
+        content: "帮我分析一下学习机怎么选",
+        timestamp: new Date("2026-06-18T08:30:00.000Z"),
+      }),
+      createMessage({
+        id: "local-assistant-search",
+        role: "assistant",
+        content:
+          "根据我的搜索结果，建议优先比较权威评测、教材覆盖、护眼能力和售后渠道，再决定是否购买科大讯飞。",
+        timestamp: new Date("2026-06-18T08:30:20.000Z"),
+        contentParts: [
+          {
+            type: "tool_use",
+            toolCall: {
+              id: "tool-websearch-learning-device",
+              name: "WebSearch",
+              arguments: '{"query":"学习机 权威评测对比"}',
+              status: "completed",
+              startTime: new Date("2026-06-18T08:30:01.000Z"),
+              endTime: new Date("2026-06-18T08:30:05.000Z"),
+              result: {
+                success: true,
+                output: "https://example.com/review",
+              },
+            },
+          },
+          {
+            type: "text",
+            text: "根据我的搜索结果，建议优先比较权威评测、教材覆盖、护眼能力和售后渠道，再决定是否购买科大讯飞。",
+          },
+        ],
+      }),
+      createMessage({
+        id: "local-user-follow",
+        role: "user",
+        content: "T30 Pro 和 T90 有什么区别呢",
+        timestamp: new Date("2026-06-18T08:31:00.000Z"),
+      }),
+    ];
+    const detail = {
+      id: "topic-search",
+      created_at: 1700000000,
+      updated_at: 1700000001,
+      messages: [
+        {
+          role: "user",
+          timestamp: 1781767800,
+          content: [{ type: "text", text: "帮我分析一下学习机怎么选" }],
+        },
+        {
+          role: "assistant",
+          timestamp: 1781767820,
+          content: [{ type: "text", text: "根据我" }],
+        },
+        {
+          role: "user",
+          timestamp: 1781767860,
+          content: [{ type: "text", text: "T30 Pro 和 T90 有什么区别呢" }],
+        },
+      ],
+    } satisfies AgentSessionDetail;
+
+    const result = buildHydratedAgentSessionSnapshot({
+      topicId: "topic-search",
+      detail,
+      currentSessionId: "topic-search",
+      currentMessages,
+      currentThreadTurns: [],
+      currentThreadItems: [],
+      currentExecutionRuntime: null,
+      currentExecutionStrategy: "react",
+      topics: [],
+    });
+
+    expect(result.snapshot.messages[1]?.content).toContain("建议优先比较");
+    expect(result.snapshot.messages[1]?.content).not.toBe("根据我");
+    expect(result.snapshot.messages[1]?.contentParts?.at(-1)).toMatchObject({
+      type: "text",
+      text: expect.stringContaining("售后渠道"),
+    });
+    expect(result.snapshot.messages[2]?.content).toBe(
+      "T30 Pro 和 T90 有什么区别呢",
+    );
   });
 
   it("同会话 hydrate 保护本地 timeline 时仍应合入 App Server thread_read.tool_calls", () => {
@@ -525,17 +978,17 @@ describe("agentSessionState", () => {
             started_at: "2026-06-07T10:41:41.000Z",
             finished_at: "2026-06-07T10:41:42.000Z",
             arguments: {
-              url: "https://example.com/ember-workbench-tool",
+              url: "https://example.com/lime-workbench-tool",
             },
             output_preview:
-              "已获取 fixture 工具事实: https://example.com/ember-workbench-tool",
+              "已获取 fixture 工具事实: https://example.com/lime-workbench-tool",
             output:
-              "已获取 fixture 工具事实: https://example.com/ember-workbench-tool",
+              "已获取 fixture 工具事实: https://example.com/lime-workbench-tool",
             success: true,
           },
         ],
       },
-    } satisfies AsterSessionDetail;
+    } satisfies AgentSessionDetail;
 
     const result = buildHydratedAgentSessionSnapshot({
       topicId: "topic-tool-read",
@@ -563,7 +1016,7 @@ describe("agentSessionState", () => {
           result: {
             success: true,
             output:
-              "已获取 fixture 工具事实: https://example.com/ember-workbench-tool",
+              "已获取 fixture 工具事实: https://example.com/lime-workbench-tool",
           },
         },
       ],
@@ -635,7 +1088,7 @@ describe("agentSessionState", () => {
           content: [{ type: "text", text: "继续保存文章" }],
         },
       ],
-    } satisfies AsterSessionDetail;
+    } satisfies AgentSessionDetail;
 
     const result = buildHydratedAgentSessionSnapshot({
       topicId: "topic-1",
@@ -657,544 +1110,6 @@ describe("agentSessionState", () => {
           part.type === "tool_use" && part.toolCall.id === "tool-site-2",
       ),
     ).toBe(true);
-  });
-
-  it("首次按 restore 候选 hydrate 时也应合并本地缓存而不是整段覆盖", () => {
-    const now = new Date("2026-04-08T10:00:02.000Z");
-    const currentMessages = [
-      createMessage({
-        id: "local-user",
-        role: "user",
-        content: "把文章保存到项目里",
-        timestamp: new Date("2026-04-08T10:00:00.000Z"),
-      }),
-      createMessage({
-        id: "local-assistant",
-        role: "assistant",
-        content: "内容已保存到项目目录。",
-        timestamp: now,
-        contentParts: [
-          {
-            type: "tool_use",
-            toolCall: {
-              id: "tool-site-restore",
-              name: "site_run_adapter",
-              arguments: '{"url":"https://x.com/example/article/3"}',
-              status: "completed",
-              startTime: new Date("2026-04-08T10:00:01.000Z"),
-              endTime: now,
-              result: {
-                success: true,
-                output: "saved: articles/google-cloud-tech-3.md",
-              },
-            },
-          },
-        ],
-        toolCalls: [
-          {
-            id: "tool-site-restore",
-            name: "site_run_adapter",
-            arguments: '{"url":"https://x.com/example/article/3"}',
-            status: "completed",
-            startTime: new Date("2026-04-08T10:00:01.000Z"),
-            endTime: now,
-            result: {
-              success: true,
-              output: "saved: articles/google-cloud-tech-3.md",
-            },
-          },
-        ],
-      }),
-    ];
-    const detail = {
-      id: "topic-restore",
-      created_at: 1700000000,
-      updated_at: 1700000001,
-      messages: [
-        {
-          role: "user",
-          timestamp: 1710000001,
-          content: [{ type: "text", text: "把文章保存到项目里" }],
-        },
-      ],
-    } satisfies AsterSessionDetail;
-
-    const result = buildHydratedAgentSessionSnapshot({
-      topicId: "topic-restore",
-      detail,
-      currentSessionId: null,
-      currentMessages,
-      currentThreadTurns: [],
-      currentThreadItems: [],
-      currentExecutionRuntime: null,
-      currentExecutionStrategy: "react",
-      topics: [],
-      syncSessionId: true,
-    });
-
-    expect(result.snapshot.sessionId).toBe("topic-restore");
-    expect(result.snapshot.messages).toHaveLength(2);
-    expect(result.snapshot.messages[1]?.toolCalls?.[0]?.id).toBe(
-      "tool-site-restore",
-    );
-  });
-
-  it("切回其他历史会话时也应优先合并目标会话自己的本地快照", () => {
-    const now = new Date("2026-04-08T10:00:02.000Z");
-    const detail = {
-      id: "topic-history-target",
-      created_at: 1700000000,
-      updated_at: 1700000001,
-      messages: [
-        {
-          role: "user",
-          timestamp: 1710000001,
-          content: [{ type: "text", text: "把文章保存到项目里" }],
-        },
-      ],
-    } satisfies AsterSessionDetail;
-
-    const result = buildHydratedAgentSessionSnapshot({
-      topicId: "topic-history-target",
-      detail,
-      currentSessionId: "topic-other",
-      currentMessages: [
-        createMessage({
-          id: "other-session-message",
-          role: "assistant",
-          content: "这是另一个会话，不应参与合并",
-        }),
-      ],
-      currentThreadTurns: [],
-      currentThreadItems: [],
-      currentExecutionRuntime: null,
-      currentExecutionStrategy: "react",
-      topics: [],
-      localSnapshotOverride: {
-        sessionId: "topic-history-target",
-        messages: [
-          createMessage({
-            id: "local-user-target",
-            role: "user",
-            content: "把文章保存到项目里",
-            timestamp: new Date("2026-04-08T10:00:00.000Z"),
-          }),
-          createMessage({
-            id: "local-assistant-target",
-            role: "assistant",
-            content: "内容已保存到项目目录。",
-            timestamp: now,
-            toolCalls: [
-              {
-                id: "tool-site-target",
-                name: "site_run_adapter",
-                arguments: '{"url":"https://x.com/example/article/4"}',
-                status: "completed",
-                startTime: new Date("2026-04-08T10:00:01.000Z"),
-                endTime: now,
-                result: {
-                  success: true,
-                  output: "saved: articles/google-cloud-tech-4.md",
-                },
-              },
-            ],
-            contentParts: [
-              {
-                type: "tool_use",
-                toolCall: {
-                  id: "tool-site-target",
-                  name: "site_run_adapter",
-                  arguments: '{"url":"https://x.com/example/article/4"}',
-                  status: "completed",
-                  startTime: new Date("2026-04-08T10:00:01.000Z"),
-                  endTime: now,
-                  result: {
-                    success: true,
-                    output: "saved: articles/google-cloud-tech-4.md",
-                  },
-                },
-              },
-            ],
-          }),
-        ],
-        threadTurns: [],
-        threadItems: [],
-      },
-      syncSessionId: true,
-    });
-
-    expect(result.snapshot.messages).toHaveLength(2);
-    expect(result.snapshot.messages[1]?.content).toBe("内容已保存到项目目录。");
-    expect(result.snapshot.messages[1]?.thinkingContent).toBeUndefined();
-    expect(result.snapshot.messages[1]?.toolCalls?.[0]?.id).toBe(
-      "tool-site-target",
-    );
-    expect(result.snapshot.messages[1]?.contentParts).toEqual([
-      {
-        type: "text",
-        text: "内容已保存到项目目录。",
-      },
-    ]);
-    expect(result.snapshot.messages[1]?.content).not.toContain(
-      "这是另一个会话",
-    );
-  });
-
-  it("本地快照首轮用户指令与远端不一致时应丢弃快照，避免历史会话串线", () => {
-    const detail = {
-      id: "topic-image-lemonade",
-      created_at: 1700000000,
-      updated_at: 1700000001,
-      messages: [],
-      turns: [
-        createTurn({
-          id: "turn-lemonade",
-          thread_id: "topic-image-lemonade",
-          prompt_text: "@配图 生成一张极简线稿风的柠檬水杯配图，1:1",
-          started_at: "2026-05-14T05:20:00.000Z",
-          completed_at: "2026-05-14T05:20:01.000Z",
-          created_at: "2026-05-14T05:20:00.000Z",
-          updated_at: "2026-05-14T05:20:01.000Z",
-        }),
-      ],
-      items: [],
-      queued_turns: [],
-    } satisfies AsterSessionDetail;
-
-    const result = buildHydratedAgentSessionSnapshot({
-      topicId: "topic-image-lemonade",
-      detail,
-      currentSessionId: "topic-image-lemonade",
-      currentMessages: [
-        createMessage({
-          id: "topic-image-lemonade-0",
-          role: "user",
-          content: "@配图 生成三张章节配图",
-          timestamp: new Date("2026-05-14T05:33:22.000Z"),
-        }),
-        createMessage({
-          id: "topic-image-lemonade-1",
-          role: "assistant",
-          content: "我按三个章节分别生成，方便你逐张查看。",
-          timestamp: new Date("2026-05-14T05:33:23.000Z"),
-          thinkingContent: "拆成三个章节画面，保持同一视觉风格。",
-          contentParts: [
-            {
-              type: "thinking",
-              text: "拆成三个章节画面，保持同一视觉风格。",
-            },
-            {
-              type: "text",
-              text: "我按三个章节分别生成，方便你逐张查看。",
-            },
-          ],
-        }),
-      ],
-      currentThreadTurns: [],
-      currentThreadItems: [],
-      currentExecutionRuntime: null,
-      currentExecutionStrategy: "react",
-      topics: [],
-      syncSessionId: true,
-    });
-
-    expect(result.snapshot.sessionId).toBe("topic-image-lemonade");
-    expect(result.snapshot.messages).toHaveLength(1);
-    expect(result.snapshot.messages[0]?.content).toBe(
-      "@配图 生成一张极简线稿风的柠檬水杯配图，1:1",
-    );
-    expect(result.snapshot.messages[0]?.content).not.toContain("章节配图");
-  });
-
-  it("切回直执 Skill 历史会话时不应被远端纯正文刷新掉本地思考", () => {
-    const now = new Date("2026-04-08T10:00:02.000Z");
-    const detail = {
-      id: "topic-skill-history-target",
-      created_at: 1700000000,
-      updated_at: 1700000001,
-      messages: [
-        {
-          role: "user",
-          timestamp: 1710000001,
-          content: [
-            {
-              type: "text",
-              text: "请整理产品知识库",
-            },
-          ],
-        },
-        {
-          role: "assistant",
-          timestamp: 1710000002,
-          content: [
-            {
-              type: "text",
-              text: "最终 Skill 回复",
-            },
-          ],
-        },
-      ],
-      turns: [],
-      items: [],
-      queued_turns: [],
-    } satisfies AsterSessionDetail;
-
-    const result = buildHydratedAgentSessionSnapshot({
-      topicId: "topic-skill-history-target",
-      detail,
-      currentSessionId: "topic-other",
-      currentMessages: [
-        createMessage({
-          id: "other-session-message",
-          role: "assistant",
-          content: "这是另一个会话，不应参与合并",
-        }),
-      ],
-      currentThreadTurns: [],
-      currentThreadItems: [],
-      currentExecutionRuntime: null,
-      currentExecutionStrategy: "react",
-      topics: [],
-      localSnapshotOverride: {
-        sessionId: "topic-skill-history-target",
-        messages: [
-          createMessage({
-            id: "local-skill-user",
-            role: "user",
-            content: "请整理产品知识库",
-            timestamp: new Date("2026-04-08T10:00:00.000Z"),
-          }),
-          createMessage({
-            id: "local-skill-assistant",
-            role: "assistant",
-            content: "最终 Skill 回复",
-            timestamp: now,
-            runtimeTurnId: "skill-exec-local-skill-assistant",
-            thinkingContent:
-              "正在执行 Skill: brand-product-knowledge-builder...",
-            contentParts: [
-              {
-                type: "thinking",
-                text: "正在执行 Skill: brand-product-knowledge-builder...",
-              },
-              {
-                type: "text",
-                text: "最终 Skill 回复",
-              },
-            ],
-          }),
-        ],
-        threadTurns: [],
-        threadItems: [],
-      },
-      syncSessionId: true,
-    });
-
-    expect(result.snapshot.messages).toHaveLength(2);
-    expect(result.snapshot.messages[1]?.content).toBe("最终 Skill 回复");
-    expect(result.snapshot.messages[1]?.runtimeTurnId).toBe(
-      "skill-exec-local-skill-assistant",
-    );
-    expect(result.snapshot.messages[1]?.thinkingContent).toBe(
-      "正在执行 Skill: brand-product-knowledge-builder...",
-    );
-    expect(result.snapshot.messages[1]?.contentParts).toEqual([
-      {
-        type: "thinking",
-        text: "正在执行 Skill: brand-product-knowledge-builder...",
-      },
-      {
-        type: "text",
-        text: "最终 Skill 回复",
-      },
-    ]);
-  });
-
-  it("切回服务型 Skill 历史会话时不应被远端纯正文刷新掉本地思考", () => {
-    const now = new Date("2026-04-08T10:00:03.000Z");
-    const detail = {
-      id: "topic-service-skill-history-target",
-      created_at: 1700000000,
-      updated_at: 1700000001,
-      messages: [
-        {
-          role: "user",
-          timestamp: 1710000001,
-          content: [
-            {
-              type: "text",
-              text: "请整理产品知识库",
-            },
-          ],
-        },
-        {
-          role: "assistant",
-          timestamp: 1710000002,
-          content: [
-            {
-              type: "text",
-              text: "服务型 Skill 最终回复",
-            },
-          ],
-        },
-      ],
-      turns: [],
-      items: [],
-      queued_turns: [],
-    } satisfies AsterSessionDetail;
-
-    const result = buildHydratedAgentSessionSnapshot({
-      topicId: "topic-service-skill-history-target",
-      detail,
-      currentSessionId: "topic-other",
-      currentMessages: [],
-      currentThreadTurns: [],
-      currentThreadItems: [],
-      currentExecutionRuntime: null,
-      currentExecutionStrategy: "react",
-      topics: [],
-      localSnapshotOverride: {
-        sessionId: "topic-service-skill-history-target",
-        messages: [
-          createMessage({
-            id: "local-service-skill-user",
-            role: "user",
-            content: "请整理产品知识库",
-            timestamp: new Date("2026-04-08T10:00:00.000Z"),
-          }),
-          createMessage({
-            id: "local-service-skill-assistant",
-            role: "assistant",
-            content: "服务型 Skill 最终回复",
-            timestamp: now,
-            runtimeTurnId: "turn-service-skill-runtime",
-            inlineProcessRetention: "skill",
-            thinkingContent: "先读取服务 Skill，再分析产品资料边界。",
-            contentParts: [
-              {
-                type: "thinking",
-                text: "先读取服务 Skill，再分析产品资料边界。",
-              },
-              {
-                type: "text",
-                text: "服务型 Skill 最终回复",
-              },
-            ],
-          }),
-        ],
-        threadTurns: [],
-        threadItems: [],
-      },
-      syncSessionId: true,
-    });
-
-    expect(result.snapshot.messages).toHaveLength(2);
-    expect(result.snapshot.messages[1]?.content).toBe("服务型 Skill 最终回复");
-    expect(result.snapshot.messages[1]?.runtimeTurnId).toBe(
-      "turn-service-skill-runtime",
-    );
-    expect(result.snapshot.messages[1]?.inlineProcessRetention).toBe("skill");
-    expect(result.snapshot.messages[1]?.thinkingContent).toBe(
-      "先读取服务 Skill，再分析产品资料边界。",
-    );
-    expect(result.snapshot.messages[1]?.contentParts).toEqual([
-      {
-        type: "thinking",
-        text: "先读取服务 Skill，再分析产品资料边界。",
-      },
-      {
-        type: "text",
-        text: "服务型 Skill 最终回复",
-      },
-    ]);
-  });
-
-  it("新建会话 ID 尚未同步时也不应让远端纯正文刷新掉本地 Skill 过程", () => {
-    const now = new Date("2026-04-08T10:00:04.000Z");
-    const detail = {
-      id: "topic-detached-skill-history-target",
-      created_at: 1700000000,
-      updated_at: 1700000001,
-      messages: [
-        {
-          role: "user",
-          timestamp: 1710000001,
-          content: [
-            {
-              type: "text",
-              text: "请整理产品知识库",
-            },
-          ],
-        },
-        {
-          role: "assistant",
-          timestamp: 1710000002,
-          content: [
-            {
-              type: "text",
-              text: "最终 Skill 回复",
-            },
-          ],
-        },
-      ],
-      turns: [],
-      items: [],
-      queued_turns: [],
-    } satisfies AsterSessionDetail;
-
-    const result = buildHydratedAgentSessionSnapshot({
-      topicId: "topic-detached-skill-history-target",
-      detail,
-      currentSessionId: null,
-      currentMessages: [
-        createMessage({
-          id: "local-detached-skill-user",
-          role: "user",
-          content: "请整理产品知识库",
-          timestamp: new Date("2026-04-08T10:00:00.000Z"),
-        }),
-        createMessage({
-          id: "local-detached-skill-assistant",
-          role: "assistant",
-          content: "最终 Skill 回复",
-          timestamp: now,
-          runtimeTurnId: "skill-exec-local-detached-skill-assistant",
-          thinkingContent: "正在执行 Skill: brand-product-knowledge-builder...",
-          contentParts: [
-            {
-              type: "thinking",
-              text: "正在执行 Skill: brand-product-knowledge-builder...",
-            },
-            {
-              type: "text",
-              text: "最终 Skill 回复",
-            },
-          ],
-        }),
-      ],
-      currentThreadTurns: [],
-      currentThreadItems: [],
-      currentExecutionRuntime: null,
-      currentExecutionStrategy: "react",
-      topics: [],
-    });
-
-    expect(result.snapshot.messages[1]).toMatchObject({
-      id: "local-detached-skill-assistant",
-      content: "最终 Skill 回复",
-      runtimeTurnId: "skill-exec-local-detached-skill-assistant",
-      thinkingContent: "正在执行 Skill: brand-product-knowledge-builder...",
-    });
-    expect(result.snapshot.messages[1]?.contentParts).toEqual([
-      {
-        type: "thinking",
-        text: "正在执行 Skill: brand-product-knowledge-builder...",
-      },
-      {
-        type: "text",
-        text: "最终 Skill 回复",
-      },
-    ]);
   });
 
   it("同会话 hydrate 时远端最后停在 user 且时间更晚，也应保留本地 assistant 尾部", () => {
@@ -1254,7 +1169,7 @@ describe("agentSessionState", () => {
           content: [{ type: "text", text: "导出这篇文章" }],
         },
       ],
-    } satisfies AsterSessionDetail;
+    } satisfies AgentSessionDetail;
 
     const result = buildHydratedAgentSessionSnapshot({
       topicId: "topic-earlier-tail",
@@ -1311,14 +1226,14 @@ describe("agentSessionState", () => {
           thread_id: "topic-with-auxiliary-turn",
           turn_id: "auxiliary-runtime-projection-title",
           type: "file_artifact",
-          path: ".ember/harness/sessions/topic-with-auxiliary-turn/auxiliary-runtime/title.json",
+          path: ".lime/harness/sessions/topic-with-auxiliary-turn/auxiliary-runtime/title.json",
           source: "auxiliary_runtime_projection",
           metadata: {
             artifactType: "auxiliary_runtime_projection",
           },
         } as Partial<AgentThreadItem>),
       ],
-    } satisfies AsterSessionDetail;
+    } satisfies AgentSessionDetail;
 
     const result = buildHydratedAgentSessionSnapshot({
       topicId: "topic-with-auxiliary-turn",

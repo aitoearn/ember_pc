@@ -9,8 +9,8 @@ import type {
   SkillMarketplaceBundle,
   SkillMarketplaceItem,
 } from "@/lib/api/officialSkillMarketplace";
-import type { Skill } from "@/lib/api/skills";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import type { CreateSkillScaffoldRequest, Skill } from "@/lib/api/skills";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import type { SkillsPageParams } from "@/types/page";
 import { SkillsWorkspacePage } from "./SkillsWorkspacePage";
 
@@ -37,7 +37,7 @@ const hoisted = vi.hoisted(() => ({
     exportLocalSkillPackage: vi.fn(),
     inspectLocalSkillPackage: vi.fn(),
     installLocalSkillPackage: vi.fn(),
-    getOrCreateDefaultProject: vi.fn(),
+    getProject: vi.fn(),
     listRegisteredSkills: vi.fn(),
     listWorkspaceSkillBindings: vi.fn(),
     getAutomationJobs: vi.fn(),
@@ -151,8 +151,7 @@ vi.mock("@/lib/api/project", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api/project")>();
   return {
     ...actual,
-    getOrCreateDefaultProject: (...args: unknown[]) =>
-      mocks.getOrCreateDefaultProject(...args),
+    getProject: (...args: unknown[]) => mocks.getProject(...args),
   };
 });
 
@@ -163,9 +162,12 @@ vi.mock("@/lib/api/capabilityDrafts", () => ({
   },
 }));
 
-vi.mock("@/lib/api/agentRuntime", () => ({
+vi.mock("@/lib/api/agentRuntime/inventoryClient", () => ({
   listWorkspaceSkillBindings: (...args: unknown[]) =>
     mocks.listWorkspaceSkillBindings(...args),
+}));
+
+vi.mock("@/lib/api/agentRuntime/exportClient", () => ({
   exportAgentRuntimeEvidencePack: (...args: unknown[]) =>
     mocks.exportAgentRuntimeEvidencePack(...args),
 }));
@@ -179,7 +181,42 @@ vi.mock("@/lib/api/automation", () => ({
 }));
 
 vi.mock("./SkillScaffoldDialog", () => ({
-  SkillScaffoldDialog: () => null,
+  SkillScaffoldDialog: ({
+    open,
+    initialValues,
+    onCreate,
+  }: {
+    open: boolean;
+    initialValues?: {
+      target?: "project" | "user";
+      directory?: string;
+      name?: string;
+      description?: string;
+    } | null;
+    onCreate?: (request: CreateSkillScaffoldRequest) => Promise<void>;
+  }) =>
+    open ? (
+      <div data-testid="skill-scaffold-dialog">
+        <span>{initialValues?.directory}</span>
+        <span>{initialValues?.name}</span>
+        <span>{initialValues?.description}</span>
+        <button
+          type="button"
+          data-testid="skill-scaffold-create"
+          onClick={() =>
+            void onCreate?.({
+              target: initialValues?.target ?? "user",
+              directory: initialValues?.directory ?? "project-report",
+              name: initialValues?.name ?? "项目报告",
+              description:
+                initialValues?.description ?? "沉淀为可注册的工作区技能。",
+            })
+          }
+        >
+          创建
+        </button>
+      </div>
+    ) : null,
 }));
 
 vi.mock("@/components/ui/dialog", () => ({
@@ -224,8 +261,8 @@ export function createDefaultLocalSkills(): Skill[] {
       sourceKind: "other",
       catalogSource: "user",
       metadata: {
-        ember_when_to_use: "当你需要复用本地写作 Skill 时使用。",
-        ember_argument_hint: "主题、受众与语气要求",
+        lime_when_to_use: "当你需要复用本地写作 Skill 时使用。",
+        lime_argument_hint: "主题、受众与语气要求",
       },
     },
   ];
@@ -234,11 +271,11 @@ export function createDefaultLocalSkills(): Skill[] {
 function createDefaultServiceSkills(): ServiceSkillHomeItem[] {
   return [
     {
-      id: "carousel-post-replication",
-      title: "兼容性测试",
-      summary: "围绕目标平台、浏览器/系统版本和核心功能路径，整理兼容性测试范围、矩阵和优先级。",
-      category: "专项测试",
-      outputHint: "兼容矩阵 + 测试清单",
+      id: "service-skill-research",
+      title: "深度研究",
+      summary: "综合多来源信息并给出归纳后的结论。",
+      category: "调研",
+      outputHint: "研究摘要",
       source: "cloud_catalog",
       runnerType: "instant",
       defaultExecutorBinding: "agent_turn",
@@ -256,26 +293,26 @@ function createDefaultServiceSkills(): ServiceSkillHomeItem[] {
       groupKey: "general",
     },
     {
-      id: "personal-ip-knowledge-builder",
-      title: "个人 IP 知识库生成器",
-      summary: "把访谈稿、聊天记录整理成个人人设包。",
-      category: "项目资料",
-      outputHint: "document-first 个人 IP 知识库",
+      id: "site-skill:github/search",
+      title: "GitHub 仓库检索",
+      summary: "围绕关键词采集 GitHub 仓库搜索结果。",
+      category: "GitHub",
+      outputHint: "仓库列表",
       source: "cloud_catalog",
       runnerType: "instant",
-      defaultExecutorBinding: "native_skill",
+      defaultExecutorBinding: "browser_assist",
       executionLocation: "client_default",
       slotSchema: [],
       version: "2026-03-29",
       badge: "官方",
       recentUsedAt: null,
       isRecent: false,
-      runnerLabel: "立即开始",
-      runnerTone: "sky",
-      runnerDescription: "由项目资料整理流程自动调用。",
-      actionLabel: "开始这一步",
+      runnerLabel: "接着浏览器继续",
+      runnerTone: "emerald",
+      runnerDescription: "复用浏览器登录态执行。",
+      actionLabel: "补齐这一步",
       automationStatus: null,
-      groupKey: "general",
+      groupKey: "github",
     },
   ];
 }
@@ -446,7 +483,7 @@ export function getLatestNavigationPayload(
 
 export function useSkillsWorkspacePageTestLifecycle() {
   beforeEach(async () => {
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
     (
       globalThis as typeof globalThis & {
         IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -628,12 +665,12 @@ export function useSkillsWorkspacePageTestLifecycle() {
         },
       },
     });
-    mocks.getOrCreateDefaultProject.mockReset();
-    mocks.getOrCreateDefaultProject.mockResolvedValue({
+    mocks.getProject.mockReset();
+    mocks.getProject.mockResolvedValue({
       id: "default-workspace",
       name: "默认工作区",
       workspaceType: "general",
-      rootPath: "/Users/demo/Ember/default-workspace",
+      rootPath: "/Users/demo/Lime/default-workspace",
       isDefault: true,
       createdAt: 0,
       updatedAt: 0,

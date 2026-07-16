@@ -6,6 +6,7 @@ import {
   type MutableRefObject,
 } from "react";
 import type { ActiveStreamState } from "./agentStreamSubmissionLifecycle";
+import { rememberLocallyStartedAgentStreamBinding } from "./agentStreamResumeBinding";
 
 interface UseAgentStreamControllerOptions {
   currentAssistantMsgIdRef: MutableRefObject<string | null>;
@@ -22,15 +23,24 @@ export function useAgentStreamController(
     currentStreamingEventNameRef,
   } = options;
   const [isSending, setIsSending] = useState(false);
+  const [activeStreamEventName, setActiveStreamEventName] = useState<
+    string | null
+  >(null);
+  const [activeStreamTurnId, setActiveStreamTurnId] = useState<string | null>(
+    null,
+  );
   const listenerMapRef = useRef(new Map<string, () => void>());
   const activeStreamRef = useRef<ActiveStreamState | null>(null);
 
   const setActiveStream = useCallback(
     (nextActive: ActiveStreamState | null) => {
       activeStreamRef.current = nextActive;
+      rememberLocallyStartedAgentStreamBinding(nextActive);
       currentAssistantMsgIdRef.current = nextActive?.assistantMsgId ?? null;
       currentStreamingSessionIdRef.current = nextActive?.sessionId ?? null;
       currentStreamingEventNameRef.current = nextActive?.eventName ?? null;
+      setActiveStreamEventName(nextActive?.eventName ?? null);
+      setActiveStreamTurnId(nextActive?.turnId ?? null);
       setIsSending(Boolean(nextActive));
     },
     [
@@ -95,6 +105,8 @@ export function useAgentStreamController(
 
   return {
     isSending,
+    activeStreamEventName,
+    activeStreamTurnId,
     setIsSending,
     listenerMapRef,
     activeStreamRef,

@@ -122,10 +122,10 @@ function buildAgentQcCompletionAudit(facts) {
         Number(entry.counts?.pending || 0) > 0),
   );
   const qcloopEvidenceText = facts.realEvidencePack?.exists
-    ? `.ember/qc/agent-qc-evidence.json status=${facts.realEvidencePack.status || "unknown"} scenarios=${facts.realEvidencePack.scenarioCount || 0}/${requiredQcloopScenarioCount}${missingQcloopScenarioIds.length > 0 ? ` missing=${missingQcloopScenarioIds.join(",")}` : ""}`
+    ? `.lime/qc/agent-qc-evidence.json status=${facts.realEvidencePack.status || "unknown"} scenarios=${facts.realEvidencePack.scenarioCount || 0}/${requiredQcloopScenarioCount}${missingQcloopScenarioIds.length > 0 ? ` missing=${missingQcloopScenarioIds.join(",")}` : ""}`
     : sidecarEvidenceSummary
-      ? `未发现 .ember/qc/agent-qc-evidence.json；sidecars: ${sidecarEvidenceSummary}`
-      : "未发现 .ember/qc/agent-qc-evidence.json";
+      ? `未发现 .lime/qc/agent-qc-evidence.json；sidecars: ${sidecarEvidenceSummary}`
+      : "未发现 .lime/qc/agent-qc-evidence.json";
   const qcloopEvidenceWithStatusText = qcloopStatusSidecarSummary
     ? `${qcloopEvidenceText}; qcloopStatus: ${qcloopStatusSidecarSummary}`
     : qcloopEvidenceText;
@@ -140,7 +140,7 @@ function buildAgentQcCompletionAudit(facts) {
   }
   if (!facts.realEvidencePack?.exists && sidecarEvidenceSummary) {
     qcloopGapFragments.push(
-      "已有 sidecar Evidence Pack，但尚未生成 pass 的官方 .ember/qc/agent-qc-evidence.json",
+      "已有 sidecar Evidence Pack，但尚未生成 pass 的官方 .lime/qc/agent-qc-evidence.json",
     );
   }
   if (missingQcloopScenarioIds.length > 0) {
@@ -166,7 +166,7 @@ function buildAgentQcCompletionAudit(facts) {
       : "尚未运行真实 qcloop 批次并导出 pass Evidence Pack。";
   const localVerifyEvidenceText = facts.localVerify?.status
     ? `status=${facts.localVerify.status}${facts.localVerify.failedStage ? ` failedStage=${facts.localVerify.failedStage}` : ""}`
-    : "未发现 .ember/qc/verify-local-current.json";
+    : "未发现 .lime/qc/verify-local-current.json";
   const guiSmokeEvidenceText = facts.guiSmoke?.status
     ? `; latestGuiSmoke status=${facts.guiSmoke.status}${facts.guiSmoke.failedStage ? ` failedStage=${facts.guiSmoke.failedStage}` : ""}`
     : "";
@@ -198,17 +198,17 @@ function buildAgentQcCompletionAudit(facts) {
         `extra=${facts.payloadCoverage.coverage.extraScenarioIds?.length ?? 0}`,
         `owner=${facts.payloadCoverage.ownerGate?.status || "unknown"}`,
       ].join(" ")
-    : "未发现 .ember/qc/qcloop-p0-single-owner-ready-coverage-current.json";
+    : "未发现 .lime/qc/qcloop-p0-single-owner-ready-coverage-current.json";
   const items = [
     createItem(
       "docs-tests-standard",
-      "docs/tests 下存在 Agent QC 人读测试文档",
+      "internal/tests 下存在 Agent QC 人读测试文档",
       facts.files?.agentOpsQc &&
         facts.files?.p0Scenarios &&
-        facts.files?.emberRolloutPlan &&
+        facts.files?.limeRolloutPlan &&
         facts.files?.testsReadme,
-      "docs/tests/agent-ops-qc.md, docs/tests/agent-qc-p0-scenarios.md, docs/tests/ember-agent-qc-rollout-plan.md, docs/tests/README.md",
-      "缺少 docs/tests 测试体系文档。",
+      "internal/tests/agent-ops-qc.md, internal/tests/agent-qc-p0-scenarios.md, internal/tests/lime-agent-qc-rollout-plan.md, internal/tests/README.md",
+      "缺少 internal/tests 测试体系文档。",
     ),
     createItem(
       "scenario-manifest",
@@ -229,7 +229,7 @@ function buildAgentQcCompletionAudit(facts) {
       "evidence-schema",
       "Agent QC Evidence Pack schema 存在",
       facts.files?.evidenceSchema,
-      "docs/test/agent-qc-evidence.schema.json",
+      "internal/test/agent-qc-evidence.schema.json",
       "缺少 Evidence Pack schema。",
     ),
     createItem(
@@ -282,14 +282,14 @@ function buildAgentQcCompletionAudit(facts) {
       "qcloop-status-monitor",
       "可只读监控 qcloop 运行批次和 stale item",
       facts.files?.qcloopStatusScript && facts.files?.qcloopOperationsDoc,
-      "scripts/agent-qc/qcloop-status.mjs, docs/tests/ember-agent-qc-qcloop-operations.md",
+      "scripts/agent-qc/qcloop-status.mjs, internal/tests/lime-agent-qc-qcloop-operations.md",
       "缺少 qcloop 只读状态监控脚本或运维手册。",
     ),
     createItem(
       "gui-owner-check",
       "可在启动 GUI P0 前阻断并发 qcloop GUI owner",
       facts.files?.guiOwnerCheckScript && facts.files?.qcloopOperationsDoc,
-      "scripts/agent-qc/gui-owner-check.mjs, docs/tests/ember-agent-qc-qcloop-operations.md",
+      "scripts/agent-qc/gui-owner-check.mjs, internal/tests/lime-agent-qc-qcloop-operations.md",
       "缺少 GUI owner 并发检查脚本或运维手册。",
     ),
     createItem(
@@ -341,8 +341,8 @@ function buildAgentQcCompletionAudit(facts) {
       "存在真实 GUI / Playwright MCP evidence",
       facts.files?.realGuiEvidence,
       facts.files?.realGuiEvidence
-        ? ".ember/qc/gui-evidence"
-        : "未发现 .ember/qc/gui-evidence",
+        ? ".lime/qc/gui-evidence"
+        : "未发现 .lime/qc/gui-evidence",
       "尚未执行真实 GUI / Playwright MCP flow 并保存证据。",
     ),
     createItem(

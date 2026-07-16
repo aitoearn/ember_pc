@@ -79,7 +79,7 @@ export function buildBaseSetupPackage() {
       {
         id: "sceneapp-bundle",
         source: "remote",
-        path_or_uri: "ember://bundles/sceneapp",
+        path_or_uri: "lime://bundles/sceneapp",
         kind: "skill_bundle",
       },
     ],

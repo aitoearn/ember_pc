@@ -1,11 +1,17 @@
 use super::*;
 use crate::AppServer;
 use crate::MockBackend;
+use crate::RightSurfaceAppDataSource;
 use crate::RuntimeCore;
+use crate::WorkspaceObjectCanvasSnapshotListParams;
+use app_server_protocol::WorkspaceRightSurfacePendingListParams;
+use app_server_protocol::WorkspaceRightSurfaceRequestParams;
 use app_server_protocol::METHOD_INITIALIZE;
 use app_server_protocol::METHOD_INITIALIZED;
 use app_server_protocol::METHOD_MCP_RESOURCE_LIST;
 use app_server_protocol::METHOD_MCP_RESOURCE_READ;
+use app_server_protocol::METHOD_MCP_RESOURCE_SUBSCRIBE;
+use app_server_protocol::METHOD_MCP_RESOURCE_UNSUBSCRIBE;
 use app_server_protocol::METHOD_MCP_SERVER_CREATE;
 use app_server_protocol::METHOD_MCP_SERVER_START;
 use app_server_protocol::METHOD_MCP_SERVER_STATUS_LIST;
@@ -14,13 +20,7 @@ use app_server_protocol::METHOD_MCP_TOOL_CALL;
 use app_server_protocol::METHOD_MCP_TOOL_LIST;
 use app_server_protocol::SERVER_NAME;
 use app_server_transport::decode_message;
-use ember_core::database::dao::agent_timeline::AgentThreadItem;
-use ember_core::database::dao::agent_timeline::AgentThreadItemPayload;
-use ember_core::database::dao::agent_timeline::AgentThreadItemStatus;
-use ember_core::database::dao::agent_timeline::AgentThreadTurn;
-use ember_core::database::dao::agent_timeline::AgentThreadTurnStatus;
-use ember_core::database::dao::agent_timeline::AgentTimelineDao;
-use ember_core::database::schema::create_tables;
+use lime_core::database::schema::create_tables;
 use rusqlite::params;
 use rusqlite::Connection;
 use serde_json::json;
@@ -33,9 +33,7 @@ use std::sync::Mutex;
 use tempfile::TempDir;
 
 const WORKSPACE_ID: &str = "workspace-current";
-const WORKSPACE_ROOT: &str = "/tmp/ember-current-workspace";
-const NOW: &str = "2026-03-13T01:00:00Z";
-
+const WORKSPACE_ROOT: &str = "/tmp/lime-current-workspace";
 fn setup_data_source() -> LocalAppDataSource {
     let conn = Connection::open_in_memory().expect("open in-memory db");
     create_tables(&conn).expect("create schema");
@@ -52,20 +50,110 @@ fn setup_data_source() -> LocalAppDataSource {
     .expect("insert workspace");
     LocalAppDataSource {
         db: Arc::new(Mutex::new(conn)),
-        logs: Arc::new(tokio::sync::RwLock::new(ember_core::logger::LogStore::new())),
-        aster_agent_state: AsterAgentState::new(),
+        logs: Arc::new(tokio::sync::RwLock::new(lime_core::logger::LogStore::new())),
         api_key_provider_service: ApiKeyProviderService::new(),
         model_registry_service: ModelRegistryService::new(Arc::new(Mutex::new(
             Connection::open_in_memory().expect("open model db"),
         ))),
         mcp_manager: Arc::new(TokioMutex::new(McpClientManager::new(None))),
+        mcp_elicitation_router: lime_mcp::ElicitationRequestRouter::default(),
         telegram_gateway_state: TelegramGatewayState::default(),
         feishu_gateway_state: FeishuGatewayState::default(),
         discord_gateway_state: DiscordGatewayState::default(),
         wechat_gateway_state: WechatGatewayState::default(),
         gateway_tunnel_state: GatewayTunnelState::default(),
         wechat_login_state: WechatLoginState::default(),
+        memory_backend: Arc::new(LocalMemoryBackend::new(
+            std::env::temp_dir().join("app-server-local-data-source-test-memory"),
+        )),
+        sidecar_store: None,
     }
+}
+
+#[tokio::test]
+async fn right_surface_object_canvas_snapshot_persists_in_local_sqlite_data_source() {
+    let data_source = Arc::new(setup_data_source());
+    let core = RuntimeCore::default().with_app_data_source(data_source.clone());
+
+    let response = core
+        .request_workspace_right_surface(WorkspaceRightSurfaceRequestParams {
+            workspace_id: Some(WORKSPACE_ID.to_string()),
+            workspace_root: Some(WORKSPACE_ROOT.to_string()),
+            session_id: Some("browser-session-local".to_string()),
+            surface_kind: "objectCanvas".to_string(),
+            origin: "runtime".to_string(),
+            reason: Some("object_canvas_persist_requested".to_string()),
+            priority: None,
+            candidate_id: Some("browser-assist-local".to_string()),
+            ttl_ms: None,
+            metadata: Some(json!({
+                "source": "objectCanvas",
+                "schemaVersion": "object-canvas.persist.v1",
+                "candidateId": "browser-assist-local",
+                "objectCanvas": {
+                    "board": {
+                        "id": "object-canvas-board:browser-assist-local",
+                        "revision": 1,
+                        "primaryObjectId": "browser-session:browser-assist-local",
+                        "objectCount": 1,
+                        "edgeCount": 0
+                    },
+                    "event": {
+                        "kind": "persistRequested",
+                        "owner": "appServer",
+                        "enabled": false,
+                        "request": {
+                            "boardId": "object-canvas-board:browser-assist-local",
+                            "revision": 1,
+                            "persistenceKey": "workspace:object-canvas:browser-assist-local",
+                            "objectId": "browser-session:browser-assist-local",
+                            "objectKind": "browserSession",
+                            "facts": {
+                                "candidateId": "browser-assist-local",
+                                "sessionId": "browser-session-local"
+                            }
+                        }
+                    }
+                }
+            })),
+        })
+        .await
+        .expect("right surface persist request");
+
+    let snapshots = data_source
+        .list_workspace_object_canvas_snapshots(WorkspaceObjectCanvasSnapshotListParams {
+            workspace_id: Some(WORKSPACE_ID.to_string()),
+            workspace_root: Some(WORKSPACE_ROOT.to_string()),
+            session_id: Some("browser-session-local".to_string()),
+            board_id: Some("object-canvas-board:browser-assist-local".to_string()),
+            persistence_key: Some("workspace:object-canvas:browser-assist-local".to_string()),
+            limit: None,
+        })
+        .await
+        .expect("list persisted object canvas snapshots");
+
+    assert_eq!(snapshots.len(), 1);
+    assert_eq!(snapshots[0].request_id, response.request_id);
+    assert_eq!(
+        snapshots[0]
+            .snapshot_json
+            .pointer("/metadata/objectCanvas/event/request/persistenceKey")
+            .and_then(Value::as_str),
+        Some("workspace:object-canvas:browser-assist-local")
+    );
+
+    let pending = core
+        .list_workspace_right_surface_pending(WorkspaceRightSurfacePendingListParams {
+            workspace_id: Some(WORKSPACE_ID.to_string()),
+            workspace_root: Some(WORKSPACE_ROOT.to_string()),
+            session_id: Some("browser-session-local".to_string()),
+            surface_kind: Some("objectCanvas".to_string()),
+            limit: None,
+        })
+        .await
+        .expect("list persisted pending requests");
+    assert_eq!(pending.pending.len(), 1);
+    assert_eq!(pending.pending[0].request_id, response.request_id);
 }
 
 #[tokio::test]
@@ -113,7 +201,7 @@ async fn mcp_current_jsonrpc_starts_real_stdio_server_and_reads_tool_resource() 
                     "cwd": temp_dir.path().to_string_lossy(),
                     "timeout": 3
                 },
-                "enabled_ember": true,
+                "enabled_lime": true,
                 "enabled_claude": false,
                 "enabled_codex": false,
                 "enabled_gemini": false,
@@ -176,7 +264,22 @@ async fn mcp_current_jsonrpc_starts_real_stdio_server_and_reads_tool_resource() 
     let resources = app_server_request(&server, 7, METHOD_MCP_RESOURCE_LIST, json!({})).await;
     assert_eq!(
         resources.pointer("/result/resources/0/uri"),
-        Some(&json!("fixture://status"))
+        Some(&json!("fixture://status")),
+        "{resources:?}"
+    );
+    assert_eq!(
+        resources.pointer("/result/resources/0/server_name"),
+        Some(&json!("fixture")),
+        "{resources:?}"
+    );
+    assert_eq!(
+        resources.pointer("/result/resourceTemplates/0/uri_template"),
+        Some(&json!("fixture://item/{id}")),
+        "{resources:?}"
+    );
+    assert_eq!(
+        resources.pointer("/result/resourceTemplates/0/server_name"),
+        Some(&json!("fixture"))
     );
 
     let resource = app_server_request(
@@ -184,6 +287,7 @@ async fn mcp_current_jsonrpc_starts_real_stdio_server_and_reads_tool_resource() 
         8,
         METHOD_MCP_RESOURCE_READ,
         json!({
+            "server": "fixture",
             "uri": "fixture://status"
         }),
     )
@@ -197,9 +301,33 @@ async fn mcp_current_jsonrpc_starts_real_stdio_server_and_reads_tool_resource() 
         Some(&json!("fixture resource ok"))
     );
 
-    let stop = app_server_request(
+    let subscribe = app_server_request(
         &server,
         9,
+        METHOD_MCP_RESOURCE_SUBSCRIBE,
+        json!({
+            "server": "fixture",
+            "uri": "fixture://status"
+        }),
+    )
+    .await;
+    assert_eq!(subscribe.pointer("/result"), Some(&json!({})));
+
+    let unsubscribe = app_server_request(
+        &server,
+        10,
+        METHOD_MCP_RESOURCE_UNSUBSCRIBE,
+        json!({
+            "server": "fixture",
+            "uri": "fixture://status"
+        }),
+    )
+    .await;
+    assert_eq!(unsubscribe.pointer("/result"), Some(&json!({})));
+
+    let stop = app_server_request(
+        &server,
+        11,
         METHOD_MCP_SERVER_STOP,
         json!({ "name": "fixture" }),
     )
@@ -298,6 +426,21 @@ rl.on("line", (line) => {
     return;
   }
 
+  if (method === "resources/templates/list") {
+    result(id, {
+      resourceTemplates: [
+        {
+          uriTemplate: "fixture://item/{id}",
+          name: "fixture-item",
+          title: "Fixture Item",
+          description: "Current MCP fixture resource template",
+          mimeType: "text/plain",
+        },
+      ],
+    });
+    return;
+  }
+
   if (method === "resources/read") {
     result(id, {
       contents: [
@@ -308,6 +451,11 @@ rl.on("line", (line) => {
         },
       ],
     });
+    return;
+  }
+
+  if (method === "resources/subscribe" || method === "resources/unsubscribe") {
+    result(id, {});
     return;
   }
 
@@ -348,618 +496,4 @@ async fn app_server_notification(server: &AppServer, method: &str, params: Value
         .await
         .expect("handle app-server notification");
     assert!(responses.is_empty(), "{responses:?}");
-}
-
-fn insert_session(conn: &Connection, id: &str, title: &str, updated_at: &str) {
-    conn.execute(
-        "INSERT INTO agent_sessions (
-                id, model, system_prompt, title, created_at, updated_at,
-                working_dir, execution_strategy
-             )
-             VALUES (?1, 'agent:default', NULL, ?2, ?3, ?4, ?5, 'react')",
-        params![id, title, NOW, updated_at, WORKSPACE_ROOT],
-    )
-    .expect("insert session");
-}
-
-fn insert_legacy_message_only_session(conn: &Connection) {
-    insert_session(conn, "legacy-session", "旧消息会话", "2026-03-13T01:00:01Z");
-    conn.execute(
-        "INSERT INTO agent_messages (
-                session_id, role, content_json, timestamp
-             )
-             VALUES ('legacy-session', 'user', '[{\"type\":\"text\",\"text\":\"旧消息\"}]', ?1)",
-        params![NOW],
-    )
-    .expect("insert legacy message");
-}
-
-fn insert_current_timeline_session(conn: &Connection) {
-    insert_session(
-        conn,
-        "current-session",
-        "Current Timeline 会话",
-        "2026-03-13T01:00:03Z",
-    );
-    let turn = AgentThreadTurn {
-        id: "turn-current".to_string(),
-        thread_id: "current-session".to_string(),
-        prompt_text: "帮我检查 current timeline".to_string(),
-        status: AgentThreadTurnStatus::Completed,
-        started_at: "2026-03-13T01:00:02Z".to_string(),
-        completed_at: Some("2026-03-13T01:00:03Z".to_string()),
-        error_message: None,
-        created_at: "2026-03-13T01:00:02Z".to_string(),
-        updated_at: "2026-03-13T01:00:03Z".to_string(),
-    };
-    AgentTimelineDao::create_turn(conn, &turn).expect("insert turn");
-    AgentTimelineDao::upsert_item(
-        conn,
-        &AgentThreadItem {
-            id: "item-user".to_string(),
-            thread_id: "current-session".to_string(),
-            turn_id: "turn-current".to_string(),
-            sequence: 1,
-            status: AgentThreadItemStatus::Completed,
-            started_at: "2026-03-13T01:00:02Z".to_string(),
-            completed_at: Some("2026-03-13T01:00:02Z".to_string()),
-            updated_at: "2026-03-13T01:00:02Z".to_string(),
-            payload: AgentThreadItemPayload::UserMessage {
-                content: "帮我检查 current timeline".to_string(),
-            },
-        },
-    )
-    .expect("insert user item");
-    AgentTimelineDao::upsert_item(
-        conn,
-        &AgentThreadItem {
-            id: "item-agent".to_string(),
-            thread_id: "current-session".to_string(),
-            turn_id: "turn-current".to_string(),
-            sequence: 2,
-            status: AgentThreadItemStatus::Completed,
-            started_at: "2026-03-13T01:00:03Z".to_string(),
-            completed_at: Some("2026-03-13T01:00:03Z".to_string()),
-            updated_at: "2026-03-13T01:00:03Z".to_string(),
-            payload: AgentThreadItemPayload::AgentMessage {
-                text: "已完成".to_string(),
-                phase: None,
-            },
-        },
-    )
-    .expect("insert agent item");
-}
-
-fn insert_hidden_harness_timeline_session(conn: &Connection) {
-    insert_session(
-        conn,
-        "hidden-harness-session",
-        "内部 Smoke 会话",
-        "2026-03-13T01:00:04Z",
-    );
-    conn.execute(
-        "UPDATE agent_sessions
-             SET extension_data_json = ?1
-             WHERE id = 'hidden-harness-session'",
-        params![json!({
-            "ember_harness.v0": {
-                "hiddenFromUserRecents": true,
-                "source": "smoke-fixture"
-            }
-        })
-        .to_string()],
-    )
-    .expect("mark hidden harness session");
-    let turn = AgentThreadTurn {
-        id: "turn-hidden-harness".to_string(),
-        thread_id: "hidden-harness-session".to_string(),
-        prompt_text: "内部 smoke".to_string(),
-        status: AgentThreadTurnStatus::Completed,
-        started_at: "2026-03-13T01:00:04Z".to_string(),
-        completed_at: Some("2026-03-13T01:00:05Z".to_string()),
-        error_message: None,
-        created_at: "2026-03-13T01:00:04Z".to_string(),
-        updated_at: "2026-03-13T01:00:05Z".to_string(),
-    };
-    AgentTimelineDao::create_turn(conn, &turn).expect("insert hidden turn");
-}
-
-fn insert_smoke_title_timeline_session(conn: &Connection) {
-    insert_session(
-        conn,
-        "smoke-title-session",
-        "Code runtime fixture 2026-03-13T01:00:06Z",
-        "2026-03-13T01:00:06Z",
-    );
-    let turn = AgentThreadTurn {
-        id: "turn-smoke-title".to_string(),
-        thread_id: "smoke-title-session".to_string(),
-        prompt_text: "历史 smoke 标题".to_string(),
-        status: AgentThreadTurnStatus::Completed,
-        started_at: "2026-03-13T01:00:06Z".to_string(),
-        completed_at: Some("2026-03-13T01:00:07Z".to_string()),
-        error_message: None,
-        created_at: "2026-03-13T01:00:06Z".to_string(),
-        updated_at: "2026-03-13T01:00:07Z".to_string(),
-    };
-    AgentTimelineDao::create_turn(conn, &turn).expect("insert smoke title turn");
-}
-
-#[tokio::test]
-async fn list_current_timeline_sessions_excludes_legacy_message_only_sessions() {
-    let data_source = setup_data_source();
-    {
-        let conn = database::lock_db(&data_source.db).expect("lock db");
-        insert_legacy_message_only_session(&conn);
-        insert_current_timeline_session(&conn);
-    }
-
-    let response = data_source
-        .list_current_timeline_sessions(AgentSessionListParams {
-            workspace_id: Some(WORKSPACE_ID.to_string()),
-            limit: Some(20),
-            ..AgentSessionListParams::default()
-        })
-        .await
-        .expect("list sessions");
-
-    assert_eq!(response.sessions.len(), 1);
-    assert_eq!(response.sessions[0].session_id, "current-session");
-    assert_eq!(
-        response.sessions[0].title.as_deref(),
-        Some("Current Timeline 会话")
-    );
-    assert_eq!(
-        response.sessions[0].workspace_id.as_deref(),
-        Some(WORKSPACE_ID)
-    );
-    assert_eq!(response.sessions[0].messages_count, 2);
-}
-
-#[tokio::test]
-async fn list_current_timeline_sessions_orders_by_latest_timeline_activity() {
-    let data_source = setup_data_source();
-    {
-        let conn = database::lock_db(&data_source.db).expect("lock db");
-        insert_session(
-            &conn,
-            "older-metadata-newer-timeline",
-            "Timeline 最新",
-            "2026-03-13T01:00:00Z",
-        );
-        let turn = AgentThreadTurn {
-            id: "turn-newer".to_string(),
-            thread_id: "older-metadata-newer-timeline".to_string(),
-            prompt_text: "新 timeline".to_string(),
-            status: AgentThreadTurnStatus::Completed,
-            started_at: "2026-03-13T02:00:00Z".to_string(),
-            completed_at: Some("2026-03-13T02:00:01Z".to_string()),
-            error_message: None,
-            created_at: "2026-03-13T02:00:00Z".to_string(),
-            updated_at: "2026-03-13T02:00:01Z".to_string(),
-        };
-        AgentTimelineDao::create_turn(&conn, &turn).expect("insert newer turn");
-        AgentTimelineDao::upsert_item(
-            &conn,
-            &AgentThreadItem {
-                id: "item-newer".to_string(),
-                thread_id: "older-metadata-newer-timeline".to_string(),
-                turn_id: "turn-newer".to_string(),
-                sequence: 1,
-                status: AgentThreadItemStatus::Completed,
-                started_at: "2026-03-13T02:00:00Z".to_string(),
-                completed_at: Some("2026-03-13T02:00:01Z".to_string()),
-                updated_at: "2026-03-13T02:00:01Z".to_string(),
-                payload: AgentThreadItemPayload::AgentMessage {
-                    text: "新结果".to_string(),
-                    phase: None,
-                },
-            },
-        )
-        .expect("insert newer item");
-
-        insert_session(
-            &conn,
-            "newer-metadata-older-timeline",
-            "元数据更新但 timeline 更旧",
-            "2026-03-13T03:00:00Z",
-        );
-        let older_turn = AgentThreadTurn {
-            id: "turn-older".to_string(),
-            thread_id: "newer-metadata-older-timeline".to_string(),
-            prompt_text: "旧 timeline".to_string(),
-            status: AgentThreadTurnStatus::Completed,
-            started_at: "2026-03-13T01:30:00Z".to_string(),
-            completed_at: Some("2026-03-13T01:30:01Z".to_string()),
-            error_message: None,
-            created_at: "2026-03-13T01:30:00Z".to_string(),
-            updated_at: "2026-03-13T01:30:01Z".to_string(),
-        };
-        AgentTimelineDao::create_turn(&conn, &older_turn).expect("insert older turn");
-    }
-
-    let response = data_source
-        .list_current_timeline_sessions(AgentSessionListParams {
-            workspace_id: None,
-            limit: Some(20),
-            ..AgentSessionListParams::default()
-        })
-        .await
-        .expect("list sessions");
-
-    assert_eq!(
-        response.sessions[0].session_id,
-        "older-metadata-newer-timeline"
-    );
-    assert_eq!(response.sessions[0].updated_at, "2026-03-13T02:00:01Z");
-}
-
-#[tokio::test]
-async fn list_current_timeline_sessions_excludes_harness_hidden_sessions() {
-    let data_source = setup_data_source();
-    {
-        let conn = database::lock_db(&data_source.db).expect("lock db");
-        insert_current_timeline_session(&conn);
-        insert_hidden_harness_timeline_session(&conn);
-        insert_smoke_title_timeline_session(&conn);
-    }
-
-    let response = data_source
-        .list_current_timeline_sessions(AgentSessionListParams {
-            workspace_id: Some(WORKSPACE_ID.to_string()),
-            limit: Some(20),
-            ..AgentSessionListParams::default()
-        })
-        .await
-        .expect("list sessions");
-
-    let ids = response
-        .sessions
-        .iter()
-        .map(|session| session.session_id.as_str())
-        .collect::<Vec<_>>();
-    assert_eq!(ids, vec!["current-session"]);
-
-    let hidden = data_source
-        .read_current_timeline_session(AgentSessionReadParams {
-            session_id: "hidden-harness-session".to_string(),
-            history_limit: None,
-            history_offset: None,
-            history_before_message_id: None,
-        })
-        .await
-        .expect("read hidden session")
-        .expect("hidden session remains readable by id");
-    assert_eq!(hidden.session.session_id, "hidden-harness-session");
-}
-
-#[tokio::test]
-async fn update_current_timeline_session_updates_title_and_archive_state() {
-    let data_source = setup_data_source();
-    {
-        let conn = database::lock_db(&data_source.db).expect("lock db");
-        insert_current_timeline_session(&conn);
-    }
-
-    let updated = data_source
-        .update_current_timeline_session(AgentSessionUpdateParams {
-            session_id: "current-session".to_string(),
-            title: Some("更新后的对话".to_string()),
-            archived: Some(true),
-            provider_selector: Some("custom-provider".to_string()),
-            provider_name: Some("OpenAI Compatible".to_string()),
-            model_name: Some("gpt-5.4".to_string()),
-            execution_strategy: Some("react".to_string()),
-            recent_access_mode: Some("full-access".to_string()),
-            recent_preferences: Some(json!({
-                "task": true,
-                "subagent": false
-            })),
-            recent_team_selection: Some(json!({
-                "disabled": true
-            })),
-            ..AgentSessionUpdateParams::default()
-        })
-        .await
-        .expect("update current session");
-
-    assert_eq!(updated.session.session_id, "current-session");
-    assert_eq!(updated.session.title.as_deref(), Some("更新后的对话"));
-    assert!(updated.session.archived_at.is_some());
-
-    let recent = data_source
-        .list_current_timeline_sessions(AgentSessionListParams {
-            workspace_id: Some(WORKSPACE_ID.to_string()),
-            limit: Some(20),
-            ..AgentSessionListParams::default()
-        })
-        .await
-        .expect("list recent sessions");
-    assert!(recent.sessions.is_empty());
-
-    let archived = data_source
-        .list_current_timeline_sessions(AgentSessionListParams {
-            archived_only: Some(true),
-            workspace_id: Some(WORKSPACE_ID.to_string()),
-            limit: Some(20),
-            ..AgentSessionListParams::default()
-        })
-        .await
-        .expect("list archived sessions");
-    assert_eq!(archived.sessions.len(), 1);
-    assert_eq!(archived.sessions[0].session_id, "current-session");
-    assert_eq!(archived.sessions[0].model, "gpt-5.4");
-    assert_eq!(
-        archived.sessions[0].execution_strategy.as_deref(),
-        Some("react")
-    );
-
-    let detail = data_source
-        .read_current_timeline_session(AgentSessionReadParams {
-            session_id: "current-session".to_string(),
-            history_limit: Some(10),
-            history_offset: Some(0),
-            history_before_message_id: None,
-        })
-        .await
-        .expect("read updated session")
-        .expect("updated session detail")
-        .detail
-        .expect("compat detail");
-    assert_eq!(
-        detail.pointer("/execution_runtime/provider_selector"),
-        Some(&json!("custom-provider"))
-    );
-    assert_eq!(
-        detail.pointer("/execution_runtime/provider_name"),
-        Some(&json!("OpenAI Compatible"))
-    );
-    assert_eq!(
-        detail.pointer("/execution_runtime/model_name"),
-        Some(&json!("gpt-5.4"))
-    );
-    assert_eq!(
-        detail.pointer("/execution_runtime/recent_access_mode"),
-        Some(&json!("full-access"))
-    );
-    assert_eq!(
-        detail.pointer("/execution_runtime/recent_preferences/task"),
-        Some(&json!(true))
-    );
-    assert_eq!(
-        detail.pointer("/execution_runtime/recent_team_selection/disabled"),
-        Some(&json!(true))
-    );
-}
-
-#[tokio::test]
-async fn read_current_timeline_session_returns_compat_detail_with_turns_and_items() {
-    let data_source = setup_data_source();
-    {
-        let conn = database::lock_db(&data_source.db).expect("lock db");
-        insert_legacy_message_only_session(&conn);
-        insert_current_timeline_session(&conn);
-    }
-
-    let missing_legacy = data_source
-        .read_current_timeline_session(AgentSessionReadParams {
-            session_id: "legacy-session".to_string(),
-            history_limit: None,
-            history_offset: None,
-            history_before_message_id: None,
-        })
-        .await
-        .expect("read legacy session");
-    assert!(missing_legacy.is_none());
-
-    let response = data_source
-        .read_current_timeline_session(AgentSessionReadParams {
-            session_id: "current-session".to_string(),
-            history_limit: Some(10),
-            history_offset: Some(0),
-            history_before_message_id: None,
-        })
-        .await
-        .expect("read current session")
-        .expect("current session detail");
-
-    assert_eq!(response.session.session_id, "current-session");
-    assert_eq!(response.turns.len(), 1);
-    assert_eq!(response.turns[0].turn_id, "turn-current");
-    let detail = response.detail.expect("compat detail");
-    assert_eq!(detail["id"], "current-session");
-    assert_eq!(detail["messages_count"], 2);
-    assert_eq!(detail["messages"].as_array().expect("messages").len(), 0);
-    assert_eq!(detail["turns"].as_array().expect("turns").len(), 1);
-    assert_eq!(detail["items"].as_array().expect("items").len(), 2);
-    assert_eq!(detail["history_cursor"]["loaded_count"], 2);
-}
-
-/// 测试用例管理链路集成测试（protocol ↔ core DAO 往返）。
-mod test_case_management {
-    use super::super::test_cases;
-    use app_server_protocol::{
-        TestCase, TestCaseDeleteParams, TestCaseListParams, TestCaseModule,
-        TestCaseModuleDeleteParams, TestCaseModuleListParams, TestCaseModuleSaveParams,
-        TestCaseModuleSaveResponse, TestCaseReadParams, TestCaseSaveParams, TestCaseStep,
-    };
-    use ember_core::database::schema::create_tables;
-    use ember_core::database::DbConnection;
-    use rusqlite::Connection;
-    use std::sync::{Arc, Mutex};
-
-    const WS: &str = "ws-it";
-
-    fn setup_db() -> DbConnection {
-        let conn = Connection::open_in_memory().expect("open in-memory db");
-        create_tables(&conn).expect("create tables");
-        Arc::new(Mutex::new(conn))
-    }
-
-    fn sample_case(case_id: &str, title: &str, module_id: &str) -> TestCase {
-        TestCase {
-            id: String::new(),
-            case_id: case_id.to_string(),
-            title: title.to_string(),
-            module_id: module_id.to_string(),
-            priority: "P0".to_string(),
-            case_type: "功能".to_string(),
-            status: "草稿".to_string(),
-            source: "手工".to_string(),
-            precondition: "已登录".to_string(),
-            steps: vec![TestCaseStep {
-                step_no: 1,
-                action: "点击登录".to_string(),
-                expected: "进入首页".to_string(),
-            }],
-            assertions: vec!["首页展示用户昵称".to_string()],
-            tags: vec!["冒烟".to_string()],
-            exec_result: "未执行".to_string(),
-            remark: String::new(),
-            created_at: String::new(),
-            updated_at: String::new(),
-        }
-    }
-
-    fn save_module(
-        db: &DbConnection,
-        name: &str,
-        parent_id: Option<String>,
-    ) -> TestCaseModuleSaveResponse {
-        test_cases::save_test_case_module(
-            db,
-            TestCaseModuleSaveParams {
-                workspace_id: WS.to_string(),
-                module: TestCaseModule {
-                    id: String::new(),
-                    name: name.to_string(),
-                    parent_id,
-                    order_index: 0,
-                },
-            },
-        )
-        .expect("save module")
-    }
-
-    #[test]
-    fn module_round_trip() {
-        let db = setup_db();
-        let saved = save_module(&db, "登录", None);
-        assert!(!saved.module.id.is_empty());
-
-        let listed = test_cases::list_test_case_modules(
-            &db,
-            TestCaseModuleListParams {
-                workspace_id: WS.to_string(),
-            },
-        )
-        .expect("list modules");
-        assert_eq!(listed.modules.len(), 1);
-        assert_eq!(listed.modules[0].name, "登录");
-
-        let deleted = test_cases::delete_test_case_module(
-            &db,
-            TestCaseModuleDeleteParams {
-                workspace_id: WS.to_string(),
-                id: saved.module.id.clone(),
-            },
-        )
-        .expect("delete module");
-        assert!(deleted.deleted);
-    }
-
-    #[test]
-    fn case_round_trip_preserves_steps_assertions_and_timestamps() {
-        let db = setup_db();
-        let module = save_module(&db, "支付", None);
-
-        let saved = test_cases::save_test_case(
-            &db,
-            TestCaseSaveParams {
-                workspace_id: WS.to_string(),
-                case: sample_case("TC-PAY-001", "支付成功", &module.module.id),
-            },
-        )
-        .expect("save case");
-        assert!(!saved.case.id.is_empty());
-        assert_eq!(saved.case.steps.len(), 1);
-        assert_eq!(saved.case.steps[0].expected, "进入首页");
-        assert_eq!(saved.case.assertions, vec!["首页展示用户昵称".to_string()]);
-        assert_eq!(saved.case.tags, vec!["冒烟".to_string()]);
-        assert!(saved.case.created_at.contains('T'));
-
-        let read = test_cases::read_test_case(
-            &db,
-            TestCaseReadParams {
-                id: saved.case.id.clone(),
-            },
-        )
-        .expect("read case");
-        let read_case = read.case.expect("case present");
-        assert_eq!(read_case.title, "支付成功");
-        assert_eq!(read_case.module_id, module.module.id);
-        assert_eq!(read_case.assertions, vec!["首页展示用户昵称".to_string()]);
-
-        let listed = test_cases::list_test_cases(
-            &db,
-            TestCaseListParams {
-                workspace_id: WS.to_string(),
-                module_id: Some(module.module.id.clone()),
-            },
-        )
-        .expect("list cases");
-        assert_eq!(listed.cases.len(), 1);
-
-        let deleted = test_cases::delete_test_cases(
-            &db,
-            TestCaseDeleteParams {
-                ids: vec![saved.case.id.clone()],
-            },
-        )
-        .expect("delete cases");
-        assert_eq!(deleted.deleted, 1);
-    }
-
-    #[test]
-    fn duplicate_case_id_is_rejected() {
-        let db = setup_db();
-        test_cases::save_test_case(
-            &db,
-            TestCaseSaveParams {
-                workspace_id: WS.to_string(),
-                case: sample_case("TC-DUP-001", "甲", ""),
-            },
-        )
-        .expect("first save");
-        let err = test_cases::save_test_case(
-            &db,
-            TestCaseSaveParams {
-                workspace_id: WS.to_string(),
-                case: sample_case("TC-DUP-001", "乙", ""),
-            },
-        );
-        assert!(err.is_err());
-    }
-
-    #[test]
-    fn delete_non_empty_module_is_rejected() {
-        let db = setup_db();
-        let module = save_module(&db, "结算", None);
-        test_cases::save_test_case(
-            &db,
-            TestCaseSaveParams {
-                workspace_id: WS.to_string(),
-                case: sample_case("TC-CHK-001", "结算成功", &module.module.id),
-            },
-        )
-        .expect("save case");
-        let err = test_cases::delete_test_case_module(
-            &db,
-            TestCaseModuleDeleteParams {
-                workspace_id: WS.to_string(),
-                id: module.module.id.clone(),
-            },
-        );
-        assert!(err.is_err());
-    }
 }

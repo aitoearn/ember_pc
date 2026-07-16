@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import styled from "styled-components";
-import type { ExpertAgentLaunchMode, Page, PageParams } from "@/types/page";
+import type { Page, PageParams } from "@/types/page";
 import { buildClawAgentParams } from "@/lib/workspace/navigation";
+import {
+  LAST_PROJECT_ID_KEY,
+  loadPersistedProjectId,
+} from "@/components/agent/chat/hooks/agentProjectStorage";
+import { normalizeProjectId } from "@/components/agent/chat/utils/topicProjectResolution";
 import {
   buildExpertRuntimeMetadata,
   buildExpertCatalogProjection,
@@ -24,10 +29,11 @@ import {
 
 interface ExpertPlazaPageProps {
   onNavigate?: (page: Page, params?: PageParams) => void;
+  currentProjectId?: string | null;
 }
 
 const Shell = styled.div.attrs({
-  className: "ember-workbench-theme-scope",
+  className: "lime-workbench-theme-scope",
 })`
   flex: 1;
   min-height: 0;
@@ -38,17 +44,17 @@ const Shell = styled.div.attrs({
   background:
     radial-gradient(
       circle at 8% 0%,
-      var(--ember-home-glow-secondary, rgba(14, 165, 233, 0.08)),
+      var(--lime-home-glow-secondary, rgba(14, 165, 233, 0.08)),
       transparent 28rem
     ),
     radial-gradient(
       circle at 96% 2%,
-      var(--ember-home-glow-primary, rgba(16, 185, 129, 0.08)),
+      var(--lime-home-glow-primary, rgba(16, 185, 129, 0.08)),
       transparent 24rem
     ),
-    var(--ember-stage-surface, #f8fafc);
+    var(--lime-stage-surface, #f8fafc);
   padding: 24px;
-  color: var(--ember-text-strong, #0f172a);
+  color: var(--lime-text-strong, #0f172a);
 
   @media (max-width: 720px) {
     padding: 14px;
@@ -83,14 +89,14 @@ const TitleGroup = styled.div`
 `;
 
 const Eyebrow = styled.span`
-  color: var(--ember-brand-strong, #0f766e);
+  color: var(--lime-brand-strong, #0f766e);
   font-size: 12px;
   font-weight: 760;
 `;
 
 const Title = styled.h1`
   margin: 0;
-  color: var(--ember-text-strong, #0f172a);
+  color: var(--lime-text-strong, #0f172a);
   font-size: clamp(24px, 3vw, 34px);
   letter-spacing: -0.03em;
 `;
@@ -98,17 +104,17 @@ const Title = styled.h1`
 const Subtitle = styled.p`
   margin: 0;
   max-width: 680px;
-  color: var(--ember-text-muted, #64748b);
+  color: var(--lime-text-muted, #64748b);
   font-size: 14px;
   line-height: 1.7;
 `;
 
 const SyncPill = styled.span`
   border-radius: 999px;
-  border: 1px solid var(--ember-surface-border-strong, rgba(148, 163, 184, 0.45));
-  background: var(--ember-surface, #fff);
+  border: 1px solid var(--lime-surface-border-strong, rgba(148, 163, 184, 0.45));
+  background: var(--lime-surface, #fff);
   padding: 8px 12px;
-  color: var(--ember-text, #475569);
+  color: var(--lime-text, #475569);
   font-size: 12px;
   font-weight: 680;
 `;
@@ -126,14 +132,14 @@ const RankingGrid = styled.section`
 const RankingCard = styled.article`
   min-width: 0;
   box-sizing: border-box;
-  border: 1px solid var(--ember-card-subtle-border, rgba(226, 232, 240, 0.92));
+  border: 1px solid var(--lime-card-subtle-border, rgba(226, 232, 240, 0.92));
   border-radius: 24px;
-  background: var(--ember-surface, #fff);
+  background: var(--lime-surface, #fff);
   padding: 18px;
   box-shadow: 0 18px 42px
     color-mix(
       in srgb,
-      var(--ember-shadow-color, rgba(15, 23, 42, 0.12)) 34%,
+      var(--lime-shadow-color, rgba(15, 23, 42, 0.12)) 34%,
       transparent
     );
 `;
@@ -156,7 +162,7 @@ const RankingItem = styled.li`
   display: flex;
   align-items: center;
   gap: 10px;
-  color: var(--ember-text, #334155);
+  color: var(--lime-text, #334155);
   font-size: 13px;
   font-weight: 650;
 `;
@@ -168,8 +174,8 @@ const Rank = styled.span`
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: var(--ember-brand-soft, #ecfeff);
-  color: var(--ember-brand-strong, #0f766e);
+  background: var(--lime-brand-soft, #ecfeff);
+  color: var(--lime-brand-strong, #0f766e);
   font-size: 12px;
 `;
 
@@ -179,9 +185,9 @@ const Toolbar = styled.section`
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  border: 1px solid var(--ember-surface-border, rgba(226, 232, 240, 0.92));
+  border: 1px solid var(--lime-surface-border, rgba(226, 232, 240, 0.92));
   border-radius: 22px;
-  background: var(--ember-surface, #fff);
+  background: var(--lime-surface, #fff);
   padding: 12px;
 `;
 
@@ -196,18 +202,18 @@ const CategoryButton = styled.button<{ $active: boolean }>`
   border: 1px solid
     ${(props) =>
       props.$active
-        ? "var(--ember-brand, #10b981)"
-        : "var(--ember-surface-border, #e2e8f0)"};
+        ? "var(--lime-brand, #10b981)"
+        : "var(--lime-surface-border, #e2e8f0)"};
   border-radius: 999px;
   background: ${(props) =>
     props.$active
-      ? "var(--ember-brand-soft, #ecfdf5)"
-      : "var(--ember-surface-soft, #f8fafc)"};
+      ? "var(--lime-brand-soft, #ecfdf5)"
+      : "var(--lime-surface-soft, #f8fafc)"};
   padding: 7px 12px;
   color: ${(props) =>
     props.$active
-      ? "var(--ember-brand-strong, #166534)"
-      : "var(--ember-text, #475569)"};
+      ? "var(--lime-brand-strong, #166534)"
+      : "var(--lime-text, #475569)"};
   font-size: 12px;
   font-weight: 720;
   cursor: pointer;
@@ -217,9 +223,9 @@ const CategoryButton = styled.button<{ $active: boolean }>`
     color 0.16s ease;
 
   &:hover {
-    border-color: var(--ember-brand, #10b981);
-    background: var(--ember-surface-hover, #f4fdf4);
-    color: var(--ember-brand-strong, #166534);
+    border-color: var(--lime-brand, #10b981);
+    background: var(--lime-surface-hover, #f4fdf4);
+    color: var(--lime-brand-strong, #166534);
   }
 `;
 
@@ -228,20 +234,20 @@ const SearchInput = styled.input`
   min-height: 36px;
   min-width: 0;
   width: min(320px, 100%);
-  border: 1px solid var(--ember-surface-border, #e2e8f0);
+  border: 1px solid var(--lime-surface-border, #e2e8f0);
   border-radius: 999px;
-  background: var(--ember-surface-soft, #f8fafc);
+  background: var(--lime-surface-soft, #f8fafc);
   padding: 0 14px;
-  color: var(--ember-text-strong, #0f172a);
+  color: var(--lime-text-strong, #0f172a);
   outline: none;
 
   &::placeholder {
-    color: var(--ember-text-muted, #94a3b8);
+    color: var(--lime-text-muted, #94a3b8);
   }
 
   &:focus {
-    border-color: var(--ember-brand, #10b981);
-    box-shadow: 0 0 0 4px var(--ember-focus-ring, rgba(52, 171, 103, 0.18));
+    border-color: var(--lime-brand, #10b981);
+    box-shadow: 0 0 0 4px var(--lime-focus-ring, rgba(52, 171, 103, 0.18));
   }
 `;
 
@@ -259,14 +265,14 @@ const ExpertCard = styled.article`
   flex-direction: column;
   justify-content: space-between;
   gap: 16px;
-  border: 1px solid var(--ember-card-subtle-border, rgba(226, 232, 240, 0.94));
+  border: 1px solid var(--lime-card-subtle-border, rgba(226, 232, 240, 0.94));
   border-radius: 22px;
-  background: var(--ember-surface, #fff);
+  background: var(--lime-surface, #fff);
   padding: 18px;
   box-shadow: 0 16px 34px
     color-mix(
       in srgb,
-      var(--ember-shadow-color, rgba(15, 23, 42, 0.12)) 30%,
+      var(--lime-shadow-color, rgba(15, 23, 42, 0.12)) 30%,
       transparent
     );
   transition:
@@ -276,13 +282,13 @@ const ExpertCard = styled.article`
 
   &:hover {
     border-color: var(
-      --ember-home-card-hover-border,
-      var(--ember-surface-border-strong, #c7e7d1)
+      --lime-home-card-hover-border,
+      var(--lime-surface-border-strong, #c7e7d1)
     );
     box-shadow: 0 18px 40px
       color-mix(
         in srgb,
-        var(--ember-shadow-color, rgba(15, 23, 42, 0.12)) 42%,
+        var(--lime-shadow-color, rgba(15, 23, 42, 0.12)) 42%,
         transparent
       );
     transform: translateY(-1px);
@@ -307,20 +313,20 @@ const Avatar = styled.span`
   align-items: center;
   justify-content: center;
   border-radius: 16px;
-  background: var(--ember-brand-soft, #ecfeff);
+  background: var(--lime-brand-soft, #ecfeff);
   font-size: 23px;
 `;
 
 const ExpertTitle = styled.h3`
   margin: 0;
-  color: var(--ember-text-strong, #0f172a);
+  color: var(--lime-text-strong, #0f172a);
   font-size: 15px;
   overflow-wrap: anywhere;
 `;
 
 const ExpertSummary = styled.p`
   margin: 6px 0 0;
-  color: var(--ember-text-muted, #64748b);
+  color: var(--lime-text-muted, #64748b);
   font-size: 12px;
   line-height: 1.7;
   overflow-wrap: anywhere;
@@ -330,15 +336,15 @@ const CardMeta = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  color: var(--ember-text-muted, #94a3b8);
+  color: var(--lime-text-muted, #94a3b8);
   font-size: 12px;
 `;
 
 const Tag = styled.span`
   border-radius: 999px;
-  background: var(--ember-surface-muted, #f1f5f9);
+  background: var(--lime-surface-muted, #f1f5f9);
   padding: 5px 8px;
-  color: var(--ember-text, #475569);
+  color: var(--lime-text, #475569);
   font-size: 11px;
   font-weight: 650;
 `;
@@ -362,12 +368,12 @@ const PrimaryButton = styled.button`
   border: 1px solid
     color-mix(
       in srgb,
-      var(--ember-brand, #10b981) 72%,
-      var(--ember-surface-border, #e2e8f0)
+      var(--lime-brand, #10b981) 72%,
+      var(--lime-surface-border, #e2e8f0)
     );
   border-radius: 16px;
   background: var(
-    --ember-primary-gradient-simple,
+    --lime-primary-gradient-simple,
     linear-gradient(135deg, #0ea5e9 0%, #10b981 100%)
   );
   padding: 0 14px;
@@ -378,7 +384,7 @@ const PrimaryButton = styled.button`
   white-space: nowrap;
   cursor: pointer;
   box-shadow: 0 8px 18px
-    color-mix(in srgb, var(--ember-brand, #10b981) 18%, transparent);
+    color-mix(in srgb, var(--lime-brand, #10b981) 18%, transparent);
   transition:
     box-shadow 0.16s ease,
     filter 0.16s ease,
@@ -387,7 +393,7 @@ const PrimaryButton = styled.button`
   &:hover {
     filter: saturate(1.02) brightness(1.01);
     box-shadow: 0 10px 22px
-      color-mix(in srgb, var(--ember-brand, #10b981) 24%, transparent);
+      color-mix(in srgb, var(--lime-brand, #10b981) 24%, transparent);
     transform: translateY(-1px);
   }
 `;
@@ -401,17 +407,17 @@ const SecondaryButton = styled.button`
   border: 1px solid
     color-mix(
       in srgb,
-      var(--ember-brand, #10b981) 24%,
-      var(--ember-surface-border, #e2e8f0)
+      var(--lime-brand, #10b981) 24%,
+      var(--lime-surface-border, #e2e8f0)
     );
   border-radius: 16px;
   background: color-mix(
     in srgb,
-    var(--ember-brand-soft, #ecfdf5) 58%,
-    var(--ember-surface, #fff)
+    var(--lime-brand-soft, #ecfdf5) 58%,
+    var(--lime-surface, #fff)
   );
   padding: 0 14px;
-  color: var(--ember-brand-strong, #166534);
+  color: var(--lime-brand-strong, #166534);
   font-size: 12px;
   font-weight: 720;
   line-height: 1;
@@ -427,26 +433,26 @@ const SecondaryButton = styled.button`
   &:hover {
     border-color: color-mix(
       in srgb,
-      var(--ember-brand, #10b981) 52%,
-      var(--ember-surface-border, #e2e8f0)
+      var(--lime-brand, #10b981) 52%,
+      var(--lime-surface-border, #e2e8f0)
     );
     background: color-mix(
       in srgb,
-      var(--ember-brand-soft, #ecfdf5) 78%,
-      var(--ember-surface, #fff)
+      var(--lime-brand-soft, #ecfdf5) 78%,
+      var(--lime-surface, #fff)
     );
-    color: var(--ember-brand-strong, #166534);
+    color: var(--lime-brand-strong, #166534);
     transform: translateY(-1px);
   }
 `;
 
 const EmptyState = styled.div`
-  border: 1px dashed var(--ember-surface-border-strong, #cbd5e1);
+  border: 1px dashed var(--lime-surface-border-strong, #cbd5e1);
   border-radius: 22px;
-  background: var(--ember-surface, #fff);
+  background: var(--lime-surface, #fff);
   padding: 34px;
   text-align: center;
-  color: var(--ember-text-muted, #64748b);
+  color: var(--lime-text-muted, #64748b);
 `;
 
 const DetailOverlay = styled.div`
@@ -467,14 +473,14 @@ const DetailDialog = styled.div`
   grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
   gap: 18px;
   overflow: auto;
-  border: 1px solid var(--ember-card-subtle-border, rgba(226, 232, 240, 0.95));
+  border: 1px solid var(--lime-card-subtle-border, rgba(226, 232, 240, 0.95));
   border-radius: 28px;
-  background: var(--ember-surface, #fff);
+  background: var(--lime-surface, #fff);
   padding: 24px;
   box-shadow: 0 24px 80px
     color-mix(
       in srgb,
-      var(--ember-shadow-color, rgba(15, 23, 42, 0.18)) 78%,
+      var(--lime-shadow-color, rgba(15, 23, 42, 0.18)) 78%,
       transparent
     );
 
@@ -497,38 +503,28 @@ const DetailSide = styled.aside`
   background:
     linear-gradient(
       180deg,
-      var(--ember-brand-soft, #ecfdf5) 0%,
-      var(--ember-surface-soft, #f8fafc) 100%
+      var(--lime-brand-soft, #ecfdf5) 0%,
+      var(--lime-surface-soft, #f8fafc) 100%
     );
   padding: 16px;
 `;
 
 const DetailActions = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: 1fr;
   gap: 10px;
   margin-top: 6px;
   border-top: 1px solid
     color-mix(
       in srgb,
-      var(--ember-brand, #10b981) 16%,
-      var(--ember-surface-border, #e2e8f0)
+      var(--lime-brand, #10b981) 16%,
+      var(--lime-surface-border, #e2e8f0)
     );
   padding-top: 12px;
 
-  @media (max-width: 520px) {
-    grid-template-columns: 1fr;
-  }
 `;
 
 const DetailPrimaryButton = styled(PrimaryButton)`
-  width: 100%;
-  min-height: 44px;
-  padding: 0 18px;
-  font-size: 13px;
-`;
-
-const DetailSecondaryButton = styled(SecondaryButton)`
   width: 100%;
   min-height: 44px;
   padding: 0 18px;
@@ -543,30 +539,30 @@ const DetailTitleRow = styled.div`
 `;
 
 const CloseButton = styled.button`
-  border: 1px solid var(--ember-surface-border, #e2e8f0);
+  border: 1px solid var(--lime-surface-border, #e2e8f0);
   border-radius: 999px;
-  background: var(--ember-surface, #fff);
+  background: var(--lime-surface, #fff);
   padding: 8px 10px;
-  color: var(--ember-text, #334155);
+  color: var(--lime-text, #334155);
   cursor: pointer;
 
   &:hover {
-    border-color: var(--ember-brand, #10b981);
-    background: var(--ember-brand-soft, #ecfdf5);
-    color: var(--ember-brand-strong, #166534);
+    border-color: var(--lime-brand, #10b981);
+    background: var(--lime-brand-soft, #ecfdf5);
+    color: var(--lime-brand-strong, #166534);
   }
 `;
 
 const DetailBlock = styled.section`
-  border: 1px solid var(--ember-surface-border, #e2e8f0);
+  border: 1px solid var(--lime-surface-border, #e2e8f0);
   border-radius: 18px;
-  background: var(--ember-surface-soft, #f8fafc);
+  background: var(--lime-surface-soft, #f8fafc);
   padding: 14px;
 `;
 
 const DetailBlockTitle = styled.h4`
   margin: 0 0 8px;
-  color: var(--ember-text-strong, #0f172a);
+  color: var(--lime-text-strong, #0f172a);
   font-size: 13px;
 `;
 
@@ -591,12 +587,21 @@ function findOverlayForExpert(
 function resolveExpertAgentIdentity(
   catalog: ExpertCatalog,
   item: ExpertCatalogProjectionItem,
+  projectId?: string | null,
 ) {
   return {
     tenantId: catalog.tenantId,
+    ...(projectId ? { projectId } : {}),
     expertId: item.id,
     releaseId: item.release.releaseId,
   };
+}
+
+function resolveExpertPlazaProjectId(projectId?: string | null): string | null {
+  return (
+    normalizeProjectId(projectId) ||
+    loadPersistedProjectId(LAST_PROJECT_ID_KEY)
+  );
 }
 
 function buildExpertCatalogEvent(
@@ -624,7 +629,10 @@ function buildExpertCatalogEvent(
   };
 }
 
-export function ExpertPlazaPage({ onNavigate }: ExpertPlazaPageProps) {
+export function ExpertPlazaPage({
+  onNavigate,
+  currentProjectId,
+}: ExpertPlazaPageProps) {
   const { t } = useTranslation("agent");
   const [catalog, setCatalog] = useState<ExpertCatalog>(() =>
     getSeededExpertCatalog(),
@@ -638,6 +646,7 @@ export function ExpertPlazaPage({ onNavigate }: ExpertPlazaPageProps) {
   const [syncedFromCloud, setSyncedFromCloud] = useState(false);
   const [, setInstanceSyncVersion] = useState(0);
   const impressionKeysRef = useRef<Set<string>>(new Set());
+  const projectScopedId = resolveExpertPlazaProjectId(currentProjectId);
 
   useEffect(() => {
     let cancelled = false;
@@ -718,26 +727,25 @@ export function ExpertPlazaPage({ onNavigate }: ExpertPlazaPageProps) {
     }
   };
 
-  const handleStart = (
-    item: ExpertCatalogProjectionItem,
-    launchMode: ExpertAgentLaunchMode = "resume_or_create",
-  ) => {
+  const handleStart = (item: ExpertCatalogProjectionItem) => {
     const nextOverlays = recordExpertLaunch(overlays, item);
     setOverlays(nextOverlays);
-    const identity = resolveExpertAgentIdentity(catalog, item);
-    const existingInstance =
-      launchMode === "resume_or_create"
-        ? findExpertAgentInstance(identity)
-        : null;
-    const shouldResumeExisting = Boolean(existingInstance?.latestSessionId);
+    const identity = resolveExpertAgentIdentity(
+      catalog,
+      item,
+      projectScopedId,
+    );
+    const existingInstance = projectScopedId
+      ? findExpertAgentInstance(identity)
+      : null;
     const event = buildExpertCatalogEvent(
       item,
       catalog,
       "expert_chat_started",
       "expert_plaza",
       {
-        launchMode,
-        reusedSession: String(shouldResumeExisting),
+        launchMode: "new_thread",
+        reusedSession: "false",
       },
     );
     if (event) {
@@ -772,39 +780,24 @@ export function ExpertPlazaPage({ onNavigate }: ExpertPlazaPageProps) {
     onNavigate?.(
       "agent",
       buildClawAgentParams({
-        projectId: "default",
-        ...(shouldResumeExisting ? {} : { initialUserPrompt }),
+        ...(projectScopedId ? { projectId: projectScopedId } : {}),
+        initialUserPrompt,
         initialSessionName: item.title,
-        initialSessionId: existingInstance?.latestSessionId,
-        entryBannerMessage: t("agentExperts.chat.banner", {
-          title: item.title,
-        }),
-        ...(shouldResumeExisting
-          ? { autoRunInitialPromptOnMount: false }
-          : {
-              autoRunInitialPromptOnMount: true,
-              newChatAt: Date.now(),
-              initialAutoSendRequestMetadata: requestMetadata,
-            }),
+        autoRunInitialPromptOnMount: true,
+        newChatAt: Date.now(),
+        initialAutoSendRequestMetadata: requestMetadata,
         initialRequestMetadata: requestMetadata,
         expertAgentLaunch: {
           ...identity,
           agentInstanceKey: buildExpertAgentInstanceKey(identity),
           catalogVersion: catalog.version,
-          launchMode,
+          launchMode: "new_thread",
           title: item.title,
-          latestSessionId: existingInstance?.latestSessionId,
           skillRefsOverride: existingInstance?.skillRefsOverride,
         },
       }),
     );
   };
-
-  const getStartActionLabel = (item: ExpertCatalogProjectionItem) =>
-    findExpertAgentInstance(resolveExpertAgentIdentity(catalog, item))
-      ?.latestSessionId
-      ? t("agentExperts.actions.continue")
-      : t("agentExperts.actions.start");
 
   const readinessLabel = (item: ExpertCatalogProjectionItem) => {
     if (item.release.readiness?.missingSkillRefs?.length) {
@@ -912,7 +905,7 @@ export function ExpertPlazaPage({ onNavigate }: ExpertPlazaPageProps) {
                     data-testid={`expert-start-${item.id}`}
                     onClick={() => handleStart(item)}
                   >
-                    {getStartActionLabel(item)}
+                    {t("agentExperts.actions.start")}
                   </PrimaryButton>
                   <SecondaryButton
                     type="button"
@@ -988,15 +981,8 @@ export function ExpertPlazaPage({ onNavigate }: ExpertPlazaPageProps) {
                   data-testid={`expert-detail-start-${selected.id}`}
                   onClick={() => handleStart(selected)}
                 >
-                  {getStartActionLabel(selected)}
+                  {t("agentExperts.actions.start")}
                 </DetailPrimaryButton>
-                <DetailSecondaryButton
-                  type="button"
-                  data-testid={`expert-new-thread-${selected.id}`}
-                  onClick={() => handleStart(selected, "new_thread")}
-                >
-                  {t("agentExperts.actions.newThread")}
-                </DetailSecondaryButton>
               </DetailActions>
             </DetailSide>
           </DetailDialog>

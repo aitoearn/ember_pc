@@ -36,8 +36,8 @@ const Dialog = styled.div`
   flex-direction: column;
   overflow: hidden;
   border-radius: 28px;
-  border: 1px solid var(--ember-surface-border, rgba(226, 232, 240, 0.96));
-  background: var(--ember-surface, #fff);
+  border: 1px solid var(--lime-surface-border, rgba(226, 232, 240, 0.96));
+  background: var(--lime-surface, #fff);
   box-shadow: 0 26px 74px -42px rgba(15, 23, 42, 0.46);
 `;
 
@@ -46,7 +46,7 @@ const Header = styled.header`
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  border-bottom: 1px solid var(--ember-surface-border, rgba(226, 232, 240, 0.9));
+  border-bottom: 1px solid var(--lime-surface-border, rgba(226, 232, 240, 0.9));
   padding: 1.05rem 1.15rem 0.9rem;
 `;
 
@@ -56,7 +56,7 @@ const TitleBlock = styled.div`
 
 const Title = styled.h2`
   margin: 0;
-  color: var(--ember-text-strong, rgb(15 23 42));
+  color: var(--lime-text-strong, rgb(15 23 42));
   font-size: 17px;
   font-weight: 780;
   line-height: 1.35;
@@ -64,7 +64,7 @@ const Title = styled.h2`
 
 const Description = styled.p`
   margin: 0.22rem 0 0;
-  color: var(--ember-text-muted, rgb(100 116 139));
+  color: var(--lime-text-muted, rgb(100 116 139));
   font-size: 12px;
   line-height: 1.55;
 `;
@@ -84,7 +84,7 @@ const Footer = styled.footer`
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  border-top: 1px solid var(--ember-surface-border, rgba(226, 232, 240, 0.9));
+  border-top: 1px solid var(--lime-surface-border, rgba(226, 232, 240, 0.9));
   padding: 0.85rem 1.15rem 1rem;
 `;
 
@@ -104,13 +104,13 @@ const Button = styled.button<{ $primary?: boolean }>`
   border: 1px solid
     ${({ $primary }) =>
       $primary
-        ? "var(--ember-brand-strong, #2f533c)"
-        : "var(--ember-surface-border, rgba(203, 213, 225, 0.96))"};
+        ? "var(--lime-brand-strong, #2f533c)"
+        : "var(--lime-surface-border, rgba(203, 213, 225, 0.96))"};
   background: ${({ $primary }) =>
-    $primary ? "var(--ember-brand-strong, #2f533c)" : "#fff"};
+    $primary ? "var(--lime-brand-strong, #2f533c)" : "#fff"};
   padding: 0.48rem 0.82rem;
   color: ${({ $primary }) =>
-    $primary ? "#fff" : "var(--ember-text, rgb(71 85 105))"};
+    $primary ? "#fff" : "var(--lime-text, rgb(71 85 105))"};
   font-size: 12px;
   font-weight: 720;
   line-height: 1;
@@ -133,13 +133,13 @@ const Row = styled.div`
   align-items: center;
   gap: 0.65rem;
   border-radius: 18px;
-  border: 1px solid var(--ember-surface-border, rgba(226, 232, 240, 0.92));
-  background: var(--ember-surface-soft, rgba(248, 250, 252, 0.98));
+  border: 1px solid var(--lime-surface-border, rgba(226, 232, 240, 0.92));
+  background: var(--lime-surface-soft, rgba(248, 250, 252, 0.98));
   padding: 0.55rem 0.7rem;
 `;
 
 const DragHandle = styled.span`
-  color: var(--ember-text-subtle, rgb(148 163 184));
+  color: var(--lime-text-subtle, rgb(148 163 184));
   font-size: 15px;
   line-height: 1;
   text-align: center;
@@ -151,7 +151,7 @@ const RowTitle = styled.div`
 
 const RowName = styled.div`
   overflow: hidden;
-  color: var(--ember-text-strong, rgb(15 23 42));
+  color: var(--lime-text-strong, rgb(15 23 42));
   font-size: 13px;
   font-weight: 740;
   line-height: 1.4;
@@ -161,7 +161,7 @@ const RowName = styled.div`
 
 const RowMeta = styled.div`
   overflow: hidden;
-  color: var(--ember-text-muted, rgb(100 116 139));
+  color: var(--lime-text-muted, rgb(100 116 139));
   font-size: 11px;
   line-height: 1.5;
   text-overflow: ellipsis;
@@ -181,9 +181,9 @@ const IconButton = styled.button`
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  border: 1px solid var(--ember-surface-border, rgba(203, 213, 225, 0.9));
+  border: 1px solid var(--lime-surface-border, rgba(203, 213, 225, 0.9));
   background: #fff;
-  color: var(--ember-text, rgb(71 85 105));
+  color: var(--lime-text, rgb(71 85 105));
   font-size: 12px;
 
   &:disabled {
@@ -196,7 +196,7 @@ const ToggleLabel = styled.label`
   display: inline-flex;
   align-items: center;
   gap: 0.28rem;
-  color: var(--ember-text, rgb(71 85 105));
+  color: var(--lime-text, rgb(71 85 105));
   font-size: 11px;
   font-weight: 680;
 `;
@@ -225,7 +225,7 @@ const FieldGrid = styled.form`
 const Field = styled.label`
   display: grid;
   gap: 0.3rem;
-  color: var(--ember-text, rgb(71 85 105));
+  color: var(--lime-text, rgb(71 85 105));
   font-size: 12px;
   font-weight: 700;
 `;
@@ -233,10 +233,10 @@ const Field = styled.label`
 const Input = styled.input`
   min-height: 36px;
   border-radius: 14px;
-  border: 1px solid var(--ember-surface-border, rgba(203, 213, 225, 0.94));
+  border: 1px solid var(--lime-surface-border, rgba(203, 213, 225, 0.94));
   background: #fff;
   padding: 0.5rem 0.62rem;
-  color: var(--ember-text-strong, rgb(15 23 42));
+  color: var(--lime-text-strong, rgb(15 23 42));
   font-size: 13px;
   outline: none;
 `;
@@ -244,10 +244,10 @@ const Input = styled.input`
 const Select = styled.select`
   min-height: 36px;
   border-radius: 14px;
-  border: 1px solid var(--ember-surface-border, rgba(203, 213, 225, 0.94));
+  border: 1px solid var(--lime-surface-border, rgba(203, 213, 225, 0.94));
   background: #fff;
   padding: 0.5rem 0.62rem;
-  color: var(--ember-text-strong, rgb(15 23 42));
+  color: var(--lime-text-strong, rgb(15 23 42));
   font-size: 13px;
 `;
 
@@ -255,10 +255,10 @@ const TextArea = styled.textarea`
   min-height: 74px;
   resize: vertical;
   border-radius: 14px;
-  border: 1px solid var(--ember-surface-border, rgba(203, 213, 225, 0.94));
+  border: 1px solid var(--lime-surface-border, rgba(203, 213, 225, 0.94));
   background: #fff;
   padding: 0.55rem 0.62rem;
-  color: var(--ember-text-strong, rgb(15 23 42));
+  color: var(--lime-text-strong, rgb(15 23 42));
   font-size: 13px;
   line-height: 1.5;
   outline: none;

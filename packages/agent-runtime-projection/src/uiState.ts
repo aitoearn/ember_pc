@@ -1,21 +1,44 @@
 import type {
+  AgentRuntimeEventProjection,
   AgentRuntimeExecutionEvent,
   AgentRuntimeProjectionInput,
   AgentRuntimeReadModel,
   AgentUiArtifactRefView,
+  AgentUiDiagnosticView,
   AgentUiEvidenceRefView,
   AgentUiProjectionState,
   AgentUiProjector,
   AgentUiRefView,
   AgentUiRuntimeStatusView,
+  AgentUiSubagentsModel,
+  AgentUiMcpSurfaceModel,
+  AgentUiToolSurfaceModel,
   ExecutionGraphNode,
   ExecutionGraphNodeType,
   ProcessTimelineEntry,
   ProcessTimelineEntryKind,
   UIMessagePart,
 } from "@embercloud/agent-ui-contracts";
-import { agentEventSurface, projectAgentRuntimeReadModel } from "./readModel.js";
-import { buildAgentUiSubagentsModel } from "./subagents.js";
+import {
+  agentEventSurface,
+  createAgentRuntimeReadModelAccumulator,
+  projectAgentRuntimeReadModel,
+} from "./readModel.js";
+import {
+  projectAgentUiMcpSurface,
+  projectAgentUiToolSurface,
+} from "./toolSurface.js";
+import {
+  buildAgentUiSubagentsModel,
+  createAgentUiSubagentsModelAccumulator,
+} from "./subagents.js";
+import {
+  createRuntimeStatusAccumulator,
+  runtimeStatusForEvents,
+} from "./runtimeStatus.js";
+import {
+  applyAgentRuntimeStateDeltasToProjectionState,
+} from "./stateDelta.js";
 
 function eventRefs(event: AgentRuntimeExecutionEvent): string[] {
   return [
@@ -145,6 +168,30 @@ function uiPartForEvent(
   event: AgentRuntimeExecutionEvent,
 ): UIMessagePart | undefined {
   const eventClass = event.eventClass ?? "";
+  if (eventClass === "plan.delta" || eventClass === "plan.final") {
+    const text =
+      payloadString(event, "text", "delta", "message", "content") ??
+      payloadPlanText(event) ??
+      event.detail ??
+      event.title;
+    return {
+      type: "plan",
+      partId: event.id,
+      messageId:
+        typeof event.payload?.messageId === "string"
+          ? event.payload.messageId
+          : event.id,
+      role: "assistant",
+      text,
+      state:
+        eventClass === "plan.final" || event.status === "completed"
+          ? "final"
+          : "streaming",
+      sourceEventId: event.id,
+      createdAt: event.createdAt,
+      refs: eventRefs(event),
+    };
+  }
   if (
     event.kind === "model" ||
     eventClass === "model.delta" ||
@@ -159,9 +206,9 @@ function uiPartForEvent(
           : event.id,
       role: "assistant",
       text:
-        typeof event.payload?.text === "string"
-          ? event.payload.text
-          : event.detail ?? event.title,
+        payloadString(event, "text", "delta", "message", "content") ??
+        event.detail ??
+        event.title,
       state:
         eventClass === "model.completed" || event.status === "completed"
           ? "final"
@@ -239,6 +286,49 @@ function uiPartForEvent(
   return undefined;
 }
 
+function payloadPlanText(event: AgentRuntimeExecutionEvent): string | undefined {
+  const payload = event.payload;
+  if (!isRecord(payload)) return undefined;
+  const plan = payload.plan;
+  if (typeof plan === "string" && plan.trim()) {
+    return plan;
+  }
+  if (!Array.isArray(plan)) {
+    return undefined;
+  }
+
+  const lines = plan
+    .map((item) => {
+      if (typeof item === "string") {
+        return item.trim();
+      }
+      if (!isRecord(item)) {
+        return "";
+      }
+      const step =
+        readPlanItemString(item, "step") ??
+        readPlanItemString(item, "title") ??
+        readPlanItemString(item, "text") ??
+        readPlanItemString(item, "content");
+      const status = readPlanItemString(item, "status");
+      if (!step) {
+        return "";
+      }
+      return status ? `- [${status}] ${step}` : `- ${step}`;
+    })
+    .filter(Boolean);
+
+  return lines.length ? lines.join("\n") : undefined;
+}
+
+function readPlanItemString(
+  record: Record<string, unknown>,
+  key: string,
+): string | undefined {
+  const value = record[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
 function messageScopeKey(event: AgentRuntimeExecutionEvent): string {
   return [
     event.runtimeId,
@@ -257,7 +347,10 @@ function messagePartGroupKey(
   part: UIMessagePart,
 ): string | null {
   const eventClass = event.eventClass ?? "";
-  if (part.type === "text" && eventClass === "model.delta") {
+  if (
+    part.type === "text" &&
+    (eventClass === "model.delta" || eventClass === "model.completed")
+  ) {
     return `stream:text:${messageScopeKey(event)}`;
   }
   if (part.type === "reasoning" && eventClass.startsWith("reasoning.")) {
@@ -270,9 +363,20 @@ function mergeStreamText(current = "", next = ""): string {
   if (!current) return next;
   if (!next) return current;
   if (next.startsWith(current)) return next;
+  if (isWhitespaceInsensitivePrefix(current, next)) return next;
   const needsSpace =
     /[A-Za-z0-9`)]$/.test(current) && /^[A-Za-z0-9`(]/.test(next);
   return `${current}${needsSpace ? " " : ""}${next}`;
+}
+
+function isWhitespaceInsensitivePrefix(current: string, next: string): boolean {
+  const compactCurrent = current.replace(/\s+/g, "");
+  const compactNext = next.replace(/\s+/g, "");
+  return (
+    compactCurrent.length > 0 &&
+    compactNext.length >= compactCurrent.length &&
+    compactNext.startsWith(compactCurrent)
+  );
 }
 
 function mergeMessagePart(current: UIMessagePart, next: UIMessagePart): UIMessagePart {
@@ -293,23 +397,94 @@ function collectMessageParts(
   const groups = new Map<string, number>();
 
   events.forEach((event) => {
-    const part = uiPartForEvent(event);
-    if (!part) return;
-    const groupKey = messagePartGroupKey(event, part);
-    if (!groupKey) {
-      parts.push(part);
-      return;
-    }
-    const existingIndex = groups.get(groupKey);
-    if (typeof existingIndex === "number") {
-      parts[existingIndex] = mergeMessagePart(parts[existingIndex], part);
-      return;
-    }
-    groups.set(groupKey, parts.length);
-    parts.push(part);
+    appendMessagePart(parts, groups, event);
   });
 
-  return parts;
+  return materializeProposedPlanParts(parts);
+}
+
+const PROPOSED_PLAN_BLOCK_PATTERN =
+  /<proposed_plan\b[^>]*>([\s\S]*?)<\/proposed_plan>/gi;
+
+function materializeProposedPlanParts(
+  parts: readonly UIMessagePart[],
+): UIMessagePart[] {
+  return parts.flatMap((part) => materializeProposedPlanPart(part));
+}
+
+function materializeProposedPlanPart(part: UIMessagePart): UIMessagePart[] {
+  if (part.type !== "text" || !part.text?.includes("<proposed_plan")) {
+    return [part];
+  }
+
+  const result: UIMessagePart[] = [];
+  let cursor = 0;
+  let planIndex = 0;
+  PROPOSED_PLAN_BLOCK_PATTERN.lastIndex = 0;
+
+  for (
+    let match = PROPOSED_PLAN_BLOCK_PATTERN.exec(part.text);
+    match;
+    match = PROPOSED_PLAN_BLOCK_PATTERN.exec(part.text)
+  ) {
+    const before = part.text.slice(cursor, match.index);
+    appendTextSegmentPart(result, part, before, planIndex);
+    const planText = match[1]?.trim();
+    if (planText) {
+      result.push({
+        ...part,
+        type: "plan",
+        partId: `${part.partId}:proposed-plan:${planIndex}`,
+        text: planText,
+      });
+      planIndex += 1;
+    }
+    cursor = match.index + match[0].length;
+  }
+
+  if (planIndex === 0) {
+    return [part];
+  }
+
+  appendTextSegmentPart(result, part, part.text.slice(cursor), planIndex);
+  return result;
+}
+
+function appendTextSegmentPart(
+  result: UIMessagePart[],
+  source: UIMessagePart,
+  text: string,
+  segmentIndex: number,
+): void {
+  if (!text.trim()) {
+    return;
+  }
+  result.push({
+    ...source,
+    partId: `${source.partId}:text:${segmentIndex}`,
+    text,
+  });
+}
+
+function appendMessagePart(
+  parts: UIMessagePart[],
+  groups: Map<string, number>,
+  event: AgentRuntimeExecutionEvent,
+): void {
+  const part = uiPartForEvent(event);
+  if (!part) return;
+  const groupKey = messagePartGroupKey(event, part);
+  if (!groupKey) {
+    parts.push(part);
+    return;
+  }
+  const existingIndex = groups.get(groupKey);
+  if (typeof existingIndex === "number") {
+    parts[existingIndex] = mergeMessagePart(parts[existingIndex], part);
+    return;
+  }
+  groups.set(groupKey, parts.length);
+  parts.push(part);
 }
 
 function normalizeSnapshotMessageRole(
@@ -408,19 +583,18 @@ function graphNodeTypeForEvent(
   return "task";
 }
 
-function upsertGraphNode(
-  nodes: Map<string, ExecutionGraphNode>,
+function graphNodeForEvent(
+  existing: ExecutionGraphNode | undefined,
   event: AgentRuntimeExecutionEvent,
-): void {
+): ExecutionGraphNode | undefined {
   const nodeId = graphNodeIdForEvent(event);
-  if (!nodeId) return;
-  const existing = nodes.get(nodeId);
+  if (!nodeId) return undefined;
   const refs = new Set([...(existing?.refs ?? []), ...eventRefs(event)]);
   const sourceEventIds = new Set([
     ...(existing?.sourceEventIds ?? []),
     event.id,
   ]);
-  nodes.set(nodeId, {
+  return {
     nodeId,
     parentId:
       event.subagentId && event.taskId
@@ -437,71 +611,130 @@ function upsertGraphNode(
     sourceEventIds: Array.from(sourceEventIds),
     createdAt: existing?.createdAt ?? event.createdAt,
     completedAt: event.completedAt ?? existing?.completedAt,
+  };
+}
+
+function upsertGraphNode(
+  nodes: Map<string, ExecutionGraphNode>,
+  event: AgentRuntimeExecutionEvent,
+): void {
+  const node = graphNodeForEvent(
+    nodes.get(graphNodeIdForEvent(event) ?? ""),
+    event,
+  );
+  if (node) nodes.set(node.nodeId, node);
+}
+
+function cloneMessagePart(part: UIMessagePart): UIMessagePart {
+  return {
+    ...part,
+    refs: part.refs ? [...part.refs] : undefined,
+  };
+}
+
+function cloneTimelineEntry(entry: ProcessTimelineEntry): ProcessTimelineEntry {
+  return {
+    ...entry,
+    refs: [...entry.refs],
+  };
+}
+
+function cloneGraphNode(node: ExecutionGraphNode): ExecutionGraphNode {
+  return {
+    ...node,
+    refs: [...node.refs],
+    sourceEventIds: [...node.sourceEventIds],
+  };
+}
+
+function cloneRefView(ref: AgentUiRefView): AgentUiRefView {
+  return compactRefView({
+    ...ref,
+    metadata: ref.metadata ? { ...ref.metadata } : undefined,
   });
 }
 
-function runtimeStatusForEvents(
-  events: AgentRuntimeExecutionEvent[],
-): AgentUiRuntimeStatusView {
-  const latest = events.length ? events[events.length - 1] : undefined;
-  const resolvedActionIds = new Set<string>();
-  let status: AgentUiRuntimeStatusView["status"] = "idle";
-  // 从最新事件倒序解析运行态，避免已处理 action 继续把 runtime 锁在 waiting。
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index];
-    if (event.eventClass === "action.resolved" && event.actionId) {
-      resolvedActionIds.add(event.actionId);
-      continue;
-    }
-    if (
-      event.status === "failed" ||
-      event.eventClass === "turn.failed" ||
-      event.eventClass === "runtime.error"
-    ) {
-      status = "failed";
-      break;
-    }
-    if (event.status === "blocked") {
-      status = "blocked";
-      break;
-    }
-    if (
-      event.eventClass === "action.required" &&
-      (!event.actionId || !resolvedActionIds.has(event.actionId))
-    ) {
-      status = "waiting";
-      break;
-    }
-    if (
-      event.status === "pending" &&
-      (!event.actionId || !resolvedActionIds.has(event.actionId))
-    ) {
-      status = "waiting";
-      break;
-    }
-    if (
-      event.eventClass === "turn.completed" ||
-      event.eventClass === "model.completed"
-    ) {
-      status = "completed";
-      break;
-    }
-    if (
-      event.status === "running" ||
-      event.eventClass === "turn.started" ||
-      event.eventClass === "model.delta"
-    ) {
-      status = "running";
-      break;
-    }
-  }
+function diagnosticForEvent(event: AgentRuntimeExecutionEvent): AgentUiDiagnosticView {
   return {
-    status,
-    activeTurnId: latest?.turnId,
-    activeRunId: latest?.runId,
-    activeTaskId: latest?.taskId,
-    latestEventId: latest?.id,
-    latestSequence: latest?.sequence,
+    id: event.traceId ?? event.id,
+    sourceEventId: event.id,
+    title: event.title,
+    detail: event.detail,
+    status: event.status,
+  };
+}
+
+function isDiagnosticEvent(event: AgentRuntimeExecutionEvent): boolean {
+  return (
+    event.status === "failed" ||
+    event.status === "blocked" ||
+    event.eventClass === "runtime.error"
+  );
+}
+
+function upsertRefViews(
+  refs: Map<string, AgentUiRefView>,
+  event: AgentRuntimeExecutionEvent,
+  ids: readonly string[] | undefined,
+): void {
+  ids?.forEach((id) => {
+    if (!refs.has(id)) refs.set(id, refViewForEvent(event, id));
+  });
+}
+
+function syncMissingRefViews(
+  refs: Map<string, AgentUiRefView>,
+  ids: readonly string[],
+): void {
+  ids.forEach((id) => {
+    if (!refs.has(id)) {
+      refs.set(id, { id, sourceEventId: id });
+    }
+  });
+}
+
+function buildStateSnapshot<TEvent extends AgentRuntimeExecutionEvent>(
+  input: {
+    runtime: AgentUiRuntimeStatusView;
+    messages: UIMessagePart[];
+    timeline: ProcessTimelineEntry[];
+    graphNodes: Map<string, ExecutionGraphNode>;
+    tools: AgentRuntimeEventProjection<TEvent>[];
+    toolCalls: AgentUiToolSurfaceModel;
+    mcp: AgentUiMcpSurfaceModel;
+    actions: AgentRuntimeEventProjection<TEvent>[];
+    artifacts: Map<string, AgentUiRefView>;
+    evidence: Map<string, AgentUiRefView>;
+    diagnostics: AgentUiDiagnosticView[];
+    subagents: AgentUiSubagentsModel;
+    readModel: AgentRuntimeReadModel<TEvent>;
+    eventCount: number;
+  },
+): AgentUiProjectionState<TEvent> {
+  const messages = materializeProposedPlanParts(input.messages);
+  return {
+    runtime: { ...input.runtime },
+    messages: messages.map(cloneMessagePart),
+    timeline: input.timeline.map(cloneTimelineEntry),
+    graph: Array.from(input.graphNodes.values()).map(cloneGraphNode),
+    tools: input.tools,
+    toolCalls: input.toolCalls,
+    mcp: input.mcp,
+    actions: input.actions,
+    artifacts: Array.from(input.artifacts.values()).map(
+      cloneRefView,
+    ) as AgentUiArtifactRefView[],
+    evidence: Array.from(input.evidence.values()).map(
+      cloneRefView,
+    ) as AgentUiEvidenceRefView[],
+    diagnostics: input.diagnostics.map((diagnostic) => ({ ...diagnostic })),
+    subagents: input.subagents,
+    readModel: input.readModel,
+    hydration: {
+      status: input.eventCount ? "live" : "idle",
+      eventCount: input.eventCount,
+    },
+    ephemeralUi: {},
   };
 }
 
@@ -519,6 +752,8 @@ export function projectAgentUiState<
     (event) => event.surface === "human-action",
   );
   const tools = readModel.events.filter((event) => event.surface === "tool");
+  const toolCalls = projectAgentUiToolSurface(readModel.events);
+  const mcp = projectAgentUiMcpSurface(toolCalls);
   const diagnostics = executionEvents
     .filter(
       (event) =>
@@ -533,12 +768,14 @@ export function projectAgentUiState<
       detail: event.detail,
       status: event.status,
     }));
-  return {
+  const state: AgentUiProjectionState<TEvent> = {
     runtime: runtimeStatusForEvents(executionEvents),
     messages,
     timeline,
     graph,
     tools,
+    toolCalls,
+    mcp,
     actions,
     artifacts: collectRefViews(
       executionEvents,
@@ -559,6 +796,7 @@ export function projectAgentUiState<
     },
     ephemeralUi: {},
   };
+  return applyAgentRuntimeStateDeltasToProjectionState(state, executionEvents);
 }
 
 export function projectAgentUiStateFromSessionSnapshot<
@@ -585,33 +823,121 @@ export function projectAgentUiStateFromSessionSnapshot<
 export function createAgentUiProjector<
   TEvent extends AgentRuntimeExecutionEvent,
 >(initialInput?: AgentRuntimeProjectionInput<TEvent>): AgentUiProjector<TEvent> {
-  let events = [...(initialInput?.executionEvents ?? [])];
   let sourceCount = initialInput?.sourceCount;
-  let state = projectAgentUiState<TEvent>({
-    executionEvents: events,
+  let eventCount = 0;
+  const eventIds = new Set<string>();
+  const events: TEvent[] = [];
+  const messages: UIMessagePart[] = [];
+  const messageGroups = new Map<string, number>();
+  const timeline: ProcessTimelineEntry[] = [];
+  const graphNodes = new Map<string, ExecutionGraphNode>();
+  const artifactRefs = new Map<string, AgentUiRefView>();
+  const evidenceRefs = new Map<string, AgentUiRefView>();
+  const diagnostics: AgentUiDiagnosticView[] = [];
+  const runtimeAccumulator = createRuntimeStatusAccumulator();
+  const readModelAccumulator = createAgentRuntimeReadModelAccumulator<TEvent>(
     sourceCount,
-  });
+  );
+  const subagentsAccumulator = createAgentUiSubagentsModelAccumulator();
+  let state = stateSnapshot();
+
+  function stateSnapshot(): AgentUiProjectionState<TEvent> {
+    const readModel = readModelAccumulator.getReadModel();
+    const tools = readModelAccumulator.getEventsBySurface("tool");
+    const toolCalls = projectAgentUiToolSurface(readModel.events);
+    syncMissingRefViews(artifactRefs, readModel.artifactRefs);
+    syncMissingRefViews(evidenceRefs, readModel.evidenceRefs);
+    return buildStateSnapshot<TEvent>({
+      runtime: runtimeAccumulator.getStatus(),
+      messages,
+      timeline,
+      graphNodes,
+      tools,
+      toolCalls,
+      mcp: projectAgentUiMcpSurface(toolCalls),
+      actions: readModelAccumulator.getEventsBySurface("human-action"),
+      artifacts: artifactRefs,
+      evidence: evidenceRefs,
+      diagnostics,
+      subagents: subagentsAccumulator.getModel(),
+      readModel,
+      eventCount,
+    });
+  }
+
+  function refreshStateSnapshot(): AgentUiProjectionState<TEvent> {
+    state = applyAgentRuntimeStateDeltasToProjectionState(
+      stateSnapshot(),
+      events,
+    );
+    return state;
+  }
+
+  function resetAccumulators(nextSourceCount?: number): void {
+    sourceCount = nextSourceCount;
+    eventCount = 0;
+    eventIds.clear();
+    events.length = 0;
+    messages.length = 0;
+    messageGroups.clear();
+    timeline.length = 0;
+    graphNodes.clear();
+    artifactRefs.clear();
+    evidenceRefs.clear();
+    diagnostics.length = 0;
+    runtimeAccumulator.reset();
+    readModelAccumulator.reset(sourceCount);
+    subagentsAccumulator.reset();
+  }
+
+  function applyIncremental(event: TEvent): void {
+    eventIds.add(event.id);
+    events.push(event);
+    eventCount += 1;
+    appendMessagePart(messages, messageGroups, event);
+    timeline.push(timelineEntryForEvent(event));
+    upsertGraphNode(graphNodes, event);
+    upsertRefViews(artifactRefs, event, event.artifactRefs);
+    upsertRefViews(evidenceRefs, event, event.evidenceRefs);
+    if (isDiagnosticEvent(event)) {
+      diagnostics.push(diagnosticForEvent(event));
+    }
+    runtimeAccumulator.apply(event);
+    readModelAccumulator.apply(event);
+    subagentsAccumulator.apply(event);
+  }
+
+  function hydrateIncremental(
+    input?: AgentRuntimeProjectionInput<TEvent>,
+  ): AgentUiProjectionState<TEvent> {
+    resetAccumulators(input?.sourceCount);
+    for (const event of input?.executionEvents ?? []) {
+      if (!eventIds.has(event.id)) {
+        applyIncremental(event);
+        refreshStateSnapshot();
+      }
+    }
+    return state;
+  }
+
+  hydrateIncremental(initialInput);
   return {
     getState() {
       return state;
     },
     hydrate(input?: AgentRuntimeProjectionInput<TEvent>) {
-      events = [...(input?.executionEvents ?? [])];
-      sourceCount = input?.sourceCount;
-      state = projectAgentUiState<TEvent>({ executionEvents: events, sourceCount });
-      return state;
+      return hydrateIncremental(input);
     },
     apply(event: TEvent) {
-      if (!events.some((existing) => existing.id === event.id)) {
-        events = [...events, event];
+      if (eventIds.has(event.id)) {
+        return state;
       }
-      state = projectAgentUiState<TEvent>({ executionEvents: events, sourceCount });
-      return state;
+      applyIncremental(event);
+      return refreshStateSnapshot();
     },
     reset() {
-      events = [];
-      sourceCount = undefined;
-      state = projectAgentUiState<TEvent>();
+      resetAccumulators();
+      state = stateSnapshot();
       return state;
     },
   };

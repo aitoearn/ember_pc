@@ -5,11 +5,12 @@ import {
   replaceRuntimeAttachmentPlaceholders,
 } from "./runtimeAttachmentPlaceholder";
 import { isInternalThinkingPreviewLine } from "./internalThinkingText";
+import { readContentPartSequence } from "./contentPartTimeline";
 import { stripAssistantProtocolResidue } from "./protocolResidue";
 import { formatRuntimePeerMessageText } from "./runtimePeerMessageDisplay";
 
 const TOOL_NARRATION_TOOL_NAME_RE =
-  /\b(?:ToolSearch|WebSearch|WebFetch|Read|Write|Edit|Glob|Grep|Bash|StructuredOutput|webReader)\b|(?:mcp__[\w-]+(?:__[\w-]+)?|ember_[\w-]+)/i;
+  /\b(?:ToolSearch|WebSearch|WebFetch|Read|Write|Edit|Glob|Grep|Bash|StructuredOutput|webReader)\b|(?:mcp__[\w-]+(?:__[\w-]+)?|lime_[\w-]+)/i;
 const TOOL_NARRATION_ACTION_RE =
   /调用|使用|执行|检索|搜索|查询|核实|确认|验证|联网|上网|获取|读取|抓取|访问|打开|分析|查找|扩搜|筛选|切换|转去|改为|尝试/i;
 const TOOL_NARRATION_SELF_PROCESS_RE =
@@ -41,7 +42,9 @@ const ASSISTANT_TOOL_PROCESS_LEAD_IN_RE =
   /^(?:(?:我|我们)(?:会|将|来)?先?|让我|先|接下来|现在|正在)?\s*(?:联网|上网)?(?:搜索|检索|查询|查找|核实|确认|验证|获取|拉取|浏览|打开|访问|抓取|读取|联网|上网)/i;
 const ASSISTANT_USER_FACING_LEAD_IN_RE =
   /(?:再|然后|随后|并).*(?:整理|汇总|生成|输出|给出|形成|组织).*(?:简报|报告|摘要|结论|清单|要点|正文|回答)/i;
-const ASSISTANT_MARKDOWN_HEADING_RE = /#{1,6}\s+\S/;
+const ASSISTANT_MARKDOWN_HEADING_RE = /(?:^|\n)\s{0,3}#{1,6}[ \t]+\S/;
+const ASSISTANT_LOOSE_MARKDOWN_HEADING_RE =
+  /(?:^|\n)\s{0,3}(?:#{1,6}(?=\S)|[^\n#|`*_]{2,72}#{2,6}\s*(?=\n|$))/;
 const ASSISTANT_MARKDOWN_BLOCK_START_RE =
   /(?:^|\n)(?:[-*+]\s+\S|\d+\.\s+\S|```|~~~|\|.*\|)/;
 const ASSISTANT_PHASE_SUMMARY_HEADING_RE = /^\s{0,3}#{1,6}\s*阶段结论\s*$/;
@@ -50,8 +53,10 @@ const ASSISTANT_RUNTIME_ERROR_ENVELOPE_PREFIX_RE =
   /^\s*Ran into this error:\s*/;
 const ASSISTANT_RUNTIME_ERROR_ENVELOPE_RETRY_RE =
   /\n+\s*Please retry if you think this is a transient or recoverable error\.\s*$/;
-const ASSISTANT_RUNTIME_ERROR_TITLE_RE =
-  /^Ran into this erro(?:r\b|\.\.\.$)/i;
+const ASSISTANT_RUNTIME_ERROR_TITLE_RE = /^Ran into this erro(?:r\b|\.\.\.$)/i;
+const MARKDOWN_IMAGE_RE = /!\[([^\]\n]*)]\((?:[^()\\\n]|\\.|\([^)\n]*\))*\)/;
+const MARKDOWN_IMAGE_GLOBAL_RE =
+  /!\[([^\]\n]*)]\((?:[^()\\\n]|\\.|\([^)\n]*\))*\)/g;
 
 interface SanitizeMessageTextOptions {
   role: Message["role"];
@@ -75,6 +80,15 @@ function hasAdjacentToolUse(parts: ContentPart[], index: number): boolean {
   );
 }
 
+function hasStructuredContentPartProvenance(part: ContentPart): boolean {
+  return Boolean(
+    part.metadata?.source ||
+    part.metadata?.threadItemId ||
+    part.metadata?.turnId ||
+    readContentPartSequence(part) !== null,
+  );
+}
+
 function isProcessContentPart(part: ContentPart | undefined): boolean {
   return Boolean(part && part.type !== "text");
 }
@@ -94,6 +108,37 @@ function hasNearbyProcessPart(parts: ContentPart[], index: number): boolean {
   }
 
   return false;
+}
+
+function isBeforeFirstProcessPart(
+  parts: ContentPart[],
+  index: number,
+): boolean {
+  return !parts.slice(0, index).some(isProcessContentPart);
+}
+
+function shouldKeepLeadingProcessIntro(text: string): boolean {
+  const normalized = collapseDisplayWhitespace(text);
+  if (!normalized || normalized.length < 8) {
+    return false;
+  }
+
+  if (
+    isInternalThinkingPreviewLine(normalized) ||
+    ASSISTANT_INCOMPLETE_PROCESS_LEAD_IN_RE.test(normalized) ||
+    TOOL_NARRATION_TOOL_NAME_RE.test(normalized) ||
+    TOOL_NARRATION_ITERATION_RE.test(normalized) ||
+    TOOL_NARRATION_RETRIEVAL_STATUS_RE.test(normalized) ||
+    TOOL_NARRATION_INTERNAL_RETRY_RE.test(normalized)
+  ) {
+    return false;
+  }
+
+  return (
+    /[。！？.!?]$/.test(normalized) &&
+    /^(?:我|我们)(?:会|将|来)?先/.test(normalized) &&
+    ASSISTANT_TOOL_PROCESS_LEAD_IN_RE.test(normalized)
+  );
 }
 
 function shouldStripAssistantProcessLeadIn(text: string): boolean {
@@ -153,6 +198,13 @@ function shouldStripAssistantProcessPrefix(text: string): boolean {
     return false;
   }
 
+  if (
+    TOOL_NARRATION_RESULT_RE.test(normalized) ||
+    ASSISTANT_USER_FACING_LEAD_IN_RE.test(normalized)
+  ) {
+    return false;
+  }
+
   return (
     ASSISTANT_INCOMPLETE_PROCESS_LEAD_IN_RE.test(normalized) ||
     ASSISTANT_TOOL_PROCESS_LEAD_IN_RE.test(normalized) ||
@@ -160,12 +212,25 @@ function shouldStripAssistantProcessPrefix(text: string): boolean {
   );
 }
 
+function resolveStructuredBodyMatchIndex(
+  match: RegExpExecArray | null,
+): number | undefined {
+  if (!match || typeof match.index !== "number" || match.index < 0) {
+    return undefined;
+  }
+
+  return match[0].startsWith("\n") ? match.index + 1 : match.index;
+}
+
 function findStructuredBodyStartIndex(text: string): number | null {
   const headingMatch = ASSISTANT_MARKDOWN_HEADING_RE.exec(text);
+  const looseHeadingMatch = ASSISTANT_LOOSE_MARKDOWN_HEADING_RE.exec(text);
   const blockStartMatch = ASSISTANT_MARKDOWN_BLOCK_START_RE.exec(text);
-  const indexes = [headingMatch?.index, blockStartMatch?.index].filter(
-    (index): index is number => typeof index === "number" && index >= 0,
-  );
+  const indexes = [
+    resolveStructuredBodyMatchIndex(headingMatch),
+    resolveStructuredBodyMatchIndex(looseHeadingMatch),
+    resolveStructuredBodyMatchIndex(blockStartMatch),
+  ].filter((index): index is number => typeof index === "number");
 
   if (indexes.length === 0) {
     return null;
@@ -267,6 +332,87 @@ function stripAssistantPhaseSummaryTitle(text: string): string {
     .trim();
 }
 
+function hasMarkdownImageSyntax(text: string): boolean {
+  return MARKDOWN_IMAGE_RE.test(text);
+}
+
+function normalizeMarkdownAltEcho(value: string): string {
+  return collapseDisplayWhitespace(value);
+}
+
+function stripMarkdownAltEchoSegment(
+  segment: string,
+  normalizedAlts: Set<string>,
+): string {
+  const normalized = normalizeMarkdownAltEcho(segment);
+  if (!normalized) {
+    return segment;
+  }
+  return normalizedAlts.has(normalized) ? "" : segment;
+}
+
+function stripInlineMarkdownImageAltEchoes(line: string): {
+  line: string;
+  normalizedAlts: Set<string>;
+} {
+  const matches = Array.from(line.matchAll(MARKDOWN_IMAGE_GLOBAL_RE));
+  const normalizedAlts = new Set(
+    matches
+      .map((match) => normalizeMarkdownAltEcho(match[1] || ""))
+      .filter(Boolean),
+  );
+  if (!matches.length || !normalizedAlts.size) {
+    return { line, normalizedAlts };
+  }
+
+  let cursor = 0;
+  let nextLine = "";
+  for (const match of matches) {
+    const start = match.index ?? 0;
+    nextLine += stripMarkdownAltEchoSegment(
+      line.slice(cursor, start),
+      normalizedAlts,
+    );
+    nextLine += match[0];
+    cursor = start + match[0].length;
+  }
+  nextLine += stripMarkdownAltEchoSegment(line.slice(cursor), normalizedAlts);
+
+  return { line: nextLine, normalizedAlts };
+}
+
+function stripRedundantMarkdownImageAltEchoes(text: string): string {
+  if (!hasMarkdownImageSyntax(text)) {
+    return text;
+  }
+
+  const lines = text.split(/\r?\n/);
+  const projected = lines.map(stripInlineMarkdownImageAltEchoes);
+  const strippedLines = projected.map((entry, index) => {
+    if (entry.normalizedAlts.size > 0) {
+      return entry.line;
+    }
+
+    const normalized = normalizeMarkdownAltEcho(entry.line);
+    if (!normalized) {
+      return entry.line;
+    }
+
+    const previousAlts = projected[index - 1]?.normalizedAlts;
+    const nextAlts = projected[index + 1]?.normalizedAlts;
+    if (previousAlts?.has(normalized) || nextAlts?.has(normalized)) {
+      return "";
+    }
+
+    return entry.line;
+  });
+
+  return strippedLines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function isAssistantRuntimeErrorDisplayText(
   text: string,
   options: { allowTruncatedTitle?: boolean } = {},
@@ -281,9 +427,7 @@ export function isAssistantRuntimeErrorDisplayText(
 
   return Boolean(
     options.allowTruncatedTitle &&
-      ASSISTANT_RUNTIME_ERROR_TITLE_RE.test(
-        normalized.replace(/\s+/g, " "),
-      ),
+    ASSISTANT_RUNTIME_ERROR_TITLE_RE.test(normalized.replace(/\s+/g, " ")),
   );
 }
 
@@ -307,12 +451,23 @@ export function sanitizeMessageTextForDisplay(
     return "";
   }
 
-  if (!containsRuntimeAttachmentPlaceholder(formattedRuntimePeerMessage)) {
-    return formattedRuntimePeerMessage;
+  const displayMessage =
+    options.role === "user"
+      ? stripRedundantMarkdownImageAltEchoes(formattedRuntimePeerMessage)
+      : formattedRuntimePeerMessage;
+
+  const sanitizedDisplayMessage = displayMessage;
+
+  if (!sanitizedDisplayMessage) {
+    return "";
+  }
+
+  if (!containsRuntimeAttachmentPlaceholder(sanitizedDisplayMessage)) {
+    return sanitizedDisplayMessage;
   }
 
   if (
-    isOnlyRuntimeAttachmentPlaceholderText(formattedRuntimePeerMessage) &&
+    isOnlyRuntimeAttachmentPlaceholderText(sanitizedDisplayMessage) &&
     ((options.role === "user" && options.hasImages) ||
       options.role === "assistant")
   ) {
@@ -320,7 +475,7 @@ export function sanitizeMessageTextForDisplay(
   }
 
   return collapseDisplayWhitespace(
-    replaceRuntimeAttachmentPlaceholders(formattedRuntimePeerMessage, "图片"),
+    replaceRuntimeAttachmentPlaceholders(sanitizedDisplayMessage, "图片"),
   );
 }
 
@@ -365,10 +520,28 @@ export function sanitizeContentPartsForDisplay(
       return [];
     }
 
-    if (
-      options.role === "assistant" &&
-      hasNearbyProcessPart(parts, index)
-    ) {
+    if (options.role === "assistant" && hasNearbyProcessPart(parts, index)) {
+      if (hasStructuredContentPartProvenance(part)) {
+        return [
+          {
+            ...part,
+            text: sanitizedText,
+          },
+        ];
+      }
+
+      if (
+        isBeforeFirstProcessPart(parts, index) &&
+        shouldKeepLeadingProcessIntro(sanitizedText)
+      ) {
+        return [
+          {
+            ...part,
+            text: sanitizedText,
+          },
+        ];
+      }
+
       const visibleText = stripAssistantProcessLeadInText(sanitizedText);
       if (!visibleText) {
         return [];

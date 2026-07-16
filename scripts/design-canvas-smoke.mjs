@@ -69,9 +69,9 @@ const WORKER_MODEL_SLOT_NATIVE_OCR_JSON_EXECUTOR_FIXTURE =
 const WORKER_MODEL_SLOT_NATIVE_OCR_PRIORITY =
   "OCR priority: Native OCR -> Worker OCR provider via model slot JSON executor";
 const WORKER_MODEL_SLOT_EXPORT_RELATIVE_PATH =
-  ".ember/layered-designs/design-canvas-smoke.layered-design";
+  ".lime/layered-designs/design-canvas-smoke.layered-design";
 const EXTRACTION_QUALITY_EXPORT_RELATIVE_PATH =
-  ".ember/layered-designs/smoke-flat-image.layered-design";
+  ".lime/layered-designs/smoke-flat-image.layered-design";
 const GENERATED_IMAGE_TASK_EXPECTED_LAYERS = [
   {
     layerId: "background-image",
@@ -95,7 +95,7 @@ const LIVE_IMAGE_TASK_EXPECTED_LAYER = {
   originalAssetId: "design-canvas-smoke-asset-subject",
 };
 const GENERATED_IMAGE_TASK_EXPORT_RELATIVE_PATH =
-  ".ember/layered-designs/design-canvas-smoke.layered-design";
+  ".lime/layered-designs/design-canvas-smoke.layered-design";
 const WORKER_MODEL_SLOT_QUALITY_CONTRACT_EXPECTATIONS = {
   subject_matting: {
     slotId: "smoke-subject-matting-slot",
@@ -285,10 +285,10 @@ const ANALYZER_EXTRA_CHECK = {
 
 function printHelp() {
   console.log(`
-Ember Design Canvas Smoke
+Lime Design Canvas Smoke
 
 用途:
-  通过真实 Ember 页面验证 canvas:design Artifact 能进入 LayeredDesignDocument
+  通过真实 Lime 页面验证 canvas:design Artifact 能进入 LayeredDesignDocument
   图层设计画布，并能完成基础图层选择与移动交互。
 
 用法:
@@ -832,7 +832,7 @@ async function assertWorkerModelSlotsManifest(page, workspace) {
 
 async function assertWorkerModelSlotQualityContracts(page) {
   const contracts = await page.evaluate(
-    () => globalThis.__emberDesignCanvasSmokeModelSlotQualityContracts ?? [],
+    () => globalThis.__limeDesignCanvasSmokeModelSlotQualityContracts ?? [],
   );
 
   assert(
@@ -1631,7 +1631,7 @@ async function runPageFlow(options, smokeUrl) {
     }
   } catch (launchError) {
     userDataDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), `ember-design-canvas-smoke-${process.pid}-`),
+      path.join(os.tmpdir(), `lime-design-canvas-smoke-${process.pid}-`),
     );
     console.warn(
       `[smoke:design-canvas] 普通 browser context 启动失败，尝试 persistent context: ${

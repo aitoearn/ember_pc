@@ -6,7 +6,7 @@ import {
   setReactActEnvironment,
   type MountedRoot,
 } from "@/components/image-gen/test-utils";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const { mockUseGalleryMaterial, mockConvertLocalFileSrc } = vi.hoisted(() => ({
   mockUseGalleryMaterial: vi.fn(),
@@ -37,7 +37,7 @@ function renderGallery(
 describe("ImageGallery", () => {
   beforeEach(async () => {
     setReactActEnvironment();
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
     vi.clearAllMocks();
     mockConvertLocalFileSrc.mockReturnValue("asset://preview.png");
     mockUseGalleryMaterial.mockReturnValue({
@@ -72,7 +72,7 @@ describe("ImageGallery", () => {
   });
 
   it("英文界面应使用 workspace namespace 文案", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const container = renderGallery({ selectedIds: ["image-1"] });
 
     expect(container.querySelector("input")?.getAttribute("placeholder")).toBe(

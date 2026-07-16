@@ -20,9 +20,9 @@ use rusqlite::Connection;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use ember_core::database::dao::material_dao::MaterialDao;
-use ember_core::errors::project_error::MaterialError;
-use ember_core::models::project_model::{
+use lime_core::database::dao::material_dao::MaterialDao;
+use lime_core::errors::project_error::MaterialError;
+use lime_core::models::project_model::{
     Material, MaterialFilter, MaterialUpdate, UploadMaterialRequest,
 };
 
@@ -55,7 +55,7 @@ const SUPPORTED_DATA_TYPES: &[&str] = &["csv", "json", "xml", "xlsx", "xls"];
 /// 素材服务
 ///
 /// 封装素材的业务逻辑，包括文件处理和数据库操作。
-/// 文件存储在 `~/.ember/materials/{project_id}/` 目录下。
+/// 文件存储在 `~/.lime/materials/{project_id}/` 目录下。
 pub struct MaterialService;
 
 impl MaterialService {
@@ -425,7 +425,7 @@ impl MaterialService {
         let home = dirs::home_dir()
             .ok_or_else(|| MaterialError::FileReadError("无法获取主目录".to_string()))?;
 
-        Ok(home.join(".ember").join("materials").join(project_id))
+        Ok(home.join(".lime").join("materials").join(project_id))
     }
 
     /// 删除文件
@@ -646,7 +646,7 @@ impl MaterialService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ember_core::database::schema::create_tables;
+    use lime_core::database::schema::create_tables;
     use std::io::Write;
     use tempfile::TempDir;
 

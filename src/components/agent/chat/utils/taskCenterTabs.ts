@@ -3,7 +3,7 @@ import { isAuxiliaryAgentSessionId } from "@/lib/api/agentRuntime/sessionIdentit
 import { normalizeProjectId } from "./topicProjectResolution";
 
 export const TASK_CENTER_OPEN_TAB_IDS_STORAGE_KEY =
-  "ember_task_center_open_task_ids";
+  "lime_task_center_open_task_ids";
 export const MAX_TASK_CENTER_OPEN_TABS = 6;
 const TASK_CENTER_LEGACY_WORKSPACE_KEY = "__legacy__";
 
@@ -22,6 +22,7 @@ export interface TaskCenterRouteTabSyncIntent {
 }
 
 export interface TaskCenterTopicSwitchOptions {
+  allowDetachedSession?: true;
   forceRefresh?: true;
   resumeSessionStartHooks?: true;
 }
@@ -34,6 +35,10 @@ export interface TaskCenterTopicClosePlan {
   fallbackTopicId: string | null;
 }
 
+export function isTaskCenterTopicSwitchSuccess(result: unknown): boolean {
+  return result === undefined || result === "success" || result === "deferred";
+}
+
 export type TaskCenterFallbackRestoreSkipReason =
   | "not-task-center"
   | "workspace-missing"
@@ -41,8 +46,11 @@ export type TaskCenterFallbackRestoreSkipReason =
   | "session-hydrating"
   | "draft-surface-active"
   | "draft-tab-active"
+  | "new-task-home"
   | "service-skill-launch-pending"
   | "initial-dispatch-pending"
+  | "home-background-recovery"
+  | "initial-session-pending"
   | "detached-session"
   | "unknown-session-with-messages"
   | "no-fallback-topic"
@@ -62,6 +70,10 @@ export type TaskCenterFallbackRestorePlan =
       };
     };
 
+export function isTaskCenterAgentEntry(agentEntry?: string | null): boolean {
+  return agentEntry === "claw" || agentEntry === "new-task";
+}
+
 export function shouldResumeTaskSession(
   topic?:
     | Pick<Topic, "status" | "statusReason">
@@ -76,6 +88,7 @@ export function shouldResumeTaskSession(
   }
 
   return (
+    topic.status === "running" ||
     topic.status === "waiting" ||
     (topic.status === "failed" && topic.statusReason === "workspace_error")
   );
@@ -83,10 +96,11 @@ export function shouldResumeTaskSession(
 
 export function resolveInitialTaskSessionSwitchOptions(
   topic?:
-    | Pick<Topic, "status" | "statusReason">
+    | Pick<Topic, "status" | "statusReason" | "messagesCount">
     | {
         status?: Topic["status"];
         statusReason?: Topic["statusReason"];
+        messagesCount?: number;
       }
     | null,
 ): {
@@ -94,7 +108,9 @@ export function resolveInitialTaskSessionSwitchOptions(
   forceRefresh?: true;
   resumeSessionStartHooks?: true;
 } {
-  const shouldForceRefresh = topic?.statusReason === "workspace_error";
+  const shouldForceRefresh =
+    topic?.statusReason === "workspace_error" ||
+    (typeof topic?.messagesCount === "number" && topic.messagesCount > 0);
   const shouldResume = shouldResumeTaskSession(topic);
 
   return {
@@ -105,14 +121,22 @@ export function resolveInitialTaskSessionSwitchOptions(
 }
 
 export function resolveTaskCenterTopicSwitchOptions(params: {
+  allowDetachedSession?: boolean;
   shouldResume: boolean;
   forceRefresh?: boolean;
 }): TaskCenterTopicSwitchOptions | undefined {
-  if (!params.shouldResume && params.forceRefresh !== true) {
+  if (
+    params.allowDetachedSession !== true &&
+    !params.shouldResume &&
+    params.forceRefresh !== true
+  ) {
     return undefined;
   }
 
   return {
+    ...(params.allowDetachedSession === true
+      ? { allowDetachedSession: true }
+      : {}),
     ...(params.forceRefresh === true ? { forceRefresh: true } : {}),
     ...(params.shouldResume ? { resumeSessionStartHooks: true } : {}),
   };
@@ -245,6 +269,10 @@ function areTaskCenterWorkspaceTabMapsEqual(
   });
 }
 
+function resolveTaskCenterWorkspaceKey(workspaceId?: string | null): string {
+  return normalizeProjectId(workspaceId) ?? TASK_CENTER_LEGACY_WORKSPACE_KEY;
+}
+
 export function normalizeTaskCenterWorkspaceTabMap(
   value: unknown,
   options?: {
@@ -253,7 +281,11 @@ export function normalizeTaskCenterWorkspaceTabMap(
   },
 ): TaskCenterWorkspaceTabMap {
   const maxCount = options?.maxCount ?? MAX_TASK_CENTER_OPEN_TABS;
-  const currentWorkspaceId = normalizeProjectId(options?.workspaceId);
+  const normalizedWorkspaceId = normalizeProjectId(options?.workspaceId);
+  const currentWorkspaceId =
+    normalizedWorkspaceId === TASK_CENTER_LEGACY_WORKSPACE_KEY
+      ? null
+      : normalizedWorkspaceId;
   const nextMap: TaskCenterWorkspaceTabMap = {};
 
   const assignWorkspaceIds = (workspaceKey: string, ids: string[]) => {
@@ -315,10 +347,7 @@ export function resolveTaskCenterTabIdsForWorkspace(
   workspaceId?: string | null,
   maxCount = MAX_TASK_CENTER_OPEN_TABS,
 ): string[] {
-  const normalizedWorkspaceId = normalizeProjectId(workspaceId);
-  if (!normalizedWorkspaceId) {
-    return [];
-  }
+  const normalizedWorkspaceId = resolveTaskCenterWorkspaceKey(workspaceId);
 
   return normalizeTaskCenterTabIds(tabMap[normalizedWorkspaceId], maxCount);
 }
@@ -329,7 +358,7 @@ export function updateTaskCenterTabIdsForWorkspace(
   nextValue: string[] | ((currentIds: string[]) => string[]),
   maxCount = MAX_TASK_CENTER_OPEN_TABS,
 ): TaskCenterWorkspaceTabMap {
-  const normalizedWorkspaceId = normalizeProjectId(workspaceId);
+  const normalizedWorkspaceId = resolveTaskCenterWorkspaceKey(workspaceId);
   const normalizedMap = normalizeTaskCenterWorkspaceTabMap(tabMap, {
     workspaceId: normalizedWorkspaceId,
     maxCount,
@@ -338,10 +367,6 @@ export function updateTaskCenterTabIdsForWorkspace(
     tabMap,
     normalizedMap,
   );
-
-  if (!normalizedWorkspaceId) {
-    return normalizationChanged ? normalizedMap : tabMap;
-  }
 
   const currentIds = resolveTaskCenterTabIdsForWorkspace(
     normalizedMap,
@@ -395,11 +420,7 @@ export function initializeTaskCenterOpenTabMap(params: {
   maxCount?: number;
 }): TaskCenterWorkspaceTabMap {
   const initialSessionId = params.normalizedInitialSessionId || null;
-  if (
-    params.agentEntry !== "claw" ||
-    !params.workspaceId ||
-    !initialSessionId
-  ) {
+  if (!isTaskCenterAgentEntry(params.agentEntry) || !initialSessionId) {
     return params.initialTabMap;
   }
 
@@ -441,7 +462,7 @@ export function resolveTaskCenterRouteTabSyncIntent(params: {
   shouldRespectLocalSession: boolean;
 }): TaskCenterRouteTabSyncIntent {
   const initialSessionId = params.normalizedInitialSessionId || null;
-  if (params.agentEntry !== "claw" || !params.workspaceId || !initialSessionId) {
+  if (!isTaskCenterAgentEntry(params.agentEntry) || !initialSessionId) {
     return {
       shouldSync: false,
       routeChanged: false,
@@ -471,7 +492,7 @@ export function applyTaskCenterRouteTabSyncToMap(params: {
   maxCount?: number;
 }): TaskCenterWorkspaceTabMap {
   const initialSessionId = params.normalizedInitialSessionId || null;
-  if (!params.workspaceId || !initialSessionId) {
+  if (!initialSessionId) {
     return params.currentMap;
   }
 
@@ -609,6 +630,7 @@ export function resolveTaskCenterFallbackRestorePlan(params: {
   initialPendingServiceSkillLaunchSignature?: string | null;
   initialDispatchKey?: string | null;
   isBootstrapDispatchPending: boolean;
+  isHomeSessionBackgroundRecovery?: boolean;
   messagesLength: number;
   isSending: boolean;
   queuedTurnsLength: number;
@@ -623,7 +645,7 @@ export function resolveTaskCenterFallbackRestorePlan(params: {
   previousRestore?: { topicId: string; startedAt: number } | null;
   now: number;
 }): TaskCenterFallbackRestorePlan {
-  if (params.agentEntry !== "claw") {
+  if (!isTaskCenterAgentEntry(params.agentEntry)) {
     return { action: "skip", reason: "not-task-center" };
   }
 
@@ -659,6 +681,24 @@ export function resolveTaskCenterFallbackRestorePlan(params: {
       params.queuedTurnsLength > 0)
   ) {
     return { action: "skip", reason: "initial-dispatch-pending" };
+  }
+
+  if (
+    params.isHomeSessionBackgroundRecovery &&
+    !params.normalizedInitialSessionId
+  ) {
+    return { action: "skip", reason: "home-background-recovery" };
+  }
+
+  if (params.agentEntry === "new-task" && !params.normalizedInitialSessionId) {
+    return { action: "skip", reason: "new-task-home" };
+  }
+
+  if (
+    params.normalizedInitialSessionId &&
+    params.sessionId !== params.normalizedInitialSessionId
+  ) {
+    return { action: "skip", reason: "initial-session-pending" };
   }
 
   if (params.shouldHideDetachedTaskCenterTabs) {

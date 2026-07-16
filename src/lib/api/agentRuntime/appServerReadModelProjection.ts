@@ -9,7 +9,7 @@ import type {
   AgentRuntimeProfileStatus,
   AgentRuntimeThreadReadModel,
   AgentRuntimeThreadTurnProfileView,
-} from "./types";
+} from "./sessionTypes";
 
 export type AppServerAgentSessionReadProjectionInput =
   AppServerAgentSessionReadResponse & {
@@ -22,6 +22,14 @@ export function projectAppServerSessionReadToThreadReadModel(
   const detailThreadRead = normalizeThreadReadModel(
     readDetailThreadRead(response.detail),
   );
+  const sessionBusinessObjectRefMetadata =
+    readSessionBusinessObjectRefMetadata(response);
+  const hasDetailSessionBusinessObjectRefMetadata = detailThreadRead
+    ? Object.prototype.hasOwnProperty.call(
+        detailThreadRead,
+        "session_business_object_ref_metadata",
+      )
+    : false;
   const sessionStatus = profileStatusFromSessionStatus(response.session.status);
   const protocolTurns = response.turns.map(projectAppServerTurn);
   const projected: AgentRuntimeThreadReadModel = {
@@ -29,8 +37,7 @@ export function projectAppServerSessionReadToThreadReadModel(
     thread_id: response.session.threadId,
     status: detailThreadRead?.status ?? sessionStatus,
     profile_status: detailThreadRead?.profile_status ?? sessionStatus,
-    active_turn_id:
-      detailThreadRead?.active_turn_id ?? inferActiveTurnId(response.turns),
+    active_turn_id: normalizeActiveTurnId(detailThreadRead?.active_turn_id),
     turns:
       detailThreadRead?.turns && detailThreadRead.turns.length > 0
         ? detailThreadRead.turns
@@ -40,8 +47,22 @@ export function projectAppServerSessionReadToThreadReadModel(
     queued_turns: detailThreadRead?.queued_turns ?? [],
     updated_at: response.session.updatedAt,
   };
-
+  const projectedSessionBusinessObjectRefMetadata =
+    hasDetailSessionBusinessObjectRefMetadata
+      ? (detailThreadRead?.session_business_object_ref_metadata ?? null)
+      : sessionBusinessObjectRefMetadata;
+  if (
+    projectedSessionBusinessObjectRefMetadata ||
+    hasDetailSessionBusinessObjectRefMetadata
+  ) {
+    projected.session_business_object_ref_metadata =
+      projectedSessionBusinessObjectRefMetadata;
+  }
   return normalizeThreadReadModel(projected) as AgentRuntimeThreadReadModel;
+}
+
+function normalizeActiveTurnId(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function projectAppServerTurn(
@@ -52,25 +73,6 @@ function projectAppServerTurn(
     status: profileStatusFromTurnStatus(turn.status),
     native_status: turn.status,
   };
-}
-
-function inferActiveTurnId(turns: AppServerAgentTurn[]): string | undefined {
-  for (let index = turns.length - 1; index >= 0; index -= 1) {
-    const turn = turns[index];
-    if (turn && isActiveTurnStatus(turn.status)) {
-      return turn.turnId;
-    }
-  }
-  return undefined;
-}
-
-function isActiveTurnStatus(status: AppServerAgentTurnStatus): boolean {
-  return (
-    status === "accepted" ||
-    status === "queued" ||
-    status === "running" ||
-    status === "waitingAction"
-  );
 }
 
 function profileStatusFromSessionStatus(
@@ -125,4 +127,10 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+}
+
+function readSessionBusinessObjectRefMetadata(
+  response: AppServerAgentSessionReadProjectionInput,
+): Record<string, unknown> | null {
+  return asRecord(response.session.businessObjectRef?.metadata);
 }

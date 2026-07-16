@@ -1,10 +1,10 @@
 # @embercloud/agent-runtime-ui
 
-`@embercloud/agent-runtime-ui` 是 Ember Cloud 系列应用共享的 Agent Runtime React UI primitives。它面向标准 `AgentUiProjectionState`，提供消息部件、过程时间线、执行图、运行事实栏、action / evidence / artifact 卡片等组件。
+`@embercloud/agent-runtime-ui` 是 Lime Cloud 系列应用共享的 Agent Runtime React UI primitives。它面向标准 `AgentUiProjectionState`，提供消息部件、过程时间线、执行图、运行事实栏、action / evidence / artifact 卡片等组件。
 
 这个包是 UI 渲染层，不直接调用 JSON-RPC，不依赖 Electron，不绑定任何宿主应用的业务 store。宿主应用负责后端交互、session 持久化、业务对象和页面布局。
 
-默认 label 只作为英文 fallback。宿主应用必须通过 `labels` / formatter props 注入自己的 aria、标题、按钮和状态文案，并负责 Ember current 五语言资源覆盖。
+默认 label 只作为英文 fallback。宿主应用必须通过 `labels` / formatter props 注入自己的 aria、标题、按钮和状态文案，并负责 Lime current 五语言资源覆盖。
 
 ## Installation
 
@@ -29,6 +29,7 @@ React 是 peer dependency：
 - 渲染 `UIMessageParts` 消息部件。
 - 渲染 `ProcessTimeline` 过程时间线。
 - 渲染 `ExecutionGraph` 执行图。
+- 渲染 `AgentWorkbenchSurface` / `AgentWorkbenchTaskCard` 标准工作台 shell。
 - 渲染 `state.subagents` 标准子代理模型。
 - 渲染 Agent 消息时间线。
 - 渲染运行事实摘要。
@@ -110,7 +111,9 @@ const replay = replayAppServerFacts({
 | Execution graph | `state.graph` | projection 负责 parent/child edge；宿主负责布局密度。 |
 | Action required | `state.actions` | 宿主通过 runtime client 提交 action response。 |
 | Tool group | `state.tools` | projection 负责 tool lifecycle 解释。 |
-| Subagents | `state.subagents` | projection 负责子代理线程、委派调用、活动摘要和隔离摘要。 |
+| Tool calls | `state.toolCalls` | projection 负责工具调用、事件分组与 MCP 归并。 |
+| MCP surface | `state.mcp` | projection 负责 MCP server / tool 归类与状态汇总。 |
+| Subagents | `state.subagents` | projection 负责子代理线程、委派调用、活动摘要、隔离摘要和协作 facts。 |
 | Artifact refs | `state.artifacts` | 宿主负责打开 artifact workspace 或详情页。 |
 | Evidence refs | `state.evidence` | 宿主负责打开 evidence pack、review 或 replay。 |
 | Runtime summary | `state.readModel` | projection/read model 负责计数；宿主负责显示文案。 |
@@ -122,6 +125,8 @@ const replay = replayAppServerFacts({
 | 组件 | 输入 | 用途 |
 | --- | --- | --- |
 | `AgentUiProjectionView` | `AgentUiProjectionState` | 标准组合入口，渲染消息、过程、事实栏、action 和 graph。 |
+| `AgentWorkbenchSurface` | workbench view/state | 标准工作台 shell，渲染 task card、消息、运行事实、artifact 和 composer slot。 |
+| `AgentWorkbenchTaskCard` | workbench task view | 标准任务胶囊，渲染当前任务、状态、检查点与事实计数。 |
 | `UIMessagePartsView` | `UIMessageParts` | 渲染标准消息部件。 |
 | `ProcessTimelineView` | `ProcessTimeline` | 渲染线性执行过程。 |
 | `ExecutionGraphView` | `ExecutionGraph` | 渲染 run / task / tool / subagent 结构。 |
@@ -136,6 +141,11 @@ const replay = replayAppServerFacts({
 | `RuntimeFactsSummary` | `AgentRuntimeReadModel` | 渲染 source / action / artifact / evidence 计数。 |
 | `RuntimeEventList` | `AgentRuntimeEventProjection[]` | 渲染一般 runtime event 列表。 |
 | `ToolGroup` | tool events | 渲染工具调用分组。 |
+| `ToolCallSurface` | `state.toolCalls` | 渲染标准工具调用 surface。 |
+| `ToolCallCard` | `AgentUiToolCallView` | 渲染单个工具调用卡片。 |
+| `McpSurface` | `state.mcp` | 渲染 MCP server 与 MCP tools surface。 |
+| `McpServerList` | `AgentUiMcpServerView[]` | 渲染 MCP server 汇总。 |
+| `McpToolList` | `AgentUiMcpToolCallView[]` | 渲染 MCP tool 调用卡片。 |
 | `ActionRequiredList` | action events | 渲染待处理 action。 |
 | `RuntimeFactCard` | runtime event | 渲染单个 runtime fact。 |
 | `ActionCard` / `EvidenceCard` / `ArtifactCard` | runtime event | 语义化 card alias，方便宿主样式分层。 |
@@ -143,7 +153,7 @@ const replay = replayAppServerFacts({
 
 ## Labels And I18n
 
-默认 label 只是 fallback。Ember 产品应用必须传入自己的 i18n label 和 formatter：
+默认 label 只是 fallback。Lime 产品应用必须传入自己的 i18n label 和 formatter：
 
 ```tsx
 <AgentUiProjectionView
@@ -204,6 +214,13 @@ src/index.ts           -> barrel exports only
 - `agent-process-entry`
 - `agent-execution-events`
 - `agent-tool-group`
+- `agent-tool-calls`
+- `agent-tool-call`
+- `agent-mcp-surface`
+- `agent-mcp-servers`
+- `agent-mcp-server`
+- `agent-mcp-tools`
+- `agent-mcp-tool`
 - `agent-action-required-list`
 - `agent-subagents`
 - `agent-subagent-threads`
@@ -241,6 +258,8 @@ src/index.ts           -> barrel exports only
 | `data-thread-id` / `data-subagent-id` / `data-parent-thread-id` | Subagents | 子代理线程身份和父子关系。 |
 | `data-delegation-action` / `data-target-thread-ids` | Subagents | 委派调用类型和目标线程。 |
 | `data-activity-kind` / `data-source-event-id` | Subagents | 活动分类和来源事件。 |
+| `data-collaboration-facts` / `data-collaboration-surface` / `data-collaboration-phase` / `data-collaboration-kind` / `data-collaboration-source` | Subagents | 协作 facts、surface、phase、kind 和来源事件，供 smoke / snapshot / 样式消费。 |
+| `data-soul-style-level` / `data-soul-risk-level` / `data-soul-tone-variant` / `data-soul-profile-id` / `data-soul-pack-id` | Subagents | 协作事件的 Soul style metadata；只作为 descriptor contract，不是 profile-specific 文案。 |
 | `data-event-class` | runtime fact cards | `tool.*`、`handoff.*`、`review.*` 等事件族。 |
 | `data-ref-kind` / `data-ref-id` / `data-source-event-id` | artifact / evidence refs | 引用类型、引用 id 和来源事件。 |
 
@@ -329,7 +348,7 @@ import { SubagentsView } from "@embercloud/agent-runtime-ui";
 />;
 ```
 
-`SubagentsView` 只读取 `state.subagents`。如果业务组件需要自定义子代理布局，也应消费同一个模型，而不是重新过滤 `state.graph` 或 `state.readModel.visibleEvents`。
+`SubagentsView` 只读取 `state.subagents`。如果业务组件需要自定义子代理布局，也应消费同一个模型，而不是重新过滤 `state.graph` 或 `state.readModel.visibleEvents`。协作执行的 Soul metadata 必须来自 `state.subagents.*.collaboration`，不得从标题、中文状态或局部 UI state 反推。
 
 ## Testing
 
@@ -385,7 +404,7 @@ npm --prefix packages/agent-runtime-ui pack --dry-run
 - 不要在本包里拼 Provider 参数、读取 API key、解释 tool lifecycle 或合成 evidence。
 - 不要把业务页面、workspace、Prompt 草稿、素材预览或审核流放进共享 UI 包。
 - 不要在 React 组件里重写 projection reducer、scope selector、summary selector 或 runtime facts 解释。
-- 不要让默认英文 fallback 进入 Ember 产品文案；产品应用必须注入本地化 label。
+- 不要让默认英文 fallback 进入 Lime 产品文案；产品应用必须注入本地化 label。
 
 ## Publish
 

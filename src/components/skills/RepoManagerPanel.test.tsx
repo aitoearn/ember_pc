@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import type { SkillRepo } from "@/lib/api/skills";
 import { openExternalUrlWithSystemBrowser } from "@/lib/api/externalUrl";
 import { RepoManagerPanel } from "./RepoManagerPanel";
@@ -74,7 +74,7 @@ beforeEach(async () => {
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
   vi.clearAllMocks();
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
   vi.spyOn(window, "alert").mockImplementation(() => undefined);
   vi.spyOn(window, "open").mockImplementation(() => null);
 });
@@ -89,7 +89,7 @@ afterEach(async () => {
     target.container.remove();
   }
   vi.restoreAllMocks();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("RepoManagerPanel", () => {
@@ -112,14 +112,14 @@ describe("RepoManagerPanel", () => {
   it("应本地化仓库行、标题属性和表单校验反馈", async () => {
     const { container } = renderPanel([
       {
-        owner: "ember",
+        owner: "lime",
         name: "skills",
         branch: "main",
         enabled: true,
       },
     ]);
 
-    expect(container.textContent).toContain("ember/skills");
+    expect(container.textContent).toContain("lime/skills");
     expect(container.textContent).toContain("Branch: main");
     expect(
       container.querySelector("button[title='View on GitHub']"),
@@ -140,7 +140,7 @@ describe("RepoManagerPanel", () => {
   it("应通过 externalUrl current 网关打开 GitHub 仓库链接", async () => {
     const { container } = renderPanel([
       {
-        owner: "ember",
+        owner: "lime",
         name: "skills",
         branch: "main",
         enabled: true,
@@ -158,7 +158,7 @@ describe("RepoManagerPanel", () => {
     });
 
     expect(openExternalUrlWithSystemBrowser).toHaveBeenCalledWith(
-      "https://github.com/ember/skills",
+      "https://github.com/lime/skills",
     );
     expect(windowOpenSpy).not.toHaveBeenCalled();
   });
@@ -170,7 +170,7 @@ describe("RepoManagerPanel", () => {
     const [ownerInput, nameInput, branchInput] = Array.from(
       container.querySelectorAll("input"),
     ) as HTMLInputElement[];
-    changeInput(ownerInput, " ember ");
+    changeInput(ownerInput, " lime ");
     changeInput(nameInput, " skills ");
     changeInput(branchInput, " stable ");
 
@@ -179,7 +179,7 @@ describe("RepoManagerPanel", () => {
     });
 
     expect(onAddRepo).toHaveBeenCalledWith({
-      owner: "ember",
+      owner: "lime",
       name: "skills",
       branch: "stable",
       enabled: true,

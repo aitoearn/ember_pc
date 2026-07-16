@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { AgentToolCallState } from "@/lib/api/agentProtocol";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 import { resolveToolProcessNarrative } from "./toolProcessSummary";
 
@@ -19,10 +19,10 @@ function createToolCall(
 
 describe("toolProcessSummary", () => {
   beforeEach(async () => {
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
   });
 
-  it("应为工作树切换提供明确过程文案", () => {
+  it("Agent-only 工作树工具不再提供 current 专用过程文案", () => {
     const enterNarrative = resolveToolProcessNarrative(
       createToolCall({
         name: "EnterWorktreeTool",
@@ -36,13 +36,13 @@ describe("toolProcessSummary", () => {
       }),
     );
 
-    expect(enterNarrative.preSummary).toBe("先进入隔离工作树");
-    expect(enterNarrative.summary).toBe("先进入隔离工作树");
-    expect(exitNarrative.postSummary).toBe("已回到主工作区");
-    expect(exitNarrative.summary).toBe("已回到主工作区");
+    expect(enterNarrative.preSummary).not.toBe("先进入隔离工作树");
+    expect(enterNarrative.summary).not.toBe("先进入隔离工作树");
+    expect(exitNarrative.postSummary).not.toBe("已回到主工作区");
+    expect(exitNarrative.summary).not.toBe("已回到主工作区");
   });
 
-  it("应为配置与工作流工具提供稳定文案", () => {
+  it("Agent-only 配置与工作流工具不再提供 current 专用过程文案", () => {
     const configNarrative = resolveToolProcessNarrative(
       createToolCall({
         name: "ConfigTool",
@@ -56,14 +56,20 @@ describe("toolProcessSummary", () => {
       }),
     );
 
-    expect(configNarrative.preSummary).toBe("先查看或调整运行配置");
-    expect(configNarrative.postSummary).toBe("已更新运行配置");
-    expect(workflowNarrative.preSummary).toBe("先执行预设工作流");
-    expect(workflowNarrative.postSummary).toBe("已执行工作流");
+    expect(configNarrative.preSummary).not.toBe("先查看或调整运行配置");
+    expect(configNarrative.postSummary).not.toBe("已更新运行配置");
+    expect(workflowNarrative.preSummary).not.toBe("先执行预设工作流");
+    expect(workflowNarrative.postSummary).not.toBe("已执行工作流");
   });
 
   it("应为等待工具提供显式完成文案", () => {
     const narrative = resolveToolProcessNarrative(
+      createToolCall({
+        name: "sleep",
+        status: "completed",
+      }),
+    );
+    const deletedLegacyNarrative = resolveToolProcessNarrative(
       createToolCall({
         name: "SleepTool",
         status: "completed",
@@ -73,6 +79,7 @@ describe("toolProcessSummary", () => {
     expect(narrative.preSummary).toBe("先等待一段时间再继续");
     expect(narrative.postSummary).toBe("已完成等待");
     expect(narrative.summary).toBe("已完成等待");
+    expect(deletedLegacyNarrative.postSummary).not.toBe("已完成等待");
   });
 
   it("应为图片查看工具提供稳定过程文案，避免展示 raw output", () => {
@@ -95,34 +102,77 @@ describe("toolProcessSummary", () => {
         },
       }),
     );
-    const legacyAnalyzeNarrative = resolveToolProcessNarrative(
-      createToolCall({
-        name: "analyze_image",
-        status: "running",
-        arguments: JSON.stringify({
-          image_path: "/workspace/assets/chart.png",
-        }),
-      }),
-    );
-
     expect(runningNarrative.preSummary).toBe("先查看图片 sample.png");
     expect(runningNarrative.summary).toBe("先查看图片 sample.png");
     expect(completedNarrative.postSummary).toBe("已查看图片 sample.png");
     expect(completedNarrative.summary).toBe("已查看图片 sample.png");
     expect(completedNarrative.summary).not.toContain("Viewed image");
-    expect(legacyAnalyzeNarrative.preSummary).toBe("先分析图片 chart.png");
+  });
+
+  it("图片任务创建结果应显示任务状态文案而不是 raw JSON", () => {
+    const narrative = resolveToolProcessNarrative(
+      createToolCall({
+        name: "mediaTaskArtifact/image/create",
+        status: "completed",
+        result: {
+          success: true,
+          output: JSON.stringify({
+            success: true,
+            task_id: "task-image-1",
+            task_type: "image_generate",
+            task_family: "image",
+            status: "pending_submit",
+            normalized_status: "pending",
+            artifact_path: ".lime/tasks/image_generate/task-image-1.json",
+            record: {
+              payload: {
+                prompt: "画一张广州夏天的图",
+              },
+            },
+          }),
+        },
+      }),
+    );
+
+    expect(narrative.postSummary).toBe("正在生成图片。");
+    expect(narrative.summary).toBe("正在生成图片。");
+    expect(narrative.summary).not.toContain("task_id");
+  });
+
+  it("v2 image_generation task_family 结果应显示任务状态文案", () => {
+    const narrative = resolveToolProcessNarrative(
+      createToolCall({
+        name: "mediaTaskArtifact/image/create",
+        status: "completed",
+        result: {
+          success: true,
+          output: JSON.stringify({
+            success: true,
+            task_id: "task-image-v2-family",
+            task_family: "image_generation",
+            status: "pending_submit",
+            normalized_status: "pending",
+            artifact_path:
+              ".lime/tasks/image_generate/task-image-v2-family.json",
+            record: {
+              payload: {
+                prompt: "画一张广州夏天的图",
+              },
+            },
+          }),
+        },
+      }),
+    );
+
+    expect(narrative.postSummary).toBe("正在生成图片。");
+    expect(narrative.summary).toBe("正在生成图片。");
+    expect(narrative.summary).not.toContain("task_id");
   });
 
   it("应为计划模式与最终答复提供专用文案", () => {
-    const enterPlanNarrative = resolveToolProcessNarrative(
+    const updatePlanNarrative = resolveToolProcessNarrative(
       createToolCall({
-        name: "EnterPlanModeTool",
-        status: "running",
-      }),
-    );
-    const exitPlanNarrative = resolveToolProcessNarrative(
-      createToolCall({
-        name: "ExitPlanModeTool",
+        name: "update_plan",
         status: "completed",
       }),
     );
@@ -133,8 +183,9 @@ describe("toolProcessSummary", () => {
       }),
     );
 
-    expect(enterPlanNarrative.preSummary).toBe("先进入计划模式拆解方案");
-    expect(exitPlanNarrative.postSummary).toBe("已退出计划模式");
+    expect(updatePlanNarrative.preSummary).toBe("已更新计划");
+    expect(updatePlanNarrative.postSummary).toBe("已更新计划");
+    expect(updatePlanNarrative.summary).toBe("已更新计划");
     expect(finalNarrative.preSummary).toBe("先整理最终答复");
     expect(finalNarrative.postSummary).toBe("已整理最终答复");
     expect(finalNarrative.summary).toBe("已整理最终答复");
@@ -167,13 +218,6 @@ describe("toolProcessSummary", () => {
         arguments: JSON.stringify({ task_id: "task-123" }),
       }),
     );
-    const cronListNarrative = resolveToolProcessNarrative(
-      createToolCall({
-        name: "CronListTool",
-        status: "completed",
-      }),
-    );
-
     expect(taskCreateNarrative.preSummary).toBe("先开始 每日趋势摘要");
     expect(taskCreateNarrative.postSummary).toBe("已开始 每日趋势摘要");
     expect(taskListNarrative.preSummary).toBe("先查看任务列表");
@@ -182,10 +226,9 @@ describe("toolProcessSummary", () => {
     expect(taskOutputNarrative.postSummary).toBe("已查看任务结果");
     expect(taskStopNarrative.preSummary).toBe("先终止任务 task-123");
     expect(taskStopNarrative.postSummary).toBe("已终止任务 task-123");
-    expect(cronListNarrative.postSummary).toBe("已查看定时触发器");
   });
 
-  it("应为 gated runtime 工具保留历史主体并净化失败摘要", () => {
+  it("Agent-only gated runtime 工具不再保留专用主体，但失败摘要仍要净化", () => {
     const cronCreateNarrative = resolveToolProcessNarrative(
       createToolCall({
         name: "CronCreateTool",
@@ -215,37 +258,19 @@ describe("toolProcessSummary", () => {
         },
       }),
     );
-    const lspNarrative = resolveToolProcessNarrative(
-      createToolCall({
-        name: "LSPTool",
-        status: "failed",
-        arguments: JSON.stringify({
-          operation: "definition",
-          path: "src/main.ts",
-        }),
-        result: {
-          success: false,
-          error: "-32603: -32002: LSP server is not available",
-          output: "",
-        },
-      }),
-    );
-
-    expect(cronCreateNarrative.preSummary).toBe(
+    expect(cronCreateNarrative.preSummary).not.toBe(
       "先创建定时触发器 morning-news",
     );
-    expect(cronCreateNarrative.postSummary).toBe(
+    expect(cronCreateNarrative.postSummary).not.toBe(
       "已创建定时触发器 morning-news",
     );
-    expect(cronDeleteNarrative.postSummary).toBe(
+    expect(cronDeleteNarrative.postSummary).not.toBe(
       "已删除定时触发器 morning-news",
     );
     expect(remoteTriggerNarrative.summary).toBe(
       "执行失败：remote trigger runtime is not configured",
     );
     expect(remoteTriggerNarrative.summary).not.toContain("-32603");
-    expect(lspNarrative.summary).toBe("执行失败：LSP server is not available");
-    expect(lspNarrative.summary).not.toContain("-32002");
   });
 
   it("应为外部信息与结构化数据工具生成可读过程文案", () => {
@@ -309,7 +334,7 @@ describe("toolProcessSummary", () => {
     expect(imageNarrative.summary).toBe("先搜索 product screenshot");
     expect(financeNarrative.postSummary).toBe("已获取 AAPL 内容");
     expect(weatherNarrative.postSummary).toBe("已获取 Tokyo 内容");
-    expect(timeNarrative.preSummary).toBe("先获取 +09:00");
+    expect(timeNarrative.preSummary).toBe("先获取 +09:00 内容");
     expect(resolveLibraryNarrative.postSummary).toBe("已搜索 Next.js");
     expect(queryDocsNarrative.postSummary).toBe(
       "已查看 React useEffect cleanup",
@@ -321,7 +346,7 @@ describe("toolProcessSummary", () => {
       createToolCall({
         name: "mcp__github__search_code",
         status: "running",
-        arguments: JSON.stringify({ query: "repo:ember tool runtime" }),
+        arguments: JSON.stringify({ query: "repo:lime tool runtime" }),
       }),
     );
     const readNarrative = resolveToolProcessNarrative(
@@ -332,8 +357,8 @@ describe("toolProcessSummary", () => {
       }),
     );
 
-    expect(searchNarrative.preSummary).toBe("先搜索 repo:ember tool runtime");
-    expect(searchNarrative.summary).toBe("先搜索 repo:ember tool runtime");
+    expect(searchNarrative.preSummary).toBe("先搜索 repo:lime tool runtime");
+    expect(searchNarrative.summary).toBe("先搜索 repo:lime tool runtime");
     expect(readNarrative.preSummary).toBe("先查看 guide.md");
     expect(readNarrative.postSummary).toBe("已查看 guide.md");
     expect(readNarrative.summary).toBe("已查看 guide.md");
@@ -447,27 +472,27 @@ describe("toolProcessSummary", () => {
   it("应为站点目录、搜索、详情与执行工具生成站点语义文案", () => {
     const siteListNarrative = resolveToolProcessNarrative(
       createToolCall({
-        name: "ember_site_list",
+        name: "lime_site_list",
         status: "completed",
       }),
     );
     const siteSearchNarrative = resolveToolProcessNarrative(
       createToolCall({
-        name: "ember_site_search",
+        name: "lime_site_search",
         status: "running",
         arguments: JSON.stringify({ query: "GitHub issue 搜索" }),
       }),
     );
     const siteInfoNarrative = resolveToolProcessNarrative(
       createToolCall({
-        name: "ember_site_info",
+        name: "lime_site_info",
         status: "completed",
         arguments: JSON.stringify({ adapter_name: "github/search" }),
       }),
     );
     const siteRunNarrative = resolveToolProcessNarrative(
       createToolCall({
-        name: "ember_site_run",
+        name: "lime_site_run",
         status: "running",
         arguments: JSON.stringify({ adapter_name: "github/search" }),
       }),
@@ -491,23 +516,22 @@ describe("toolProcessSummary", () => {
   it("应为服务技能与站点推荐工具生成专用过程文案", () => {
     const serviceSkillNarrative = resolveToolProcessNarrative(
       createToolCall({
-        name: "ember_run_service_skill",
+        name: "lime_run_service_skill",
         status: "running",
         arguments: JSON.stringify({ skill_title: "渠道预览" }),
       }),
     );
     const siteRecommendNarrative = resolveToolProcessNarrative(
       createToolCall({
-        name: "ember_site_recommend",
+        name: "lime_site_recommend",
         status: "completed",
         arguments: JSON.stringify({ query: "GitHub issue 搜索" }),
       }),
     );
 
-    expect(serviceSkillNarrative.preSummary).toBe(
-      "先走服务技能兼容执行 渠道预览",
-    );
-    expect(serviceSkillNarrative.summary).toBe("先走服务技能兼容执行 渠道预览");
+    expect(serviceSkillNarrative.preSummary).toBe("先执行服务技能 渠道预览");
+    expect(serviceSkillNarrative.summary).toBe("先执行服务技能 渠道预览");
+    expect(serviceSkillNarrative.summary).not.toContain("兼容");
     expect(siteRecommendNarrative.preSummary).toBe(
       "先推荐适合 GitHub issue 搜索 的站点能力",
     );
@@ -519,35 +543,35 @@ describe("toolProcessSummary", () => {
   it("应为新补齐的任务工具生成更贴近当前前台的发起文案", () => {
     const audioNarrative = resolveToolProcessNarrative(
       createToolCall({
-        name: "ember_create_audio_generation_task",
+        name: "lime_create_audio_generation_task",
         status: "completed",
         arguments: JSON.stringify({ prompt: "温暖的播客旁白" }),
       }),
     );
     const transcriptionNarrative = resolveToolProcessNarrative(
       createToolCall({
-        name: "ember_create_transcription_task",
+        name: "lime_create_transcription_task",
         status: "completed",
         arguments: JSON.stringify({ sourcePath: "/tmp/interview.mp4" }),
       }),
     );
     const resourceNarrative = resolveToolProcessNarrative(
       createToolCall({
-        name: "ember_create_modal_resource_search_task",
+        name: "lime_create_modal_resource_search_task",
         status: "running",
         arguments: JSON.stringify({ query: "科技播客 BGM" }),
       }),
     );
     const urlParseNarrative = resolveToolProcessNarrative(
       createToolCall({
-        name: "ember_create_url_parse_task",
+        name: "lime_create_url_parse_task",
         status: "completed",
         arguments: JSON.stringify({ url: "https://example.com/report" }),
       }),
     );
     const typesettingNarrative = resolveToolProcessNarrative(
       createToolCall({
-        name: "ember_create_typesetting_task",
+        name: "lime_create_typesetting_task",
         status: "running",
         arguments: JSON.stringify({ targetPlatform: "小红书" }),
       }),
@@ -556,7 +580,7 @@ describe("toolProcessSummary", () => {
       createToolCall({
         name: "social_generate_cover_image",
         status: "completed",
-        arguments: JSON.stringify({ subject: "开发 Ember 的经验" }),
+        arguments: JSON.stringify({ subject: "开发 Lime 的经验" }),
       }),
     );
 
@@ -574,11 +598,120 @@ describe("toolProcessSummary", () => {
     );
     expect(typesettingNarrative.preSummary).toBe("先发起 小红书 的排版");
     expect(coverImageNarrative.preSummary).toBe(
-      "先生成 开发 Ember 的经验 的封面图",
+      "先生成 开发 Lime 的经验 的封面图",
     );
     expect(coverImageNarrative.postSummary).toBe(
-      "已生成 开发 Ember 的经验 的封面图",
+      "已生成 开发 Lime 的经验 的封面图",
     );
+  });
+
+  it("generic、vision、站点和错误摘要应随当前语言切换", async () => {
+    await changeLimeLocale("en-US");
+
+    const readNarrative = resolveToolProcessNarrative(
+      createToolCall({
+        name: "Read",
+        status: "completed",
+        arguments: JSON.stringify({ file_path: "src/app.tsx" }),
+      }),
+    );
+    const writeNarrative = resolveToolProcessNarrative(
+      createToolCall({
+        name: "Write",
+        status: "running",
+        arguments: JSON.stringify({ file_path: "src/output.md" }),
+      }),
+    );
+    const visionNarrative = resolveToolProcessNarrative(
+      createToolCall({
+        name: "view_image",
+        status: "completed",
+        arguments: JSON.stringify({ path: "/workspace/assets/sample.png" }),
+      }),
+    );
+    const siteNarrative = resolveToolProcessNarrative(
+      createToolCall({
+        name: "lime_site_search",
+        status: "running",
+        arguments: JSON.stringify({ query: "GitHub issue search" }),
+      }),
+    );
+    const failedNarrative = resolveToolProcessNarrative(
+      createToolCall({
+        name: "Bash",
+        status: "failed",
+        result: {
+          success: false,
+          error: "-32603: -32002: sandbox execution failed",
+          output: "",
+        },
+      }),
+    );
+
+    expect(readNarrative.summary).toBe("Reviewed app.tsx");
+    expect(writeNarrative.summary).toBe("Preparing to write output.md");
+    expect(visionNarrative.summary).toBe("Image sample.png viewed");
+    expect(siteNarrative.summary).toBe(
+      "Searching site capabilities related to GitHub issue search first",
+    );
+    expect(failedNarrative.summary).toBe(
+      "Run failed: sandbox execution failed",
+    );
+    expect(readNarrative.summary).not.toContain("已查看");
+    expect(writeNarrative.summary).not.toContain("准备写入");
+    expect(visionNarrative.summary).not.toContain("图片");
+    expect(siteNarrative.summary).not.toContain("站点能力");
+    expect(failedNarrative.summary).not.toContain("执行失败");
+  });
+
+  it("内容任务过程摘要应随当前语言切换且不回退中文 defaultValue", async () => {
+    await changeLimeLocale("en-US");
+
+    const audioNarrative = resolveToolProcessNarrative(
+      createToolCall({
+        name: "lime_create_audio_generation_task",
+        status: "completed",
+        arguments: JSON.stringify({ prompt: "warm podcast narration" }),
+      }),
+    );
+    const resourceNarrative = resolveToolProcessNarrative(
+      createToolCall({
+        name: "lime_create_modal_resource_search_task",
+        status: "running",
+        arguments: JSON.stringify({ query: "podcast BGM" }),
+      }),
+    );
+    const coverImageNarrative = resolveToolProcessNarrative(
+      createToolCall({
+        name: "social_generate_cover_image",
+        status: "completed",
+        arguments: JSON.stringify({ subject: "release recap" }),
+      }),
+    );
+
+    expect(audioNarrative.postSummary).toBe(
+      "Started Voice generation for warm podcast narration",
+    );
+    expect(resourceNarrative.preSummary).toBe(
+      "Start Asset search for podcast BGM",
+    );
+    expect(resourceNarrative.summary).toBe(
+      "Start Asset search for podcast BGM",
+    );
+    expect(coverImageNarrative.preSummary).toBe(
+      "Generate cover image for release recap",
+    );
+    expect(coverImageNarrative.postSummary).toBe(
+      "Generated cover image for release recap",
+    );
+    expect(
+      [
+        audioNarrative.postSummary,
+        resourceNarrative.preSummary,
+        coverImageNarrative.preSummary,
+        coverImageNarrative.postSummary,
+      ].join(" "),
+    ).not.toMatch(/先发起|已发起|先生成|已生成|配音生成|素材检索|封面图/);
   });
 
   it("应把 WebSearch 协议错误翻译成可操作提示", () => {
@@ -693,14 +826,14 @@ describe("toolProcessSummary", () => {
   it("图片生成任务失败不应把内部协议错误带进过程摘要", () => {
     const narrative = resolveToolProcessNarrative(
       createToolCall({
-        name: "ember_create_image_generation_task",
+        name: "lime_create_image_generation_task",
         arguments: JSON.stringify({
           prompt: "A comic book style illustration of a formal statue",
         }),
         status: "failed",
         result: {
           success: false,
-          error: "-32603: -32002: ember_create_image_generation_task",
+          error: "-32603: -32002: lime_create_image_generation_task",
           output: "",
         },
       }),
@@ -710,26 +843,26 @@ describe("toolProcessSummary", () => {
     expect(narrative.summary).toBe("生成失败");
     expect(narrative.summary).not.toContain("-32603");
     expect(narrative.summary).not.toContain(
-      "ember_create_image_generation_task",
+      "lime_create_image_generation_task",
     );
   });
 
   it("内容工作台任务失败不应泄露内部协议错误", () => {
     const cases = [
       {
-        name: "ember_create_video_generation_task",
+        name: "lime_create_video_generation_task",
         expected: "视频生成失败",
       },
       {
-        name: "ember_create_audio_generation_task",
+        name: "lime_create_audio_generation_task",
         expected: "配音生成失败",
       },
       {
-        name: "ember_create_transcription_task",
+        name: "lime_create_transcription_task",
         expected: "转写失败",
       },
       {
-        name: "ember_create_modal_resource_search_task",
+        name: "lime_create_modal_resource_search_task",
         expected: "素材检索失败",
       },
     ] as const;

@@ -4,7 +4,7 @@
 
 use super::events::ConfigChangeEvent;
 use async_trait::async_trait;
-use ember_core::config::Config;
+use lime_core::config::Config;
 use std::sync::Arc;
 
 /// 配置观察者 Trait

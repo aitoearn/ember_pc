@@ -1038,7 +1038,7 @@ function buildRecommendations({
       title: "按治理分类清理 compat / deprecated / dead-candidate 表面",
       rationale: [
         `当前活跃 legacy surface：compat ${governanceSummary.activeByClassification.compat}、deprecated ${governanceSummary.activeByClassification.deprecated}、dead-candidate ${governanceSummary.activeByClassification["dead-candidate"]}。`,
-        "这一步是证据驱动的人类治理，不是 Ember 内部自动清理。",
+        "这一步是证据驱动的人类治理，不是 Lime 内部自动清理。",
       ],
       commands: ["npm run governance:legacy-report"],
       backlogTools: [],
@@ -1401,7 +1401,7 @@ export function renderGeneratedSlopText(report) {
 
 export function renderGeneratedSlopMarkdown(report) {
   const lines = [
-    "# Ember Harness Cleanup / Slop Report",
+    "# Lime Harness Cleanup / Slop Report",
     "",
     `- 生成时间：${report.generatedAt}`,
     `- trend 来源：${report.sources.trend.kind}${report.sources.trend.path ? `（\`${report.sources.trend.path}\`）` : ""}`,

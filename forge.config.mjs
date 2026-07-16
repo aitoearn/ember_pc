@@ -6,15 +6,12 @@ import { MakerSquirrel } from "@electron-forge/maker-squirrel";
 import { MakerZIP } from "@electron-forge/maker-zip";
 
 import { brandMacHelperApps } from "./scripts/electron/brand-mac-helper-apps.mjs";
-import {
-  PRODUCT_DISPLAY_NAME,
-  PRODUCT_NAME,
-} from "./scripts/electron/productIdentity.mjs";
 
+const PRODUCT_NAME = "Lime";
 const APP_ID = "com.embercloud.ember";
 const RELEASE_OUTPUT_DIR =
-  process.env.EMBER_ELECTRON_FORGE_OUT_DIR || "release-electron";
-const SQUIRREL_PACKAGE_NAME = "ember";
+  process.env.LIME_ELECTRON_FORGE_OUT_DIR || "release-electron";
+const SQUIRREL_PACKAGE_NAME = "lime";
 const PACKAGE_VERSION = JSON.parse(
   readFileSync("package.json", "utf8"),
 ).version;
@@ -31,14 +28,6 @@ const retainedPackagePrefixes = [
   "dist-electron/main/",
   "dist-electron/preload/",
 ];
-const ignoredNodeModulesPaths = new Set([
-  "node_modules/.ignored",
-  "node_modules/.vite-electron",
-]);
-const ignoredNodeModulesPrefixes = [
-  "node_modules/.ignored/",
-  "node_modules/.vite-electron/",
-];
 
 function ignorePackagerInput(filePath) {
   const normalizedInput = filePath.replace(/\\/g, "/");
@@ -51,13 +40,6 @@ function ignorePackagerInput(filePath) {
   const normalized = relativePath.replace(/\\/g, "/").replace(/^\/+/, "");
   if (!normalized) {
     return false;
-  }
-
-  if (
-    ignoredNodeModulesPaths.has(normalized) ||
-    ignoredNodeModulesPrefixes.some((prefix) => normalized.startsWith(prefix))
-  ) {
-    return true;
   }
 
   const root = normalized.split("/")[0];
@@ -85,7 +67,7 @@ function macSignOptions({
 } = {}) {
   if (
     platform !== "darwin" ||
-    (env.EMBER_ELECTRON_SIGN !== "1" && !env.EMBER_MACOS_KEYCHAIN)
+    (env.LIME_ELECTRON_SIGN !== "1" && !env.LIME_MACOS_KEYCHAIN)
   ) {
     return undefined;
   }
@@ -110,8 +92,8 @@ function macSignOptions({
   if (env.APPLE_SIGNING_IDENTITY) {
     options.identity = env.APPLE_SIGNING_IDENTITY;
   }
-  if (env.EMBER_MACOS_KEYCHAIN) {
-    options.keychain = env.EMBER_MACOS_KEYCHAIN;
+  if (env.LIME_MACOS_KEYCHAIN) {
+    options.keychain = env.LIME_MACOS_KEYCHAIN;
   }
   return options;
 }
@@ -122,7 +104,7 @@ function macNotarizeOptions({
 } = {}) {
   if (
     platform !== "darwin" ||
-    (env.EMBER_ELECTRON_SIGN !== "1" && !env.EMBER_MACOS_KEYCHAIN)
+    (env.LIME_ELECTRON_SIGN !== "1" && !env.LIME_MACOS_KEYCHAIN)
   ) {
     return undefined;
   }
@@ -138,7 +120,7 @@ function macNotarizeOptions({
 }
 
 function normalizedUpdateBaseUrl({ env = process.env } = {}) {
-  return (env.EMBER_UPDATES_BASE_URL || DEFAULT_UPDATE_BASE_URL)
+  return (env.LIME_UPDATES_BASE_URL || DEFAULT_UPDATE_BASE_URL)
     .trim()
     .replace(/\/+$/, "");
 }
@@ -158,11 +140,11 @@ function updateFeedUrl(
   arch = process.arch,
   { env = process.env } = {},
 ) {
-  const explicitFeedUrl = env.EMBER_ELECTRON_UPDATES_URL?.trim();
+  const explicitFeedUrl = env.LIME_ELECTRON_UPDATES_URL?.trim();
   if (explicitFeedUrl) {
     return explicitFeedUrl.replace(/\/+$/, "");
   }
-  return `${normalizedUpdateBaseUrl({ env })}/ember/stable/${updateFeedLabel(platform, arch)}`;
+  return `${normalizedUpdateBaseUrl({ env })}/lime/stable/${updateFeedLabel(platform, arch)}`;
 }
 
 function macZipConfig(arch = process.arch, options = {}) {
@@ -175,12 +157,12 @@ function windowsSigningOptions({
   env = process.env,
   platform = process.platform,
 } = {}) {
-  if (platform !== "win32" || env.EMBER_ELECTRON_SIGN !== "1") {
+  if (platform !== "win32" || env.LIME_ELECTRON_SIGN !== "1") {
     return {};
   }
 
-  const certificateFile = env.EMBER_WINDOWS_SIGNING_CERTIFICATE_FILE?.trim();
-  const certificatePassword = env.EMBER_WINDOWS_SIGNING_CERTIFICATE_PASSWORD;
+  const certificateFile = env.LIME_WINDOWS_SIGNING_CERTIFICATE_FILE?.trim();
+  const certificatePassword = env.LIME_WINDOWS_SIGNING_CERTIFICATE_PASSWORD;
   if (!certificateFile || !certificatePassword) {
     return {};
   }
@@ -193,7 +175,7 @@ function windowsSigningOptions({
 
 function windowsSquirrelRemoteReleasesUrl({ env = process.env } = {}) {
   const remoteReleasesUrl =
-    env.EMBER_WINDOWS_SQUIRREL_REMOTE_RELEASES_URL?.trim();
+    env.LIME_WINDOWS_SQUIRREL_REMOTE_RELEASES_URL?.trim();
   if (!remoteReleasesUrl) {
     return undefined;
   }
@@ -211,7 +193,7 @@ function windowsSquirrelRemoteReleasesOptions(options = {}) {
 function squirrelConfig(arch = process.arch, options = {}) {
   const packageVersion = options.packageVersion || PACKAGE_VERSION;
   return {
-    authors: "Ember",
+    authors: "Lime",
     exe: `${PRODUCT_NAME}.exe`,
     name: SQUIRREL_PACKAGE_NAME,
     noMsi: true,
@@ -222,51 +204,8 @@ function squirrelConfig(arch = process.arch, options = {}) {
   };
 }
 
-const MAC_DMG_WINDOW = { width: 520, height: 340 };
-const MAC_DMG_ICON_SIZE = 104;
-const MAC_DMG_ICON_Y = 160;
-
-function macDmgContents({ appPath }) {
-  return [
-    {
-      x: 392,
-      y: MAC_DMG_ICON_Y,
-      type: "link",
-      path: "/Applications",
-    },
-    {
-      x: 128,
-      y: MAC_DMG_ICON_Y,
-      type: "file",
-      path: appPath,
-    },
-  ];
-}
-
-function macDmgConfig() {
-  return {
-    name: PRODUCT_DISPLAY_NAME,
-    title: PRODUCT_DISPLAY_NAME,
-    background: "resources/electron/dmg-background.png",
-    icon: "ember-rs/icons/icon.icns",
-    iconSize: MAC_DMG_ICON_SIZE,
-    contents: macDmgContents,
-    additionalDMGOptions: {
-      "background-color": "#f7fbf4",
-      window: {
-        size: {
-          width: MAC_DMG_WINDOW.width,
-          height: MAC_DMG_WINDOW.height,
-        },
-      },
-    },
-  };
-}
-
 export {
   ignorePackagerInput,
-  macDmgConfig,
-  macDmgContents,
   macNotarizeOptions,
   macSignOptions,
   macZipConfig,
@@ -282,11 +221,11 @@ export {
 export default {
   outDir: RELEASE_OUTPUT_DIR,
   packagerConfig: {
-    name: PRODUCT_DISPLAY_NAME,
+    name: PRODUCT_NAME,
     executableName: PRODUCT_NAME,
     appBundleId: APP_ID,
     appCategoryType: "public.app-category.productivity",
-    appCopyright: "Copyright © Ember",
+    appCopyright: "Copyright © Lime",
     asar: true,
     prune: true,
     icon:
@@ -297,24 +236,21 @@ export default {
       "dist-electron/desktop-assets",
       "dist-electron/app-server.release.json",
       "dist-electron/app-server",
-      "dist-electron/device-automation",
     ],
     protocols: [
       {
-        name: "Ember URL",
-        schemes: ["ember"],
+        name: "Lime URL",
+        schemes: ["lime"],
       },
     ],
     extendInfo: {
-      CFBundleDisplayName: PRODUCT_DISPLAY_NAME,
-      CFBundleName: PRODUCT_DISPLAY_NAME,
-      NSMicrophoneUsageDescription: `${PRODUCT_DISPLAY_NAME} 需要访问麦克风以使用语音输入功能`,
-      NSAppleEventsUsageDescription: `${PRODUCT_DISPLAY_NAME} 需要控制其他应用以输入识别的文本`,
+      NSMicrophoneUsageDescription: "Lime 需要访问麦克风以使用语音输入功能",
+      NSAppleEventsUsageDescription: "Lime 需要控制其他应用以输入识别的文本",
     },
     osxSign: macSignOptions(),
     osxNotarize: macNotarizeOptions(),
     win32metadata: {
-      CompanyName: "Ember",
+      CompanyName: "Lime",
       FileDescription: PRODUCT_NAME,
       ProductName: PRODUCT_NAME,
       InternalName: PRODUCT_NAME,
@@ -329,7 +265,6 @@ export default {
           brandMacHelperApps({
             appOutDir: buildPath,
             productName: PRODUCT_NAME,
-            bundleName: PRODUCT_DISPLAY_NAME,
           });
           done();
         } catch (error) {
@@ -343,7 +278,12 @@ export default {
     ignoreModules: ["canvas"],
   },
   makers: [
-    new MakerDMG(macDmgConfig(), ["darwin"]),
+    new MakerDMG(
+      {
+        name: PRODUCT_NAME,
+      },
+      ["darwin"],
+    ),
     new MakerZIP((arch) => macZipConfig(arch), ["darwin"]),
     new MakerSquirrel((arch) => squirrelConfig(arch), ["win32"]),
   ],

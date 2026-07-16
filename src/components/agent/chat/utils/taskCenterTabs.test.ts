@@ -62,6 +62,7 @@ function createFallbackRestoreParams(
     initialPendingServiceSkillLaunchSignature: null,
     initialDispatchKey: null,
     isBootstrapDispatchPending: false,
+    isHomeSessionBackgroundRecovery: false,
     messagesLength: 1,
     isSending: false,
     queuedTurnsLength: 0,
@@ -148,6 +149,28 @@ describe("taskCenterTabs", () => {
     });
   });
 
+  it("standalone 会话应使用 legacy bucket 保存任务标签", () => {
+    const currentMap = {
+      "__legacy__": ["topic-standalone-a"],
+      "workspace-a": ["topic-project"],
+    };
+
+    expect(resolveTaskCenterTabIdsForWorkspace(currentMap, null)).toEqual([
+      "topic-standalone-a",
+    ]);
+
+    expect(
+      updateTaskCenterTabIdsForWorkspace(
+        currentMap,
+        null,
+        (currentIds) => ["topic-standalone-b", ...currentIds],
+      ),
+    ).toEqual({
+      "__legacy__": ["topic-standalone-b", "topic-standalone-a"],
+      "workspace-a": ["topic-project"],
+    });
+  });
+
   it("导航栏打开单个任务时，应覆盖当前 workspace 的旧多标签状态", () => {
     const currentMap = {
       "workspace-a": ["topic-a", "topic-b", "topic-c"],
@@ -166,7 +189,7 @@ describe("taskCenterTabs", () => {
     });
   });
 
-  it("初始化任务中心时应只在 claw 路由会话下覆盖当前 workspace 标签", () => {
+  it("初始化任务中心时应在 task center 路由会话下覆盖当前 workspace 标签", () => {
     const currentMap = {
       "workspace-a": ["topic-a", "topic-b"],
       "workspace-b": ["topic-c"],
@@ -191,7 +214,28 @@ describe("taskCenterTabs", () => {
         workspaceId: "workspace-a",
         normalizedInitialSessionId: "topic-selected",
       }),
-    ).toBe(currentMap);
+    ).toEqual({
+      "workspace-a": ["topic-selected"],
+      "workspace-b": ["topic-c"],
+    });
+  });
+
+  it("初始化任务中心时 standalone 路由会话应进入 legacy 标签桶", () => {
+    const currentMap = {
+      "workspace-a": ["topic-a"],
+    };
+
+    expect(
+      initializeTaskCenterOpenTabMap({
+        initialTabMap: currentMap,
+        agentEntry: "claw",
+        workspaceId: null,
+        normalizedInitialSessionId: "topic-imported",
+      }),
+    ).toEqual({
+      "__legacy__": ["topic-imported"],
+      "workspace-a": ["topic-a"],
+    });
   });
 
   it("路由同步应区分外部直达覆盖与任务中心本地切换追平", () => {
@@ -256,6 +300,55 @@ describe("taskCenterTabs", () => {
     });
   });
 
+  it("standalone 路由同步应覆盖 legacy 标签桶", () => {
+    const currentMap = {
+      "__legacy__": ["topic-old"],
+      "workspace-a": ["topic-project"],
+    };
+
+    expect(
+      resolveTaskCenterRouteTabSyncIntent({
+        agentEntry: "claw",
+        workspaceId: null,
+        normalizedInitialSessionId: "topic-imported",
+        lastSyncedInitialSessionId: null,
+        shouldRespectLocalSession: false,
+      }),
+    ).toMatchObject({
+      shouldSync: true,
+      routeChanged: true,
+      shouldClearActiveDraft: true,
+    });
+
+    expect(
+      applyTaskCenterRouteTabSyncToMap({
+        currentMap,
+        workspaceId: null,
+        normalizedInitialSessionId: "topic-imported",
+        shouldRespectLocalSession: false,
+      }),
+    ).toEqual({
+      "__legacy__": ["topic-imported"],
+      "workspace-a": ["topic-project"],
+    });
+  });
+
+  it("new-task 路由同步也应维护 task center 标签", () => {
+    expect(
+      resolveTaskCenterRouteTabSyncIntent({
+        agentEntry: "new-task",
+        workspaceId: "workspace-a",
+        normalizedInitialSessionId: "topic-selected",
+        lastSyncedInitialSessionId: null,
+        shouldRespectLocalSession: false,
+      }),
+    ).toMatchObject({
+      shouldSync: true,
+      routeChanged: true,
+      shouldClearActiveDraft: true,
+    });
+  });
+
   it("任务中心本地会话覆盖只应在路由或当前会话匹配时生效", () => {
     expect(
       shouldRespectTaskCenterLocalSessionOverride({
@@ -308,6 +401,12 @@ describe("taskCenterTabs", () => {
   it("应正确识别需要恢复 start hooks 的任务", () => {
     expect(
       shouldResumeTaskSession({
+        status: "running",
+        statusReason: "default",
+      }),
+    ).toBe(true);
+    expect(
+      shouldResumeTaskSession({
         status: "waiting",
         statusReason: "user_action",
       }),
@@ -342,6 +441,16 @@ describe("taskCenterTabs", () => {
     ).toEqual({
       forceRefresh: true,
       resumeSessionStartHooks: true,
+    });
+
+    expect(
+      resolveTaskCenterTopicSwitchOptions({
+        allowDetachedSession: true,
+        shouldResume: false,
+        forceRefresh: false,
+      }),
+    ).toEqual({
+      allowDetachedSession: true,
     });
   });
 
@@ -464,6 +573,19 @@ describe("taskCenterTabs", () => {
     ).toEqual({
       allowDetachedSession: true,
       resumeSessionStartHooks: true,
+    });
+  });
+
+  it("初始会话恢复遇到已有历史消息时应强制读取详情", () => {
+    expect(
+      resolveInitialTaskSessionSwitchOptions({
+        status: "done",
+        statusReason: "default",
+        messagesCount: 6,
+      }),
+    ).toEqual({
+      allowDetachedSession: true,
+      forceRefresh: true,
     });
   });
 
@@ -646,6 +768,22 @@ describe("taskCenterTabs", () => {
     });
   });
 
+  it("路由 initial session 尚未切换完成时，应跳过旧任务标签 fallback 恢复", () => {
+    expect(
+      resolveTaskCenterFallbackRestorePlan(
+        createFallbackRestoreParams({
+          normalizedInitialSessionId: "topic-imported",
+          sessionId: "topic-old-home",
+          openTabIds: ["topic-old"],
+          topics: [createTopic("topic-old")],
+        }),
+      ),
+    ).toEqual({
+      action: "skip",
+      reason: "initial-session-pending",
+    });
+  });
+
   it("当前没有有效任务会话时，应恢复第一个可见旧任务标签", () => {
     expect(
       resolveTaskCenterFallbackRestorePlan(
@@ -660,6 +798,53 @@ describe("taskCenterTabs", () => {
         topicId: "topic-old",
         startedAt: 10_000,
       },
+    });
+  });
+
+  it("new-task 首页当前没有有效任务会话时，不应自动恢复旧任务标签", () => {
+    expect(
+      resolveTaskCenterFallbackRestorePlan(
+        createFallbackRestoreParams({
+          agentEntry: "new-task",
+          now: 10_000,
+        }),
+      ),
+    ).toEqual({
+      action: "skip",
+      reason: "new-task-home",
+    });
+  });
+
+  it("new-task 首页后台恢复运行候选时，应跳过旧任务标签 fallback 恢复", () => {
+    expect(
+      resolveTaskCenterFallbackRestorePlan(
+        createFallbackRestoreParams({
+          agentEntry: "new-task",
+          isHomeSessionBackgroundRecovery: true,
+          now: 10_000,
+        }),
+      ),
+    ).toEqual({
+      action: "skip",
+      reason: "home-background-recovery",
+    });
+  });
+
+  it("new-task 首页后台恢复运行候选时，即使旧 sessionId 尚未清空也不应恢复旧详情", () => {
+    expect(
+      resolveTaskCenterFallbackRestorePlan(
+        createFallbackRestoreParams({
+          agentEntry: "new-task",
+          isHomeSessionBackgroundRecovery: true,
+          sessionId: "topic-old",
+          currentSessionIsKnownTopic: true,
+          hasDisplayMessages: true,
+          now: 10_000,
+        }),
+      ),
+    ).toEqual({
+      action: "skip",
+      reason: "home-background-recovery",
     });
   });
 

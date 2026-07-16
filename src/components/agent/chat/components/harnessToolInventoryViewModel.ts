@@ -1,7 +1,7 @@
 import type {
   AgentRuntimeExtensionSourceKind,
   AgentRuntimeToolInventoryCatalogEntry,
-  AgentRuntimeToolInventoryRegistryEntry,
+  AgentRuntimeToolInventoryNativeEntry,
   AgentRuntimeToolInventoryRuntimeEntry,
   AgentRuntimeToolInventoryRuntimeSourceKind,
   AgentToolExecutionPolicySource,
@@ -11,7 +11,7 @@ import type {
   AgentToolLifecycle,
   AgentToolPermissionPlane,
   AgentToolSourceKind,
-} from "@/lib/api/agentRuntime";
+} from "@/lib/api/agentRuntime/toolInventoryTypes";
 import type { RuntimeToolAvailability } from "../utils/runtimeToolAvailability";
 import type { RuntimeToolCapabilityGap } from "./HarnessToolInventoryTypes";
 
@@ -130,10 +130,10 @@ export function formatToolSourceKindLabel(
   value: AgentToolSourceKind | string,
 ): string {
   switch (value) {
-    case "aster_builtin":
-      return "Aster 内置";
-    case "ember_injected":
-      return "Ember 注入";
+    case "agent_builtin":
+      return "Agent 内置";
+    case "lime_injected":
+      return "Lime 注入";
     case "browser_compatibility":
       return "Browser Assist";
     default:
@@ -158,8 +158,6 @@ export function formatRuntimeToolSourceKindLabel(
   value: AgentRuntimeToolInventoryRuntimeSourceKind | string,
 ): string {
   switch (value) {
-    case "registry_native":
-      return "Registry";
     case "current_surface":
       return "当前工具面";
     case "runtime_extension":
@@ -177,8 +175,8 @@ export function formatRuntimeToolAvailabilitySourceLabel(
   switch (value) {
     case "runtime_tools":
       return "runtime_tools";
-    case "registry_tools":
-      return "registry_tools";
+    case "native_tools":
+      return "native_tools";
     case "none":
     default:
       return "未就绪";
@@ -195,8 +193,8 @@ export function collectCatalogExecutionSources(
   ];
 }
 
-export function collectRegistryExecutionSources(
-  entry: AgentRuntimeToolInventoryRegistryEntry,
+export function collectNativeExecutionSources(
+  entry: AgentRuntimeToolInventoryNativeEntry,
 ): AgentToolExecutionPolicySource[] {
   return [
     entry.catalog_execution_warning_policy_source,
@@ -250,11 +248,11 @@ export function buildRuntimeToolCapabilityGaps(
     });
   }
 
-  if (!runtimeToolAvailability.taskRuntime) {
+  if (!runtimeToolAvailability.planRuntime) {
     gaps.push({
-      key: "task_runtime",
-      title: "Task current tools",
-      missing: runtimeToolAvailability.missingTaskTools,
+      key: "plan_runtime",
+      title: "Plan current tool",
+      missing: runtimeToolAvailability.missingPlanTools,
     });
   }
 

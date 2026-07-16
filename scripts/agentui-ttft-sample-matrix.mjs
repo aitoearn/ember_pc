@@ -13,7 +13,7 @@ const MATRIX_PRESETS = {
   "agentui-responsive-chat-ttft": {
     minFirstTextPerResponsiveGroup: 3,
     requiredResponsiveModels: ["deepseek-v4-flash", "MiniMax-M2.7"],
-    requiredResponsiveProviders: ["siliconflow-cn", "openrouter", "ember-hub"],
+    requiredResponsiveProviders: ["siliconflow-cn", "openrouter", "lime-hub"],
   },
 };
 
@@ -113,15 +113,15 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember AgentUI TTFT Sample Matrix
+Lime AgentUI TTFT Sample Matrix
 
 用法:
   node scripts/agentui-ttft-sample-matrix.mjs
-  node scripts/agentui-ttft-sample-matrix.mjs --db "$HOME/Library/Application Support/ember/ember.db" --format markdown
+  node scripts/agentui-ttft-sample-matrix.mjs --db "$HOME/Library/Application Support/lime/lime.db" --format markdown
   node scripts/agentui-ttft-sample-matrix.mjs --format json --output /tmp/agentui-ttft-sample-matrix.json
 
 选项:
-  --db PATH             Ember SQLite DB；默认按当前平台推导本机 ember.db
+  --db PATH             Lime SQLite DB；默认按当前平台推导本机 lime.db
   --format FMT          markdown | json，默认 markdown
   --limit-runs N        最近 agent_runs 扫描上限，默认 ${DEFAULT_LIMIT_RUNS}
   --limit-groups N      Markdown 表格输出的 group 上限，默认 ${DEFAULT_LIMIT_GROUPS}
@@ -145,16 +145,16 @@ Ember AgentUI TTFT Sample Matrix
 function defaultLimeDbPath() {
   const home = os.homedir();
   if (process.platform === "darwin") {
-    return path.join(home, "Library", "Application Support", "ember", "ember.db");
+    return path.join(home, "Library", "Application Support", "lime", "lime.db");
   }
   if (process.platform === "win32") {
     return path.join(
       process.env.APPDATA || path.join(home, "AppData", "Roaming"),
-      "ember",
-      "ember.db",
+      "lime",
+      "lime.db",
     );
   }
-  return path.join(process.env.XDG_DATA_HOME || path.join(home, ".local", "share"), "ember", "ember.db");
+  return path.join(process.env.XDG_DATA_HOME || path.join(home, ".local", "share"), "lime", "lime.db");
 }
 
 function normalizePositiveInt(value, fallback) {
@@ -258,10 +258,10 @@ function parseRouting(metadata) {
     firstDefined(metadata.request_metadata, metadata.requestMetadata),
   );
   const limeRuntime = firstDefined(
-    requestMetadata?.ember_runtime,
-    requestMetadata?.emberRuntime,
-    metadata.ember_runtime,
-    metadata.emberRuntime,
+    requestMetadata?.lime_runtime,
+    requestMetadata?.limeRuntime,
+    metadata.lime_runtime,
+    metadata.limeRuntime,
   );
   const routingDecision = firstDefined(
     limeRuntime?.routing_decision,

@@ -5,10 +5,10 @@
  * 输入：ember-rs/crates/app-server-protocol/schema/json/app_server_protocol.schemas.json
  * 输出：packages/app-server-client/src/generated/protocol-types.ts
  *
- * 规则（参照 docs/refactor/progressive-refactor-plan.md R-10）：
+ * 规则（参照 internal/refactor/progressive-refactor-plan.md R-10）：
  *   1. 生成物头部 // @generated 标记，棘轮按生成代码豁免
  *   2. 生成后 git diff --exit-code 检查漂移（CI 守卫）
- *   3. 只生成类型定义，不生成方法常量和 helper 函数（这些保持手写）
+ *   3. 方法常量、方法 catalog 和协议类型都从 Rust schema / manifest 生成
  *
  * 用法：
  *   node scripts/generate-protocol-types.mjs          # 生成
@@ -23,6 +23,14 @@ const REPO_ROOT = process.cwd();
 const SCHEMA_BUNDLE_PATH = path.join(
   REPO_ROOT,
   "ember-rs/crates/app-server-protocol/schema/json/app_server_protocol.schemas.json",
+);
+const SCHEMA_MANIFEST_PATH = path.join(
+  REPO_ROOT,
+  "ember-rs/crates/app-server-protocol/schema/json/manifest.json",
+);
+const METHOD_NAMES_PATH = path.join(
+  REPO_ROOT,
+  "ember-rs/crates/app-server-protocol/src/protocol/v0/method_names.rs",
 );
 const OUTPUT_DIR = path.join(
   REPO_ROOT,
@@ -64,19 +72,22 @@ function schemaToTs(schema, indent = 0) {
     const ref = schema["$ref"];
     // #/$defs/TypeName → TypeName
     const name = ref.replace(/^#\/\$defs\//, "");
+    if (name === "RequestId") {
+      return "number | string";
+    }
     return name;
   }
 
   // oneOf 联合类型
   if (schema.oneOf) {
     const variants = schema.oneOf.map((s) => schemaToTs(s, indent));
-    return variants.join(" | ");
+    return composeRootSchemaWithVariants(schema, variants, "oneOf", indent);
   }
 
   // anyOf 联合类型
   if (schema.anyOf) {
     const variants = schema.anyOf.map((s) => schemaToTs(s, indent));
-    return variants.join(" | ");
+    return composeRootSchemaWithVariants(schema, variants, "anyOf", indent);
   }
 
   // const 字面量
@@ -92,9 +103,12 @@ function schemaToTs(schema, indent = 0) {
       .join(" | ");
   }
 
-  // 数组类型：type: ["null", "string"] → string | null
+  // 联合类型：type: ["array", "null"] 也要保留 items 结构，不能退化成 unknown。
   if (Array.isArray(schema.type)) {
-    return schema.type.map((t) => primitiveToTs(t)).join(" | ");
+    const variants = schema.type.map((type) =>
+      schemaToTs({ ...schema, type }, indent),
+    );
+    return Array.from(new Set(variants)).join(" | ");
   }
 
   // 对象类型
@@ -121,6 +135,19 @@ function schemaToTs(schema, indent = 0) {
   }
 
   return "unknown";
+}
+
+function composeRootSchemaWithVariants(schema, variants, keyword, indent) {
+  const variantType = variants.join(" | ");
+  const rootSchema = { ...schema };
+  delete rootSchema[keyword];
+  const hasRootShape =
+    Object.keys(rootSchema.properties || {}).length > 0 ||
+    Object.keys(rootSchema.patternProperties || {}).length > 0;
+  if (!hasRootShape) {
+    return variantType;
+  }
+  return `(${schemaToTs(rootSchema, indent)}) & (${variantType})`;
 }
 
 function primitiveToTs(type, schema = {}) {
@@ -162,10 +189,13 @@ function objectTypeToTs(schema, indent = 0) {
 }
 
 function generateTypes() {
+  assertCompositionSupport();
   console.log("📖 读取 JSON Schema bundle...");
   const bundleRaw = fs.readFileSync(SCHEMA_BUNDLE_PATH, "utf8");
   const bundle = JSON.parse(bundleRaw);
-  globalDefs = bundle["$defs"] || {};
+  const manifestRaw = fs.readFileSync(SCHEMA_MANIFEST_PATH, "utf8");
+  const manifest = JSON.parse(manifestRaw);
+  globalDefs = collectSchemaDefinitions(bundle);
 
   const defNames = Object.keys(globalDefs);
   console.log(`   找到 ${defNames.length} 个类型定义`);
@@ -193,8 +223,8 @@ function generateTypes() {
     try {
       const schema = globalDefs[name];
       const tsType = schemaToTs(schema, 0);
-      // 只有有 properties 的对象用 interface，其他用 type alias
-      if (schema.properties) {
+      // 组合 schema 需要交叉/联合 type；普通 properties 对象使用 interface。
+      if (schema.properties && !schema.oneOf && !schema.anyOf) {
         typeBlocks.push(`export interface ${name} ${tsType}`);
       } else {
         typeBlocks.push(`export type ${name} = ${tsType};`);
@@ -209,12 +239,118 @@ function generateTypes() {
   console.log(`   生成 ${generated} 个类型，失败 ${failed} 个`);
 
   // 组装最终输出
-  const output = GENERATED_HEADER + typeBlocks.join("\n\n") + "\n";
+  const requestSerializationScopes = manifest.requestSerializationScopes ?? [];
+  const methodConstants = collectMethodConstants(manifest.methods);
+  const methodConstantsBlock = methodConstants
+    .map(([name, value]) => `export const ${name} = ${JSON.stringify(value)};`)
+    .join("\n");
+  const methodCatalogBlock = [
+    methodConstantsBlock,
+    `export const GENERATED_APP_SERVER_METHODS = ${JSON.stringify(
+      manifest.methods,
+      null,
+      2,
+    )} as const;`,
+    `export type GeneratedAppServerMethodSpec = (typeof GENERATED_APP_SERVER_METHODS)[number];`,
+    `export type GeneratedAppServerMethodKind = GeneratedAppServerMethodSpec["kind"];`,
+  ].join("\n\n");
+  const requestSerializationScopeCatalogBlock = [
+    `export const GENERATED_APP_SERVER_REQUEST_SERIALIZATION_SCOPES = ${JSON.stringify(
+      requestSerializationScopes,
+      null,
+      2,
+    )} as const;`,
+    `export type GeneratedAppServerRequestSerializationScopeSpec = (typeof GENERATED_APP_SERVER_REQUEST_SERIALIZATION_SCOPES)[number];`,
+    `export type GeneratedAppServerRequestSerializationScope = GeneratedAppServerRequestSerializationScopeSpec["scope"];`,
+  ].join("\n\n");
+  const output =
+    GENERATED_HEADER +
+    methodCatalogBlock +
+    "\n\n" +
+    requestSerializationScopeCatalogBlock +
+    "\n\n" +
+    typeBlocks.join("\n\n") +
+    "\n";
 
   // 确保输出目录存在
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   fs.writeFileSync(OUTPUT_PATH, output, "utf8");
-  console.log(`✅ 已写入 ${OUTPUT_PATH} (${output.length} bytes)`);
+  formatGeneratedOutput();
+  const formattedLength = fs.readFileSync(OUTPUT_PATH, "utf8").length;
+  console.log(`✅ 已写入 ${OUTPUT_PATH} (${formattedLength} bytes)`);
+}
+
+function assertCompositionSupport() {
+  const result = schemaToTs({
+    type: "object",
+    properties: { threadId: { type: "string" } },
+    required: ["threadId"],
+    oneOf: [
+      {
+        type: "object",
+        properties: { mode: { const: "form" } },
+        required: ["mode"],
+      },
+    ],
+  });
+  if (
+    !result.includes("threadId: string;") ||
+    !result.includes('mode: "form";')
+  ) {
+    throw new Error("root properties must survive oneOf/anyOf composition");
+  }
+}
+
+function collectMethodConstants(methods) {
+  const source = fs.readFileSync(METHOD_NAMES_PATH, "utf8");
+  const entries = [
+    ...source.matchAll(
+      /pub const\s+(METHOD_[A-Z0-9_]+):\s*&str\s*=\s*"([^"]+)";/g,
+    ),
+  ].map((match) => [match[1], match[2]]);
+  const byMethod = new Map(entries.map(([name, value]) => [value, name]));
+  const missing = methods
+    .map(({ method }) => method)
+    .filter((method) => !byMethod.has(method));
+  if (missing.length > 0) {
+    throw new Error(
+      `method_names.rs missing constants for manifest methods: ${missing.join(", ")}`,
+    );
+  }
+  return methods.map(({ method }) => [byMethod.get(method), method]);
+}
+
+function formatGeneratedOutput() {
+  execFileSync("npx", ["prettier", "--write", OUTPUT_PATH], {
+    cwd: REPO_ROOT,
+    stdio: "ignore",
+  });
+}
+
+function collectSchemaDefinitions(bundle) {
+  const collected = { ...(bundle["$defs"] || {}) };
+  let nestedAdded = 0;
+
+  for (const schema of Object.values(collected)) {
+    const nestedDefs = schema?.["$defs"];
+    if (!nestedDefs || typeof nestedDefs !== "object") {
+      continue;
+    }
+
+    for (const [name, nestedSchema] of Object.entries(nestedDefs)) {
+      if (Object.hasOwn(collected, name)) {
+        continue;
+      }
+      collected[name] = nestedSchema;
+      nestedAdded++;
+    }
+  }
+
+  if (nestedAdded > 0) {
+    console.log(`   合并 ${nestedAdded} 个内联 $defs 类型定义`);
+  }
+
+  return collected;
 }
 
 function checkDrift() {

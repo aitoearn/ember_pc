@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  Blocks,
   Command as CommandIcon,
   ImagePlus,
   Sparkles,
@@ -15,17 +16,18 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import type { Character } from "@/lib/api/memory";
+import type { Character } from "@/lib/api/projectMemory";
 import type { Skill } from "@/lib/api/skills";
 import type {
   ServiceSkillGroup,
   ServiceSkillHomeItem,
 } from "@/components/agent/chat/service-skills/types";
-import type { CodexSlashCommandDefinition } from "../commands";
+import type { SlashCommandDefinition } from "../commands";
 import type {
   BuiltinInputCommand,
   RuntimeSceneSlashCommand,
 } from "./builtinCommands";
+import type { InputbarPluginCapability } from "../components/Inputbar/pluginInputCapability";
 import {
   buildInputCapabilitySections,
   buildInputCapabilitySectionsCopy,
@@ -41,9 +43,10 @@ interface CharacterMentionPanelProps {
   mode: "mention" | "slash";
   mentionQuery: string;
   builtinCommands: BuiltinInputCommand[];
-  slashCommands: CodexSlashCommandDefinition[];
+  slashCommands: SlashCommandDefinition[];
   sceneCommands: RuntimeSceneSlashCommand[];
   mentionServiceSkills: ServiceSkillHomeItem[];
+  pluginSuggestions?: readonly InputbarPluginCapability[];
   serviceSkillGroups?: ServiceSkillGroup[];
   filteredCharacters: Character[];
   installedSkills: Skill[];
@@ -68,6 +71,7 @@ export const CharacterMentionPanel: React.FC<CharacterMentionPanelProps> = ({
   slashCommands,
   sceneCommands,
   mentionServiceSkills,
+  pluginSuggestions = [],
   serviceSkillGroups = [],
   filteredCharacters,
   installedSkills,
@@ -110,6 +114,7 @@ export const CharacterMentionPanel: React.FC<CharacterMentionPanelProps> = ({
       slashCommands,
       sceneCommands,
       mentionServiceSkills,
+      pluginSuggestions,
       serviceSkillGroups,
       filteredCharacters,
       installedSkills,
@@ -132,6 +137,7 @@ export const CharacterMentionPanel: React.FC<CharacterMentionPanelProps> = ({
     mentionEntryUsageVersion,
     mentionQuery,
     mentionServiceSkills,
+    pluginSuggestions,
     mode,
     projectId,
     referenceEntries,
@@ -202,6 +208,10 @@ export const CharacterMentionPanel: React.FC<CharacterMentionPanelProps> = ({
         return t("inputCapabilities.panel.helper.featuredServiceSkills");
       }
 
+      if (sectionKey === "plugins") {
+        return t("inputCapabilities.panel.helper.plugins");
+      }
+
       if (sectionKey === "installed-skills") {
         return t("inputCapabilities.panel.helper.installedSkillsMention");
       }
@@ -247,6 +257,7 @@ export const CharacterMentionPanel: React.FC<CharacterMentionPanelProps> = ({
     (isEmptyMentionQuery &&
       ([
         "featured-service-skills",
+        "plugins",
         "installed-skills",
         "available-skills",
         "characters",
@@ -288,6 +299,8 @@ export const CharacterMentionPanel: React.FC<CharacterMentionPanelProps> = ({
     );
 
     switch (item.icon) {
+      case "blocks":
+        return <Blocks className={iconClassName} />;
       case "command":
         return <CommandIcon className={iconClassName} />;
       case "image-plus":
@@ -304,7 +317,7 @@ export const CharacterMentionPanel: React.FC<CharacterMentionPanelProps> = ({
   };
 
   return (
-    <Command ref={commandRef} className="bg-background">
+    <Command ref={commandRef} className="bg-background" shouldFilter={false}>
       <CommandInput
         placeholder={
           mode === "slash"
@@ -408,15 +421,21 @@ export const CharacterMentionPanel: React.FC<CharacterMentionPanelProps> = ({
             ) : null}
             {section.items.map((item) => {
               const visibleKindLabel = resolveVisibleKindLabel(item);
+              const disabled =
+                item.kind === "available_skill" ||
+                (item.kind === "plugin" && item.disabled === true);
 
               return (
                 <CommandItem
                   key={item.key}
-                  onSelect={() => handleSelectCapability(item)}
+                  disabled={disabled}
+                  onSelect={() => {
+                    if (!disabled) {
+                      handleSelectCapability(item);
+                    }
+                  }}
                   className={cn(
-                    item.kind === "available_skill"
-                      ? "cursor-pointer opacity-60"
-                      : "cursor-pointer",
+                    disabled ? "cursor-pointer opacity-60" : "cursor-pointer",
                     shouldCompactSectionItems(section.key) && "min-h-0 py-1.5",
                     shouldSubdueMethodItems(section.key) && "py-1.5",
                     isRegistryLanding &&

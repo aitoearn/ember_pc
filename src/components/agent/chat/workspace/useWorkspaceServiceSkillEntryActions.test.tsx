@@ -3,7 +3,6 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatToolPreferences } from "../utils/chatToolPreferences";
-import type { TeamDefinition } from "../utils/teamDefinitions";
 import type { ServiceSkillHomeItem } from "../service-skills/types";
 import {
   clearAgentUiProjectionEvents,
@@ -22,6 +21,7 @@ const mockToastSuccess = vi.fn();
 const mockToastError = vi.fn();
 const mockToastInfo = vi.fn();
 const mockToastLoading = vi.fn();
+const mockEnsureSessionForThreadLineage = vi.fn();
 
 vi.mock("sonner", () => ({
   toast: {
@@ -30,6 +30,12 @@ vi.mock("sonner", () => ({
     info: (...args: unknown[]) => mockToastInfo(...args),
     loading: (...args: unknown[]) => mockToastLoading(...args),
   },
+}));
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+  }),
 }));
 
 vi.mock("@/lib/api/automation", () => ({
@@ -69,27 +75,6 @@ const DEFAULT_CHAT_TOOL_PREFERENCES: ChatToolPreferences = {
   task: false,
   subagent: false,
 };
-const DEFAULT_SELECTED_TEAM: TeamDefinition = {
-  id: "team-research-duo",
-  source: "builtin",
-  label: "研究双人组",
-  description: "负责检索和整理结果。",
-  roles: [
-    {
-      id: "researcher",
-      label: "研究员",
-      summary: "负责检索线索。",
-      skillIds: ["web-search"],
-    },
-    {
-      id: "analyst",
-      label: "分析员",
-      summary: "负责整理结论。",
-      roleKey: "analyst",
-    },
-  ],
-};
-
 function createProject(id = "project-1") {
   return {
     id,
@@ -161,7 +146,7 @@ function createBrowserServiceSkill(): ServiceSkillHomeItem {
 function createScheduledServiceSkill(): ServiceSkillHomeItem {
   return {
     id: "daily-trend-briefing",
-    title: "回归测试巡检",
+    title: "每日趋势摘要",
     summary: "围绕指定平台与关键词输出趋势摘要。",
     category: "内容运营",
     outputHint: "趋势摘要 + 调度建议",
@@ -213,7 +198,7 @@ function createLegacyCompatServiceSkill(): ServiceSkillHomeItem {
   return {
     id: "cloud-video-dubbing",
     skillKey: "campaign-launch",
-    title: "性能测试",
+    title: "视频配音",
     summary: "围绕视频文案与素材整理一版可继续加工的配音稿。",
     category: "视频创作",
     outputHint: "配音文案 + 结果摘要",
@@ -258,6 +243,9 @@ function renderHook(props?: Partial<HookProps>) {
     creationMode: "guided",
     projectId: "project-1",
     contentId: "content-current",
+    sessionId: "session-current",
+    threadId: "thread-current",
+    ensureSessionForThreadLineage: mockEnsureSessionForThreadLineage,
     input: "请结合当前上下文继续",
     chatToolPreferences: DEFAULT_CHAT_TOOL_PREFERENCES,
     onNavigate: vi.fn(),
@@ -306,7 +294,7 @@ beforeEach(() => {
   });
   mockCreateAutomationJob.mockResolvedValue({
     id: "automation-job-1",
-    name: "回归测试巡检｜定时执行",
+    name: "每日趋势摘要｜定时执行",
   });
   mockCreateContent.mockResolvedValue({
     id: "content-created-by-service-skill",
@@ -322,6 +310,8 @@ beforeEach(() => {
   mockToastInfo.mockReset();
   mockToastLoading.mockReset();
   mockToastLoading.mockImplementation(() => "toast-loading");
+  mockEnsureSessionForThreadLineage.mockReset();
+  mockEnsureSessionForThreadLineage.mockResolvedValue("session-ensured");
 });
 
 afterEach(() => {
@@ -522,7 +512,7 @@ describe("useWorkspaceServiceSkillEntryActions", () => {
             browser_assist: {
               enabled: true,
               profile_key: "attached-github",
-              preferred_backend: "ember_extension_bridge",
+              preferred_backend: "lime_extension_bridge",
               auto_launch: false,
               stream_mode: "both",
             },
@@ -567,15 +557,11 @@ describe("useWorkspaceServiceSkillEntryActions", () => {
     });
   });
 
-  it("站点型技能进入工作区时应把当前 Team 注入自动发送 metadata", async () => {
+  it("站点型技能进入工作区时应保留真实 service skill metadata", async () => {
     const onNavigate = vi.fn();
     const { render, getValue } = renderHook({
       onNavigate,
       recordServiceSkillUsage: vi.fn(),
-      preferredTeamPresetId: "research-duo",
-      selectedTeam: DEFAULT_SELECTED_TEAM,
-      selectedTeamLabel: "研究双人组",
-      selectedTeamSummary: "研究员负责检索，分析员负责整理。",
     });
     await render();
 
@@ -593,30 +579,13 @@ describe("useWorkspaceServiceSkillEntryActions", () => {
             service_skill_launch: expect.objectContaining({
               adapter_name: "github/search",
             }),
-            preferred_team_preset_id: "research-duo",
-            selected_team_id: "team-research-duo",
-            selected_team_source: "builtin",
-            selected_team_label: "研究双人组",
-            selected_team_description: "负责检索和整理结果。",
-            selected_team_summary: "研究员负责检索，分析员负责整理。",
-            selected_team_roles: [
-              expect.objectContaining({
-                id: "researcher",
-                label: "研究员",
-              }),
-              expect.objectContaining({
-                id: "analyst",
-                label: "分析员",
-                role_key: "analyst",
-              }),
-            ],
           }),
         },
       }),
     );
   });
 
-  it("站点型技能缺少当前项目时应回退默认项目后再进入工作区", async () => {
+  it("站点型技能缺少当前项目时应提示进入项目，不再回退默认项目", async () => {
     const onNavigate = vi.fn();
     const { render, getValue } = renderHook({
       onNavigate,
@@ -632,26 +601,11 @@ describe("useWorkspaceServiceSkillEntryActions", () => {
       });
     });
 
-    expect(mockGetOrCreateDefaultProject).toHaveBeenCalledTimes(1);
-    expect(mockCreateContent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        project_id: "project-default",
-      }),
-    );
-    expect(onNavigate).toHaveBeenCalledWith(
-      "agent",
-      expect.objectContaining({
-        projectId: "project-default",
-        contentId: "content-created-by-service-skill",
-        initialAutoSendRequestMetadata: {
-          harness: expect.objectContaining({
-            service_skill_launch: expect.objectContaining({
-              project_id: "project-default",
-              content_id: "content-created-by-service-skill",
-            }),
-          }),
-        },
-      }),
+    expect(mockGetOrCreateDefaultProject).not.toHaveBeenCalled();
+    expect(mockCreateContent).not.toHaveBeenCalled();
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(mockToastError).toHaveBeenCalledWith(
+      expect.stringContaining("当前技能需要项目工作区，请先进入项目工作。"),
     );
   });
 
@@ -803,15 +757,11 @@ describe("useWorkspaceServiceSkillEntryActions", () => {
     expect(mockToastSuccess).not.toHaveBeenCalled();
   });
 
-  it("普通技能进入工作区时应在保留 seed metadata 的同时注入当前 Team", async () => {
+  it("普通技能进入工作区时应保留 seed metadata", async () => {
     const onNavigate = vi.fn();
     const { render, getValue } = renderHook({
       onNavigate,
       recordServiceSkillUsage: vi.fn(),
-      preferredTeamPresetId: "research-duo",
-      selectedTeam: DEFAULT_SELECTED_TEAM,
-      selectedTeamLabel: "研究双人组",
-      selectedTeamSummary: "研究员负责检索，分析员负责整理。",
     });
     await render();
 
@@ -833,25 +783,6 @@ describe("useWorkspaceServiceSkillEntryActions", () => {
             artifact_kind: "analysis",
             workbench_surface: "right_panel",
           },
-          harness: expect.objectContaining({
-            preferred_team_preset_id: "research-duo",
-            selected_team_id: "team-research-duo",
-            selected_team_source: "builtin",
-            selected_team_label: "研究双人组",
-            selected_team_description: "负责检索和整理结果。",
-            selected_team_summary: "研究员负责检索，分析员负责整理。",
-            selected_team_roles: [
-              expect.objectContaining({
-                id: "researcher",
-                label: "研究员",
-              }),
-              expect.objectContaining({
-                id: "analyst",
-                label: "分析员",
-                role_key: "analyst",
-              }),
-            ],
-          }),
         },
       }),
     );
@@ -883,7 +814,7 @@ describe("useWorkspaceServiceSkillEntryActions", () => {
       await getValue().handleAutomationDialogSubmit({
         mode: "create",
         request: {
-          name: "回归测试巡检｜定时执行",
+          name: "每日趋势摘要｜定时执行",
           description: "围绕指定平台与关键词输出趋势摘要。",
           workspace_id: "project-1",
           execution_mode: "skill",
@@ -895,6 +826,8 @@ describe("useWorkspaceServiceSkillEntryActions", () => {
           payload: {
             kind: "agent_turn",
             prompt: "自动化 prompt",
+            session_id: "session-current",
+            thread_id: "thread-current",
             system_prompt: "",
             web_search: false,
           },
@@ -915,11 +848,13 @@ describe("useWorkspaceServiceSkillEntryActions", () => {
         execution_mode: "skill",
         payload: expect.objectContaining({
           kind: "agent_turn",
+          session_id: "session-current",
+          thread_id: "thread-current",
           content_id: "content-current",
           request_metadata: expect.objectContaining({
             service_skill: expect.objectContaining({
               id: "daily-trend-briefing",
-              title: "回归测试巡检",
+              title: "每日趋势摘要",
               runner_type: "scheduled",
               slot_values: [
                 {
@@ -954,10 +889,11 @@ describe("useWorkspaceServiceSkillEntryActions", () => {
         }),
       }),
     );
+    expect(mockEnsureSessionForThreadLineage).not.toHaveBeenCalled();
     expect(mockRecordServiceSkillAutomationLink).toHaveBeenCalledWith({
       skillId: "daily-trend-briefing",
       jobId: "automation-job-1",
-      jobName: "回归测试巡检｜定时执行",
+      jobName: "每日趋势摘要｜定时执行",
     });
     expect(
       selectAgentUiProjectionEventsByType(
@@ -969,7 +905,7 @@ describe("useWorkspaceServiceSkillEntryActions", () => {
         sourceType: "automation_job_projection",
         taskId: "automation-job-1",
         agentId: "automation-job-1",
-        agentName: "回归测试巡检｜定时执行",
+        agentName: "每日趋势摘要｜定时执行",
         surface: "background_teammate",
         runtimeEntity: "automation_job",
       }),
@@ -990,8 +926,79 @@ describe("useWorkspaceServiceSkillEntryActions", () => {
         contentId: "content-current",
         theme: "general",
         initialCreationMode: "guided",
-        initialUserPrompt: expect.stringContaining("[技能任务] 回归测试巡检"),
+        initialUserPrompt: expect.stringContaining("[技能任务] 每日趋势摘要"),
         autoRunInitialPromptOnMount: true,
+      }),
+    );
+  });
+
+  it("本地自动化型技能缺少当前 session 时应先物化 Thread 再创建任务", async () => {
+    const { render, getValue } = renderHook({
+      sessionId: null,
+      threadId: null,
+      contentId: null,
+    });
+    await render();
+
+    await act(async () => {
+      await getValue().handleServiceSkillAutomationSetup(
+        createScheduledServiceSkill(),
+        {
+          platform: "x",
+          industry_keywords: "AI Agent，创作者工具",
+          schedule_time: "每天 09:00",
+        },
+      );
+    });
+
+    expect(mockEnsureSessionForThreadLineage).toHaveBeenCalledTimes(1);
+    expect(getValue().automationDialogOpen).toBe(true);
+
+    await act(async () => {
+      await getValue().handleAutomationDialogSubmit({
+        mode: "create",
+        request: {
+          name: "每日趋势摘要｜定时执行",
+          description: "围绕指定平台与关键词输出趋势摘要。",
+          workspace_id: "project-1",
+          execution_mode: "skill",
+          schedule: {
+            kind: "cron",
+            expr: "00 09 * * *",
+            tz: "Asia/Shanghai",
+          },
+          payload: {
+            kind: "agent_turn",
+            prompt: "自动化 prompt",
+            session_id: "session-ensured",
+            thread_id: "session-ensured",
+            system_prompt: "",
+            web_search: false,
+          },
+          delivery: {
+            mode: "none",
+            best_effort: true,
+            output_schema: "text",
+            output_format: "text",
+          },
+        },
+      });
+    });
+
+    expect(mockCreateContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        project_id: "project-1",
+      }),
+    );
+    expect(mockCreateAutomationJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspace_id: "project-1",
+        payload: expect.objectContaining({
+          kind: "agent_turn",
+          session_id: "session-ensured",
+          thread_id: "session-ensured",
+          content_id: "content-created-by-service-skill",
+        }),
       }),
     );
   });

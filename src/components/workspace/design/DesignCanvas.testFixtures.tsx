@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, vi } from "vitest";
-import type { MediaTaskArtifactOutput } from "@/lib/api/mediaTasks";
+import type { MediaTaskArtifactOutput } from "@/lib/api/agentRuntime/mediaTaskTypes";
 import type {
   ReadLayeredDesignProjectExportOutput,
   SaveLayeredDesignProjectExportOutput,
@@ -146,10 +146,10 @@ export function createImageTaskOutput(
     task_family: "image",
     status: result ? "succeeded" : "pending_submit",
     normalized_status: result ? "succeeded" : "pending",
-    path: `.ember/tasks/image_generate/${taskId}.json`,
-    absolute_path: `/workspace/.ember/tasks/image_generate/${taskId}.json`,
-    artifact_path: `.ember/tasks/image_generate/${taskId}.json`,
-    absolute_artifact_path: `/workspace/.ember/tasks/image_generate/${taskId}.json`,
+    path: `.lime/tasks/image_generate/${taskId}.json`,
+    absolute_path: `/workspace/.lime/tasks/image_generate/${taskId}.json`,
+    artifact_path: `.lime/tasks/image_generate/${taskId}.json`,
+    absolute_artifact_path: `/workspace/.lime/tasks/image_generate/${taskId}.json`,
     reused_existing: false,
     record: {
       task_id: taskId,
@@ -177,15 +177,15 @@ export function createProjectExportOutput(
   return {
     projectRootPath: "/workspace",
     exportDirectoryPath:
-      "/workspace/.ember/layered-designs/design-test.layered-design",
+      "/workspace/.lime/layered-designs/design-test.layered-design",
     exportDirectoryRelativePath:
-      ".ember/layered-designs/design-test.layered-design",
+      ".lime/layered-designs/design-test.layered-design",
     designPath:
-      "/workspace/.ember/layered-designs/design-test.layered-design/design.json",
+      "/workspace/.lime/layered-designs/design-test.layered-design/design.json",
     manifestPath:
-      "/workspace/.ember/layered-designs/design-test.layered-design/export-manifest.json",
+      "/workspace/.lime/layered-designs/design-test.layered-design/export-manifest.json",
     previewPngPath:
-      "/workspace/.ember/layered-designs/design-test.layered-design/preview.png",
+      "/workspace/.lime/layered-designs/design-test.layered-design/preview.png",
     fileCount,
     assetCount,
     bytesWritten: 128,
@@ -202,21 +202,21 @@ export function createProjectExportReadOutput(
   return {
     projectRootPath: "/workspace",
     exportDirectoryPath:
-      "/workspace/.ember/layered-designs/restored-design.layered-design",
+      "/workspace/.lime/layered-designs/restored-design.layered-design",
     exportDirectoryRelativePath:
-      ".ember/layered-designs/restored-design.layered-design",
+      ".lime/layered-designs/restored-design.layered-design",
     designPath:
-      "/workspace/.ember/layered-designs/restored-design.layered-design/design.json",
+      "/workspace/.lime/layered-designs/restored-design.layered-design/design.json",
     designJson,
     manifestPath:
-      "/workspace/.ember/layered-designs/restored-design.layered-design/export-manifest.json",
+      "/workspace/.lime/layered-designs/restored-design.layered-design/export-manifest.json",
     manifestJson: '{"assets":[]}',
     psdLikeManifestPath:
-      "/workspace/.ember/layered-designs/restored-design.layered-design/psd-like-manifest.json",
+      "/workspace/.lime/layered-designs/restored-design.layered-design/psd-like-manifest.json",
     psdLikeManifestJson:
       '{"projectionKind":"psd-like-layer-stack","layers":[]}',
     previewPngPath:
-      "/workspace/.ember/layered-designs/restored-design.layered-design/preview.png",
+      "/workspace/.lime/layered-designs/restored-design.layered-design/preview.png",
     fileCount: 5,
     assetCount: 0,
     updatedAtMs: 1778030000000,
@@ -956,7 +956,7 @@ beforeEach(() => {
       __designCanvasState?: DesignCanvasState;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  window.localStorage.removeItem("ember.layeredDesign.analyzerEndpoint");
+  window.localStorage.removeItem("lime.layeredDesign.analyzerEndpoint");
 });
 
 afterEach(() => {
@@ -970,7 +970,7 @@ afterEach(() => {
   }
   delete (globalThis as { __designCanvasState?: DesignCanvasState })
     .__designCanvasState;
-  window.localStorage.removeItem("ember.layeredDesign.analyzerEndpoint");
+  window.localStorage.removeItem("lime.layeredDesign.analyzerEndpoint");
   globalThis.FileReader = originalFileReader;
   vi.restoreAllMocks();
   vi.unstubAllGlobals();

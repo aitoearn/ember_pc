@@ -639,7 +639,7 @@ export function toSerializableLegacySurfaceReport(report) {
 }
 
 export function printLegacySurfaceReport(report) {
-  console.log("[ember] legacy surface report");
+  console.log("[lime] legacy surface report");
   console.log("");
   console.log("## 入口引用");
   for (const result of report.importResults) {

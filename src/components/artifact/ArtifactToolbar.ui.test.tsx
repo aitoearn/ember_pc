@@ -1,19 +1,22 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import type { Artifact } from "@/lib/artifact/types";
 import { registerLightweightRenderers } from "./renderers";
 import { ArtifactToolbar } from "./ArtifactToolbar";
 
 const openHtmlPreviewWindowMock = vi.hoisted(() => vi.fn());
+const openPathWithDefaultAppMock = vi.hoisted(() => vi.fn());
 const hasDesktopHostInvokeCapabilityMock = vi.hoisted(() => vi.fn());
+const openExternalUrlWithSystemBrowserMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/api/fileSystem", async (importActual) => {
   const actual = await importActual<typeof import("@/lib/api/fileSystem")>();
   return {
     ...actual,
     openHtmlPreviewWindow: openHtmlPreviewWindowMock,
+    openPathWithDefaultApp: openPathWithDefaultAppMock,
   };
 });
 
@@ -24,6 +27,10 @@ vi.mock("@/lib/desktop-runtime", async (importActual) => {
     hasDesktopHostInvokeCapability: hasDesktopHostInvokeCapabilityMock,
   };
 });
+
+vi.mock("@/lib/api/externalUrl", () => ({
+  openExternalUrlWithSystemBrowser: openExternalUrlWithSystemBrowserMock,
+}));
 
 const mountedRoots: Array<{ root: Root; container: HTMLDivElement }> = [];
 
@@ -92,8 +99,10 @@ beforeEach(async () => {
 
   registerLightweightRenderers();
   openHtmlPreviewWindowMock.mockResolvedValue(false);
+  openPathWithDefaultAppMock.mockResolvedValue(undefined);
+  openExternalUrlWithSystemBrowserMock.mockResolvedValue(undefined);
   hasDesktopHostInvokeCapabilityMock.mockReturnValue(false);
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 afterEach(async () => {
@@ -109,7 +118,7 @@ afterEach(async () => {
     mounted.container.remove();
   }
 
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   vi.restoreAllMocks();
   vi.clearAllMocks();
 });
@@ -142,7 +151,7 @@ describe("ArtifactToolbar", () => {
       buildArtifact({
         meta: {
           language: "html",
-          filePath: "/tmp/ember/artifacts/index.html",
+          filePath: "/tmp/lime/artifacts/index.html",
         },
       }),
     );
@@ -153,7 +162,7 @@ describe("ArtifactToolbar", () => {
     });
 
     expect(openHtmlPreviewWindowMock).toHaveBeenCalledWith(
-      "/tmp/ember/artifacts/index.html",
+      "/tmp/lime/artifacts/index.html",
       { title: "index.html" },
     );
     expect(openWindow).not.toHaveBeenCalled();
@@ -199,7 +208,7 @@ describe("ArtifactToolbar", () => {
       buildArtifact({
         meta: {
           language: "html",
-          filePath: "/tmp/ember/artifacts/index.html",
+          filePath: "/tmp/lime/artifacts/index.html",
         },
       }),
     );
@@ -210,12 +219,106 @@ describe("ArtifactToolbar", () => {
     });
 
     expect(openHtmlPreviewWindowMock).toHaveBeenCalledWith(
-      "/tmp/ember/artifacts/index.html",
+      "/tmp/lime/artifacts/index.html",
       { title: "index.html" },
     );
     expect(consoleError).toHaveBeenCalledWith(
       "Desktop Host HTML 预览窗口创建失败",
     );
+    expect(openWindow).not.toHaveBeenCalled();
+  });
+
+  it("source-backed preview artifact 应按 renderMode 使用独立窗口", async () => {
+    openHtmlPreviewWindowMock.mockResolvedValueOnce(true);
+    const openWindow = vi.fn();
+    vi.spyOn(window, "open").mockImplementation(openWindow);
+    const container = renderToolbar(
+      buildArtifact({
+        type: "document",
+        title: "prototype.html",
+        content: "",
+        meta: {
+          previewArtifact: true,
+          sourcePath: "/tmp/lime/artifacts/prototype.html",
+          renderMode: "external_window",
+          capabilities: {
+            externalWindow: true,
+          },
+        },
+      }),
+    );
+
+    await act(async () => {
+      queryButtonByTitle(container, "Open in new window")?.click();
+      await Promise.resolve();
+    });
+
+    expect(openHtmlPreviewWindowMock).toHaveBeenCalledWith(
+      "/tmp/lime/artifacts/prototype.html",
+      { title: "prototype.html" },
+    );
+    expect(openWindow).not.toHaveBeenCalled();
+  });
+
+  it("system_open preview artifact 应通过系统默认应用打开真实文件", async () => {
+    const openWindow = vi.fn();
+    vi.spyOn(window, "open").mockImplementation(openWindow);
+    const container = renderToolbar(
+      buildArtifact({
+        type: "document",
+        title: "archive.zip",
+        content: "该文件暂不支持在工作台内嵌预览。",
+        meta: {
+          previewArtifact: true,
+          sourcePath: "/tmp/lime/archive.zip",
+          renderMode: "system_open",
+          capabilities: {
+            systemOpen: true,
+          },
+        },
+      }),
+    );
+
+    await act(async () => {
+      queryButtonByTitle(container, "Open in new window")?.click();
+      await Promise.resolve();
+    });
+
+    expect(openPathWithDefaultAppMock).toHaveBeenCalledWith(
+      "/tmp/lime/archive.zip",
+    );
+    expect(openHtmlPreviewWindowMock).not.toHaveBeenCalled();
+    expect(openWindow).not.toHaveBeenCalled();
+  });
+
+  it("URL preview artifact 应通过统一外部链接通道打开来源网页", async () => {
+    const openWindow = vi.fn();
+    vi.spyOn(window, "open").mockImplementation(openWindow);
+    const container = renderToolbar(
+      buildArtifact({
+        type: "document",
+        title: "在线报告",
+        content: "导入摘要",
+        meta: {
+          previewArtifact: true,
+          source: "url",
+          sourceRef: "https://example.com/report",
+          sourcePath: "https://example.com/report",
+          renderMode: "inline",
+        },
+      }),
+    );
+
+    await act(async () => {
+      queryButtonByTitle(container, "Open in new window")?.click();
+      await Promise.resolve();
+    });
+
+    expect(openExternalUrlWithSystemBrowserMock).toHaveBeenCalledWith(
+      "https://example.com/report",
+    );
+    expect(openPathWithDefaultAppMock).not.toHaveBeenCalled();
+    expect(openHtmlPreviewWindowMock).not.toHaveBeenCalled();
     expect(openWindow).not.toHaveBeenCalled();
   });
 });

@@ -1,9 +1,9 @@
 import { Check, Monitor, Moon, Palette, Shuffle, Sun } from "lucide-react";
 import type {
-  EmberColorScheme,
-  EmberColorSchemeId,
+  LimeColorScheme,
+  LimeColorSchemeId,
 } from "@/lib/appearance/colorSchemes";
-import type { EmberThemeMode } from "@/lib/appearance/themeMode";
+import type { LimeThemeMode } from "@/lib/appearance/themeMode";
 import {
   AppearanceGroup,
   AppearanceGroupLabel,
@@ -23,12 +23,12 @@ import {
 } from "./AppSidebar.styles";
 
 type AppearanceThemeOption = {
-  id: EmberThemeMode;
+  id: LimeThemeMode;
   label: string;
   description: string;
 };
 
-type AppearanceColorSchemeOption = EmberColorScheme & {
+type AppearanceColorSchemeOption = LimeColorScheme & {
   label: string;
   description: string;
 };
@@ -47,17 +47,17 @@ export interface AppSidebarAppearancePopoverCopy {
 }
 
 interface AppSidebarAppearancePopoverProps {
-  themeMode: EmberThemeMode;
-  colorSchemeId: EmberColorSchemeId;
+  themeMode: LimeThemeMode;
+  colorSchemeId: LimeColorSchemeId;
   themeOptions: AppearanceThemeOption[];
   colorSchemes: AppearanceColorSchemeOption[];
   copy: AppSidebarAppearancePopoverCopy;
-  onThemeModeChange: (themeMode: EmberThemeMode) => void;
-  onColorSchemeChange: (colorSchemeId: EmberColorSchemeId) => void;
+  onThemeModeChange: (themeMode: LimeThemeMode) => void;
+  onColorSchemeChange: (colorSchemeId: LimeColorSchemeId) => void;
   onRandomColorScheme: () => void;
 }
 
-function renderThemeModeIcon(themeMode: EmberThemeMode) {
+function renderThemeModeIcon(themeMode: LimeThemeMode) {
   if (themeMode === "dark") {
     return <Moon />;
   }

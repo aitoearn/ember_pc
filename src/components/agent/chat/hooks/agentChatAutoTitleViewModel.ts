@@ -5,6 +5,8 @@ type AutoTitleMessage = Pick<Message, "role" | "content">;
 
 const AUTO_TITLE_PLACEHOLDER_TITLES = new Set([
   "",
+  "未命名",
+  "未命名对话",
   "新任务",
   "新话题",
   "新对话",
@@ -80,12 +82,24 @@ export function buildAutoTitleConversationText(
     .slice(-1000);
 }
 
+export function sanitizeGeneratedAutoTitle(
+  generatedTitle: string | null | undefined,
+  _languageSource?: string | null,
+): string {
+  const normalizedTitle = generatedTitle?.trim() || "";
+  return normalizedTitle;
+}
+
 export function applyGeneratedAutoTitleToTopics(
   topics: Topic[],
   sessionId: string,
   generatedTitle: string | null | undefined,
+  languageSource?: string | null,
 ): Topic[] {
-  const normalizedTitle = generatedTitle?.trim();
+  const normalizedTitle = sanitizeGeneratedAutoTitle(
+    generatedTitle,
+    languageSource,
+  );
   if (!sessionId || !normalizedTitle) {
     return topics;
   }

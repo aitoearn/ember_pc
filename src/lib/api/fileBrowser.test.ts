@@ -54,8 +54,8 @@ describe("fileBrowser API", () => {
         parentPath: null,
         entries: [
           {
-            name: "Ember.app",
-            path: "/Applications/Ember.app",
+            name: "Lime.app",
+            path: "/Applications/Lime.app",
             isDir: true,
             size: 0,
             modifiedAt: 1,
@@ -82,7 +82,7 @@ describe("fileBrowser API", () => {
         path: "~",
         entries: [
           expect.objectContaining({
-            name: "Ember.app",
+            name: "Lime.app",
             iconDataUrl: "data:image/png;base64,abc",
           }),
         ],
@@ -226,11 +226,11 @@ describe("fileBrowser API", () => {
   it("应代理文件图标异步读取命令", async () => {
     vi.mocked(safeInvoke).mockResolvedValueOnce("data:image/png;base64,abc");
 
-    await expect(getFileIconDataUrl("/Applications/Ember.app")).resolves.toBe(
+    await expect(getFileIconDataUrl("/Applications/Lime.app")).resolves.toBe(
       "data:image/png;base64,abc",
     );
     expect(safeInvoke).toHaveBeenCalledWith("get_file_icon_data_url", {
-      path: "/Applications/Ember.app",
+      path: "/Applications/Lime.app",
     });
   });
 
@@ -241,10 +241,10 @@ describe("fileBrowser API", () => {
       .mockResolvedValueOnce({ error: "failed" });
 
     await expect(getFileIconDataUrl("/tmp/missing.txt")).resolves.toBeNull();
-    await expect(getFileIconDataUrl("/Applications/Ember.app")).rejects.toThrow(
+    await expect(getFileIconDataUrl("/Applications/Lime.app")).rejects.toThrow(
       "get_file_icon_data_url did not return file icon data URL",
     );
-    await expect(getFileIconDataUrl("/Applications/Ember.app")).rejects.toThrow(
+    await expect(getFileIconDataUrl("/Applications/Lime.app")).rejects.toThrow(
       "get_file_icon_data_url did not return file icon data URL",
     );
   });

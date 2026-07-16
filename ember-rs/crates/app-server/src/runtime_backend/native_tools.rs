@@ -1,0 +1,45 @@
+use super::image_tools;
+use super::mcp_resource_tools;
+use super::memory_tools;
+use super::tool_search_tools;
+use crate::AppDataSource;
+use crate::RuntimeCoreError;
+use lime_agent::AgentRuntimeState;
+use std::sync::{Arc, RwLock};
+
+pub(crate) async fn register_current_native_tools_if_available(
+    agent_state: &AgentRuntimeState,
+    app_data_source: &RwLock<Option<Arc<dyn AppDataSource>>>,
+) -> Result<(), RuntimeCoreError> {
+    let app_data_source = app_data_source
+        .read()
+        .map_err(|_| {
+            RuntimeCoreError::Backend("native tool app data source lock poisoned".to_string())
+        })?
+        .clone();
+    let Some(app_data_source) = app_data_source else {
+        return Ok(());
+    };
+    if !agent_state.is_initialized().await {
+        return Ok(());
+    }
+    agent_state
+        .register_memory_store_tools(memory_tools::memory_store_gateway(app_data_source.clone()))
+        .await
+        .map_err(|error| RuntimeCoreError::Backend(error.to_string()))?;
+    agent_state
+        .register_image_task_tools(image_tools::image_task_gateway(app_data_source.clone()))
+        .await
+        .map_err(|error| RuntimeCoreError::Backend(error.to_string()))?;
+    agent_state
+        .register_tool_search_tools(tool_search_tools::tool_search_gateway(
+            app_data_source.clone(),
+        ))
+        .await
+        .map_err(|error| RuntimeCoreError::Backend(error.to_string()))?;
+    agent_state
+        .register_mcp_resource_tools(mcp_resource_tools::mcp_resource_gateway(app_data_source))
+        .await
+        .map_err(|error| RuntimeCoreError::Backend(error.to_string()))?;
+    Ok(())
+}

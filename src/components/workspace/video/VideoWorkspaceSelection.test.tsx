@@ -14,7 +14,7 @@ import {
   createInitialVideoState,
   type VideoCanvasState,
 } from "@/components/workspace/video/types";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const {
   mockCreateTask,
@@ -120,7 +120,7 @@ function ControlledGenerateVideoWorkspace() {
 describe("VideoWorkspace 任务聚焦", () => {
   beforeEach(async () => {
     setupReactActEnvironment();
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
     vi.clearAllMocks();
     mockListTasks.mockResolvedValue([
       {
@@ -227,7 +227,7 @@ describe("VideoWorkspace 任务聚焦", () => {
   });
 
   it("英文界面应使用 workspace namespace 渲染最近任务标题与预览操作", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
 
     const mounted = mountHarness(ControlledVideoWorkspace, {}, mountedRoots);
 
@@ -254,7 +254,7 @@ describe("VideoWorkspace 任务聚焦", () => {
     expect(mounted.container.textContent).toContain("Model route");
     expect(mounted.container.textContent).toContain("Generation spec");
     expect(mounted.container.textContent).toContain("9:16 · 1080p · 12 sec");
-    expect(mounted.container.textContent).toContain("Sync rules");
+    expect(mounted.container.textContent).toContain("Result sync");
     expect(mounted.container.textContent).toContain("Completed");
     expect(mounted.container.textContent).toContain(
       "Result generated, syncing to Project Knowledge",
@@ -265,7 +265,7 @@ describe("VideoWorkspace 任务聚焦", () => {
   });
 
   it("英文界面生成入口与参考图处理反馈应使用 workspace namespace", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     mockListTasks.mockResolvedValue([]);
     mockImportMaterialFromUrl.mockResolvedValue({ id: "material-start" });
     mockCreateTask.mockResolvedValue({

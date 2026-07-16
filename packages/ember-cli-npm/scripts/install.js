@@ -33,13 +33,13 @@ function install() {
   if (!isSupportedReleaseAssetMeta(meta)) {
     console.warn(
       `[${NAME}] 当前平台 ${meta.platform}/${meta.arch} 暂无预编译资产。` +
-        `已跳过下载；可通过 EMBER_CLI_BINARY_PATH 指向本地二进制，` +
+        `已跳过下载；可通过 LIME_CLI_BINARY_PATH 指向本地二进制，` +
         `或在源码仓库中通过 cargo run/cargo build 使用。`,
     );
     return;
   }
 
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ember-cli-"));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "lime-cli-"));
   const archivePath = path.join(tmpDir, archiveName);
 
   try {
@@ -72,8 +72,8 @@ try {
   console.warn(
     `\n已继续完成 npm 安装，但当前不会自动提供预编译二进制。` +
       `你可以：\n` +
-      `1. 设置 EMBER_CLI_BINARY_PATH 指向本地构建好的 ember 二进制\n` +
-      `2. 在 Ember 源码仓库中运行该命令，由 wrapper 自动回退到 cargo run\n` +
+      `1. 设置 LIME_CLI_BINARY_PATH 指向本地构建好的 lime 二进制\n` +
+      `2. 在 Lime 源码仓库中运行该命令，由 wrapper 自动回退到 cargo run\n` +
       `3. 后续补发 GitHub Release asset 后重新安装`,
   );
 }

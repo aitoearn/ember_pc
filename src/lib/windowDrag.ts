@@ -19,7 +19,7 @@ const WINDOW_DRAG_INTERACTIVE_SELECTOR = [
   "[role='slider']",
   "[role='switch']",
   "[tabindex]:not([tabindex='-1'])",
-  "[data-ember-no-window-drag]",
+  "[data-lime-no-window-drag]",
 ].join(",");
 
 interface WindowDragMouseEventLike {

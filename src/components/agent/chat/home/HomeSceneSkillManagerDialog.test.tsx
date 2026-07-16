@@ -2,7 +2,7 @@ import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { HomeSceneSkillManagerDialog } from "./HomeSceneSkillManagerDialog";
 import type { SkillCatalog } from "@/lib/api/skillCatalog";
 
@@ -20,16 +20,16 @@ const {
 
 vi.mock("@/lib/api/oemCloudRuntime", () => ({
   resolveOemCloudRuntimeContext: () => ({
-    baseUrl: "https://cloud.ember.test",
-    controlPlaneBaseUrl: "https://cloud.ember.test/api",
-    sceneBaseUrl: "https://cloud.ember.test/scene-api",
-    gatewayBaseUrl: "https://cloud.ember.test/gateway-api",
+    baseUrl: "https://cloud.lime.test",
+    controlPlaneBaseUrl: "https://cloud.lime.test/api",
+    sceneBaseUrl: "https://cloud.lime.test/scene-api",
+    gatewayBaseUrl: "https://cloud.lime.test/gateway-api",
     tenantId: "tenant-0001",
     sessionToken: "session-token",
     hubProviderName: null,
     loginPath: "/login",
     desktopClientId: "desktop-client",
-    desktopOauthRedirectUrl: "ember://oauth/callback",
+    desktopOauthRedirectUrl: "lime://oauth/callback",
     desktopOauthNextPath: "/welcome",
   }),
   hasOemCloudSession: () => true,
@@ -116,7 +116,7 @@ function setSelectValue(element: HTMLSelectElement, value: string) {
 }
 
 beforeEach(async () => {
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   (
     globalThis as typeof globalThis & {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -224,7 +224,7 @@ describe("HomeSceneSkillManagerDialog", () => {
   });
 
   it("场景管理弹窗 chrome 与表单文案应跟随 en-US 资源", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const container = renderDialog();
 
     await act(async () => {
@@ -247,7 +247,7 @@ describe("HomeSceneSkillManagerDialog", () => {
     expect(container.textContent).toContain("Add custom scene");
     expect(container.textContent).toContain("Scene name");
     expect(container.querySelector("input")?.placeholder).toBe(
-      "Example: daily smoke checklist",
+      "Example: daily account review",
     );
     expect(container.textContent).toContain("Add to list");
   });

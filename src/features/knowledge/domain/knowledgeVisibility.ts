@@ -60,7 +60,7 @@ export function getUserFacingPackTypeLabel(value?: string | null): string {
   const normalized =
     value === "personal-profile"
       ? "personal-ip"
-      : value === "custom:ember-growth-strategy"
+      : value === "custom:lime-growth-strategy"
         ? "growth-strategy"
         : value;
   return (
@@ -106,7 +106,7 @@ function stripInternalPathSegments(value: string): string {
       /["'`]?\.?(?:sources|compiled|runs|wiki)\/[^"'`\s，。；;,)）]+["'`]?/gi,
       " ",
     )
-    .replace(/(?:^|\s)\.ember\/knowledge\/[^\s，。；;,)）]+/gi, " ")
+    .replace(/(?:^|\s)\.lime\/knowledge\/[^\s，。；;,)）]+/gi, " ")
     .replace(/(?:^|\s)\/(?:Users|tmp|var)\/[^\s，。；;,)）]+/g, " ")
     .replace(/[A-Za-z]:\\[^\s，。；;,)）]+/g, " ");
 }

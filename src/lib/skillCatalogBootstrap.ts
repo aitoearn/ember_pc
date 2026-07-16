@@ -5,12 +5,12 @@ import {
 } from "@/lib/api/skillCatalog";
 import { extractBaseSetupPackageFromBootstrapPayload } from "@/lib/base-setup/bootstrap";
 
-const SKILL_CATALOG_BOOTSTRAP_EVENT = "ember:skill-catalog-bootstrap";
+const SKILL_CATALOG_BOOTSTRAP_EVENT = "lime:skill-catalog-bootstrap";
 
 declare global {
   interface Window {
-    __EMBER_BOOTSTRAP__?: unknown;
-    __EMBER_SKILL_CATALOG__?: unknown;
+    __LIME_BOOTSTRAP__?: unknown;
+    __LIME_SKILL_CATALOG__?: unknown;
   }
 }
 
@@ -87,16 +87,16 @@ export function applyInitialSkillCatalogBootstrap(): SkillCatalog | null {
     return null;
   }
 
-  if (window.__EMBER_SKILL_CATALOG__ !== undefined) {
+  if (window.__LIME_SKILL_CATALOG__ !== undefined) {
     const directCatalog = syncSkillCatalogFromBootstrapPayload({
-      skillCatalog: window.__EMBER_SKILL_CATALOG__,
+      skillCatalog: window.__LIME_SKILL_CATALOG__,
     });
     if (directCatalog) {
       return directCatalog;
     }
   }
 
-  return syncSkillCatalogFromBootstrapPayload(window.__EMBER_BOOTSTRAP__);
+  return syncSkillCatalogFromBootstrapPayload(window.__LIME_BOOTSTRAP__);
 }
 
 export function subscribeSkillCatalogBootstrap(

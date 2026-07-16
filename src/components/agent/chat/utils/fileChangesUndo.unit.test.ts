@@ -9,7 +9,7 @@ import type { FileChangesAggregate } from "./fileChangeSummary";
 const listAgentRuntimeFileCheckpointsMock = vi.fn();
 const restoreAgentRuntimeFileCheckpointMock = vi.fn();
 
-vi.mock("@/lib/api/agentRuntime", () => ({
+vi.mock("@/lib/api/agentRuntime/threadClient", () => ({
   listAgentRuntimeFileCheckpoints: (...args: unknown[]) =>
     listAgentRuntimeFileCheckpointsMock(...args),
   restoreAgentRuntimeFileCheckpoint: (...args: unknown[]) =>
@@ -53,7 +53,7 @@ describe("fileChangesUndo", () => {
         {
           checkpoint_id: "checkpoint-restorable",
           turn_id: "turn-1",
-          path: ".ember/qc/code-runtime-fixture/src/greeting.ts",
+          path: ".lime/qc/code-runtime-fixture/src/greeting.ts",
           kind: "code_file",
           version_no: 2,
           source: "artifact_snapshot",
@@ -76,14 +76,14 @@ describe("fileChangesUndo", () => {
       thread_id: "thread-1",
       checkpoint: { checkpoint_id: "checkpoint-restorable" },
       live_path: "src/greeting.ts",
-      snapshot_path: ".ember/checkpoints/greeting.ts",
-      backup_path: ".ember/file-checkpoint-backups/greeting.ts",
+      snapshot_path: ".lime/checkpoints/greeting.ts",
+      backup_path: ".lime/file-checkpoint-backups/greeting.ts",
       restored_at: "2026-06-02T10:02:00.000Z",
     });
 
     const result = await restoreFileChangesFromCheckpoints({
       aggregate: createAggregate(
-        ".ember/qc/code-runtime-fixture/src/greeting.ts",
+        ".lime/qc/code-runtime-fixture/src/greeting.ts",
       ),
       sessionId: "session-1",
     });

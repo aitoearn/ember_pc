@@ -38,7 +38,7 @@ function createArtifact(): Artifact {
     content: "",
     status: "complete",
     meta: {
-      filePath: ".ember/artifacts/thread-1/board-review.artifact.json",
+      filePath: ".lime/artifacts/thread-1/board-review.artifact.json",
       filename: "board-review.artifact.json",
       artifactRequestId: "artifact:analysis:board-review",
     },
@@ -260,7 +260,7 @@ describe("useWorkspaceCanvasWorkflowActions", () => {
       [],
       undefined,
       undefined,
-      expect.stringContaining("Ember Artifact Workbench 的局部改写任务"),
+      expect.stringContaining("Lime Artifact Workbench 的局部改写任务"),
       undefined,
       undefined,
       expect.objectContaining({
@@ -287,7 +287,7 @@ describe("useWorkspaceCanvasWorkflowActions", () => {
     const sendCurrent = vi.fn().mockResolvedValue(true);
     const artifact = createArtifact();
     artifact.meta = {
-      filePath: ".ember/artifacts/thread-1/board-review.artifact.json",
+      filePath: ".lime/artifacts/thread-1/board-review.artifact.json",
     };
     const document = createDocument();
     document.artifactId = "";

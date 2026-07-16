@@ -9,7 +9,7 @@ export const RUST_TEST_LAYER_NAMES = ["unit", "integration", "e2e"];
 const TEST_ATTRIBUTE_RE = /#\s*\[\s*(?:tokio::)?test(?:\s*\([^)]*\))?\s*\]/g;
 const IGNORE_ATTRIBUTE_RE = /#\s*\[\s*ignore(?:\s*\]|\s*=|\s*\()/g;
 const LIVE_GATE_RE =
-  /EMBER_REAL_API_TEST|PROXYCAST_REAL_API_TEST|真实联网|real_api_test_enabled|should_run_real_test|downloads?\s+the\s+live|live\s+(?:GitHub|limeai\.run|provider|smoke)|requires\s+real\s+API\s+credentials/i;
+  /LIME_REAL_API_TEST|PROXYCAST_REAL_API_TEST|真实联网|real_api_test_enabled|should_run_real_test|downloads?\s+the\s+live|live\s+(?:GitHub|limeai\.run|provider|smoke)|requires\s+real\s+API\s+credentials/i;
 
 function toPosix(value) {
   return String(value || "").replaceAll(path.sep, "/");
@@ -30,7 +30,7 @@ function walkFiles(dir, files = []) {
   return files;
 }
 
-function parseWorkspaceMemberRoots(repoRoot) {
+export function parseWorkspaceMemberRoots(repoRoot) {
   const cargoTomlPath = path.join(repoRoot, "ember-rs", "Cargo.toml");
   const content = fs.readFileSync(cargoTomlPath, "utf8");
   const excludeBlock = content.match(/exclude\s*=\s*\[([\s\S]*?)\]/)?.[1] || "";

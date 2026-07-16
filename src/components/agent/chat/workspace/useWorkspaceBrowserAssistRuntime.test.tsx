@@ -2,7 +2,7 @@ import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import type { Artifact } from "@/lib/artifact/types";
 import {
   resolveBrowserAssistSessionScopeKey,
@@ -14,6 +14,7 @@ import { useWorkspaceBrowserAssistRuntime } from "./useWorkspaceBrowserAssistRun
 const mockSiteRunAdapter = vi.fn();
 const mockLaunchBrowserSession = vi.fn();
 const mockBrowserExecuteAction = vi.fn();
+const mockExecuteBrowserSessionAction = vi.fn();
 
 vi.mock("sonner", () => ({
   toast: {
@@ -29,6 +30,11 @@ vi.mock("@/lib/webview-api", () => ({
   launchBrowserSession: (...args: unknown[]) =>
     mockLaunchBrowserSession(...args),
   siteRunAdapter: (...args: unknown[]) => mockSiteRunAdapter(...args),
+}));
+
+vi.mock("@/lib/api/browserRuntime", () => ({
+  executeBrowserSessionAction: (...args: unknown[]) =>
+    mockExecuteBrowserSessionAction(...args),
 }));
 
 type HookProps = Parameters<typeof useWorkspaceBrowserAssistRuntime>[0];
@@ -106,12 +112,13 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   window.localStorage.clear();
   window.sessionStorage.clear();
   mockSiteRunAdapter.mockReset();
   mockLaunchBrowserSession.mockReset();
   mockBrowserExecuteAction.mockReset();
+  mockExecuteBrowserSessionAction.mockReset();
 });
 
 afterEach(() => {
@@ -264,9 +271,11 @@ describe("useWorkspaceBrowserAssistRuntime", () => {
     });
 
     const upsertGeneralArtifact = vi.fn();
+    const onBrowserWorkbenchOpenRequest = vi.fn();
     const { render, getValue } = renderHook({
       input: "https://github.com/",
       upsertGeneralArtifact,
+      onBrowserWorkbenchOpenRequest,
     });
 
     await render();
@@ -280,9 +289,12 @@ describe("useWorkspaceBrowserAssistRuntime", () => {
     });
 
     expect(mockLaunchBrowserSession).not.toHaveBeenCalled();
+    expect(onBrowserWorkbenchOpenRequest).toHaveBeenCalledWith(
+      "https://github.com/",
+    );
     expect(mockBrowserExecuteAction).toHaveBeenCalledWith({
       profile_key: "general-browser",
-      backend: "ember_extension_bridge",
+      backend: "lime_extension_bridge",
       action: "navigate",
       args: {
         url: "https://github.com/",
@@ -356,7 +368,7 @@ describe("useWorkspaceBrowserAssistRuntime", () => {
     expect(mockBrowserExecuteAction).toHaveBeenCalledTimes(1);
     expect(mockBrowserExecuteAction).toHaveBeenCalledWith({
       profile_key: "general-browser",
-      backend: "ember_extension_bridge",
+      backend: "lime_extension_bridge",
       action: "navigate",
       args: {
         url: "https://github.com/features",
@@ -365,6 +377,127 @@ describe("useWorkspaceBrowserAssistRuntime", () => {
       timeout_ms: 20000,
     });
     expect(mockLaunchBrowserSession).not.toHaveBeenCalled();
+  });
+
+  it("CDP current session 导航应走 App Server browserSession/action/execute", async () => {
+    mockExecuteBrowserSessionAction.mockResolvedValue({
+      sessionId: "browser-session-cdp",
+      action: "navigate",
+      result: {
+        page_info: {
+          title: "News Page",
+          url: "https://news.example.com/",
+        },
+      },
+    });
+    const upsertGeneralArtifact = vi.fn();
+    const scopeKey = resolveBrowserAssistSessionScopeKey(
+      "workspace-1",
+      "session-1",
+    );
+    const { render, getValue } = renderHook({
+      artifacts: [
+        buildBrowserAssistArtifact({
+          scopeKey,
+          profileKey: "general-browser",
+          browserSessionId: "browser-session-cdp",
+          url: "https://old.example.com/",
+          title: "Old Page",
+          targetId: "target-cdp",
+          transportKind: "cdp_frames",
+          lifecycleState: "live",
+        }),
+      ],
+      upsertGeneralArtifact,
+    });
+
+    await render();
+    await act(async () => {
+      await Promise.resolve();
+      await getValue().ensureBrowserAssistCanvas(
+        "https://news.example.com/",
+        {
+          navigationMode: "explicit-url",
+          silent: true,
+        },
+      );
+      await Promise.resolve();
+    });
+
+    expect(mockExecuteBrowserSessionAction).toHaveBeenCalledWith({
+      sessionId: "browser-session-cdp",
+      action: "navigate",
+      args: {
+        action: "goto",
+        url: "https://news.example.com/",
+        timeout_ms: 20000,
+      },
+    });
+    expect(mockBrowserExecuteAction).not.toHaveBeenCalled();
+    expect(getValue().browserAssistSessionState).toEqual(
+      expect.objectContaining({
+        sessionId: "browser-session-cdp",
+        profileKey: "general-browser",
+        url: "https://news.example.com/",
+        title: "News Page",
+        transportKind: "cdp_frames",
+      }),
+    );
+  });
+
+  it("已有 CDP current session 但无新 URL 时应通过 read_page 观察当前页", async () => {
+    mockExecuteBrowserSessionAction.mockResolvedValue({
+      sessionId: "browser-session-cdp",
+      action: "read_page",
+      result: {
+        page_info: {
+          title: "Observed Page",
+          url: "https://observed.example.com/",
+        },
+      },
+    });
+    const scopeKey = resolveBrowserAssistSessionScopeKey(
+      "workspace-1",
+      "session-1",
+    );
+    const { render, getValue } = renderHook({
+      artifacts: [
+        buildBrowserAssistArtifact({
+          scopeKey,
+          profileKey: "general-browser",
+          browserSessionId: "browser-session-cdp",
+          url: "https://old.example.com/",
+          title: "Old Page",
+          targetId: "target-cdp",
+          transportKind: "cdp_frames",
+          lifecycleState: "live",
+        }),
+      ],
+    });
+
+    await render();
+    await act(async () => {
+      await Promise.resolve();
+      await getValue().ensureBrowserAssistCanvas("打开当前页面", {
+        navigationMode: "none",
+        silent: true,
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockExecuteBrowserSessionAction).toHaveBeenCalledWith({
+      sessionId: "browser-session-cdp",
+      action: "read_page",
+      args: undefined,
+    });
+    expect(getValue().browserAssistSessionState).toEqual(
+      expect.objectContaining({
+        sessionId: "browser-session-cdp",
+        url: "https://observed.example.com/",
+        title: "Observed Page",
+      }),
+    );
   });
 
   it("限制为附着会话时不应回退拉起托管浏览器", async () => {
@@ -379,7 +512,7 @@ describe("useWorkspaceBrowserAssistRuntime", () => {
         adapterName: "github/search",
         profileKey: "attached-github",
         requireAttachedSession: true,
-        preferredBackend: "ember_extension_bridge",
+        preferredBackend: "lime_extension_bridge",
         autoLaunch: false,
       },
       upsertGeneralArtifact,
@@ -401,7 +534,7 @@ describe("useWorkspaceBrowserAssistRuntime", () => {
         status: "pending",
         meta: expect.objectContaining({
           launchHint:
-            "正在连接已附着的 Chrome / CDP 会话；Ember 不会自动启动新的托管浏览器。",
+            "正在连接已附着的 Chrome / CDP 会话；Lime 不会自动启动新的托管浏览器。",
         }),
       }),
     );
@@ -484,7 +617,7 @@ describe("useWorkspaceBrowserAssistRuntime", () => {
 
     expect(mockBrowserExecuteAction).toHaveBeenCalledWith({
       profile_key: "general-browser",
-      backend: "ember_extension_bridge",
+      backend: "lime_extension_bridge",
       action: "navigate",
       args: {
         url: "https://creator.xiaohongshu.com/",

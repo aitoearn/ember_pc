@@ -3,7 +3,7 @@
  * @description 对 API Key 进行脱敏处理，保护敏感信息
  * @module lib/utils/apiKeyMask
  *
- * **Feature: ember-connect, Property 4: API Key Masking Format**
+ * **Feature: lime-connect, Property 4: API Key Masking Format**
  * **Validates: Requirements 3.2**
  */
 

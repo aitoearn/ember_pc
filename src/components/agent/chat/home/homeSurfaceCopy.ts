@@ -1,6 +1,6 @@
 import type {
   HomeGuideCard,
-  HomeInputSuggestion,
+  HomeRecoverySessionStatus,
   HomeSkillCategory,
   HomeStarterChip,
 } from "./homeSurfaceTypes";
@@ -26,8 +26,16 @@ export type HomeSurfaceCopyKey =
   | "agentChat.inputbar.plusMenu.planMode"
   | "agentChat.inputbar.tools.subagent.label"
   | "agentChat.inputbar.plusMenu.objective"
+  | "agentChat.inputbar.plusMenu.plugins"
   | "agentChat.inputbar.plusMenu.skills"
   | "agentChat.inputbar.plusMenu.unavailable"
+  | "agentChat.inputbar.pluginChip.empty"
+  | "agentChat.inputbar.pluginChip.error"
+  | "agentChat.inputbar.pluginChip.loading"
+  | "agentChat.inputbar.pluginChip.remove"
+  | "agentChat.inputbar.pluginChip.skillPrefix"
+  | "agentChat.inputbar.pluginChip.selectorTitle"
+  | "agentChat.inputbar.pluginChip.unavailable"
   | "agentChat.home.hero.eyebrow"
   | "agentChat.home.hero.slogan"
   | "agentChat.home.hero.description"
@@ -69,16 +77,12 @@ export type HomeSurfaceCopyKey =
   | "agentChat.home.category.other"
   | "agentChat.home.starter.guideHelp.label"
   | "agentChat.home.starter.writing.label"
-  | "agentChat.home.starter.writing.prompt"
   | "agentChat.home.starter.knowledgeImport.label"
   | "agentChat.home.starter.ppt.label"
   | "agentChat.home.starter.ppt.prompt"
   | "agentChat.home.starter.researchReport.label"
-  | "agentChat.home.starter.researchReport.prompt"
   | "agentChat.home.starter.requirementAnalysis.label"
-  | "agentChat.home.starter.requirementAnalysis.prompt"
   | "agentChat.home.starter.video.label"
-  | "agentChat.home.starter.video.prompt"
   | "agentChat.home.starter.design.label"
   | "agentChat.home.starter.design.prompt"
   | "agentChat.home.starter.excel.label"
@@ -86,18 +90,6 @@ export type HomeSurfaceCopyKey =
   | "agentChat.home.starter.code.label"
   | "agentChat.home.starter.code.prompt"
   | "agentChat.home.starter.more.label"
-  | "agentChat.home.inputSuggestion.meetingNotes.label"
-  | "agentChat.home.inputSuggestion.meetingNotes.prompt"
-  | "agentChat.home.inputSuggestion.knowledgeImport.label"
-  | "agentChat.home.inputSuggestion.knowledgeImport.prompt"
-  | "agentChat.home.inputSuggestion.researchReport.label"
-  | "agentChat.home.inputSuggestion.researchReport.prompt"
-  | "agentChat.home.inputSuggestion.pptOutline.label"
-  | "agentChat.home.inputSuggestion.pptOutline.prompt"
-  | "agentChat.home.inputSuggestion.requirementAnalysis.label"
-  | "agentChat.home.inputSuggestion.requirementAnalysis.prompt"
-  | "agentChat.home.inputSuggestion.videoScript.label"
-  | "agentChat.home.inputSuggestion.videoScript.prompt"
   | "agentChat.home.guide.longTermPlan.title"
   | "agentChat.home.guide.longTermPlan.summary"
   | "agentChat.home.guide.longTermPlan.prompt"
@@ -113,10 +105,17 @@ export type HomeSurfaceCopyKey =
   | "agentChat.home.guideCards.label"
   | "agentChat.home.moreSkills.drawerLabel"
   | "agentChat.home.gallery.title"
-  | "agentChat.home.gallery.description"
-  | "agentChat.home.scrollCue.label"
   | "agentChat.home.secondScreen.label"
   | "agentChat.home.projectConversations.more"
+  | "agentChat.home.recovery.running.title"
+  | "agentChat.home.recovery.running.summary"
+  | "agentChat.home.recovery.running.action"
+  | "agentChat.home.recovery.queued.title"
+  | "agentChat.home.recovery.queued.summary"
+  | "agentChat.home.recovery.queued.action"
+  | "agentChat.home.recovery.waiting.title"
+  | "agentChat.home.recovery.waiting.summary"
+  | "agentChat.home.recovery.waiting.action"
   | "agentChat.home.supplemental.recentSession.defaultAction";
 
 type HomeSurfaceCopyValue = number | string;
@@ -132,10 +131,14 @@ export interface HomeSurfaceChromeCopy {
   guideCardsLabel: string;
   moreSkillsDrawerLabel: string;
   galleryTitle: string;
-  galleryDescription: string;
-  scrollCueLabel: string;
   secondScreenLabel: string;
   projectConversationsMoreLabel: (count: number) => string;
+  recoverySessionTitle: (
+    status: HomeRecoverySessionStatus,
+    title: string,
+  ) => string;
+  recoverySessionSummary: (status: HomeRecoverySessionStatus) => string;
+  recoverySessionActionLabel: (status: HomeRecoverySessionStatus) => string;
   recentSessionDefaultActionLabel: string;
 }
 
@@ -192,7 +195,17 @@ export interface HomeSurfaceComposerCopy {
     planMode: string;
     subagent: string;
     objective: string;
+    plugins: string;
     skills: string;
+    unavailable: string;
+  };
+  pluginChip: {
+    empty: string;
+    error: string;
+    loading: string;
+    remove: (name: string) => string;
+    skillPrefix: string;
+    selectorTitle: string;
     unavailable: string;
   };
   creationMode: {
@@ -216,7 +229,6 @@ export interface HomeSurfaceCopy {
   categoryLabels: Record<HomeSkillCategory, string>;
   starterChips: HomeStarterChip[];
   starterMoreLabel: string;
-  inputSuggestions: HomeInputSuggestion[];
   guideCards: HomeGuideCard[];
 }
 
@@ -229,6 +241,31 @@ export const HOME_CATEGORY_ORDER: HomeSkillCategory[] = [
   "audio_music",
   "other",
 ];
+
+const HOME_RECOVERY_COPY_KEYS = {
+  running: {
+    title: "agentChat.home.recovery.running.title",
+    summary: "agentChat.home.recovery.running.summary",
+    action: "agentChat.home.recovery.running.action",
+  },
+  queued: {
+    title: "agentChat.home.recovery.queued.title",
+    summary: "agentChat.home.recovery.queued.summary",
+    action: "agentChat.home.recovery.queued.action",
+  },
+  waiting: {
+    title: "agentChat.home.recovery.waiting.title",
+    summary: "agentChat.home.recovery.waiting.summary",
+    action: "agentChat.home.recovery.waiting.action",
+  },
+} as const satisfies Record<
+  HomeRecoverySessionStatus,
+  {
+    title: HomeSurfaceCopyKey;
+    summary: HomeSurfaceCopyKey;
+    action: HomeSurfaceCopyKey;
+  }
+>;
 
 export function buildHomeSurfaceCopy(
   translate: HomeSurfaceCopyTranslate,
@@ -284,8 +321,19 @@ export function buildHomeSurfaceCopy(
         planMode: translate("agentChat.inputbar.plusMenu.planMode"),
         subagent: translate("agentChat.inputbar.tools.subagent.label"),
         objective: translate("agentChat.inputbar.plusMenu.objective"),
+        plugins: translate("agentChat.inputbar.plusMenu.plugins"),
         skills: translate("agentChat.inputbar.plusMenu.skills"),
         unavailable: translate("agentChat.inputbar.plusMenu.unavailable"),
+      },
+      pluginChip: {
+        empty: translate("agentChat.inputbar.pluginChip.empty"),
+        error: translate("agentChat.inputbar.pluginChip.error"),
+        loading: translate("agentChat.inputbar.pluginChip.loading"),
+        remove: (name) =>
+          translate("agentChat.inputbar.pluginChip.remove", { name }),
+        skillPrefix: translate("agentChat.inputbar.pluginChip.skillPrefix"),
+        selectorTitle: translate("agentChat.inputbar.pluginChip.selectorTitle"),
+        unavailable: translate("agentChat.inputbar.pluginChip.unavailable"),
       },
       creationMode: {
         label: translate("agentChat.home.composer.creationMode.label"),
@@ -391,11 +439,15 @@ export function buildHomeSurfaceCopy(
       guideCardsLabel: translate("agentChat.home.guideCards.label"),
       moreSkillsDrawerLabel: translate("agentChat.home.moreSkills.drawerLabel"),
       galleryTitle: translate("agentChat.home.gallery.title"),
-      galleryDescription: translate("agentChat.home.gallery.description"),
-      scrollCueLabel: translate("agentChat.home.scrollCue.label"),
       secondScreenLabel: translate("agentChat.home.secondScreen.label"),
       projectConversationsMoreLabel: (count) =>
         translate("agentChat.home.projectConversations.more", { count }),
+      recoverySessionTitle: (status, title) =>
+        translate(HOME_RECOVERY_COPY_KEYS[status].title, { title }),
+      recoverySessionSummary: (status) =>
+        translate(HOME_RECOVERY_COPY_KEYS[status].summary),
+      recoverySessionActionLabel: (status) =>
+        translate(HOME_RECOVERY_COPY_KEYS[status].action),
       recentSessionDefaultActionLabel: translate(
         "agentChat.home.supplemental.recentSession.defaultAction",
       ),
@@ -422,11 +474,11 @@ export function buildHomeSurfaceCopy(
       {
         id: "starter-writing",
         label: translate("agentChat.home.starter.writing.label"),
-        launchKind: "prefill_prompt",
-        category: "other",
-        prompt: translate("agentChat.home.starter.writing.prompt"),
+        launchKind: "curated_task_launcher",
+        targetItemId: "social-post-starter",
+        category: "social",
         primary: true,
-        testId: "entry-home-test-case-writing",
+        testId: "entry-recommended-social-post-starter",
       },
       {
         id: "starter-knowledge-import",
@@ -442,31 +494,31 @@ export function buildHomeSurfaceCopy(
         launchKind: "prefill_prompt",
         category: "editor",
         prompt: translate("agentChat.home.starter.ppt.prompt"),
-        testId: "entry-home-test-plan",
+        testId: "entry-home-ppt",
       },
       {
         id: "starter-research-report",
         label: translate("agentChat.home.starter.researchReport.label"),
-        launchKind: "prefill_prompt",
-        category: "other",
-        prompt: translate("agentChat.home.starter.researchReport.prompt"),
-        testId: "entry-home-test-report",
+        launchKind: "curated_task_launcher",
+        targetItemId: "daily-trend-briefing",
+        category: "social",
+        testId: "entry-recommended-daily-trend-briefing",
       },
       {
         id: "starter-requirement-analysis",
         label: translate("agentChat.home.starter.requirementAnalysis.label"),
-        launchKind: "prefill_prompt",
-        category: "other",
-        prompt: translate("agentChat.home.starter.requirementAnalysis.prompt"),
-        testId: "entry-home-requirement-to-cases",
+        launchKind: "curated_task_launcher",
+        targetItemId: "account-project-review",
+        category: "social",
+        testId: "entry-recommended-account-project-review",
       },
       {
         id: "starter-video",
         label: translate("agentChat.home.starter.video.label"),
-        launchKind: "prefill_prompt",
-        category: "other",
-        prompt: translate("agentChat.home.starter.video.prompt"),
-        testId: "entry-home-scenario-coverage",
+        launchKind: "curated_task_launcher",
+        targetItemId: "script-to-voiceover",
+        category: "video",
+        testId: "entry-recommended-script-to-voiceover",
       },
       {
         id: "starter-design",
@@ -474,7 +526,7 @@ export function buildHomeSurfaceCopy(
         launchKind: "prefill_prompt",
         category: "visual_design",
         prompt: translate("agentChat.home.starter.design.prompt"),
-        testId: "entry-home-test-case-design",
+        testId: "entry-home-design",
       },
       {
         id: "starter-excel",
@@ -482,7 +534,7 @@ export function buildHomeSurfaceCopy(
         launchKind: "prefill_prompt",
         category: "editor",
         prompt: translate("agentChat.home.starter.excel.prompt"),
-        testId: "entry-home-data-driven-cases",
+        testId: "entry-home-excel",
       },
       {
         id: "starter-code",
@@ -490,7 +542,7 @@ export function buildHomeSurfaceCopy(
         launchKind: "prefill_prompt",
         category: "other",
         prompt: translate("agentChat.home.starter.code.prompt"),
-        testId: "entry-home-automation-script",
+        testId: "entry-home-code",
       },
       {
         id: "starter-more",
@@ -506,60 +558,6 @@ export function buildHomeSurfaceCopy(
       },
     ],
     starterMoreLabel,
-    inputSuggestions: [
-      {
-        id: "suggestion-meeting-notes",
-        label: translate("agentChat.home.inputSuggestion.meetingNotes.label"),
-        prompt: translate("agentChat.home.inputSuggestion.meetingNotes.prompt"),
-        order: 5,
-        testId: "home-input-suggestion-meeting-notes",
-      },
-      {
-        id: "suggestion-knowledge-import",
-        label: translate(
-          "agentChat.home.inputSuggestion.knowledgeImport.label",
-        ),
-        prompt: translate(
-          "agentChat.home.inputSuggestion.knowledgeImport.prompt",
-        ),
-        order: 8,
-        testId: "home-input-suggestion-knowledge-import",
-      },
-      {
-        id: "suggestion-research-report",
-        label: translate("agentChat.home.inputSuggestion.researchReport.label"),
-        prompt: translate(
-          "agentChat.home.inputSuggestion.researchReport.prompt",
-        ),
-        order: 10,
-        testId: "home-input-suggestion-research-report",
-      },
-      {
-        id: "suggestion-ppt-outline",
-        label: translate("agentChat.home.inputSuggestion.pptOutline.label"),
-        prompt: translate("agentChat.home.inputSuggestion.pptOutline.prompt"),
-        order: 20,
-        testId: "home-input-suggestion-ppt-outline",
-      },
-      {
-        id: "suggestion-requirement-analysis",
-        label: translate(
-          "agentChat.home.inputSuggestion.requirementAnalysis.label",
-        ),
-        prompt: translate(
-          "agentChat.home.inputSuggestion.requirementAnalysis.prompt",
-        ),
-        order: 30,
-        testId: "home-input-suggestion-requirement-analysis",
-      },
-      {
-        id: "suggestion-video-script",
-        label: translate("agentChat.home.inputSuggestion.videoScript.label"),
-        prompt: translate("agentChat.home.inputSuggestion.videoScript.prompt"),
-        order: 40,
-        testId: "home-input-suggestion-video-script",
-      },
-    ],
     guideCards: [
       {
         id: "guide-long-term-plan",

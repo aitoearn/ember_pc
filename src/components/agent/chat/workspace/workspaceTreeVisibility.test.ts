@@ -10,8 +10,8 @@ describe("workspaceTreeVisibility", () => {
       error: null,
       entries: [
         {
-          name: ".ember",
-          path: "/workspace/.ember",
+          name: ".lime",
+          path: "/workspace/.lime",
           isDir: true,
           size: 0,
           modifiedAt: 1,

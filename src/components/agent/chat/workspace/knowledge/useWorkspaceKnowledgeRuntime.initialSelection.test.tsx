@@ -39,8 +39,8 @@ function buildPack(params: {
       status: params.status ?? "ready",
       maintainers: [],
     },
-    rootPath: "/tmp/ember-project",
-    knowledgePath: `/tmp/ember-project/.ember/knowledge/packs/${params.name}`,
+    rootPath: "/tmp/lime-project",
+    knowledgePath: `/tmp/lime-project/.lime/knowledge/packs/${params.name}`,
     defaultForWorkspace: params.defaultForWorkspace ?? false,
     updatedAt: 1,
     sourceCount: 1,
@@ -52,7 +52,7 @@ function buildPack(params: {
 }
 
 interface ProbeProps {
-  initialKnowledgePackSelection: AgentInitialKnowledgePackSelectionParams;
+  initialKnowledgePackSelection?: AgentInitialKnowledgePackSelectionParams | null;
   onRuntimeChange: (runtime: WorkspaceKnowledgeRuntime) => void;
   projectRootPath?: string | null;
 }
@@ -60,7 +60,7 @@ interface ProbeProps {
 function Probe({
   initialKnowledgePackSelection,
   onRuntimeChange,
-  projectRootPath = "/tmp/ember-project",
+  projectRootPath = "/tmp/lime-project",
 }: ProbeProps) {
   const runtime = useWorkspaceKnowledgeRuntime({
     projectRootPath,
@@ -106,6 +106,74 @@ describe("useWorkspaceKnowledgeRuntime initial Knowledge selection", () => {
     vi.unstubAllGlobals();
   });
 
+  it("默认 Claw 输入不应预读项目资料列表", async () => {
+    const latestRuntimeRef: { current: WorkspaceKnowledgeRuntime | null } = {
+      current: null,
+    };
+
+    act(() => {
+      root.render(
+        <Probe
+          initialKnowledgePackSelection={null}
+          onRuntimeChange={(runtime) => {
+            latestRuntimeRef.current = runtime;
+          }}
+        />,
+      );
+    });
+    await flushEffects();
+
+    expect(knowledgeApiMocks.listKnowledgePacks).not.toHaveBeenCalled();
+    expect(latestRuntimeRef.current?.knowledgePackSelection).toBeNull();
+    expect(latestRuntimeRef.current?.knowledgePackOptions).toEqual([]);
+  });
+
+  it("用户打开资料面板时才读取项目资料列表", async () => {
+    knowledgeApiMocks.listKnowledgePacks.mockResolvedValue({
+      packs: [
+        buildPack({
+          name: "xiejing-persona",
+          type: "personal-ip",
+          defaultForWorkspace: true,
+        }),
+      ],
+    });
+    const latestRuntimeRef: { current: WorkspaceKnowledgeRuntime | null } = {
+      current: null,
+    };
+
+    act(() => {
+      root.render(
+        <Probe
+          initialKnowledgePackSelection={null}
+          onRuntimeChange={(runtime) => {
+            latestRuntimeRef.current = runtime;
+          }}
+        />,
+      );
+    });
+    await flushEffects();
+
+    act(() => {
+      latestRuntimeRef.current?.onKnowledgePacksNeeded();
+    });
+    await flushEffects();
+
+    expect(knowledgeApiMocks.listKnowledgePacks).toHaveBeenCalledTimes(1);
+    expect(knowledgeApiMocks.listKnowledgePacks).toHaveBeenCalledWith({
+      workingDir: "/tmp/lime-project",
+      includeArchived: false,
+    });
+    expect(latestRuntimeRef.current?.knowledgePackOptions).toEqual([
+      expect.objectContaining({
+        packName: "xiejing-persona",
+        label: "xiejing-persona",
+        status: "ready",
+        defaultForWorkspace: true,
+      }),
+    ]);
+  });
+
   it("从 Knowledge chooser 回流 Agent 时不应在资料列表加载前丢失显式 data 协同资料", async () => {
     knowledgeApiMocks.listKnowledgePacks.mockResolvedValue({
       packs: [
@@ -131,7 +199,7 @@ describe("useWorkspaceKnowledgeRuntime initial Knowledge selection", () => {
           initialKnowledgePackSelection={{
             enabled: true,
             packName: "content-calendar",
-            workingDir: "/tmp/ember-project",
+            workingDir: "/tmp/lime-project",
             label: "内容运营资料",
             status: "ready",
             companionPacks: [
@@ -180,7 +248,7 @@ describe("useWorkspaceKnowledgeRuntime initial Knowledge selection", () => {
     const baseSelection: AgentInitialKnowledgePackSelectionParams = {
       enabled: true,
       packName: "content-calendar",
-      workingDir: "/tmp/ember-project",
+      workingDir: "/tmp/lime-project",
       label: "内容运营资料",
       status: "ready",
     };

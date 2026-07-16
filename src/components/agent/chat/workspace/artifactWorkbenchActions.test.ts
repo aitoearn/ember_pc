@@ -17,7 +17,7 @@ function createArtifact(): Artifact {
     content: "",
     status: "complete",
     meta: {
-      filePath: ".ember/artifacts/thread-1/q1-review.artifact.json",
+      filePath: ".lime/artifacts/thread-1/q1-review.artifact.json",
       filename: "q1-review.artifact.json",
       language: "json",
     },
@@ -88,7 +88,7 @@ function createDocument(): ArtifactDocumentV1 {
         type: "web",
         label: "季度经营看板",
         locator: {
-          url: "https://ember.example.com/q1",
+          url: "https://lime.example.com/q1",
         },
         snippet: "内部经营分析来源",
       },
@@ -139,7 +139,7 @@ describe("artifactWorkbenchActions", () => {
     expect(markdown).toContain("- [x] 重排项目节奏");
     expect(markdown).toContain("```json");
     expect(markdown).toContain("## 来源");
-    expect(markdown).toContain("[季度经营看板](https://ember.example.com/q1)");
+    expect(markdown).toContain("[季度经营看板](https://lime.example.com/q1)");
   });
 
   it("更新归档状态时应同步当前版本摘要状态", () => {

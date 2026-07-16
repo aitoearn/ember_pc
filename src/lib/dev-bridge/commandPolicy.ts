@@ -7,14 +7,17 @@ export type DevBridgeCommandTimeoutProfile =
   | "agent-session-patch"
   | "agent-session-create"
   | "app-server-turn-start"
+  | "app-server-long-running"
   | "app-server-read"
   | "agent-runtime"
-  | "agent-app-ui-runtime-start"
-  | "agent-app-package"
+  | "plugin-installed-write"
+  | "plugin-package-inspect"
+  | "plugin-ui-runtime-start"
+  | "plugin-package"
+  | "desktop-user-interaction"
   | "knowledge-compile"
   | "voice-model-download"
   | "layered-design-project"
-  | "device-automation"
   | "truth"
   | "default";
 
@@ -25,7 +28,6 @@ export type DevBridgeCommandTimeoutProfile =
  * 测试夹具只能通过 invokeMockOnly，不能由生产 invoke 自动回退 mock。
  */
 const bridgeTruthCommands = new Set<string>([
-  "aster_agent_init",
   "open_external_url",
   "open_update_window",
   "start_oem_cloud_oauth_callback_bridge",
@@ -35,35 +37,26 @@ const bridgeTruthCommands = new Set<string>([
   "workspace_get",
   "workspace_ensure",
   "workspace_ensure_ready",
-  "agent_runtime_submit_turn",
-  "agent_runtime_interrupt_turn",
-  "agent_runtime_export_evidence_pack",
-  "agent_runtime_get_thread_read",
-  "agent_runtime_respond_action",
-  "agent_app_start_ui_runtime",
-  "agent_app_get_ui_runtime_status",
-  "agent_app_stop_ui_runtime",
-  "agent_runtime_create_session",
-  "agent_runtime_list_sessions",
-  "agent_runtime_get_session",
-  "agent_runtime_update_session",
-  "agent_runtime_get_tool_inventory",
+  "plugin_start_ui_runtime",
+  "plugin_get_ui_runtime_status",
+  "plugin_stop_ui_runtime",
   "get_default_provider",
-  "agent_runtime_list_workspace_skill_bindings",
   "app_server_handle_json_lines",
   "app_server_drain_events",
-  "project_memory_get",
   "get_file_name",
 ]);
 
 const noMockFallbackCompatCommands = new Set<string>([
-  "agent_app_runtime_start_task",
-  "agent_app_runtime_cancel_task",
-  "agent_app_runtime_get_task",
-  "agent_app_runtime_submit_host_response",
+  "plugin_runtime_start_task",
+  "plugin_runtime_cancel_task",
+  "plugin_runtime_get_task",
+  "plugin_runtime_submit_host_response",
 ]);
 
 const electronHostNoMockFallbackCommands = new Set([
+  "plugin_select_directory",
+  "open_file_preview_window",
+  "open_resource_manager_window",
   "open_system_settings_url",
   "save_layered_design_project_export",
   "read_layered_design_project_export",
@@ -75,52 +68,13 @@ const electronHostNoMockFallbackCommands = new Set([
 
 const optionalLegacyUxCommands = new Set<string>(["get_hint_routes"]);
 
-const devBridgeAgentAppUiRuntimeStartCommands = new Set([
-  "agent_app_start_ui_runtime",
-  "device_automation_ensure_sidecar",
-  "device_automation_get_sidecar_status",
-  "device_automation_list_devices",
-  "device_automation_capture_screenshot",
-  "device_automation_send_navigation",
-  "device_automation_ensure_ai_sidecar",
-  "device_automation_prepare_ai_session",
-  "device_automation_submit_ai_task",
-  "device_automation_poll_ai_task",
-  "device_automation_cancel_ai_task",
-  "device_automation_send_tap",
-  "device_automation_send_swipe",
-  "device_automation_stop_sidecar",
-  "device_automation_perf_list_apps",
-  "device_automation_perf_start",
-  "device_automation_perf_stop",
-  "device_automation_perf_get_status",
-  "device_automation_monkey_start",
-  "device_automation_monkey_stop",
-  "device_automation_monkey_get_status",
-  "device_automation_stability_analysis_get_tool_status",
-  "device_automation_kea2_get_tool_status",
-  "device_automation_stability_analysis_start",
-  "device_automation_stability_analysis_cancel",
-  "device_automation_stability_analysis_get_status",
-  "device_automation_stability_llm_config_read",
-  "device_automation_stability_llm_config_save",
-  "device_automation_perf_trace_start",
-  "device_automation_perf_trace_stop",
-  "device_automation_perf_trace_cancel",
-  "device_automation_perf_trace_get_status",
-  "device_automation_perf_trace_analyze",
-  "device_automation_perf_trace_open_external",
-  "device_automation_perf_trace_delete_local",
-  "ui_agent_start",
-  "ui_agent_cancel",
-  "device_flow_record_manual_start",
-  "device_flow_record_manual_stop",
-  "device_flow_replay_start",
-  "device_flow_replay_cancel",
+const devBridgePluginUiRuntimeStartCommands = new Set([
+  "plugin_start_ui_runtime",
 ]);
 
-const devBridgeAgentAppPackageCommands = new Set([
-  "agentAppLocalPackage/inspect",
+const devBridgePluginPackageCommands = new Set([
+  "pluginLocalPackage/inspect",
+  "pluginLocalPackage/export",
 ]);
 
 const electronHostLayeredDesignProjectCommands = new Set([
@@ -128,11 +82,11 @@ const electronHostLayeredDesignProjectCommands = new Set([
   "read_layered_design_project_export",
 ]);
 
+const electronHostUserInteractionCommands = new Set([
+  "plugin_select_directory",
+]);
+
 const devBridgeCooldownBypassCommands = new Set([
-  "agent_runtime_get_session",
-  "agent_runtime_list_sessions",
-  "agent_runtime_submit_turn",
-  "agent_runtime_create_session",
   "get_or_create_default_project",
   "workspace_get",
   "workspace_get_default",
@@ -142,22 +96,30 @@ const devBridgeCooldownBypassCommands = new Set([
   "workspace_ensure_default_ready",
 ]);
 
-const devBridgeReadRetryCommands = new Set([
-  "agent_runtime_get_session",
-  "agent_runtime_list_sessions",
+const devBridgeReadRetryCommands = new Set<string>([
+  "workspace_get",
+  "workspace_get_default",
+  "workspace_list",
+  "workspace_ensure",
+  "workspace_ensure_ready",
+  "workspace_ensure_default_ready",
 ]);
 
 const devBridgeStartupTruthCommands = new Set([
-  "aster_agent_init",
   "workspace_ensure_ready",
   "workspace_ensure_default_ready",
 ]);
 
 const APP_SERVER_HANDLE_JSON_LINES_COMMAND = "app_server_handle_json_lines";
+const APP_SERVER_DRAIN_EVENTS_COMMAND = "app_server_drain_events";
 const APP_SERVER_AGENT_SESSION_LIST_METHOD = "agentSession/list";
 const APP_SERVER_AGENT_TURN_START_METHOD = "agentSession/turn/start";
-const APP_SERVER_AGENT_APP_UI_RUNTIME_START_METHOD = "agentAppUiRuntime/start";
+const APP_SERVER_PLUGIN_UI_RUNTIME_START_METHOD = "pluginUiRuntime/start";
 const APP_SERVER_KNOWLEDGE_COMPILE_METHOD = "knowledgePack/compile";
+const APP_SERVER_LONG_RUNNING_METHODS = new Set(["automationJob/runNow"]);
+const APP_SERVER_PLUGIN_INSTALLED_WRITE_METHODS = new Set([
+  "pluginInstalled/save",
+]);
 const APP_SERVER_CURRENT_METHODS = new Set([
   "capability/list",
   "artifact/read",
@@ -167,7 +129,14 @@ const APP_SERVER_CURRENT_METHODS = new Set([
   "fileSystem/createDirectory",
   "fileSystem/renameFile",
   "fileSystem/deleteFile",
+  "agentSession/start",
   "agentSession/read",
+  "workflow/read",
+  "workflow/cancel",
+  "workflow/retry",
+  "workflow/respond",
+  "agentSession/update",
+  "agentSession/archiveMany",
   "skill/list",
   "skill/read",
   "skillManagement/list",
@@ -184,15 +153,16 @@ const APP_SERVER_CURRENT_METHODS = new Set([
   "skillRemote/inspect",
   "workspaceSkillBindings/list",
   "workspaceRegisteredSkills/list",
-  "agentAppLocalPackage/inspect",
-  "agentAppPackage/fetchCloud",
-  "agentAppInstalled/save",
-  "agentAppInstalled/list",
-  "agentAppInstalled/disabled/set",
-  "agentAppInstalled/uninstall/rehearsal",
-  "agentAppInstalled/uninstall",
-  "agentAppShell/prepare",
-  "agentAppUiRuntime/status",
+  "pluginLocalPackage/inspect",
+  "pluginLocalPackage/export",
+  "pluginPackage/fetchCloud",
+  "pluginInstalled/save",
+  "pluginInstalled/list",
+  "pluginInstalled/disabled/set",
+  "pluginInstalled/uninstall/rehearsal",
+  "pluginInstalled/uninstall",
+  "pluginShell/prepare",
+  "pluginUiRuntime/status",
   "knowledgePack/list",
   "knowledgePack/read",
   "knowledgePack/source/import",
@@ -201,41 +171,69 @@ const APP_SERVER_CURRENT_METHODS = new Set([
   "knowledgePack/status/update",
   "knowledgeContext/resolve",
   "knowledgeContextRun/validate",
+  "automationScheduler/config/read",
+  "automationScheduler/config/update",
+  "automationScheduler/status",
   "automationJob/list",
+  "automationJob/read",
+  "automationJob/create",
+  "automationJob/update",
+  "automationJob/delete",
+  "automationJob/runNow",
+  "automationJob/health",
+  "automationJob/runHistory",
+  "automationSchedule/preview",
+  "automationSchedule/validate",
   "projectMemory/read",
   "gatewayChannel/status",
   "wechatChannel/accounts/list",
   "mediaTaskArtifact/image/create",
   "mediaTaskArtifact/audio/create",
+  "mediaTaskArtifact/image/complete",
   "mediaTaskArtifact/audio/complete",
   "mediaTaskArtifact/get",
   "mediaTaskArtifact/list",
   "mediaTaskArtifact/cancel",
+  "workspaceRightSurface/request",
+  "workspaceRightSurface/pending/list",
+  "workspaceRightSurface/pending/consume",
+  "workspaceRightSurface/pending/dismiss",
+  "sessionFile/getOrCreate",
+  "sessionFile/updateMeta",
+  "sessionFile/save",
+  "sessionFile/list",
+  "sessionFile/read",
+  "sessionFile/resolvePath",
+  "sessionFile/delete",
   "model/list",
   "modelPreferences/list",
   "modelSyncState/read",
   "modelProvider/list",
   "modelProvider/catalog/list",
-  "modelProvider/read",
-  "modelProvider/create",
-  "modelProvider/update",
-  "modelProvider/delete",
-  "modelProvider/sortOrders/update",
-  "modelProvider/testConnection",
-  "modelProvider/testChat",
-  "modelProvider/fetchModels",
-  "modelProviderKey/create",
-  "modelProviderKey/update",
-  "modelProviderKey/delete",
-  "modelProviderKey/next",
-  "modelProviderKey/usage/record",
-  "modelProviderKey/error/record",
-  "modelProviderUiState/read",
-  "modelProviderUiState/write",
-  "modelProviderConfig/export",
-  "modelProviderConfig/import",
   "modelProviderAlias/read",
   "modelProviderAlias/list",
+  "mcpServer/list",
+  "mcpServerStatus/list",
+  "mcpServer/create",
+  "mcpServer/update",
+  "mcpServer/delete",
+  "mcpServer/enabled/set",
+  "mcpServer/importFromApp",
+  "mcpServer/syncAllToLive",
+  "mcpServer/oauth/login",
+  "mcpServer/start",
+  "mcpServer/stop",
+  "mcpTool/list",
+  "mcpTool/listForContext",
+  "mcpTool/search",
+  "mcpTool/call",
+  "mcpTool/callWithCaller",
+  "mcpPrompt/list",
+  "mcpPrompt/get",
+  "mcpResource/list",
+  "mcpResource/read",
+  "mcpResource/subscribe",
+  "mcpResource/unsubscribe",
   "connectDeepLink/resolve",
   "connectOpenDeepLink/resolve",
   "voiceAsrCredential/list",
@@ -249,33 +247,17 @@ const APP_SERVER_CURRENT_METHODS = new Set([
   "voiceInstruction/delete",
   "voiceModel/default/set",
   "voiceModel/testTranscribeFile",
-  "testCase/list",
-  "testCase/read",
-  "testCase/save",
-  "testCase/delete",
-  "testCaseModule/list",
-  "testCaseModule/save",
-  "testCaseModule/delete",
-  "testCaseRun/save",
-  "testCaseRun/list",
-  "perfMonitor/session/save",
-  "perfMonitor/session/list",
-  "perfMonitor/session/read",
-  "deviceFlow/list",
-  "deviceFlow/read",
-  "deviceFlow/save",
-  "deviceFlow/delete",
-  "deviceFlowRun/save",
-  "deviceFlowRun/list",
-  "deviceFlowRun/read",
-  "deviceFlowHealing/list",
-  "deviceFlowHealing/save",
-  "deviceFlowHealing/resolve",
-  "deviceExplore/read",
-  "deviceExplore/save",
-  "deviceExploreRun/save",
-  "deviceExploreRun/list",
-  "deviceExploreRun/read",
+  "voiceTranscription/transcribeAudio",
+  "voiceTranscription/polishText",
+  "conversationImport/source/scan",
+  "conversationImport/thread/preview",
+  "conversationImport/thread/commit",
+  "projectGit/status",
+  "projectGit/diff",
+  "projectGit/commits/list",
+  "projectGit/branch/checkout",
+  "projectGit/branch/create",
+  "projectGit/worktree/create",
 ]);
 const APP_SERVER_STARTUP_TRUTH_METHODS = new Set([
   "workspace/default/read",
@@ -293,14 +275,9 @@ const APP_SERVER_STARTUP_TRUTH_METHODS = new Set([
 
 const bridgeTruthEventPrefixes = [
   "voice-model-download-progress",
-  "aster_stream_",
-  "agent_subagent_status:",
-  "agent_subagent_stream:",
-  "device_automation_inventory_changed",
-  "device_automation_perf_frame",
-  "device_automation_monkey_event",
-  "device_automation_stability_analysis_event",
-  "device_automation_perf_trace_progress",
+  "agent_stream_",
+  "embedded-browser-view-",
+  "mcp:",
 ];
 
 export function isBridgeTruthCommand(command: string): boolean {
@@ -357,23 +334,14 @@ export function resolveDevBridgeCommandTimeoutProfile(
   if (devBridgeStartupTruthCommands.has(command)) {
     return "startup-truth";
   }
-  if (command === "agent_runtime_get_session") {
-    return "agent-session-get";
-  }
-  if (command === "agent_runtime_list_sessions") {
-    return "agent-session-list";
-  }
-  if (command === "agent_runtime_update_session") {
-    return "agent-session-patch";
-  }
-  if (command === "agent_runtime_create_session") {
-    return "agent-session-create";
-  }
   if (isAppServerAgentTurnStartCommand(command, args)) {
     return "app-server-turn-start";
   }
-  if (isAppServerAgentAppUiRuntimeStartCommand(command, args)) {
-    return "agent-app-ui-runtime-start";
+  if (isAppServerPluginUiRuntimeStartCommand(command, args)) {
+    return "plugin-ui-runtime-start";
+  }
+  if (isAppServerLongRunningCommand(command, args)) {
+    return "app-server-long-running";
   }
   if (isAppServerAgentSessionListCommand(command, args)) {
     return "agent-session-list";
@@ -384,37 +352,35 @@ export function resolveDevBridgeCommandTimeoutProfile(
   if (isAppServerKnowledgeCompileCommand(command, args)) {
     return "knowledge-compile";
   }
+  if (isAppServerPluginPackageInspectCommand(command, args)) {
+    return "plugin-package-inspect";
+  }
+  if (isAppServerPluginInstalledWriteCommand(command, args)) {
+    return "plugin-installed-write";
+  }
   if (isAppServerCurrentMethodCommand(command, args)) {
     return "app-server-read";
   }
-  if (
-    command.startsWith("agent_app_runtime_") ||
-    command.startsWith("agent_runtime_")
-  ) {
+  if (command === APP_SERVER_DRAIN_EVENTS_COMMAND) {
+    return "app-server-read";
+  }
+  if (command.startsWith("plugin_runtime_")) {
     return "agent-runtime";
   }
-  if (devBridgeAgentAppUiRuntimeStartCommands.has(command)) {
-    return "agent-app-ui-runtime-start";
+  if (devBridgePluginUiRuntimeStartCommands.has(command)) {
+    return "plugin-ui-runtime-start";
   }
-  if (devBridgeAgentAppPackageCommands.has(command)) {
-    return "agent-app-package";
+  if (devBridgePluginPackageCommands.has(command)) {
+    return "plugin-package";
+  }
+  if (electronHostUserInteractionCommands.has(command)) {
+    return "desktop-user-interaction";
   }
   if (command === "voice_models_download") {
     return "voice-model-download";
   }
   if (electronHostLayeredDesignProjectCommands.has(command)) {
     return "layered-design-project";
-  }
-  // 设备自动化命令涉及 adb 与 agent-device daemon 会话（含切换设备的 close+重开），
-  // 真机操作耗时远超默认 1800ms，统一走更宽松的超时档。
-  if (command.startsWith("device_automation_")) {
-    return "device-automation";
-  }
-  if (
-    command === APP_SERVER_HANDLE_JSON_LINES_COMMAND &&
-    extractAppServerJsonLines(args).length > 0
-  ) {
-    return "app-server-read";
   }
   if (isBridgeTruthCommand(command)) {
     return "truth";
@@ -446,7 +412,7 @@ function isAppServerAgentTurnStartCommand(
   );
 }
 
-function isAppServerAgentAppUiRuntimeStartCommand(
+function isAppServerPluginUiRuntimeStartCommand(
   command: string,
   args: unknown,
 ): boolean {
@@ -454,7 +420,7 @@ function isAppServerAgentAppUiRuntimeStartCommand(
     return false;
   }
   return extractAppServerJsonLines(args).some((line) =>
-    jsonRpcLineHasMethod(line, APP_SERVER_AGENT_APP_UI_RUNTIME_START_METHOD),
+    jsonRpcLineHasMethod(line, APP_SERVER_PLUGIN_UI_RUNTIME_START_METHOD),
   );
 }
 
@@ -482,6 +448,18 @@ function isAppServerKnowledgeCompileCommand(
   );
 }
 
+function isAppServerLongRunningCommand(
+  command: string,
+  args: unknown,
+): boolean {
+  if (command !== APP_SERVER_HANDLE_JSON_LINES_COMMAND) {
+    return false;
+  }
+  return extractAppServerJsonLines(args).some((line) =>
+    jsonRpcLineHasAnyMethod(line, APP_SERVER_LONG_RUNNING_METHODS),
+  );
+}
+
 function isAppServerCurrentMethodCommand(
   command: string,
   args: unknown,
@@ -491,6 +469,32 @@ function isAppServerCurrentMethodCommand(
   }
   return extractAppServerJsonLines(args).some((line) =>
     jsonRpcLineHasAnyMethod(line, APP_SERVER_CURRENT_METHODS),
+  );
+}
+
+function isAppServerPluginPackageInspectCommand(
+  command: string,
+  args: unknown,
+): boolean {
+  if (command !== APP_SERVER_HANDLE_JSON_LINES_COMMAND) {
+    return false;
+  }
+  return extractAppServerJsonLines(args).some(
+    (line) =>
+      jsonRpcLineHasMethod(line, "pluginLocalPackage/inspect") ||
+      jsonRpcLineHasMethod(line, "pluginLocalPackage/export"),
+  );
+}
+
+function isAppServerPluginInstalledWriteCommand(
+  command: string,
+  args: unknown,
+): boolean {
+  if (command !== APP_SERVER_HANDLE_JSON_LINES_COMMAND) {
+    return false;
+  }
+  return extractAppServerJsonLines(args).some((line) =>
+    jsonRpcLineHasAnyMethod(line, APP_SERVER_PLUGIN_INSTALLED_WRITE_METHODS),
   );
 }
 

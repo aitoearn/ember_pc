@@ -5,7 +5,7 @@ const STARTUP_REVEAL_PAINT_TIMEOUT_MS = 180;
 const STARTUP_REVEAL_VIEWPORT_STABLE_FRAMES = 3;
 const STARTUP_REVEAL_VIEWPORT_TIMEOUT_MS = 900;
 const STARTUP_REVEAL_LOGO_TIMEOUT_MS = 240;
-const STARTUP_LOGO_SELECTOR = "[data-ember-startup-logo]";
+const STARTUP_LOGO_SELECTOR = "[data-lime-startup-logo]";
 
 type StartupWindowAction = () => Promise<void>;
 

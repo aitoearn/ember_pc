@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-const DEFAULT_SANITIZED_WORKSPACE_ROOT = "/workspace/ember";
+const DEFAULT_SANITIZED_WORKSPACE_ROOT = "/workspace/lime";
 const REQUIRED_REPLAY_ARTIFACTS = [
   "input.json",
   "expected.json",
@@ -99,19 +99,19 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Harness Analysis Brief Export
+Lime Harness Analysis Brief Export
 
 用法:
   node scripts/harness/analysis-brief.mjs --session-id "session-123"
-  node scripts/harness/analysis-brief.mjs --replay-dir ".ember/harness/sessions/session-123/replay"
+  node scripts/harness/analysis-brief.mjs --replay-dir ".lime/harness/sessions/session-123/replay"
 
 选项:
-  --session-id ID                  从 <workspace>/.ember/harness/sessions/<id>/replay 生成分析交接包
+  --session-id ID                  从 <workspace>/.lime/harness/sessions/<id>/replay 生成分析交接包
   --replay-dir PATH                直接指定 replay 目录；与 --session-id 二选一
   --workspace-root PATH            工作区根目录，默认当前目录
   --output-dir PATH                输出目录；默认 <session>/analysis
   --title TEXT                     分析包标题；默认从 goal summary 推导
-  --sanitized-workspace-root PATH  导出到外部 AI 时使用的工作区占位路径，默认 /workspace/ember
+  --sanitized-workspace-root PATH  导出到外部 AI 时使用的工作区占位路径，默认 /workspace/lime
   --dry-run                        只预览，不写文件
   --format FMT                     标准输出格式：text | json
   -h, --help                       显示帮助
@@ -211,7 +211,7 @@ function resolveReplayDirectory(options, workspaceRoot) {
 
   return path.join(
     workspaceRoot,
-    ".ember",
+    ".lime",
     "harness",
     "sessions",
     options.sessionId,
@@ -352,7 +352,7 @@ function buildReadingOrder(handoffArtifacts, evidenceArtifacts) {
 function buildExternalAnalysisPromptContract() {
   return {
     audience: "Claude Code / Codex",
-    task: "基于 Ember 导出的结构化证据做问题分析与修复建议，不直接代替团队做最终决策。",
+    task: "基于 Lime 导出的结构化证据做问题分析与修复建议，不直接代替团队做最终决策。",
     requiredSections: [
       "结论",
       "根因判断",
@@ -475,11 +475,11 @@ function buildAnalysisContext({
   return {
     schemaVersion: "v1",
     source: {
-      contractShape: "ember_external_analysis_handoff",
+      contractShape: "lime_external_analysis_handoff",
       derivedFrom: [
-        "ember_workspace_handoff_bundle",
-        "ember_workspace_evidence_pack",
-        "ember_runtime_export_replay_case",
+        "lime_workspace_handoff_bundle",
+        "lime_workspace_evidence_pack",
+        "lime_runtime_export_replay_case",
       ],
     },
     title,
@@ -671,7 +671,7 @@ function buildAnalysisBrief(context) {
     "## 可直接给外部 AI 的任务说明",
     "",
     "```text",
-    "你将收到一个由 Ember 导出的分析包。你的职责是做问题分析和修复建议，不直接替团队做最终决策。",
+    "你将收到一个由 Lime 导出的分析包。你的职责是做问题分析和修复建议，不直接替团队做最终决策。",
     "",
     "请优先读取 analysis-context.json 与 analysis-brief.md 中提到的 replay / handoff / evidence 文件。",
     "",
@@ -710,7 +710,7 @@ function buildAnalysisBrief(context) {
     "## 注意",
     "",
     `- 所有路径默认已按 \`${context.sanitizedWorkspaceRoot}\` 占位规则输出，便于外部 AI 消费。`,
-    "- 这份简报只负责分析交接，不负责自动修复或自动回写 Ember。",
+    "- 这份简报只负责分析交接，不负责自动修复或自动回写 Lime。",
     "",
   ];
 

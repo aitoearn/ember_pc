@@ -125,11 +125,11 @@ describe("oemCloudLoginLauncher", () => {
       close: vi.fn(),
     };
 
-    await openExternalUrl("https://user.emberai.run/login", { browserTarget });
+    await openExternalUrl("https://user.limeai.run/login", { browserTarget });
 
     expect(
       systemBrowserMocks.openExternalUrlWithSystemBrowser,
-    ).toHaveBeenCalledWith("https://user.emberai.run/login");
+    ).toHaveBeenCalledWith("https://user.limeai.run/login");
     expect(shellOpenMock).not.toHaveBeenCalled();
     expect(browserTarget.close).toHaveBeenCalledTimes(1);
     expect(browserTarget.navigate).not.toHaveBeenCalled();
@@ -143,7 +143,7 @@ describe("oemCloudLoginLauncher", () => {
     );
 
     await expect(
-      openExternalUrl("https://user.emberai.run/login"),
+      openExternalUrl("https://user.limeai.run/login"),
     ).rejects.toThrow("系统浏览器打开失败：unknown command");
 
     expect(shellOpenMock).not.toHaveBeenCalled();
@@ -159,7 +159,7 @@ describe("oemCloudLoginLauncher", () => {
     const windowOpenSpy = vi.spyOn(window, "open").mockReturnValue(null);
 
     await expect(
-      openExternalUrl("https://user.emberai.run/login", {
+      openExternalUrl("https://user.limeai.run/login", {
         copy: {
           systemBrowserOpenFailedWithMessage: (message) =>
             `System browser failed from copy: ${message}`,
@@ -186,10 +186,10 @@ describe("oemCloudLoginLauncher", () => {
     expect(openedWindow.document.title).toBe("Opening login");
     expect(openedWindow.document.body.innerHTML).toBe("Opening login body");
 
-    await openExternalUrl("https://user.emberai.run/login", { browserTarget });
+    await openExternalUrl("https://user.limeai.run/login", { browserTarget });
 
     expect(openedWindow.location.assign).toHaveBeenCalledWith(
-      "https://user.emberai.run/login",
+      "https://user.limeai.run/login",
     );
     expect(
       systemBrowserMocks.openExternalUrlWithSystemBrowser,
@@ -206,13 +206,13 @@ describe("oemCloudLoginLauncher", () => {
       deviceCode: "device-001",
       tenantId: "tenant-0001",
       clientId: "desktop-client",
-      clientName: "Ember Desktop",
+      clientName: "Lime Desktop",
       provider: "google",
       desktopRedirectUri: "http://127.0.0.1:18081/oauth/callback",
       status: "pending_login",
       expiresInSeconds: 600,
       pollIntervalSeconds: 1,
-      authorizeUrl: "https://user.emberai.run/oauth/desktop/device-001/signin",
+      authorizeUrl: "https://user.limeai.run/oauth/desktop/device-001/signin",
     });
     controlPlaneMocks.pollClientDesktopAuthSession.mockReturnValue(
       new Promise(() => undefined),
@@ -220,17 +220,18 @@ describe("oemCloudLoginLauncher", () => {
 
     await startOemCloudLogin(
       {
-        baseUrl: "https://user.emberai.run",
-        controlPlaneBaseUrl: "https://user.emberai.run/api",
-        sceneBaseUrl: "https://user.emberai.run/scene-api",
-        gatewayBaseUrl: "https://llm.emberai.run",
+        baseUrl: "https://user.limeai.run",
+        controlPlaneBaseUrl: "https://user.limeai.run/api",
+        sceneBaseUrl: "https://user.limeai.run/scene-api",
+        gatewayBaseUrl: "https://llm.limeai.run",
         tenantId: "tenant-0001",
         sessionToken: null,
         hubProviderName: null,
         loginPath: "/login",
         desktopClientId: "desktop-client",
-        desktopOauthRedirectUrl: "ember://oauth/callback",
+        desktopOauthRedirectUrl: "lime://oauth/callback",
         desktopOauthNextPath: "/welcome",
+        pluginSignatureTrustRoots: [],
       },
       { waitForCompletion: false },
     );
@@ -254,13 +255,13 @@ describe("oemCloudLoginLauncher", () => {
       deviceCode: "device-001",
       tenantId: "tenant-0001",
       clientId: "desktop-client",
-      clientName: "Ember Desktop",
+      clientName: "Lime Desktop",
       provider: "google",
       desktopRedirectUri: "http://127.0.0.1:18081/oauth/callback",
       status: "pending_login",
       expiresInSeconds: 600,
       pollIntervalSeconds: 1,
-      authorizeUrl: "https://user.emberai.run/oauth/desktop/device-001/signin",
+      authorizeUrl: "https://user.limeai.run/oauth/desktop/device-001/signin",
     });
     controlPlaneMocks.pollClientDesktopAuthSession.mockReturnValue(
       new Promise(() => undefined),
@@ -268,17 +269,18 @@ describe("oemCloudLoginLauncher", () => {
 
     await startOemCloudLogin(
       {
-        baseUrl: "https://user.emberai.run",
-        controlPlaneBaseUrl: "https://user.emberai.run/api",
-        sceneBaseUrl: "https://user.emberai.run/scene-api",
-        gatewayBaseUrl: "https://llm.emberai.run",
+        baseUrl: "https://user.limeai.run",
+        controlPlaneBaseUrl: "https://user.limeai.run/api",
+        sceneBaseUrl: "https://user.limeai.run/scene-api",
+        gatewayBaseUrl: "https://llm.limeai.run",
         tenantId: "tenant-0001",
         sessionToken: null,
         hubProviderName: null,
         loginPath: "/login",
         desktopClientId: "desktop-client",
-        desktopOauthRedirectUrl: "ember://oauth/callback",
+        desktopOauthRedirectUrl: "lime://oauth/callback",
         desktopOauthNextPath: "/welcome",
+        pluginSignatureTrustRoots: [],
       },
       { waitForCompletion: false },
     );
@@ -296,7 +298,7 @@ describe("oemCloudLoginLauncher", () => {
     expect(
       systemBrowserMocks.openExternalUrlWithSystemBrowser,
     ).toHaveBeenCalledWith(
-      "https://user.emberai.run/oauth/desktop/device-001/signin",
+      "https://user.limeai.run/oauth/desktop/device-001/signin",
     );
     expect(shellOpenMock).not.toHaveBeenCalled();
   });
@@ -305,7 +307,7 @@ describe("oemCloudLoginLauncher", () => {
     vi.spyOn(window, "open").mockReturnValue(null);
 
     await expect(
-      openExternalUrl("https://user.emberai.run/login", {
+      openExternalUrl("https://user.limeai.run/login", {
         copy: {
           popupBlocked: "Popup blocked from copy",
         },
@@ -315,21 +317,21 @@ describe("oemCloudLoginLauncher", () => {
 
   it("构建云端登录页时应携带租户、桌面回跳和返回路径", () => {
     const loginUrl = buildOemCloudLoginUrl({
-      baseUrl: "https://user.emberai.run",
+      baseUrl: "https://user.limeai.run",
       loginPath: "/login",
       tenantId: "tenant-0001",
-      desktopOauthRedirectUrl: "ember://oauth/callback",
+      desktopOauthRedirectUrl: "lime://oauth/callback",
       desktopOauthNextPath: "/welcome",
     });
 
     const parsedUrl = new URL(loginUrl);
 
-    expect(parsedUrl.origin).toBe("https://user.emberai.run");
+    expect(parsedUrl.origin).toBe("https://user.limeai.run");
     expect(parsedUrl.pathname).toBe("/login");
     expect(parsedUrl.searchParams.get("tenant")).toBe("tenant-0001");
     expect(parsedUrl.searchParams.get("tenantId")).toBe("tenant-0001");
     expect(parsedUrl.searchParams.get("redirectUrl")).toBe(
-      "ember://oauth/callback",
+      "lime://oauth/callback",
     );
     expect(parsedUrl.searchParams.get("redirect")).toBe("/welcome");
     expect(parsedUrl.searchParams.get("next")).toBe("/welcome");
@@ -343,37 +345,38 @@ describe("oemCloudLoginLauncher", () => {
       deviceCode: "device-001",
       tenantId: "tenant-0514",
       clientId: "desktop-client",
-      clientName: "Ember Desktop",
+      clientName: "Lime Desktop",
       provider: "google",
-      desktopRedirectUri: "ember://oauth/callback",
+      desktopRedirectUri: "lime://oauth/callback",
       status: "pending_login",
       expiresInSeconds: 600,
       pollIntervalSeconds: 2,
-      authorizeUrl: "https://user.emberai.run/oauth/desktop/device-001/signin",
+      authorizeUrl: "https://user.limeai.run/oauth/desktop/device-001/signin",
     });
     controlPlaneMocks.pollClientDesktopAuthSession.mockReturnValue(
       new Promise(() => undefined),
     );
 
     const loginPromise = startOemCloudLogin({
-      baseUrl: "https://user.emberai.run",
-      controlPlaneBaseUrl: "https://user.emberai.run/api",
-      sceneBaseUrl: "https://user.emberai.run/scene-api",
-      gatewayBaseUrl: "https://llm.emberai.run",
+      baseUrl: "https://user.limeai.run",
+      controlPlaneBaseUrl: "https://user.limeai.run/api",
+      sceneBaseUrl: "https://user.limeai.run/scene-api",
+      gatewayBaseUrl: "https://llm.limeai.run",
       tenantId: "tenant-0001",
       sessionToken: null,
       hubProviderName: null,
       loginPath: "/login",
       desktopClientId: "desktop-client",
-      desktopOauthRedirectUrl: "ember://oauth/callback",
+      desktopOauthRedirectUrl: "lime://oauth/callback",
       desktopOauthNextPath: "/welcome",
+      pluginSignatureTrustRoots: [],
     });
 
     await vi.waitFor(() => {
       expect(
         systemBrowserMocks.openExternalUrlWithSystemBrowser,
       ).toHaveBeenCalledWith(
-        "https://user.emberai.run/oauth/desktop/device-001/signin",
+        "https://user.limeai.run/oauth/desktop/device-001/signin",
       );
     });
 
@@ -384,7 +387,7 @@ describe("oemCloudLoginLauncher", () => {
       session: { id: "session-001", provider: "google" },
     });
     window.dispatchEvent(
-      new CustomEvent("ember:oem-cloud-oauth-completed", {
+      new CustomEvent("lime:oem-cloud-oauth-completed", {
         detail: {
           tenantId: "tenant-0514",
           nextPath: "/welcome",
@@ -395,7 +398,7 @@ describe("oemCloudLoginLauncher", () => {
 
     await expect(loginPromise).resolves.toEqual({
       mode: "desktop_auth",
-      openedUrl: "https://user.emberai.run/oauth/desktop/device-001/signin",
+      openedUrl: "https://user.limeai.run/oauth/desktop/device-001/signin",
     });
   });
 
@@ -407,13 +410,13 @@ describe("oemCloudLoginLauncher", () => {
       deviceCode: "device-001",
       tenantId: "tenant-0001",
       clientId: "desktop-client",
-      clientName: "Ember Desktop",
+      clientName: "Lime Desktop",
       provider: "google",
-      desktopRedirectUri: "ember://oauth/callback",
+      desktopRedirectUri: "lime://oauth/callback",
       status: "pending_login",
       expiresInSeconds: 600,
       pollIntervalSeconds: 2,
-      authorizeUrl: "https://user.emberai.run/oauth/desktop/device-001/signin",
+      authorizeUrl: "https://user.limeai.run/oauth/desktop/device-001/signin",
     });
     controlPlaneMocks.pollClientDesktopAuthSession.mockReturnValue(
       new Promise(() => undefined),
@@ -422,29 +425,30 @@ describe("oemCloudLoginLauncher", () => {
     await expect(
       startOemCloudLogin(
         {
-          baseUrl: "https://user.emberai.run",
-          controlPlaneBaseUrl: "https://user.emberai.run/api",
-          sceneBaseUrl: "https://user.emberai.run/scene-api",
-          gatewayBaseUrl: "https://llm.emberai.run",
+          baseUrl: "https://user.limeai.run",
+          controlPlaneBaseUrl: "https://user.limeai.run/api",
+          sceneBaseUrl: "https://user.limeai.run/scene-api",
+          gatewayBaseUrl: "https://llm.limeai.run",
           tenantId: "tenant-0001",
           sessionToken: null,
           hubProviderName: null,
           loginPath: "/login",
           desktopClientId: "desktop-client",
-          desktopOauthRedirectUrl: "ember://oauth/callback",
+          desktopOauthRedirectUrl: "lime://oauth/callback",
           desktopOauthNextPath: "/welcome",
+        pluginSignatureTrustRoots: [],
         },
         { waitForCompletion: false },
       ),
     ).resolves.toEqual({
       mode: "desktop_auth",
-      openedUrl: "https://user.emberai.run/oauth/desktop/device-001/signin",
+      openedUrl: "https://user.limeai.run/oauth/desktop/device-001/signin",
     });
 
     expect(
       systemBrowserMocks.openExternalUrlWithSystemBrowser,
     ).toHaveBeenCalledWith(
-      "https://user.emberai.run/oauth/desktop/device-001/signin",
+      "https://user.limeai.run/oauth/desktop/device-001/signin",
     );
     expect(shellOpenMock).not.toHaveBeenCalled();
     expect(controlPlaneMocks.pollClientDesktopAuthSession).toHaveBeenCalledWith(
@@ -452,7 +456,7 @@ describe("oemCloudLoginLauncher", () => {
     );
 
     window.dispatchEvent(
-      new CustomEvent("ember:oem-cloud-oauth-completed", {
+      new CustomEvent("lime:oem-cloud-oauth-completed", {
         detail: {
           tenantId: "tenant-0001",
           nextPath: "/welcome",
@@ -472,17 +476,18 @@ describe("oemCloudLoginLauncher", () => {
 
     const loginPromise = startOemCloudLogin(
       {
-        baseUrl: "https://user.emberai.run",
-        controlPlaneBaseUrl: "https://user.emberai.run/api",
-        sceneBaseUrl: "https://user.emberai.run/scene-api",
-        gatewayBaseUrl: "https://llm.emberai.run",
+        baseUrl: "https://user.limeai.run",
+        controlPlaneBaseUrl: "https://user.limeai.run/api",
+        sceneBaseUrl: "https://user.limeai.run/scene-api",
+        gatewayBaseUrl: "https://llm.limeai.run",
         tenantId: "tenant-0001",
         sessionToken: null,
         hubProviderName: null,
         loginPath: "/login",
         desktopClientId: "desktop-client",
-        desktopOauthRedirectUrl: "ember://oauth/callback",
+        desktopOauthRedirectUrl: "lime://oauth/callback",
         desktopOauthNextPath: "/welcome",
+        pluginSignatureTrustRoots: [],
       },
       { waitForCompletion: true },
     );
@@ -505,7 +510,7 @@ describe("oemCloudLoginLauncher", () => {
       session: { id: "session-001", provider: "google" },
     });
     window.dispatchEvent(
-      new CustomEvent("ember:oem-cloud-oauth-completed", {
+      new CustomEvent("lime:oem-cloud-oauth-completed", {
         detail: {
           tenantId: "tenant-0001",
           nextPath: "/welcome",

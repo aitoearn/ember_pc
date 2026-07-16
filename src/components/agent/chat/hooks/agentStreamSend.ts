@@ -1,7 +1,5 @@
-import type {
-  AutoContinueRequestPayload,
-  AsterExecutionStrategy,
-} from "@/lib/api/agentRuntime";
+import type { AgentExecutionStrategy } from "@/lib/api/agentExecutionRuntime";
+import type { AutoContinueRequestPayload } from "@/lib/api/agentRuntime/sessionTypes";
 import type { MessageImage } from "../types";
 import type { SendMessageOptions } from "./agentChatShared";
 import { dispatchPreparedAgentStreamSend } from "./agentStreamPreparedSendDispatch";
@@ -14,7 +12,7 @@ interface SendAgentStreamMessageOptions {
   webSearch?: boolean;
   thinking?: boolean;
   skipUserMessage?: boolean;
-  executionStrategyOverride?: AsterExecutionStrategy;
+  executionStrategyOverride?: AgentExecutionStrategy;
   modelOverride?: string;
   autoContinue?: AutoContinueRequestPayload;
   systemPrompt?: string;
@@ -38,6 +36,19 @@ export async function sendAgentStreamMessage(
     options: sendOptions,
     env,
   } = options;
+
+  const currentSessionId = env.sessionIdRef.current?.trim() || "";
+  const hasCurrentSession = Boolean(currentSessionId);
+  const targetSessionId = sendOptions?.targetSessionId?.trim();
+  const shouldBindTargetSession =
+    Boolean(targetSessionId) && targetSessionId !== currentSessionId;
+  if (!skipUserMessage && (!hasCurrentSession || shouldBindTargetSession)) {
+    await env.ensureSession({
+      targetSessionId: targetSessionId || undefined,
+      skipSessionRestore: sendOptions?.skipSessionRestore === true,
+      skipSessionStartHooks: sendOptions?.skipSessionStartHooks === true,
+    });
+  }
 
   const preparedSend = prepareAgentStreamUserInputSend({
     content,

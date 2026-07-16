@@ -13,7 +13,8 @@ import React, {
   useCallback,
 } from "react";
 import { createPortal } from "react-dom";
-import type { Character } from "@/lib/api/memory";
+import { useTranslation } from "react-i18next";
+import type { Character } from "@/lib/api/projectMemory";
 import type { Skill } from "@/lib/api/skills";
 import {
   listServiceSkills,
@@ -33,8 +34,8 @@ import type {
 } from "@/components/agent/chat/service-skills/types";
 import { toast } from "sonner";
 import {
-  filterCodexSlashCommands,
-  type CodexSlashCommandDefinition,
+  filterSlashCommands,
+  type SlashCommandDefinition,
 } from "../commands";
 import {
   filterBuiltinCommands,
@@ -50,6 +51,12 @@ import {
   LazyCharacterMentionPanel,
   preloadCharacterMentionPanel,
 } from "./characterMentionPanelLoader";
+import {
+  isCompleteInputbarPluginTriggerQuery,
+  type InputbarPluginSelectionOptions,
+  type InputbarPluginCapability,
+  type InputbarPluginSkillCapability,
+} from "../components/Inputbar/pluginInputCapability";
 import type { InputCapabilityDescriptor } from "./inputCapabilitySections";
 import {
   recordSlashEntryUsage,
@@ -107,6 +114,18 @@ interface CharacterMentionProps {
       launcherPrefillHint?: string;
     },
   ) => void;
+  /** 选择 Plugin 插件回调 */
+  onSelectPlugin?: (
+    plugin: InputbarPluginCapability,
+    skill?: InputbarPluginSkillCapability,
+    options?: InputbarPluginSelectionOptions,
+  ) => void;
+  /** Plugin 插件候选 */
+  pluginSuggestions?: readonly InputbarPluginCapability[];
+  /** 需要加载技能候选时触发 */
+  onSkillSuggestionsNeeded?: () => void;
+  /** 需要加载 Plugin 插件候选时触发 */
+  onPluginSuggestionsNeeded?: () => void;
   projectId?: string | null;
   sessionId?: string | null;
   /** 当前默认带入的灵感引用 */
@@ -248,6 +267,10 @@ export function CharacterMention({
   onSelectCharacter,
   onSelectInputCapability,
   onSelectCuratedTask,
+  onSelectPlugin,
+  pluginSuggestions = [],
+  onSkillSuggestionsNeeded,
+  onPluginSuggestionsNeeded,
   projectId,
   sessionId,
   defaultCuratedTaskReferenceMemoryIds = [],
@@ -255,6 +278,7 @@ export function CharacterMention({
   onNavigateToSettings,
   inputCompletionEnabled = true,
 }: CharacterMentionProps) {
+  const { t } = useTranslation("agent");
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [triggerMode, setTriggerMode] = useState<TriggerMode>("mention");
@@ -269,6 +293,7 @@ export function CharacterMention({
   });
   const commandRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const activeTriggerRef = useRef<ActiveTrigger | null>(null);
   const [
     curatedTaskRecommendationSignalsVersion,
     setCuratedTaskRecommendationSignalsVersion,
@@ -286,6 +311,13 @@ export function CharacterMention({
     void preloadCharacterMentionPanel();
   });
 
+  useEffect(() => {
+    if (showMentions) {
+      onSkillSuggestionsNeeded?.();
+      onPluginSuggestionsNeeded?.();
+    }
+  }, [onPluginSuggestionsNeeded, onSkillSuggestionsNeeded, showMentions]);
+
   const filteredBuiltinCommands = useMemo(
     () => filterBuiltinCommands(mentionQuery, runtimeBuiltinCommands),
     [mentionQuery, runtimeBuiltinCommands],
@@ -295,7 +327,7 @@ export function CharacterMention({
     [mentionQuery, serviceSkills],
   );
   const filteredSlashCommands = useMemo(
-    () => filterCodexSlashCommands(mentionQuery),
+    () => filterSlashCommands(mentionQuery),
     [mentionQuery],
   );
   const filteredRuntimeSceneCommands = useMemo(
@@ -334,10 +366,25 @@ export function CharacterMention({
     const cursorPos = textarea.selectionStart ?? textarea.value.length;
     const activeTrigger = resolveActiveTrigger(textarea.value, cursorPos);
     if (!activeTrigger) {
+      activeTriggerRef.current = null;
       setShowMentions(false);
       return;
     }
 
+    if (
+      activeTrigger.mode === "mention" &&
+      isCompleteInputbarPluginTriggerQuery({
+        query: activeTrigger.query,
+        plugins: pluginSuggestions,
+      })
+    ) {
+      activeTriggerRef.current = null;
+      setMentionQuery("");
+      setShowMentions(false);
+      return;
+    }
+
+    activeTriggerRef.current = activeTrigger;
     setMentionQuery(activeTrigger.query);
     setTriggerMode(activeTrigger.mode);
     setShowMentions(true);
@@ -367,7 +414,7 @@ export function CharacterMention({
         120,
       ),
     });
-  }, [inputCompletionEnabled, inputRef]);
+  }, [inputCompletionEnabled, inputRef, pluginSuggestions]);
 
   useEffect(() => {
     if (!inputCompletionEnabled) {
@@ -733,8 +780,57 @@ export function CharacterMention({
     }, 0);
   };
 
+  const handleSelectPlugin = (
+    plugin: InputbarPluginCapability,
+    skill?: InputbarPluginSkillCapability,
+  ) => {
+    const textarea = inputRef.current;
+    if (!textarea) return;
+
+    const currentValue = textarea.value || value;
+    const fallbackCursorPos = textarea.selectionStart ?? currentValue.length;
+    const fallbackTrigger = resolveActiveTrigger(
+      currentValue,
+      fallbackCursorPos,
+    );
+    const activeTrigger =
+      activeTriggerRef.current?.mode === "mention"
+        ? activeTriggerRef.current
+        : fallbackTrigger;
+    if (!activeTrigger || activeTrigger.mode !== "mention") {
+      return;
+    }
+
+    const mentionEnd =
+      activeTrigger.triggerIndex + activeTrigger.query.length + 1;
+    const textAfterCursor = currentValue.slice(mentionEnd);
+    const nextSelection = mergeTriggerSelectionText({
+      leadingText: currentValue.slice(0, activeTrigger.triggerIndex),
+      insertedText: "",
+      trailingText: textAfterCursor,
+    });
+    const normalizedValue =
+      nextSelection.value.trimEnd() === "" ? "" : nextSelection.value;
+
+    onChange(normalizedValue);
+    setShowMentions(false);
+    onSelectPlugin?.(plugin, skill, {
+      inputOverride: normalizedValue,
+      preserveInputOverride: true,
+    });
+
+    setTimeout(() => {
+      textarea.focus();
+      const newCursorPos = Math.min(
+        nextSelection.cursorPos,
+        normalizedValue.length,
+      );
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
+
   const handleSelectSlashCommand = (
-    command: CodexSlashCommandDefinition,
+    command: SlashCommandDefinition,
     options?: { replayText?: string },
   ) => {
     const textarea = inputRef.current;
@@ -961,6 +1057,9 @@ export function CharacterMention({
         return;
       case "service_skill":
         handleSelectServiceSkill(item.skill);
+        return;
+      case "plugin":
+        handleSelectPlugin(item.plugin, item.skill);
         return;
       case "slash_command":
         handleSelectSlashCommand(item.command, {
@@ -1201,7 +1300,7 @@ export function CharacterMention({
             <Suspense
               fallback={
                 <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                  加载中...
+                  {t("agentChat.characterMention.loading", "加载中...")}
                 </div>
               }
             >
@@ -1212,6 +1311,7 @@ export function CharacterMention({
                 slashCommands={filteredSlashCommands}
                 sceneCommands={filteredRuntimeSceneCommands}
                 mentionServiceSkills={filteredServiceSkills}
+                pluginSuggestions={pluginSuggestions}
                 serviceSkillGroups={serviceSkillGroups}
                 filteredCharacters={filteredCharacters}
                 installedSkills={installedSkills}

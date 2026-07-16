@@ -5,10 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getMediaTaskArtifact,
   listMediaTaskArtifacts,
-  type ListMediaTaskArtifactsOutput,
-  type MediaTaskArtifactOutput,
 } from "@/lib/api/mediaTasks";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import type {
+  ListMediaTaskArtifactsOutput,
+  MediaTaskArtifactOutput,
+} from "@/lib/api/agentRuntime/mediaTaskTypes";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { safeListen } from "@/lib/dev-bridge";
 import type { Message } from "../types";
 import { useWorkspaceAudioTaskPreviewRuntime } from "./useWorkspaceAudioTaskPreviewRuntime";
@@ -39,8 +41,8 @@ function buildRunningAudioMessage(): Message {
       prompt: "请生成温暖旁白",
       title: "配音生成任务",
       status: "running",
-      artifactPath: ".ember/runtime/audio-generate/task-audio-1.md",
-      taskFilePath: ".ember/tasks/audio_generate/task-audio-1.json",
+      artifactPath: ".lime/runtime/audio-generate/task-audio-1.md",
+      taskFilePath: ".lime/tasks/audio_generate/task-audio-1.json",
       sourceText: "请生成温暖旁白",
       voice: "warm_narrator",
       audioUrl: null,
@@ -59,11 +61,11 @@ function buildCompletedAudioArtifact(): MediaTaskArtifactOutput {
     status: "succeeded",
     normalized_status: "succeeded",
     current_attempt_id: "attempt-1",
-    path: ".ember/tasks/audio_generate/task-audio-1.json",
-    absolute_path: "/workspace/.ember/tasks/audio_generate/task-audio-1.json",
-    artifact_path: ".ember/tasks/audio_generate/task-audio-1.json",
+    path: ".lime/tasks/audio_generate/task-audio-1.json",
+    absolute_path: "/workspace/.lime/tasks/audio_generate/task-audio-1.json",
+    artifact_path: ".lime/tasks/audio_generate/task-audio-1.json",
     absolute_artifact_path:
-      "/workspace/.ember/tasks/audio_generate/task-audio-1.json",
+      "/workspace/.lime/tasks/audio_generate/task-audio-1.json",
     reused_existing: false,
     record: {
       task_id: "task-audio-1",
@@ -72,21 +74,21 @@ function buildCompletedAudioArtifact(): MediaTaskArtifactOutput {
       payload: {
         source_text: "请生成温暖旁白",
         voice: "warm_narrator",
-        provider_id: "embercore",
+        provider_id: "limecore",
         model: "voice-pro",
         modality_contract_key: "voice_generation",
-        audio_path: ".ember/runtime/audio/task-audio-1.mp3",
+        audio_path: ".lime/runtime/audio/task-audio-1.mp3",
         mime_type: "audio/mpeg",
         duration_ms: 1800,
         audio_output: {
           kind: "audio_output",
           status: "completed",
-          audio_path: ".ember/runtime/audio/task-audio-1.mp3",
+          audio_path: ".lime/runtime/audio/task-audio-1.mp3",
           mime_type: "audio/mpeg",
           duration_ms: 1800,
           source_text: "请生成温暖旁白",
           voice: "warm_narrator",
-          provider_id: "embercore",
+          provider_id: "limecore",
           model: "voice-pro",
         },
       },
@@ -96,11 +98,11 @@ function buildCompletedAudioArtifact(): MediaTaskArtifactOutput {
       result: {
         kind: "audio_generation_result",
         status: "completed",
-        audio_path: ".ember/runtime/audio/task-audio-1.mp3",
+        audio_path: ".lime/runtime/audio/task-audio-1.mp3",
         audio_output: {
           kind: "audio_output",
           status: "completed",
-          audio_path: ".ember/runtime/audio/task-audio-1.mp3",
+          audio_path: ".lime/runtime/audio/task-audio-1.mp3",
           mime_type: "audio/mpeg",
           duration_ms: 1800,
         },
@@ -118,11 +120,11 @@ function buildFailedAudioArtifact(): MediaTaskArtifactOutput {
     status: "failed",
     normalized_status: "failed",
     current_attempt_id: "attempt-1",
-    path: ".ember/tasks/audio_generate/task-audio-1.json",
-    absolute_path: "/workspace/.ember/tasks/audio_generate/task-audio-1.json",
-    artifact_path: ".ember/tasks/audio_generate/task-audio-1.json",
+    path: ".lime/tasks/audio_generate/task-audio-1.json",
+    absolute_path: "/workspace/.lime/tasks/audio_generate/task-audio-1.json",
+    artifact_path: ".lime/tasks/audio_generate/task-audio-1.json",
     absolute_artifact_path:
-      "/workspace/.ember/tasks/audio_generate/task-audio-1.json",
+      "/workspace/.lime/tasks/audio_generate/task-audio-1.json",
     reused_existing: false,
     record: {
       task_id: "task-audio-1",
@@ -172,7 +174,7 @@ function buildEmptyAudioTaskIndex(): ListMediaTaskArtifactsOutput {
   return {
     success: true,
     workspace_root: "/workspace",
-    artifact_root: "/workspace/.ember/tasks",
+    artifact_root: "/workspace/.lime/tasks",
     filters: {
       task_family: "audio",
       task_type: "audio_generate",
@@ -185,10 +187,10 @@ function buildEmptyAudioTaskIndex(): ListMediaTaskArtifactsOutput {
       contract_keys: [],
       execution_profile_keys: [],
       executor_adapter_keys: [],
-      embercore_policy_refs: [],
-      embercore_policy_snapshot_count: 0,
-      embercore_policy_snapshot_statuses: [],
-      embercore_policy_decisions: [],
+      limecore_policy_refs: [],
+      limecore_policy_snapshot_count: 0,
+      limecore_policy_snapshot_statuses: [],
+      limecore_policy_decisions: [],
       blocked_count: 0,
       routing_outcomes: [],
       model_registry_assessment_count: 0,
@@ -212,17 +214,17 @@ function buildCompletedAudioTaskIndex(): ListMediaTaskArtifactsOutput {
       snapshot_count: 1,
       contract_keys: ["voice_generation"],
       execution_profile_keys: ["voice_generation_profile"],
-      executor_adapter_keys: ["service_skill:voice_runtime"],
-      embercore_policy_refs: [
+      executor_adapter_keys: [],
+      limecore_policy_refs: [
         "client_scenes",
         "tenant_feature_flags",
         "provider_offer",
       ],
-      embercore_policy_snapshot_count: 1,
-      embercore_policy_snapshot_statuses: [
+      limecore_policy_snapshot_count: 1,
+      limecore_policy_snapshot_statuses: [
         { status: "local_defaults_evaluated", count: 1 },
       ],
-      embercore_policy_decisions: ["allow"],
+      limecore_policy_decisions: ["allow"],
       blocked_count: 0,
       routing_outcomes: [{ outcome: "accepted", count: 1 }],
       model_registry_assessment_count: 0,
@@ -239,22 +241,22 @@ function buildCompletedAudioTaskIndex(): ListMediaTaskArtifactsOutput {
           normalized_status: "succeeded",
           contract_key: "voice_generation",
           routing_slot: "voice_generation_model",
-          provider_id: "embercore",
+          provider_id: "limecore",
           model: "voice-pro",
           execution_profile_key: "voice_generation_profile",
-          executor_adapter_key: "service_skill:voice_runtime",
-          embercore_policy_refs: [
+          executor_adapter_key: null,
+          limecore_policy_refs: [
             "client_scenes",
             "tenant_feature_flags",
             "provider_offer",
           ],
-          embercore_policy_snapshot_status: "local_defaults_evaluated",
-          embercore_policy_decision: "allow",
+          limecore_policy_snapshot_status: "local_defaults_evaluated",
+          limecore_policy_decision: "allow",
           routing_event: "task_created",
           routing_outcome: "accepted",
           failure_code: null,
           audio_output_status: "completed",
-          audio_output_path: ".ember/runtime/audio/task-audio-1.mp3",
+          audio_output_path: ".lime/runtime/audio/task-audio-1.mp3",
           audio_output_mime_type: "audio/mpeg",
           audio_output_duration_ms: 1800,
           audio_output_error_code: null,
@@ -274,27 +276,27 @@ function buildCompletedAudioTaskIndexWithPolicyInputGap(): ListMediaTaskArtifact
   ];
   output.modality_runtime_contracts = {
     ...output.modality_runtime_contracts,
-    embercore_policy_evaluation_statuses: [{ status: "input_gap", count: 1 }],
-    embercore_policy_evaluation_decisions: ["ask"],
-    embercore_policy_evaluation_decision_sources: ["policy_input_evaluator"],
-    embercore_policy_evaluation_blocking_refs: [],
-    embercore_policy_evaluation_ask_refs: pendingRefs,
-    embercore_policy_evaluation_pending_refs: pendingRefs,
-    embercore_policy_missing_inputs: pendingRefs,
-    embercore_policy_pending_hit_refs: pendingRefs,
+    limecore_policy_evaluation_statuses: [{ status: "input_gap", count: 1 }],
+    limecore_policy_evaluation_decisions: ["ask"],
+    limecore_policy_evaluation_decision_sources: ["policy_input_evaluator"],
+    limecore_policy_evaluation_blocking_refs: [],
+    limecore_policy_evaluation_ask_refs: pendingRefs,
+    limecore_policy_evaluation_pending_refs: pendingRefs,
+    limecore_policy_missing_inputs: pendingRefs,
+    limecore_policy_pending_hit_refs: pendingRefs,
     snapshots: output.modality_runtime_contracts.snapshots.map((snapshot) => ({
       ...snapshot,
-      embercore_policy_evaluation_status: "input_gap",
-      embercore_policy_evaluation_decision: "ask",
-      embercore_policy_evaluation_decision_source: "policy_input_evaluator",
-      embercore_policy_evaluation_decision_scope: "pending_policy_inputs",
-      embercore_policy_evaluation_decision_reason:
+      limecore_policy_evaluation_status: "input_gap",
+      limecore_policy_evaluation_decision: "ask",
+      limecore_policy_evaluation_decision_source: "policy_input_evaluator",
+      limecore_policy_evaluation_decision_scope: "pending_policy_inputs",
+      limecore_policy_evaluation_decision_reason:
         "declared_policy_refs_missing_inputs",
-      embercore_policy_evaluation_blocking_refs: [],
-      embercore_policy_evaluation_ask_refs: pendingRefs,
-      embercore_policy_evaluation_pending_refs: pendingRefs,
-      embercore_policy_missing_inputs: pendingRefs,
-      embercore_policy_pending_hit_refs: pendingRefs,
+      limecore_policy_evaluation_blocking_refs: [],
+      limecore_policy_evaluation_ask_refs: pendingRefs,
+      limecore_policy_evaluation_pending_refs: pendingRefs,
+      limecore_policy_missing_inputs: pendingRefs,
+      limecore_policy_pending_hit_refs: pendingRefs,
     })),
   };
   return output;
@@ -308,17 +310,17 @@ function buildFailedAudioTaskIndex(): ListMediaTaskArtifactsOutput {
       snapshot_count: 1,
       contract_keys: ["voice_generation"],
       execution_profile_keys: ["voice_generation_profile"],
-      executor_adapter_keys: ["service_skill:voice_runtime"],
-      embercore_policy_refs: [
+      executor_adapter_keys: [],
+      limecore_policy_refs: [
         "client_scenes",
         "tenant_feature_flags",
         "provider_offer",
       ],
-      embercore_policy_snapshot_count: 1,
-      embercore_policy_snapshot_statuses: [
+      limecore_policy_snapshot_count: 1,
+      limecore_policy_snapshot_statuses: [
         { status: "local_defaults_evaluated", count: 1 },
       ],
-      embercore_policy_decisions: ["allow"],
+      limecore_policy_decisions: ["allow"],
       blocked_count: 0,
       routing_outcomes: [{ outcome: "failed", count: 1 }],
       model_registry_assessment_count: 0,
@@ -338,14 +340,14 @@ function buildFailedAudioTaskIndex(): ListMediaTaskArtifactsOutput {
           provider_id: "missing-provider",
           model: "voice-pro",
           execution_profile_key: "voice_generation_profile",
-          executor_adapter_key: "service_skill:voice_runtime",
-          embercore_policy_refs: [
+          executor_adapter_key: null,
+          limecore_policy_refs: [
             "client_scenes",
             "tenant_feature_flags",
             "provider_offer",
           ],
-          embercore_policy_snapshot_status: "local_defaults_evaluated",
-          embercore_policy_decision: "allow",
+          limecore_policy_snapshot_status: "local_defaults_evaluated",
+          limecore_policy_decision: "allow",
           routing_event: "task_created",
           routing_outcome: "failed",
           failure_code: "audio_provider_unconfigured",
@@ -398,7 +400,7 @@ function renderHook(props?: Partial<HookProps>) {
 }
 
 beforeEach(async () => {
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   (
     globalThis as typeof globalThis & {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -428,6 +430,30 @@ afterEach(() => {
 });
 
 describe("useWorkspaceAudioTaskPreviewRuntime", () => {
+  it("普通文本对话没有配音任务时不应启动音频任务旁路", async () => {
+    const setIntervalSpy = vi.spyOn(window, "setInterval");
+    const { render } = renderHook({
+      messages: [
+        {
+          id: "assistant-news-1",
+          role: "assistant",
+          content: "今天国际新闻主要集中在能源、气候和地区安全。",
+          timestamp: new Date("2026-04-30T00:00:00.000Z"),
+        },
+      ],
+    });
+
+    await render();
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(listMediaTaskArtifacts).not.toHaveBeenCalled();
+    expect(getMediaTaskArtifact).not.toHaveBeenCalled();
+    expect(safeListen).not.toHaveBeenCalled();
+    expect(setIntervalSpy).not.toHaveBeenCalled();
+  });
+
   it("应优先从统一媒体任务索引恢复 audio_output 完成态而不读取隐藏 task JSON", async () => {
     vi.mocked(listMediaTaskArtifacts).mockResolvedValueOnce(
       buildCompletedAudioTaskIndex(),
@@ -449,10 +475,10 @@ describe("useWorkspaceAudioTaskPreviewRuntime", () => {
       expect(getMessages()[0]?.taskPreview).toMatchObject({
         kind: "audio_generate",
         status: "complete",
-        audioUrl: ".ember/runtime/audio/task-audio-1.mp3",
+        audioUrl: ".lime/runtime/audio/task-audio-1.mp3",
         mimeType: "audio/mpeg",
         durationMs: 1800,
-        providerId: "embercore",
+        providerId: "limecore",
         model: "voice-pro",
         statusMessage:
           "音频结果已同步，工作区已从 audio_output 读取可播放结果。",
@@ -461,7 +487,7 @@ describe("useWorkspaceAudioTaskPreviewRuntime", () => {
     expect(getMediaTaskArtifact).not.toHaveBeenCalled();
   });
 
-  it("应从统一媒体任务索引把 EmberCore policy input gap 恢复到任务卡 meta", async () => {
+  it("应从统一媒体任务索引把 LimeCore policy input gap 恢复到任务卡 meta", async () => {
     vi.mocked(listMediaTaskArtifacts).mockResolvedValueOnce(
       buildCompletedAudioTaskIndexWithPolicyInputGap(),
     );
@@ -473,7 +499,7 @@ describe("useWorkspaceAudioTaskPreviewRuntime", () => {
       expect(getMessages()[0]?.taskPreview).toMatchObject({
         kind: "audio_generate",
         status: "complete",
-        metaItems: expect.arrayContaining(["EmberCore 策略输入待命中: 3"]),
+        metaItems: expect.arrayContaining(["LimeCore 策略输入待命中: 3"]),
       });
     });
     expect(getMediaTaskArtifact).not.toHaveBeenCalled();
@@ -486,7 +512,7 @@ describe("useWorkspaceAudioTaskPreviewRuntime", () => {
     const runningWithStaleAudioPath = buildRunningAudioMessage();
     if (runningWithStaleAudioPath.taskPreview?.kind === "audio_generate") {
       runningWithStaleAudioPath.taskPreview.audioUrl =
-        ".ember/runtime/audio/stale.mp3";
+        ".lime/runtime/audio/stale.mp3";
     }
     const { render, getMessages } = renderHook({
       messages: [runningWithStaleAudioPath],
@@ -521,17 +547,17 @@ describe("useWorkspaceAudioTaskPreviewRuntime", () => {
     await vi.waitFor(() => {
       expect(getMediaTaskArtifact).toHaveBeenCalledWith({
         projectRootPath: "/workspace",
-        taskRef: ".ember/tasks/audio_generate/task-audio-1.json",
+        taskRef: ".lime/tasks/audio_generate/task-audio-1.json",
       });
     });
     await vi.waitFor(() => {
       expect(getMessages()[0]?.taskPreview).toMatchObject({
         kind: "audio_generate",
         status: "complete",
-        audioUrl: ".ember/runtime/audio/task-audio-1.mp3",
+        audioUrl: ".lime/runtime/audio/task-audio-1.mp3",
         mimeType: "audio/mpeg",
         durationMs: 1800,
-        providerId: "embercore",
+        providerId: "limecore",
         model: "voice-pro",
         statusMessage:
           "音频结果已同步，工作区已从 audio_output 读取可播放结果。",
@@ -543,11 +569,11 @@ describe("useWorkspaceAudioTaskPreviewRuntime", () => {
       meta: {
         taskId: "task-audio-1",
         taskType: "audio_generate",
-        audioUrl: ".ember/runtime/audio/task-audio-1.mp3",
+        audioUrl: ".lime/runtime/audio/task-audio-1.mp3",
         artifactDocument: {
           status: "ready",
           metadata: {
-            audioUrl: ".ember/runtime/audio/task-audio-1.mp3",
+            audioUrl: ".lime/runtime/audio/task-audio-1.mp3",
           },
         },
       },

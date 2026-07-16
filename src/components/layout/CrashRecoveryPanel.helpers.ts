@@ -8,11 +8,11 @@ const REACT_FAST_REFRESH_HOOK_FAILURE_PATTERNS = [
   "Rendered more hooks than during the previous render.",
   "React has detected a change in the order of Hooks called by",
 ] as const;
-const RESOURCE_RELOAD_PARAM = "__ember_resource_reload";
+const RESOURCE_RELOAD_PARAM = "__lime_resource_reload";
 const MODULE_IMPORT_AUTO_RELOAD_SESSION_KEY =
-  "ember_module_import_auto_reload_v1";
+  "lime_module_import_auto_reload_v1";
 const REACT_FAST_REFRESH_HOOK_AUTO_RELOAD_SESSION_KEY =
-  "ember_react_fast_refresh_hook_auto_reload_v1";
+  "lime_react_fast_refresh_hook_auto_reload_v1";
 
 interface SessionStorageLike {
   getItem(key: string): string | null;

@@ -14,42 +14,20 @@ import {
   type HarnessOemRoutingRequestMetadata,
   type HarnessTenantFeatureFlagsRequestMetadata,
 } from "../utils/harnessRequestMetadata";
+import type { WorkspaceSkillRuntimeEnableInput } from "../utils/workspaceSkillBindingsMetadata";
 import {
   hasGenerationBriefMetadata,
   mergeGenerationBriefIntoArtifactMetadata,
   mergeRequestMetadataWithArtifact,
   mergeSoulArtifactVoiceDiagnostics,
 } from "../utils/artifactGenerationBriefMetadata";
-import type { AsterExecutionStrategy } from "@/lib/api/agentRuntime";
-import type { AssistantDraftState } from "../hooks/agentChatShared";
+import type { AgentRuntimeWorkspaceSkillBinding } from "@/lib/api/agentRuntime/toolInventoryTypes";
 import type { HandleSendOptions } from "../hooks/handleSendTypes";
 import type { InputCapabilitySendRoute } from "../skill-selection/inputCapabilitySelection";
 import type { ChatToolPreferences } from "../utils/chatToolPreferences";
-import type {
-  AgentRuntimeStatus,
-  BrowserTaskRequirement,
-  Message,
-  MessageImage,
-} from "../types";
-import type { Character } from "@/lib/api/memory";
-import {
-  buildTeamMemoryShadowRequestMetadata,
-  type TeamMemoryShadowRequestMetadata,
-  type TeamMemorySnapshot,
-} from "@/lib/teamMemorySync";
+import type { BrowserTaskRequirement, Message, MessageImage } from "../types";
+import type { Character } from "@/lib/api/projectMemory";
 import type { ThemeType } from "@/lib/workspace/workbenchContract";
-import type {
-  TeamDefinition,
-  TeamDefinitionSource,
-  TeamRoleDefinition,
-} from "../utils/teamDefinitions";
-import type { UseRuntimeTeamFormationResult } from "../hooks/useRuntimeTeamFormation";
-import type { TeamWorkspaceRuntimeFormationState } from "../teamWorkspaceRuntime";
-import {
-  buildWaitingAgentRuntimeStatus,
-  formatAgentRuntimeStatusSummary,
-} from "../utils/agentRuntimeStatus";
-import { normalizeTeamWorkspaceDisplayValue } from "../utils/teamWorkspaceDisplay";
 import { resolveOemCloudRuntimeContext } from "@/lib/api/oemCloudRuntime";
 import type {
   OemCloudBootstrapResponse,
@@ -68,22 +46,6 @@ const OEM_CLOUD_FEATURE_FLAG_KEYS = [
   "referralEnabled",
   "gatewayEnabled",
 ] as const satisfies readonly (keyof OemCloudFeatureFlags)[];
-
-type PreparedRuntimeTeamState = NonNullable<
-  Awaited<
-    ReturnType<UseRuntimeTeamFormationResult["prepareRuntimeTeamBeforeSend"]>
-  >
->;
-
-export interface RuntimeTeamDispatchPreviewSnapshot {
-  key: string;
-  prompt: string;
-  images: MessageImage[];
-  baseMessageCount: number;
-  status: "forming" | "formed" | "failed";
-  formationState?: TeamWorkspaceRuntimeFormationState | null;
-  failureMessage?: string | null;
-}
 
 export interface InitialDispatchPreviewSnapshot {
   key: string;
@@ -119,7 +81,6 @@ export interface SubmissionPreviewSnapshot {
   inputCapabilityRoute?: InputCapabilitySendRoute;
   images: MessageImage[];
   createdAt: number;
-  runtimeStatus: NonNullable<Message["runtimeStatus"]>;
 }
 
 export interface ContextWorkspaceSummary {
@@ -144,7 +105,6 @@ interface BuildGeneralWorkbenchSendBoundaryStateOptions {
   consumedInitialPromptKey: string | null;
   initialUserImages?: MessageImage[];
   mappedTheme: string;
-  socialArticleSkillKey: string;
   sourceText: string;
   sendOptions?: HandleSendOptions;
 }
@@ -274,104 +234,6 @@ function omitLegacyAccessModeFromHarnessMetadata(
   delete nextMetadata.access_mode;
   delete nextMetadata.accessMode;
   return nextMetadata;
-}
-
-function readExistingTeamSource(
-  metadata: Record<string, unknown> | undefined,
-): TeamDefinitionSource | undefined {
-  const source = readMetadataText(metadata, "selected_team_source");
-  if (source === "builtin" || source === "custom" || source === "ephemeral") {
-    return source;
-  }
-  return undefined;
-}
-
-function readExistingTeamRoles(
-  metadata: Record<string, unknown> | undefined,
-): TeamRoleDefinition[] | undefined {
-  const rawRoles = metadata?.selected_team_roles;
-  if (!Array.isArray(rawRoles) || rawRoles.length === 0) {
-    return undefined;
-  }
-
-  const roles = rawRoles
-    .map((item, index): TeamRoleDefinition | null => {
-      const record = asRecord(item);
-      if (!record) {
-        return null;
-      }
-
-      const label = readMetadataText(record, "label");
-      const summary = readMetadataText(record, "summary");
-      if (!label || !summary) {
-        return null;
-      }
-
-      const skillIds = Array.isArray(record.skill_ids)
-        ? record.skill_ids.filter(
-            (skillId): skillId is string =>
-              typeof skillId === "string" && skillId.trim().length > 0,
-          )
-        : [];
-
-      return {
-        id: readMetadataText(record, "id") || `base-role-${index + 1}`,
-        label,
-        summary,
-        profileId: readMetadataText(record, "profile_id"),
-        roleKey: readMetadataText(record, "role_key"),
-        skillIds,
-      };
-    })
-    .filter((role): role is TeamRoleDefinition => role !== null);
-
-  return roles.length > 0 ? roles : undefined;
-}
-
-function readExistingTeamMemoryShadow(
-  metadata: Record<string, unknown> | undefined,
-): TeamMemoryShadowRequestMetadata | undefined {
-  const rawShadow =
-    asRecord(metadata?.team_memory_shadow) ??
-    asRecord(metadata?.teamMemoryShadow);
-  const repoScope =
-    readMetadataText(rawShadow, "repo_scope") ||
-    readMetadataText(rawShadow, "repoScope");
-  const rawEntries = Array.isArray(rawShadow?.entries) ? rawShadow.entries : [];
-  const entries = rawEntries
-    .map((item) => {
-      const record = asRecord(item);
-      const key = readMetadataText(record, "key");
-      const content = readMetadataText(record, "content");
-      const updatedAt = record?.updated_at ?? record?.updatedAt;
-      if (
-        !key ||
-        !content ||
-        typeof updatedAt !== "number" ||
-        !Number.isFinite(updatedAt)
-      ) {
-        return null;
-      }
-
-      return {
-        key,
-        content,
-        updated_at: updatedAt,
-      };
-    })
-    .filter(
-      (entry): entry is TeamMemoryShadowRequestMetadata["entries"][number] =>
-        entry !== null,
-    );
-
-  if (!repoScope || entries.length === 0) {
-    return undefined;
-  }
-
-  return {
-    repo_scope: repoScope,
-    entries,
-  };
 }
 
 function readExistingOemRouting(
@@ -559,7 +421,6 @@ export function buildGeneralWorkbenchSendBoundaryState({
   consumedInitialPromptKey,
   initialUserImages,
   mappedTheme,
-  socialArticleSkillKey,
   sourceText,
   sendOptions,
 }: BuildGeneralWorkbenchSendBoundaryStateOptions): GeneralWorkbenchSendBoundaryState {
@@ -573,28 +434,13 @@ export function buildGeneralWorkbenchSendBoundaryState({
   const shouldDismissGeneralWorkbenchEntryPrompt =
     isThemeWorkbench && !sendOptions?.purpose;
 
-  const trimmedSourceText = sourceText.trim();
-  const shouldWrapWithGeneralWorkbenchSkill =
-    isThemeWorkbench &&
-    mappedTheme === "general" &&
-    !sendOptions?.purpose &&
-    trimmedSourceText.length > 0 &&
-    !trimmedSourceText.startsWith("/") &&
-    !trimmedSourceText.startsWith("@");
-  const nextSourceText = shouldWrapWithGeneralWorkbenchSkill
-    ? `/${socialArticleSkillKey} ${trimmedSourceText}`
-    : sourceText;
-  const browserRequirementSourceText = shouldWrapWithGeneralWorkbenchSkill
-    ? trimmedSourceText
-    : nextSourceText;
-
   const browserRequirementMatch =
     mappedTheme === "general" && !sendOptions?.purpose
-      ? detectBrowserTaskRequirement(browserRequirementSourceText)
+      ? detectBrowserTaskRequirement(sourceText)
       : null;
 
   return {
-    sourceText: nextSourceText,
+    sourceText,
     browserRequirementMatch,
     shouldConsumePendingGeneralWorkbenchInitialPrompt,
     shouldDismissGeneralWorkbenchEntryPrompt,
@@ -647,16 +493,13 @@ interface BuildWorkspaceRequestMetadataOptions {
   } | null;
   browserAssistProfileKey?: string | null;
   browserAssistPreferredBackend?:
-    | "aster_compat"
-    | "ember_extension_bridge"
+    | "current"
+    | "lime_extension_bridge"
     | "cdp_direct"
     | null;
   browserAssistAutoLaunch?: boolean | null;
-  preferredTeamPresetId?: string | null;
-  selectedTeam?: TeamDefinition | null;
-  selectedTeamLabel?: string;
-  selectedTeamSummary?: string;
-  teamMemoryShadowSnapshot?: TeamMemorySnapshot | null;
+  workspaceSkillBindings?: AgentRuntimeWorkspaceSkillBinding[] | null;
+  workspaceSkillRuntimeEnable?: WorkspaceSkillRuntimeEnableInput | null;
   agentResponseLanguage?: string | null;
 }
 
@@ -782,6 +625,47 @@ export function hasServiceSkillLaunchRequestMetadata(
   return typeof skillId === "string" && skillId.trim().length > 0;
 }
 
+export function serviceSkillLaunchRequiresProject(
+  requestMetadata?: Record<string, unknown>,
+): boolean {
+  const harness = extractExistingHarnessMetadata(requestMetadata);
+  if (!harness) {
+    return false;
+  }
+
+  const siteLaunch =
+    asRecord(harness.service_skill_launch) ??
+    asRecord(harness.serviceSkillLaunch);
+  if (siteLaunch) {
+    const projectId = siteLaunch.project_id ?? siteLaunch.projectId;
+    return typeof projectId !== "string" || projectId.trim().length === 0;
+  }
+
+  const sceneLaunch =
+    asRecord(harness.service_scene_launch) ??
+    asRecord(harness.serviceSceneLaunch);
+  const serviceSceneRun =
+    asRecord(sceneLaunch?.service_scene_run) ??
+    asRecord(sceneLaunch?.serviceSceneRun) ??
+    asRecord(sceneLaunch?.request_context) ??
+    asRecord(sceneLaunch?.requestContext);
+  if (!serviceSceneRun) {
+    return false;
+  }
+
+  const hasSkill =
+    typeof serviceSceneRun.skill_id === "string" ||
+    typeof serviceSceneRun.skillId === "string" ||
+    typeof serviceSceneRun.linked_skill_id === "string" ||
+    typeof serviceSceneRun.linkedSkillId === "string";
+  if (!hasSkill) {
+    return false;
+  }
+
+  const projectId = serviceSceneRun.project_id ?? serviceSceneRun.projectId;
+  return typeof projectId !== "string" || projectId.trim().length === 0;
+}
+
 export function hasModelSkillLaunchRequestMetadata(
   requestMetadata?: Record<string, unknown>,
 ): boolean {
@@ -791,8 +675,8 @@ export function hasModelSkillLaunchRequestMetadata(
   }
 
   const launchKeys = [
-    "image_skill_launch",
-    "imageSkillLaunch",
+    "image_command_intent",
+    "imageCommandIntent",
     "cover_skill_launch",
     "coverSkillLaunch",
     "video_skill_launch",
@@ -901,11 +785,8 @@ export function buildWorkspaceRequestMetadata(
     browserAssistProfileKey,
     browserAssistPreferredBackend,
     browserAssistAutoLaunch,
-    preferredTeamPresetId,
-    selectedTeam,
-    selectedTeamLabel,
-    selectedTeamSummary,
-    teamMemoryShadowSnapshot,
+    workspaceSkillBindings,
+    workspaceSkillRuntimeEnable,
     agentResponseLanguage,
   } = options;
 
@@ -915,30 +796,6 @@ export function buildWorkspaceRequestMetadata(
       ...(sendOptions?.requestMetadata || {}),
     }),
   );
-  const resolvedPreferredTeamPresetId =
-    preferredTeamPresetId ||
-    readMetadataText(existingHarnessMetadata, "preferred_team_preset_id");
-  const resolvedSelectedTeamId =
-    selectedTeam?.id ||
-    readMetadataText(existingHarnessMetadata, "selected_team_id");
-  const resolvedSelectedTeamSource =
-    selectedTeam?.source || readExistingTeamSource(existingHarnessMetadata);
-  const resolvedSelectedTeamLabel =
-    selectedTeamLabel ||
-    readMetadataText(existingHarnessMetadata, "selected_team_label");
-  const resolvedSelectedTeamDescription =
-    selectedTeam?.description ||
-    readMetadataText(existingHarnessMetadata, "selected_team_description");
-  const resolvedSelectedTeamSummary =
-    selectedTeamSummary ||
-    readMetadataText(existingHarnessMetadata, "selected_team_summary");
-  const resolvedSelectedTeamRoles =
-    (selectedTeam?.roles && selectedTeam.roles.length > 0
-      ? selectedTeam.roles
-      : undefined) || readExistingTeamRoles(existingHarnessMetadata);
-  const resolvedTeamMemoryShadow =
-    buildTeamMemoryShadowRequestMetadata(teamMemoryShadowSnapshot) ||
-    readExistingTeamMemoryShadow(existingHarnessMetadata);
   const resolvedBrowserRequirement =
     browserRequirementMatch?.requirement ||
     readExistingBrowserRequirement(existingHarnessMetadata);
@@ -979,14 +836,8 @@ export function buildWorkspaceRequestMetadata(
         : undefined,
     browserAssistPreferredBackend,
     browserAssistAutoLaunch,
-    preferredTeamPresetId: resolvedPreferredTeamPresetId,
-    selectedTeamId: resolvedSelectedTeamId,
-    selectedTeamSource: resolvedSelectedTeamSource,
-    selectedTeamLabel: resolvedSelectedTeamLabel,
-    selectedTeamDescription: resolvedSelectedTeamDescription,
-    selectedTeamSummary: resolvedSelectedTeamSummary,
-    selectedTeamRoles: resolvedSelectedTeamRoles,
-    teamMemoryShadow: resolvedTeamMemoryShadow,
+    workspaceSkillBindings,
+    workspaceSkillRuntimeEnable,
     agentResponseLanguage,
     oemRouting: oemRoutingMatchesCurrentProvider
       ? resolvedOemRouting
@@ -1031,246 +882,10 @@ export function buildWorkspaceRequestMetadata(
   };
 }
 
-export function buildRuntimeTeamDispatchPreview(
-  preparedRuntimeTeamState: PreparedRuntimeTeamState,
-  sourceText: string,
-  images: MessageImage[],
-  messagesCount: number,
-): RuntimeTeamDispatchPreviewSnapshot {
-  return {
-    key: preparedRuntimeTeamState.requestId,
-    prompt: sourceText,
-    images,
-    baseMessageCount: messagesCount,
-    status: preparedRuntimeTeamState.status,
-    formationState: preparedRuntimeTeamState,
-    failureMessage: preparedRuntimeTeamState.errorMessage?.trim() || null,
-  };
-}
-
-export function resolveRuntimeTeamDispatchPreviewState(
-  snapshot: RuntimeTeamDispatchPreviewSnapshot | null | undefined,
-): TeamWorkspaceRuntimeFormationState | null {
-  const formationState = snapshot?.formationState ?? null;
-  if (!snapshot || !formationState) {
-    return null;
-  }
-
-  const normalizedFailureMessage = snapshot.failureMessage?.trim() || null;
-  if (
-    snapshot.status === formationState.status &&
-    !(snapshot.status === "failed" && normalizedFailureMessage)
-  ) {
-    return formationState;
-  }
-
-  return {
-    ...formationState,
-    status: snapshot.status,
-    errorMessage:
-      snapshot.status === "failed"
-        ? normalizedFailureMessage ||
-          formationState.errorMessage?.trim() ||
-          null
-        : null,
-  };
-}
-
-function buildRuntimeTeamMemberPlanLines(
-  state: TeamWorkspaceRuntimeFormationState,
-): string[] {
-  const members = state.members.slice(0, 3);
-  const lines = members.map((member, index) => {
-    const label =
-      normalizeTeamWorkspaceDisplayValue(member.label) || `任务 ${index + 1}`;
-    const summary =
-      normalizeTeamWorkspaceDisplayValue(member.summary) ||
-      "负责推进当前任务中的一部分工作。";
-    return `${index + 1}. ${label}：${summary}`;
-  });
-
-  if (state.members.length > members.length) {
-    lines.push(
-      `另外还有 ${state.members.length - members.length} 项任务会继续接手处理。`,
-    );
-  }
-
-  return lines;
-}
-
-function buildRuntimeTeamAssistantDraft(
-  state: TeamWorkspaceRuntimeFormationState | null | undefined,
-): AssistantDraftState | undefined {
-  if (!state || state.status !== "formed") {
-    return undefined;
-  }
-
-  const teamLabel =
-    normalizeTeamWorkspaceDisplayValue(state.label || state.blueprint?.label) ||
-    "当前 Subagents profile";
-  const summary =
-    normalizeTeamWorkspaceDisplayValue(
-      state.summary || state.blueprint?.summary,
-    ) || "";
-  const planLines = buildRuntimeTeamMemberPlanLines(state);
-  const contentSections = [
-    `我已经为这项任务准备了「${teamLabel}」。`,
-    summary ? `会先按“${summary}”来推进。` : null,
-    planLines.length > 0 ? `Subagents 如下：\n${planLines.join("\n")}` : null,
-    "接下来这些任务会分别展开处理，再把关键进展、风险和需要你确认的事项汇总给你。",
-  ].filter(Boolean);
-
-  const initialRuntimeStatus: AgentRuntimeStatus = {
-    phase: "routing",
-    title: "Subagents 已准备好",
-    detail:
-      summary ||
-      "已整理好当前任务的 Subagents，接下来会分别展开处理并同步结果。",
-    checkpoints: [
-      `当前 Subagents profile：${teamLabel}`,
-      `已安排 ${Math.max(state.members.length, 1)} 项任务`,
-      "主对话会持续同步关键进展",
-    ],
-  };
-
-  const waitingRuntimeStatus: AgentRuntimeStatus = {
-    phase: "routing",
-    title: "任务开始接手",
-    detail:
-      summary ||
-      "Subagents 已经确认，这些任务会按各自职责继续处理并回传关键结果。",
-    checkpoints: [
-      `当前 Subagents profile：${teamLabel}`,
-      planLines[0] || "这些任务会分别接手自己的部分",
-      "主对话会持续同步关键进展",
-    ],
-  };
-
-  return {
-    content: contentSections.join("\n\n"),
-    initialRuntimeStatus,
-    waitingRuntimeStatus,
-  };
-}
-
-export function buildRuntimeTeamDispatchPreviewMessages(
-  snapshot: RuntimeTeamDispatchPreviewSnapshot,
-): Message[] {
-  const normalizedPrompt = snapshot.prompt.trim();
-  const timestamp = new Date();
-  const formedAssistantDraft =
-    snapshot.status === "formed"
-      ? buildRuntimeTeamAssistantDraft(snapshot.formationState)
-      : undefined;
-  const formedTeamLabel =
-    normalizeTeamWorkspaceDisplayValue(
-      snapshot.formationState?.label ||
-        snapshot.formationState?.blueprint?.label,
-    ) || "当前 Subagents profile";
-  const formedSummary =
-    normalizeTeamWorkspaceDisplayValue(
-      snapshot.formationState?.summary ||
-        snapshot.formationState?.blueprint?.summary,
-    ) || "";
-  const assistantRuntimeStatus =
-    snapshot.status === "failed"
-      ? {
-          phase: "failed" as const,
-          title: "Subagents 准备失败",
-          detail:
-            normalizeTeamWorkspaceDisplayValue(snapshot.failureMessage) ||
-            "这次 Subagents 准备失败，已回退到普通对话发送。",
-        }
-      : snapshot.status === "formed"
-        ? formedAssistantDraft?.initialRuntimeStatus || {
-            phase: "routing" as const,
-            title: "Subagents 已准备好",
-            detail:
-              formedSummary ||
-              "已整理好当前任务的 Subagents，接下来会分别展开处理并同步结果。",
-            checkpoints: [
-              `当前 Subagents profile：${formedTeamLabel}`,
-              "这些任务会按 Subagents 安排开始接手",
-              "主对话会持续同步关键进展",
-            ],
-          }
-        : {
-            phase: "routing" as const,
-            title: "正在准备 Subagents",
-            detail:
-              "系统正在根据当前任务准备 Subagents，会先拆出合适的任务，再把关键进展持续汇总回主对话。",
-            checkpoints: [
-              "确认当前任务目标",
-              "准备 Subagents",
-              "等待任务接手处理",
-            ],
-          };
-
-  return [
-    {
-      id: `runtime-team-dispatch:${snapshot.key}:user`,
-      role: "user",
-      content: normalizedPrompt,
-      images: snapshot.images.length > 0 ? snapshot.images : undefined,
-      timestamp,
-    },
-    {
-      id: `runtime-team-dispatch:${snapshot.key}:assistant`,
-      role: "assistant",
-      content:
-        snapshot.status === "failed"
-          ? "这次 Subagents 准备失败，已回退到普通执行。"
-          : snapshot.status === "formed"
-            ? formedAssistantDraft?.content ||
-              `我已经为这项任务准备了「${formedTeamLabel}」。\n\n接下来这些任务会分别展开处理，再把关键进展和结果汇总给你。`
-            : "我会先准备 Subagents，再把关键进展和结果汇总给你。",
-      timestamp: new Date(timestamp.getTime() + 1),
-      isThinking: snapshot.status === "forming",
-      runtimeStatus: assistantRuntimeStatus,
-    },
-  ];
-}
-
-export function buildInitialDispatchPreviewMessages(
-  snapshot: InitialDispatchPreviewSnapshot,
-  assistantPreviewText?: string,
-): Message[] {
-  const normalizedPrompt = (snapshot.prompt || "").trim();
-  const normalizedImages = snapshot.images || [];
-
-  if (!normalizedPrompt && normalizedImages.length === 0) {
-    return [];
-  }
-
-  const timestamp = new Date();
-  const normalizedAssistantPreviewText =
-    assistantPreviewText?.trim() || "正在开始处理任务…";
-  const isAssistantThinking =
-    normalizedAssistantPreviewText === "正在开始处理任务…";
-
-  return [
-    {
-      id: `initial-dispatch:${snapshot.key}:user`,
-      role: "user",
-      content: normalizedPrompt,
-      images: normalizedImages.length > 0 ? normalizedImages : undefined,
-      timestamp,
-    },
-    {
-      id: `initial-dispatch:${snapshot.key}:assistant`,
-      role: "assistant",
-      content: normalizedAssistantPreviewText,
-      timestamp: new Date(timestamp.getTime() + 1),
-      isThinking: isAssistantThinking,
-    },
-  ];
-}
-
 interface CreateSubmissionPreviewSnapshotOptions {
   key: string;
   prompt: string;
   images: MessageImage[];
-  executionStrategy: AsterExecutionStrategy;
   displayContent?: string;
   inputCapabilityRoute?: InputCapabilitySendRoute;
 }
@@ -1278,14 +893,7 @@ interface CreateSubmissionPreviewSnapshotOptions {
 export function createSubmissionPreviewSnapshot(
   options: CreateSubmissionPreviewSnapshotOptions,
 ): SubmissionPreviewSnapshot {
-  const {
-    key,
-    prompt,
-    images,
-    executionStrategy,
-    displayContent,
-    inputCapabilityRoute,
-  } = options;
+  const { key, prompt, images, displayContent, inputCapabilityRoute } = options;
 
   return {
     key,
@@ -1294,9 +902,6 @@ export function createSubmissionPreviewSnapshot(
     inputCapabilityRoute,
     images,
     createdAt: Date.now(),
-    runtimeStatus: buildWaitingAgentRuntimeStatus({
-      executionStrategy,
-    }),
   };
 }
 
@@ -1317,10 +922,47 @@ export function buildSubmissionPreviewMessages(
     {
       id: `submission-preview:${snapshot.key}:assistant`,
       role: "assistant",
-      content: formatAgentRuntimeStatusSummary(snapshot.runtimeStatus),
+      content: "",
       timestamp: new Date(timestamp.getTime() + 1),
       isThinking: true,
-      runtimeStatus: snapshot.runtimeStatus,
+      contentParts: [],
+      runtimeStatus: {
+        phase: "preparing",
+        title: "正在准备回复",
+        detail: "已收到请求，正在准备会话和执行环境。",
+        checkpoints: ["请求已接收", "等待会话就绪", "准备开始输出"],
+      },
+    },
+  ];
+}
+
+export function buildInitialDispatchPreviewMessages(
+  snapshot: InitialDispatchPreviewSnapshot,
+): Message[] {
+  const timestamp = new Date();
+  const normalizedPrompt = snapshot.prompt?.trim() || "";
+
+  return [
+    {
+      id: `initial-dispatch-preview:${snapshot.key}:user`,
+      role: "user",
+      content: normalizedPrompt,
+      images: snapshot.images.length > 0 ? snapshot.images : undefined,
+      timestamp,
+    },
+    {
+      id: `initial-dispatch-preview:${snapshot.key}:assistant`,
+      role: "assistant",
+      content: "任务已进入处理队列…",
+      timestamp: new Date(timestamp.getTime() + 1),
+      isThinking: true,
+      contentParts: [],
+      runtimeStatus: {
+        phase: "preparing",
+        title: "正在准备回复",
+        detail: "已收到请求，正在等待会话接管。",
+        checkpoints: ["请求已接收", "等待会话就绪", "准备开始输出"],
+      },
     },
   ];
 }

@@ -13,7 +13,7 @@ const tempDirs: string[] = [];
 
 function createTempDir(): string {
   const dir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ember-i18n-app-metadata-locale-"),
+    path.join(os.tmpdir(), "lime-i18n-app-metadata-locale-"),
   );
   tempDirs.push(dir);
   return dir;
@@ -28,14 +28,14 @@ function writeFile(root: string, relativePath: string, content: string): void {
 function writeScope(root: string, items: unknown[]): void {
   writeFile(
     root,
-    "docs/roadmap/i18n/app-metadata-translation-scope.json",
+    "internal/roadmap/i18n/app-metadata-translation-scope.json",
     JSON.stringify(
       {
         generatedMetadataAllowed: false,
         items,
         manifestGenerationAllowed: true,
         owner: "release",
-        schemaVersion: "ember.i18n.appMetadataTranslationScope.v1",
+        schemaVersion: "lime.i18n.appMetadataTranslationScope.v1",
         sourceLocale: "zh-CN",
         targetLocales: ["en-US"],
         workflowStatus: "ready",
@@ -48,14 +48,14 @@ function writeScope(root: string, items: unknown[]): void {
 
 function forgeConfigFixture(): string {
   return [
-    'const PRODUCT_NAME = "Ember";',
+    'const PRODUCT_NAME = "Lime";',
     'const APP_ID = "com.embercloud.ember";',
     "",
     "export default {",
     "  packagerConfig: {",
     "    protocols: [",
     "      {",
-    '        schemes: ["ember"],',
+    '        schemes: ["lime"],',
     "      },",
     "    ],",
     "  },",
@@ -79,7 +79,7 @@ describe("i18n app metadata locale build manifest", () => {
       JSON.stringify(
         {
           description: "AI content workspace for Chinese creators.",
-          keywords: ["ai", "ember"],
+          keywords: ["ai", "lime"],
         },
         null,
         2,
@@ -119,7 +119,7 @@ describe("i18n app metadata locale build manifest", () => {
     const manifest = buildAppMetadataLocaleBuildManifest({ repoRoot: root });
 
     expect(manifest.schemaVersion).toBe(
-      "ember.i18n.appMetadataLocaleBuildManifest.v1",
+      "lime.i18n.appMetadataLocaleBuildManifest.v1",
     );
     expect(manifest.summary).toEqual({
       blockedEntryCount: 0,
@@ -217,7 +217,7 @@ describe("i18n app metadata locale build manifest", () => {
     expect(writeSpy).not.toHaveBeenCalled();
     expect(JSON.parse(fs.readFileSync(outFile, "utf8"))).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.appMetadataLocaleBuildManifest.v1",
+        schemaVersion: "lime.i18n.appMetadataLocaleBuildManifest.v1",
         summary: expect.objectContaining({
           workflowStatus: "ready",
         }),

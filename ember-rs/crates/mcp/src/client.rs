@@ -1,22 +1,31 @@
 //! MCP 客户端实现
 //!
 //! 实现 rmcp 的 ClientHandler trait，处理通知和回调。
-//! 使用 DynEmitter 替代 Tauri AppHandle 进行事件发射。
+//! 使用 DynEmitter 进行事件发射，与具体桌面宿主解耦。
 
 #![allow(dead_code)]
 
-use ember_core::DynEmitter;
+use crate::active_time::ElicitationPauseState;
+use crate::elicitation::{
+    ElicitationOwnerGate, ElicitationOwnerGuard, ElicitationRequestRouter, ElicitationRouterError,
+};
+use crate::events::{McpResourceUpdatedPayload, McpResourcesUpdatedPayload};
+use crate::McpRuntimeOwner;
+use lime_core::DynEmitter;
 use rmcp::{
     model::{
-        ClientCapabilities, ClientInfo, Implementation, LoggingMessageNotification,
-        LoggingMessageNotificationMethod, LoggingMessageNotificationParam, ProgressNotification,
-        ProgressNotificationMethod, ProgressNotificationParam, ProtocolVersion, ServerNotification,
+        ClientCapabilities, ClientInfo, CreateElicitationRequestParam, ElicitationCapability,
+        Implementation, LoggingMessageNotification, LoggingMessageNotificationMethod,
+        LoggingMessageNotificationParam, ProgressNotification, ProgressNotificationMethod,
+        ProgressNotificationParam, ProtocolVersion, ResourceUpdatedNotificationParam,
+        ServerNotification,
     },
     service::NotificationContext,
     ClientHandler, RoleClient,
 };
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
+use tool_runtime::mcp_connection::McpCallScope;
 use tracing::{debug, info, warn};
 
 /// 进度通知事件 Payload
@@ -38,20 +47,105 @@ pub struct McpLogMessagePayload {
     pub data: serde_json::Value,
 }
 
-/// Ember MCP 客户端处理器
+/// Lime MCP 客户端处理器
 pub struct LimeMcpClient {
     emitter: Option<DynEmitter>,
     server_name: String,
     notification_handlers: Arc<Mutex<Vec<mpsc::Sender<ServerNotification>>>>,
+    elicitation_router: Option<ElicitationRequestRouter>,
+    runtime_owner: Option<McpRuntimeOwner>,
+    elicitation_pause_state: ElicitationPauseState,
+    elicitation_owner: ElicitationOwnerGate,
 }
 
 impl LimeMcpClient {
     pub fn new(server_name: String, emitter: Option<DynEmitter>) -> Self {
+        Self::from_parts(server_name, emitter, None, None)
+    }
+
+    pub fn with_elicitation_router(
+        server_name: String,
+        emitter: Option<DynEmitter>,
+        elicitation_router: ElicitationRequestRouter,
+    ) -> Self {
+        Self::from_parts(server_name, emitter, Some(elicitation_router), None)
+    }
+
+    pub fn with_runtime_elicitation_router(
+        server_name: String,
+        emitter: Option<DynEmitter>,
+        elicitation_router: ElicitationRequestRouter,
+        runtime_owner: McpRuntimeOwner,
+    ) -> Self {
+        Self::from_parts(
+            server_name,
+            emitter,
+            Some(elicitation_router),
+            Some(runtime_owner),
+        )
+    }
+
+    fn from_parts(
+        server_name: String,
+        emitter: Option<DynEmitter>,
+        elicitation_router: Option<ElicitationRequestRouter>,
+        runtime_owner: Option<McpRuntimeOwner>,
+    ) -> Self {
         Self {
             emitter,
             server_name,
             notification_handlers: Arc::new(Mutex::new(Vec::new())),
+            elicitation_router,
+            runtime_owner,
+            elicitation_pause_state: ElicitationPauseState::new(),
+            elicitation_owner: ElicitationOwnerGate::default(),
         }
+    }
+
+    pub(crate) async fn handle_form_elicitation(
+        &self,
+        request: CreateElicitationRequestParam,
+        scope: McpCallScope,
+        meta: Option<serde_json::Value>,
+        cancellation: tokio_util::sync::CancellationToken,
+    ) -> Result<crate::elicitation::ElicitationResponse, ElicitationRouterError> {
+        let router = self
+            .elicitation_router
+            .as_ref()
+            .ok_or(ElicitationRouterError::NoRequestRouter)?;
+        let runtime_owner = self
+            .runtime_owner
+            .as_ref()
+            .ok_or(ElicitationRouterError::NoRequestRouter)?;
+        let _pause = self.elicitation_pause_state.enter();
+        router
+            .request(
+                self.server_name.clone(),
+                runtime_owner.clone(),
+                scope.turn_id().map(ToOwned::to_owned),
+                request,
+                meta,
+                cancellation,
+            )
+            .await
+    }
+
+    pub(crate) async fn enter_elicitation_owner(
+        &self,
+        scope: Option<McpCallScope>,
+    ) -> ElicitationOwnerGuard {
+        self.elicitation_owner.enter(scope).await
+    }
+
+    pub(crate) fn resolve_elicitation_request_meta(
+        &self,
+        meta: rmcp::model::Meta,
+    ) -> (Option<McpCallScope>, Option<serde_json::Value>) {
+        self.elicitation_owner.resolve_request_meta(meta)
+    }
+
+    pub(crate) fn elicitation_pause_state(&self) -> ElicitationPauseState {
+        self.elicitation_pause_state.clone()
     }
 
     pub fn notification_handlers(&self) -> Arc<Mutex<Vec<mpsc::Sender<ServerNotification>>>> {
@@ -83,15 +177,25 @@ impl LimeMcpClient {
 
 impl ClientHandler for LimeMcpClient {
     fn get_info(&self) -> ClientInfo {
+        let supports_runtime_elicitation =
+            self.elicitation_router.is_some() && self.runtime_owner.is_some();
+        let mut capabilities = ClientCapabilities::default();
+        if supports_runtime_elicitation {
+            capabilities.elicitation = Some(ElicitationCapability::default());
+        }
         ClientInfo {
-            protocol_version: ProtocolVersion::V_2025_03_26,
-            capabilities: ClientCapabilities::builder().enable_sampling().build(),
+            protocol_version: if supports_runtime_elicitation {
+                ProtocolVersion::V_2025_06_18
+            } else {
+                ProtocolVersion::V_2025_03_26
+            },
+            capabilities,
             client_info: Implementation {
-                name: "ember".to_string(),
+                name: "lime".to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 icons: None,
-                title: Some("Ember MCP Client".to_string()),
-                website_url: Some("https://github.com/aitoearn/ember_pc".to_string()),
+                title: Some("Lime MCP Client".to_string()),
+                website_url: Some("https://github.com/aiclientproxy/lime".to_string()),
             },
         }
     }
@@ -174,6 +278,62 @@ impl ClientHandler for LimeMcpClient {
             let _ = handler.try_send(notification.clone());
         }
     }
+
+    async fn on_resource_updated(
+        &self,
+        params: ResourceUpdatedNotificationParam,
+        context: NotificationContext<RoleClient>,
+    ) {
+        debug!(
+            server_name = %self.server_name,
+            uri = %params.uri,
+            "收到 MCP 资源更新通知"
+        );
+
+        self.emit_event(
+            "mcp:resource_updated",
+            &McpResourceUpdatedPayload {
+                server_name: self.server_name.clone(),
+                uri: params.uri.clone(),
+            },
+        );
+
+        let notification = ServerNotification::ResourceUpdatedNotification(
+            rmcp::model::ResourceUpdatedNotification {
+                params: params.clone(),
+                method: rmcp::model::ResourceUpdatedNotificationMethod,
+                extensions: context.extensions.clone(),
+            },
+        );
+
+        let handlers = self.notification_handlers.lock().await;
+        for handler in handlers.iter() {
+            let _ = handler.try_send(notification.clone());
+        }
+    }
+
+    async fn on_resource_list_changed(&self, context: NotificationContext<RoleClient>) {
+        debug!(server_name = %self.server_name, "收到 MCP 资源列表更新通知");
+
+        self.emit_event(
+            "mcp:resources_updated",
+            &McpResourcesUpdatedPayload {
+                server_name: self.server_name.clone(),
+            },
+        );
+
+        let notification = ServerNotification::ResourceListChangedNotification(
+            rmcp::model::ResourceListChangedNotification {
+                method: rmcp::model::ResourceListChangedNotificationMethod,
+                extensions: context.extensions.clone(),
+            },
+        );
+
+        let handlers = self.notification_handlers.lock().await;
+        for handler in handlers.iter() {
+            let _ = handler.try_send(notification.clone());
+        }
+    }
 }
 
 /// MCP 客户端包装器
@@ -182,31 +342,29 @@ pub struct McpClientWrapper {
     pub config: super::types::McpServerConfig,
     pub process: Option<tokio::process::Child>,
     pub server_info: Option<super::types::McpServerCapabilities>,
-    pub client_handler: Arc<LimeMcpClient>,
-    pub running_service:
-        Option<Arc<rmcp::service::RunningService<rmcp::RoleClient, LimeMcpClient>>>,
+    pub running_service: Option<
+        Arc<
+            rmcp::service::RunningService<
+                rmcp::RoleClient,
+                crate::client_service::LimeMcpClientService,
+            >,
+        >,
+    >,
 }
 
 impl McpClientWrapper {
     pub fn new(
         server_name: String,
         config: super::types::McpServerConfig,
-        emitter: Option<DynEmitter>,
+        _emitter: Option<DynEmitter>,
     ) -> Self {
-        let client_handler = Arc::new(LimeMcpClient::new(server_name.clone(), emitter));
-
         Self {
             server_name,
             config,
             process: None,
             server_info: None,
-            client_handler,
             running_service: None,
         }
-    }
-
-    pub fn handler(&self) -> Arc<LimeMcpClient> {
-        self.client_handler.clone()
     }
 
     pub fn set_process(&mut self, process: tokio::process::Child) {
@@ -219,20 +377,37 @@ impl McpClientWrapper {
 
     pub fn set_running_service(
         &mut self,
-        service: rmcp::service::RunningService<rmcp::RoleClient, LimeMcpClient>,
+        service: rmcp::service::RunningService<
+            rmcp::RoleClient,
+            crate::client_service::LimeMcpClientService,
+        >,
     ) {
         self.running_service = Some(Arc::new(service));
     }
 
     pub fn running_service(
         &self,
-    ) -> Option<&Arc<rmcp::service::RunningService<rmcp::RoleClient, LimeMcpClient>>> {
+    ) -> Option<
+        &Arc<
+            rmcp::service::RunningService<
+                rmcp::RoleClient,
+                crate::client_service::LimeMcpClientService,
+            >,
+        >,
+    > {
         self.running_service.as_ref()
     }
 
     pub fn running_service_arc(
         &self,
-    ) -> Option<Arc<rmcp::service::RunningService<rmcp::RoleClient, LimeMcpClient>>> {
+    ) -> Option<
+        Arc<
+            rmcp::service::RunningService<
+                rmcp::RoleClient,
+                crate::client_service::LimeMcpClientService,
+            >,
+        >,
+    > {
         self.running_service.clone()
     }
 
@@ -250,30 +425,126 @@ impl McpClientWrapper {
 mod tests {
     use super::*;
 
+    #[tokio::test]
+    async fn active_time_real_handler_pauses_for_the_full_router_wait() {
+        let router = ElicitationRequestRouter::default();
+        let mut requests = router.subscribe().expect("request consumer");
+        let client = Arc::new(LimeMcpClient::with_runtime_elicitation_router(
+            "pause-server".to_string(),
+            None,
+            router.clone(),
+            McpRuntimeOwner {
+                session_id: "session-1".to_string(),
+                thread_id: "thread-1".to_string(),
+            },
+        ));
+        let mut paused = client.elicitation_pause_state().subscribe();
+        let request_client = Arc::clone(&client);
+
+        let waiter = tokio::spawn(async move {
+            request_client
+                .handle_form_elicitation(
+                    CreateElicitationRequestParam {
+                        message: "Confirm".to_string(),
+                        requested_schema: rmcp::model::ElicitationSchema::builder()
+                            .build()
+                            .expect("empty object schema"),
+                    },
+                    tool_runtime::mcp_connection::McpCallScope::new(Some("turn-1"))
+                        .expect("turn correlation"),
+                    None,
+                    tokio_util::sync::CancellationToken::new(),
+                )
+                .await
+        });
+
+        let request = requests.recv().await.expect("routed elicitation");
+        paused.changed().await.expect("pause state remains open");
+        assert!(*paused.borrow_and_update());
+
+        router
+            .resolve(&request.id, crate::elicitation::ElicitationResponse::Cancel)
+            .await
+            .expect("resolve exact waiter");
+        waiter
+            .await
+            .expect("handler task")
+            .expect("router response");
+        paused.changed().await.expect("pause state remains open");
+        assert!(!*paused.borrow_and_update());
+    }
+
     #[test]
-    fn test_client_info() {
+    fn test_management_client_info_does_not_advertise_unimplemented_capabilities() {
         let client = LimeMcpClient::new("test-server".to_string(), None);
         let info = client.get_info();
 
-        assert_eq!(info.client_info.name, "ember");
-        assert_eq!(info.client_info.title, Some("Ember MCP Client".to_string()));
+        assert_eq!(info.client_info.name, "lime");
+        assert_eq!(info.client_info.title, Some("Lime MCP Client".to_string()));
         assert_eq!(info.protocol_version, ProtocolVersion::V_2025_03_26);
+        assert!(info.capabilities.sampling.is_none());
+        assert!(info.capabilities.elicitation.is_none());
+    }
+
+    #[test]
+    fn test_runtime_client_info_advertises_form_elicitation() {
+        let client = LimeMcpClient::with_runtime_elicitation_router(
+            "test-server".to_string(),
+            None,
+            ElicitationRequestRouter::default(),
+            McpRuntimeOwner {
+                session_id: "session-1".to_string(),
+                thread_id: "thread-1".to_string(),
+            },
+        );
+        let info = client.get_info();
+
+        assert_eq!(info.protocol_version, ProtocolVersion::V_2025_06_18);
+        assert_eq!(
+            serde_json::to_value(&info.capabilities).expect("serialize client capabilities"),
+            serde_json::json!({ "elicitation": {} })
+        );
+        assert!(info.capabilities.sampling.is_none());
+    }
+
+    #[test]
+    fn test_management_router_without_runtime_owner_does_not_advertise_elicitation() {
+        let client = LimeMcpClient::with_elicitation_router(
+            "test-server".to_string(),
+            None,
+            ElicitationRequestRouter::default(),
+        );
+
+        let info = client.get_info();
+        assert_eq!(info.protocol_version, ProtocolVersion::V_2025_03_26);
+        assert!(info.capabilities.elicitation.is_none());
     }
 
     #[test]
     fn test_client_wrapper_creation() {
         let config = super::super::types::McpServerConfig {
-            command: "test-command".to_string(),
-            args: vec!["--arg1".to_string()],
-            env: std::collections::HashMap::new(),
-            cwd: None,
-            timeout: 30,
+            transport: super::super::types::McpServerTransport::Stdio {
+                command: "test-command".to_string(),
+                args: vec!["--arg1".to_string()],
+                env: std::collections::HashMap::new(),
+                cwd: None,
+            },
+            enabled: true,
+            startup_timeout: 30,
+            tool_timeout: None,
+            enabled_tools: None,
+            disabled_tools: Vec::new(),
+            required: false,
+            supports_parallel_tool_calls: false,
+            scopes: None,
+            oauth: None,
+            oauth_resource: None,
         };
 
         let wrapper = McpClientWrapper::new("test-server".to_string(), config, None);
 
         assert_eq!(wrapper.server_name, "test-server");
-        assert_eq!(wrapper.config.command, "test-command");
+        assert_eq!(wrapper.config.command(), "test-command");
         assert!(wrapper.process.is_none());
         assert!(wrapper.server_info.is_none());
     }

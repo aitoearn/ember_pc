@@ -6,12 +6,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/aitoearn/ember_pc.git",
+    "url": "git+https://github.com/limecloud/lime.git",
     "directory": "packages/agent-runtime-client"
   },
-  "homepage": "https://github.com/aitoearn/ember_pc/tree/main/packages/agent-runtime-client#readme",
+  "homepage": "https://github.com/limecloud/lime/tree/main/packages/agent-runtime-client#readme",
   "bugs": {
-    "url": "https://github.com/aitoearn/ember_pc/issues"
+    "url": "https://github.com/limecloud/lime/issues"
   },
   "publishConfig": {
     "access": "public"
@@ -39,10 +39,11 @@
     "build": "tsc --project tsconfig.json",
     "prepack": "npm run build",
     "typecheck": "tsc --noEmit --project tsconfig.json",
-    "test": "npm run build && node --test tests/*.test.mjs"
+    "test": "npm --prefix ../app-server-client run build && npm --prefix ../agent-ui-contracts run build && npm run build && node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@embercloud/app-server-client": "1.0.0"
+    "@embercloud/agent-ui-contracts": "0.1.0",
+    "@embercloud/app-server-client": "1.71.0"
   },
   "sideEffects": false
 }

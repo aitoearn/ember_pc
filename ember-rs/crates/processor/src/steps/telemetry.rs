@@ -4,8 +4,8 @@
 
 use super::traits::{PipelineStep, StepError};
 use async_trait::async_trait;
-use ember_core::processor::RequestContext;
-use ember_infra::{
+use lime_core::processor::RequestContext;
+use lime_infra::{
     RequestLog, RequestStatus, StatsAggregator, TokenSource, TokenTracker, TokenUsageRecord,
 };
 use parking_lot::RwLock;
@@ -152,7 +152,7 @@ impl PipelineStep for TelemetryStep {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ember_core::ProviderType;
+    use lime_core::ProviderType;
 
     #[test]
     fn test_telemetry_step_record_request() {

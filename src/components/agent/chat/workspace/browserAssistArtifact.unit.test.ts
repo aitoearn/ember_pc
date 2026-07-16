@@ -74,7 +74,7 @@ describe("mergeMessageArtifactsIntoStore", () => {
       title: "需求草稿",
       content: "# 新内容",
       meta: {
-        filePath: "docs/prd.md",
+        filePath: "internal/prd.md",
       },
       createdAt: 3,
       updatedAt: 4,
@@ -93,5 +93,27 @@ describe("mergeMessageArtifactsIntoStore", () => {
         GENERAL_BROWSER_ASSIST_ARTIFACT_ID,
       ]),
     );
+  });
+
+  it("previewArtifact 应在消息重算时继续保留", () => {
+    const previewArtifact = createArtifact({
+      id: "preview-session-file-1",
+      type: "document",
+      title: "attachment-1",
+      content: "data:image/png;base64,aGVsbG8=",
+      meta: {
+        previewArtifact: true,
+        persistOutsideMessages: false,
+        source: "session_file",
+      },
+    });
+
+    const result = mergeMessageArtifactsIntoStore(
+      [],
+      [previewArtifact],
+      null,
+    );
+
+    expect(result).toEqual([previewArtifact]);
   });
 });

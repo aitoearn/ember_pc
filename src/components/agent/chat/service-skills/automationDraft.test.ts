@@ -36,10 +36,10 @@ const SCHEDULED_SKILL: ServiceSkillItem = {
       isStandard: true,
     },
     metadata: {
-      Ember_base_setup_package_id: "automation-pack",
-      Ember_base_setup_package_version: "0.4.0",
-      Ember_projection_id: "daily-trend-briefing",
-      Ember_automation_profile_ref: "trend-automation",
+      Lime_base_setup_package_id: "automation-pack",
+      Lime_base_setup_package_version: "0.4.0",
+      Lime_projection_id: "daily-trend-briefing",
+      Lime_automation_profile_ref: "trend-automation",
     },
   },
   slotSchema: [
@@ -80,7 +80,7 @@ function createBaseSetupPackage(): BaseSetupPackage {
       {
         id: "bundle-1",
         source: "remote",
-        pathOrUri: "ember://bundle-1",
+        pathOrUri: "lime://bundle-1",
         kind: "skill_bundle",
       },
     ],
@@ -191,7 +191,7 @@ describe("service skill automation draft", () => {
       syncedAt: "2026-04-15T12:00:00.000Z",
     });
     window.localStorage.setItem(
-      "ember:base-setup-package:v1",
+      "lime:base-setup-package:v1",
       JSON.stringify(snapshot),
     );
   });

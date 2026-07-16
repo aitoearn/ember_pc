@@ -25,7 +25,7 @@ const QCLOOP_OWNER_PATTERNS = [
   "qcloop-worker",
   "qcloop_worker_result",
   "agent qc p0",
-  "只读执行 ember agent qc p0",
+  "只读执行 lime agent qc p0",
 ];
 
 const OBSERVER_PROCESS_PATTERNS = [
@@ -45,7 +45,7 @@ const ACTIVE_QCLOOP_WORKER_PATTERNS = [
   "qcloop-worker",
   "qcloop_worker_result",
   "agent qc p0",
-  "只读执行 ember agent qc p0",
+  "只读执行 lime agent qc p0",
 ];
 
 const PASSIVE_ELECTRON_RUNTIME_PATTERNS = [
@@ -55,8 +55,8 @@ const PASSIVE_ELECTRON_RUNTIME_PATTERNS = [
   "node_modules/.bin/electron .",
   "node_modules/electron/dist/electron .",
   "node_modules/electron/dist/electron.app/",
-  ".ember/electron-dev-host/ember.app/",
-  ".ember/electron-dev-host/ember-dev.app/",
+  ".lime/electron-dev-host/lime.app/",
+  ".lime/electron-dev-host/lime-dev.app/",
 ];
 
 function parseEtimeSeconds(value) {
@@ -241,7 +241,7 @@ function createAgentQcProcessOwnerReport(
             "kill / pause / interrupt stale raw GUI owner",
             "start full verify:local",
             "start another full GUI P0 batch",
-            "overwrite .ember/qc/agent-qc-evidence.json",
+            "overwrite .lime/qc/agent-qc-evidence.json",
             "git commit / push / tag / release",
           ],
           nextAction: "等待这些进程自然释放，或由 owner 明确确认后再处理。",

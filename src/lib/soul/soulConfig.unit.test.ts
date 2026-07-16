@@ -15,6 +15,7 @@ describe("soulConfig", () => {
     const result = normalizeSoulConfig({
       enabled: true,
       summary: "  直接、少客套  ",
+      style_profile_id: "warm_supportive_companion",
       communication_style: ["先给结论", "先给结论", "  "],
       avoid: ["不要空泛鼓励", "不要空泛鼓励"],
     });
@@ -22,10 +23,29 @@ describe("soulConfig", () => {
     expect(result).toMatchObject({
       enabled: true,
       summary: "直接、少客套",
+      style_profile_id: "warm_supportive_companion",
       communication_style: ["先给结论"],
       avoid: ["不要空泛鼓励"],
     });
     expect(hasSoulContent(result)).toBe(true);
+  });
+
+  it("应保留合法 registry 口吻 ID 并丢弃非法配置", () => {
+    const result = normalizeSoulConfig({
+      enabled: true,
+      style_profile_id: "unknown_profile",
+    });
+
+    expect(result.style_profile_id).toBe("unknown_profile");
+    expect(hasSoulContent(result)).toBe(true);
+
+    const invalid = normalizeSoulConfig({
+      enabled: true,
+      style_profile_id: "Not Stable",
+    });
+
+    expect(invalid.style_profile_id).toBeUndefined();
+    expect(hasSoulContent(invalid)).toBe(false);
   });
 
   it("应把多行输入解析为稳定列表", () => {
@@ -161,6 +181,7 @@ describe("soulConfig", () => {
     const markdown = buildSoulMarkdown({
       enabled: true,
       summary: "先给结论，再补关键证据",
+      style_profile_id: "calm_professional_partner",
       communication_style: ["直接指出弱假设"],
       avoid: ["不要编造能力"],
       artifact_voice: {
@@ -173,6 +194,9 @@ describe("soulConfig", () => {
     });
 
     expect(markdown).toContain("## Communication Style");
+    expect(markdown).toContain("## Interaction Style Profile");
+    expect(markdown).toContain("Style profile: calm_professional_partner");
+    expect(markdown).not.toContain("Style intensity:");
     expect(markdown).toContain("## Creator / Brand Voice");
     expect(markdown).toContain("Brand voice ID: brand-1");
     expect(markdown).toContain("先给结论，再补关键证据");

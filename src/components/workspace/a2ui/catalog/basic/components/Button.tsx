@@ -19,7 +19,7 @@ const variantClass: Record<string, string> = {
   primary:
     "border border-neutral-900 bg-neutral-900 text-white shadow-none hover:bg-neutral-800",
   borderless:
-    "border border-transparent text-[color:var(--ember-text-muted)] shadow-none hover:border-slate-200 hover:bg-slate-50 hover:text-[color:var(--ember-text-strong)]",
+    "border border-transparent text-[color:var(--lime-text-muted)] shadow-none hover:border-slate-200 hover:bg-slate-50 hover:text-[color:var(--lime-text-strong)]",
 };
 
 export function ButtonRenderer({

@@ -78,11 +78,11 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Agent QC qcloop Status
+Lime Agent QC qcloop Status
 
 用法:
   npm run agent-qc:qcloop-status -- --job-id "qcloop-job-id"
-  npm run agent-qc:qcloop-status -- --job-id "qcloop-job-id" --format json --output ./.ember/qc/qcloop-status.json
+  npm run agent-qc:qcloop-status -- --job-id "qcloop-job-id" --format json --output ./.lime/qc/qcloop-status.json
   node scripts/agent-qc/qcloop-status.mjs --job-json ./job.json --items-json ./items.json
 
 选项:

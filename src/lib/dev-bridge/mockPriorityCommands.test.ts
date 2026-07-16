@@ -17,13 +17,11 @@ describe("mockPriorityCommands", () => {
       "download_update",
       "open_update_window",
       "workspace_list",
-      "aster_agent_init",
       "agent_runtime_get_tool_inventory",
-      "agent_app_list_installed",
-      "agent_app_start_ui_runtime",
+      "plugin_list_installed",
+      "plugin_start_ui_runtime",
       "get_model_registry",
       "knowledge_list_packs",
-      "project_memory_get",
       "session_files_save_file",
     ];
 
@@ -60,16 +58,12 @@ describe("mockPriorityCommands", () => {
   });
 
   it("模型与运行时真相命令在浏览器模式下禁止静默退回 mock", () => {
-    expect(shouldDisallowMockFallbackInBrowser("aster_agent_init")).toBe(true);
-    expect(shouldDisallowMockFallbackInBrowser("aster_agent_status")).toBe(
-      false,
-    );
+    expect(shouldDisallowMockFallbackInBrowser("agent_init")).toBe(false);
+    expect(shouldDisallowMockFallbackInBrowser("agent_status")).toBe(false);
     expect(
-      shouldDisallowMockFallbackInBrowser("aster_agent_configure_provider"),
+      shouldDisallowMockFallbackInBrowser("agent_configure_provider"),
     ).toBe(false);
-    expect(shouldDisallowMockFallbackInBrowser("aster_agent_reset")).toBe(
-      false,
-    );
+    expect(shouldDisallowMockFallbackInBrowser("agent_reset")).toBe(false);
     expect(shouldDisallowMockFallbackInBrowser("agent_start_process")).toBe(
       false,
     );
@@ -98,19 +92,19 @@ describe("mockPriorityCommands", () => {
     );
     expect(
       shouldDisallowMockFallbackInBrowser("agent_runtime_submit_turn"),
+    ).toBe(false);
+    expect(
+      shouldDisallowMockFallbackInBrowser("plugin_runtime_start_task"),
     ).toBe(true);
     expect(
-      shouldDisallowMockFallbackInBrowser("agent_app_runtime_start_task"),
-    ).toBe(true);
-    expect(
-      shouldDisallowMockFallbackInBrowser("agent_app_inspect_local_package"),
+      shouldDisallowMockFallbackInBrowser("plugin_inspect_local_package"),
     ).toBe(false);
     expect(
-      shouldDisallowMockFallbackInBrowser("agent_app_save_installed_state"),
+      shouldDisallowMockFallbackInBrowser("plugin_save_installed_state"),
     ).toBe(false);
-    expect(
-      shouldDisallowMockFallbackInBrowser("agent_app_list_installed"),
-    ).toBe(false);
+    expect(shouldDisallowMockFallbackInBrowser("plugin_list_installed")).toBe(
+      false,
+    );
     expect(shouldDisallowMockFallbackInBrowser("knowledge_list_packs")).toBe(
       false,
     );
@@ -118,26 +112,26 @@ describe("mockPriorityCommands", () => {
       false,
     );
     expect(shouldDisallowMockFallbackInBrowser("project_memory_get")).toBe(
+      false,
+    );
+    expect(shouldDisallowMockFallbackInBrowser("plugin_start_ui_runtime")).toBe(
       true,
     );
     expect(
-      shouldDisallowMockFallbackInBrowser("agent_app_start_ui_runtime"),
+      shouldDisallowMockFallbackInBrowser("plugin_get_ui_runtime_status"),
     ).toBe(true);
+    expect(shouldDisallowMockFallbackInBrowser("plugin_stop_ui_runtime")).toBe(
+      true,
+    );
     expect(
-      shouldDisallowMockFallbackInBrowser("agent_app_get_ui_runtime_status"),
+      shouldDisallowMockFallbackInBrowser("plugin_runtime_cancel_task"),
     ).toBe(true);
-    expect(
-      shouldDisallowMockFallbackInBrowser("agent_app_stop_ui_runtime"),
-    ).toBe(true);
-    expect(
-      shouldDisallowMockFallbackInBrowser("agent_app_runtime_cancel_task"),
-    ).toBe(true);
-    expect(
-      shouldDisallowMockFallbackInBrowser("agent_app_runtime_get_task"),
-    ).toBe(true);
+    expect(shouldDisallowMockFallbackInBrowser("plugin_runtime_get_task")).toBe(
+      true,
+    );
     expect(
       shouldDisallowMockFallbackInBrowser(
-        "agent_app_runtime_submit_host_response",
+        "plugin_runtime_submit_host_response",
       ),
     ).toBe(true);
     expect(
@@ -213,10 +207,10 @@ describe("mockPriorityCommands", () => {
     ).toBe(false);
     expect(
       shouldDisallowMockFallbackInBrowser("agent_runtime_list_sessions"),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldDisallowMockFallbackInBrowser("agent_runtime_update_session"),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldDisallowMockFallbackInBrowser("agent_runtime_delete_session"),
     ).toBe(false);
@@ -251,6 +245,12 @@ describe("mockPriorityCommands", () => {
     expect(shouldDisallowMockFallbackInBrowser("open_with_default_app")).toBe(
       false,
     );
+    expect(
+      shouldDisallowMockFallbackInBrowser("open_file_preview_window"),
+    ).toBe(true);
+    expect(
+      shouldDisallowMockFallbackInBrowser("open_resource_manager_window"),
+    ).toBe(true);
     expect(shouldDisallowMockFallbackInBrowser("upload_material")).toBe(false);
     expect(
       shouldDisallowMockFallbackInBrowser(
@@ -334,17 +334,28 @@ describe("mockPriorityCommands", () => {
       shouldDisallowMockEventFallbackInBrowser("voice-model-download-progress"),
     ).toBe(true);
     expect(
-      shouldDisallowMockEventFallbackInBrowser("aster_stream_session-1"),
+      shouldDisallowMockEventFallbackInBrowser("agent_stream_session-1"),
     ).toBe(true);
     expect(
       shouldDisallowMockEventFallbackInBrowser(
         "agent_subagent_status:session-1",
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldDisallowMockEventFallbackInBrowser(
         "agent_subagent_stream:session-1",
       ),
+    ).toBe(false);
+    expect(
+      shouldDisallowMockEventFallbackInBrowser("embedded-browser-view-state"),
+    ).toBe(true);
+    expect(
+      shouldDisallowMockEventFallbackInBrowser(
+        "embedded-browser-view-load-failed",
+      ),
+    ).toBe(true);
+    expect(
+      shouldDisallowMockEventFallbackInBrowser("mcp:resources_updated"),
     ).toBe(true);
   });
 });

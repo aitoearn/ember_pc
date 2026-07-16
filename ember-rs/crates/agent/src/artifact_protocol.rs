@@ -127,9 +127,9 @@ mod tests {
     #[test]
     fn extract_artifact_protocol_paths_reads_canonical_keys() {
         let value = serde_json::json!({
-            "artifact_paths": [" .ember/artifacts/thread-1/report.artifact.json "],
-            "artifactPath": ".ember\\artifacts\\thread-1\\report.artifact.json",
-            "filePath": ".ember/artifacts/thread-1/outline.md",
+            "artifact_paths": [" .lime/artifacts/thread-1/report.artifact.json "],
+            "artifactPath": ".lime\\artifacts\\thread-1\\report.artifact.json",
+            "filePath": ".lime/artifacts/thread-1/outline.md",
             "target_path": "workspace/result.md",
             "sourceFileName": "workspace/final.md"
         });
@@ -143,9 +143,9 @@ mod tests {
         assert_eq!(
             paths,
             vec![
-                ".ember/artifacts/thread-1/outline.md".to_string(),
+                ".lime/artifacts/thread-1/outline.md".to_string(),
                 "workspace/result.md".to_string(),
-                ".ember/artifacts/thread-1/report.artifact.json".to_string(),
+                ".lime/artifacts/thread-1/report.artifact.json".to_string(),
                 "workspace/final.md".to_string(),
             ]
         );

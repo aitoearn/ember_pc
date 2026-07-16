@@ -214,7 +214,7 @@ async function prepareWorkspace(options) {
     return { workspaceRoot: options.workspaceRoot, createdTemp: false };
   }
   const workspaceRoot = await fs.mkdtemp(
-    path.join(os.tmpdir(), "ember-readonly-http-api-p6-"),
+    path.join(os.tmpdir(), "lime-readonly-http-api-p6-"),
   );
   return { workspaceRoot, createdTemp: true };
 }

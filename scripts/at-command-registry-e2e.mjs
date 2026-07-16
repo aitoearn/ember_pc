@@ -13,7 +13,7 @@ const DEFAULT_INVOKE_URL = "http://127.0.0.1:3030/invoke";
 const DEFAULT_TIMEOUT_MS = 120_000;
 const DEFAULT_INTERVAL_MS = 500;
 const DEFAULT_PREFIX = "at-command-registry-e2e";
-const MENTION_USAGE_STORAGE_KEY = "ember:mention-entry-usage:v1";
+const MENTION_USAGE_STORAGE_KEY = "lime:mention-entry-usage:v1";
 const ONBOARDING_VERSION = "1.1.0";
 const RECENT_REPLAY_TEXT = "E2E 最近搜索输入";
 const IMAGE_COMMAND_PREFIX = "@配图";
@@ -42,7 +42,7 @@ function parseArgs(argv) {
     timeoutMs: DEFAULT_TIMEOUT_MS,
     intervalMs: DEFAULT_INTERVAL_MS,
     prefix: DEFAULT_PREFIX,
-    evidenceDir: path.join(process.cwd(), ".ember", "e2e", DEFAULT_PREFIX),
+    evidenceDir: path.join(process.cwd(), ".lime", "e2e", DEFAULT_PREFIX),
     headless: true,
     allowLiveProvider: liveProviderSmokeAllowed(),
   };
@@ -283,6 +283,16 @@ async function waitForTextareaValue(page, expectedValue, timeoutMs) {
   );
 }
 
+async function isComposerReady(page) {
+  return page.evaluate(() => {
+    const inputs = Array.from(
+      document.querySelectorAll('textarea[name="agent-chat-message"]'),
+    );
+    const input = inputs.at(-1);
+    return Boolean(input && input.offsetParent !== null && !input.disabled);
+  });
+}
+
 function readNestedObject(value, keys) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
@@ -302,11 +312,11 @@ function readNestedObject(value, keys) {
   return null;
 }
 
-function readImageLaunch(metadata) {
+function readImageCommandIntent(metadata) {
   const harness = readNestedObject(metadata, ["harness"]) || metadata;
   const launch = readNestedObject(harness, [
-    "image_skill_launch",
-    "imageSkillLaunch",
+    "image_command_intent",
+    "imageCommandIntent",
   ]);
   const requestContext = readNestedObject(launch, [
     "request_context",
@@ -558,12 +568,12 @@ async function main() {
         chatProviderPreference,
         chatModelPreference,
       }) => {
-        window.localStorage.setItem("ember_onboarding_complete", "true");
+        window.localStorage.setItem("lime_onboarding_complete", "true");
         window.localStorage.setItem(
-          "ember_onboarding_version",
+          "lime_onboarding_version",
           onboardingVersion,
         );
-        window.localStorage.setItem("ember_user_profile", "developer");
+        window.localStorage.setItem("lime_user_profile", "developer");
         window.localStorage.setItem(
           "agent_pref_provider",
           JSON.stringify(chatProviderPreference),
@@ -650,7 +660,7 @@ async function main() {
     const textarea = page.locator('textarea[name="agent-chat-message"]').last();
     await textarea.waitFor({ state: "visible", timeout: options.timeoutMs });
     await page.waitForFunction(
-      () => {
+      async () => {
         const inputs = Array.from(
           document.querySelectorAll('textarea[name="agent-chat-message"]'),
         );
@@ -664,7 +674,7 @@ async function main() {
     logStage(options, "wait-workspace-ready");
     const workspaceReadySignal = await waitForCondition(
       "等待默认工作区完成加载",
-      () => {
+      async () => {
         const consoleText = readConsoleText(consoleMessages);
         if (
           consoleText.includes("AgentChatPage.loadData.projectOnlyComplete")
@@ -680,8 +690,8 @@ async function main() {
         if (invokes.some((item) => item.cmd === "workspace_ensure_ready")) {
           return "invoke:workspace_ensure_ready";
         }
-        if (invokes.some((item) => item.cmd === "aster_agent_init")) {
-          return "invoke:aster_agent_init";
+        if (await isComposerReady(page)) {
+          return "composer-ready";
         }
         return null;
       },
@@ -820,10 +830,10 @@ async function main() {
     assert(request, "@配图 current 提交缺少 agentSession/turn/start");
     const params = request.params || {};
     const runtimeOptions = params.runtimeOptions || {};
-    const metadata = runtimeOptions.metadata || {};
-    const asterChatRequest = runtimeOptions.hostOptions?.asterChatRequest || {};
-    const turnConfig = asterChatRequest.turn_config || asterChatRequest;
-    const { launch, imageTask } = readImageLaunch(metadata);
+    const runtimeRequest = runtimeOptions.runtimeRequest || {};
+    const metadata = runtimeRequest.metadata || {};
+    const harness = readNestedObject(metadata, ["harness"]) || metadata;
+    const { launch, imageTask } = readImageCommandIntent(metadata);
     const runtimeContract = readNestedObject(imageTask, [
       "runtime_contract",
       "runtimeContract",
@@ -834,7 +844,11 @@ async function main() {
       runtimeContract?.contract_key ||
       runtimeContract?.contractKey;
 
-    assert(launch, "@配图 提交缺少 harness.image_skill_launch");
+    assert(launch, "@配图 提交缺少 harness.image_command_intent");
+    assert(
+      !readNestedObject(harness, ["image_skill_launch", "imageSkillLaunch"]),
+      "@配图 不应继续提交旧 harness.image_skill_launch",
+    );
     assert(imageTask, "@配图 提交缺少 image_task");
     assert(
       String(imageTask.prompt || "").includes(IMAGE_PROMPT),
@@ -845,28 +859,25 @@ async function main() {
       `@配图 image_task 合同应为 image_generation，实际为 ${String(contractKey)}`,
     );
     assert(
-      turnConfig.provider_preference == null,
+      runtimeRequest.providerPreference == null,
       "@配图 不应把当前聊天 provider 提交为 request provider_preference",
     );
     assert(
-      turnConfig.model_preference == null,
+      runtimeRequest.modelPreference == null,
       "@配图 不应把当前聊天 model 提交为 request model_preference",
     );
 
-    summary.assertions.imageSkillLaunchSubmitted = true;
+    summary.assertions.imageCommandIntentSubmitted = true;
+    summary.assertions.legacyImageSkillLaunchNotSubmitted = true;
     summary.assertions.imageGenerationContractPreserved = true;
     summary.assertions.chatModelPreferenceSuppressed = true;
     summary.submitRequest = {
       routeMode: "agentSession/turn/start",
-      message: params.input?.text || asterChatRequest.message || null,
+      message: params.input?.text || null,
       sessionId: params.sessionId || null,
       turnId: params.turnId || null,
-      providerPreference:
-        runtimeOptions.providerPreference ??
-        turnConfig.provider_preference ??
-        null,
-      modelPreference:
-        runtimeOptions.modelPreference ?? turnConfig.model_preference ?? null,
+      providerPreference: runtimeRequest.providerPreference ?? null,
+      modelPreference: runtimeRequest.modelPreference ?? null,
       contractKey,
       imagePrompt: imageTask.prompt,
     };

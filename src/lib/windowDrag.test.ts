@@ -102,7 +102,7 @@ describe("windowDrag", () => {
 
   it("声明 no-drag 的区域不应启动窗口拖拽", () => {
     const noDragRegion = document.createElement("div");
-    noDragRegion.dataset.emberNoWindowDrag = "true";
+    noDragRegion.dataset.limeNoWindowDrag = "true";
 
     expect(isWindowDragInteractiveTarget(noDragRegion)).toBe(true);
     expect(

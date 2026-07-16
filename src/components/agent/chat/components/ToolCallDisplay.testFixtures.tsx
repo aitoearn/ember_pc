@@ -1,9 +1,10 @@
 import { act, type ComponentProps, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import type { AgentToolCallState as ToolCallState } from "@/lib/api/agentProtocol";
-import { ToolCallDisplay, ToolCallList } from "./ToolCallDisplay";
+import { ToolCallDisplay } from "./ToolCallDisplay";
+import { ToolCallList } from "./ToolCallDisplayList";
 
 vi.mock("@/lib/api/externalUrl", () => ({
   openExternalUrlWithSystemBrowser: vi.fn().mockResolvedValue(undefined),
@@ -62,5 +63,5 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });

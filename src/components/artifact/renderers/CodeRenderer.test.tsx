@@ -1,7 +1,7 @@
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import type { Artifact } from "@/lib/artifact/types";
 import { CodeRenderer } from "./CodeRenderer";
 
@@ -66,7 +66,7 @@ beforeEach(async () => {
     },
   });
 
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 afterEach(async () => {
@@ -82,7 +82,7 @@ afterEach(async () => {
     mounted.container.remove();
   }
 
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   vi.clearAllMocks();
 });
 

@@ -6,16 +6,19 @@
 
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { Badge } from "@/components/ui/badge";
 import { ProviderIcon } from "@/icons/providers";
 import { cn } from "@/lib/utils";
 import type { ProviderWithKeysDisplay } from "@/lib/api/apiKeyProvider";
 import { GripVertical, Plus, Settings2 } from "lucide-react";
 import {
   buildEnabledModelItems,
+  type EnabledModelListOptions,
 } from "./ModelProviderList.utils";
 
 export interface ModelProviderListProps {
   providers: ProviderWithKeysDisplay[];
+  options?: EnabledModelListOptions;
   selectedProviderId?: string | null;
   onProviderSelect?: (providerId: string) => void;
   onAddModel?: () => void;
@@ -25,6 +28,7 @@ export interface ModelProviderListProps {
 
 export const ModelProviderList: React.FC<ModelProviderListProps> = ({
   providers,
+  options,
   selectedProviderId,
   onProviderSelect,
   onAddModel,
@@ -32,7 +36,7 @@ export const ModelProviderList: React.FC<ModelProviderListProps> = ({
   className,
 }) => {
   const { t } = useTranslation("settings");
-  const items = buildEnabledModelItems(providers);
+  const items = buildEnabledModelItems(providers, options);
 
   return (
     <aside
@@ -51,7 +55,7 @@ export const ModelProviderList: React.FC<ModelProviderListProps> = ({
             <p className="mt-1 text-xs leading-5 text-slate-500">
               {t(
                 "settings.providers.modelList.description",
-                "拖拽调整启用模型的显示顺序",
+                "拖拽排序，首位为默认",
               )}
             </p>
           </div>
@@ -80,6 +84,12 @@ export const ModelProviderList: React.FC<ModelProviderListProps> = ({
           <div className="space-y-2" data-testid="enabled-model-items">
             {items.map((item) => {
               const selected = selectedProviderId === item.id;
+              const title = item.isDefault
+                ? t("settings.providers.modelList.item.defaultTitle", {
+                    provider: item.providerName,
+                    defaultValue: "默认 ({{provider}})",
+                  })
+                : item.providerName;
 
               return (
                 <button
@@ -104,15 +114,30 @@ export const ModelProviderList: React.FC<ModelProviderListProps> = ({
                     className="flex-shrink-0"
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="truncate text-sm font-semibold text-slate-900">
-                      {item.providerName}
+                    <span className="flex items-center gap-2">
+                      <span className="truncate text-sm font-semibold text-slate-900">
+                        {title}
+                      </span>
+                      {item.isDefault ? (
+                        <Badge className="border border-emerald-200 bg-emerald-50 px-1.5 py-0 text-[11px] text-emerald-700 hover:bg-emerald-50">
+                          {t(
+                            "settings.providers.modelList.badge.default",
+                            "默认",
+                          )}
+                        </Badge>
+                      ) : null}
                     </span>
                     <span className="mt-0.5 block truncate text-xs text-slate-500">
-                      {item.modelId ??
-                        t(
-                          "settings.providers.modelList.status.modelPending",
-                          "模型待指定",
-                        )}
+                      {item.status === "login_required"
+                        ? t(
+                            "settings.providers.modelList.status.loginRequired",
+                            "需要登录",
+                          )
+                        : (item.modelId ??
+                          t(
+                            "settings.providers.modelList.status.modelPending",
+                            "模型待指定",
+                          ))}
                     </span>
                   </span>
                 </button>

@@ -2,9 +2,9 @@
 
 当前运行时事实源仍然是：
 
-- `ember_site_list`
-- `ember_site_search`
-- `ember_site_info`
+- `lime_site_list`
+- `lime_site_search`
+- `lime_site_info`
 
 本文件只是当前内置 bundled adapters 的速查表，便于 `site_search` 快速选型。
 
@@ -39,6 +39,6 @@
 
 ## 使用提醒
 
-- 适配器参数以 `ember_site_info` 返回为准，不要只依赖本文件。
+- 适配器参数以 `lime_site_info` 返回为准，不要只依赖本文件。
 - 如果用户没有指定站点，只是泛化调研，不应优先走 `site_search`，而应优先走 `research`。
-- 如果用户要求保存结果到当前内容或项目，执行 `ember_site_run` 时再补 `content_id`、`project_id`、`save_title`。
+- 如果用户要求保存结果到当前内容或项目，执行 `lime_site_run` 时再补 `content_id`、`project_id`、`save_title`。

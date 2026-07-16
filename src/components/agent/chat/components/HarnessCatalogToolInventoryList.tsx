@@ -1,4 +1,4 @@
-import type { AgentRuntimeToolInventory } from "@/lib/api/agentRuntime";
+import type { AgentRuntimeToolInventory } from "@/lib/api/agentRuntime/toolInventoryTypes";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { agentText } from "./harnessPanelText";
@@ -119,7 +119,7 @@ export function HarnessCatalogToolInventoryList({
               </div>
             </div>
 
-            <div className="mt-3 grid gap-2 xl:grid-cols-3">
+            <div className="mt-3 grid min-w-0 gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr))]">
               <CatalogExecutionPolicyCard
                 title={agentText(
                   "agentChat.harness.generated.e9c4556335",

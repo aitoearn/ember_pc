@@ -59,16 +59,16 @@ describe("artifact-protocol", () => {
   it("应统一提取 snake_case 与 camelCase 的产物路径键", () => {
     expect(
       extractArtifactProtocolPaths({
-        artifact_paths: [" .ember/artifacts/thread-1/report.artifact.json "],
-        artifactPath: ".ember\\artifacts\\thread-1\\report.artifact.json",
-        filePath: ".ember/artifacts/thread-1/outline.md",
+        artifact_paths: [" .lime/artifacts/thread-1/report.artifact.json "],
+        artifactPath: ".lime\\artifacts\\thread-1\\report.artifact.json",
+        filePath: ".lime/artifacts/thread-1/outline.md",
         target_path: "workspace/result.md",
         sourceFileName: "workspace/final.md",
       }),
     ).toEqual([
-      ".ember/artifacts/thread-1/outline.md",
+      ".lime/artifacts/thread-1/outline.md",
       "workspace/result.md",
-      ".ember/artifacts/thread-1/report.artifact.json",
+      ".lime/artifacts/thread-1/report.artifact.json",
       "workspace/final.md",
     ]);
   });
@@ -116,25 +116,25 @@ describe("artifact-protocol", () => {
     expect(
       areArtifactProtocolPathsEquivalent(
         "output_image.jpg",
-        "/Users/coso/.ember/tasks/image/output_image.jpg",
+        "/Users/coso/.lime/tasks/image/output_image.jpg",
       ),
     ).toBe(true);
     expect(
       areArtifactProtocolPathsEquivalent(
-        "./.ember/tasks/image/output_image.jpg",
-        ".ember/tasks/image/output_image.jpg",
+        "./.lime/tasks/image/output_image.jpg",
+        ".lime/tasks/image/output_image.jpg",
       ),
     ).toBe(true);
     expect(
       areArtifactProtocolPathsEquivalent(
-        ".ember/qc/code-runtime-fixture/src/greeting.ts",
+        ".lime/qc/code-runtime-fixture/src/greeting.ts",
         "src/greeting.ts",
       ),
     ).toBe(true);
     expect(
       areArtifactProtocolPathsEquivalent(
-        ".ember/qc/code-runtime-fixture/src/greeting.ts",
-        "/Users/coso/Library/Application Support/ember/projects/code-runtime-fixture/src/greeting.ts",
+        ".lime/qc/code-runtime-fixture/src/greeting.ts",
+        "/Users/coso/Library/Application Support/lime/projects/code-runtime-fixture/src/greeting.ts",
       ),
     ).toBe(true);
     expect(
@@ -147,8 +147,8 @@ describe("artifact-protocol", () => {
 
   it("应规范化协议路径并识别二进制图片文件", () => {
     expect(
-      normalizeArtifactProtocolPath(" .\\.ember\\tasks\\image\\cover.jpg "),
-    ).toBe("./.ember/tasks/image/cover.jpg");
+      normalizeArtifactProtocolPath(" .\\.lime\\tasks\\image\\cover.jpg "),
+    ).toBe("./.lime/tasks/image/cover.jpg");
     expect(isArtifactProtocolImagePath("output_image.jpg")).toBe(true);
     expect(isArtifactProtocolImagePath("diagram.svg")).toBe(false);
   });
@@ -158,11 +158,11 @@ describe("artifact-protocol", () => {
       resolveArtifactProtocolFilePath({
         title: "report.artifact.json",
         meta: {
-          filePath: " .ember/artifacts/thread-1/report.artifact.json ",
+          filePath: " .lime/artifacts/thread-1/report.artifact.json ",
           filename: "fallback.json",
         },
       }),
-    ).toBe(".ember/artifacts/thread-1/report.artifact.json");
+    ).toBe(".lime/artifacts/thread-1/report.artifact.json");
     expect(
       resolveArtifactProtocolFilePath({
         title: "report.artifact.json",

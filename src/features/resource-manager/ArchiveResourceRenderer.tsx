@@ -25,7 +25,7 @@ export function ArchiveResourceRenderer({
           {formatLabel} 建议交给系统归档工具
         </h2>
         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-          Ember 已识别该归档格式。为避免在 WebView
+          Lime 已识别该归档格式。为避免在 WebView
           内直接解压不可信文件，当前不内置展开内容，请使用顶部导航栏的系统打开、定位或下载动作处理。
         </p>
         <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-left text-xs leading-6 text-slate-500">

@@ -4,11 +4,11 @@ import process from "node:process";
 import { runViteDevServerBootstrap } from "./lib/vite-dev-server-bootstrap.mjs";
 
 const DEV_URL =
-  process.env.EMBER_WEB_BRIDGE_URL?.trim() || "http://127.0.0.1:1420/";
+  process.env.LIME_WEB_BRIDGE_URL?.trim() || "http://127.0.0.1:1420/";
 const ENTRY_MODULE_PATH =
-  process.env.EMBER_WEB_BRIDGE_ENTRY_PATH?.trim() || "/src/main.tsx";
+  process.env.LIME_WEB_BRIDGE_ENTRY_PATH?.trim() || "/src/main.tsx";
 const REUSE_EXISTING_ONLY =
-  process.env.EMBER_WEB_BRIDGE_REUSE_EXISTING_ONLY?.trim() === "1";
+  process.env.LIME_WEB_BRIDGE_REUSE_EXISTING_ONLY?.trim() === "1";
 
 runViteDevServerBootstrap({
   browserBridge: true,

@@ -14,7 +14,6 @@ interface WorkspaceShellSceneProps {
   fileManagerNode?: ReactNode;
   fileManagerToggleNode?: ReactNode;
   mainAreaNode: ReactNode;
-  rightRailNode?: ReactNode;
 }
 
 export function WorkspaceShellScene({
@@ -26,12 +25,11 @@ export function WorkspaceShellScene({
   fileManagerNode,
   fileManagerToggleNode,
   mainAreaNode,
-  rightRailNode,
 }: WorkspaceShellSceneProps) {
   return (
     <PageContainer
       $compact={compactChrome}
-      className="ember-workbench-theme-scope"
+      className="lime-workbench-theme-scope"
       data-testid="workspace-shell-scene"
     >
       {isThemeWorkbench ? (
@@ -51,7 +49,6 @@ export function WorkspaceShellScene({
       {fileManagerToggleNode}
 
       {mainAreaNode}
-      {rightRailNode}
     </PageContainer>
   );
 }

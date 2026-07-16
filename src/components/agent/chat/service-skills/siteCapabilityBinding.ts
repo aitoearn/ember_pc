@@ -741,7 +741,7 @@ export function buildServiceSkillClawLaunchRequestMetadata(
             browser_assist: {
               enabled: true,
               profile_key: attachedProfileKey,
-              preferred_backend: "ember_extension_bridge",
+              preferred_backend: "lime_extension_bridge",
               auto_launch: false,
               stream_mode: "both",
             },

@@ -4,6 +4,14 @@ import type {
   AgentRuntimeExecutionEventStatus,
   AgentUiProjectionState,
 } from "@embercloud/agent-ui-contracts";
+import {
+  type AgentUiPhase,
+  normalizeRuntimeStatusValue,
+  isLegacyRuntimeTurnTerminalEventClass,
+  normalizeRuntimeTurnTerminalEventClass,
+  runtimeStatusForTerminalEventClass,
+  runtimeTurnTerminalProjectionFromStatus,
+} from "@embercloud/agent-ui-contracts";
 
 import {
   compactProjectionFields,
@@ -13,6 +21,8 @@ import {
   readStringArrayField,
   readStringField,
 } from "./normalization.js";
+import { buildAgentUiCollaborationPayloadMetadata } from "./collaborationFacts.js";
+import { extractAgentUiToolLifecyclePayloadMetadata } from "./toolLifecycleMetadata.js";
 import { projectAgentUiState } from "./uiState.js";
 
 export interface AppServerAgentSessionFact {
@@ -114,7 +124,13 @@ export function projectAppServerEventsToExecutionEvents(
   events: readonly AppServerAgentEventFact[] | undefined,
 ): AgentRuntimeExecutionEvent[] {
   return dedupeExecutionEvents(
-    (events ?? []).map(projectAppServerEventToExecutionEvent),
+    (events ?? [])
+      .filter(
+        (event) =>
+          event.type !== "subagent.status_changed" &&
+          event.type !== "subagent_status_changed",
+      )
+      .map(projectAppServerEventToExecutionEvent),
   );
 }
 
@@ -128,7 +144,7 @@ export function projectAppServerSessionReadToExecutionEvents(
   events.push(
     compactProjectionFields({
       id: `appserver:session:${session.sessionId}:snapshot`,
-      schemaVersion: "ember-runtime-event/v0.1",
+      schemaVersion: "lime-runtime-event/v0.1",
       kind: "state",
       status: statusFromSessionStatus(session.status),
       eventClass: "snapshot.updated",
@@ -214,6 +230,11 @@ function projectAppServerEventToExecutionEvent(
   event: AppServerAgentEventFact,
 ): AgentRuntimeExecutionEvent {
   const payload = readRecord(event.payload) ?? {};
+  const payloadStatus = readStringField(payload, [
+    "status",
+    "runtime_status",
+    "state",
+  ]);
   const eventClass = normalizeEventClass(event.type);
   const text = readText(payload);
   const actionId = readStringField(payload, [
@@ -241,19 +262,53 @@ function projectAppServerEventToExecutionEvent(
     readStringField(payload, ["evidenceId", "evidence_id"]),
   ]);
 
+  const projectedStatus =
+    (isLegacyRuntimeTurnTerminalEventClass(event.type)
+      ? undefined
+      : (runtimeTurnTerminalProjectionFromStatus(payloadStatus)?.status ??
+        statusFromDomainPayloadStatus(payloadStatus))) ??
+    statusForEventClass(eventClass);
+  const taskId = readStringField(payload, ["taskId", "task_id"]);
+  const subagentId = readStringField(payload, ["subagentId", "subagent_id"]);
+  const runId = readStringField(payload, ["runId", "run_id"]);
+  const stepId = readStringField(payload, ["stepId", "step_id"]);
+  const collaborationMetadata = isCollaborationEvent(eventClass)
+    ? buildAgentUiCollaborationPayloadMetadata({
+        payload,
+        sourceType: event.type,
+        collaborationKind: collaborationKindForEventClass(eventClass),
+        surface: collaborationSurfaceForEventClass(eventClass),
+        phase: collaborationPhaseForEvent(eventClass, payloadStatus),
+        status: payloadStatus ?? projectedStatus,
+        runtimeEntity: runtimeEntityForCollaborationEvent(eventClass),
+        runtimeStatus: projectedStatus,
+        taskId,
+        agentId: subagentId,
+        parentThreadId: readStringField(payload, [
+          "parentThreadId",
+          "parent_thread_id",
+        ]),
+        transcriptRef: readStringField(payload, [
+          "transcriptRef",
+          "transcript_ref",
+        ]),
+        handoffId: readStringField(payload, ["handoffId", "handoff_id"]),
+      })
+    : {};
+
   return compactProjectionFields({
     id: `appserver:${event.eventId}`,
-    schemaVersion: "ember-runtime-event/v0.1",
+    schemaVersion: "lime-runtime-event/v0.1",
     kind: kindForEventClass(eventClass),
-    status: statusForEventClass(eventClass),
+    status: projectedStatus,
     eventClass,
     runtimeId: "app-server",
     threadId: event.threadId ?? event.sessionId,
     turnId: event.turnId,
-    taskId: readStringField(payload, ["taskId", "task_id"]),
-    subagentId: readStringField(payload, ["subagentId", "subagent_id"]),
-    runId: readStringField(payload, ["runId", "run_id"]),
-    stepId: readStringField(payload, ["stepId", "step_id"]),
+    taskId,
+    subagentId,
+    runId,
+    stepId,
     toolCallId: isToolEvent(eventClass) ? toolCallId : undefined,
     actionId: isActionEvent(eventClass) ? actionId : undefined,
     artifactId:
@@ -278,10 +333,68 @@ function projectAppServerEventToExecutionEvent(
       messageId: readMessageId(payload),
       actionKind: readStringField(payload, ["action_type", "actionType"]),
       controls: controlsForAction(payload),
+      ...extractAgentUiToolLifecyclePayloadMetadata(payload),
+      ...collaborationMetadata,
     }),
     createdAt: event.timestamp ?? defaultTimestamp(),
     completedAt: isCompletedEvent(eventClass) ? event.timestamp : undefined,
   } satisfies AgentRuntimeExecutionEvent);
+}
+
+function isCollaborationEvent(eventClass: string): boolean {
+  return (
+    eventClass.startsWith("handoff.") ||
+    eventClass.startsWith("review.") ||
+    eventClass.startsWith("task.")
+  );
+}
+
+function collaborationKindForEventClass(eventClass: string): string {
+  if (eventClass.startsWith("handoff.")) return "specialist_handoff";
+  if (eventClass.startsWith("review.")) return "collaboration_review";
+  return "collaboration_task";
+}
+
+function collaborationSurfaceForEventClass(eventClass: string): string {
+  if (eventClass.startsWith("handoff.")) return "handoff_lane";
+  if (eventClass.startsWith("review.")) return "review_lane";
+  return "task_capsule";
+}
+
+function runtimeEntityForCollaborationEvent(eventClass: string): string {
+  return eventClass.startsWith("task.") ? "work_item" : "subagent_turn";
+}
+
+function collaborationPhaseForEvent(
+  eventClass: string,
+  status: string | undefined,
+): AgentUiPhase {
+  const normalized = normalizeStatus(status);
+  switch (normalized) {
+    case "completed":
+    case "done":
+    case "success":
+      return "completed";
+    case "failed":
+    case "error":
+    case "not_found":
+      return "failed";
+    case "aborted":
+    case "cancelled":
+    case "canceled":
+    case "closed":
+      return "cancelled";
+    case "queued":
+    case "pending":
+    case "waiting":
+    case "blocked":
+      return "waiting";
+    case "running":
+    case "accepted":
+      return "acting";
+    default:
+      return phaseForEventClass(eventClass) as AgentUiPhase;
+  }
 }
 
 function projectAppServerTurnToExecutionEvent(
@@ -289,18 +402,22 @@ function projectAppServerTurnToExecutionEvent(
   session: AppServerAgentSessionFact,
   index: number,
 ): AgentRuntimeExecutionEvent {
-  const eventClass = eventClassForTurnStatus(turn.status);
+  const eventClass = eventClassForTurnSnapshotStatus(turn.status);
+  const terminalProjection = runtimeTurnTerminalProjectionFromStatus(
+    turn.status,
+  );
   return compactProjectionFields({
     id: `appserver:turn:${turn.turnId}:status:${turn.status ?? "unknown"}`,
-    schemaVersion: "ember-runtime-event/v0.1",
+    schemaVersion: "lime-runtime-event/v0.1",
     kind: "state",
-    status: statusFromTurnStatus(turn.status),
+    status:
+      terminalProjection?.status ?? statusFromTurnSnapshotStatus(turn.status),
     eventClass,
     runtimeId: "app-server",
     threadId: turn.threadId ?? session.threadId,
     turnId: turn.turnId,
     sequence: index + 1,
-    phase: phaseForEventClass(eventClass),
+    phase: terminalProjection?.phase ?? phaseForEventClass(eventClass),
     title: titleForTurnStatus(turn.status),
     detail: turn.status,
     payload: compactProjectionFields({
@@ -326,7 +443,7 @@ function projectAppServerArtifactsToExecutionEvents(
     .map((artifact) =>
       compactProjectionFields({
         id: `appserver:artifact:${artifact.artifactRef}`,
-        schemaVersion: "ember-runtime-event/v0.1",
+        schemaVersion: "lime-runtime-event/v0.1",
         kind: "draft",
         owner: "artifact",
         status: artifact.status === "failed" ? "failed" : "completed",
@@ -366,7 +483,7 @@ function projectAppServerEvidencePackToExecutionEvents(
   return [
     compactProjectionFields({
       id: `appserver:evidence:${packRoot}`,
-      schemaVersion: "ember-runtime-event/v0.1",
+      schemaVersion: "lime-runtime-event/v0.1",
       kind: "evidence",
       owner: "evidence",
       status: "completed",
@@ -398,6 +515,8 @@ function projectAppServerEvidencePackToExecutionEvents(
 }
 
 function normalizeEventClass(type: string): string {
+  const terminalEventClass = normalizeRuntimeTurnTerminalEventClass(type);
+  if (terminalEventClass) return terminalEventClass;
   if (type === "message.delta_batch" || type === "message.batch") {
     return "model.delta";
   }
@@ -412,16 +531,46 @@ function normalizeEventClass(type: string): string {
   if (type === "thinking.delta") return "reasoning.delta";
   if (type === "artifact.snapshot") return "artifact.changed";
   if (type === "runtime.status") return "run.status";
-  if (type === "turn.done" || type === "turn.final_done") {
-    return "turn.completed";
-  }
-  if (type === "turn.cancelled") return "turn.canceled";
   return type;
 }
 
-function kindForEventClass(
-  eventClass: string,
-): AgentRuntimeExecutionEventKind {
+function normalizeStatus(value: string | undefined): string | undefined {
+  return normalizeRuntimeStatusValue(value);
+}
+
+function statusFromDomainPayloadStatus(
+  status: string | undefined,
+): AgentRuntimeExecutionEventStatus | undefined {
+  const normalized = normalizeStatus(status);
+  switch (normalized) {
+    case "failed":
+    case "error":
+    case "expired":
+    case "closed":
+    case "aborted":
+    case "cancelled":
+    case "not_found":
+      return "failed";
+    case "canceled":
+      return "canceled";
+    case "completed":
+    case "done":
+    case "success":
+      return "completed";
+    case "blocked":
+    case "waiting":
+    case "needs_input":
+      return "blocked";
+    case "running":
+    case "queued":
+    case "pending":
+      return "running";
+    default:
+      return undefined;
+  }
+}
+
+function kindForEventClass(eventClass: string): AgentRuntimeExecutionEventKind {
   if (eventClass.startsWith("model.")) return "model";
   if (eventClass.startsWith("reasoning.")) return "note";
   if (eventClass.startsWith("tool.")) return "tool";
@@ -442,6 +591,8 @@ function kindForEventClass(
 function statusForEventClass(
   eventClass: string,
 ): AgentRuntimeExecutionEventStatus {
+  const terminalStatus = runtimeStatusForTerminalEventClass(eventClass);
+  if (terminalStatus) return terminalStatus;
   if (eventClass.endsWith(".failed") || eventClass === "runtime.error") {
     return "failed";
   }
@@ -457,40 +608,51 @@ function statusForEventClass(
   ) {
     return "completed";
   }
-  if (eventClass === "turn.canceled") return "failed";
   return "running";
 }
 
 function statusFromSessionStatus(
   status: string | undefined,
 ): AgentRuntimeExecutionEventStatus {
-  if (status === "completed" || status === "idle") return "completed";
-  if (status === "failed" || status === "canceled") return "failed";
+  const normalized = normalizeStatus(status);
+  const terminalStatus =
+    runtimeTurnTerminalProjectionFromStatus(normalized)?.status;
+  if (terminalStatus) return terminalStatus;
+  if (normalized === "completed" || normalized === "idle") return "completed";
   if (status === "waitingAction") return "blocked";
-  if (status === "running") return "running";
+  if (normalized === "running") return "running";
   return "pending";
 }
 
-function statusFromTurnStatus(
+function statusFromTurnSnapshotStatus(
   status: string | undefined,
 ): AgentRuntimeExecutionEventStatus {
-  if (status === "completed") return "completed";
-  if (status === "failed" || status === "canceled") return "failed";
+  const normalized = normalizeStatus(status);
+  const terminalStatus =
+    runtimeTurnTerminalProjectionFromStatus(normalized)?.status;
+  if (terminalStatus) return terminalStatus;
   if (status === "waitingAction") return "pending";
-  if (status === "running" || status === "accepted") return "running";
+  if (normalized === "running" || normalized === "accepted") return "running";
   return "pending";
 }
 
-function eventClassForTurnStatus(status: string | undefined): string {
-  if (status === "completed") return "turn.completed";
-  if (status === "failed") return "turn.failed";
-  if (status === "canceled") return "turn.canceled";
+function eventClassForTurnSnapshotStatus(status: string | undefined): string {
+  const terminalEventClass =
+    runtimeTurnTerminalProjectionFromStatus(status)?.eventClass;
+  if (terminalEventClass) return terminalEventClass;
+  const normalized = normalizeStatus(status);
   if (status === "waitingAction") return "action.required";
-  if (status === "running" || status === "accepted") return "turn.started";
+  if (normalized === "running" || normalized === "accepted") {
+    return "turn.started";
+  }
   return "turn.submitted";
 }
 
 function phaseForEventClass(eventClass: string): string {
+  const terminalPhase = runtimeTurnTerminalProjectionFromStatus(
+    runtimeStatusForTerminalEventClass(eventClass),
+  )?.phase;
+  if (terminalPhase) return terminalPhase;
   if (eventClass === "action.required") return "action_required";
   if (eventClass.endsWith(".failed") || eventClass === "runtime.error") {
     return "failed";
@@ -595,10 +757,8 @@ function isActionEvent(eventClass: string): boolean {
 }
 
 function isCompletedEvent(eventClass: string): boolean {
-  return (
-    statusForEventClass(eventClass) === "completed" ||
-    statusForEventClass(eventClass) === "failed"
-  );
+  const status = statusForEventClass(eventClass);
+  return status === "completed" || status === "failed" || status === "canceled";
 }
 
 function normalizeRefs(values: Array<string | undefined>): string[] {
@@ -625,11 +785,12 @@ function compareEvents(
   left: AgentRuntimeExecutionEvent,
   right: AgentRuntimeExecutionEvent,
 ): number {
-  const leftSequence = readNumberField({ sequence: left.sequence }, ["sequence"]);
-  const rightSequence = readNumberField(
-    { sequence: right.sequence },
-    ["sequence"],
-  );
+  const leftSequence = readNumberField({ sequence: left.sequence }, [
+    "sequence",
+  ]);
+  const rightSequence = readNumberField({ sequence: right.sequence }, [
+    "sequence",
+  ]);
   if (leftSequence !== undefined && rightSequence !== undefined) {
     return leftSequence - rightSequence;
   }

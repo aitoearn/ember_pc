@@ -93,6 +93,7 @@ const t = ((key: string, values?: Record<string, unknown>) => {
     "generalWorkbench.workflow.activity.gate.writeMode": "写作闸门",
     "generalWorkbench.workflow.activity.source.skill": "技能",
     "generalWorkbench.workflow.activity.source.tool": "工具",
+    "generalWorkbench.workflow.activity.source.workflow": "Workflow",
     "generalWorkbench.workflow.activity.status.failed": "失败",
     "generalWorkbench.workflow.activity.status.recorded": "已记录",
     "generalWorkbench.workflow.activity.status.running": "处理中",
@@ -142,6 +143,13 @@ const t = ((key: string, values?: Record<string, unknown>) => {
     "generalWorkbench.workflow.runDetail.revealArtifact": "定位",
     "generalWorkbench.workflow.runDetail.revealArtifactAria":
       "定位产物路径-{{path}}",
+    "generalWorkbench.workflow.runDetail.workflowFailure": "失败原因",
+    "generalWorkbench.workflow.runDetail.workflowRetry": "重试关联",
+    "generalWorkbench.workflow.runDetail.workflowWaitingAction": "等待动作",
+    "generalWorkbench.workflow.runDetail.waitingAction.askUser": "人工确认",
+    "generalWorkbench.workflow.runDetail.waitingAction.elicitation": "补充信息",
+    "generalWorkbench.workflow.runDetail.waitingAction.toolConfirmation":
+      "工具确认",
     "generalWorkbench.workflow.runDetail.summary.artifactCount":
       "{{count}} 个产物",
     "generalWorkbench.workflow.runDetail.summary.artifactPath": "产物 {{path}}",
@@ -429,7 +437,7 @@ describe("generalWorkbenchWorkflowPanelViewModel", () => {
       meta: "10:22 · 共 3 条产出记录，按 1 类归档。",
     });
     expect(formatCreationTaskCountLabel(2, t)).toBe("2 条记录");
-    expect(getCreationTaskTitle(" .ember/tasks/image_generate/a.json ", t)).toBe(
+    expect(getCreationTaskTitle(" .lime/tasks/image_generate/a.json ", t)).toBe(
       "a.json",
     );
     expect(getCreationTaskTitle("   ", t)).toBe("未命名任务");
@@ -444,8 +452,8 @@ describe("generalWorkbenchWorkflowPanelViewModel", () => {
             {
               taskId: "task-1",
               taskType: "typesetting",
-              path: ".ember/tasks/typesetting/task-1.json",
-              absolutePath: "/workspace/.ember/tasks/typesetting/task-1.json",
+              path: ".lime/tasks/typesetting/task-1.json",
+              absolutePath: "/workspace/.lime/tasks/typesetting/task-1.json",
               createdAt: 1,
               timeLabel: "10:22",
             },
@@ -467,9 +475,9 @@ describe("generalWorkbenchWorkflowPanelViewModel", () => {
       latestTimeLabel: "10:22",
       tasks: [
         {
-          key: "task-1-.ember/tasks/typesetting/task-1.json",
+          key: "task-1-.lime/tasks/typesetting/task-1.json",
           title: "task-1.json",
-          copyTarget: "/workspace/.ember/tasks/typesetting/task-1.json",
+          copyTarget: "/workspace/.lime/tasks/typesetting/task-1.json",
           copyAriaLabel:
             "generalWorkbench.workflow.outputs.copyAbsolutePathAria",
         },
@@ -503,8 +511,8 @@ describe("generalWorkbenchWorkflowPanelViewModel", () => {
               {
                 taskId: "task-1",
                 taskType: "typesetting",
-                path: ".ember/tasks/typesetting/task-1.json",
-                absolutePath: "/workspace/.ember/tasks/typesetting/task-1.json",
+                path: ".lime/tasks/typesetting/task-1.json",
+                absolutePath: "/workspace/.lime/tasks/typesetting/task-1.json",
                 createdAt: 1,
                 timeLabel: "10:22",
               },
@@ -522,7 +530,7 @@ describe("generalWorkbenchWorkflowPanelViewModel", () => {
           tasks: [
             {
               title: "task-1.json",
-              copyTarget: "/workspace/.ember/tasks/typesetting/task-1.json",
+              copyTarget: "/workspace/.lime/tasks/typesetting/task-1.json",
             },
           ],
         },
@@ -871,7 +879,7 @@ describe("generalWorkbenchWorkflowPanelViewModel", () => {
   it("应选择最新 review feedback 并构造建议下一步投影", () => {
     const latestSignal = selectLatestReviewFeedbackSignal([
       {
-        source: "saved_inspiration",
+        source: "memory_reference",
         category: "experience",
         title: "灵感记录",
         summary: "不是 review feedback。",
@@ -1250,6 +1258,7 @@ describe("generalWorkbenchWorkflowPanelViewModel", () => {
       ],
       summary:
         "结果模板 每日趋势摘要 · 写作闸门 · 工作流 social_content_pipeline_v1 · 产物 content-posts/demo.md",
+      detailRows: [],
       actions: [
         {
           kind: "copy_id",
@@ -1291,5 +1300,121 @@ describe("generalWorkbenchWorkflowPanelViewModel", () => {
         },
       ],
     });
+
+    const workflowRunDetailProjection = buildGeneralWorkbenchRunDetailProjection({
+      activeRunDetail: {
+        id: "workflow-run-1",
+        source: "automation",
+        status: "error",
+      },
+      runMetadataSummary: {
+        workflow: "content_article_workflow",
+        executionId: null,
+        versionId: null,
+        stages: [],
+        artifactPaths: [],
+        curatedTask: null,
+      },
+      runMetadataText: JSON.stringify({
+        source: "workflow/read",
+        workflow_read_model: {
+          workflowRunId: "workflow-run-1",
+          failure: {
+            reasonCode: "worker_output",
+          },
+          retry: {
+            sourceTurnId: "turn-source",
+            rescheduledTurnId: "turn-retry",
+            reasonCode: "manual_retry",
+          },
+          actions: [
+            {
+              actionType: "ask_user",
+              requestId: "request-1",
+              stepId: "approval",
+            },
+          ],
+          steps: [
+            {
+              id: "draft",
+              title: "起草正文",
+              status: "failed",
+              failure: {
+                message: "正文为空",
+              },
+            },
+          ],
+        },
+      }),
+      t,
+    });
+
+    expect(workflowRunDetailProjection.detailRows).toEqual([
+      {
+        key: "workflow-failure",
+        label: "失败原因",
+        value: "worker_output",
+      },
+      {
+        key: "workflow-retry",
+        label: "重试关联",
+        value: "turn-source -> turn-retry · manual_retry",
+      },
+      {
+        key: "workflow-waiting-action",
+        label: "等待动作",
+        value: "人工确认 / request-1 / approval",
+      },
+    ]);
+  });
+
+  it("应优先用 agentActionType 展示 workflow waiting action 类型", () => {
+    const workflowRunDetailProjection = buildGeneralWorkbenchRunDetailProjection({
+      activeRunDetail: {
+        id: "workflow-run-1",
+        source: "automation",
+        status: "running",
+      },
+      runMetadataSummary: {
+        workflow: "content_article_workflow",
+        executionId: null,
+        versionId: null,
+        stages: [],
+        artifactPaths: [],
+        curatedTask: null,
+      },
+      runMetadataText: JSON.stringify({
+        source: "workflow/read",
+        workflow_read_model: {
+          workflowRunId: "workflow-run-1",
+          actions: [
+            {
+              actionType: "respond",
+              agentActionType: "tool_confirmation",
+              requestId: "request-tool-1",
+              stepId: "approve-tool",
+            },
+          ],
+          steps: [
+            {
+              id: "collect-input",
+              title: "补充信息",
+              status: "waiting_permission",
+              requestId: "request-elicitation-1",
+              agentActionType: "elicitation",
+            },
+          ],
+        },
+      }),
+      t,
+    });
+
+    expect(workflowRunDetailProjection.detailRows).toEqual([
+      {
+        key: "workflow-waiting-action",
+        label: "等待动作",
+        value: "工具确认 / request-tool-1 / approve-tool",
+      },
+    ]);
   });
 });

@@ -14,7 +14,7 @@ const DEFAULTS = {
   intervalMs: 1_000,
   evidenceDir: path.join(
     process.cwd(),
-    ".ember",
+    ".lime",
     "qc",
     "gui-evidence",
     "project-memory-current",
@@ -27,7 +27,7 @@ const APP_SERVER_HANDLE_JSON_LINES_COMMAND = "app_server_handle_json_lines";
 const REQUIRED_APP_SERVER_METHODS = ["projectMemory/read"];
 const LEGACY_PROJECT_MEMORY_COMMANDS = ["project_memory_get"];
 const LAST_PROJECT_ID_KEY = "agent_last_project_id";
-const APP_SIDEBAR_COLLAPSED_STORAGE_KEY = "ember.app-sidebar.collapsed";
+const APP_SIDEBAR_COLLAPSED_STORAGE_KEY = "lime.app-sidebar.collapsed";
 
 function printHelp() {
   console.log(`
@@ -47,7 +47,7 @@ Project Memory Current Smoke
   --invoke-url <url>     DevBridge invoke 地址，默认 http://127.0.0.1:3030/invoke
   --timeout-ms <ms>      总超时，默认 120000
   --interval-ms <ms>     健康检查轮询间隔，默认 1000
-  --evidence-dir <path>  证据目录，默认 .ember/qc/gui-evidence/project-memory-current
+  --evidence-dir <path>  证据目录，默认 .lime/qc/gui-evidence/project-memory-current
   --prefix <name>        证据文件前缀，默认 project-memory-current
   --headed               使用有界面 Chrome
   -h, --help             显示帮助

@@ -21,14 +21,14 @@ const HARNESS_HANDOFF_EXPORT_SECTION_PATH =
 const HARNESS_EVIDENCE_PACK_CARD_PATH =
   "src/components/agent/chat/components/HarnessEvidencePackCard.tsx";
 const REQUIRED_DOCS = [
-  "docs/roadmap/warp/runtime-fact-map.md",
-  "docs/roadmap/warp/contract-schema.md",
-  "docs/roadmap/warp/capability-matrix.md",
-  "docs/roadmap/warp/execution-profile.md",
-  "docs/roadmap/warp/artifact-graph.md",
-  "docs/roadmap/warp/entry-binding-inventory.md",
-  "docs/roadmap/warp/task-index-inventory.md",
-  "docs/roadmap/warp/evolution-guide.md",
+  "internal/roadmap/warp/runtime-fact-map.md",
+  "internal/roadmap/warp/contract-schema.md",
+  "internal/roadmap/warp/capability-matrix.md",
+  "internal/roadmap/warp/execution-profile.md",
+  "internal/roadmap/warp/artifact-graph.md",
+  "internal/roadmap/warp/entry-binding-inventory.md",
+  "internal/roadmap/warp/task-index-inventory.md",
+  "internal/roadmap/warp/evolution-guide.md",
 ];
 const REQUIRED_TASK_INDEX_PRESENTATION_EXPORTS = [
   "buildModalityTaskIndexFacets",
@@ -58,7 +58,7 @@ const PERMISSIONS = new Set([
   "media_upload",
   "service_api_call",
   "local_cli",
-  "ask_user_question",
+  "request_user_input",
 ]);
 const ARTIFACT_KINDS = new Set([
   "image_task",
@@ -118,6 +118,7 @@ const EXECUTOR_KINDS = new Set([
   "gateway",
   "scene_cloud",
   "local_cli",
+  "workflow",
 ]);
 const FAILURE_REASONS = new Set([
   "permission_denied",
@@ -169,7 +170,7 @@ const REQUIRED_MEDIA_TASK_PHASE8_INDEX_FIELDS = new Set([
   "quota_low",
   "executor_kind",
   "executor_binding_key",
-  "embercore_policy_snapshot_status",
+  "limecore_policy_snapshot_status",
 ]);
 const ENTRY_KINDS = new Set([
   "command",
@@ -194,6 +195,8 @@ const PHASE7_REQUIRED_ENTRY_BINDINGS = new Map([
   ["web_research", ["at_search_command"]],
   ["text_transform", ["at_summary_command"]],
 ]);
+const METADATA_ONLY_ROUTE_EXECUTION_STATUS = "metadata_only";
+const ROUTE_EXECUTION_EVIDENCE_EVENTS = new Set(["executor_invoked"]);
 
 function collectUniqueObjects(errors, collection, keyName, label) {
   const result = new Map();
@@ -322,6 +325,12 @@ function looksLikeEntryKey(contractKey) {
 function validateExecutor(errors, contract) {
   const contractKey = contract.contract_key;
   const executor = contract.executor_binding;
+  if (
+    contract.route_execution_status === METADATA_ONLY_ROUTE_EXECUTION_STATUS &&
+    executor === undefined
+  ) {
+    return;
+  }
   pushIf(
     errors,
     !isPlainObject(executor),
@@ -483,14 +492,14 @@ function validatePhase7EntryBindingCoverage(errors, registry) {
 
       if (entry.entry_kind === "scene") {
         const policyRefs = new Set(
-          Array.isArray(contract.embercore_policy_refs)
-            ? contract.embercore_policy_refs
+          Array.isArray(contract.limecore_policy_refs)
+            ? contract.limecore_policy_refs
             : [],
         );
         pushIf(
           errors,
           !policyRefs.has("client_scenes") && !policyRefs.has("scene_policy"),
-          `${prefix} is a scene entry but contract.embercore_policy_refs does not include client_scenes or scene_policy`,
+          `${prefix} is a scene entry but contract.limecore_policy_refs does not include client_scenes or scene_policy`,
         );
       }
     }
@@ -806,6 +815,13 @@ function validateContractArtifactGraph(errors, contract, artifactGraphRefs) {
       !hasIntersection(contract.evidence_events, artifact.evidence_events),
       `${contractKey}.artifact_kinds ${artifactKind} has no evidence_events intersection with artifact graph`,
     );
+    pushIf(
+      errors,
+      contract.route_execution_status ===
+        METADATA_ONLY_ROUTE_EXECUTION_STATUS &&
+        containsAny(artifact.evidence_events, ROUTE_EXECUTION_EVIDENCE_EVENTS),
+      `${contractKey}.artifact_kinds ${artifactKind} must not declare executor_invoked in artifact graph while route_execution_status is metadata_only`,
+    );
   }
 }
 
@@ -829,6 +845,93 @@ function validateSubset(errors, label, actualValues, requiredValues) {
       errors,
       !actualSet.has(requiredValue),
       `${label} must include ${requiredValue}`,
+    );
+  }
+}
+
+function containsAny(values, disallowedValues) {
+  if (!Array.isArray(values)) {
+    return false;
+  }
+  return values.some((value) => disallowedValues.has(value));
+}
+
+function validateMetadataOnlyRouteExecution(
+  errors,
+  contractKey,
+  contract,
+  profile,
+  adapter,
+) {
+  if (
+    contract.route_execution_status !== METADATA_ONLY_ROUTE_EXECUTION_STATUS
+  ) {
+    return;
+  }
+
+  pushIf(
+    errors,
+    !isNonEmptyString(contract.route_execution_exit_condition),
+    `${contractKey}.route_execution_exit_condition must be set while route_execution_status is metadata_only`,
+  );
+  pushIf(
+    errors,
+    containsAny(contract.evidence_events, ROUTE_EXECUTION_EVIDENCE_EVENTS),
+    `${contractKey}.evidence_events must not include executor_invoked while route_execution_status is metadata_only`,
+  );
+
+  if (profile) {
+    pushIf(
+      errors,
+      profile.lifecycle === "current",
+      `execution profile ${profile.profile_key} must not be current while ${contractKey}.route_execution_status is metadata_only`,
+    );
+    pushIf(
+      errors,
+      containsAny(profile.evidence_events, ROUTE_EXECUTION_EVIDENCE_EVENTS),
+      `execution profile ${profile.profile_key}.evidence_events must not include executor_invoked while ${contractKey}.route_execution_status is metadata_only`,
+    );
+  }
+
+  if (adapter) {
+    pushIf(
+      errors,
+      adapter.lifecycle === "current",
+      `executor adapter ${adapter.adapter_key} must not be current while ${contractKey}.route_execution_status is metadata_only`,
+    );
+    pushIf(
+      errors,
+      containsAny(adapter.evidence_events, ROUTE_EXECUTION_EVIDENCE_EVENTS),
+      `executor adapter ${adapter.adapter_key}.evidence_events must not include executor_invoked while ${contractKey}.route_execution_status is metadata_only`,
+    );
+  }
+}
+
+function validateMetadataOnlyProfileAdapters(
+  errors,
+  contractKey,
+  contract,
+  profile,
+  adapterMap,
+) {
+  if (
+    contract.route_execution_status !== METADATA_ONLY_ROUTE_EXECUTION_STATUS ||
+    !isPlainObject(profile) ||
+    !Array.isArray(profile.executor_adapter_keys)
+  ) {
+    return;
+  }
+
+  for (const adapterKey of profile.executor_adapter_keys) {
+    if (!isNonEmptyString(adapterKey)) {
+      continue;
+    }
+    validateMetadataOnlyRouteExecution(
+      errors,
+      contractKey,
+      contract,
+      null,
+      adapterMap.get(adapterKey) ?? null,
     );
   }
 }
@@ -1038,8 +1141,8 @@ function validateExecutionProfiles(
     validateEnumArray(
       errors,
       profileKey,
-      "embercore_policy_refs",
-      profile.embercore_policy_refs,
+      "limecore_policy_refs",
+      profile.limecore_policy_refs,
       LIMECORE_POLICY_REFS,
     );
     pushIf(
@@ -1093,9 +1196,9 @@ function validateExecutionProfiles(
       );
       validateSubset(
         errors,
-        `execution profile ${profileKey}.embercore_policy_refs`,
-        profile.embercore_policy_refs,
-        contract.embercore_policy_refs,
+        `execution profile ${profileKey}.limecore_policy_refs`,
+        profile.limecore_policy_refs,
+        contract.limecore_policy_refs,
       );
       validateSubset(
         errors,
@@ -1117,11 +1220,33 @@ function validateExecutionProfiles(
           [adapterKey],
         );
       }
+      validateMetadataOnlyRouteExecution(
+        errors,
+        contractKey,
+        contract,
+        profile,
+        adapterKey ? adapterMap.get(adapterKey) : null,
+      );
+      validateMetadataOnlyProfileAdapters(
+        errors,
+        contractKey,
+        contract,
+        profile,
+        adapterMap,
+      );
     }
   }
 
   for (const [contractKey, contract] of contractMap.entries()) {
+    const adapterKey = resolveExecutorAdapterKey(contract.executor_binding);
     if (contract.lifecycle !== "current") {
+      validateMetadataOnlyRouteExecution(
+        errors,
+        contractKey,
+        contract,
+        null,
+        adapterKey ? adapterMap.get(adapterKey) : null,
+      );
       continue;
     }
     pushIf(
@@ -1129,7 +1254,6 @@ function validateExecutionProfiles(
       !supportedContractsByProfile.has(contractKey),
       `current contract ${contractKey} must be covered by an execution profile`,
     );
-    const adapterKey = resolveExecutorAdapterKey(contract.executor_binding);
     const adapter = adapterKey ? adapterMap.get(adapterKey) : null;
     pushIf(
       errors,
@@ -1310,8 +1434,8 @@ function validateContractRegistry(registry, matrixRefs, artifactGraphRefs) {
     validateEnumArray(
       errors,
       contractKey,
-      "embercore_policy_refs",
-      contract.embercore_policy_refs,
+      "limecore_policy_refs",
+      contract.limecore_policy_refs,
       LIMECORE_POLICY_REFS,
     );
     validateStringArray(
@@ -1417,7 +1541,7 @@ function validateTaskIndexPresentationGuard() {
   );
   pushIf(
     errors,
-    !sectionSource.includes("任务中心过滤列表"),
+    !sectionSource.includes('t("agentChat.harness.taskIndex.list.title")'),
     `${HARNESS_TASK_INDEX_SECTION_PATH} must keep the task center filter surface attached to shared taskIndex rows`,
   );
   pushIf(
@@ -1465,7 +1589,7 @@ function renderSuccess(
     (contract) => contract.lifecycle === "current",
   ).length;
   return [
-    "[ember] modality runtime contracts OK",
+    "[lime] modality runtime contracts OK",
     `  contracts: ${registry.contracts.length}`,
     `  current: ${currentCount}`,
     `  capabilities: ${matrix.capabilities.length}`,
@@ -1515,7 +1639,7 @@ function main() {
   ];
 
   if (errors.length > 0) {
-    console.error("[ember] modality runtime contracts FAILED");
+    console.error("[lime] modality runtime contracts FAILED");
     for (const error of errors) {
       console.error(`  - ${error}`);
     }

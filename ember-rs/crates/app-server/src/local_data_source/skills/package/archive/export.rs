@@ -4,7 +4,7 @@ use super::MAX_SKILL_PACKAGE_BYTES;
 use crate::local_data_source::skills::common::resolve_skill_package_dir;
 use crate::local_data_source::skills::common::validate_skill_package_directory;
 use app_server_protocol::SkillPackageExportResponse;
-use ember_services::skill_service::SkillService;
+use lime_services::skill_service::SkillService;
 use std::fs;
 use std::io;
 use std::path::Path;

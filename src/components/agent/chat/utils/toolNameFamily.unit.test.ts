@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyMcpToolOperationKind,
   isBrowserToolName,
+  isUpdatePlanToolName,
   isUnifiedWebFetchToolName,
   isUnifiedWebSearchToolName,
   parseMcpToolName,
@@ -15,8 +16,8 @@ describe("toolNameFamily", () => {
       innerToolName: "web_search",
       normalizedInnerToolName: "web_search",
     });
-    expect(parseMcpToolName("mcp__ember-browser__browserSnapshot")).toEqual({
-      serverName: "ember-browser",
+    expect(parseMcpToolName("mcp__lime-browser__browserSnapshot")).toEqual({
+      serverName: "lime-browser",
       innerToolName: "browserSnapshot",
       normalizedInnerToolName: "browser_snapshot",
     });
@@ -68,5 +69,12 @@ describe("toolNameFamily", () => {
     expect(isBrowserToolName("browser_navigate")).toBe(true);
     expect(isBrowserToolName("mcp__playwright__browser_click")).toBe(true);
     expect(isBrowserToolName("mcp__github__search_code")).toBe(false);
+  });
+
+  it("应识别 update_plan 工具别名", () => {
+    expect(isUpdatePlanToolName("update_plan")).toBe(true);
+    expect(isUpdatePlanToolName("UpdatePlanTool")).toBe(true);
+    expect(isUpdatePlanToolName("update-plan")).toBe(true);
+    expect(isUpdatePlanToolName("task_update")).toBe(false);
   });
 });

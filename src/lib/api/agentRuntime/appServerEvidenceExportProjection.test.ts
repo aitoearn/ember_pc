@@ -20,8 +20,8 @@ function evidenceExportResponse(
     artifacts: [],
     exportedAt: "2026-06-06T00:00:04.000Z",
     evidencePack: {
-      packRelativeRoot: ".ember/harness/sessions/session-1/evidence",
-      packAbsoluteRoot: "/tmp/work/.ember/harness/sessions/session-1/evidence",
+      packRelativeRoot: ".lime/harness/sessions/session-1/evidence",
+      packAbsoluteRoot: "/tmp/work/.lime/harness/sessions/session-1/evidence",
       exportedAt: "2026-06-06T00:00:05.000Z",
       threadStatus: "running",
       latestTurnStatus: "accepted",
@@ -33,6 +33,71 @@ function evidenceExportResponse(
       knownGaps: ["gui_smoke_not_run"],
       observabilitySummary: {
         schema_version: "runtime-evidence-pack.v1",
+        skillInvocations: [
+          {
+            event: "skill_invocation",
+            skillName: "project:capability-report",
+            status: "completed",
+            sourceEventId: "evt-skill-1",
+            sourceEventType: "tool.result",
+            turnId: "turn-1",
+            toolCallId: "skill-call-1",
+            workspaceSkillRuntimeEnable: {
+              approval: "manual",
+              source: "manual_session_enable",
+            },
+          },
+        ],
+        skillSearches: [
+          {
+            event: "skill_search",
+            query: "capability report",
+            resultCount: 2,
+            snapshotSkillCount: 7,
+            status: "completed",
+            sourceEventId: "evt-skill-search-1",
+            sourceEventType: "tool.result",
+            turnId: "turn-1",
+            toolCallId: "skill-search-call-1",
+          },
+        ],
+        mcpToolResults: [
+          {
+            event: "mcp_tool_result",
+            toolName: "mcp__docs__search_docs",
+            status: "completed",
+            sourceEventId: "evt-mcp-1",
+            sourceEventType: "tool.result",
+            hasStructuredContent: true,
+            structuredContentKeys: ["answer", "ids"],
+            turnId: "turn-1",
+            toolCallId: "mcp-search-call-1",
+          },
+        ],
+        mcpResourceReads: [
+          {
+            event: "mcp_resource_read",
+            toolName: "ReadMcpResourceTool",
+            server: "docs",
+            uri: "file:///docs/intro.md",
+            status: "completed",
+            sourceEventId: "evt-mcp-resource-1",
+            sourceEventType: "tool.result",
+            mimeTypes: ["text/markdown"],
+            contentCount: 1,
+            contentRefs: [
+              {
+                index: 0,
+                type: "text",
+                uri: "file:///docs/intro.md",
+                mimeType: "text/markdown",
+                textCharCount: 64,
+              },
+            ],
+            turnId: "turn-1",
+            toolCallId: "mcp-resource-call-1",
+          },
+        ],
       },
       completionAuditSummary: {
         source: "runtime_evidence_pack_completion_audit",
@@ -54,9 +119,9 @@ function evidenceExportResponse(
         {
           kind: "summary",
           title: "Evidence Summary",
-          relativePath: ".ember/harness/sessions/session-1/evidence/summary.md",
+          relativePath: ".lime/harness/sessions/session-1/evidence/summary.md",
           absolutePath:
-            "/tmp/work/.ember/harness/sessions/session-1/evidence/summary.md",
+            "/tmp/work/.lime/harness/sessions/session-1/evidence/summary.md",
           bytes: 128,
         },
       ],
@@ -76,8 +141,8 @@ describe("appServerEvidenceExportProjection", () => {
       thread_id: "thread-1",
       workspace_id: "workspace-1",
       workspace_root: "/tmp/work",
-      pack_relative_root: ".ember/harness/sessions/session-1/evidence",
-      pack_absolute_root: "/tmp/work/.ember/harness/sessions/session-1/evidence",
+      pack_relative_root: ".lime/harness/sessions/session-1/evidence",
+      pack_absolute_root: "/tmp/work/.lime/harness/sessions/session-1/evidence",
       exported_at: "2026-06-06T00:00:05.000Z",
       thread_status: "running",
       latest_turn_status: "accepted",
@@ -90,18 +155,85 @@ describe("appServerEvidenceExportProjection", () => {
       completion_audit_summary: expect.objectContaining({
         decision: "in_progress",
         owner_run_count: 1,
+        workspace_skill_tool_call_count: 1,
         required_evidence: expect.objectContaining({
           automation_owner: true,
           workspace_skill_tool_call: true,
           artifact_or_timeline: true,
         }),
       }),
+      observability_summary: expect.objectContaining({
+        skill_invocations: [
+          expect.objectContaining({
+            event: "skill_invocation",
+            skill_name: "project:capability-report",
+            status: "completed",
+            source_event_id: "evt-skill-1",
+            source_event_type: "tool.result",
+            turn_id: "turn-1",
+            tool_call_id: "skill-call-1",
+            workspace_skill_runtime_enable: expect.objectContaining({
+              approval: "manual",
+            }),
+          }),
+        ],
+        skill_searches: [
+          expect.objectContaining({
+            event: "skill_search",
+            query: "capability report",
+            result_count: 2,
+            snapshot_skill_count: 7,
+            status: "completed",
+            source_event_id: "evt-skill-search-1",
+            source_event_type: "tool.result",
+            turn_id: "turn-1",
+            tool_call_id: "skill-search-call-1",
+          }),
+        ],
+        mcp_tool_results: [
+          expect.objectContaining({
+            event: "mcp_tool_result",
+            tool_name: "mcp__docs__search_docs",
+            status: "completed",
+            source_event_id: "evt-mcp-1",
+            source_event_type: "tool.result",
+            has_structured_content: true,
+            structured_content_keys: ["answer", "ids"],
+            turn_id: "turn-1",
+            tool_call_id: "mcp-search-call-1",
+          }),
+        ],
+        mcp_resource_reads: [
+          expect.objectContaining({
+            event: "mcp_resource_read",
+            tool_name: "ReadMcpResourceTool",
+            server: "docs",
+            uri: "file:///docs/intro.md",
+            status: "completed",
+            source_event_id: "evt-mcp-resource-1",
+            source_event_type: "tool.result",
+            mime_types: ["text/markdown"],
+            content_count: 1,
+            content_refs: [
+              expect.objectContaining({
+                index: 0,
+                type: "text",
+                uri: "file:///docs/intro.md",
+                mime_type: "text/markdown",
+                text_char_count: 64,
+              }),
+            ],
+            turn_id: "turn-1",
+            tool_call_id: "mcp-resource-call-1",
+          }),
+        ],
+      }),
       artifacts: [
         expect.objectContaining({
           kind: "summary",
-          relative_path: ".ember/harness/sessions/session-1/evidence/summary.md",
+          relative_path: ".lime/harness/sessions/session-1/evidence/summary.md",
           absolute_path:
-            "/tmp/work/.ember/harness/sessions/session-1/evidence/summary.md",
+            "/tmp/work/.lime/harness/sessions/session-1/evidence/summary.md",
           bytes: 128,
         }),
       ],
@@ -111,9 +243,9 @@ describe("appServerEvidenceExportProjection", () => {
   it("Windows 路径也应能从 packAbsoluteRoot 推导 workspace_root", () => {
     const pack = projectAppServerEvidenceExportToRuntimeEvidencePack(
       evidenceExportResponse({
-        packRelativeRoot: ".ember\\harness\\sessions\\session-1\\evidence",
+        packRelativeRoot: ".lime\\harness\\sessions\\session-1\\evidence",
         packAbsoluteRoot:
-          "C:\\work\\.ember\\harness\\sessions\\session-1\\evidence",
+          "C:\\work\\.lime\\harness\\sessions\\session-1\\evidence",
       }),
     );
 
@@ -127,5 +259,105 @@ describe("appServerEvidenceExportProjection", () => {
         evidencePack: undefined,
       }),
     ).toThrow("App Server evidence/export did not return evidencePack");
+  });
+
+  it("缺少 session / thread 关联时应 fail closed", () => {
+    expect(() =>
+      projectAppServerEvidenceExportToRuntimeEvidencePack({
+        ...evidenceExportResponse(),
+        session: {
+          ...evidenceExportResponse().session,
+          sessionId: "",
+        },
+      }),
+    ).toThrow("App Server evidence/export did not return session.sessionId");
+
+    expect(() =>
+      projectAppServerEvidenceExportToRuntimeEvidencePack({
+        ...evidenceExportResponse(),
+        session: {
+          ...evidenceExportResponse().session,
+          threadId: "",
+        },
+      }),
+    ).toThrow("App Server evidence/export did not return session.threadId");
+  });
+
+  it("缺少 evidence pack summary 关键字段时应 fail closed", () => {
+    expect(() =>
+      projectAppServerEvidenceExportToRuntimeEvidencePack(
+        evidenceExportResponse({
+          packRelativeRoot: "",
+        }),
+      ),
+    ).toThrow(
+      "App Server evidence/export did not return evidencePack.packRelativeRoot",
+    );
+
+    expect(() =>
+      projectAppServerEvidenceExportToRuntimeEvidencePack(
+        evidenceExportResponse({
+          exportedAt: "",
+        }),
+      ),
+    ).toThrow("App Server evidence/export did not return evidencePack.exportedAt");
+
+    expect(() =>
+      projectAppServerEvidenceExportToRuntimeEvidencePack(
+        evidenceExportResponse({
+          threadStatus: "",
+        }),
+      ),
+    ).toThrow(
+      "App Server evidence/export did not return evidencePack.threadStatus",
+    );
+  });
+
+  it("缺少 evidence pack runtime 计数时应 fail closed", () => {
+    expect(() =>
+      projectAppServerEvidenceExportToRuntimeEvidencePack(
+        evidenceExportResponse({
+          turnCount: Number.NaN,
+        }),
+      ),
+    ).toThrow("App Server evidence/export did not return evidencePack.turnCount");
+
+    expect(() =>
+      projectAppServerEvidenceExportToRuntimeEvidencePack(
+        evidenceExportResponse({
+          itemCount: Number.POSITIVE_INFINITY,
+        }),
+      ),
+    ).toThrow("App Server evidence/export did not return evidencePack.itemCount");
+
+    expect(() =>
+      projectAppServerEvidenceExportToRuntimeEvidencePack(
+        evidenceExportResponse({
+          pendingRequestCount: undefined,
+        }),
+      ),
+    ).toThrow(
+      "App Server evidence/export did not return evidencePack.pendingRequestCount",
+    );
+
+    expect(() =>
+      projectAppServerEvidenceExportToRuntimeEvidencePack(
+        evidenceExportResponse({
+          queuedTurnCount: undefined,
+        }),
+      ),
+    ).toThrow(
+      "App Server evidence/export did not return evidencePack.queuedTurnCount",
+    );
+
+    expect(() =>
+      projectAppServerEvidenceExportToRuntimeEvidencePack(
+        evidenceExportResponse({
+          recentArtifactCount: undefined,
+        }),
+      ),
+    ).toThrow(
+      "App Server evidence/export did not return evidencePack.recentArtifactCount",
+    );
   });
 });

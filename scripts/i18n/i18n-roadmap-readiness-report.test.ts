@@ -12,7 +12,7 @@ import {
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ember-i18n-roadmap-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lime-i18n-roadmap-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -73,7 +73,7 @@ import { loadBundledI18nResources } from "./loadNamespace";
 import { resolveDocumentDirection } from "./locales";
 document.documentElement.lang = "zh-CN";
 document.documentElement.dir = resolveDocumentDirection("zh-CN");
-export function initEmberI18n() {
+export function initLimeI18n() {
   return initReactI18next;
 }
 export const options = {
@@ -106,22 +106,22 @@ export const options = {
   writeText(
     root,
     "src/components/settings-v2/general/appearance/index.tsx",
-    "useTranslation(); UI_LOCALE_OPTIONS; changeEmberLocale('en-US');\n",
+    "useTranslation(); UI_LOCALE_OPTIONS; changeLimeLocale('en-US');\n",
   );
   writeText(
     root,
     "src/components/AppSidebar.test.tsx",
-    'changeEmberLocale("en-US"); document.documentElement.lang; saveConfig({ language: "en-US" });\n',
+    'changeLimeLocale("en-US"); document.documentElement.lang; saveConfig({ language: "en-US" });\n',
   );
   writeText(
     root,
     "scripts/quality-task-planner.mjs",
     "i18n:translation-pr-pack:json i18n:bundle-report:json i18n:p4-readiness-report:json\n",
   );
-  writeText(root, "docs/roadmap/i18n/glossary.md", "# glossary\n");
+  writeText(root, "internal/roadmap/i18n/glossary.md", "# glossary\n");
   writeText(root, ".github/pull_request_template.md", "namespace\n");
 
-  writeJson(root, "docs/roadmap/i18n/evidence/source-locale-export.json", {
+  writeJson(root, "internal/roadmap/i18n/evidence/source-locale-export.json", {
     namespaces: [
       {
         namespace: "common",
@@ -141,7 +141,7 @@ export const options = {
         values: {
           "workspace.artifact.title": "artifact",
           "workspace.browserEnvironment.description":
-            "Accept-Language 不控制 Ember 界面语言。",
+            "Accept-Language 不控制 Lime 界面语言。",
           "workspace.browserProfile.title": "workspace.browser",
         },
       },
@@ -160,7 +160,7 @@ export const options = {
         values: { "agentChat.skills.title": "技能" },
       },
     ],
-    schemaVersion: "ember.i18n.sourceLocaleExport.v1",
+    schemaVersion: "lime.i18n.sourceLocaleExport.v1",
     sourceLocale: "zh-CN",
     summary: {
       namespaceCount: 9,
@@ -169,7 +169,7 @@ export const options = {
   });
   writeJson(
     root,
-    "docs/roadmap/i18n/evidence/translation-coverage-report.json",
+    "internal/roadmap/i18n/evidence/translation-coverage-report.json",
     {
       coverage: {
         summary: {
@@ -181,7 +181,7 @@ export const options = {
         },
       },
       locales: ["en-US"],
-      schemaVersion: "ember.i18n.translationCheckReport.v1",
+      schemaVersion: "lime.i18n.translationCheckReport.v1",
       summary: {
         hasIssues: false,
         issueCount: 0,
@@ -189,8 +189,8 @@ export const options = {
       },
     },
   );
-  writeJson(root, "docs/roadmap/i18n/evidence/translation-pr-pack.json", {
-    schemaVersion: "ember.i18n.translationPrPack.v1",
+  writeJson(root, "internal/roadmap/i18n/evidence/translation-pr-pack.json", {
+    schemaVersion: "lime.i18n.translationPrPack.v1",
     summary: {
       localesWithGaps: 0,
       proposedEntryCount: 0,
@@ -199,9 +199,9 @@ export const options = {
   });
   writeJson(
     root,
-    "docs/roadmap/i18n/evidence/bundle-strategy-report.json",
+    "internal/roadmap/i18n/evidence/bundle-strategy-report.json",
     {
-      schemaVersion: "ember.i18n.bundleStrategyReport.v1",
+      schemaVersion: "lime.i18n.bundleStrategyReport.v1",
       summary: {
         inlineGroupCount: 6,
         sourceLocaleKeyCount: sourceKeyCount,
@@ -211,9 +211,9 @@ export const options = {
   );
   writeJson(
     root,
-    "docs/roadmap/i18n/evidence/language-boundary-report.json",
+    "internal/roadmap/i18n/evidence/language-boundary-report.json",
     {
-      schemaVersion: "ember.i18n.languageBoundaryReport.v1",
+      schemaVersion: "lime.i18n.languageBoundaryReport.v1",
       summary: {
         categorySummaries: [
           { category: "uiLocale", count: 10 },
@@ -226,9 +226,9 @@ export const options = {
   );
   writeJson(
     root,
-    "docs/roadmap/i18n/evidence/content-target-language-boundary-report.json",
+    "internal/roadmap/i18n/evidence/content-target-language-boundary-report.json",
     {
-      schemaVersion: "ember.i18n.languageBoundaryReport.v1",
+      schemaVersion: "lime.i18n.languageBoundaryReport.v1",
       summary: {
         entryCount: 12,
         unknownCount: 0,
@@ -237,9 +237,9 @@ export const options = {
   );
   writeJson(
     root,
-    "docs/roadmap/i18n/evidence/i18next-cli-parity-benchmark.json",
+    "internal/roadmap/i18n/evidence/i18next-cli-parity-benchmark.json",
     {
-      schemaVersion: "ember.i18n.i18nextCliParityBenchmark.v1",
+      schemaVersion: "lime.i18n.i18nextCliParityBenchmark.v1",
       summary: {
         cliTypes: { exitCode: 0 },
       },
@@ -247,7 +247,7 @@ export const options = {
   );
   writeJson(
     root,
-    "docs/roadmap/i18n/evidence/patch-retirement-gate-report.json",
+    "internal/roadmap/i18n/evidence/patch-retirement-gate-report.json",
     {
       legacy: {
         classificationDriftCandidateCount: 0,
@@ -258,12 +258,12 @@ export const options = {
         totalRuns: 3,
       },
       retirementReady: true,
-      schemaVersion: "ember.i18n.patchRetirementGate.v1",
+      schemaVersion: "lime.i18n.patchRetirementGate.v1",
     },
   );
-  writeJson(root, "docs/roadmap/i18n/evidence/p4-readiness-report.json", {
+  writeJson(root, "internal/roadmap/i18n/evidence/p4-readiness-report.json", {
     knownGaps: [],
-    schemaVersion: "ember.i18n.p4ReadinessReport.v1",
+    schemaVersion: "lime.i18n.p4ReadinessReport.v1",
     summary: {
       acceptanceFailedCount: 0,
       acceptancePassedCount: 3,
@@ -291,7 +291,7 @@ describe("i18n roadmap readiness report", () => {
 
     const report = analyzeI18nRoadmapReadinessReport({ repoRoot: root });
 
-    expect(report.schemaVersion).toBe("ember.i18n.roadmapReadinessReport.v1");
+    expect(report.schemaVersion).toBe("lime.i18n.roadmapReadinessReport.v1");
     expect(report.summary).toEqual({
       acceptanceFailedCount: 0,
       acceptancePassedCount: 16,
@@ -320,8 +320,8 @@ describe("i18n roadmap readiness report", () => {
   it("应在 P3 evidence source key 计数不一致时标记整体未完成", () => {
     const root = createTempDir();
     writeReadyRepo(root);
-    writeJson(root, "docs/roadmap/i18n/evidence/translation-pr-pack.json", {
-      schemaVersion: "ember.i18n.translationPrPack.v1",
+    writeJson(root, "internal/roadmap/i18n/evidence/translation-pr-pack.json", {
+      schemaVersion: "lime.i18n.translationPrPack.v1",
       summary: {
         localesWithGaps: 0,
         proposedEntryCount: 0,
@@ -366,7 +366,7 @@ describe("i18n roadmap readiness report", () => {
     expect(writeSpy).not.toHaveBeenCalled();
     expect(JSON.parse(fs.readFileSync(outFile, "utf8"))).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.roadmapReadinessReport.v1",
+        schemaVersion: "lime.i18n.roadmapReadinessReport.v1",
         summary: expect.objectContaining({
           overallStatus: "ready",
         }),

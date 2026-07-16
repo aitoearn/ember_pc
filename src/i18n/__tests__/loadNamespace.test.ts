@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { DEFAULT_SOUL_STYLE_PROFILE_REGISTRY } from "@/lib/soul/style-profiles";
 import {
   CORE_NAMESPACES,
   hasBundledNamespace,
@@ -9,6 +10,74 @@ import {
 import { SUPPORTED_LOCALES } from "../locales";
 
 describe("i18n namespace loader", () => {
+  it("Soul 内置风格包文案覆盖所有支持 locale", () => {
+    const resources = loadBundledI18nResources();
+    const requiredKeys = DEFAULT_SOUL_STYLE_PROFILE_REGISTRY.packs.flatMap(
+      (pack) => [
+        pack.nameKey,
+        pack.descriptionKey,
+        ...pack.profiles.flatMap((profile) => [
+          profile.nameKey,
+          profile.descriptionKey,
+        ]),
+      ],
+    );
+
+    for (const locale of SUPPORTED_LOCALES) {
+      for (const key of requiredKeys) {
+        expect(
+          resources[locale].settings,
+          `${locale}/settings should include ${key}`,
+        ).toHaveProperty(key);
+      }
+    }
+  });
+
+  it("Soul 本地化不允许新增按 profile 展开的句库", () => {
+    const resources = loadBundledI18nResources();
+    const forbiddenKeyPattern =
+      /^agentChat\.soulInteraction\.(cheeky|warm|cool|calm|cheeky_sassy|warm_supportive|cool_confident|calm_professional)\./u;
+
+    for (const locale of SUPPORTED_LOCALES) {
+      for (const [namespace, entries] of Object.entries(resources[locale])) {
+        const forbiddenKeys = Object.keys(entries).filter((key) =>
+          forbiddenKeyPattern.test(key),
+        );
+        expect(
+          forbiddenKeys,
+          `${locale}/${namespace} must keep Soul style out of i18n phrase libraries`,
+        ).toEqual([]);
+      }
+    }
+  });
+
+  it("普通本地化展示文案不暴露底层来源品牌", () => {
+    const resources = loadBundledI18nResources();
+    const forbiddenPattern = /\bcodex\b/i;
+    const allowedValueFragments = [
+      "gpt-5-codex",
+      "gpt-5.2-codex",
+      "gpt-5.3-codex",
+    ];
+
+    for (const locale of SUPPORTED_LOCALES) {
+      for (const [namespace, entries] of Object.entries(resources[locale])) {
+        for (const [key, value] of Object.entries(entries)) {
+          if (
+            allowedValueFragments.some((fragment) => value.includes(fragment))
+          ) {
+            continue;
+          }
+
+          expect(
+            forbiddenPattern.test(value),
+            `${locale}/${namespace}.${key} should use source-neutral display copy`,
+          ).toBe(false);
+        }
+      }
+    }
+  }, 30_000);
+
   it("Agent 首字前状态文案覆盖所有支持 locale", () => {
     const resources = loadBundledI18nResources();
     const phases = [
@@ -38,7 +107,6 @@ describe("i18n namespace loader", () => {
         "agentChat.toolCall.skillContent.action.expandBody",
         "agentChat.toolCall.skillContent.action.collapseBody",
         "agentChat.toolCall.skillContent.meta.bytes",
-        "agentChat.toolCall.logs.title",
         "agentChat.toolCall.commandSummary.title",
         "agentChat.toolCall.commandSummary.command",
         "agentChat.toolCall.commandSummary.cwd",
@@ -49,6 +117,28 @@ describe("i18n namespace loader", () => {
         "agentChat.toolCall.commandSummary.sandboxEnabledWithType",
         "agentChat.toolCall.commandSummary.sandboxDisabled",
         "agentChat.toolCall.commandSummary.truncated",
+        "agentChat.toolCall.groupTitle.memory",
+        "agentChat.toolCall.label.memoryAddNote",
+        "agentChat.toolCall.label.memoryList",
+        "agentChat.toolCall.label.memoryRead",
+        "agentChat.toolCall.label.memorySearch",
+        "agentChat.toolCall.actionOverride.memoryAddNote.completed",
+        "agentChat.toolCall.actionOverride.memoryAddNote.failed",
+        "agentChat.toolCall.actionOverride.memoryAddNote.running",
+        "agentChat.toolCall.actionOverride.memoryList.completed",
+        "agentChat.toolCall.actionOverride.memoryList.failed",
+        "agentChat.toolCall.actionOverride.memoryList.running",
+        "agentChat.toolCall.actionOverride.memoryRead.completed",
+        "agentChat.toolCall.actionOverride.memoryRead.failed",
+        "agentChat.toolCall.actionOverride.memoryRead.running",
+        "agentChat.toolCall.actionOverride.memorySearch.completed",
+        "agentChat.toolCall.actionOverride.memorySearch.failed",
+        "agentChat.toolCall.actionOverride.memorySearch.running",
+        "agentChat.toolCall.memoryEvidence.title",
+        "agentChat.toolCall.memoryEvidence.summary.search",
+        "agentChat.toolCall.memoryEvidence.path",
+        "agentChat.toolCall.memoryEvidence.citation",
+        "agentChat.toolCall.memoryEvidence.truncated",
         "agentChat.messageList.artifact.saveDocument",
         "agentChat.messageList.artifact.checkpointBadge",
         "agentChat.messageList.artifact.diffBadge",
@@ -79,6 +169,7 @@ describe("i18n namespace loader", () => {
         "agentChat.decisionPanel.permissionRequestTitle",
         "agentChat.decisionPanel.assistantWantsUse",
         "agentChat.decisionPanel.unknownTool",
+        "agentChat.decisionPanel.permission.inputbarOnlyHint",
         "agentChat.decisionPanel.action.submitting",
         "agentChat.decisionPanel.action.submit",
         "agentChat.decisionPanel.action.cancelling",
@@ -86,17 +177,55 @@ describe("i18n namespace loader", () => {
         "agentChat.decisionPanel.action.recording",
         "agentChat.decisionPanel.action.recordAnswer",
         "agentChat.decisionPanel.action.submitAnswer",
-        "agentChat.decisionPanel.action.processing",
-        "agentChat.decisionPanel.action.allow",
-        "agentChat.decisionPanel.action.deny",
         "agentChat.decisionPanel.runtimePermission.title",
         "agentChat.decisionPanel.runtimePermission.description",
         "agentChat.decisionPanel.runtimePermission.submittedTitle",
         "agentChat.decisionPanel.runtimePermission.submittedDescription",
         "agentChat.decisionPanel.runtimePermission.deniedDescription",
+        "agentChat.decisionPanel.permission.resultLabel",
+        "agentChat.decisionPanel.permission.result.allowed",
+        "agentChat.decisionPanel.permission.result.denied",
+        "agentChat.decisionPanel.permission.result.importedReadOnly",
+        "agentChat.decisionPanel.permission.importedReadOnlyTitle",
+        "agentChat.decisionPanel.permission.importedReadOnlyRecordLabel",
+        "agentChat.decisionPanel.permission.importedReadOnlyRecordValue",
+        "agentChat.decisionPanel.permission.importedReadOnlyDescription",
         "agentChat.messageList.history.windowSummaryRestored",
         "agentChat.messageList.taskCenterEmpty.title",
-        "agentChat.messageList.empty.defaultTitle",
+        "agentChat.navbar.appSwitcher.finder",
+        "agentChat.navbar.appSwitcher.open",
+        "agentChat.navbar.appSwitcher.terminal",
+        "agentChat.navbar.appSwitcher.toast.noProjectRoot",
+        "agentChat.navbar.appSwitcher.toast.openFailed",
+        "agentChat.navbar.environment.branchFallback",
+        "agentChat.navbar.environment.changes",
+        "agentChat.navbar.environment.failed",
+        "agentChat.navbar.environment.loading",
+        "agentChat.navbar.environment.local",
+        "agentChat.navbar.environment.noGit",
+        "agentChat.navbar.environment.noProjectRoot",
+        "agentChat.navbar.environment.open",
+        "agentChat.navbar.environment.submit",
+        "agentChat.navbar.environment.submitUnavailable",
+        "agentChat.navbar.environment.title",
+        "agentChat.navbar.environment.uncommittedFiles",
+        "agentChat.navbar.openChat",
+        "agentChat.navbar.openShell",
+        "agentChat.navbar.openWorkbench",
+        "agentChat.navbar.shell.close",
+        "agentChat.navbar.shell.connected",
+        "agentChat.navbar.shell.connecting",
+        "agentChat.navbar.shell.exited",
+        "agentChat.navbar.shell.exitedStatus",
+        "agentChat.navbar.shell.failed",
+        "agentChat.navbar.shell.newTabUnavailable",
+        "agentChat.navbar.shell.noProjectRoot",
+        "agentChat.navbar.shell.sessionError",
+        "agentChat.navbar.shell.startFailed",
+        "agentChat.navbar.shell.starting",
+        "agentChat.navbar.shell.title",
+        "agentChat.navbar.shell.unavailable",
+        "agentChat.navbar.shell.writeFailed",
         "agentChat.serviceSkills.badge.recent",
         "agentChat.serviceSkills.badge.browserAssist",
         "agentChat.serviceSkills.badge.readyMade",
@@ -178,8 +307,13 @@ describe("i18n namespace loader", () => {
         "agentChat.inputbar.plusMenu.attachKnowledge",
         "agentChat.inputbar.plusMenu.planMode",
         "agentChat.inputbar.plusMenu.objective",
+        "agentChat.inputbar.plusMenu.plugins",
         "agentChat.inputbar.plusMenu.skills",
         "agentChat.inputbar.plusMenu.unavailable",
+        "agentChat.inputbar.pluginChip.empty",
+        "agentChat.inputbar.pluginChip.remove",
+        "agentChat.inputbar.pluginChip.selectorTitle",
+        "agentChat.inputbar.pluginChip.unavailable",
         "agentChat.inputbar.composer.workspacePlaceholder.waiting",
         "agentChat.inputbar.composer.workspacePlaceholder.taskCenter",
         "agentChat.inputbar.composer.workspacePlaceholder.default",
@@ -223,7 +357,6 @@ describe("i18n namespace loader", () => {
         "agentChat.home.starter.rowLabel",
         "agentChat.home.starter.guideHelp.label",
         "agentChat.home.starter.ppt.prompt",
-        "agentChat.home.inputSuggestion.meetingNotes.label",
         "agentChat.home.guide.longTermPlan.title",
         "agentChat.home.guideCards.label",
         "agentChat.home.gallery.title",
@@ -360,10 +493,10 @@ describe("i18n namespace loader", () => {
         "common.oemCloudAccess.label.accessMode.session",
       );
       expect(resources[locale].common).toHaveProperty(
-        "common.oemEmberHubProviderSync.managedKeyAlias",
+        "common.oemLimeHubProviderSync.managedKeyAlias",
       );
       expect(resources[locale].common).toHaveProperty(
-        "common.oemEmberHubProviderSync.cloudTokenName",
+        "common.oemLimeHubProviderSync.cloudTokenName",
       );
       expect(resources[locale].common).toHaveProperty(
         "common.modelSelector.header.title",
@@ -546,17 +679,7 @@ describe("i18n namespace loader", () => {
         "generalWorkbench.context.modal.text.placeholder",
       );
       expect(resources[locale].agent).toHaveProperty(
-        "skills.workspace.curatedTask.suggestion.referenceBadge",
-      );
-      expect(resources[locale].agent).toHaveProperty(
-        "skills.workspace.curatedTask.suggestion.action.start",
-      );
-      expect(resources[locale].agent).toHaveProperty("memoryLibrary.title");
-      expect(resources[locale].agent).toHaveProperty(
-        "memoryLibrary.points.title",
-      );
-      expect(resources[locale].agent).toHaveProperty(
-        "sceneAppExecutionSummary.followup.action.saveInspiration",
+        "sceneAppExecutionSummary.followup.action.saveAsSkill",
       );
       expect(resources[locale].agent).toHaveProperty(
         "skills.workspace.managedJob.created",
@@ -622,7 +745,7 @@ describe("i18n namespace loader", () => {
         "agentChat.searchResultPreview.expandMore",
       );
       expect(resources[locale].agent).toHaveProperty(
-        "agentChat.searchResultPreview.previewAria",
+        "agentChat.searchResultPreview.openAria",
       );
       for (const codeWorkbenchKey of [
         "agentChat.harness.codeWorkbench.title",
@@ -655,30 +778,6 @@ describe("i18n namespace loader", () => {
       );
       expect(resources[locale].agent).toHaveProperty(
         "agentChat.incidentPanel.priorityBadge",
-      );
-      expect(resources[locale].agent).toHaveProperty(
-        "agentChat.teamWorkspace.liveRuntime.title.statusChanged",
-      );
-      expect(resources[locale].agent).toHaveProperty(
-        "agentChat.teamWorkspace.liveRuntime.detail.toolProcessing",
-      );
-      expect(resources[locale].agent).toHaveProperty(
-        "agentChat.teamWorkspace.liveRuntime.lifecycle.turnFailed.detail",
-      );
-      expect(resources[locale].agent).toHaveProperty(
-        "agentChat.teamWorkspace.liveRuntime.status.retry",
-      );
-      expect(resources[locale].agent).toHaveProperty(
-        "agentChat.teamWorkspace.runtimeStatus.completed",
-      );
-      expect(resources[locale].agent).toHaveProperty(
-        "agentChat.teamWorkspace.control.resume.resumedOne",
-      );
-      expect(resources[locale].agent).toHaveProperty(
-        "agentChat.teamWorkspace.control.wait.enteredStatusOne",
-      );
-      expect(resources[locale].agent).toHaveProperty(
-        "agentChat.teamWorkspace.control.sendInput.emptyError",
       );
       expect(resources[locale].workspace).toHaveProperty(
         "workspace.browserExistingSession.presentation.status.attached.label",
@@ -723,9 +822,6 @@ describe("i18n namespace loader", () => {
         "workspace.video.sidebar.intro.title",
       );
       expect(resources[locale].workspace).toHaveProperty(
-        "workspace.video.sidebar.helper.parameterPace.content",
-      );
-      expect(resources[locale].workspace).toHaveProperty(
         "workspace.video.sidebar.reference.start.title",
       );
       expect(resources[locale].workspace).toHaveProperty(
@@ -753,12 +849,6 @@ describe("i18n namespace loader", () => {
         "workspace.document.editor.slashCommand.prompt.imageUrl",
       );
       expect(resources[locale].workspace).toHaveProperty(
-        "workspace.runtimeAgentsGuide.action.initialize",
-      );
-      expect(resources[locale].workspace).toHaveProperty(
-        "workspace.runtimeAgentsGuide.initialized.title",
-      );
-      expect(resources[locale].workspace).toHaveProperty(
         "workspace.artifactToolbar.type.code",
       );
       expect(resources[locale].workspace).toHaveProperty(
@@ -779,6 +869,20 @@ describe("i18n namespace loader", () => {
       expect(resources[locale].workspace).toHaveProperty(
         "workspace.canvasBreadcrumb.backHome",
       );
+      for (const key of [
+        "workspace.designCanvasSmoke.header.eyebrow",
+        "workspace.designCanvasSmoke.header.title",
+        "workspace.designCanvasSmoke.badge.artifactType",
+        "workspace.designCanvasSmoke.badge.workspaceBound",
+        "workspace.designCanvasSmoke.badge.workspaceUnbound",
+        "workspace.designCanvasSmoke.badge.imageTaskAutoRefresh",
+        "workspace.designCanvasSmoke.badge.imageTaskLive",
+        "workspace.designCanvasSmoke.badge.defaultProvider",
+        "workspace.designCanvasSmoke.badge.defaultModel",
+        "workspace.designCanvasSmoke.badge.analyzerConfidence",
+      ]) {
+        expect(resources[locale].workspace).toHaveProperty(key);
+      }
       expect(resources[locale].workspace).toHaveProperty(
         "workspace.canvasAdapter.designPreview.visibleLayers",
       );
@@ -823,6 +927,24 @@ describe("i18n namespace loader", () => {
       );
       expect(resources[locale].workspace).toHaveProperty(
         "workspace.resourceManager.unsupported.title",
+      );
+      expect(resources[locale].workspace).toHaveProperty(
+        "workspace.artifactRenderer.previewFallback.systemOpen.title",
+      );
+      expect(resources[locale].workspace).toHaveProperty(
+        "workspace.artifactRenderer.previewFallback.unsupported.detail",
+      );
+      expect(resources[locale].workspace).toHaveProperty(
+        "workspace.artifactRenderer.previewSource.source.url",
+      );
+      expect(resources[locale].workspace).toHaveProperty(
+        "workspace.artifactRenderer.previewSource.source.databaseRecord",
+      );
+      expect(resources[locale].workspace).toHaveProperty(
+        "workspace.artifactRenderer.previewSource.source.app",
+      );
+      expect(resources[locale].workspace).toHaveProperty(
+        "workspace.artifactRenderer.previewSource.empty",
       );
       expect(resources[locale].workspace).toHaveProperty(
         "workspace.resourceManager.unsupported.mimeType",
@@ -948,7 +1070,7 @@ describe("i18n namespace loader", () => {
         "settings.appearance.hero.title",
       );
       expect(resources[locale].settings).toHaveProperty(
-        "settings.appearance.colorScheme.options.ember-classic.label",
+        "settings.appearance.colorScheme.options.lime-classic.label",
       );
       expect(resources[locale].settings).toHaveProperty(
         "settings.experimental.updateCheck.title",
@@ -988,13 +1110,19 @@ describe("i18n namespace loader", () => {
         "settings.memory.soul.title",
       );
       expect(resources[locale].settings).toHaveProperty(
+        "settings.memory.soul.styleProfile.title",
+      );
+      expect(resources[locale].settings).toHaveProperty(
         "settings.memory.soul.import.warning.projectRules",
       );
       expect(resources[locale].settings).toHaveProperty(
         "settings.memory.embedding.provider.ollama.label",
       );
       expect(resources[locale].settings).toHaveProperty(
-        "settings.memory.embedding.status.indexedValue",
+        "settings.memory.embedding.status.configured",
+      );
+      expect(resources[locale].settings).toHaveProperty(
+        "settings.memory.embedding.status.fullTextOnly",
       );
       expect(resources[locale].settings).toHaveProperty(
         "settings.memory.embedding.providerSelect.description",
@@ -1555,7 +1683,7 @@ describe("i18n namespace loader", () => {
       loadNamespaceResource("fr-FR", "common")[
         "common.oemCloudAccess.payment.returnSyncing"
       ],
-    ).toBe("已回到 Ember，正在同步支付状态、权益与账本。");
+    ).toBe("已回到 Lime，正在同步支付状态、权益与账本。");
     expect(
       loadNamespaceResource("fr-FR", "common")[
         "common.oemCloudAccess.session.refreshSuccess"
@@ -1570,7 +1698,7 @@ describe("i18n namespace loader", () => {
       loadNamespaceResource("fr-FR", "common")[
         "common.oemCloudAccess.apiKey.createSuccess"
       ],
-    ).toBe("已创建 Ember API Key，明文只会在当前页面显示一次。");
+    ).toBe("已创建 Lime API Key，明文只会在当前页面显示一次。");
     expect(
       loadNamespaceResource("fr-FR", "common")[
         "common.oemCloudAccess.label.accessMode.session"
@@ -1578,14 +1706,14 @@ describe("i18n namespace loader", () => {
     ).toBe("登录会话");
     expect(
       loadNamespaceResource("fr-FR", "common")[
-        "common.oemEmberHubProviderSync.managedKeyAlias"
+        "common.oemLimeHubProviderSync.managedKeyAlias"
       ],
-    ).toBe("Ember 云端模型");
+    ).toBe("Lime 云端模型");
     expect(
       loadNamespaceResource("fr-FR", "common")[
-        "common.oemEmberHubProviderSync.cloudTokenName"
+        "common.oemLimeHubProviderSync.cloudTokenName"
       ],
-    ).toBe("Ember Desktop Cloud Model Key");
+    ).toBe("Lime Desktop Cloud Model Key");
     expect(
       loadNamespaceResource("fr-FR", "workspace")[
         "workspace.browserExistingSession.presentation.status.attached.label"
@@ -1695,7 +1823,7 @@ describe("i18n namespace loader", () => {
       loadNamespaceResource("fr-FR", "settings")[
         "settings.chromeRelay.guide.header.extension.title"
       ],
-    ).toBe("安装 Ember Browser Bridge");
+    ).toBe("安装 Lime Browser Bridge");
     expect(
       loadNamespaceResource("fr-FR", "settings")[
         "settings.chromeRelay.guide.action.openRemoteDebugging"
@@ -1751,9 +1879,9 @@ describe("i18n namespace loader", () => {
     ).toBe("外观");
     expect(
       loadNamespaceResource("fr-FR", "settings")[
-        "settings.appearance.colorScheme.options.ember-classic.label"
+        "settings.appearance.colorScheme.options.lime-classic.label"
       ],
-    ).toBe("熠测");
+    ).toBe("墨绿");
     expect(
       loadNamespaceResource("fr-FR", "settings")[
         "settings.experimental.updateCheck.title"

@@ -12,7 +12,7 @@ import {
 } from "react";
 import styled, { keyframes } from "styled-components";
 import { useTranslation } from "react-i18next";
-import { EMBER_BRAND_LOGO_SRC, resolveEmberBrandDisplayName } from "@/lib/branding";
+import { LIME_BRAND_LOGO_SRC, LIME_BRAND_NAME } from "@/lib/branding";
 import { revealStartupWindowWhenReady } from "@/lib/startupWindowReveal";
 
 const sceneEnter = keyframes`
@@ -321,8 +321,7 @@ export function SplashScreen({
   duration = 420,
   exitDuration = 160,
 }: SplashScreenProps) {
-  const { t, i18n } = useTranslation("common");
-  const brandDisplayName = resolveEmberBrandDisplayName(i18n.language);
+  const { t } = useTranslation("common");
   const [isExiting, setIsExiting] = useState(false);
 
   useLayoutEffect(() => {
@@ -375,9 +374,9 @@ export function SplashScreen({
         <LogoStack style={splashLogoStackCriticalStyle}>
           <LogoGlow />
           <Logo
-            src={EMBER_BRAND_LOGO_SRC}
-            alt={brandDisplayName}
-            data-ember-startup-logo
+            src={LIME_BRAND_LOGO_SRC}
+            alt={LIME_BRAND_NAME}
+            data-lime-startup-logo
             style={splashLogoCriticalStyle}
           />
         </LogoStack>

@@ -4,7 +4,7 @@ import type {
   ImageRuntimeContractSnapshot,
   ImageStoryboardSlot,
 } from "../types";
-import { buildEmberCorePolicyEvaluationMetaItem } from "../workspace/mediaTaskPolicyEvaluation";
+import { buildLimeCorePolicyEvaluationMetaItem } from "../workspace/mediaTaskPolicyEvaluation";
 import type {
   ImageWorkbenchOutputView,
   ImageWorkbenchTaskView,
@@ -73,6 +73,11 @@ export function resolveFollowUpLabel(
     return t("agentChat.imageTaskViewer.action.continueVariation");
   }
   return t("agentChat.imageTaskViewer.action.redrawFromImage");
+}
+
+export function canRetryImageTask(status: string | undefined): boolean {
+  const normalizedStatus = (status || "").trim().toLowerCase();
+  return normalizedStatus === "error" || normalizedStatus === "cancelled";
 }
 
 export function resolveLayoutLabel(
@@ -296,14 +301,14 @@ export function resolveRuntimeContractPolicyLabel(
     return null;
   }
 
-  return buildEmberCorePolicyEvaluationMetaItem({
-    evaluationStatus: runtimeContract.embercorePolicyEvaluationStatus,
-    evaluationDecision: runtimeContract.embercorePolicyEvaluationDecision,
-    blockingRefs: runtimeContract.embercorePolicyEvaluationBlockingRefs,
-    askRefs: runtimeContract.embercorePolicyEvaluationAskRefs,
-    pendingRefs: runtimeContract.embercorePolicyEvaluationPendingRefs,
-    missingInputs: runtimeContract.embercorePolicyMissingInputs,
-    pendingHitRefs: runtimeContract.embercorePolicyPendingHitRefs,
+  return buildLimeCorePolicyEvaluationMetaItem({
+    evaluationStatus: runtimeContract.limecorePolicyEvaluationStatus,
+    evaluationDecision: runtimeContract.limecorePolicyEvaluationDecision,
+    blockingRefs: runtimeContract.limecorePolicyEvaluationBlockingRefs,
+    askRefs: runtimeContract.limecorePolicyEvaluationAskRefs,
+    pendingRefs: runtimeContract.limecorePolicyEvaluationPendingRefs,
+    missingInputs: runtimeContract.limecorePolicyMissingInputs,
+    pendingHitRefs: runtimeContract.limecorePolicyPendingHitRefs,
   });
 }
 

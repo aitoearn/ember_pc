@@ -2,7 +2,7 @@ import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { InputbarTools } from "./InputbarTools";
 
 const mountedRoots: Array<{ root: Root; container: HTMLDivElement }> = [];
@@ -13,7 +13,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 afterEach(() => {
@@ -52,7 +52,7 @@ function renderInputbarTools(
 
 describe("InputbarTools", () => {
   it("工具开关 chrome 文案应跟随 en-US 资源", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const onToolClick = vi.fn();
     const { container } = renderInputbarTools({
       onToolClick,

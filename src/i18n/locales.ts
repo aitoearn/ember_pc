@@ -1,7 +1,13 @@
 export const SOURCE_LOCALE = "zh-CN";
 export const FALLBACK_LOCALE = SOURCE_LOCALE;
 
-export const SUPPORTED_LOCALES = ["zh-CN", "en-US"] as const;
+export const SUPPORTED_LOCALES = [
+  "zh-CN",
+  "en-US",
+  "zh-TW",
+  "ja-JP",
+  "ko-KR",
+] as const;
 
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 export type LocalePreference = "auto" | SupportedLocale;
@@ -50,6 +56,24 @@ export const UI_LOCALE_OPTIONS: UiLocaleOption[] = [
     hintKey: "settings.language.en-US.hint",
     fallbackHint: "适合英文界面与术语环境。",
   },
+  {
+    id: "zh-TW",
+    label: "繁體中文",
+    hintKey: "settings.language.zh-TW.hint",
+    fallbackHint: "适合繁体中文阅读环境。",
+  },
+  {
+    id: "ja-JP",
+    label: "日本語",
+    hintKey: "settings.language.ja-JP.hint",
+    fallbackHint: "适合日文界面和日本市场任务。",
+  },
+  {
+    id: "ko-KR",
+    label: "한국어",
+    hintKey: "settings.language.ko-KR.hint",
+    fallbackHint: "适合韩文界面和韩国市场任务。",
+  },
 ];
 
 function normalizeLocaleCode(value: string): string {
@@ -94,7 +118,7 @@ export function normalizeLocale(input?: string | null): SupportedLocale {
     lower.startsWith("zh-hk") ||
     lower.startsWith("zh-mo")
   ) {
-    return "zh-CN";
+    return "zh-TW";
   }
 
   if (lower === "en" || lower.startsWith("en-")) {
@@ -102,11 +126,11 @@ export function normalizeLocale(input?: string | null): SupportedLocale {
   }
 
   if (lower === "ja" || lower.startsWith("ja-")) {
-    return "en-US";
+    return "ja-JP";
   }
 
   if (lower === "ko" || lower.startsWith("ko-")) {
-    return "en-US";
+    return "ko-KR";
   }
 
   return FALLBACK_LOCALE;

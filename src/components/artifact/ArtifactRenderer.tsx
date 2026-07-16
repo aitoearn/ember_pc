@@ -36,6 +36,18 @@ import {
 } from "@/components/agent/chat/utils/messageArtifacts";
 import { ErrorFallbackRenderer } from "./ErrorFallbackRenderer";
 import {
+  PreviewArtifactFallbackSurface,
+  type PreviewArtifactFallbackMode,
+} from "./PreviewArtifactFallbackSurface";
+import {
+  PreviewMediaRenderer,
+  type PreviewMediaContentKind,
+} from "./PreviewMediaRenderer";
+import {
+  PreviewSourceSummaryRenderer,
+  type PreviewSourceSummaryKind,
+} from "./PreviewSourceSummaryRenderer";
+import {
   CanvasAdapter,
   type CanvasAdapterCanvasFactoryProps,
 } from "./CanvasAdapter";
@@ -189,6 +201,13 @@ function resolveEmptyArtifactSurfaceState(
   artifact: Pick<Artifact, "content" | "error" | "meta" | "status" | "type">,
 ): EmptyArtifactSurfaceState | null {
   if (artifact.type === "browser_assist") {
+    return null;
+  }
+
+  if (
+    artifact.meta.previewArtifact === true &&
+    artifact.meta.renderMode === "media"
+  ) {
     return null;
   }
 
@@ -583,6 +602,53 @@ const FallbackRenderer: React.FC<{
 });
 FallbackRenderer.displayName = "FallbackRenderer";
 
+function readStringMeta(meta: Artifact["meta"], key: string): string | null {
+  const value = meta[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function resolvePreviewArtifactContentKind(artifact: Artifact): string | null {
+  if (artifact.meta.previewArtifact !== true) {
+    return null;
+  }
+  return readStringMeta(artifact.meta, "contentKind");
+}
+
+function resolvePreviewArtifactFallbackMode(
+  artifact: Artifact,
+): PreviewArtifactFallbackMode | null {
+  if (artifact.meta.previewArtifact !== true) {
+    return null;
+  }
+
+  const renderMode = readStringMeta(artifact.meta, "renderMode");
+  return renderMode === "system_open" || renderMode === "unsupported"
+    ? renderMode
+    : null;
+}
+
+function resolvePreviewSourceSummaryKind(
+  artifact: Artifact,
+): PreviewSourceSummaryKind | null {
+  if (artifact.meta.previewArtifact !== true) {
+    return null;
+  }
+
+  const source = readStringMeta(artifact.meta, "source");
+  const contentKind = readStringMeta(artifact.meta, "contentKind");
+
+  if (source === "url") {
+    return "url";
+  }
+  if (source === "database_record") {
+    return "database_record";
+  }
+  if (source === "app" || contentKind === "app_shell") {
+    return "app";
+  }
+  return null;
+}
+
 // ============================================================================
 // 主组件
 // ============================================================================
@@ -699,9 +765,45 @@ export const ArtifactRenderer: React.FC<ArtifactRendererComponentProps> = memo(
 
     // 获取渲染器注册项
     const entry = artifactRegistry.get(artifact.type);
+    const previewArtifactContentKind =
+      resolvePreviewArtifactContentKind(artifact);
+    const previewArtifactFallbackMode =
+      resolvePreviewArtifactFallbackMode(artifact);
+    const previewSourceSummaryKind =
+      resolvePreviewSourceSummaryKind(artifact);
     const emptySurfaceState = resolveEmptyArtifactSurfaceState(artifact);
     const effectiveViewMode =
       viewMode ?? resolveDefaultArtifactViewMode(artifact);
+
+    if (previewArtifactFallbackMode) {
+      return (
+        <div className={cn("relative h-full", className)}>
+          <PreviewArtifactFallbackSurface
+            artifact={debouncedArtifact}
+            mode={previewArtifactFallbackMode}
+            tone={tone}
+          />
+          {(isStreaming || isCompleting) && (
+            <StreamingIndicator isCompleting={isCompleting} />
+          )}
+        </div>
+      );
+    }
+
+    if (previewSourceSummaryKind) {
+      return (
+        <div className={cn("relative h-full", className)}>
+          <PreviewSourceSummaryRenderer
+            artifact={debouncedArtifact}
+            sourceKind={previewSourceSummaryKind}
+            tone={tone}
+          />
+          {(isStreaming || isCompleting) && (
+            <StreamingIndicator isCompleting={isCompleting} />
+          )}
+        </div>
+      );
+    }
 
     if (emptySurfaceState) {
       return (
@@ -771,6 +873,25 @@ export const ArtifactRenderer: React.FC<ArtifactRendererComponentProps> = memo(
             isStreaming={isStreaming}
             onContentChange={onContentChange}
             canvasFactoryProps={canvasFactoryProps}
+          />
+          {(isStreaming || isCompleting) && (
+            <StreamingIndicator isCompleting={isCompleting} />
+          )}
+        </div>
+      );
+    }
+
+    if (
+      previewArtifactContentKind === "image" ||
+      previewArtifactContentKind === "audio" ||
+      previewArtifactContentKind === "video"
+    ) {
+      return (
+        <div className={cn("relative h-full", className)}>
+          <PreviewMediaRenderer
+            artifact={debouncedArtifact}
+            contentKind={previewArtifactContentKind as PreviewMediaContentKind}
+            tone={tone}
           />
           {(isStreaming || isCompleting) && (
             <StreamingIndicator isCompleting={isCompleting} />

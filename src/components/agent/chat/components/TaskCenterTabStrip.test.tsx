@@ -2,7 +2,7 @@ import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
   TaskCenterTabStrip,
   type TaskCenterTabItem,
@@ -17,7 +17,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 afterEach(() => {
@@ -84,17 +84,18 @@ describe("TaskCenterTabStrip", () => {
       '[data-testid="task-center-tab-strip"]',
     ) as HTMLElement | null;
     expect(strip).toBeTruthy();
+    expect(strip?.getAttribute("role")).toBe("tablist");
     expect(strip?.className).toContain("z-10");
     expect(strip?.className).toContain("min-h-[42px]");
     expect(strip?.className).toContain(
-      "bg-[color:var(--ember-chrome-tab-active-surface)]",
+      "bg-[color:var(--lime-chrome-tab-active-surface)]",
     );
     expect(
       strip?.style.getPropertyValue("--task-center-tab-strip-background"),
-    ).toContain("--ember-chrome-stage-blend");
+    ).toContain("--lime-chrome-stage-blend");
     expect(
       strip?.style.getPropertyValue("--task-center-tab-strip-seam"),
-    ).toContain("--ember-chrome-stage-seam");
+    ).toContain("--lime-chrome-stage-seam");
     expect(strip?.className).not.toContain("bg-[#fbfdfb]");
     expect(strip?.className).not.toContain("ml-[");
     expect(container.textContent).toContain("任务 A");
@@ -106,12 +107,19 @@ describe("TaskCenterTabStrip", () => {
     const activeTab = container.querySelector(
       '[data-testid="task-center-tab-topic-a"]',
     ) as HTMLElement | null;
+    const activeTabButton = activeTab?.querySelector("button[role='tab']");
+    const inactiveTabButton = container.querySelector(
+      '[data-testid="task-center-tab-topic-b"] button[role="tab"]',
+    );
     expect(activeTab?.getAttribute("data-active")).toBe("true");
+    expect(activeTabButton?.getAttribute("aria-selected")).toBe("true");
+    expect(activeTabButton?.getAttribute("aria-current")).toBeNull();
+    expect(inactiveTabButton?.getAttribute("aria-selected")).toBe("false");
     expect(activeTab?.className).toContain(
-      "bg-[color:var(--ember-chrome-tab-hover)]",
+      "bg-[color:var(--lime-chrome-tab-hover)]",
     );
     expect(activeTab?.className).toContain(
-      "border-[color:var(--ember-chrome-divider)]",
+      "border-[color:var(--lime-chrome-divider)]",
     );
     expect(
       container.querySelector('[data-testid="task-center-tab-unread-topic-a"]'),
@@ -140,6 +148,33 @@ describe("TaskCenterTabStrip", () => {
     });
 
     expect(onSelectTask).toHaveBeenCalledWith("topic-b");
+  });
+
+  it("排队标签应显示排队状态且不使用运行中旋转图标", () => {
+    const { container } = renderTabStrip({
+      items: [
+        {
+          id: "topic-queued",
+          title: "排队任务",
+          status: "queued",
+          updatedAt: new Date("2026-04-24T10:00:00.000Z"),
+          isActive: true,
+          hasUnread: false,
+          isPinned: false,
+        },
+      ],
+    });
+
+    const tab = container.querySelector(
+      '[data-testid="task-center-tab-topic-queued"] button[title]',
+    ) as HTMLButtonElement | null;
+
+    expect(tab?.getAttribute("title")).toContain("排队中");
+    expect(
+      container.querySelector(
+        '[data-testid="task-center-tab-loading-topic-queued"]',
+      ),
+    ).toBeNull();
   });
 
   it("关闭标签时不应触发切换", () => {

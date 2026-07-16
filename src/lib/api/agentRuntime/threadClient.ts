@@ -1,11 +1,6 @@
 import {
-  APP_SERVER_METHOD_AGENT_SESSION_EVENT,
   AppServerClient,
-  AppServerRpcError,
-  isAppServerJsonRpcNotification,
   type AppServerAgentSessionActionReplayResponse,
-  type AppServerAgentAttachment,
-  type AppServerAgentEvent,
   type AppServerAgentSessionFileCheckpointDetail,
   type AppServerAgentSessionFileCheckpointDiffResponse,
   type AppServerAgentSessionFileCheckpointListResponse,
@@ -13,27 +8,32 @@ import {
   type AppServerAgentSessionFileCheckpointSummary,
   type AppServerAgentSessionActionRespondParams,
   type AppServerAgentSessionActionScope,
-  type AppServerAgentSessionReadParams,
+  type AppServerCapabilityListParams,
   type AppServerAgentSessionTurnCancelParams,
   type AppServerAgentSessionTurnStartParams,
-  type AppServerJsonRpcNotification,
+  type AppServerThreadReadParams,
+  type AppServerThreadReadResponse,
 } from "@/lib/api/appServer";
 import { isAppServerBridgeAvailable } from "@/lib/api/appServerBridgeAvailability";
 import type { AgentRuntimeClient as StandardAgentRuntimeClient } from "@embercloud/agent-runtime-client";
-import { publishAgentRuntimeEvent } from "../agentRuntimeEvents";
+import {
+  AppServerAgentSessionEventDrainRouter,
+  publishAppServerAgentSessionNotifications,
+  publishAppServerRpcErrorNotifications,
+} from "./appServerEventStream";
 import { projectAppServerSessionReadResult } from "./appServerReadModelClient";
 import {
   invokeAgentRuntimeCommand,
   type AgentRuntimeCommandInvoke,
 } from "./transport";
+import {
+  agentRuntimeCapabilityManifestFromAppServerResponse,
+  buildAgentRuntimeResumeContract,
+} from "./capabilityContract";
 import type {
+  AgentRuntimeCapabilityManifestRequest,
   AgentRuntimeCompactSessionRequest,
   AgentRuntimeDiffFileCheckpointRequest,
-  AgentRuntimeFileCheckpointDetail,
-  AgentRuntimeFileCheckpointDiffResult,
-  AgentRuntimeFileCheckpointListResult,
-  AgentRuntimeFileCheckpointRestoreResult,
-  AgentRuntimeFileCheckpointSummary,
   AgentRuntimeGetFileCheckpointRequest,
   AgentRuntimeInterruptTurnRequest,
   AgentRuntimeListFileCheckpointsRequest,
@@ -44,17 +44,21 @@ import type {
   AgentRuntimeRespondActionRequest,
   AgentRuntimeRestoreFileCheckpointRequest,
   AgentRuntimeResumeThreadRequest,
-  AgentRuntimeSubmitTurnRequest,
+} from "./requestTypes";
+import type {
+  AgentRuntimeFileCheckpointDetail,
+  AgentRuntimeFileCheckpointDiffResult,
+  AgentRuntimeFileCheckpointListResult,
+  AgentRuntimeFileCheckpointRestoreResult,
+  AgentRuntimeFileCheckpointSummary,
   AgentRuntimeThreadReadModel,
-} from "./types";
-
-const APP_SERVER_EVENT_DRAIN_LIMIT = 50;
-const APP_SERVER_EVENT_DRAIN_INTERVAL_MS = 250;
-const APP_SERVER_EVENT_ROUTE_TTL_MS = 30 * 60 * 1000;
+} from "./sessionTypes";
+import type { AgentRuntimeCapabilityManifest } from "@embercloud/agent-ui-contracts";
 
 export type AgentRuntimeAppServerClient = Pick<
   AppServerClient,
   | "readSession"
+  | "readThread"
   | "startTurn"
   | "cancelTurn"
   | "replayAction"
@@ -68,6 +72,7 @@ export type AgentRuntimeAppServerClient = Pick<
   | "getAgentSessionFileCheckpoint"
   | "diffAgentSessionFileCheckpoint"
   | "restoreAgentSessionFileCheckpoint"
+  | "listCapabilities"
 >;
 
 export type AgentRuntimeLifecycleClient = Pick<
@@ -116,31 +121,29 @@ export function createThreadClient(deps: AgentRuntimeThreadClientDeps = {}) {
     : null;
 
   async function submitAgentRuntimeTurn(
-    request: AgentRuntimeSubmitTurnRequest,
+    request: AppServerAgentSessionTurnStartParams,
   ): Promise<void> {
     assertAppServerTurnLifecycleAvailable(isAppServerTurnLifecycleAvailable);
     const route = appServerEventRouter?.register({
-      eventName: request.event_name,
-      sessionId: request.session_id,
-      turnId: request.turn_id,
+      eventName: request.runtimeOptions?.eventName ?? undefined,
+      sessionId: request.sessionId,
+      turnId: request.turnId ?? undefined,
     });
     try {
-      const result = await standardRuntimeClient.startTurn(
-        appServerTurnStartParamsFromRequest(request),
-      );
+      const result = await standardRuntimeClient.startTurn(request);
       if (route) {
         route.publish(result.notifications);
       } else {
         publishAppServerAgentSessionNotifications(
-          request.event_name,
+          request.runtimeOptions?.eventName ?? undefined,
           result.notifications,
         );
       }
     } catch (error) {
       publishAppServerRpcErrorNotifications(error, {
-        eventName: request.event_name,
-        sessionId: request.session_id,
-        turnId: request.turn_id,
+        eventName: request.runtimeOptions?.eventName ?? undefined,
+        sessionId: request.sessionId,
+        turnId: request.turnId ?? undefined,
       });
       throw error;
     }
@@ -176,14 +179,60 @@ export function createThreadClient(deps: AgentRuntimeThreadClientDeps = {}) {
   async function resumeAgentRuntimeThread(
     request: AgentRuntimeResumeThreadRequest,
   ): Promise<boolean> {
-    const result = await appServerClient.resumeAgentSessionThread({
+    const eventName = `agentSession/event/${request.session_id}`;
+    const resumeContract = buildAgentRuntimeResumeContract({
       sessionId: request.session_id,
+      turnId: request.turn_id,
+      openActionIds: request.open_action_ids,
+      decisions: request.decisions,
     });
-    publishAppServerAgentSessionNotifications(
-      `agentSession/event/${request.session_id}`,
-      result.notifications,
+    const route = appServerEventRouter?.register({
+      eventName,
+      sessionId: request.session_id,
+      turnId: request.turn_id,
+    });
+    try {
+      const result = await appServerClient.resumeAgentSessionThread({
+        sessionId: request.session_id,
+        resumeContract,
+      });
+      if (route) {
+        route.publish(result.notifications);
+      } else {
+        publishAppServerAgentSessionNotifications(
+          eventName,
+          result.notifications,
+        );
+      }
+      return result.result.resumed === true;
+    } catch (error) {
+      publishAppServerRpcErrorNotifications(error, {
+        eventName,
+        sessionId: request.session_id,
+        turnId: request.turn_id,
+      });
+      throw error;
+    }
+  }
+
+  async function getAgentRuntimeCapabilityManifest(
+    request: AgentRuntimeCapabilityManifestRequest = {},
+  ): Promise<AgentRuntimeCapabilityManifest> {
+    const params: AppServerCapabilityListParams = {
+      ...(request.app_id ? { appId: request.app_id } : {}),
+      ...(request.workspace_id ? { workspaceId: request.workspace_id } : {}),
+      ...(request.session_id ? { sessionId: request.session_id } : {}),
+      ...(request.cursor ? { cursor: request.cursor } : {}),
+      ...(typeof request.limit === "number" ? { limit: request.limit } : {}),
+    };
+    const result = await appServerClient.listCapabilities(params);
+    return agentRuntimeCapabilityManifestFromAppServerResponse(
+      result.result.capabilities ?? [],
+      result.result.runtimeCapabilityManifest,
+      {
+        sessionId: request.session_id,
+      },
     );
-    return result.result.resumed === true;
   }
 
   async function replayAgentRuntimeRequest(
@@ -234,26 +283,27 @@ export function createThreadClient(deps: AgentRuntimeThreadClientDeps = {}) {
     request: AgentRuntimeRespondActionRequest,
   ): Promise<void> {
     assertAppServerTurnLifecycleAvailable(isAppServerTurnLifecycleAvailable);
+    const eventName = appServerActionRespondEventNameFromRequest(request);
+    const route = appServerEventRouter?.register({
+      eventName,
+      sessionId: request.session_id,
+      turnId: request.action_scope?.turn_id,
+    });
     try {
       const result = await standardRuntimeClient.respondAction(
         appServerActionRespondParamsFromRequest(request),
       );
-      const route = appServerEventRouter?.register({
-        eventName: request.event_name,
-        sessionId: request.session_id,
-        turnId: request.action_scope?.turn_id,
-      });
       if (route) {
         route.publish(result.notifications);
       } else {
         publishAppServerAgentSessionNotifications(
-          request.event_name,
+          eventName,
           result.notifications,
         );
       }
     } catch (error) {
       publishAppServerRpcErrorNotifications(error, {
-        eventName: request.event_name,
+        eventName,
         sessionId: request.session_id,
         turnId: request.action_scope?.turn_id,
       });
@@ -269,10 +319,52 @@ export function createThreadClient(deps: AgentRuntimeThreadClientDeps = {}) {
     if (!normalizedSessionId) {
       throw new Error("sessionId is required to read App Server session");
     }
-    const response = await standardRuntimeClient.readThread({
+    const response = await appServerClient.readSession({
       sessionId: normalizedSessionId,
     });
     return projectAppServerSessionReadResult(response.result);
+  }
+
+  async function readAgentRuntimeThread(
+    threadId: string,
+  ): Promise<AppServerThreadReadResponse> {
+    assertAppServerTurnLifecycleAvailable(isAppServerTurnLifecycleAvailable);
+    const normalizedThreadId = threadId.trim();
+    if (!normalizedThreadId) {
+      throw new Error(
+        "threadId is required to read canonical App Server thread",
+      );
+    }
+    const response = await appServerClient.readThread({
+      threadId: normalizedThreadId,
+      turnsView: "full",
+    } satisfies AppServerThreadReadParams);
+    return response.result;
+  }
+
+  async function readThreadSessionId(threadId: string): Promise<string> {
+    assertAppServerTurnLifecycleAvailable(isAppServerTurnLifecycleAvailable);
+    const normalizedThreadId = threadId.trim();
+    if (!normalizedThreadId) {
+      throw new Error("threadId is required to resolve App Server session");
+    }
+    const response = await appServerClient.readThread({
+      threadId: normalizedThreadId,
+      turnsView: "notLoaded",
+    } satisfies AppServerThreadReadParams);
+    const resolvedThreadId = response.result.thread.threadId.trim();
+    if (resolvedThreadId !== normalizedThreadId) {
+      throw new Error(
+        `thread/read returned mismatched threadId: expected ${normalizedThreadId}, received ${resolvedThreadId || "<empty>"}`,
+      );
+    }
+    const sessionId = response.result.thread.sessionId.trim();
+    if (!sessionId) {
+      throw new Error(
+        `thread/read returned an empty sessionId for ${normalizedThreadId}`,
+      );
+    }
+    return sessionId;
   }
 
   async function listAgentRuntimeFileCheckpoints(
@@ -324,7 +416,10 @@ export function createThreadClient(deps: AgentRuntimeThreadClientDeps = {}) {
     compactAgentRuntimeSession,
     diffAgentRuntimeFileCheckpoint,
     getAgentRuntimeFileCheckpoint,
+    getAgentRuntimeCapabilityManifest,
     getAgentRuntimeThreadRead,
+    readAgentRuntimeThread,
+    readThreadSessionId,
     interruptAgentRuntimeTurn,
     listAgentRuntimeFileCheckpoints,
     promoteAgentRuntimeQueuedTurn,
@@ -346,7 +441,7 @@ function assertAppServerTurnLifecycleAvailable(
 ): void {
   if (!isAvailable()) {
     throw new Error(
-      "App Server turn lifecycle is unavailable; current Agent runtime cannot use legacy agent_runtime_* commands.",
+      "App Server turn lifecycle is unavailable; Agent Runtime requires the App Server current lifecycle channel.",
     );
   }
 }
@@ -382,67 +477,11 @@ function createAppServerAgentRuntimeLifecycleClient(
         params as unknown as AppServerAgentSessionActionRespondParams,
       ) as ReturnType<AgentRuntimeLifecycleClient["respondAction"]>,
     readThread: (params: AgentRuntimeLifecycleReadThreadParams) =>
-      appServerClient.readSession(
-        params as unknown as AppServerAgentSessionReadParams,
+      appServerClient.readThread(
+        params as unknown as AppServerThreadReadParams,
       ) as ReturnType<AgentRuntimeLifecycleClient["readThread"]>,
   };
 }
-
-function publishAppServerRpcErrorNotifications(
-  error: unknown,
-  routeParams: AppServerAgentSessionEventRouteParams,
-): void {
-  if (
-    !(error instanceof AppServerRpcError) ||
-    !error.notifications.length ||
-    !routeParams.eventName
-  ) {
-    return;
-  }
-
-  for (const notification of error.notifications) {
-    if (doesNotificationMatchRoute(notification, routeParams)) {
-      publishAppServerAgentSessionNotifications(routeParams.eventName, [
-        notification,
-      ]);
-    }
-  }
-}
-
-function doesNotificationMatchRoute(
-  notification: AppServerJsonRpcNotification,
-  routeParams: AppServerAgentSessionEventRouteParams,
-): boolean {
-  const event = readAppServerAgentEvent(notification.params);
-  if (!event) {
-    return true;
-  }
-  if (routeParams.sessionId && event.sessionId !== routeParams.sessionId) {
-    return false;
-  }
-  if (
-    routeParams.turnId &&
-    event.turnId &&
-    routeParams.turnId !== event.turnId
-  ) {
-    return false;
-  }
-  return true;
-}
-
-type AppServerAgentSessionEventRouteParams = {
-  eventName?: string;
-  sessionId?: string;
-  turnId?: string;
-};
-
-type AppServerAgentSessionEventRoute = {
-  eventName: string;
-  expiresAt: number;
-  seenEventIds: Set<string>;
-  sessionId: string;
-  turnId?: string;
-};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -458,13 +497,14 @@ function isOptionalString(value: unknown): value is string | undefined {
 
 function isOptionalFiniteNumber(value: unknown): value is number | undefined {
   return (
-    value === undefined ||
-    (typeof value === "number" && Number.isFinite(value))
+    value === undefined || (typeof value === "number" && Number.isFinite(value))
   );
 }
 
 function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
 }
 
 function isFileCheckpointSummary(
@@ -589,8 +629,11 @@ function isAppServerFileCheckpointSummary(
     isOptionalString(readField(value, "status")) &&
     isOptionalString(readField(value, "previewText", "preview_text")) &&
     isOptionalString(readField(value, "snapshotPath", "snapshot_path")) &&
-    typeof readField(value, "validationIssueCount", "validation_issue_count") ===
-      "number" &&
+    typeof readField(
+      value,
+      "validationIssueCount",
+      "validation_issue_count",
+    ) === "number" &&
     Number.isFinite(
       readField(value, "validationIssueCount", "validation_issue_count"),
     )
@@ -645,8 +688,12 @@ function isAppServerFileCheckpointDiffResponse(
     isRequiredString(readField(value, "sessionId", "session_id")) &&
     isRequiredString(readField(value, "threadId", "thread_id")) &&
     isAppServerFileCheckpointSummary(readField(value, "checkpoint")) &&
-    isOptionalString(readField(value, "currentVersionId", "current_version_id")) &&
-    isOptionalString(readField(value, "previousVersionId", "previous_version_id"))
+    isOptionalString(
+      readField(value, "currentVersionId", "current_version_id"),
+    ) &&
+    isOptionalString(
+      readField(value, "previousVersionId", "previous_version_id"),
+    )
   );
 }
 
@@ -778,7 +825,8 @@ function projectAppServerFileCheckpointListResult(
       "checkpoint_count",
     ) as number,
     checkpoints: (readField(record, "checkpoints") as unknown[]).map(
-      (checkpoint) => projectAppServerFileCheckpointSummary(command, checkpoint),
+      (checkpoint) =>
+        projectAppServerFileCheckpointSummary(command, checkpoint),
     ),
   };
   assertFileCheckpointListResult(command, result);
@@ -950,578 +998,10 @@ function assertFileCheckpointRestoreResult(
   }
 }
 
-class AppServerAgentSessionEventDrainRouter {
-  readonly #appServerClient: AgentRuntimeAppServerClient;
-  readonly #closedRouteKeys = new Set<string>();
-  readonly #routes = new Map<string, AppServerAgentSessionEventRoute>();
-  #draining = false;
-
-  constructor(appServerClient: AgentRuntimeAppServerClient) {
-    this.#appServerClient = appServerClient;
-  }
-
-  register(params: AppServerAgentSessionEventRouteParams): {
-    publish: (notifications: AppServerJsonRpcNotification[]) => void;
-  } | null {
-    const eventName = params.eventName?.trim();
-    const sessionId = params.sessionId?.trim();
-    if (!eventName || !sessionId) {
-      return null;
-    }
-
-    const route: AppServerAgentSessionEventRoute = {
-      eventName,
-      sessionId,
-      turnId: params.turnId?.trim() || undefined,
-      seenEventIds: new Set(),
-      expiresAt: Date.now() + APP_SERVER_EVENT_ROUTE_TTL_MS,
-    };
-    const key = routeKey(route);
-    this.#closedRouteKeys.delete(key);
-    this.#routes.set(key, route);
-    this.#startDrainLoop();
-
-    return {
-      publish: (notifications) => {
-        this.routeNotifications(notifications, eventName);
-      },
-    };
-  }
-
-  routeNotifications(
-    notifications: AppServerJsonRpcNotification[] | undefined,
-    fallbackEventName?: string,
-  ): void {
-    if (!notifications?.length) {
-      return;
-    }
-
-    for (const notification of notifications) {
-      this.#routeNotification(notification, fallbackEventName);
-    }
-  }
-
-  async #drainLoop(): Promise<void> {
-    if (this.#draining) {
-      return;
-    }
-
-    this.#draining = true;
-    try {
-      while (this.#routes.size > 0) {
-        this.#pruneExpiredRoutes();
-        if (this.#routes.size === 0) {
-          break;
-        }
-
-        const drainedMessages = await Promise.resolve(
-          this.#appServerClient.drainEvents(APP_SERVER_EVENT_DRAIN_LIMIT),
-        ).catch(() => []);
-        const messages = Array.isArray(drainedMessages) ? drainedMessages : [];
-        const notifications: AppServerJsonRpcNotification[] = [];
-        for (const message of messages) {
-          if (isAppServerJsonRpcNotification(message)) {
-            notifications.push(message);
-          }
-        }
-        this.routeNotifications(notifications);
-
-        if (this.#routes.size > 0) {
-          await waitForAppServerEventDrainInterval();
-        }
-      }
-    } finally {
-      this.#draining = false;
-    }
-  }
-
-  #startDrainLoop(): void {
-    if (this.#draining) {
-      return;
-    }
-    void this.#drainLoop();
-  }
-
-  #routeNotification(
-    notification: AppServerJsonRpcNotification,
-    fallbackEventName?: string,
-  ): void {
-    const event = readAppServerAgentEvent(notification.params);
-    if (!event) {
-      if (fallbackEventName) {
-        publishAppServerAgentSessionNotifications(fallbackEventName, [
-          notification,
-        ]);
-      }
-      return;
-    }
-
-    const matchedRoutes = this.#matchingRoutes(event);
-    if (
-      matchedRoutes.length === 0 &&
-      fallbackEventName &&
-      !this.#isClosedFallbackRoute(event, fallbackEventName)
-    ) {
-      publishAppServerAgentSessionNotifications(fallbackEventName, [
-        notification,
-      ]);
-      return;
-    }
-
-    for (const route of matchedRoutes) {
-      if (route.seenEventIds.has(event.eventId)) {
-        continue;
-      }
-      route.seenEventIds.add(event.eventId);
-      publishAppServerAgentSessionNotifications(route.eventName, [
-        notification,
-      ]);
-      if (isTerminalAppServerAgentEvent(event)) {
-        const key = routeKey(route);
-        this.#closedRouteKeys.add(key);
-        this.#routes.delete(key);
-      }
-    }
-  }
-
-  #isClosedFallbackRoute(
-    event: AppServerAgentEvent,
-    fallbackEventName: string,
-  ): boolean {
-    return (
-      this.#closedRouteKeys.has(
-        routeKey({
-          eventName: fallbackEventName,
-          sessionId: event.sessionId,
-          turnId: event.turnId,
-        }),
-      ) ||
-      this.#closedRouteKeys.has(
-        routeKey({
-          eventName: fallbackEventName,
-          sessionId: event.sessionId,
-        }),
-      )
-    );
-  }
-
-  #matchingRoutes(
-    event: AppServerAgentEvent,
-  ): AppServerAgentSessionEventRoute[] {
-    const routes: AppServerAgentSessionEventRoute[] = [];
-    for (const route of this.#routes.values()) {
-      if (route.sessionId !== event.sessionId) {
-        continue;
-      }
-      if (route.turnId && event.turnId && route.turnId !== event.turnId) {
-        continue;
-      }
-      routes.push(route);
-    }
-    return routes;
-  }
-
-  #pruneExpiredRoutes(): void {
-    const now = Date.now();
-    for (const [key, route] of this.#routes) {
-      if (route.expiresAt <= now) {
-        this.#routes.delete(key);
-      }
-    }
-  }
-}
-
-function isTerminalAppServerAgentEvent(event: AppServerAgentEvent): boolean {
-  return (
-    event.type === "turn.completed" ||
-    event.type === "turn.done" ||
-    event.type === "turn.final_done" ||
-    event.type === "turn.failed" ||
-    event.type === "turn.canceled" ||
-    event.type === "turn.cancelled"
-  );
-}
-
-function routeKey(route: AppServerAgentSessionEventRouteParams): string {
-  return `${route.sessionId}\u0000${route.turnId ?? ""}\u0000${route.eventName}`;
-}
-
-async function waitForAppServerEventDrainInterval(): Promise<void> {
-  await new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, APP_SERVER_EVENT_DRAIN_INTERVAL_MS);
-    const maybeUnref = (timer as { unref?: () => void } | undefined)?.unref;
-    if (maybeUnref) {
-      maybeUnref.call(timer);
-    }
-  });
-}
-
-export function publishAppServerAgentSessionNotifications(
-  eventName: string | undefined,
-  notifications: AppServerJsonRpcNotification[] | undefined,
-): void {
-  if (!eventName || !notifications?.length) {
-    return;
-  }
-
-  for (const notification of notifications) {
-    const payload = projectAppServerAgentEventPayload(notification);
-    if (payload) {
-      publishAgentRuntimeEvent(eventName, payload);
-    }
-  }
-}
-
-export function projectAppServerAgentEventPayload(
-  notification: AppServerJsonRpcNotification,
-): Record<string, unknown> | null {
-  if (notification.method !== APP_SERVER_METHOD_AGENT_SESSION_EVENT) {
-    return null;
-  }
-
-  const event = readAppServerAgentEvent(notification.params);
-  if (!event) {
-    return null;
-  }
-
-  const payload = normalizeRecord(event.payload) ?? {};
-  const basePayload = {
-    ...payload,
-    event_id: event.eventId,
-    sequence: event.sequence,
-    session_id: event.sessionId,
-    thread_id: event.threadId,
-    turn_id: event.turnId,
-    timestamp: event.timestamp,
-  };
-
-  switch (event.type) {
-    case "message.delta":
-      if (readString(payload, "type") === "text_delta_batch") {
-        return projectTextDeltaBatchPayload(basePayload, payload);
-      }
-      return {
-        ...basePayload,
-        type: "text_delta",
-        text: readString(payload, "text", "delta", "message") ?? "",
-      };
-    case "message.delta_batch":
-    case "message.batch":
-      return projectTextDeltaBatchPayload(basePayload, payload);
-    case "message":
-    case "message.completed":
-      return {
-        ...basePayload,
-        type: "message",
-        message: readAgentMessageFromPayload(payload, event.timestamp),
-      };
-    case "item.completed": {
-      const item = readAgentThreadItemFromPayload(payload);
-      if (item?.type === "agent_message") {
-        return {
-          ...basePayload,
-          type: "message",
-          message: readAgentMessageFromThreadItem(item, event.timestamp),
-        };
-      }
-      return {
-        ...basePayload,
-        type: "item_completed",
-        item,
-      };
-    }
-    case "thinking.delta":
-      return {
-        ...basePayload,
-        type: "thinking_delta",
-        text: readString(payload, "text", "delta", "message") ?? "",
-      };
-    case "artifact.snapshot":
-      return {
-        ...basePayload,
-        type: "artifact_snapshot",
-      };
-    case "action.required":
-      return {
-        ...basePayload,
-        type: "action_required",
-        request_id: readString(payload, "request_id", "requestId", "id") ?? "",
-        action_type:
-          readString(payload, "action_type", "actionType", "type") ??
-          "tool_confirmation",
-      };
-    case "action.resolved":
-      return {
-        ...basePayload,
-        type: "action_resolved",
-        request_id: readString(payload, "request_id", "requestId", "id") ?? "",
-        action_type:
-          readString(payload, "action_type", "actionType", "type") ??
-          "tool_confirmation",
-      };
-    case "runtime.status":
-      return {
-        ...basePayload,
-        type: "runtime_status",
-        status: normalizeRecord(payload.status) ?? payload,
-      };
-    case "turn.completed":
-      return {
-        ...basePayload,
-        type: "turn_completed",
-        text: readString(payload, "text", "delta", "message", "content"),
-        usage: payload.usage,
-        turn: normalizeRecord(payload.turn) ?? {
-          id: event.turnId ?? "",
-          thread_id: event.threadId ?? event.sessionId,
-          prompt_text:
-            readString(payload, "prompt_text", "promptText", "prompt") ?? "",
-          status: "completed",
-          started_at: event.timestamp,
-          completed_at: event.timestamp,
-          created_at: event.timestamp,
-          updated_at: event.timestamp,
-        },
-      };
-    case "turn.done":
-      return {
-        ...basePayload,
-        type: "done",
-        usage: payload.usage,
-      };
-    case "turn.final_done":
-      return {
-        ...basePayload,
-        type: "final_done",
-        usage: payload.usage,
-      };
-    case "turn.failed":
-      return {
-        ...basePayload,
-        type: "error",
-        message:
-          readString(payload, "message", "error", "reason") ??
-          "App Server turn failed",
-      };
-    case "turn.canceled":
-    case "turn.cancelled":
-      return {
-        ...basePayload,
-        type: "turn_completed",
-        text: readString(payload, "text", "delta", "message", "content"),
-        usage: payload.usage,
-        turn: normalizeRecord(payload.turn) ?? {
-          id: event.turnId ?? "",
-          thread_id: event.threadId ?? event.sessionId,
-          prompt_text:
-            readString(payload, "prompt_text", "promptText", "prompt") ?? "",
-          status: "canceled",
-          started_at: event.timestamp,
-          completed_at: event.timestamp,
-          created_at: event.timestamp,
-          updated_at: event.timestamp,
-          error_message:
-            readString(payload, "message", "error", "reason") ?? "本轮已中止",
-        },
-        message:
-          readString(payload, "message", "error", "reason") ?? "本轮已中止",
-      };
-    default:
-      return {
-        ...basePayload,
-        type: event.type.split(".").join("_"),
-      };
-  }
-}
-
-function readAppServerAgentEvent(params: unknown): AppServerAgentEvent | null {
-  const record = normalizeRecord(params);
-  const event = normalizeRecord(record?.event);
-  if (!event) {
-    return null;
-  }
-
-  const eventId = readString(event, "eventId", "event_id");
-  const sessionId = readString(event, "sessionId", "session_id");
-  const type = readString(event, "type");
-  const timestamp = readString(event, "timestamp");
-  const sequence = event.sequence;
-
-  if (
-    !eventId ||
-    !sessionId ||
-    !type ||
-    !timestamp ||
-    typeof sequence !== "number"
-  ) {
-    return null;
-  }
-
-  return {
-    eventId,
-    sequence,
-    sessionId,
-    threadId: readString(event, "threadId", "thread_id"),
-    turnId: readString(event, "turnId", "turn_id"),
-    type,
-    timestamp,
-    payload: event.payload,
-  };
-}
-
-function normalizeRecord(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
-}
-
-function readString(
-  record: Record<string, unknown>,
-  ...keys: string[]
-): string | undefined {
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "string") {
-      return value;
-    }
-  }
-  return undefined;
-}
-
-function readStringArray(
-  record: Record<string, unknown>,
-  ...keys: string[]
-): string[] | undefined {
-  for (const key of keys) {
-    const value = record[key];
-    if (Array.isArray(value)) {
-      return value.filter((item): item is string => typeof item === "string");
-    }
-  }
-  return undefined;
-}
-
-function projectTextDeltaBatchPayload(
-  basePayload: Record<string, unknown>,
-  payload: Record<string, unknown>,
-): Record<string, unknown> {
-  const chunks = readStringArray(payload, "chunks", "deltas") ?? [];
-  return {
-    ...basePayload,
-    type: "text_delta_batch",
-    text: readString(payload, "text", "delta", "message") ?? chunks.join(""),
-    chunks,
-    boundary:
-      readString(payload, "boundary", "streamBoundary", "stream_kind") ??
-      "provider",
-  };
-}
-
-function readAgentMessageFromPayload(
-  payload: Record<string, unknown>,
-  timestamp: string,
-) {
-  const message = normalizeRecord(payload.message);
-  const content = Array.isArray(message?.content)
-    ? message.content
-    : Array.isArray(payload.content)
-      ? payload.content
-      : readString(payload, "text", "delta", "message")
-        ? [
-            {
-              type: "text",
-              text: readString(payload, "text", "delta", "message") ?? "",
-            },
-          ]
-        : [];
-
-  return {
-    id: readString(message ?? payload, "id", "messageId"),
-    role: readString(message ?? payload, "role") ?? "assistant",
-    content,
-    timestamp: readTimestampMs(message?.timestamp, timestamp),
-  };
-}
-
-function readAgentThreadItemFromPayload(
-  payload: Record<string, unknown>,
-): Record<string, unknown> | undefined {
-  const item = normalizeRecord(payload.item) ?? payload;
-  const itemType = readString(item, "type");
-  if (!itemType) {
-    return undefined;
-  }
-
-  if (itemType === "agent_message") {
-    return {
-      ...item,
-      type: "agent_message",
-      text: readString(item, "text", "content", "message") ?? "",
-      phase: readString(item, "phase"),
-    };
-  }
-
-  return item;
-}
-
-function readAgentMessageFromThreadItem(
-  item: Record<string, unknown>,
-  timestamp: string,
-) {
-  return {
-    id: readString(item, "id", "messageId"),
-    role: "assistant",
-    content: [
-      {
-        type: "text",
-        text: readString(item, "text", "content", "message") ?? "",
-      },
-    ],
-    timestamp: readTimestampMs(item.timestamp, timestamp),
-  };
-}
-
-function readTimestampMs(value: unknown, fallback: string): number {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === "string") {
-    const parsed = Date.parse(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-
-  const parsedFallback = Date.parse(fallback);
-  return Number.isFinite(parsedFallback) ? parsedFallback : Date.now();
-}
-
-export function appServerTurnStartParamsFromRequest(
-  request: AgentRuntimeSubmitTurnRequest,
-): AppServerAgentSessionTurnStartParams {
-  return omitUndefined({
-    sessionId: request.session_id,
-    turnId: request.turn_id,
-    input: omitUndefined({
-      text: request.message,
-      attachments: appServerAttachmentsFromImages(request.images),
-    }),
-    runtimeOptions: omitUndefined({
-      stream: true,
-      eventName: request.event_name,
-      providerPreference: request.turn_config?.provider_preference,
-      modelPreference: request.turn_config?.model_preference,
-      metadata: request.turn_config?.metadata,
-      queuedTurnId: request.queued_turn_id,
-      hostOptions: {
-        asterChatRequest: appServerAsterChatRequestFromRequest(request),
-      },
-    }),
-    queueIfBusy: request.queue_if_busy,
-    skipPreSubmitResume: request.skip_pre_submit_resume,
-  });
-}
+export {
+  projectAppServerAgentEventPayload,
+  publishAppServerAgentSessionNotifications,
+} from "./appServerEventStream";
 
 function appServerTurnCancelParamsFromRequest(
   request: AgentRuntimeInterruptTurnRequest,
@@ -1542,6 +1022,7 @@ export function appServerActionRespondParamsFromRequest(
     sessionId: request.session_id,
     requestId: request.request_id,
     actionType: request.action_type,
+    decision: request.decision,
     confirmed: request.confirmed,
     response: request.response,
     userData: request.user_data,
@@ -1549,6 +1030,17 @@ export function appServerActionRespondParamsFromRequest(
     eventName: request.event_name,
     actionScope: appServerActionScopeFromRequest(request.action_scope),
   });
+}
+
+function appServerActionRespondEventNameFromRequest(
+  request: AgentRuntimeRespondActionRequest,
+): string | undefined {
+  const explicitEventName = request.event_name?.trim();
+  if (explicitEventName) {
+    return explicitEventName;
+  }
+  const sessionId = request.session_id.trim();
+  return sessionId ? `agentSession/event/${sessionId}` : undefined;
 }
 
 function appServerActionReplayParamsFromRequest(
@@ -1577,6 +1069,7 @@ function agentRuntimeReplayedActionFromAppServer(
     requested_schema: isRecord(action.requestedSchema)
       ? action.requestedSchema
       : undefined,
+    available_decisions: action.availableDecisions,
     scope: action.scope
       ? omitUndefined({
           session_id: action.scope.sessionId,
@@ -1585,51 +1078,6 @@ function agentRuntimeReplayedActionFromAppServer(
         })
       : undefined,
   });
-}
-
-function appServerAsterChatRequestFromRequest(
-  request: AgentRuntimeSubmitTurnRequest,
-): Record<string, unknown> {
-  return omitUndefined({
-    message: request.message,
-    session_id: request.session_id,
-    event_name: request.event_name,
-    images: request.images,
-    provider_config: request.turn_config?.provider_config,
-    provider_preference: request.turn_config?.provider_preference,
-    model_preference: request.turn_config?.model_preference,
-    reasoning_effort: request.turn_config?.reasoning_effort,
-    thinking_enabled: request.turn_config?.thinking_enabled,
-    approval_policy: request.turn_config?.approval_policy,
-    sandbox_policy: request.turn_config?.sandbox_policy,
-    workspace_id: request.workspace_id ?? "",
-    web_search: request.turn_config?.web_search,
-    search_mode: request.turn_config?.search_mode,
-    execution_strategy: request.turn_config?.execution_strategy,
-    auto_continue: request.turn_config?.auto_continue,
-    system_prompt: request.turn_config?.system_prompt,
-    metadata: request.turn_config?.metadata,
-    turn_id: request.turn_id,
-    queue_if_busy: request.queue_if_busy,
-    queued_turn_id: request.queued_turn_id,
-  });
-}
-
-function appServerAttachmentsFromImages(
-  images?: AgentRuntimeSubmitTurnRequest["images"],
-): AppServerAgentAttachment[] | undefined {
-  if (!images?.length) {
-    return undefined;
-  }
-
-  return images.map((image, index) => ({
-    kind: "image",
-    uri: image.data,
-    metadata: {
-      mediaType: image.media_type,
-      index,
-    },
-  }));
 }
 
 function appServerActionScopeFromRequest(
@@ -1655,8 +1103,11 @@ function omitUndefined<T extends Record<string, unknown>>(value: T): T {
 export const {
   compactAgentRuntimeSession,
   diffAgentRuntimeFileCheckpoint,
+  getAgentRuntimeCapabilityManifest,
   getAgentRuntimeFileCheckpoint,
   getAgentRuntimeThreadRead,
+  readAgentRuntimeThread,
+  readThreadSessionId,
   interruptAgentRuntimeTurn,
   listAgentRuntimeFileCheckpoints,
   promoteAgentRuntimeQueuedTurn,

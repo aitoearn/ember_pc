@@ -58,7 +58,7 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Agent QC qcloop Worker Preflight
+Lime Agent QC qcloop Worker Preflight
 
 用法:
   npm run agent-qc:qcloop-preflight -- --check
@@ -78,7 +78,7 @@ Ember Agent QC qcloop Worker Preflight
 function checkTmpWritable() {
   const filePath = path.join(
     os.tmpdir(),
-    `ember-agent-qc-preflight-${process.pid}-${Date.now()}.tmp`,
+    `lime-agent-qc-preflight-${process.pid}-${Date.now()}.tmp`,
   );
   try {
     fs.writeFileSync(filePath, "ok", "utf8");

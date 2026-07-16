@@ -1,16 +1,19 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
+import type { Config } from "@/lib/api/appConfig";
 
-const { mockGetConfig, mockSaveConfig } = vi.hoisted(() => ({
+const { mockGetConfig, mockSaveConfig, mockUpdateConfig } = vi.hoisted(() => ({
   mockGetConfig: vi.fn(),
   mockSaveConfig: vi.fn(),
+  mockUpdateConfig: vi.fn(),
 }));
 
 vi.mock("@/lib/api/appConfig", () => ({
   getConfig: mockGetConfig,
   saveConfig: mockSaveConfig,
+  updateConfig: mockUpdateConfig,
 }));
 
 vi.mock("@/components/input-kit", () => ({
@@ -58,6 +61,7 @@ interface Mounted {
 }
 
 const mounted: Mounted[] = [];
+let persistedConfig: Config;
 
 function renderComponent(): HTMLDivElement {
   const container = document.createElement("div");
@@ -121,9 +125,10 @@ beforeEach(async () => {
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
   vi.clearAllMocks();
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 
-  mockGetConfig.mockResolvedValue({
+  persistedConfig = {
+    default_provider: "openai",
     workspace_preferences: {
       media_defaults: {
         video: {
@@ -133,8 +138,16 @@ beforeEach(async () => {
         },
       },
     },
-  });
+  } as Config;
+  mockGetConfig.mockImplementation(async () => persistedConfig);
   mockSaveConfig.mockResolvedValue(undefined);
+  mockUpdateConfig.mockImplementation(
+    async (updater: (current: Config) => Config) => {
+      persistedConfig = updater(persistedConfig);
+      await mockSaveConfig(persistedConfig);
+      return persistedConfig;
+    },
+  );
 });
 
 afterEach(async () => {
@@ -147,7 +160,7 @@ afterEach(async () => {
     target.container.remove();
   }
   vi.clearAllMocks();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("VideoGenSettings", () => {
@@ -183,7 +196,7 @@ describe("VideoGenSettings", () => {
       "Auto fallback when Provider is unavailable info",
     );
     expect(getBodyText()).toContain(
-      "When disabled, Ember shows an error if the default video service is missing, disabled, or has no usable key.",
+      "When disabled, Lime shows an error if the default video service is missing, disabled, or has no usable key.",
     );
     await leaveTip(fallbackTip);
   });

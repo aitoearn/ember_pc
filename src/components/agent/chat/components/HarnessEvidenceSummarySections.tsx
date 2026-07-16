@@ -1,21 +1,21 @@
 import { Eye, ShieldAlert } from "lucide-react";
 import type {
   AgentRuntimeEvidenceBrowserActionIndex,
-  AgentRuntimeEvidenceEmberCorePolicyIndex,
-  AgentRuntimeEvidenceEmberCorePolicyItem,
-} from "@/lib/api/agentRuntime";
+  AgentRuntimeEvidenceLimeCorePolicyIndex,
+  AgentRuntimeEvidenceLimeCorePolicyItem,
+} from "@/lib/api/agentRuntime/evidenceTypes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  collectEmberCorePolicyMissingInputs,
-  collectEmberCorePolicyRefKeys,
+  collectLimeCorePolicyMissingInputs,
+  collectLimeCorePolicyRefKeys,
   formatBrowserActionArtifactKindLabel,
   formatBrowserActionStatusLabel,
-  formatEmberCorePolicyDecisionLabel,
-  formatEmberCorePolicyInputSourceLabel,
-  formatEmberCorePolicyInputStatusLabel,
-  formatEmberCorePolicyStatusLabel,
-  summarizeEmberCorePolicyDecision,
+  formatLimeCorePolicyDecisionLabel,
+  formatLimeCorePolicyInputSourceLabel,
+  formatLimeCorePolicyInputStatusLabel,
+  formatLimeCorePolicyStatusLabel,
+  summarizeLimeCorePolicyDecision,
   uniqueNonEmptyStrings,
 } from "./harnessStatusPanelViewModel";
 import { InventoryStatCard } from "./HarnessStatusPanelPrimitives";
@@ -75,7 +75,7 @@ export function BrowserActionIndexSummarySection({
         </div>
       ) : null}
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-3 grid min-w-0 gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr))]">
         <InventoryStatCard
           title={agentText(
             "agentChat.harness.generated.e5d6795411",
@@ -202,10 +202,10 @@ export function BrowserActionIndexSummarySection({
   );
 }
 
-function EmberCorePolicyItemCard({
+function LimeCorePolicyItemCard({
   item,
 }: {
-  item: AgentRuntimeEvidenceEmberCorePolicyItem;
+  item: AgentRuntimeEvidenceLimeCorePolicyItem;
 }) {
   const missingInputs = uniqueNonEmptyStrings([
     ...(item.missing_inputs ?? []),
@@ -222,10 +222,10 @@ function EmberCorePolicyItemCard({
           {contractLabel}
         </span>
         <Badge variant="outline">
-          {formatEmberCorePolicyStatusLabel(item.status)}
+          {formatLimeCorePolicyStatusLabel(item.status)}
         </Badge>
         <Badge variant={item.decision === "deny" ? "destructive" : "secondary"}>
-          {formatEmberCorePolicyDecisionLabel(item.decision)}
+          {formatLimeCorePolicyDecisionLabel(item.decision)}
         </Badge>
         {item.decision_source ? (
           <Badge variant="outline">{item.decision_source}</Badge>
@@ -290,8 +290,8 @@ function EmberCorePolicyItemCard({
               className="border-amber-300 bg-amber-50 text-amber-800"
             >
               {input.ref_key} ·{" "}
-              {formatEmberCorePolicyInputStatusLabel(input.status)} ·{" "}
-              {formatEmberCorePolicyInputSourceLabel(input.value_source)}
+              {formatLimeCorePolicyInputStatusLabel(input.status)} ·{" "}
+              {formatLimeCorePolicyInputSourceLabel(input.value_source)}
             </Badge>
           ))}
           {policyInputs.length > policyInputPreview.length ? (
@@ -305,13 +305,13 @@ function EmberCorePolicyItemCard({
   );
 }
 
-export function EmberCorePolicyIndexSummarySection({
+export function LimeCorePolicyIndexSummarySection({
   index,
 }: {
-  index: AgentRuntimeEvidenceEmberCorePolicyIndex;
+  index: AgentRuntimeEvidenceLimeCorePolicyIndex;
 }) {
-  const refKeys = collectEmberCorePolicyRefKeys(index);
-  const missingInputs = collectEmberCorePolicyMissingInputs(index);
+  const refKeys = collectLimeCorePolicyRefKeys(index);
+  const missingInputs = collectLimeCorePolicyMissingInputs(index);
   const recentItems = index.items.slice(-3).reverse();
 
   if (index.snapshot_count <= 0 && recentItems.length === 0) {
@@ -325,18 +325,18 @@ export function EmberCorePolicyIndexSummarySection({
         <span>
           {agentText(
             "agentChat.harness.generated.5ff0237c2a",
-            "EmberCore 策略缺口",
+            "LimeCore 策略缺口",
           )}
         </span>
       </div>
       <p className="mt-1 text-xs text-amber-800">
         {agentText(
           "agentChat.harness.generated.dd61dfc98f",
-          "来自 modalityRuntimeContracts.snapshotIndex.embercorePolicyIndex；当前 allow 仅代表本地默认未阻断，missing inputs 仍等待 EmberCore 控制面命中。",
+          "来自 modalityRuntimeContracts.snapshotIndex.limecorePolicyIndex；当前 allow 仅代表本地默认未阻断，missing inputs 仍等待 LimeCore 控制面命中。",
         )}
       </p>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-3 grid min-w-0 gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr))]">
         <InventoryStatCard
           title={agentText(
             "agentChat.harness.generated.9862eec754",
@@ -366,7 +366,7 @@ export function EmberCorePolicyIndexSummarySection({
             "agentChat.harness.generated.6b803cba6a",
             "策略决策",
           )}
-          value={summarizeEmberCorePolicyDecision(index)}
+          value={summarizeLimeCorePolicyDecision(index)}
           hint="allow / ask / deny"
         />
       </div>
@@ -388,7 +388,7 @@ export function EmberCorePolicyIndexSummarySection({
       {recentItems.length > 0 ? (
         <div className="mt-3 space-y-2">
           {recentItems.map((item, indexInList) => (
-            <EmberCorePolicyItemCard
+            <LimeCorePolicyItemCard
               key={[
                 item.contract_key,
                 item.execution_profile_key,

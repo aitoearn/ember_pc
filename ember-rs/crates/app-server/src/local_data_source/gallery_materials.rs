@@ -6,9 +6,9 @@ use app_server_protocol::GalleryMaterialMetadataCreateParams;
 use app_server_protocol::GalleryMaterialMetadataResponse;
 use app_server_protocol::GalleryMaterialMetadataUpdateParams;
 use app_server_protocol::GalleryMaterialResponse;
-use ember_core::database::dao::gallery_material_dao::GalleryMaterialDao;
-use ember_core::database::DbConnection;
-use ember_core::models::project_model as core_project_model;
+use lime_core::database::dao::gallery_material_dao::GalleryMaterialDao;
+use lime_core::database::DbConnection;
+use lime_core::models::project_model as core_project_model;
 
 pub(crate) fn get_gallery_material(
     db: &DbConnection,

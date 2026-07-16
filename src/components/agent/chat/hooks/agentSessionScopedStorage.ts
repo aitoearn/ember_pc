@@ -48,6 +48,22 @@ export interface AgentSessionCachedSnapshotMetadata {
   historyTruncated: boolean;
 }
 
+export interface AgentSessionCachedSnapshotMetadataSummary {
+  updatedAt: number;
+  expiresAt: number;
+  staleUntil: number;
+  sessionUpdatedAt: number | null;
+  messagesCount: number | null;
+  historyTruncated: boolean;
+}
+
+export interface AgentSessionCachedSnapshotAvailability {
+  hasSnapshot: boolean;
+  hasIndex: boolean;
+  transient?: AgentSessionCachedSnapshotMetadataSummary;
+  persisted?: AgentSessionCachedSnapshotMetadataSummary;
+}
+
 interface AgentSessionCachedSnapshotRecord extends Omit<
   AgentSessionCachedSnapshot,
   "cacheMetadata"
@@ -73,6 +89,7 @@ const TRANSIENT_SNAPSHOT_TTL_MS = 10 * 60 * 1000;
 const PERSISTED_SNAPSHOT_TTL_MS = 12 * 60 * 60 * 1000;
 const SNAPSHOT_STALE_GRACE_MS = 2 * 60 * 1000;
 const PERSISTED_SNAPSHOT_STALE_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
+const SNAPSHOT_INDEX_STORAGE_SUFFIX = "agent_session_snapshots_index";
 
 interface AgentSessionCachedSnapshotTrimLimits {
   maxMessages: number;
@@ -320,6 +337,181 @@ function normalizeOptionalCount(value: unknown): number | null {
   return count !== null && count >= 0 ? Math.trunc(count) : null;
 }
 
+function getSnapshotIndexKey(workspaceId: string): string {
+  return getScopedStorageKey(workspaceId, SNAPSHOT_INDEX_STORAGE_SUFFIX);
+}
+
+function loadSnapshotIndex(workspaceId: string): {
+  hasIndex: boolean;
+  index: Record<string, {
+    transient?: AgentSessionCachedSnapshotMetadataSummary;
+    persisted?: AgentSessionCachedSnapshotMetadataSummary;
+  }>;
+} {
+  const indexKey = getSnapshotIndexKey(workspaceId);
+
+  try {
+    const stored = localStorage.getItem(indexKey);
+    if (stored === null) {
+      return {
+        hasIndex: false,
+        index: {},
+      };
+    }
+
+    return {
+      hasIndex: true,
+      index: normalizeSnapshotIndex(JSON.parse(stored)),
+    };
+  } catch (error) {
+    console.error(error);
+    return {
+      hasIndex: false,
+      index: {},
+    };
+  }
+}
+
+function normalizeSnapshotMetadataSummary(
+  value: unknown,
+): AgentSessionCachedSnapshotMetadataSummary | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const updatedAt = readFiniteNumber(record.updatedAt);
+  const expiresAt = readFiniteNumber(record.expiresAt);
+  const staleUntil = readFiniteNumber(record.staleUntil);
+  if (updatedAt === null || expiresAt === null || staleUntil === null) {
+    return null;
+  }
+
+  return {
+    updatedAt,
+    expiresAt,
+    staleUntil,
+    sessionUpdatedAt: normalizeOptionalTimeMs(
+      record.sessionUpdatedAt as number | string | null,
+    ),
+    messagesCount: normalizeOptionalCount(record.messagesCount),
+    historyTruncated: record.historyTruncated === true,
+  };
+}
+
+function normalizeSnapshotIndex(
+  value: unknown,
+): Record<string, {
+  transient?: AgentSessionCachedSnapshotMetadataSummary;
+  persisted?: AgentSessionCachedSnapshotMetadataSummary;
+}> {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  const index: Record<string, {
+    transient?: AgentSessionCachedSnapshotMetadataSummary;
+    persisted?: AgentSessionCachedSnapshotMetadataSummary;
+  }> = {};
+
+  Object.entries(value as Record<string, unknown>).forEach(
+    ([sessionId, rawEntry]) => {
+      if (!rawEntry || typeof rawEntry !== "object") {
+        return;
+      }
+
+      const entry = rawEntry as Record<string, unknown>;
+      const transient = normalizeSnapshotMetadataSummary(entry.transient);
+      const persisted = normalizeSnapshotMetadataSummary(entry.persisted);
+      if (!transient && !persisted) {
+        return;
+      }
+
+      index[sessionId] = {
+        ...(transient ? { transient } : {}),
+        ...(persisted ? { persisted } : {}),
+      };
+    },
+  );
+
+  return index;
+}
+
+function buildSnapshotMetadataSummary(
+  record: AgentSessionCachedSnapshotRecord,
+): AgentSessionCachedSnapshotMetadataSummary {
+  return {
+    updatedAt: record.updatedAt,
+    expiresAt: record.expiresAt,
+    staleUntil: record.staleUntil,
+    sessionUpdatedAt: record.sessionUpdatedAt,
+    messagesCount: record.messagesCount,
+    historyTruncated: record.historyTruncated,
+  };
+}
+
+function saveSnapshotIndex(
+  workspaceId: string,
+  index: Record<string, {
+    transient?: AgentSessionCachedSnapshotMetadataSummary;
+    persisted?: AgentSessionCachedSnapshotMetadataSummary;
+  }>,
+): void {
+  savePersisted(getSnapshotIndexKey(workspaceId), index);
+}
+
+function updateSnapshotIndex(params: {
+  workspaceId: string;
+  transientEntries: [string, AgentSessionCachedSnapshotRecord][];
+  persistedEntries: [string, AgentSessionCachedSnapshotRecord][];
+}): void {
+  const nextIndex: Record<string, {
+    transient?: AgentSessionCachedSnapshotMetadataSummary;
+    persisted?: AgentSessionCachedSnapshotMetadataSummary;
+  }> = {};
+
+  params.transientEntries.forEach(([sessionId, record]) => {
+    nextIndex[sessionId] = {
+      ...(nextIndex[sessionId] ?? {}),
+      transient: buildSnapshotMetadataSummary(record),
+    };
+  });
+  params.persistedEntries.forEach(([sessionId, record]) => {
+    nextIndex[sessionId] = {
+      ...(nextIndex[sessionId] ?? {}),
+      persisted: buildSnapshotMetadataSummary(record),
+    };
+  });
+
+  saveSnapshotIndex(params.workspaceId, nextIndex);
+}
+
+function removeSnapshotIndexEntry(
+  workspaceId: string,
+  sessionId: string,
+  storageKind?: AgentSessionCachedSnapshotMetadata["storageKind"],
+): void {
+  const { index } = loadSnapshotIndex(workspaceId);
+  const currentEntry = index[sessionId];
+  if (!currentEntry) {
+    return;
+  }
+
+  if (!storageKind) {
+    delete index[sessionId];
+  } else {
+    const nextEntry = { ...currentEntry };
+    delete nextEntry[storageKind];
+    if (nextEntry.transient || nextEntry.persisted) {
+      index[sessionId] = nextEntry;
+    } else {
+      delete index[sessionId];
+    }
+  }
+
+  saveSnapshotIndex(workspaceId, index);
+}
+
 function normalizeCachedSnapshotRecord(
   value: unknown,
   policy: AgentSessionCachedSnapshotPolicy,
@@ -471,6 +663,7 @@ function hasSnapshotRecord(
 }
 
 function removeCachedSnapshotRecord(
+  workspaceId: string,
   cacheKey: string,
   snapshotMap: Record<string, unknown>,
   sessionId: string,
@@ -485,10 +678,31 @@ function removeCachedSnapshotRecord(
 
   if (storageKind === "transient") {
     saveTransient(cacheKey, nextMap);
-    return;
+  } else {
+    savePersisted(cacheKey, nextMap);
   }
 
-  savePersisted(cacheKey, nextMap);
+  removeSnapshotIndexEntry(workspaceId, sessionId, storageKind);
+}
+
+export function getAgentSessionCachedSnapshotAvailability(
+  workspaceId: string,
+  sessionId: string,
+): AgentSessionCachedSnapshotAvailability {
+  const { hasIndex, index } = loadSnapshotIndex(workspaceId);
+  const indexedEntry = index[sessionId];
+  if (indexedEntry) {
+    return {
+      hasSnapshot: Boolean(indexedEntry.transient || indexedEntry.persisted),
+      hasIndex: true,
+      ...indexedEntry,
+    };
+  }
+
+  return {
+    hasSnapshot: !hasIndex,
+    hasIndex,
+  };
 }
 
 export function loadAgentSessionCachedSnapshot(
@@ -497,7 +711,7 @@ export function loadAgentSessionCachedSnapshot(
   options: LoadAgentSessionCachedSnapshotOptions = {},
 ): AgentSessionCachedSnapshot | null {
   const nowMs = options.nowMs ?? Date.now();
-  const cacheKey = getScopedStorageKey(workspaceId, "aster_session_snapshots");
+  const cacheKey = getScopedStorageKey(workspaceId, "agent_session_snapshots");
   const snapshotMap = loadTransient<Record<string, unknown>>(cacheKey, {});
   const transientSnapshot = normalizeCachedSnapshotRecord(
     snapshotMap[sessionId],
@@ -510,11 +724,17 @@ export function loadAgentSessionCachedSnapshot(
     return toCachedSnapshot(transientSnapshot, "transient", nowMs);
   }
 
-  removeCachedSnapshotRecord(cacheKey, snapshotMap, sessionId, "transient");
+  removeCachedSnapshotRecord(
+    workspaceId,
+    cacheKey,
+    snapshotMap,
+    sessionId,
+    "transient",
+  );
 
   const persistedCacheKey = getScopedStorageKey(
     workspaceId,
-    "aster_session_snapshots_persisted",
+    "agent_session_snapshots_persisted",
   );
   const persistedSnapshotMap = loadPersisted<Record<string, unknown>>(
     persistedCacheKey,
@@ -532,11 +752,13 @@ export function loadAgentSessionCachedSnapshot(
   }
 
   removeCachedSnapshotRecord(
+    workspaceId,
     persistedCacheKey,
     persistedSnapshotMap,
     sessionId,
     "persisted",
   );
+  removeSnapshotIndexEntry(workspaceId, sessionId);
 
   return null;
 }
@@ -545,8 +767,9 @@ export function clearAgentSessionCachedSnapshot(
   workspaceId: string,
   sessionId: string,
 ): void {
-  const cacheKey = getScopedStorageKey(workspaceId, "aster_session_snapshots");
+  const cacheKey = getScopedStorageKey(workspaceId, "agent_session_snapshots");
   removeCachedSnapshotRecord(
+    workspaceId,
     cacheKey,
     loadTransient<Record<string, unknown>>(cacheKey, {}),
     sessionId,
@@ -555,14 +778,16 @@ export function clearAgentSessionCachedSnapshot(
 
   const persistedCacheKey = getScopedStorageKey(
     workspaceId,
-    "aster_session_snapshots_persisted",
+    "agent_session_snapshots_persisted",
   );
   removeCachedSnapshotRecord(
+    workspaceId,
     persistedCacheKey,
     loadPersisted<Record<string, unknown>>(persistedCacheKey, {}),
     sessionId,
     "persisted",
   );
+  removeSnapshotIndexEntry(workspaceId, sessionId);
 }
 
 export function saveAgentSessionCachedSnapshot(
@@ -572,10 +797,10 @@ export function saveAgentSessionCachedSnapshot(
   options: SaveAgentSessionCachedSnapshotOptions = {},
 ): void {
   const nowMs = options.nowMs ?? Date.now();
-  const cacheKey = getScopedStorageKey(workspaceId, "aster_session_snapshots");
+  const cacheKey = getScopedStorageKey(workspaceId, "agent_session_snapshots");
   const persistedCacheKey = getScopedStorageKey(
     workspaceId,
-    "aster_session_snapshots_persisted",
+    "agent_session_snapshots_persisted",
   );
   const currentMap = loadTransient<Record<string, unknown>>(cacheKey, {});
   const persistedMap = loadPersisted<Record<string, unknown>>(
@@ -664,6 +889,11 @@ export function saveAgentSessionCachedSnapshot(
 
   saveTransient(cacheKey, Object.fromEntries(prunedTransientEntries));
   savePersisted(persistedCacheKey, Object.fromEntries(prunedPersistedEntries));
+  updateSnapshotIndex({
+    workspaceId,
+    transientEntries: prunedTransientEntries,
+    persistedEntries: prunedPersistedEntries,
+  });
 }
 
 export function saveAgentSessionCachedMessagesSnapshot(
@@ -694,18 +924,18 @@ export function getAgentSessionScopedKeys(
   workspaceId: string,
 ): AgentSessionScopedKeys {
   return {
-    currentSessionKey: getScopedStorageKey(workspaceId, "aster_curr_sessionId"),
-    messagesKey: getScopedStorageKey(workspaceId, "aster_messages"),
+    currentSessionKey: getScopedStorageKey(workspaceId, "agent_curr_sessionId"),
+    messagesKey: getScopedStorageKey(workspaceId, "agent_messages"),
     persistedSessionKey: getScopedStorageKey(
       workspaceId,
-      "aster_last_sessionId",
+      "agent_last_sessionId",
     ),
     sessionSnapshotsKey: getScopedStorageKey(
       workspaceId,
-      "aster_session_snapshots",
+      "agent_session_snapshots",
     ),
-    turnsKey: getScopedStorageKey(workspaceId, "aster_thread_turns"),
-    itemsKey: getScopedStorageKey(workspaceId, "aster_thread_items"),
-    currentTurnKey: getScopedStorageKey(workspaceId, "aster_curr_turnId"),
+    turnsKey: getScopedStorageKey(workspaceId, "agent_thread_turns"),
+    itemsKey: getScopedStorageKey(workspaceId, "agent_thread_items"),
+    currentTurnKey: getScopedStorageKey(workspaceId, "agent_curr_turnId"),
   };
 }

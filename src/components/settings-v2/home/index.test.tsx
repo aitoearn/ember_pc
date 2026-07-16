@@ -2,7 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Palette, Brain, ShieldCheck } from "lucide-react";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { SettingsGroupKey, SettingsTabs } from "@/types/settings";
 
 const { mockUseSettingsCategory } = vi.hoisted(() => ({
@@ -50,27 +50,6 @@ function getBodyText() {
   return document.body.textContent ?? "";
 }
 
-async function hoverTip(ariaLabel: string) {
-  const trigger = document.body.querySelector(
-    `button[aria-label='${ariaLabel}']`,
-  );
-  expect(trigger).toBeInstanceOf(HTMLButtonElement);
-
-  await act(async () => {
-    trigger?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-    await Promise.resolve();
-  });
-
-  return trigger as HTMLButtonElement;
-}
-
-async function leaveTip(trigger: HTMLButtonElement | null) {
-  await act(async () => {
-    trigger?.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
-    await Promise.resolve();
-  });
-}
-
 beforeEach(async () => {
   (
     globalThis as typeof globalThis & {
@@ -78,7 +57,7 @@ beforeEach(async () => {
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
   mockUseSettingsCategory.mockReturnValue([
     {
       key: SettingsGroupKey.Overview,
@@ -141,7 +120,7 @@ afterEach(async () => {
     target.container.remove();
   }
 
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("SettingsHomePage", () => {
@@ -165,15 +144,39 @@ describe("SettingsHomePage", () => {
     expect(text).not.toContain("settings.home");
   });
 
-  it("应使用 settings namespace 生成分组说明 aria", () => {
+  it("渲染分组帮助按钮，但说明正文默认不常驻", () => {
     const { container } = renderPage();
+    const generalHelpButton = container.querySelector<HTMLButtonElement>(
+      "button[aria-label='General help']",
+    );
 
-    expect(
-      container.querySelector("button[aria-label='General help']"),
-    ).toBeInstanceOf(HTMLButtonElement);
+    expect(generalHelpButton).not.toBeNull();
     expect(
       container.querySelector("button[aria-label='General说明']"),
     ).toBeNull();
+    expect(getBodyText()).not.toContain(
+      "Appearance, memory, and global experience settings.",
+    );
+
+    act(() => {
+      generalHelpButton?.dispatchEvent(
+        new MouseEvent("mouseover", { bubbles: true }),
+      );
+    });
+
+    expect(getBodyText()).toContain(
+      "Appearance, memory, and global experience settings.",
+    );
+
+    act(() => {
+      generalHelpButton?.dispatchEvent(
+        new MouseEvent("mouseout", { bubbles: true }),
+      );
+    });
+
+    expect(getBodyText()).not.toContain(
+      "Appearance, memory, and global experience settings.",
+    );
   });
 
   it("点击常用入口时应触发 tab 切换", () => {
@@ -248,21 +251,49 @@ describe("SettingsHomePage", () => {
     expect(onNavigate).toHaveBeenCalledWith("resources");
   });
 
-  it("应把首页说明和常用入口说明收进 tips", async () => {
+  it("首页和常用入口说明只在 tip 交互时展示", () => {
     renderPage();
+    const homeHelpButton = document.body.querySelector<HTMLButtonElement>(
+      "button[aria-label='Settings home help']",
+    );
+    const appearanceHelpButton =
+      document.body.querySelector<HTMLButtonElement>(
+        "button[aria-label='Appearance help']",
+      );
+
+    expect(homeHelpButton).not.toBeNull();
+    expect(appearanceHelpButton).not.toBeNull();
+    expect(getBodyText()).not.toContain(
+      "Quickly open common settings and review each group without digging through nested menus.",
+    );
+    expect(getBodyText()).not.toContain(
+      "Theme, interface language, and reply language",
+    );
+
+    act(() => {
+      homeHelpButton?.dispatchEvent(
+        new MouseEvent("mouseover", { bubbles: true }),
+      );
+    });
+
+    expect(getBodyText()).toContain(
+      "Quickly open common settings and review each group without digging through nested menus.",
+    );
+
+    act(() => {
+      homeHelpButton?.dispatchEvent(
+        new MouseEvent("mouseout", { bubbles: true }),
+      );
+      appearanceHelpButton?.dispatchEvent(
+        new MouseEvent("mouseover", { bubbles: true }),
+      );
+    });
 
     expect(getBodyText()).not.toContain(
       "Quickly open common settings and review each group without digging through nested menus.",
     );
-
-    const heroTip = await hoverTip("Settings home help");
     expect(getBodyText()).toContain(
-      "Quickly open common settings and review each group without digging through nested menus.",
+      "Theme, interface language, and reply language",
     );
-    await leaveTip(heroTip);
-
-    const cardTip = await hoverTip("Appearance help");
-    expect(getBodyText()).toContain("Theme, interface language, and sound cues");
-    await leaveTip(cardTip);
   });
 });

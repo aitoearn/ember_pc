@@ -5,9 +5,9 @@ use app_server_protocol::UsageStatsModelUsage;
 use app_server_protocol::UsageStatsRangeParams;
 use app_server_protocol::UsageStatsReadResponse;
 use app_server_protocol::UsageStatsSummary;
-use ember_core::database;
-use ember_core::database::DbConnection;
-use ember_services::usage_statistics_service;
+use lime_core::database;
+use lime_core::database::DbConnection;
+use lime_services::usage_statistics_service;
 
 pub(crate) fn read_usage_stats(
     db: &DbConnection,

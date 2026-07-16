@@ -10,7 +10,7 @@ import {
   validateQCLoopJobPayload,
 } from "../lib/agent-qc-qcloop-job-core.mjs";
 
-const DEFAULT_MANIFEST_PATH = "docs/test/agent-qc-scenarios.manifest.json";
+const DEFAULT_MANIFEST_PATH = "internal/test/agent-qc-scenarios.manifest.json";
 
 function parseArgs(argv) {
   const result = {
@@ -117,7 +117,7 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Agent QC qcloop Job Payload
+Lime Agent QC qcloop Job Payload
 
 用法:
   npm run agent-qc:qcloop-job -- --risk P0 --output ./tmp/qcloop-p0-job.json

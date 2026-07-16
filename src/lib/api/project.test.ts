@@ -103,23 +103,23 @@ describe("项目管理 API", () => {
     });
 
     it("应该通过 App Server 获取 workspace 根目录", async () => {
-      resolveAppServerRequest({ rootPath: "/Users/test/.ember/projects" });
+      resolveAppServerRequest({ rootPath: "/Users/test/.lime/projects" });
 
       const root = await getWorkspaceProjectsRoot();
 
-      expect(root).toBe("/Users/test/.ember/projects");
+      expect(root).toBe("/Users/test/.lime/projects");
       expectAppServerRequest(1, "workspace/projectsRoot/read", {});
       expect(safeInvoke).not.toHaveBeenCalled();
     });
 
     it("应该通过 App Server 解析项目目录", async () => {
       resolveAppServerRequest({
-        rootPath: "/Users/test/.ember/projects/MyProject",
+        rootPath: "/Users/test/.lime/projects/MyProject",
       });
 
       const path = await resolveProjectRootPath("MyProject");
 
-      expect(path).toBe("/Users/test/.ember/projects/MyProject");
+      expect(path).toBe("/Users/test/.lime/projects/MyProject");
       expectAppServerRequest(1, "workspace/projectPath/resolve", {
         name: "MyProject",
       });
@@ -146,12 +146,12 @@ describe("项目管理 API", () => {
 
     it("应该忽略空白父目录并交给后端使用默认目录", async () => {
       resolveAppServerRequest({
-        rootPath: "/Users/test/.ember/projects/MyProject",
+        rootPath: "/Users/test/.lime/projects/MyProject",
       });
 
       const path = await resolveProjectRootPath("MyProject", "   ");
 
-      expect(path).toBe("/Users/test/.ember/projects/MyProject");
+      expect(path).toBe("/Users/test/.lime/projects/MyProject");
       expectAppServerRequest(1, "workspace/projectPath/resolve", {
         name: "MyProject",
       });
@@ -160,12 +160,12 @@ describe("项目管理 API", () => {
 
     it("应该将空名称传给后端统一处理", async () => {
       resolveAppServerRequest({
-        rootPath: "/Users/test/.ember/projects/未命名项目",
+        rootPath: "/Users/test/.lime/projects/未命名项目",
       });
 
       const path = await resolveProjectRootPath("   ");
 
-      expect(path).toBe("/Users/test/.ember/projects/未命名项目");
+      expect(path).toBe("/Users/test/.lime/projects/未命名项目");
       expectAppServerRequest(1, "workspace/projectPath/resolve", {
         name: "   ",
       });
@@ -178,18 +178,18 @@ describe("项目管理 API", () => {
           id: "p1",
           name: "测试项目",
           workspace_type: "general",
-          root_path: "/Users/test/.ember/projects/demo",
+          root_path: "/Users/test/.lime/projects/demo",
         },
       });
 
       const project = await getProjectByRootPath(
-        "/Users/test/.ember/projects/demo",
+        "/Users/test/.lime/projects/demo",
       );
 
       expect(project?.id).toBe("p1");
-      expect(project?.rootPath).toBe("/Users/test/.ember/projects/demo");
+      expect(project?.rootPath).toBe("/Users/test/.lime/projects/demo");
       expectAppServerRequest(1, "workspace/byPath/read", {
-        rootPath: "/Users/test/.ember/projects/demo",
+        rootPath: "/Users/test/.lime/projects/demo",
       });
       expect(safeInvoke).not.toHaveBeenCalled();
     });
@@ -200,7 +200,7 @@ describe("项目管理 API", () => {
           id: "project-ensure",
           name: "新项目",
           workspace_type: "general",
-          root_path: "/Users/test/.ember/projects/new-project",
+          root_path: "/Users/test/.lime/projects/new-project",
         },
         created: true,
         rootCreated: true,
@@ -208,7 +208,7 @@ describe("项目管理 API", () => {
 
       const project = await ensureProjectWorkspace({
         name: " 新项目 ",
-        rootPath: " /Users/test/.ember/projects/new-project ",
+        rootPath: " /Users/test/.lime/projects/new-project ",
         workspaceType: "general",
       });
 
@@ -217,12 +217,12 @@ describe("项目管理 API", () => {
           id: "project-ensure",
           name: "新项目",
           workspaceType: "general",
-          rootPath: "/Users/test/.ember/projects/new-project",
+          rootPath: "/Users/test/.lime/projects/new-project",
         }),
       );
       expectAppServerRequest(1, "workspace/ensure", {
         name: "新项目",
-        rootPath: "/Users/test/.ember/projects/new-project",
+        rootPath: "/Users/test/.lime/projects/new-project",
         workspaceType: "general",
       });
       expect(safeInvoke).not.toHaveBeenCalled();
@@ -244,12 +244,12 @@ describe("项目管理 API", () => {
       resolveAppServerRequest({ workspace: null });
 
       const project = await getProjectByRootPath(
-        "/Users/test/.ember/projects/missing",
+        "/Users/test/.lime/projects/missing",
       );
 
       expect(project).toBeNull();
       expectAppServerRequest(1, "workspace/byPath/read", {
-        rootPath: "/Users/test/.ember/projects/missing",
+        rootPath: "/Users/test/.lime/projects/missing",
       });
       expect(safeInvoke).not.toHaveBeenCalled();
     });
@@ -260,7 +260,7 @@ describe("项目管理 API", () => {
           id: "default-1",
           name: "默认项目",
           workspace_type: "general",
-          root_path: "/Users/test/.ember/projects/default",
+          root_path: "/Users/test/.lime/projects/default",
           is_default: true,
         },
       });
@@ -272,7 +272,7 @@ describe("项目管理 API", () => {
           id: "default-1",
           name: "默认项目",
           workspaceType: "general",
-          rootPath: "/Users/test/.ember/projects/default",
+          rootPath: "/Users/test/.lime/projects/default",
           isDefault: true,
         }),
       );
@@ -866,7 +866,7 @@ describe("项目管理 API", () => {
         invalidPath: "Invalid project directory.",
         objectError: "Project creation failed. Check logs.",
         pathExists: "Project folder already exists.",
-        staleSchema: "Database schema is outdated. Restart Ember.",
+        staleSchema: "Database schema is outdated. Restart Lime.",
         unknown: "Unknown error.",
       };
 
@@ -878,7 +878,7 @@ describe("项目管理 API", () => {
         getCreateProjectErrorMessage("路径已存在: /tmp/project", copy),
       ).toBe("Project folder already exists.");
       expect(getCreateProjectErrorMessage("no such column: icon", copy)).toBe(
-        "Database schema is outdated. Restart Ember.",
+        "Database schema is outdated. Restart Lime.",
       );
       expect(getCreateProjectErrorMessage("无效的路径", copy)).toBe(
         "Invalid project directory.",

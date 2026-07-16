@@ -6,8 +6,8 @@ import { MarkdownPreview } from "./MarkdownPreview";
 
 const mockConvertLocalFileSrc = vi.fn((path: string) => `asset://${path}`);
 
-vi.mock("react-syntax-highlighter", () => ({
-  Prism: ({ children }: { children: React.ReactNode }) => (
+vi.mock("react-syntax-highlighter/dist/esm/prism", () => ({
+  default: ({ children }: { children: React.ReactNode }) => (
     <pre data-testid="syntax-highlighter">
       <code>{children}</code>
     </pre>
@@ -79,7 +79,7 @@ describe("MarkdownPreview", () => {
       content:
         "[![图像](images/image-1.jpg)](https://example.com/full-image)\n\n正文",
       baseFilePath:
-        "/Users/coso/Library/Application Support/ember/projects/default/exports/x-article-export/demo/index.md",
+        "/Users/coso/Library/Application Support/lime/projects/default/exports/x-article-export/demo/index.md",
     });
 
     const image = container.querySelector("img");
@@ -87,11 +87,11 @@ describe("MarkdownPreview", () => {
 
     expect(image).not.toBeNull();
     expect(image?.getAttribute("src")).toBe(
-      "asset:///Users/coso/Library/Application Support/ember/projects/default/exports/x-article-export/demo/images/image-1.jpg",
+      "asset:///Users/coso/Library/Application Support/lime/projects/default/exports/x-article-export/demo/images/image-1.jpg",
     );
     expect(link?.getAttribute("href")).toBe("https://example.com/full-image");
     expect(mockConvertLocalFileSrc).toHaveBeenCalledWith(
-      "/Users/coso/Library/Application Support/ember/projects/default/exports/x-article-export/demo/images/image-1.jpg",
+      "/Users/coso/Library/Application Support/lime/projects/default/exports/x-article-export/demo/images/image-1.jpg",
     );
   });
 });

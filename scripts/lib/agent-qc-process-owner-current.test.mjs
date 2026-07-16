@@ -44,7 +44,7 @@ describe("agent-qc-process-owner Electron current runtime", () => {
           stat: "S",
           etime: "01:00:00",
           command:
-            ".ember/electron-dev-host/Ember-dev.app/Contents/MacOS/Electron .",
+            ".lime/electron-dev-host/Lime-dev.app/Contents/MacOS/Electron .",
         },
       ],
       { generatedAt: "2026-06-06T00:00:00.000Z", platform: "darwin" },

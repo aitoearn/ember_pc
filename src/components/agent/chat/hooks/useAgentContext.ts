@@ -7,7 +7,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { updateProject } from "@/lib/api/project";
-import type { AsterExecutionStrategy } from "@/lib/api/agentRuntime";
+import type { AgentExecutionStrategy } from "@/lib/api/agentExecutionRuntime";
 import type { ModelReasoningEffortLevel } from "@/lib/types/modelRegistry";
 import { notifyProjectRuntimeAgentsGuide } from "@/components/workspace/services/runtimeAgentsGuideService";
 import type {
@@ -39,19 +39,20 @@ import {
   normalizeProjectId,
 } from "../utils/topicProjectResolution";
 import { normalizeExecutionStrategy } from "./agentChatCoreUtils";
+import { normalizeChatSessionModelPreference } from "../utils/sessionExecutionRuntime";
 
 interface UseAgentContextOptions {
   workspaceId: string;
   sessionIdRef: MutableRefObject<string | null>;
   topicsUpdaterRef: MutableRefObject<
-    | ((sessionId: string, executionStrategy: AsterExecutionStrategy) => void)
+    | ((sessionId: string, executionStrategy: AgentExecutionStrategy) => void)
     | null
   >;
   sendMessageRef: MutableRefObject<SendMessageFn | null>;
   runtime: {
     setSessionExecutionStrategy: (
       sessionId: string,
-      executionStrategy: AsterExecutionStrategy,
+      executionStrategy: AgentExecutionStrategy,
     ) => Promise<void>;
     setSessionAccessMode?: (
       sessionId: string,
@@ -74,12 +75,9 @@ export function useAgentContext(options: UseAgentContextOptions) {
     runtime,
   } = options;
 
-  const getRequiredWorkspaceId = useCallback((): string => {
+  const getWorkspaceIdForSubmit = useCallback((): string | undefined => {
     const resolvedWorkspaceId = workspaceId?.trim();
-    if (!resolvedWorkspaceId) {
-      throw new Error("缺少项目工作区，请先选择项目后再使用 Agent");
-    }
-    return resolvedWorkspaceId;
+    return resolvedWorkspaceId || undefined;
   }, [workspaceId]);
 
   const initialPreferencesRef = useRef(
@@ -96,7 +94,7 @@ export function useAgentContext(options: UseAgentContextOptions) {
     ModelReasoningEffortLevel | ""
   >("");
   const [executionStrategy, setExecutionStrategyState] =
-    useState<AsterExecutionStrategy>(() =>
+    useState<AgentExecutionStrategy>(() =>
       resolvePersistedExecutionStrategy(workspaceId),
     );
   const [accessMode, setAccessModeState] = useState<AgentAccessMode>(() =>
@@ -126,10 +124,10 @@ export function useAgentContext(options: UseAgentContextOptions) {
     new Map<string, SessionModelPreference>(),
   );
   const pendingSessionExecutionStrategySyncRef = useRef(
-    new Map<string, AsterExecutionStrategy>(),
+    new Map<string, AgentExecutionStrategy>(),
   );
   const syncedSessionExecutionStrategyRef = useRef(
-    new Map<string, AsterExecutionStrategy>(),
+    new Map<string, AgentExecutionStrategy>(),
   );
   const pendingSessionAccessModeSyncRef = useRef(
     new Map<string, AgentAccessMode>(),
@@ -219,7 +217,7 @@ export function useAgentContext(options: UseAgentContextOptions) {
   const markSessionExecutionStrategySynced = useCallback(
     (
       targetSessionId: string,
-      targetExecutionStrategy: AsterExecutionStrategy,
+      targetExecutionStrategy: AgentExecutionStrategy,
     ) => {
       const trimmedSessionId = targetSessionId.trim();
       if (!trimmedSessionId) {
@@ -258,7 +256,7 @@ export function useAgentContext(options: UseAgentContextOptions) {
   );
 
   const getSyncedSessionExecutionStrategy = useCallback(
-    (targetSessionId: string): AsterExecutionStrategy | null => {
+    (targetSessionId: string): AgentExecutionStrategy | null => {
       const trimmedSessionId = targetSessionId.trim();
       if (!trimmedSessionId) {
         return null;
@@ -318,7 +316,7 @@ export function useAgentContext(options: UseAgentContextOptions) {
             );
           })
           .catch((error) => {
-            console.warn("[AsterChat] 回写会话 provider/model 失败:", error);
+            console.warn("[AgentChat] 回写会话 provider/model 失败:", error);
           });
       });
     },
@@ -363,24 +361,35 @@ export function useAgentContext(options: UseAgentContextOptions) {
       preference: SessionModelPreference,
       options?: { markSynced?: boolean },
     ) => {
-      providerTypeRef.current = preference.providerType;
-      modelRef.current = preference.model;
+      const normalizedPreference =
+        normalizeChatSessionModelPreference(preference);
+      const resolvedPreference =
+        normalizedPreference ?? {
+          providerType: "",
+          model: "",
+        };
+      providerTypeRef.current = resolvedPreference.providerType;
+      modelRef.current = resolvedPreference.model;
       reasoningEffortRef.current = "";
-      setProviderTypeState(preference.providerType);
-      setModelState(preference.model);
+      setProviderTypeState(resolvedPreference.providerType);
+      setModelState(resolvedPreference.model);
       setReasoningEffortState("");
-      savePersisted(scopedProviderPrefKeyRef.current, preference.providerType);
-      savePersisted(scopedModelPrefKeyRef.current, preference.model);
-      persistSessionModelPreference(
-        sessionId,
-        preference.providerType,
-        preference.model,
-      );
-      if (options?.markSynced === true) {
+      savePersisted(scopedProviderPrefKeyRef.current, resolvedPreference.providerType);
+      savePersisted(scopedModelPrefKeyRef.current, resolvedPreference.model);
+      if (normalizedPreference) {
+        persistSessionModelPreference(
+          sessionId,
+          normalizedPreference.providerType,
+          normalizedPreference.model,
+        );
+      } else {
+        savePersisted(getSessionModelPreferenceKey(workspaceId, sessionId), null);
+      }
+      if (options?.markSynced === true && normalizedPreference) {
         markSessionModelPreferenceSynced(
           sessionId,
-          preference.providerType,
-          preference.model,
+          normalizedPreference.providerType,
+          normalizedPreference.model,
         );
       } else {
         clearSessionModelPreferenceSynced(sessionId);
@@ -390,19 +399,27 @@ export function useAgentContext(options: UseAgentContextOptions) {
       clearSessionModelPreferenceSynced,
       markSessionModelPreferenceSynced,
       persistSessionModelPreference,
+      workspaceId,
     ],
   );
 
   const applyWorkspaceModelPreference = useCallback(
     (preference: SessionModelPreference) => {
-      providerTypeRef.current = preference.providerType;
-      modelRef.current = preference.model;
+      const normalizedPreference =
+        normalizeChatSessionModelPreference(preference);
+      const resolvedPreference =
+        normalizedPreference ?? {
+          providerType: "",
+          model: "",
+        };
+      providerTypeRef.current = resolvedPreference.providerType;
+      modelRef.current = resolvedPreference.model;
       reasoningEffortRef.current = "";
-      setProviderTypeState(preference.providerType);
-      setModelState(preference.model);
+      setProviderTypeState(resolvedPreference.providerType);
+      setModelState(resolvedPreference.model);
       setReasoningEffortState("");
-      savePersisted(scopedProviderPrefKeyRef.current, preference.providerType);
-      savePersisted(scopedModelPrefKeyRef.current, preference.model);
+      savePersisted(scopedProviderPrefKeyRef.current, resolvedPreference.providerType);
+      savePersisted(scopedModelPrefKeyRef.current, resolvedPreference.model);
     },
     [],
   );
@@ -458,7 +475,7 @@ export function useAgentContext(options: UseAgentContextOptions) {
   const scheduleSessionExecutionStrategySync = useCallback(
     (
       targetSessionId: string,
-      targetExecutionStrategy: AsterExecutionStrategy,
+      targetExecutionStrategy: AgentExecutionStrategy,
     ) => {
       const trimmedSessionId = targetSessionId.trim();
       if (!trimmedSessionId) {
@@ -495,7 +512,7 @@ export function useAgentContext(options: UseAgentContextOptions) {
             );
           })
           .catch((error) => {
-            console.warn("[AsterChat] 更新会话执行策略失败:", error);
+            console.warn("[AgentChat] 更新会话执行策略失败:", error);
           });
       });
     },
@@ -503,7 +520,7 @@ export function useAgentContext(options: UseAgentContextOptions) {
   );
 
   const setExecutionStrategy = useCallback(
-    (nextStrategy: AsterExecutionStrategy) => {
+    (nextStrategy: AgentExecutionStrategy) => {
       const normalized = normalizeExecutionStrategy(nextStrategy);
       setExecutionStrategyState(normalized);
 
@@ -540,7 +557,7 @@ export function useAgentContext(options: UseAgentContextOptions) {
 
         void syncAccessMode(trimmedSessionId, latestAccessMode).catch(
           (error) => {
-            console.warn("[AsterChat] 更新会话 accessMode 失败:", error);
+            console.warn("[AgentChat] 更新会话 accessMode 失败:", error);
           },
         );
       });
@@ -686,7 +703,7 @@ export function useAgentContext(options: UseAgentContextOptions) {
     setAccessModeState,
     workspacePathMissing,
     setWorkspacePathMissing,
-    getRequiredWorkspaceId,
+    getWorkspaceIdForSubmit,
     persistSessionAccessMode,
     loadSessionAccessMode,
     persistSessionModelPreference,

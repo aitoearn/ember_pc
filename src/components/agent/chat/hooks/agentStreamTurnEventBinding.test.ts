@@ -1,29 +1,67 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Dispatch, SetStateAction } from "react";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
   APP_SERVER_METHOD_AGENT_SESSION_EVENT,
   type AppServerJsonRpcNotification,
 } from "@/lib/api/appServer";
 import { activityLogger } from "@/lib/workspace/workbenchRuntime";
+import type { AgentSessionExecutionRuntime } from "@/lib/api/agentExecutionRuntime";
 import type { AgentThreadItem, AgentThreadTurn } from "@/lib/api/agentProtocol";
-import type {
-  AsterSessionExecutionRuntime,
-  QueuedTurnSnapshot,
-} from "@/lib/api/agentRuntime";
+import type { QueuedTurnSnapshot } from "@/lib/api/queuedTurn";
 import type { ActionRequired, Message } from "../types";
 import type { AgentRuntimeAdapter } from "./agentRuntimeAdapter";
 import type { StreamRequestState } from "./agentStreamSubmissionLifecycle";
 import { registerAgentStreamTurnEventBinding } from "./agentStreamTurnEventBinding";
-import { projectAppServerAgentEventPayload } from "@/lib/api/agentRuntime/threadClient";
+import { projectAppServerAgentEventPayload } from "@/lib/api/agentRuntime/appServerEventPayloadProjection";
 
 function noopDispatch<T>() {
   return vi.fn() as unknown as Dispatch<SetStateAction<T>>;
 }
 
+function canonicalAgentMessageEvent(params: {
+  itemId: string;
+  ordinal?: number;
+  phase: "commentary" | "final_answer";
+  sequence: number;
+  sessionId: string;
+  text: string;
+  threadId: string;
+  timestamp: string;
+  turnId: string;
+}) {
+  const updatedAtMs = Date.parse(params.timestamp);
+  return {
+    method: "item/updated",
+    params: {
+      sessionId: params.sessionId,
+      threadId: params.threadId,
+      turnId: params.turnId,
+      itemId: params.itemId,
+      sequence: params.sequence,
+      ordinal: params.ordinal ?? params.sequence,
+      kind: "agentMessage",
+      status: "inProgress",
+      createdAtMs: updatedAtMs,
+      updatedAtMs,
+      payload: {
+        type: "agentMessage",
+        text: params.text,
+        phase: params.phase,
+      },
+    },
+  };
+}
+
 describe("agentStreamTurnEventBinding", () => {
-  afterEach(() => {
+  beforeEach(async () => {
+    await changeLimeLocale("zh-CN");
+  });
+
+  afterEach(async () => {
     vi.useRealTimers();
     activityLogger.clear();
+    await changeLimeLocale("zh-CN");
   });
 
   it("应登记 request start 日志并返回 turn listener", async () => {
@@ -73,11 +111,7 @@ describe("agentStreamTurnEventBinding", () => {
         removeQueuedDraftMessages: () => {},
         clearActiveStreamIfMatch: () => false,
         upsertQueuedTurn: (_queuedTurn: QueuedTurnSnapshot) => {},
-        removeQueuedTurnState: () => {},
-      },
-      sounds: {
-        playToolcallSound: () => {},
-        playTypewriterSound: () => {},
+        removeQueuedTurnsFromProjection: () => {},
       },
       appendThinkingToParts: (parts) => parts,
       setMessages: noopDispatch<Message[]>(),
@@ -85,7 +119,7 @@ describe("agentStreamTurnEventBinding", () => {
       setThreadItems: noopDispatch<AgentThreadItem[]>(),
       setThreadTurns: noopDispatch<AgentThreadTurn[]>(),
       setCurrentTurnId: noopDispatch<string | null>(),
-      setExecutionRuntime: noopDispatch<AsterSessionExecutionRuntime | null>(),
+      setExecutionRuntime: noopDispatch<AgentSessionExecutionRuntime | null>(),
       setIsSending: noopDispatch<boolean>(),
     });
 
@@ -105,7 +139,7 @@ describe("agentStreamTurnEventBinding", () => {
           title: "发送请求",
           sessionId: "session-1",
           workspaceId: "workspace-1",
-          source: "aster-chat",
+          source: "agent-chat",
         }),
       ]),
     );
@@ -179,11 +213,7 @@ describe("agentStreamTurnEventBinding", () => {
         removeQueuedDraftMessages: () => {},
         clearActiveStreamIfMatch,
         upsertQueuedTurn: (_queuedTurn: QueuedTurnSnapshot) => {},
-        removeQueuedTurnState: () => {},
-      },
-      sounds: {
-        playToolcallSound: () => {},
-        playTypewriterSound: () => {},
+        removeQueuedTurnsFromProjection: () => {},
       },
       appendThinkingToParts: (parts) => parts,
       setMessages: setMessages as never,
@@ -191,7 +221,7 @@ describe("agentStreamTurnEventBinding", () => {
       setThreadItems: noopDispatch<AgentThreadItem[]>(),
       setThreadTurns: noopDispatch<AgentThreadTurn[]>(),
       setCurrentTurnId: noopDispatch<string | null>(),
-      setExecutionRuntime: noopDispatch<AsterSessionExecutionRuntime | null>(),
+      setExecutionRuntime: noopDispatch<AgentSessionExecutionRuntime | null>(),
       setIsSending: noopDispatch<boolean>(),
     });
 
@@ -275,11 +305,7 @@ describe("agentStreamTurnEventBinding", () => {
         removeQueuedDraftMessages: () => {},
         clearActiveStreamIfMatch,
         upsertQueuedTurn: (_queuedTurn: QueuedTurnSnapshot) => {},
-        removeQueuedTurnState: () => {},
-      },
-      sounds: {
-        playToolcallSound: () => {},
-        playTypewriterSound: () => {},
+        removeQueuedTurnsFromProjection: () => {},
       },
       appendThinkingToParts: (parts) => parts,
       setMessages: setMessages as never,
@@ -287,7 +313,7 @@ describe("agentStreamTurnEventBinding", () => {
       setThreadItems: noopDispatch<AgentThreadItem[]>(),
       setThreadTurns: noopDispatch<AgentThreadTurn[]>(),
       setCurrentTurnId: noopDispatch<string | null>(),
-      setExecutionRuntime: noopDispatch<AsterSessionExecutionRuntime | null>(),
+      setExecutionRuntime: noopDispatch<AgentSessionExecutionRuntime | null>(),
       setIsSending: setIsSending as never,
     });
 
@@ -297,6 +323,10 @@ describe("agentStreamTurnEventBinding", () => {
       "session-recovery",
       expect.any(Number),
       "你好",
+      {
+        requireTerminal: false,
+        turnId: null,
+      },
     );
     expect(messages[0]?.content).toBe("");
     expect(clearActiveStreamIfMatch).toHaveBeenCalledWith("event-recovery");
@@ -371,11 +401,7 @@ describe("agentStreamTurnEventBinding", () => {
         removeQueuedDraftMessages: () => {},
         clearActiveStreamIfMatch,
         upsertQueuedTurn: (_queuedTurn: QueuedTurnSnapshot) => {},
-        removeQueuedTurnState: () => {},
-      },
-      sounds: {
-        playToolcallSound: () => {},
-        playTypewriterSound: () => {},
+        removeQueuedTurnsFromProjection: () => {},
       },
       appendThinkingToParts: (parts) => parts,
       setMessages: setMessages as never,
@@ -383,7 +409,7 @@ describe("agentStreamTurnEventBinding", () => {
       setThreadItems: noopDispatch<AgentThreadItem[]>(),
       setThreadTurns: noopDispatch<AgentThreadTurn[]>(),
       setCurrentTurnId: noopDispatch<string | null>(),
-      setExecutionRuntime: noopDispatch<AsterSessionExecutionRuntime | null>(),
+      setExecutionRuntime: noopDispatch<AgentSessionExecutionRuntime | null>(),
       setIsSending: noopDispatch<boolean>(),
     });
 
@@ -406,6 +432,227 @@ describe("agentStreamTurnEventBinding", () => {
     );
     expect(clearActiveStreamIfMatch).toHaveBeenCalledWith("event-dispatched");
     expect(disposeListener).toHaveBeenCalled();
+  });
+
+  it("提交已派发且运行时事件静默时，应通过快照恢复轮询释放发送态", async () => {
+    vi.useFakeTimers();
+
+    let streamActivated = false;
+    const attemptSilentTurnRecovery = vi
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const clearActiveStreamIfMatch = vi.fn(() => true);
+    const disposeListener = vi.fn();
+    const setIsSending = vi.fn();
+    const runtime = {
+      listenToTurnEvents: vi.fn(async () => vi.fn()),
+    } as unknown as AgentRuntimeAdapter;
+    const requestState: StreamRequestState = {
+      accumulatedContent: "",
+      requestLogId: null,
+      requestStartedAt: 0,
+      requestFinished: false,
+      queuedTurnId: null,
+    };
+
+    await registerAgentStreamTurnEventBinding({
+      runtime,
+      eventName: "event-deferred-recovery",
+      requestState,
+      attemptSilentTurnRecovery,
+      skipUserMessage: false,
+      effectiveProviderType: "anthropic",
+      effectiveModel: "gpt-5.5",
+      effectiveExecutionStrategy: "react",
+      content: "停止后恢复测试",
+      expectingQueue: false,
+      activeSessionId: "session-deferred-recovery",
+      resolvedWorkspaceId: "workspace-deferred-recovery",
+      assistantMsgId: "assistant-deferred-recovery",
+      pendingTurnKey: "pending-turn-deferred-recovery",
+      pendingItemKey: "pending-item-deferred-recovery",
+      effectiveWaitingRuntimeStatus: {
+        phase: "preparing",
+        title: "处理中",
+        detail: "正在准备执行上下文",
+      },
+      warnedKeysRef: { current: new Set<string>() },
+      actionLoggedKeys: new Set<string>(),
+      toolLogIdByToolId: new Map<string, string>(),
+      toolStartedAtByToolId: new Map<string, number>(),
+      toolNameByToolId: new Map<string, string>(),
+      callbacks: {
+        activateStream: () => {
+          streamActivated = true;
+        },
+        isStreamActivated: () => streamActivated,
+        clearOptimisticItem: () => {},
+        clearOptimisticTurn: () => {},
+        disposeListener,
+        removeQueuedDraftMessages: () => {},
+        clearActiveStreamIfMatch,
+        upsertQueuedTurn: (_queuedTurn: QueuedTurnSnapshot) => {},
+        removeQueuedTurnsFromProjection: () => {},
+      },
+      appendThinkingToParts: (parts) => parts,
+      setMessages: noopDispatch<Message[]>(),
+      setPendingActions: noopDispatch<ActionRequired[]>(),
+      setThreadItems: noopDispatch<AgentThreadItem[]>(),
+      setThreadTurns: noopDispatch<AgentThreadTurn[]>(),
+      setCurrentTurnId: noopDispatch<string | null>(),
+      setExecutionRuntime: noopDispatch<AgentSessionExecutionRuntime | null>(),
+      setIsSending: setIsSending as never,
+    });
+
+    requestState.submissionDispatchedAt = Date.now();
+
+    await vi.advanceTimersByTimeAsync(12_100);
+
+    expect(streamActivated).toBe(true);
+    expect(clearActiveStreamIfMatch).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(5_100);
+
+    expect(attemptSilentTurnRecovery).toHaveBeenCalledTimes(2);
+    expect(attemptSilentTurnRecovery).toHaveBeenNthCalledWith(
+      1,
+      "session-deferred-recovery",
+      expect.any(Number),
+      "停止后恢复测试",
+      {
+        requireTerminal: false,
+        turnId: null,
+      },
+    );
+    expect(attemptSilentTurnRecovery).toHaveBeenNthCalledWith(
+      2,
+      "session-deferred-recovery",
+      expect.any(Number),
+      "停止后恢复测试",
+      {
+        requireTerminal: true,
+        turnId: null,
+      },
+    );
+    expect(clearActiveStreamIfMatch).toHaveBeenCalledWith(
+      "event-deferred-recovery",
+    );
+    expect(disposeListener).toHaveBeenCalled();
+    expect(setIsSending).toHaveBeenCalledWith(false);
+  });
+
+  it("提交已接受但首包未到时，只应在 read model 出现真实终态后释放发送态", async () => {
+    vi.useFakeTimers();
+
+    let streamActivated = false;
+    const attemptSilentTurnRecovery = vi
+      .fn()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const clearActiveStreamIfMatch = vi.fn(() => true);
+    const disposeListener = vi.fn();
+    const setIsSending = vi.fn();
+    const runtime = {
+      listenToTurnEvents: vi.fn(async () => vi.fn()),
+    } as unknown as AgentRuntimeAdapter;
+    const requestState: StreamRequestState = {
+      accumulatedContent: "",
+      requestLogId: null,
+      requestStartedAt: 0,
+      requestFinished: false,
+      queuedTurnId: null,
+      currentTurnId: "turn-live-fast-complete",
+    };
+
+    await registerAgentStreamTurnEventBinding({
+      runtime,
+      eventName: "event-submit-accepted-terminal-recovery",
+      requestState,
+      attemptSilentTurnRecovery,
+      skipUserMessage: false,
+      effectiveProviderType: "openai",
+      effectiveModel: "gpt-5.5",
+      effectiveExecutionStrategy: "react",
+      content: "联网搜索并总结最新信息",
+      expectingQueue: false,
+      activeSessionId: "session-submit-accepted-terminal-recovery",
+      resolvedWorkspaceId: "workspace-submit-accepted-terminal-recovery",
+      assistantMsgId: "assistant-submit-accepted-terminal-recovery",
+      pendingTurnKey: "pending-turn-submit-accepted-terminal-recovery",
+      pendingItemKey: "pending-item-submit-accepted-terminal-recovery",
+      effectiveWaitingRuntimeStatus: {
+        phase: "preparing",
+        title: "处理中",
+        detail: "正在准备执行上下文",
+      },
+      warnedKeysRef: { current: new Set<string>() },
+      actionLoggedKeys: new Set<string>(),
+      toolLogIdByToolId: new Map<string, string>(),
+      toolStartedAtByToolId: new Map<string, number>(),
+      toolNameByToolId: new Map<string, string>(),
+      callbacks: {
+        activateStream: () => {
+          streamActivated = true;
+        },
+        isStreamActivated: () => streamActivated,
+        clearOptimisticItem: () => {},
+        clearOptimisticTurn: () => {},
+        disposeListener,
+        removeQueuedDraftMessages: () => {},
+        clearActiveStreamIfMatch,
+        upsertQueuedTurn: (_queuedTurn: QueuedTurnSnapshot) => {},
+        removeQueuedTurnsFromProjection: () => {},
+      },
+      appendThinkingToParts: (parts) => parts,
+      setMessages: noopDispatch<Message[]>(),
+      setPendingActions: noopDispatch<ActionRequired[]>(),
+      setThreadItems: noopDispatch<AgentThreadItem[]>(),
+      setThreadTurns: noopDispatch<AgentThreadTurn[]>(),
+      setCurrentTurnId: noopDispatch<string | null>(),
+      setExecutionRuntime: noopDispatch<AgentSessionExecutionRuntime | null>(),
+      setIsSending: setIsSending as never,
+    });
+
+    requestState.submissionDispatchedAt = Date.now();
+    requestState.submissionAcceptedAt = Date.now();
+    requestState.startTerminalRecoveryPoll?.();
+
+    await vi.advanceTimersByTimeAsync(5_100);
+
+    expect(attemptSilentTurnRecovery).toHaveBeenCalledTimes(1);
+    expect(attemptSilentTurnRecovery).toHaveBeenNthCalledWith(
+      1,
+      "session-submit-accepted-terminal-recovery",
+      expect.any(Number),
+      "联网搜索并总结最新信息",
+      {
+        requireTerminal: true,
+        turnId: "turn-live-fast-complete",
+      },
+    );
+    expect(clearActiveStreamIfMatch).not.toHaveBeenCalled();
+    expect(disposeListener).not.toHaveBeenCalled();
+    expect(setIsSending).not.toHaveBeenCalledWith(false);
+
+    await vi.advanceTimersByTimeAsync(5_100);
+
+    expect(attemptSilentTurnRecovery).toHaveBeenCalledTimes(2);
+    expect(attemptSilentTurnRecovery).toHaveBeenNthCalledWith(
+      2,
+      "session-submit-accepted-terminal-recovery",
+      expect.any(Number),
+      "联网搜索并总结最新信息",
+      {
+        requireTerminal: true,
+        turnId: "turn-live-fast-complete",
+      },
+    );
+    expect(clearActiveStreamIfMatch).toHaveBeenCalledWith(
+      "event-submit-accepted-terminal-recovery",
+    );
+    expect(disposeListener).toHaveBeenCalled();
+    expect(setIsSending).toHaveBeenCalledWith(false);
   });
 
   it("收到未知但结构合法的运行时事件时，应保留流活跃态并继续等待后续进度", async () => {
@@ -479,11 +726,7 @@ describe("agentStreamTurnEventBinding", () => {
         removeQueuedDraftMessages: () => {},
         clearActiveStreamIfMatch,
         upsertQueuedTurn: (_queuedTurn: QueuedTurnSnapshot) => {},
-        removeQueuedTurnState: () => {},
-      },
-      sounds: {
-        playToolcallSound: () => {},
-        playTypewriterSound: () => {},
+        removeQueuedTurnsFromProjection: () => {},
       },
       appendThinkingToParts: (parts) => parts,
       setMessages: setMessages as never,
@@ -491,7 +734,7 @@ describe("agentStreamTurnEventBinding", () => {
       setThreadItems: noopDispatch<AgentThreadItem[]>(),
       setThreadTurns: noopDispatch<AgentThreadTurn[]>(),
       setCurrentTurnId: noopDispatch<string | null>(),
-      setExecutionRuntime: noopDispatch<AsterSessionExecutionRuntime | null>(),
+      setExecutionRuntime: noopDispatch<AgentSessionExecutionRuntime | null>(),
       setIsSending: noopDispatch<boolean>(),
     });
 
@@ -525,6 +768,144 @@ describe("agentStreamTurnEventBinding", () => {
       "event-unknown-heartbeat",
     );
     expect(disposeListener).toHaveBeenCalled();
+  });
+
+  it("收到 App Server canonical turn.failed 时应立即收口失败而不是等待 inactivity watchdog", async () => {
+    vi.useFakeTimers();
+
+    let messages: Message[] = [
+      {
+        id: "assistant-runtime-error",
+        role: "assistant",
+        content: "",
+        timestamp: new Date("2026-06-28T07:45:00.000Z"),
+        isThinking: true,
+      },
+    ];
+    let streamHandler: ((event: { payload: unknown }) => void) | null = null;
+    const setMessages = vi.fn(
+      (value: Message[] | ((prev: Message[]) => Message[])) => {
+        messages = typeof value === "function" ? value(messages) : value;
+      },
+    );
+    const clearActiveStreamIfMatch = vi.fn(() => true);
+    const disposeListener = vi.fn();
+    const setIsSending = vi.fn();
+    const runtime = {
+      listenToTurnEvents: vi.fn(async (_eventName, handler) => {
+        streamHandler = handler;
+        return vi.fn();
+      }),
+    } as unknown as AgentRuntimeAdapter;
+    const requestState: StreamRequestState = {
+      accumulatedContent: "",
+      requestLogId: null,
+      requestStartedAt: 0,
+      requestFinished: false,
+      queuedTurnId: null,
+    };
+
+    await registerAgentStreamTurnEventBinding({
+      runtime,
+      eventName: "agent_stream_runtime-error",
+      requestState,
+      skipUserMessage: false,
+      effectiveProviderType: "openai",
+      effectiveModel: "gpt-5.5",
+      effectiveExecutionStrategy: "react",
+      content: "@写文章 写一篇公众号文章",
+      expectingQueue: false,
+      activeSessionId: "session-runtime-error",
+      resolvedWorkspaceId: "workspace-runtime-error",
+      assistantMsgId: "assistant-runtime-error",
+      pendingTurnKey: "pending-turn-runtime-error",
+      pendingItemKey: "pending-item-runtime-error",
+      effectiveWaitingRuntimeStatus: {
+        phase: "preparing",
+        title: "处理中",
+        detail: "正在准备执行上下文",
+      },
+      warnedKeysRef: { current: new Set<string>() },
+      actionLoggedKeys: new Set<string>(),
+      toolLogIdByToolId: new Map<string, string>(),
+      toolStartedAtByToolId: new Map<string, number>(),
+      toolNameByToolId: new Map<string, string>(),
+      callbacks: {
+        activateStream: () => {},
+        isStreamActivated: () => true,
+        clearOptimisticItem: () => {},
+        clearOptimisticTurn: () => {},
+        disposeListener,
+        removeQueuedDraftMessages: () => {},
+        clearActiveStreamIfMatch,
+        upsertQueuedTurn: (_queuedTurn: QueuedTurnSnapshot) => {},
+        removeQueuedTurnsFromProjection: () => {},
+      },
+      appendThinkingToParts: (parts) => parts,
+      setMessages: setMessages as never,
+      setPendingActions: noopDispatch<ActionRequired[]>(),
+      setThreadItems: noopDispatch<AgentThreadItem[]>(),
+      setThreadTurns: noopDispatch<AgentThreadTurn[]>(),
+      setCurrentTurnId: noopDispatch<string | null>(),
+      setExecutionRuntime: noopDispatch<AgentSessionExecutionRuntime | null>(),
+      setIsSending,
+    });
+
+    if (!streamHandler) {
+      throw new Error("expected stream handler to be registered");
+    }
+
+    const payload = projectAppServerAgentEventPayload({
+      method: APP_SERVER_METHOD_AGENT_SESSION_EVENT,
+      params: {
+        event: {
+          eventId: "evt-runtime-error",
+          sequence: 1,
+          sessionId: "session-runtime-error",
+          threadId: "thread-runtime-error",
+          turnId: "turn-runtime-error",
+          type: "turn.failed",
+          timestamp: "2026-06-28T07:45:02.000Z",
+          payload: {
+            message: "Plugin worker failed",
+            errorCode: "PLUGIN_WORKER_PACKAGE_SIGNATURE_UNVERIFIED",
+          },
+        },
+        canonicalEvent: {
+          method: "turn/updated",
+          params: {
+            sessionId: "session-runtime-error",
+            threadId: "thread-runtime-error",
+            turnId: "turn-runtime-error",
+            status: "failed",
+            error: { message: "Plugin worker failed" },
+            createdAtMs: Date.parse("2026-06-28T07:45:02.000Z"),
+            completedAtMs: Date.parse("2026-06-28T07:45:02.000Z"),
+            updatedAtMs: Date.parse("2026-06-28T07:45:02.000Z"),
+          },
+        },
+      },
+    });
+
+    if (!payload) {
+      throw new Error("expected App Server notification to project");
+    }
+    (streamHandler as (event: { payload: unknown }) => void)({ payload });
+
+    expect(messages[0]?.content).toContain("执行失败");
+    expect(messages[0]?.content).toContain("Plugin worker failed");
+    expect(messages[0]?.runtimeStatus).toMatchObject({
+      phase: "failed",
+      title: "当前处理失败",
+    });
+    expect(clearActiveStreamIfMatch).toHaveBeenCalledWith(
+      "agent_stream_runtime-error",
+    );
+    expect(disposeListener).toHaveBeenCalled();
+    expect(setIsSending).toHaveBeenCalledWith(false);
+
+    await vi.advanceTimersByTimeAsync(120_100);
+    expect(clearActiveStreamIfMatch).toHaveBeenCalledTimes(1);
   });
 
   it("首包后长时间没有新事件时，应把助手消息收口为失败态", async () => {
@@ -598,11 +979,7 @@ describe("agentStreamTurnEventBinding", () => {
         removeQueuedDraftMessages: () => {},
         clearActiveStreamIfMatch,
         upsertQueuedTurn: (_queuedTurn: QueuedTurnSnapshot) => {},
-        removeQueuedTurnState: () => {},
-      },
-      sounds: {
-        playToolcallSound: () => {},
-        playTypewriterSound: () => {},
+        removeQueuedTurnsFromProjection: () => {},
       },
       appendThinkingToParts: (parts) => parts,
       setMessages: setMessages as never,
@@ -610,7 +987,7 @@ describe("agentStreamTurnEventBinding", () => {
       setThreadItems: noopDispatch<AgentThreadItem[]>(),
       setThreadTurns: noopDispatch<AgentThreadTurn[]>(),
       setCurrentTurnId: noopDispatch<string | null>(),
-      setExecutionRuntime: noopDispatch<AsterSessionExecutionRuntime | null>(),
+      setExecutionRuntime: noopDispatch<AgentSessionExecutionRuntime | null>(),
       setIsSending: noopDispatch<boolean>(),
     });
 
@@ -644,6 +1021,164 @@ describe("agentStreamTurnEventBinding", () => {
     });
     expect(clearActiveStreamIfMatch).toHaveBeenCalledWith("event-inactivity");
     expect(disposeListener).toHaveBeenCalled();
+  });
+
+  it("首包后静默但 read model 仍在运行时，应保留活跃流并继续等待", async () => {
+    vi.useFakeTimers();
+
+    let messages: Message[] = [
+      {
+        id: "assistant-running-read-model",
+        role: "assistant",
+        content: "",
+        timestamp: new Date("2026-06-06T00:00:00.000Z"),
+        isThinking: true,
+      },
+    ];
+    let streamActivated = false;
+    let streamHandler: ((event: { payload: unknown }) => void) | null = null;
+    const attemptSilentTurnRecovery = vi.fn(
+      async (
+        _sessionId: string,
+        _requestStartedAt: number,
+        _promptText: string,
+        options?: { requireTerminal?: boolean },
+      ) => options?.requireTerminal !== true,
+    );
+    const setMessages = vi.fn(
+      (value: Message[] | ((prev: Message[]) => Message[])) => {
+        messages = typeof value === "function" ? value(messages) : value;
+      },
+    );
+    const clearActiveStreamIfMatch = vi.fn(() => true);
+    const disposeListener = vi.fn();
+    const setIsSending = vi.fn();
+    const runtime = {
+      listenToTurnEvents: vi.fn(async (_eventName, handler) => {
+        streamHandler = handler;
+        return vi.fn();
+      }),
+    } as unknown as AgentRuntimeAdapter;
+    const requestState: StreamRequestState = {
+      accumulatedContent: "",
+      requestLogId: null,
+      requestStartedAt: 0,
+      requestFinished: false,
+      queuedTurnId: null,
+      currentTurnId: "turn-running-read-model",
+    };
+
+    await registerAgentStreamTurnEventBinding({
+      runtime,
+      eventName: "agent_stream_running-read-model",
+      requestState,
+      attemptSilentTurnRecovery,
+      skipUserMessage: false,
+      effectiveProviderType: "openai",
+      effectiveModel: "gpt-5.5",
+      effectiveExecutionStrategy: "react",
+      content: "继续输出未完成内容",
+      expectingQueue: false,
+      activeSessionId: "session-running-read-model",
+      resolvedWorkspaceId: "workspace-running-read-model",
+      assistantMsgId: "assistant-running-read-model",
+      pendingTurnKey: "pending-turn-running-read-model",
+      pendingItemKey: "pending-item-running-read-model",
+      effectiveWaitingRuntimeStatus: {
+        phase: "preparing",
+        title: "处理中",
+        detail: "正在准备执行上下文",
+      },
+      warnedKeysRef: { current: new Set<string>() },
+      actionLoggedKeys: new Set<string>(),
+      toolLogIdByToolId: new Map<string, string>(),
+      toolStartedAtByToolId: new Map<string, number>(),
+      toolNameByToolId: new Map<string, string>(),
+      callbacks: {
+        activateStream: () => {
+          streamActivated = true;
+        },
+        isStreamActivated: () => streamActivated,
+        clearOptimisticItem: () => {},
+        clearOptimisticTurn: () => {},
+        disposeListener,
+        removeQueuedDraftMessages: () => {},
+        clearActiveStreamIfMatch,
+        upsertQueuedTurn: (_queuedTurn: QueuedTurnSnapshot) => {},
+        removeQueuedTurnsFromProjection: () => {},
+      },
+      appendThinkingToParts: (parts) => parts,
+      setMessages: setMessages as never,
+      setPendingActions: noopDispatch<ActionRequired[]>(),
+      setThreadItems: noopDispatch<AgentThreadItem[]>(),
+      setThreadTurns: noopDispatch<AgentThreadTurn[]>(),
+      setCurrentTurnId: noopDispatch<string | null>(),
+      setExecutionRuntime: noopDispatch<AgentSessionExecutionRuntime | null>(),
+      setIsSending: setIsSending as never,
+    });
+
+    if (!streamHandler) {
+      throw new Error("expected stream handler to be registered");
+    }
+
+    const payload = projectAppServerAgentEventPayload({
+      method: APP_SERVER_METHOD_AGENT_SESSION_EVENT,
+      params: {
+        event: {
+          eventId: "evt-running-read-model-1",
+          sequence: 1,
+          sessionId: "session-running-read-model",
+          threadId: "thread-running-read-model",
+          turnId: "turn-running-read-model",
+          type: "message.delta",
+          timestamp: "2026-06-06T00:00:00.000Z",
+          payload: {
+            text: "第一段",
+          },
+        },
+        canonicalEvent: canonicalAgentMessageEvent({
+          itemId: "agent-message-running-read-model",
+          phase: "final_answer",
+          sequence: 1,
+          sessionId: "session-running-read-model",
+          text: "第一段",
+          threadId: "thread-running-read-model",
+          timestamp: "2026-06-06T00:00:00.000Z",
+          turnId: "turn-running-read-model",
+        }),
+      },
+    });
+    if (!payload) {
+      throw new Error("expected App Server notification to project");
+    }
+    streamHandler({ payload });
+
+    await vi.advanceTimersByTimeAsync(120_100);
+
+    expect(streamActivated).toBe(true);
+    expect(messages[0]?.content).not.toContain("执行失败");
+    expect(messages[0]?.isThinking).toBe(true);
+    expect(attemptSilentTurnRecovery).toHaveBeenCalledWith(
+      "session-running-read-model",
+      expect.any(Number),
+      "继续输出未完成内容",
+      {
+        requireTerminal: true,
+        turnId: "turn-running-read-model",
+      },
+    );
+    expect(attemptSilentTurnRecovery).toHaveBeenCalledWith(
+      "session-running-read-model",
+      expect.any(Number),
+      "继续输出未完成内容",
+      {
+        requireTerminal: false,
+        turnId: "turn-running-read-model",
+      },
+    );
+    expect(clearActiveStreamIfMatch).not.toHaveBeenCalled();
+    expect(disposeListener).not.toHaveBeenCalled();
+    expect(setIsSending).not.toHaveBeenCalledWith(false);
   });
 
   it("运行时 keepalive 事件应刷新 inactivity 计时，避免长模型调用被前端误中断", async () => {
@@ -717,11 +1252,7 @@ describe("agentStreamTurnEventBinding", () => {
         removeQueuedDraftMessages: () => {},
         clearActiveStreamIfMatch,
         upsertQueuedTurn: (_queuedTurn: QueuedTurnSnapshot) => {},
-        removeQueuedTurnState: () => {},
-      },
-      sounds: {
-        playToolcallSound: () => {},
-        playTypewriterSound: () => {},
+        removeQueuedTurnsFromProjection: () => {},
       },
       appendThinkingToParts: (parts) => parts,
       setMessages: setMessages as never,
@@ -729,7 +1260,7 @@ describe("agentStreamTurnEventBinding", () => {
       setThreadItems: noopDispatch<AgentThreadItem[]>(),
       setThreadTurns: noopDispatch<AgentThreadTurn[]>(),
       setCurrentTurnId: noopDispatch<string | null>(),
-      setExecutionRuntime: noopDispatch<AsterSessionExecutionRuntime | null>(),
+      setExecutionRuntime: noopDispatch<AgentSessionExecutionRuntime | null>(),
       setIsSending: noopDispatch<boolean>(),
     });
 
@@ -815,7 +1346,7 @@ describe("agentStreamTurnEventBinding", () => {
 
     await registerAgentStreamTurnEventBinding({
       runtime,
-      eventName: "aster_stream_message-app-server",
+      eventName: "agent_stream_message-app-server",
       requestState,
       skipUserMessage: false,
       effectiveProviderType: "openai",
@@ -849,11 +1380,7 @@ describe("agentStreamTurnEventBinding", () => {
         removeQueuedDraftMessages: () => {},
         clearActiveStreamIfMatch,
         upsertQueuedTurn: (_queuedTurn: QueuedTurnSnapshot) => {},
-        removeQueuedTurnState: () => {},
-      },
-      sounds: {
-        playToolcallSound: () => {},
-        playTypewriterSound: () => {},
+        removeQueuedTurnsFromProjection: () => {},
       },
       appendThinkingToParts: (parts) => parts,
       setMessages: setMessages as never,
@@ -861,7 +1388,7 @@ describe("agentStreamTurnEventBinding", () => {
       setThreadItems: noopDispatch<AgentThreadItem[]>(),
       setThreadTurns: noopDispatch<AgentThreadTurn[]>(),
       setCurrentTurnId: noopDispatch<string | null>(),
-      setExecutionRuntime: noopDispatch<AsterSessionExecutionRuntime | null>(),
+      setExecutionRuntime: noopDispatch<AgentSessionExecutionRuntime | null>(),
       setIsSending: noopDispatch<boolean>(),
     });
 
@@ -895,6 +1422,16 @@ describe("agentStreamTurnEventBinding", () => {
             text: "第一段",
           },
         },
+        canonicalEvent: canonicalAgentMessageEvent({
+          itemId: "agent-message-app-server",
+          phase: "final_answer",
+          sequence: 1,
+          sessionId: "session-app-server",
+          text: "第一段",
+          threadId: "thread-app-server",
+          timestamp: "2026-06-06T00:00:00.000Z",
+          turnId: "turn-app-server",
+        }),
       },
     });
 
@@ -907,9 +1444,21 @@ describe("agentStreamTurnEventBinding", () => {
           sessionId: "session-app-server",
           threadId: "thread-app-server",
           turnId: "turn-app-server",
-          type: "turn.done",
+          type: "turn.completed",
           timestamp: "2026-06-06T00:00:01.000Z",
           payload: {},
+        },
+        canonicalEvent: {
+          method: "turn/updated",
+          params: {
+            sessionId: "session-app-server",
+            threadId: "thread-app-server",
+            turnId: "turn-app-server",
+            status: "completed",
+            createdAtMs: Date.parse("2026-06-06T00:00:01.000Z"),
+            completedAtMs: Date.parse("2026-06-06T00:00:01.000Z"),
+            updatedAtMs: Date.parse("2026-06-06T00:00:01.000Z"),
+          },
         },
       },
     });
@@ -922,11 +1471,393 @@ describe("agentStreamTurnEventBinding", () => {
       {
         type: "text",
         text: "第一段",
+        metadata: {
+          source: "agent_text_delta",
+          itemId: "agent-message-app-server",
+          phase: "final_answer",
+          sequence: 1,
+          turnId: "turn-app-server",
+        },
       },
     ]);
     expect(streamActivated).toBe(true);
     expect(clearActiveStreamIfMatch).toHaveBeenCalledWith(
-      "aster_stream_message-app-server",
+      "agent_stream_message-app-server",
+    );
+    expect(disposeListener).toHaveBeenCalledTimes(1);
+  });
+
+  it("App Server WebSearch/WebFetch 中间 reasoning 应进入现有 GUI stream listener", async () => {
+    vi.useFakeTimers();
+
+    let messages: Message[] = [
+      {
+        id: "assistant-app-server-web-tools",
+        role: "assistant",
+        content: "",
+        timestamp: new Date("2026-06-20T10:00:00.000Z"),
+        isThinking: true,
+        contentParts: [],
+      },
+    ];
+    let threadItems: AgentThreadItem[] = [];
+    let streamActivated = false;
+    let streamHandler: ((event: { payload: unknown }) => void) | null = null;
+    const setMessages = vi.fn(
+      (value: Message[] | ((prev: Message[]) => Message[])) => {
+        messages = typeof value === "function" ? value(messages) : value;
+      },
+    );
+    const setThreadItems = vi.fn(
+      (
+        value:
+          | AgentThreadItem[]
+          | ((prev: AgentThreadItem[]) => AgentThreadItem[]),
+      ) => {
+        threadItems = typeof value === "function" ? value(threadItems) : value;
+      },
+    );
+    const clearActiveStreamIfMatch = vi.fn(() => true);
+    const disposeListener = vi.fn();
+    const runtime = {
+      listenToTurnEvents: vi.fn(async (_eventName, handler) => {
+        streamHandler = handler;
+        return vi.fn();
+      }),
+    } as unknown as AgentRuntimeAdapter;
+    const requestState: StreamRequestState = {
+      accumulatedContent: "",
+      requestLogId: null,
+      requestStartedAt: 0,
+      requestFinished: false,
+      queuedTurnId: null,
+    };
+
+    await registerAgentStreamTurnEventBinding({
+      runtime,
+      eventName: "agent_stream_message-app-server-web-tools",
+      requestState,
+      skipUserMessage: false,
+      effectiveProviderType: "openai",
+      effectiveModel: "gpt-5.4",
+      effectiveExecutionStrategy: "react",
+      content: "验证网页搜索渲染",
+      expectingQueue: false,
+      activeSessionId: "session-app-server-web-tools",
+      resolvedWorkspaceId: "workspace-app-server",
+      assistantMsgId: "assistant-app-server-web-tools",
+      pendingTurnKey: "pending-turn-app-server-web-tools",
+      pendingItemKey: "pending-item-app-server-web-tools",
+      effectiveWaitingRuntimeStatus: {
+        phase: "preparing",
+        title: "处理中",
+        detail: "正在准备执行上下文",
+      },
+      warnedKeysRef: { current: new Set<string>() },
+      actionLoggedKeys: new Set<string>(),
+      toolLogIdByToolId: new Map<string, string>(),
+      toolStartedAtByToolId: new Map<string, number>(),
+      toolNameByToolId: new Map<string, string>(),
+      callbacks: {
+        activateStream: () => {
+          streamActivated = true;
+        },
+        isStreamActivated: () => streamActivated,
+        clearOptimisticItem: () => {},
+        clearOptimisticTurn: () => {},
+        disposeListener,
+        removeQueuedDraftMessages: () => {},
+        clearActiveStreamIfMatch,
+        upsertQueuedTurn: (_queuedTurn: QueuedTurnSnapshot) => {},
+        removeQueuedTurnsFromProjection: () => {},
+      },
+      appendThinkingToParts: (parts, textDelta) => [
+        ...parts,
+        { type: "thinking" as const, text: textDelta },
+      ],
+      setMessages: setMessages as never,
+      setPendingActions: noopDispatch<ActionRequired[]>(),
+      getThreadItems: () => threadItems,
+      setThreadItems: setThreadItems as never,
+      setThreadTurns: noopDispatch<AgentThreadTurn[]>(),
+      setCurrentTurnId: noopDispatch<string | null>(),
+      setExecutionRuntime: noopDispatch<AgentSessionExecutionRuntime | null>(),
+      setIsSending: noopDispatch<boolean>(),
+    });
+
+    if (!streamHandler) {
+      throw new Error("expected stream handler to be registered");
+    }
+
+    const activeStreamHandler = streamHandler as (event: {
+      payload: unknown;
+    }) => void;
+    const toolOrdinalById = new Map<string, number>();
+    const project = (
+      type: string,
+      sequence: number,
+      payload: Record<string, unknown>,
+    ) => {
+      const timestamp = `2026-06-20T10:00:0${sequence}.000Z`;
+      const updatedAtMs = Date.parse(timestamp);
+      const rawItem =
+        payload.item && typeof payload.item === "object"
+          ? (payload.item as Record<string, unknown>)
+          : null;
+      let canonicalEvent: Record<string, unknown>;
+      if (type === "message.delta") {
+        canonicalEvent = canonicalAgentMessageEvent({
+          itemId:
+            typeof payload.itemId === "string"
+              ? payload.itemId
+              : `agent-message-${sequence}`,
+          phase: payload.phase === "commentary" ? "commentary" : "final_answer",
+          sequence,
+          sessionId: "session-app-server-web-tools",
+          text: typeof payload.text === "string" ? payload.text : "",
+          threadId: "thread-app-server-web-tools",
+          timestamp,
+          turnId: "turn-app-server-web-tools",
+        });
+      } else if (
+        (type === "item.started" || type === "item.completed") &&
+        typeof payload.toolCallId === "string"
+      ) {
+        const toolCallId = payload.toolCallId;
+        if (type === "item.started") {
+          toolOrdinalById.set(toolCallId, sequence);
+        }
+        const status = type === "item.completed" ? "completed" : "inProgress";
+        canonicalEvent = {
+          method: "item/updated",
+          params: {
+            sessionId: "session-app-server-web-tools",
+            threadId: "thread-app-server-web-tools",
+            turnId: "turn-app-server-web-tools",
+            itemId: toolCallId,
+            sequence,
+            ordinal: toolOrdinalById.get(toolCallId) ?? sequence,
+            kind: "tool",
+            status,
+            createdAtMs: updatedAtMs,
+            updatedAtMs,
+            ...(status === "completed" ? { completedAtMs: updatedAtMs } : {}),
+            payload: {
+              type: "tool",
+              call_id: toolCallId,
+              name:
+                typeof payload.toolName === "string" ? payload.toolName : "",
+              arguments: payload.arguments,
+              ...(status === "completed"
+                ? {
+                    output: {
+                      text:
+                        typeof payload.output === "string"
+                          ? payload.output
+                          : "",
+                    },
+                  }
+                : {}),
+            },
+          },
+        };
+      } else if (
+        (type === "item.updated" || type === "item.completed") &&
+        rawItem
+      ) {
+        const text = typeof rawItem.text === "string" ? rawItem.text : "";
+        const status = type === "item.completed" ? "completed" : "inProgress";
+        const ordinal =
+          typeof rawItem.sequence === "number" ? rawItem.sequence : sequence;
+        canonicalEvent = {
+          method: "item/updated",
+          params: {
+            sessionId: "session-app-server-web-tools",
+            threadId: "thread-app-server-web-tools",
+            turnId: "turn-app-server-web-tools",
+            itemId:
+              typeof rawItem.id === "string"
+                ? rawItem.id
+                : `reasoning-${sequence}`,
+            sequence,
+            ordinal,
+            kind: "reasoning",
+            status,
+            createdAtMs:
+              typeof rawItem.started_at === "string"
+                ? Date.parse(rawItem.started_at)
+                : updatedAtMs,
+            updatedAtMs,
+            ...(status === "completed" ? { completedAtMs: updatedAtMs } : {}),
+            payload: {
+              type: "reasoning",
+              content: [text],
+              summary: [],
+            },
+          },
+        };
+      } else if (type === "turn.completed") {
+        canonicalEvent = {
+          method: "turn/updated",
+          params: {
+            sessionId: "session-app-server-web-tools",
+            threadId: "thread-app-server-web-tools",
+            turnId: "turn-app-server-web-tools",
+            status: "completed",
+            createdAtMs: updatedAtMs,
+            completedAtMs: updatedAtMs,
+            updatedAtMs,
+          },
+        };
+      } else {
+        throw new Error(`missing canonical fixture for ${type}`);
+      }
+      const projected = projectAppServerAgentEventPayload({
+        method: APP_SERVER_METHOD_AGENT_SESSION_EVENT,
+        params: {
+          event: {
+            eventId: `evt-web-tools-${sequence}`,
+            sequence,
+            sessionId: "session-app-server-web-tools",
+            threadId: "thread-app-server-web-tools",
+            turnId: "turn-app-server-web-tools",
+            type,
+            timestamp,
+            payload,
+          },
+          canonicalEvent,
+        },
+      });
+      if (!projected) {
+        throw new Error(`expected App Server ${type} notification to project`);
+      }
+      activeStreamHandler({ payload: projected });
+    };
+
+    project("message.delta", 1, {
+      text: "我先联网核实目标页面来源。\n",
+      itemId: "agent-message-commentary-turn-app-server-web-tools",
+      phase: "commentary",
+    });
+    project("item.started", 2, {
+      toolCallId: "tool-web-search",
+      toolName: "WebSearch",
+      arguments: { query: "Lime WebSearch rendering" },
+    });
+    project("item.completed", 3, {
+      toolCallId: "tool-web-search",
+      toolName: "WebSearch",
+      output: JSON.stringify({
+        results: [
+          {
+            title: "Lime WebSearch Rendering Source",
+            url: "https://example.com/lime-websearch-rendering",
+          },
+        ],
+      }),
+      success: true,
+    });
+    project("item.updated", 4, {
+      item: {
+        id: "reasoning-web-tools",
+        thread_id: "thread-app-server-web-tools",
+        turn_id: "turn-app-server-web-tools",
+        type: "reasoning",
+        text: "搜索结果还需要继续筛掉广告软文，我先读取有效来源。",
+        sequence: 4,
+        status: "in_progress",
+        started_at: "2026-06-20T10:00:04.000Z",
+        updated_at: "2026-06-20T10:00:04.000Z",
+      },
+    });
+    project("item.started", 5, {
+      toolCallId: "tool-web-fetch",
+      toolName: "WebFetch",
+      arguments: { url: "https://example.com/lime-websearch-rendering" },
+    });
+    project("item.completed", 6, {
+      toolCallId: "tool-web-fetch",
+      toolName: "WebFetch",
+      output: JSON.stringify({
+        bytes: 2048,
+        code: 200,
+        codeText: "OK",
+        result: "WebFetch 正文摘要。",
+      }),
+      success: true,
+      metadata: {
+        url: "https://example.com/lime-websearch-rendering",
+      },
+    });
+    project("item.completed", 7, {
+      item: {
+        id: "reasoning-web-tools",
+        thread_id: "thread-app-server-web-tools",
+        turn_id: "turn-app-server-web-tools",
+        type: "reasoning",
+        text: "搜索结果还需要继续筛掉广告软文，我先读取有效来源。",
+        sequence: 4,
+        status: "completed",
+        started_at: "2026-06-20T10:00:04.000Z",
+        completed_at: "2026-06-20T10:00:07.000Z",
+        updated_at: "2026-06-20T10:00:07.000Z",
+      },
+    });
+    project("message.delta", 8, {
+      text: "网页搜索渲染结论：搜索来源已展开，读取页面已归入同一过程，最终正文继续输出。",
+      itemId: "agent-message-final-turn-app-server-web-tools",
+      phase: "final_answer",
+    });
+    project("turn.completed", 9, {
+      turn: {
+        id: "turn-app-server-web-tools",
+        thread_id: "thread-app-server-web-tools",
+        prompt_text: "验证网页搜索渲染",
+        status: "completed",
+        started_at: "2026-06-20T10:00:00.000Z",
+        completed_at: "2026-06-20T10:00:09.000Z",
+        created_at: "2026-06-20T10:00:00.000Z",
+        updated_at: "2026-06-20T10:00:09.000Z",
+      },
+    });
+
+    expect(messages[0]?.isThinking).toBe(false);
+    expect(messages[0]?.content).toContain("网页搜索渲染结论");
+    expect(messages[0]?.contentParts?.map((part) => part.type)).toEqual([
+      "text",
+      "tool_use",
+      "thinking",
+      "tool_use",
+      "text",
+    ]);
+    expect(messages[0]?.contentParts?.[0]).toMatchObject({
+      type: "text",
+      text: "我先联网核实目标页面来源。",
+      metadata: {
+        source: "agent_text_delta",
+        itemId: "agent-message-commentary-turn-app-server-web-tools",
+        phase: "commentary",
+        sequence: 1,
+        turnId: "turn-app-server-web-tools",
+      },
+    });
+    expect(messages[0]?.contentParts?.[2]).toMatchObject({
+      type: "thinking",
+      text: "搜索结果还需要继续筛掉广告软文，我先读取有效来源。",
+      metadata: {
+        source: "thread_item_reasoning",
+        threadItemId: "reasoning-web-tools",
+        turnId: "turn-app-server-web-tools",
+      },
+    });
+    expect(threadItems.map((item) => item.type)).toEqual([
+      "agent_message",
+      "tool_call",
+      "reasoning",
+      "tool_call",
+    ]);
+    expect(clearActiveStreamIfMatch).toHaveBeenCalledWith(
+      "agent_stream_message-app-server-web-tools",
     );
     expect(disposeListener).toHaveBeenCalledTimes(1);
   });
@@ -978,7 +1909,7 @@ describe("agentStreamTurnEventBinding", () => {
 
     await registerAgentStreamTurnEventBinding({
       runtime,
-      eventName: "aster_stream_message-app-server-cancel",
+      eventName: "agent_stream_message-app-server-cancel",
       requestState,
       skipUserMessage: false,
       effectiveProviderType: "openai",
@@ -1012,11 +1943,7 @@ describe("agentStreamTurnEventBinding", () => {
         removeQueuedDraftMessages: () => {},
         clearActiveStreamIfMatch,
         upsertQueuedTurn: (_queuedTurn: QueuedTurnSnapshot) => {},
-        removeQueuedTurnState: () => {},
-      },
-      sounds: {
-        playToolcallSound: () => {},
-        playTypewriterSound: () => {},
+        removeQueuedTurnsFromProjection: () => {},
       },
       appendThinkingToParts: (parts) => parts,
       setMessages: setMessages as never,
@@ -1027,7 +1954,7 @@ describe("agentStreamTurnEventBinding", () => {
         currentTurnId =
           typeof value === "function" ? value(currentTurnId) : value;
       },
-      setExecutionRuntime: noopDispatch<AsterSessionExecutionRuntime | null>(),
+      setExecutionRuntime: noopDispatch<AgentSessionExecutionRuntime | null>(),
       setIsSending: (value) => {
         isSending = typeof value === "function" ? value(isSending) : value;
       },
@@ -1050,6 +1977,18 @@ describe("agentStreamTurnEventBinding", () => {
           timestamp: "2026-06-06T00:00:02.000Z",
           payload: {
             reason: "user_cancelled",
+          },
+        },
+        canonicalEvent: {
+          method: "turn/updated",
+          params: {
+            sessionId: "session-app-server-cancel",
+            threadId: "thread-app-server-cancel",
+            turnId: "turn-app-server-cancel",
+            status: "interrupted",
+            createdAtMs: Date.parse("2026-06-06T00:00:02.000Z"),
+            completedAtMs: Date.parse("2026-06-06T00:00:02.000Z"),
+            updatedAtMs: Date.parse("2026-06-06T00:00:02.000Z"),
           },
         },
       },
@@ -1076,7 +2015,7 @@ describe("agentStreamTurnEventBinding", () => {
     expect(currentTurnId).toBe("turn-app-server-cancel");
     expect(isSending).toBe(false);
     expect(clearActiveStreamIfMatch).toHaveBeenCalledWith(
-      "aster_stream_message-app-server-cancel",
+      "agent_stream_message-app-server-cancel",
     );
     expect(disposeListener).toHaveBeenCalledTimes(1);
   });

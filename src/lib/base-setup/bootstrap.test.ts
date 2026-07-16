@@ -16,7 +16,7 @@ function buildBaseSetupPackage() {
       {
         id: "bootstrap-bundle",
         source: "remote",
-        path_or_uri: "ember://bundles/bootstrap",
+        path_or_uri: "lime://bundles/bootstrap",
         kind: "skill_bundle",
       },
     ],

@@ -1,10 +1,11 @@
 import type { Message } from "../types";
-import type { AsterExecutionStrategy } from "@/lib/api/agentRuntime";
+import type { AgentExecutionStrategy } from "@/lib/api/agentExecutionRuntime";
 import type {
   AgentPreferenceKeys,
   AgentPreferences,
   SessionModelPreference,
 } from "./agentChatShared";
+import { normalizeChatSessionModelPreference } from "../utils/sessionExecutionRuntime";
 import {
   hasLegacyFallbackToolNames,
   normalizeHistoryMessages,
@@ -15,57 +16,15 @@ export const DEFAULT_AGENT_PROVIDER = "";
 export const DEFAULT_AGENT_MODEL = "";
 export type AgentAccessMode = "read-only" | "current" | "full-access";
 export const DEFAULT_AGENT_ACCESS_MODE: AgentAccessMode = "full-access";
-export const DEFAULT_WORKSPACE_AGENT_EXECUTION_STRATEGY: AsterExecutionStrategy =
+export const DEFAULT_WORKSPACE_AGENT_EXECUTION_STRATEGY: AgentExecutionStrategy =
   "react";
-export const DEFAULT_GLOBAL_AGENT_EXECUTION_STRATEGY: AsterExecutionStrategy =
+export const DEFAULT_GLOBAL_AGENT_EXECUTION_STRATEGY: AgentExecutionStrategy =
   "react";
 export const GLOBAL_PROVIDER_PREF_KEY = "agent_pref_provider_global";
 export const GLOBAL_MODEL_PREF_KEY = "agent_pref_model_global";
 export const GLOBAL_MIGRATED_PREF_KEY = "agent_pref_migrated_global";
 
-let toolcallAudio: HTMLAudioElement | null = null;
-let typewriterAudio: HTMLAudioElement | null = null;
-let lastTypewriterTime = 0;
-const TYPEWRITER_INTERVAL = 120;
 const MAX_AGENT_STATE_RESTORE_BYTES = 1_500_000;
-
-const initAudio = () => {
-  if (!toolcallAudio) {
-    toolcallAudio = new Audio("/sounds/tool-call.mp3");
-    toolcallAudio.volume = 1;
-    toolcallAudio.load();
-  }
-  if (!typewriterAudio) {
-    typewriterAudio = new Audio("/sounds/typing.mp3");
-    typewriterAudio.volume = 0.6;
-    typewriterAudio.load();
-  }
-};
-
-const getSoundEnabled = (): boolean => {
-  return localStorage.getItem("ember_sound_enabled") === "true";
-};
-
-export const playToolcallSound = () => {
-  if (!getSoundEnabled()) return;
-  initAudio();
-  if (toolcallAudio) {
-    toolcallAudio.currentTime = 0;
-    toolcallAudio.play().catch(console.error);
-  }
-};
-
-export const playTypewriterSound = () => {
-  if (!getSoundEnabled()) return;
-  const now = Date.now();
-  if (now - lastTypewriterTime < TYPEWRITER_INTERVAL) return;
-  initAudio();
-  if (typewriterAudio) {
-    typewriterAudio.currentTime = 0;
-    typewriterAudio.play().catch(console.error);
-    lastTypewriterTime = now;
-  }
-};
 
 export const loadPersisted = <T>(key: string, defaultValue: T): T => {
   try {
@@ -130,7 +89,7 @@ export const loadTransient = <T>(key: string, defaultValue: T): T => {
       }
 
       const parsed = JSON.parse(stored);
-      if (key.startsWith("aster_messages") && Array.isArray(parsed)) {
+      if (key.startsWith("agent_messages") && Array.isArray(parsed)) {
         const normalizedMessages = parsed.map((msg: any) => ({
           ...msg,
           timestamp: new Date(msg.timestamp),
@@ -155,11 +114,11 @@ function isOversizedAgentRestoreState(key: string, stored: string): boolean {
   }
 
   return (
-    key.startsWith("aster_messages_") ||
-    key.startsWith("aster_thread_turns_") ||
-    key.startsWith("aster_thread_items_") ||
-    key.startsWith("aster_session_snapshots_") ||
-    key.startsWith("aster_session_snapshots_persisted_")
+    key.startsWith("agent_messages_") ||
+    key.startsWith("agent_thread_turns_") ||
+    key.startsWith("agent_thread_items_") ||
+    key.startsWith("agent_session_snapshots_") ||
+    key.startsWith("agent_session_snapshots_persisted_")
   );
 }
 
@@ -238,7 +197,7 @@ export const getExecutionStrategyStorageKey = (
     return null;
   }
 
-  return `aster_execution_strategy_${resolvedWorkspaceId}`;
+  return `agent_execution_strategy_${resolvedWorkspaceId}`;
 };
 
 export const getSessionAccessModeKey = (
@@ -247,9 +206,9 @@ export const getSessionAccessModeKey = (
 ): string => {
   const resolvedWorkspaceId = workspaceId?.trim();
   if (!resolvedWorkspaceId) {
-    return `aster_session_access_mode_global_${sessionId}`;
+    return `agent_session_access_mode_global_${sessionId}`;
   }
-  return `aster_session_access_mode_${resolvedWorkspaceId}_${sessionId}`;
+  return `agent_session_access_mode_${resolvedWorkspaceId}_${sessionId}`;
 };
 
 export const getAccessModeStorageKey = (
@@ -260,7 +219,7 @@ export const getAccessModeStorageKey = (
     return null;
   }
 
-  return `aster_access_mode_${resolvedWorkspaceId}`;
+  return `agent_access_mode_${resolvedWorkspaceId}`;
 };
 
 export const normalizeAccessMode = (value: unknown): AgentAccessMode => {
@@ -297,7 +256,7 @@ export const loadSessionAccessMode = (
 
 export const resolvePersistedExecutionStrategy = (
   workspaceId?: string | null,
-): AsterExecutionStrategy => {
+): AgentExecutionStrategy => {
   const storageKey = getExecutionStrategyStorageKey(workspaceId);
   if (!storageKey) {
     return DEFAULT_GLOBAL_AGENT_EXECUTION_STRATEGY;
@@ -326,7 +285,12 @@ export const loadSessionModelPreference = (
   ) {
     return null;
   }
-  return parsed;
+  const normalized = normalizeChatSessionModelPreference(parsed);
+  if (!normalized) {
+    savePersisted(key, null);
+    return null;
+  }
+  return normalized;
 };
 
 export const resolveWorkspaceAgentPreferences = (
@@ -335,36 +299,53 @@ export const resolveWorkspaceAgentPreferences = (
   const { providerKey, modelKey, migratedKey } =
     getAgentPreferenceKeys(workspaceId);
 
-  const scopedProvider = loadPersistedString(providerKey);
-  const scopedModel = loadPersistedString(modelKey);
-  if (scopedProvider || scopedModel) {
+  const scopedProvider = loadPersistedString(providerKey)?.trim() || null;
+  const scopedModel = loadPersistedString(modelKey)?.trim() || null;
+  const hasScopedPreference = Boolean(scopedProvider || scopedModel);
+  if (hasScopedPreference) {
+    const scopedPreference = normalizeChatSessionModelPreference({
+      providerType: scopedProvider ?? DEFAULT_AGENT_PROVIDER,
+      model: scopedModel ?? DEFAULT_AGENT_MODEL,
+    });
+    if (scopedPreference) {
+      return scopedPreference;
+    }
+
+    savePersisted(providerKey, DEFAULT_AGENT_PROVIDER);
+    savePersisted(modelKey, DEFAULT_AGENT_MODEL);
     return {
-      providerType: scopedProvider || DEFAULT_AGENT_PROVIDER,
-      model: scopedModel || DEFAULT_AGENT_MODEL,
+      providerType: DEFAULT_AGENT_PROVIDER,
+      model: DEFAULT_AGENT_MODEL,
     };
   }
 
   const migrated = loadPersisted<boolean>(migratedKey, false);
   if (!migrated) {
     const legacyProvider =
-      loadPersistedString("agent_pref_provider") ||
-      loadPersistedString(GLOBAL_PROVIDER_PREF_KEY);
+      loadPersistedString("agent_pref_provider")?.trim() ||
+      loadPersistedString(GLOBAL_PROVIDER_PREF_KEY)?.trim();
     const legacyModel =
-      loadPersistedString("agent_pref_model") ||
-      loadPersistedString(GLOBAL_MODEL_PREF_KEY);
-
-    if (legacyProvider) {
-      savePersisted(providerKey, legacyProvider);
-    }
-    if (legacyModel) {
-      savePersisted(modelKey, legacyModel);
-    }
-
-    savePersisted(migratedKey, true);
-
-    return {
+      loadPersistedString("agent_pref_model")?.trim() ||
+      loadPersistedString(GLOBAL_MODEL_PREF_KEY)?.trim();
+    const legacyPreference = normalizeChatSessionModelPreference({
       providerType: legacyProvider || DEFAULT_AGENT_PROVIDER,
       model: legacyModel || DEFAULT_AGENT_MODEL,
+    });
+
+    if (legacyPreference) {
+      savePersisted(providerKey, legacyPreference.providerType);
+      savePersisted(modelKey, legacyPreference.model);
+      savePersisted(migratedKey, true);
+
+      return legacyPreference;
+    }
+
+    savePersisted(providerKey, DEFAULT_AGENT_PROVIDER);
+    savePersisted(modelKey, DEFAULT_AGENT_MODEL);
+    savePersisted(migratedKey, true);
+    return {
+      providerType: DEFAULT_AGENT_PROVIDER,
+      model: DEFAULT_AGENT_MODEL,
     };
   }
 

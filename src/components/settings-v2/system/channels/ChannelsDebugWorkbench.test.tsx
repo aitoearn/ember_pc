@@ -1,7 +1,7 @@
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const {
   mockGetConfig,
@@ -222,7 +222,7 @@ async function flushEffects(times = 6) {
 describe("ChannelsDebugWorkbench", () => {
   beforeEach(async () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
 
     mockGetConfig.mockResolvedValue(createConfig());
     mockSaveConfig.mockResolvedValue(undefined);
@@ -281,7 +281,7 @@ describe("ChannelsDebugWorkbench", () => {
 
     vi.clearAllMocks();
     vi.unstubAllGlobals();
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
   });
 
   it("旧的概览或配置入口应直接落到日志与检查区，且不再暴露渠道配置表单", async () => {

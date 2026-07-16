@@ -76,7 +76,7 @@ describe("ToolCallDisplayViewModel", () => {
       args: { command: "Write-Output '你好'" },
       metadata: {
         exit_code: 0,
-        cwd: "C:\\Users\\ember",
+        cwd: "C:\\Users\\lime",
         shell: "powershell",
         execution_surface: "embedded",
         encoding: "utf-8",
@@ -91,7 +91,7 @@ describe("ToolCallDisplayViewModel", () => {
 
     expect(summary).toEqual({
       command: "Write-Output '你好'",
-      cwd: "C:\\Users\\ember",
+      cwd: "C:\\Users\\lime",
       exitCode: 0,
       stdoutLength: 6,
       stderrLength: 0,
@@ -142,6 +142,49 @@ describe("ToolCallDisplayViewModel", () => {
         tone: "neutral",
       },
     ]);
+  });
+
+  it("导入 provenance 不应改变普通命令摘要、输出和分组语义", () => {
+    const toolCall = baseToolCall({
+      name: "exec_command",
+      arguments: JSON.stringify({ command: "npm test" }),
+      result: {
+        success: true,
+        output: "ok",
+        metadata: {
+          imported: true,
+          source_client: "codex",
+          exit_code: 0,
+          stdout_text: "ok",
+        },
+      },
+    });
+
+    expect(
+      resolveCommandToolSummary({
+        toolName: toolCall.name,
+        args: { command: "npm test" },
+        metadata: normalizeToolResultMetadata(toolCall.result?.metadata),
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        command: "npm test",
+        exitCode: 0,
+      }),
+    );
+    expect(
+      resolveCommandOutputStreams({
+        output: toolCall.result?.output,
+        metadata: normalizeToolResultMetadata(toolCall.result?.metadata),
+      }),
+    ).toEqual([
+      {
+        key: "stdout",
+        content: "ok",
+        tone: "neutral",
+      },
+    ]);
+    expect(buildToolGroupPreview([toolCall], () => "+1")).toContain("npm test");
   });
 
   it("应识别 Skill 调用并隐藏原始 metadata 细节", () => {
@@ -222,7 +265,7 @@ describe("ToolCallDisplayViewModel", () => {
       buildToolResultMetaNoticeKeys({
         metadata: {
           exit_code: 2,
-          ember_offloaded: true,
+          lime_offloaded: true,
         },
         isResultFailure: true,
       }),
@@ -242,7 +285,7 @@ describe("ToolCallDisplayViewModel", () => {
       baseToolCall({
         id: "search-1",
         name: "WebSearch",
-        arguments: JSON.stringify({ query: "Ember" }),
+        arguments: JSON.stringify({ query: "Lime" }),
       }),
       baseToolCall({
         id: "search-2",
@@ -261,7 +304,7 @@ describe("ToolCallDisplayViewModel", () => {
       }),
       baseToolCall({
         id: "ask-1",
-        name: "AskUserQuestion",
+        name: "request_user_input",
         status: "running",
         arguments: JSON.stringify({ question: "继续吗？" }),
         result: undefined,

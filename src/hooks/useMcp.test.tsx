@@ -18,9 +18,12 @@ const mcpApiMocks = vi.hoisted(() => ({
   listResources: vi.fn(),
   startServer: vi.fn(),
   stopServer: vi.fn(),
+  loginOAuthServer: vi.fn(),
   callTool: vi.fn(),
   getPrompt: vi.fn(),
   readResource: vi.fn(),
+  subscribeResource: vi.fn(),
+  unsubscribeResource: vi.fn(),
 }));
 
 const bridgeMocks = vi.hoisted(() => ({
@@ -28,9 +31,8 @@ const bridgeMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/api/mcp", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/api/mcp")>(
-    "@/lib/api/mcp",
-  );
+  const actual =
+    await vi.importActual<typeof import("@/lib/api/mcp")>("@/lib/api/mcp");
 
   return {
     ...actual,
@@ -40,13 +42,18 @@ vi.mock("@/lib/api/mcp", async () => {
         mcpApiMocks.listServersWithStatus(...args),
       listTools: (...args: unknown[]) => mcpApiMocks.listTools(...args),
       listPrompts: (...args: unknown[]) => mcpApiMocks.listPrompts(...args),
-      listResources: (...args: unknown[]) =>
-        mcpApiMocks.listResources(...args),
+      listResources: (...args: unknown[]) => mcpApiMocks.listResources(...args),
       startServer: (...args: unknown[]) => mcpApiMocks.startServer(...args),
       stopServer: (...args: unknown[]) => mcpApiMocks.stopServer(...args),
+      loginOAuthServer: (...args: unknown[]) =>
+        mcpApiMocks.loginOAuthServer(...args),
       callTool: (...args: unknown[]) => mcpApiMocks.callTool(...args),
       getPrompt: (...args: unknown[]) => mcpApiMocks.getPrompt(...args),
       readResource: (...args: unknown[]) => mcpApiMocks.readResource(...args),
+      subscribeResource: (...args: unknown[]) =>
+        mcpApiMocks.subscribeResource(...args),
+      unsubscribeResource: (...args: unknown[]) =>
+        mcpApiMocks.unsubscribeResource(...args),
     },
   };
 });
@@ -71,9 +78,7 @@ function HookHarness({ onReady }: HarnessProps) {
 
 const mountedRoots: MountedRoot[] = [];
 
-function createServer(
-  overrides: Partial<McpServerInfo> = {},
-): McpServerInfo {
+function createServer(overrides: Partial<McpServerInfo> = {}): McpServerInfo {
   return {
     id: "server-demo",
     name: "docs",
@@ -83,11 +88,20 @@ function createServer(
     },
     is_running: false,
     server_info: undefined,
-    enabled_ember: true,
+    enabled_lime: true,
     enabled_claude: false,
     enabled_codex: true,
     enabled_gemini: false,
     ...overrides,
+  };
+}
+
+function createResource(name: string, serverName = "docs") {
+  return {
+    uri: `file:///${name}.md`,
+    name,
+    server_name: serverName,
+    mime_type: "text/markdown",
   };
 }
 
@@ -111,9 +125,15 @@ describe("useMcp", () => {
     mcpApiMocks.listResources.mockResolvedValue([]);
     mcpApiMocks.startServer.mockResolvedValue(undefined);
     mcpApiMocks.stopServer.mockResolvedValue(undefined);
+    mcpApiMocks.loginOAuthServer.mockResolvedValue({
+      authorizationUrl: "https://auth.example/authorize",
+      state: "state-1",
+    });
     mcpApiMocks.callTool.mockResolvedValue({ content: [], is_error: false });
     mcpApiMocks.getPrompt.mockResolvedValue({ messages: [] });
     mcpApiMocks.readResource.mockResolvedValue({ uri: "docs://readme" });
+    mcpApiMocks.subscribeResource.mockResolvedValue(undefined);
+    mcpApiMocks.unsubscribeResource.mockResolvedValue(undefined);
     bridgeMocks.safeListen.mockResolvedValue(() => undefined);
   });
 
@@ -163,5 +183,167 @@ describe("useMcp", () => {
     expect(getLatestValue().tools).toEqual([]);
     expect(getLatestValue().loading).toBe(false);
     expect(getLatestValue().error).toBeNull();
+  });
+
+  it("OAuth 完成事件应刷新服务器状态和工具列表", async () => {
+    const listeners = new Map<string, (event: { payload: unknown }) => void>();
+    bridgeMocks.safeListen.mockImplementation(
+      async (
+        eventName: string,
+        handler: (event: { payload: unknown }) => void,
+      ) => {
+        listeners.set(eventName, handler);
+        return () => listeners.delete(eventName);
+      },
+    );
+    mcpApiMocks.listServersWithStatus
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        createServer({
+          name: "remote-docs",
+          is_running: false,
+          runtime_status: {
+            name: "remote-docs",
+            transport: "streamable_http",
+            enabled: true,
+            is_running: false,
+            required: false,
+            supports_parallel_tool_calls: false,
+            startup_timeout: 30,
+            tool_timeout: 30,
+            disabled_tools: [],
+            auth_status: {
+              mode: "oauth",
+              available: true,
+            },
+          },
+        }),
+      ]);
+
+    await renderHook((value) => {
+      latestValue = value;
+    });
+    await flushEffects(4);
+
+    await act(async () => {
+      listeners.get("mcp:oauth_completed")?.({
+        payload: { server_name: "remote-docs" },
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await flushEffects(4);
+
+    expect(mcpApiMocks.listServersWithStatus).toHaveBeenCalledTimes(2);
+    expect(mcpApiMocks.listTools).toHaveBeenCalledTimes(2);
+    expect(getLatestValue().oauthCompletion?.serverName).toBe("remote-docs");
+    expect(getLatestValue().servers[0]?.runtime_status?.auth_status).toEqual({
+      mode: "oauth",
+      available: true,
+    });
+  });
+
+  it("资源列表更新事件应刷新资源列表", async () => {
+    const listeners = new Map<string, (event: { payload: unknown }) => void>();
+    bridgeMocks.safeListen.mockImplementation(
+      async (
+        eventName: string,
+        handler: (event: { payload: unknown }) => void,
+      ) => {
+        listeners.set(eventName, handler);
+        return () => listeners.delete(eventName);
+      },
+    );
+    mcpApiMocks.listResources
+      .mockResolvedValueOnce([createResource("before")])
+      .mockResolvedValueOnce([createResource("after")]);
+
+    await renderHook((value) => {
+      latestValue = value;
+    });
+    await flushEffects(4);
+
+    expect(getLatestValue().resources).toEqual([createResource("before")]);
+
+    await act(async () => {
+      listeners.get("mcp:resources_updated")?.({
+        payload: { server_name: "docs" },
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await flushEffects(4);
+
+    expect(mcpApiMocks.listResources).toHaveBeenCalledTimes(2);
+    expect(getLatestValue().resources).toEqual([createResource("after")]);
+  });
+
+  it("单个资源更新事件也应刷新资源列表", async () => {
+    const listeners = new Map<string, (event: { payload: unknown }) => void>();
+    bridgeMocks.safeListen.mockImplementation(
+      async (
+        eventName: string,
+        handler: (event: { payload: unknown }) => void,
+      ) => {
+        listeners.set(eventName, handler);
+        return () => listeners.delete(eventName);
+      },
+    );
+    mcpApiMocks.listResources
+      .mockResolvedValueOnce([createResource("readme")])
+      .mockResolvedValueOnce([createResource("readme-updated")]);
+
+    await renderHook((value) => {
+      latestValue = value;
+    });
+    await flushEffects(4);
+
+    await act(async () => {
+      listeners.get("mcp:resource_updated")?.({
+        payload: { server_name: "docs", uri: "file:///readme.md" },
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await flushEffects(4);
+
+    expect(mcpApiMocks.listResources).toHaveBeenCalledTimes(2);
+    expect(getLatestValue().resources).toEqual([
+      createResource("readme-updated"),
+    ]);
+  });
+
+  it("资源订阅操作应通过 MCP current API fail closed 透传", async () => {
+    await renderHook((value) => {
+      latestValue = value;
+    });
+
+    await act(async () => {
+      await getLatestValue().subscribeResource("docs", "file:///readme.md");
+      await getLatestValue().unsubscribeResource("docs", "file:///readme.md");
+    });
+
+    expect(mcpApiMocks.subscribeResource).toHaveBeenCalledWith(
+      "docs",
+      "file:///readme.md",
+    );
+    expect(mcpApiMocks.unsubscribeResource).toHaveBeenCalledWith(
+      "docs",
+      "file:///readme.md",
+    );
+  });
+
+  it("提示词操作应透传精确 server 和 name", async () => {
+    await renderHook((value) => {
+      latestValue = value;
+    });
+
+    await act(async () => {
+      await getLatestValue().getPrompt("docs", "summarize", { topic: "lime" });
+    });
+
+    expect(mcpApiMocks.getPrompt).toHaveBeenCalledWith("docs", "summarize", {
+      topic: "lime",
+    });
   });
 });

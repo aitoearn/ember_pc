@@ -9,7 +9,7 @@ describe("i18n-patch-metrics-report-core", () => {
   it("应把 runtime metrics 转成稳定报告，并保留门限问题", () => {
     const report = createI18nPatchMetricsReport({
       generatedAt: "2026-05-10T00:00:00.000Z",
-      sourcePath: ".ember/i18n/patch-metrics.json",
+      sourcePath: ".lime/i18n/patch-metrics.json",
       thresholds: {
         maxMatchedSegments: 1,
         maxReplacedNodes: 1,
@@ -33,7 +33,7 @@ describe("i18n-patch-metrics-report-core", () => {
       },
     });
 
-    expect(report.schemaVersion).toBe("ember.i18n.patchMetricsReport.v1");
+    expect(report.schemaVersion).toBe("lime.i18n.patchMetricsReport.v1");
     expect(report.status).toBe("active-patch");
     expect(report.retirementCandidate).toBe(false);
     expect(report.summary.totalMatchedSegments).toBe(4);
@@ -77,7 +77,7 @@ describe("i18n-patch-metrics-report-core", () => {
     });
     const text = renderI18nPatchMetricsTextReport(report);
 
-    expect(text).toContain("Ember i18n Patch Metrics Report");
+    expect(text).toContain("Lime i18n Patch Metrics Report");
     expect(text).toContain("状态: missing-metrics");
     expect(text).toContain("退出候选: no");
   });

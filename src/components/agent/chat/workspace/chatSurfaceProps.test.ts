@@ -46,7 +46,7 @@ describe("buildWorkspaceNavbarProps", () => {
   it("任务中心顶栏应透传已打开项目列表", () => {
     const openedProjects = [
       { id: "project-1", name: "默认项目" },
-      { id: "project-2", name: "ember" },
+      { id: "project-2", name: "lime" },
     ];
     const props = buildWorkspaceNavbarProps(
       createNavbarParams({
@@ -56,5 +56,11 @@ describe("buildWorkspaceNavbarProps", () => {
     );
 
     expect(props?.openedProjects).toBe(openedProjects);
+  });
+
+  it("任务中心工具栏不应进入 ChatNavbar props，避免被限制在左侧项目栏", () => {
+    const props = buildWorkspaceNavbarProps(createNavbarParams());
+
+    expect("taskCenterRightTools" in (props ?? {})).toBe(false);
   });
 });

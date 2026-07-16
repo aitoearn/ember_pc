@@ -1,13 +1,18 @@
 import type { MutableRefObject } from "react";
-import type {
-  AgentRuntimeThreadReadModel,
-  QueuedTurnSnapshot,
-} from "@/lib/api/agentRuntime";
+import type { AgentExecutionStrategy } from "@/lib/api/agentExecutionRuntime";
+import type { AgentRuntimeThreadReadModel } from "@/lib/api/agentRuntime/sessionTypes";
+import type { QueuedTurnSnapshot } from "@/lib/api/queuedTurn";
 import { normalizeQueuedTurnSnapshots } from "@/lib/api/queuedTurn";
 import { normalizeExecutionStrategy } from "./agentChatCoreUtils";
 import type { AgentAccessMode } from "./agentChatStorage";
 import { createSessionAccessModeFromExecutionRuntime } from "../utils/sessionExecutionRuntime";
 import type { AgentRuntimeAdapter } from "./agentRuntimeAdapter";
+import type { AgentSessionDetailMergeMode } from "./agentSessionState";
+
+export interface AgentSessionDetailRefreshRequest {
+  source?: string | null;
+  detailMergeMode?: AgentSessionDetailMergeMode | null;
+}
 
 export interface AgentSessionReadModelSnapshot {
   queuedTurns: QueuedTurnSnapshot[];
@@ -23,6 +28,10 @@ export function createAgentSessionReadModelSnapshot(
   };
 }
 
+export function resolveDefaultAgentSessionDetailMergeMode(): AgentSessionDetailMergeMode {
+  return "history_hydrate";
+}
+
 interface RefreshAgentSessionDetailOptions {
   runtime: Pick<AgentRuntimeAdapter, "getSession">;
   sessionIdRef: MutableRefObject<string | null>;
@@ -30,11 +39,14 @@ interface RefreshAgentSessionDetailOptions {
   applySessionDetail: (
     sessionId: string,
     detail: Awaited<ReturnType<AgentRuntimeAdapter["getSession"]>>,
-    options: { preserveExecutionStrategyOnMissingDetail: boolean },
+    options: {
+      preserveExecutionStrategyOnMissingDetail: boolean;
+      detailMergeMode?: AgentSessionDetailMergeMode;
+    },
   ) => void;
   markSessionExecutionStrategySynced: (
     sessionId: string,
-    executionStrategy: import("@/lib/api/agentRuntime").AsterExecutionStrategy,
+    executionStrategy: AgentExecutionStrategy,
   ) => void;
   persistSessionAccessMode?: (
     sessionId: string,
@@ -42,6 +54,8 @@ interface RefreshAgentSessionDetailOptions {
   ) => void;
   setAccessModeState?: (accessMode: AgentAccessMode) => void;
   onWarn?: (error: unknown) => void;
+  source?: string | null;
+  detailMergeMode?: AgentSessionDetailMergeMode | null;
 }
 
 export async function refreshAgentSessionDetailState(
@@ -63,12 +77,15 @@ export async function refreshAgentSessionDetailState(
   try {
     const detail = await runtime.getSession(resolvedSessionId, {
       historyLimit: 40,
+      ...(options.source?.trim() ? { source: options.source.trim() } : {}),
     });
     if (sessionIdRef.current !== resolvedSessionId) {
       return false;
     }
     applySessionDetail(resolvedSessionId, detail, {
       preserveExecutionStrategyOnMissingDetail: true,
+      detailMergeMode:
+        options.detailMergeMode ?? resolveDefaultAgentSessionDetailMergeMode(),
     });
     const runtimeAccessMode = createSessionAccessModeFromExecutionRuntime(
       detail.execution_runtime,

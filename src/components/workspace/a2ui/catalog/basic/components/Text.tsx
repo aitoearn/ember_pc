@@ -62,7 +62,7 @@ const A2UI_MARKDOWN_COMPONENTS: Components = {
     <h5 className="m-0 text-[13px] font-medium leading-5">{children}</h5>
   ),
   h6: ({ children }) => (
-    <h6 className="m-0 text-xs font-medium uppercase tracking-[0.04em] text-[color:var(--ember-text-muted)]">
+    <h6 className="m-0 text-xs font-medium uppercase tracking-[0.04em] text-[color:var(--lime-text-muted)]">
       {children}
     </h6>
   ),
@@ -93,19 +93,19 @@ const A2UI_MARKDOWN_COMPONENTS: Components = {
         onClick={(event) => {
           interceptHttpExternalLinkClick(event, href);
         }}
-        className="break-all text-[color:var(--ember-brand-strong)] underline underline-offset-2 transition-opacity hover:opacity-80"
+        className="break-all text-[color:var(--lime-brand-strong)] underline underline-offset-2 transition-opacity hover:opacity-80"
       >
         {children}
       </a>
     );
   },
   blockquote: ({ children }) => (
-    <blockquote className="m-0 border-l-2 border-slate-200 pl-2 text-[color:var(--ember-text-muted)]">
+    <blockquote className="m-0 border-l-2 border-slate-200 pl-2 text-[color:var(--lime-text-muted)]">
       {children}
     </blockquote>
   ),
   pre: ({ children }) => (
-    <pre className="m-0 overflow-x-auto rounded-[10px] border border-slate-200 bg-slate-50 p-2 text-[12px] text-[color:var(--ember-text)] shadow-none">
+    <pre className="m-0 overflow-x-auto rounded-[10px] border border-slate-200 bg-slate-50 p-2 text-[12px] text-[color:var(--lime-text)] shadow-none">
       {children}
     </pre>
   ),
@@ -119,7 +119,7 @@ const A2UI_MARKDOWN_COMPONENTS: Components = {
         className={cn(
           isCodeBlock
             ? "font-mono text-inherit"
-            : "rounded bg-[color:var(--ember-surface-muted)] px-1 py-0.5 font-mono text-[0.85em] text-[color:var(--ember-text)]",
+            : "rounded bg-[color:var(--lime-surface-muted)] px-1 py-0.5 font-mono text-[0.85em] text-[color:var(--lime-text)]",
           className,
         )}
       >
@@ -135,12 +135,12 @@ const A2UI_MARKDOWN_COMPONENTS: Components = {
     </div>
   ),
   th: ({ children }) => (
-    <th className="border-b border-r border-slate-200 bg-slate-50 px-2 py-1.5 text-left font-semibold text-[color:var(--ember-text-strong)] last:border-r-0">
+    <th className="border-b border-r border-slate-200 bg-slate-50 px-2 py-1.5 text-left font-semibold text-[color:var(--lime-text-strong)] last:border-r-0">
       {children}
     </th>
   ),
   td: ({ children }) => (
-    <td className="border-b border-r border-slate-200 px-2 py-1.5 text-left align-top text-[color:var(--ember-text)] last:border-r-0">
+    <td className="border-b border-r border-slate-200 px-2 py-1.5 text-left align-top text-[color:var(--lime-text)] last:border-r-0">
       {children}
     </td>
   ),

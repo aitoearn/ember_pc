@@ -2,9 +2,32 @@
 
 import fs from "node:fs";
 import fsp from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+
+import {
+  FIXTURE_METHODS,
+  OAUTH_FIXTURE_METHODS,
+  PLUGIN_RUNTIME_FIXTURE_METHODS,
+  REQUIRED_READ_METHODS,
+  assert,
+  invokeAppServerMethod,
+  invokeBridgeCommand,
+  runFixtureChecks,
+  runPluginRuntimeFixtureChecks,
+  runReadChecks,
+  sanitizeJson,
+  summarizeInvokeEntries,
+  waitForHealth,
+  writeJsonFile,
+} from "./lib/current-smoke-core.mjs";
+import { writeMcpFixture } from "./lib/current-smoke-fixture.mjs";
+import {
+  LIVE_PROVIDER_METHODS,
+  describeMcpLiveProviderEnv,
+  runMcpLiveProviderSmoke,
+} from "./live-provider-smoke.mjs";
+import { runMcpOAuthFixtureSmoke } from "./oauth-fixture-smoke.mjs";
 
 const DEFAULTS = {
   healthUrl: "http://127.0.0.1:3030/health",
@@ -13,58 +36,18 @@ const DEFAULTS = {
   intervalMs: 1_000,
   evidenceDir: path.join(
     process.cwd(),
-    ".ember",
+    ".lime",
     "qc",
     "gui-evidence",
     "mcp-current",
   ),
   prefix: "mcp-current",
   allowWriteFixture: false,
+  allowOAuthFixture: false,
+  allowPluginRuntimeFixture: false,
+  allowLiveProvider: false,
   cleanupFixture: true,
 };
-
-const APP_SERVER_HANDLE_JSON_LINES_COMMAND = "app_server_handle_json_lines";
-const REQUIRED_READ_METHODS = [
-  "mcpServer/list",
-  "mcpServerStatus/list",
-  "mcpTool/list",
-  "mcpTool/listForContext",
-  "mcpTool/search",
-  "mcpPrompt/list",
-  "mcpResource/list",
-];
-const FIXTURE_METHODS = [
-  "mcpServer/create",
-  "mcpServer/start",
-  "mcpServerStatus/list",
-  "mcpTool/list",
-  "mcpTool/call",
-  "mcpResource/list",
-  "mcpResource/read",
-  "mcpServer/stop",
-  "mcpServer/delete",
-];
-const LEGACY_MCP_COMMANDS = [
-  "get_mcp_servers",
-  "mcp_list_servers_with_status",
-  "mcp_list_tools",
-  "mcp_list_tools_for_context",
-  "mcp_search_tools",
-  "mcp_call_tool",
-  "mcp_call_tool_with_caller",
-  "mcp_list_prompts",
-  "mcp_get_prompt",
-  "mcp_list_resources",
-  "mcp_read_resource",
-  "mcp_start_server",
-  "mcp_stop_server",
-  "add_mcp_server",
-  "update_mcp_server",
-  "delete_mcp_server",
-  "toggle_mcp_server",
-  "import_mcp_from_app",
-  "sync_all_mcp_to_live",
-];
 
 function printHelp() {
   console.log(`
@@ -77,17 +60,32 @@ MCP Current Smoke
 用法:
   npm run smoke:mcp-current
   npm run smoke:mcp-current -- --allow-write-fixture
+  npm run smoke:mcp-current -- --allow-plugin-runtime-fixture
+  npm run smoke:mcp-current -- --allow-oauth-fixture
+  npm run smoke:mcp-current -- --allow-live-provider
 
 选项:
   --health-url <url>       DevBridge 健康检查地址，默认 http://127.0.0.1:3030/health
   --invoke-url <url>       DevBridge invoke 地址，默认 http://127.0.0.1:3030/invoke
   --timeout-ms <ms>        总超时，默认 120000
   --interval-ms <ms>       健康检查轮询间隔，默认 1000
-  --evidence-dir <path>    证据目录，默认 .ember/qc/gui-evidence/mcp-current
+  --evidence-dir <path>    证据目录，默认 .lime/qc/gui-evidence/mcp-current
   --prefix <name>          证据文件前缀，默认 mcp-current
   --allow-write-fixture    创建临时 stdio MCP server，覆盖 start / tool call / resource read
+  --allow-plugin-runtime-fixture
+                          创建临时 stdio MCP server，覆盖插件 runtime MCP inventory / proof 链
+  --allow-oauth-fixture    创建本地 OAuth provider，覆盖 mcpServer/oauth/login 与系统浏览器网关
+  --allow-live-provider    使用环境变量指定的真实 streamable HTTP MCP provider 做 live-gated E2E
   --keep-fixture           保留本脚本创建的临时 fixture 目录
   -h, --help               显示帮助
+
+Live provider 环境变量:
+  ${describeMcpLiveProviderEnv().join("\n  ")}
+
+Live provider 安全约束:
+  LIME_MCP_LIVE_SERVER_URL 只接受 http/https，且不得包含 username、password、query 或 hash
+  LIME_MCP_LIVE_BEARER_TOKEN_ENV_VAR 必须是环境变量名，不是 token 字面量
+  LIME_MCP_LIVE_ENV_HTTP_HEADERS_JSON 的 value 必须是环境变量名，例如 {"X-Api-Key":"MCP_PROVIDER_API_KEY"}
 `);
 }
 
@@ -124,6 +122,18 @@ function parseArgs(argv) {
       options.allowWriteFixture = true;
       continue;
     }
+    if (arg === "--allow-oauth-fixture") {
+      options.allowOAuthFixture = true;
+      continue;
+    }
+    if (arg === "--allow-plugin-runtime-fixture") {
+      options.allowPluginRuntimeFixture = true;
+      continue;
+    }
+    if (arg === "--allow-live-provider") {
+      options.allowLiveProvider = true;
+      continue;
+    }
     if (arg === "--keep-fixture") {
       options.cleanupFixture = false;
       continue;
@@ -157,620 +167,20 @@ function parseArgs(argv) {
   return options;
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function assert(condition, message) {
-  if (!condition) {
-    throw new Error(message);
-  }
-}
-
-function parseJson(value) {
-  if (!value) {
-    return null;
-  }
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-function parseJsonRpcLine(line) {
-  const trimmed = String(line || "").trim();
-  if (!trimmed) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(trimmed);
-    return parsed && typeof parsed === "object" ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function decodeJsonRpcLines(lines) {
-  return Array.isArray(lines)
-    ? lines.map(parseJsonRpcLine).filter(Boolean)
-    : [];
-}
-
-function sanitizeText(value) {
-  const sanitized = String(value ?? "")
-    .replace(
-      /((?:api[_-]?key|authorization|password|secret|session|token)[^=\s]*=)(["']?)[^\s"']+/gi,
-      "$1$2[redacted]",
-    )
-    .replace(/(Bearer\s+)[A-Za-z0-9._~+/=-]+/gi, "$1[redacted]");
-  return sanitized.length > 1_200
-    ? `${sanitized.slice(0, 1_200)}... [truncated ${sanitized.length - 1_200} chars]`
-    : sanitized;
-}
-
-function sanitizeJson(value, depth = 0) {
-  if (depth > 5) {
-    return "[truncated-depth]";
-  }
-  if (typeof value === "string") {
-    return sanitizeText(value);
-  }
-  if (
-    value === null ||
-    value === undefined ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return value ?? null;
-  }
-  if (Array.isArray(value)) {
-    return value.slice(0, 40).map((item) => sanitizeJson(item, depth + 1));
-  }
-  if (typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value)
-        .slice(0, 80)
-        .map(([key, item]) => [key, sanitizeJson(item, depth + 1)]),
-    );
-  }
-  return sanitizeText(String(value));
-}
-
-function writeJsonFile(filePath, value) {
-  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
-}
-
-async function waitForHealth(options) {
-  const startedAt = Date.now();
-  let lastError = null;
-
-  while (Date.now() - startedAt < options.timeoutMs) {
-    try {
-      const response = await fetch(options.healthUrl, {
-        signal: AbortSignal.timeout(Math.min(5_000, options.timeoutMs)),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      console.log(
-        `[smoke:mcp-current] DevBridge 已就绪 (${Date.now() - startedAt}ms) status=${payload?.status ?? response.status}`,
-      );
-      return payload;
-    } catch (error) {
-      lastError = error;
-      await sleep(options.intervalMs);
-    }
-  }
-
-  const detail =
-    lastError instanceof Error
-      ? lastError.message
-      : String(lastError || "unknown error");
-  throw new Error(
-    `[smoke:mcp-current] DevBridge 未就绪，请先启动 npm run electron:dev。最后错误: ${detail}`,
-  );
-}
-
-function collectInvokeEntry(requestPayload, responsePayload, url) {
-  const requestLines =
-    requestPayload?.request?.lines ??
-    requestPayload?.args?.request?.lines ??
-    requestPayload?.payload?.lines ??
-    requestPayload?.lines;
-  const responseLines =
-    responsePayload?.result?.result?.lines ??
-    responsePayload?.result?.lines ??
-    responsePayload?.request?.lines ??
-    responsePayload?.lines;
-  const requestMessages = decodeJsonRpcLines(requestLines);
-  const responseMessages = decodeJsonRpcLines(responseLines);
-  const responseById = new Map(
-    responseMessages
-      .filter((message) => message && message.id !== undefined)
-      .map((message) => [message.id, message]),
-  );
-
-  return {
-    url: sanitizeText(url),
-    cmd: requestPayload?.cmd ?? null,
-    appServerRequests: requestMessages
-      .filter((message) => typeof message?.method === "string")
-      .map((message) => ({
-        id: message.id ?? null,
-        method: message.method,
-        params: sanitizeJson(message.params ?? {}),
-        response: sanitizeJson(responseById.get(message.id) ?? null),
-      })),
-    responseMessageCount: responseMessages.length,
-    responseMessages: responseMessages.map(sanitizeJson),
-  };
-}
-
-function parseAppServerResponseMessages(responsePayload) {
-  const responseLines =
-    responsePayload?.result?.result?.lines ??
-    responsePayload?.result?.lines ??
-    responsePayload?.lines;
-  return decodeJsonRpcLines(responseLines);
-}
-
-async function invokeBridgeCommand(options, cmd, args, entries) {
-  const requestPayload = { cmd, args };
-  const response = await fetch(options.invokeUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(requestPayload),
-    signal: AbortSignal.timeout(options.timeoutMs),
-  });
-  const text = await response.text();
-  const responsePayload = parseJson(text);
-  if (responsePayload) {
-    entries.push(
-      collectInvokeEntry(requestPayload, responsePayload, options.invokeUrl),
-    );
-  }
-  if (!response.ok) {
-    throw new Error(`${cmd} HTTP ${response.status}: ${sanitizeText(text)}`);
-  }
-  if (responsePayload?.error) {
-    throw new Error(`${cmd} error: ${sanitizeText(responsePayload.error)}`);
-  }
-  if (!responsePayload) {
-    throw new Error(`${cmd} returned non-JSON response`);
-  }
-  return responsePayload;
-}
-
-let appServerRequestId = 1;
-
-async function invokeAppServerMethod(options, method, params, entries) {
-  const id = `mcp-current-${appServerRequestId++}`;
-  const request =
-    params === undefined ? { id, method } : { id, method, params };
-  const responsePayload = await invokeBridgeCommand(
-    options,
-    APP_SERVER_HANDLE_JSON_LINES_COMMAND,
-    { request: { lines: [`${JSON.stringify(request)}\n`] } },
-    entries,
-  );
-  const messages = parseAppServerResponseMessages(responsePayload);
-  const error = messages.find((message) => message.id === id && message.error);
-  if (error) {
-    throw new Error(
-      `${method} error: ${error.error?.message || "App Server JSON-RPC error"}`,
-    );
-  }
-  const response = messages.find(
-    (message) => message.id === id && Object.hasOwn(message, "result"),
-  );
-  if (!response) {
-    throw new Error(`${method} missing App Server response`);
-  }
-  return response.result;
-}
-
-function assertArrayField(method, result, field) {
-  assert(
-    result && typeof result === "object" && Array.isArray(result[field]),
-    `${method} did not return ${field}`,
-  );
-  return result[field];
-}
-
-function assertEmptyObject(method, result) {
-  assert(
-    result && typeof result === "object" && !Array.isArray(result),
-    `${method} did not return object result`,
-  );
-  assert(
-    Object.keys(result).length === 0,
-    `${method} did not return empty lifecycle result`,
-  );
-}
-
-function assertToolResult(method, result, expectedText) {
-  assert(
-    result && typeof result === "object" && Array.isArray(result.content),
-    `${method} did not return content`,
-  );
-  assert(result.is_error === false, `${method} returned is_error=true`);
-  assert(
-    result.content.some(
-      (item) => item?.type === "text" && item?.text === expectedText,
-    ),
-    `${method} did not return expected text ${expectedText}`,
-  );
-}
-
-function assertResourceResult(method, result, expectedText) {
-  assert(
-    result && typeof result === "object" && result.uri === "fixture://status",
-    `${method} did not return fixture resource uri`,
-  );
-  assert(result.text === expectedText, `${method} did not return expected text`);
-}
-
-function summarizeInvokeEntries(entries) {
-  const appServerRequests = entries.flatMap((entry) => entry.appServerRequests);
-  const appServerMethodsSeen = Array.from(
-    new Set(appServerRequests.map((request) => request.method)),
-  ).sort();
-  const legacyMcpCommandsSeen = Array.from(
-    new Set(
-      entries
-        .map((entry) =>
-          typeof entry.cmd === "string" &&
-          LEGACY_MCP_COMMANDS.includes(entry.cmd)
-            ? entry.cmd
-            : null,
-        )
-        .filter(Boolean),
-    ),
-  ).sort();
-  const appServerHandleJsonLinesSeen = entries.some(
-    (entry) => entry.cmd === APP_SERVER_HANDLE_JSON_LINES_COMMAND,
-  );
-  const responses = new Map();
-  for (const request of appServerRequests) {
-    responses.set(request.method, request.response);
-  }
-
-  return {
-    appServerHandleJsonLinesSeen,
-    appServerMethodsSeen,
-    legacyMcpCommandsSeen,
-    missingReadMethods: REQUIRED_READ_METHODS.filter(
-      (method) => !appServerMethodsSeen.includes(method),
-    ),
-    missingFixtureMethods: FIXTURE_METHODS.filter(
-      (method) => !appServerMethodsSeen.includes(method),
-    ),
-    mcpCounts: {
-      servers: Array.isArray(responses.get("mcpServer/list")?.result?.servers)
-        ? responses.get("mcpServer/list").result.servers.length
-        : null,
-      statusServers: Array.isArray(
-        responses.get("mcpServerStatus/list")?.result?.servers,
-      )
-        ? responses.get("mcpServerStatus/list").result.servers.length
-        : null,
-      tools: Array.isArray(responses.get("mcpTool/list")?.result?.tools)
-        ? responses.get("mcpTool/list").result.tools.length
-        : null,
-      prompts: Array.isArray(responses.get("mcpPrompt/list")?.result?.prompts)
-        ? responses.get("mcpPrompt/list").result.prompts.length
-        : null,
-      resources: Array.isArray(
-        responses.get("mcpResource/list")?.result?.resources,
-      )
-        ? responses.get("mcpResource/list").result.resources.length
-        : null,
-    },
-  };
-}
-
-async function writeMcpFixture() {
-  const root = await fsp.mkdtemp(path.join(os.tmpdir(), "ember-mcp-current-"));
-  const serverPath = path.join(root, "mcp-current-fixture.mjs");
-  await fsp.writeFile(
-    serverPath,
-    `import readline from "node:readline";
-
-const rl = readline.createInterface({
-  input: process.stdin,
-  crlfDelay: Infinity,
-});
-
-function send(message) {
-  process.stdout.write(\`\${JSON.stringify(message)}\\n\`);
-}
-
-function result(id, value) {
-  send({ jsonrpc: "2.0", id, result: value });
-}
-
-function error(id, code, message) {
-  send({ jsonrpc: "2.0", id, error: { code, message } });
-}
-
-rl.on("line", (line) => {
-  if (!line.trim()) return;
-  const message = JSON.parse(line);
-  const { id, method, params } = message;
-
-  if (method === "initialize") {
-    result(id, {
-      protocolVersion: "2025-03-26",
-      capabilities: {
-        tools: {},
-        resources: {},
-      },
-      serverInfo: {
-        name: "fixture-mcp",
-        version: "1.0.0",
-      },
-    });
-    return;
-  }
-
-  if (method === "notifications/initialized") return;
-
-  if (method === "tools/list") {
-    result(id, {
-      tools: [
-        {
-          name: "echo",
-          description: "Echo a message for current MCP tests",
-          inputSchema: {
-            type: "object",
-            properties: {
-              message: { type: "string" },
-            },
-          },
-        },
-      ],
-    });
-    return;
-  }
-
-  if (method === "tools/call") {
-    result(id, {
-      content: [
-        {
-          type: "text",
-          text: \`echo: \${params?.arguments?.message ?? ""}\`,
-        },
-      ],
-      isError: false,
-    });
-    return;
-  }
-
-  if (method === "resources/list") {
-    result(id, {
-      resources: [
-        {
-          uri: "fixture://status",
-          name: "status",
-          description: "Current MCP fixture status",
-          mimeType: "text/plain",
-        },
-      ],
-    });
-    return;
-  }
-
-  if (method === "resources/read") {
-    result(id, {
-      contents: [
-        {
-          uri: params?.uri ?? "fixture://status",
-          mimeType: "text/plain",
-          text: "fixture resource ok",
-        },
-      ],
-    });
-    return;
-  }
-
-  error(id, -32601, \`unsupported fixture method: \${method}\`);
-});
-`,
-    "utf8",
-  );
-  return { root, serverPath };
-}
-
-async function runReadChecks(options, entries) {
-  assertArrayField(
-    "mcpServer/list",
-    await invokeAppServerMethod(options, "mcpServer/list", {}, entries),
-    "servers",
-  );
-  assertArrayField(
-    "mcpServerStatus/list",
-    await invokeAppServerMethod(options, "mcpServerStatus/list", {}, entries),
-    "servers",
-  );
-  assertArrayField(
-    "mcpTool/list",
-    await invokeAppServerMethod(options, "mcpTool/list", {}, entries),
-    "tools",
-  );
-  assertArrayField(
-    "mcpTool/listForContext",
-    await invokeAppServerMethod(
-      options,
-      "mcpTool/listForContext",
-      { caller: "assistant", includeDeferred: true },
-      entries,
-    ),
-    "tools",
-  );
-  assertArrayField(
-    "mcpTool/search",
-    await invokeAppServerMethod(
-      options,
-      "mcpTool/search",
-      { query: "fixture", caller: "tool_search", limit: 5 },
-      entries,
-    ),
-    "tools",
-  );
-  assertArrayField(
-    "mcpPrompt/list",
-    await invokeAppServerMethod(options, "mcpPrompt/list", {}, entries),
-    "prompts",
-  );
-  assertArrayField(
-    "mcpResource/list",
-    await invokeAppServerMethod(options, "mcpResource/list", {}, entries),
-    "resources",
-  );
-}
-
-async function runFixtureChecks(options, entries, fixture) {
-  const serverId = `mcp-current-${Date.now()}`;
-  const serverName = serverId.replace(/[^a-zA-Z0-9_-]/g, "-");
-
-  try {
-    assertArrayField(
-      "mcpServer/create",
-      await invokeAppServerMethod(
-        options,
-        "mcpServer/create",
-        {
-          server: {
-            id: serverId,
-            name: serverName,
-            description: "Current MCP JSON-RPC smoke fixture",
-            server_config: {
-              command: "node",
-              args: [fixture.serverPath],
-              cwd: fixture.root,
-              timeout: 3,
-            },
-            enabled_ember: true,
-            enabled_claude: false,
-            enabled_codex: false,
-            enabled_gemini: false,
-            created_at: Date.now(),
-          },
-        },
-        entries,
-      ),
-      "servers",
-    );
-
-    assertEmptyObject(
-      "mcpServer/start",
-      await invokeAppServerMethod(
-        options,
-        "mcpServer/start",
-        { name: serverName },
-        entries,
-      ),
-    );
-
-    const statusServers = assertArrayField(
-      "mcpServerStatus/list",
-      await invokeAppServerMethod(options, "mcpServerStatus/list", {}, entries),
-      "servers",
-    );
-    assert(
-      statusServers.some(
-        (server) =>
-          server?.name === serverName &&
-          server?.is_running === true &&
-          server?.server_info?.supports_tools === true &&
-          server?.server_info?.supports_resources === true,
-      ),
-      "mcpServerStatus/list did not report running fixture capabilities",
-    );
-
-    const tools = assertArrayField(
-      "mcpTool/list",
-      await invokeAppServerMethod(options, "mcpTool/list", {}, entries),
-      "tools",
-    );
-    const fixtureToolName = `mcp__${serverName}__echo`;
-    assert(
-      tools.some((tool) => tool?.name === fixtureToolName),
-      `mcpTool/list did not return ${fixtureToolName}`,
-    );
-
-    assertToolResult(
-      "mcpTool/call",
-      await invokeAppServerMethod(
-        options,
-        "mcpTool/call",
-        {
-          toolName: fixtureToolName,
-          arguments: { message: "hello current MCP" },
-        },
-        entries,
-      ),
-      "echo: hello current MCP",
-    );
-
-    const resources = assertArrayField(
-      "mcpResource/list",
-      await invokeAppServerMethod(options, "mcpResource/list", {}, entries),
-      "resources",
-    );
-    assert(
-      resources.some((resource) => resource?.uri === "fixture://status"),
-      "mcpResource/list did not return fixture://status",
-    );
-
-    assertResourceResult(
-      "mcpResource/read",
-      await invokeAppServerMethod(
-        options,
-        "mcpResource/read",
-        { uri: "fixture://status" },
-        entries,
-      ),
-      "fixture resource ok",
-    );
-
-    return { serverId, serverName, fixtureToolName };
-  } finally {
-    await invokeAppServerMethod(
-      options,
-      "mcpServer/stop",
-      { name: serverName },
-      entries,
-    ).catch((error) => {
-      console.warn(
-        `[smoke:mcp-current] fixture stop failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    });
-    await invokeAppServerMethod(
-      options,
-      "mcpServer/delete",
-      { id: serverId },
-      entries,
-    ).catch((error) => {
-      console.warn(
-        `[smoke:mcp-current] fixture delete failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    });
-  }
-}
-
 async function run() {
   if (typeof fetch !== "function") {
     throw new Error("当前 Node 运行时不支持 fetch，请使用 Node 18+");
   }
 
   const options = parseArgs(process.argv.slice(2));
+  if (
+    options.allowLiveProvider &&
+    !String(process.env.LIME_MCP_LIVE_SERVER_URL || "").trim()
+  ) {
+    throw new Error(
+      "--allow-live-provider requires LIME_MCP_LIVE_SERVER_URL to point at a real streamable HTTP MCP server",
+    );
+  }
   fs.mkdirSync(options.evidenceDir, { recursive: true });
 
   const summaryPath = path.join(
@@ -789,26 +199,51 @@ async function run() {
     checkedAt: new Date().toISOString(),
     healthUrl: options.healthUrl,
     invokeUrl: options.invokeUrl,
-    smokeMode: options.allowWriteFixture
-      ? "direct-devbridge-app-server-json-rpc-with-stdio-fixture"
-      : "direct-devbridge-app-server-json-rpc-read-only",
+    smokeMode: [
+      "direct-devbridge-app-server-json-rpc",
+      options.allowWriteFixture ? "stdio-fixture" : null,
+      options.allowPluginRuntimeFixture ? "plugin-runtime-fixture" : null,
+      options.allowOAuthFixture ? "oauth-fixture" : null,
+      options.allowLiveProvider ? "live-provider" : null,
+    ]
+      .filter(Boolean)
+      .join("-with-"),
     classification:
       "MCP current path must use app_server_handle_json_lines -> App Server JSON-RPC; legacy mcp_* Tauri facade is guard-only.",
     allowWriteFixture: options.allowWriteFixture,
+    allowOAuthFixture: options.allowOAuthFixture,
+    allowPluginRuntimeFixture: options.allowPluginRuntimeFixture,
+    allowLiveProvider: options.allowLiveProvider,
     cleanupFixture: options.cleanupFixture,
     health: null,
     fixture: null,
+    pluginRuntimeFixture: null,
+    oauthFixture: null,
+    liveProvider: null,
     appServerHandleJsonLinesSeen: false,
+    openExternalUrlSeen: false,
     appServerMethodsSeen: [],
     legacyMcpCommandsSeen: [],
     missingReadMethods: [...REQUIRED_READ_METHODS],
-    missingFixtureMethods: options.allowWriteFixture ? [...FIXTURE_METHODS] : [],
+    missingFixtureMethods: options.allowWriteFixture
+      ? [...FIXTURE_METHODS]
+      : [],
+    missingOAuthFixtureMethods: options.allowOAuthFixture
+      ? [...OAUTH_FIXTURE_METHODS]
+      : [],
+    missingPluginRuntimeFixtureMethods: options.allowPluginRuntimeFixture
+      ? [...PLUGIN_RUNTIME_FIXTURE_METHODS]
+      : [],
+    missingLiveProviderMethods: options.allowLiveProvider
+      ? [...LIVE_PROVIDER_METHODS]
+      : [],
     mcpCounts: {
       servers: null,
       statusServers: null,
       tools: null,
       prompts: null,
       resources: null,
+      resourceTemplates: null,
     },
     network: networkPath,
     summary: summaryPath,
@@ -834,8 +269,50 @@ async function run() {
       );
     }
 
+    if (options.allowPluginRuntimeFixture) {
+      if (!fixture) {
+        fixture = await writeMcpFixture();
+      }
+      summary.pluginRuntimeFixture = sanitizeJson({
+        root: fixture.root,
+        serverPath: fixture.serverPath,
+      });
+      Object.assign(
+        summary.pluginRuntimeFixture,
+        await runPluginRuntimeFixtureChecks(options, invokeEntries, fixture),
+      );
+    }
+
+    if (options.allowOAuthFixture) {
+      summary.oauthFixture = await runMcpOAuthFixtureSmoke({
+        options,
+        entries: invokeEntries,
+        invokeAppServerMethod,
+        invokeBridgeCommand,
+      });
+    }
+
+    if (options.allowLiveProvider) {
+      summary.liveProvider = await runMcpLiveProviderSmoke({
+        options,
+        entries: invokeEntries,
+        invokeAppServerMethod,
+      });
+    }
+
     const observed = summarizeInvokeEntries(invokeEntries);
     Object.assign(summary, observed);
+    summary.missingLiveProviderMethods = options.allowLiveProvider
+      ? LIVE_PROVIDER_METHODS.filter(
+          (method) => !summary.appServerMethodsSeen.includes(method),
+        )
+      : [];
+    summary.missingPluginRuntimeFixtureMethods =
+      options.allowPluginRuntimeFixture
+        ? PLUGIN_RUNTIME_FIXTURE_METHODS.filter(
+            (method) => !summary.appServerMethodsSeen.includes(method),
+          )
+        : [];
 
     writeJsonFile(networkPath, {
       entries: invokeEntries,
@@ -859,10 +336,76 @@ async function run() {
         summary.missingFixtureMethods.length === 0,
         `缺少 MCP fixture current methods: ${summary.missingFixtureMethods.join(", ")}`,
       );
+      assert(summary.fixture?.fixtureToolName, "未记录 fixture MCP tool name");
       assert(
-        summary.fixture?.fixtureToolName,
-        "未记录 fixture MCP tool name",
+        summary.fixture?.outputSchemaStructuredContentSeen === true,
+        "未记录 fixture MCP tool output_schema structuredContent",
       );
+      assert(
+        summary.fixture?.structuredContentEcho?.echoedMessage ===
+          "hello current MCP",
+        "未记录 fixture MCP tool structuredContent",
+      );
+      assert(
+        summary.fixture?.resourceTemplateUriTemplate === "fixture://item/{id}",
+        "未记录 fixture MCP resource template",
+      );
+    }
+    if (options.allowOAuthFixture) {
+      assert(
+        summary.missingOAuthFixtureMethods.length === 0,
+        `缺少 MCP OAuth fixture current methods: ${summary.missingOAuthFixtureMethods.join(", ")}`,
+      );
+      assert(
+        summary.openExternalUrlSeen,
+        "未观察到 open_external_url current 网关",
+      );
+      assert(
+        summary.oauthFixture?.authStatus?.mode === "oauth" &&
+          summary.oauthFixture?.authStatus?.available === true,
+        "MCP OAuth fixture 未记录已授权状态",
+      );
+    }
+    if (options.allowPluginRuntimeFixture) {
+      assert(
+        summary.missingPluginRuntimeFixtureMethods.length === 0,
+        `缺少 MCP plugin runtime fixture current methods: ${summary.missingPluginRuntimeFixtureMethods.join(", ")}`,
+      );
+      assert(
+        summary.pluginRuntimeFixture?.runtimeStatus === "available" &&
+          summary.pluginRuntimeFixture?.prepareStatus === "ready",
+        "MCP plugin runtime fixture 未记录 available/ready target",
+      );
+      assert(
+        summary.pluginRuntimeFixture?.explicitCallProofSeen === true,
+        "MCP plugin runtime fixture 未记录显式 call proof",
+      );
+      assert(
+        summary.pluginRuntimeFixture?.defaultProofDidNotCallTool === true,
+        "MCP plugin runtime fixture 默认 list proof 不应调用工具",
+      );
+    }
+    if (options.allowLiveProvider) {
+      assert(
+        summary.missingLiveProviderMethods.length === 0,
+        `缺少 MCP live provider current methods: ${summary.missingLiveProviderMethods.join(", ")}`,
+      );
+      assert(
+        summary.liveProvider?.serverName,
+        "MCP live provider 未记录 serverName",
+      );
+      if (summary.liveProvider?.provider?.toolName) {
+        assert(
+          summary.liveProvider?.calledTool?.toolName,
+          "MCP live provider 未记录指定工具调用结果",
+        );
+      }
+      if (summary.liveProvider?.provider?.resourceUriProvided) {
+        assert(
+          summary.liveProvider?.readResource?.uriMatchesExpected === true,
+          "MCP live provider 未记录指定资源读取结果",
+        );
+      }
     }
     assert(
       summary.legacyMcpCommandsSeen.length === 0,
@@ -876,6 +419,17 @@ async function run() {
     summary.error = error instanceof Error ? error.message : String(error);
     const observed = summarizeInvokeEntries(invokeEntries);
     Object.assign(summary, observed);
+    summary.missingLiveProviderMethods = options.allowLiveProvider
+      ? LIVE_PROVIDER_METHODS.filter(
+          (method) => !summary.appServerMethodsSeen.includes(method),
+        )
+      : [];
+    summary.missingPluginRuntimeFixtureMethods =
+      options.allowPluginRuntimeFixture
+        ? PLUGIN_RUNTIME_FIXTURE_METHODS.filter(
+            (method) => !summary.appServerMethodsSeen.includes(method),
+          )
+        : [];
     writeJsonFile(networkPath, {
       entries: invokeEntries,
       summary: observed,

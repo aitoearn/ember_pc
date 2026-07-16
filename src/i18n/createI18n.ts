@@ -20,7 +20,7 @@ function syncDocumentLocale(locale: SupportedLocale): void {
   document.documentElement.dir = resolveDocumentDirection(locale);
 }
 
-export function initEmberI18n(initialLocale?: string | null): typeof i18n {
+export function initLimeI18n(initialLocale?: string | null): typeof i18n {
   if (i18n.isInitialized) {
     if (initialLocale === undefined) {
       syncDocumentLocale(normalizeLocale(i18n.language));
@@ -59,18 +59,18 @@ export function initEmberI18n(initialLocale?: string | null): typeof i18n {
   return i18n;
 }
 
-export async function changeEmberLocale(
+export async function changeLimeLocale(
   nextLocale?: string | null,
 ): Promise<SupportedLocale> {
   const locale = normalizeLocale(nextLocale);
-  initEmberI18n(locale);
+  initLimeI18n(locale);
   await i18n.changeLanguage(locale);
   syncDocumentLocale(locale);
   return locale;
 }
 
-export function getEmberI18n() {
-  return initEmberI18n();
+export function getLimeI18n() {
+  return initLimeI18n();
 }
 
-export { resources as emberI18nResources };
+export { resources as limeI18nResources };

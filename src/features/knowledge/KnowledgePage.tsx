@@ -61,7 +61,7 @@ interface KnowledgePageProps {
 
 type AsyncStatus = "idle" | "loading" | "ready" | "error";
 
-const WORKING_DIR_STORAGE_KEY = "ember.knowledge.working-dir";
+const WORKING_DIR_STORAGE_KEY = "lime.knowledge.working-dir";
 const LAST_PROJECT_ID_STORAGE_KEY = "agent_last_project_id";
 const DEFAULT_PACK_NAME = "project-material";
 const DEFAULT_SOURCE_FILE_NAME = "source.md";
@@ -95,8 +95,8 @@ function isLikelyTransientWorkingDir(value: string): boolean {
   return (
     normalized.includes("/tmp/") ||
     normalized.includes("/var/folders/") ||
-    normalized.includes("ember-knowledge-smoke") ||
-    normalized.includes("ember-knowledge-")
+    normalized.includes("lime-knowledge-smoke") ||
+    normalized.includes("lime-knowledge-")
   );
 }
 
@@ -673,6 +673,7 @@ export function KnowledgePage({ onNavigate, pageParams }: KnowledgePageProps) {
       companionPacks.push({
         name: selectedPersonaName,
         activation: "explicit",
+        runtimeMode: "persona",
       });
     }
     for (const dataPackName of selectedDataNames) {
@@ -682,6 +683,7 @@ export function KnowledgePage({ onNavigate, pageParams }: KnowledgePageProps) {
       companionPacks.push({
         name: dataPackName,
         activation: "explicit",
+        runtimeMode: "data",
       });
     }
 
@@ -904,7 +906,10 @@ export function KnowledgePage({ onNavigate, pageParams }: KnowledgePageProps) {
   ];
 
   return (
-    <main className="ember-workbench-theme-scope flex h-full min-h-0 flex-1 overflow-auto bg-[image:var(--ember-stage-surface)]">
+    <main
+      className="lime-workbench-theme-scope flex h-full min-h-0 flex-1 overflow-auto bg-[image:var(--lime-stage-surface)]"
+      data-testid="knowledge-page"
+    >
       <div className="mx-auto flex min-h-full w-full max-w-[1480px] flex-col gap-5 px-6 py-6">
         {activeView === "overview" ? (
           <header className="rounded-3xl border border-slate-200/90 bg-white p-5 shadow-sm shadow-slate-950/5">
@@ -929,6 +934,7 @@ export function KnowledgePage({ onNavigate, pageParams }: KnowledgePageProps) {
                 <button
                   type="button"
                   onClick={() => setActiveView("import")}
+                  data-testid="knowledge-page-organize-new"
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-emerald-700 bg-emerald-700 px-4 text-sm font-medium text-white transition hover:border-emerald-800 hover:bg-emerald-800"
                 >
                   <Upload className="h-4 w-4" />
@@ -1218,7 +1224,10 @@ export function KnowledgePage({ onNavigate, pageParams }: KnowledgePageProps) {
         ) : null}
 
         {activeView === "import" ? (
-          <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/5">
+          <section
+            className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm shadow-slate-950/5"
+            data-testid="knowledge-page-import-view"
+          >
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-sm text-slate-500">{t("knowledgePage.import.breadcrumb")}</p>
@@ -1288,14 +1297,12 @@ export function KnowledgePage({ onNavigate, pageParams }: KnowledgePageProps) {
                       <p className="mt-1 text-sm text-slate-500">
                         {t("knowledgePage.import.source.description")}
                       </p>
-                      <div className="mt-4 grid gap-3 md:grid-cols-3">
+                      <div className="mt-4 grid gap-3 md:grid-cols-4">
                         {[
-                          t("knowledgePage.import.source.type.requirementPrd"),
-                          t("knowledgePage.import.source.type.code"),
-                          t("knowledgePage.import.source.type.chatRecord"),
-                          t("knowledgePage.import.source.type.productInfo"),
-                          t("knowledgePage.import.source.type.apiDoc"),
-                          t("knowledgePage.import.source.type.techDoc"),
+                          t("knowledgePage.import.source.type.interview"),
+                          t("knowledgePage.import.source.type.productIntro"),
+                          t("knowledgePage.import.source.type.operationDoc"),
+                          t("knowledgePage.import.source.type.reviewRecord"),
                         ].map((label) => (
                           <div
                             key={label}

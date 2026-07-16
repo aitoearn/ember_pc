@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { emberI18nResources } from "@/i18n/createI18n";
+import { limeI18nResources } from "@/i18n/createI18n";
 import { SUPPORTED_LOCALES } from "@/i18n/locales";
 import type { Message } from "../types";
 import {
   AGENT_STREAM_EMPTY_FINAL_REPLY_ERROR_MESSAGE,
   buildAgentStreamCompletedAssistantMessagePatch,
   buildAgentStreamEmptyFinalErrorPlan,
-  buildAgentStreamFinalDonePlan,
   buildAgentStreamMissingFinalReplyFailurePlan,
   buildAgentStreamMissingFinalReplyFailureSideEffectPlan,
+  buildAgentStreamTerminalCompletionPlan,
   isAgentStreamEmptyFinalReplyError,
   reconcileAgentStreamFinalContentParts,
   resolveAgentStreamCompletedVisibleContent,
@@ -19,10 +19,10 @@ import {
 describe("agentStreamCompletionController", () => {
   it("空 final 文案应覆盖所有 current locale", () => {
     for (const locale of SUPPORTED_LOCALES) {
-      expect(emberI18nResources[locale].agent).toHaveProperty(
+      expect(limeI18nResources[locale].agent).toHaveProperty(
         "agentChat.emptyFinalReply.errorMessage",
       );
-      expect(emberI18nResources[locale].agent).toHaveProperty(
+      expect(limeI18nResources[locale].agent).toHaveProperty(
         "agentChat.emptyFinalReply.fallbackContent",
       );
     }
@@ -61,7 +61,26 @@ describe("agentStreamCompletionController", () => {
     ).toBe(false);
     expect(
       shouldFailAgentStreamMissingFinalReply({
+        accumulatedContent: "。",
+      }),
+    ).toBe(true);
+    expect(
+      shouldFailAgentStreamMissingFinalReply({
+        accumulatedContent: "已有正文",
+      }),
+    ).toBe(false);
+    expect(
+      shouldFailAgentStreamMissingFinalReply({
         accumulatedContent: "最终答复",
+        hasFinalAnswerRequiredProcessBoundary: true,
+        hasAssistantTextAfterLatestFinalAnswerRequiredProcessBoundary: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldFailAgentStreamMissingFinalReply({
+        accumulatedContent: "最终答复",
+        hasFinalAnswerRequiredProcessBoundary: true,
+        hasAssistantTextAfterLatestFinalAnswerRequiredProcessBoundary: true,
       }),
     ).toBe(false);
   });
@@ -75,6 +94,18 @@ describe("agentStreamCompletionController", () => {
     expect(
       resolveAgentStreamGracefulCompletionContent({
         accumulatedContent: "<tool_call></tool_call>",
+        fallbackContent: "兜底内容",
+      }),
+    ).toBe("兜底内容");
+    expect(
+      resolveAgentStreamGracefulCompletionContent({
+        accumulatedContent: "<tool_call></tool_call>",
+        fallbackContent: "",
+      }),
+    ).toBe("");
+    expect(
+      resolveAgentStreamGracefulCompletionContent({
+        accumulatedContent: "。",
         fallbackContent: "兜底内容",
       }),
     ).toBe("兜底内容");
@@ -162,6 +193,90 @@ describe("agentStreamCompletionController", () => {
     ]);
   });
 
+  it("完成态 suffix 不应追加到早于 process boundary 的文本段", () => {
+    const parts = [
+      {
+        type: "tool_use",
+        metadata: { sequence: 2 },
+        toolCall: { id: "tool-a" },
+      },
+      {
+        type: "text",
+        text: "第一段。",
+        metadata: { source: "agent_text_delta", sequence: 1 },
+      },
+    ] as unknown as Message["contentParts"];
+
+    expect(
+      reconcileAgentStreamFinalContentParts({
+        parts,
+        finalContent: "第一段。第二段。",
+        rawContent: "第一段。第二段。",
+        surfaceThinkingDeltas: true,
+      }),
+    ).toEqual([
+      {
+        type: "tool_use",
+        metadata: { sequence: 2 },
+        toolCall: { id: "tool-a" },
+      },
+      {
+        type: "text",
+        text: "第一段。",
+        metadata: { source: "agent_text_delta", sequence: 1 },
+      },
+      { type: "text", text: "第二段。" },
+    ]);
+  });
+
+  it("完成态 reconcile 不应把 commentary text 当作最终正文", () => {
+    const parts = [
+      {
+        type: "text",
+        text: "我先联网核实目标页面来源。",
+        metadata: {
+          source: "agent_text_delta",
+          itemId: "commentary-1",
+          phase: "commentary",
+          sequence: 1,
+          turnId: "turn-1",
+        },
+      },
+      {
+        type: "tool_use",
+        metadata: { sequence: 2 },
+        toolCall: { id: "tool-a" },
+      },
+    ] as unknown as Message["contentParts"];
+
+    expect(
+      reconcileAgentStreamFinalContentParts({
+        parts,
+        finalContent: "最终正文。",
+        rawContent: "最终正文。",
+        surfaceThinkingDeltas: true,
+      }),
+    ).toEqual([
+      {
+        type: "text",
+        text: "我先联网核实目标页面来源。",
+        metadata: {
+          source: "agent_text_delta",
+          itemId: "commentary-1",
+          phase: "commentary",
+          sequence: 1,
+          turnId: "turn-1",
+        },
+      },
+      {
+        type: "tool_use",
+        metadata: { sequence: 2 },
+        toolCall: { id: "tool-a" },
+      },
+      { type: "text", text: "最终正文。" },
+    ]);
+  });
+
   it("应在不展示 thinking 时过滤 thinking part", () => {
     const parts = [
       { type: "thinking", text: "推理" },
@@ -209,7 +324,7 @@ describe("agentStreamCompletionController", () => {
           toolCall: {
             id: "tool-news-stale",
             name: "WebSearch",
-            arguments: "{\"query\":\"2026年6月7日 国际新闻\"}",
+            arguments: '{"query":"2026年6月7日 国际新闻"}',
             status: "running",
             startTime: startedAt,
           },
@@ -220,7 +335,7 @@ describe("agentStreamCompletionController", () => {
         {
           id: "tool-news-stale",
           name: "WebSearch",
-          arguments: "{\"query\":\"2026年6月7日 国际新闻\"}",
+          arguments: '{"query":"2026年6月7日 国际新闻"}',
           status: "running",
           startTime: startedAt,
         },
@@ -326,9 +441,34 @@ describe("agentStreamCompletionController", () => {
     });
   });
 
-  it("应为 final_done 构造完成副作用计划", () => {
+  it("关闭普通思考展示时仍可为可见过程摘要保留图片任务思考", () => {
     expect(
-      buildAgentStreamFinalDonePlan({
+      buildAgentStreamCompletedAssistantMessagePatch({
+        parts: [
+          { type: "thinking", text: "先确认深圳夏天午后的光线。" },
+          { type: "text", text: "正在为你生成深圳夏天午后的照片。" },
+        ],
+        finalContent: "正在为你生成深圳夏天午后的照片。",
+        rawContent: "正在为你生成深圳夏天午后的照片。",
+        surfaceThinkingDeltas: false,
+        preserveThinkingContent: true,
+        thinkingContent: "先确认深圳夏天午后的光线。",
+      }),
+    ).toEqual({
+      isThinking: false,
+      content: "正在为你生成深圳夏天午后的照片。",
+      contentParts: [
+        { type: "thinking", text: "先确认深圳夏天午后的光线。" },
+        { type: "text", text: "正在为你生成深圳夏天午后的照片。" },
+      ],
+      thinkingContent: "先确认深圳夏天午后的光线。",
+      runtimeStatus: undefined,
+    });
+  });
+
+  it("应为 turn_completed terminal 构造完成副作用计划", () => {
+    expect(
+      buildAgentStreamTerminalCompletionPlan({
         accumulatedContent:
           '<tool_result>{"output":"saved"}</tool_result>\n\n已保存。',
         queuedTurnId: "queued-1",
@@ -346,11 +486,27 @@ describe("agentStreamCompletionController", () => {
     });
   });
 
-  it("应为缺少最终回复的 final_done 构造失败计划并保留 usage", () => {
+  it("turn_completed terminal 在显式空 fallback 下不应回退到通用完成文案", () => {
+    expect(
+      buildAgentStreamTerminalCompletionPlan({
+        accumulatedContent: "<tool_result>{}</tool_result>",
+        fallbackContent: "",
+        hasMeaningfulCompletionSignal: true,
+        queuedTurnId: "queued-empty-fallback",
+        toolCallCount: 0,
+      }),
+    ).toMatchObject({
+      type: "complete",
+      finalContent: "",
+      queuedTurnIds: ["queued-empty-fallback"],
+    });
+  });
+
+  it("应为缺少最终回复的 turn_completed terminal 构造失败计划并保留 usage", () => {
     const usage = { input_tokens: 5, output_tokens: 0 };
 
     expect(
-      buildAgentStreamFinalDonePlan({
+      buildAgentStreamTerminalCompletionPlan({
         accumulatedContent: "",
         hasMeaningfulCompletionSignal: false,
         queuedTurnId: "queued-missing",
@@ -368,6 +524,49 @@ describe("agentStreamCompletionController", () => {
       },
       toastMessage: AGENT_STREAM_EMPTY_FINAL_REPLY_ERROR_MESSAGE,
       usage,
+    });
+  });
+
+  it("搜索等过程边界后没有 assistant 正文时应构造缺少最终回复失败计划", () => {
+    expect(
+      buildAgentStreamTerminalCompletionPlan({
+        accumulatedContent: "我先联网核实信息。",
+        hasFinalAnswerRequiredProcessBoundary: true,
+        hasAssistantTextAfterLatestFinalAnswerRequiredProcessBoundary: false,
+        queuedTurnId: "queued-search-no-final",
+        toolCallCount: 1,
+      }),
+    ).toEqual({
+      type: "missing_final_reply_failure",
+      errorMessage: AGENT_STREAM_EMPTY_FINAL_REPLY_ERROR_MESSAGE,
+      queuedTurnIds: ["queued-search-no-final"],
+      requestLogPayload: {
+        eventType: "chat_request_error",
+        status: "error",
+        error: AGENT_STREAM_EMPTY_FINAL_REPLY_ERROR_MESSAGE,
+      },
+      toastMessage: AGENT_STREAM_EMPTY_FINAL_REPLY_ERROR_MESSAGE,
+    });
+  });
+
+  it("搜索等过程边界后已有 assistant 正文时应正常完成", () => {
+    expect(
+      buildAgentStreamTerminalCompletionPlan({
+        accumulatedContent: "我先联网核实信息。最终摘要。",
+        hasFinalAnswerRequiredProcessBoundary: true,
+        hasAssistantTextAfterLatestFinalAnswerRequiredProcessBoundary: true,
+        queuedTurnId: "queued-search-final",
+        toolCallCount: 1,
+      }),
+    ).toEqual({
+      type: "complete",
+      finalContent: "我先联网核实信息。最终摘要。",
+      queuedTurnIds: ["queued-search-final"],
+      requestLogPayload: {
+        eventType: "chat_request_complete",
+        status: "success",
+        description: "请求完成，工具调用 1 次",
+      },
     });
   });
 
@@ -448,6 +647,24 @@ describe("agentStreamCompletionController", () => {
       type: "complete",
       finalContent: "本轮执行已完成，详细过程与产物已保留在当前对话中。",
       queuedTurnIds: ["queued-2"],
+      requestLogPayload: {
+        eventType: "chat_request_complete",
+        status: "success",
+        description: "请求完成，模型未补充最终总结，已降级保留当前过程结果",
+      },
+    });
+
+    expect(
+      buildAgentStreamEmptyFinalErrorPlan({
+        errorMessage: "模型未输出最终答复：工具已完成",
+        accumulatedContent: "已经输出的正文",
+        hasMeaningfulCompletionSignal: false,
+        queuedTurnId: "queued-3",
+      }),
+    ).toEqual({
+      type: "complete",
+      finalContent: "已经输出的正文",
+      queuedTurnIds: ["queued-3"],
       requestLogPayload: {
         eventType: "chat_request_complete",
         status: "success",

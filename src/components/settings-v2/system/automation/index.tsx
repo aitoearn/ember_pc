@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import {
   ArrowRight,
@@ -45,7 +44,7 @@ import {
   updateAutomationJob,
   updateAutomationSchedulerConfig,
 } from "@/lib/api/automation";
-import { auditAgentRuntimeObjective } from "@/lib/api/agentRuntime";
+import { auditAgentRuntimeObjective } from "@/lib/api/agentRuntime/objectiveClient";
 import {
   openPathWithDefaultApp,
   revealPathInFinder,
@@ -67,6 +66,7 @@ import {
   AutomationJobDialogSubmit,
   type AutomationJobDialogInitialValues,
 } from "./AutomationJobDialog";
+import type { AutomationThreadLineage } from "./automationThreadLineage";
 import {
   type AutomationServiceSkillContextCopy,
   resolveServiceSkillAutomationContext,
@@ -103,8 +103,13 @@ import type { AutomationWorkspaceTab } from "@/types/page";
 const AUTOMATION_CORE_LOAD_TIMEOUT_MS = 8000;
 const AUTOMATION_AUXILIARY_LOAD_TIMEOUT_MS = 5000;
 
+type SettingsTranslate = (
+  key: string,
+  values?: Record<string, unknown>,
+) => string;
+
 function buildAutomationServiceSkillContextCopy(
-  t: TFunction<"settings">,
+  t: SettingsTranslate,
 ): AutomationServiceSkillContextCopy {
   return {
     defaultTitle: t("settings.automation.tasks.list.badge.serviceSkill"),
@@ -127,7 +132,7 @@ function buildAutomationServiceSkillContextCopy(
 }
 
 function buildAutomationPresentationCopy(
-  t: TFunction<"settings">,
+  t: SettingsTranslate,
   serviceSkillContextCopy: AutomationServiceSkillContextCopy,
 ): AutomationPresentationCopy {
   const accessModeCopy: AutomationAccessModeCopy = {
@@ -310,7 +315,7 @@ type AutomationWorkspaceTemplate = {
 };
 
 function createWorkspaceTemplates(
-  t: TFunction<"settings">,
+  t: SettingsTranslate,
 ): AutomationWorkspaceTemplate[] {
   return [
     {
@@ -388,6 +393,7 @@ interface AutomationSettingsProps {
   mode?: AutomationSettingsMode;
   initialSelectedJobId?: string;
   initialWorkspaceTab?: AutomationWorkspaceTab;
+  threadLineage?: AutomationThreadLineage | null;
   onOpenSettings?: () => void;
   onOpenWorkspace?: () => void;
 }
@@ -425,10 +431,13 @@ export function AutomationSettings({
   mode = "full",
   initialSelectedJobId,
   initialWorkspaceTab,
+  threadLineage,
   onOpenSettings,
   onOpenWorkspace,
 }: AutomationSettingsProps) {
-  const { i18n, t } = useTranslation("settings");
+  const { i18n, t: rawT } = useTranslation("settings");
+  const t = rawT as SettingsTranslate;
+  const translateGlobal = i18n.t as SettingsTranslate;
   const serviceSkillContextCopy = useMemo(
     () => buildAutomationServiceSkillContextCopy(t),
     [t],
@@ -457,12 +466,12 @@ export function AutomationSettings({
           }),
         statusLabel: (status) =>
           String(
-            i18n.t(`agentChat.managedObjective.status.${status}`, {
+            translateGlobal(`agentChat.managedObjective.status.${status}`, {
               ns: "agent",
             }),
           ),
       }),
-      [i18n, t],
+      [t, translateGlobal],
     );
   const workspaceTemplates = useMemo(() => createWorkspaceTemplates(t), [t]);
   const workspaceOnly = mode === "workspace";
@@ -1148,6 +1157,12 @@ export function AutomationSettings({
   function openCreateDialog(
     initialValues?: AutomationJobDialogInitialValues | null,
   ) {
+    if (!threadLineage?.sessionId?.trim() || !threadLineage.threadId?.trim()) {
+      toast.error(
+        t("settings.automation.jobDialog.validation.threadLineageRequired"),
+      );
+      return;
+    }
     setDialogMode("create");
     setDialogInitialValues(initialValues ?? null);
     setDialogOpen(true);
@@ -1215,7 +1230,7 @@ export function AutomationSettings({
   }
 
   return (
-    <div className="ember-workbench-theme-scope space-y-6 pb-8">
+    <div className="lime-workbench-theme-scope space-y-6 pb-8">
       <section className="rounded-[28px] border border-slate-200/80 bg-white px-5 py-4 shadow-sm shadow-slate-950/5">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-1.5">
@@ -2009,6 +2024,7 @@ export function AutomationSettings({
         job={dialogMode === "edit" ? selectedJob : null}
         workspaces={workspaces}
         initialValues={dialogMode === "create" ? dialogInitialValues : null}
+        threadLineage={threadLineage}
         saving={jobSaving}
         onOpenChange={handleDialogOpenChange}
         onSubmit={handleSubmitJob}

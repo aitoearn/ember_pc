@@ -3,7 +3,7 @@
 //! 从文件系统发现并加载多层级的 AGENT.md 指令文件，
 //! 按优先级从低到高：全局 -> 项目根 -> 当前目录
 
-use ember_core::app_paths;
+use lime_core::app_paths;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
@@ -382,7 +382,7 @@ mod tests {
             InstructionLayer {
                 source: InstructionSource::Global,
                 content: "global rule".to_string(),
-                path: PathBuf::from("/appdata/ember/AGENTS.md"),
+                path: PathBuf::from("/appdata/lime/AGENTS.md"),
             },
             InstructionLayer {
                 source: InstructionSource::Project,
@@ -459,10 +459,10 @@ mod tests {
     }
 
     #[test]
-    fn test_project_discovery_ignores_legacy_ember_subdir_files() {
+    fn test_project_discovery_ignores_legacy_lime_subdir_files() {
         let tmp = TempDir::new().unwrap();
         fs::create_dir(tmp.path().join(".git")).unwrap();
-        let legacy_dir = tmp.path().join(".ember");
+        let legacy_dir = tmp.path().join(".lime");
         fs::create_dir(&legacy_dir).unwrap();
         fs::write(legacy_dir.join("AGENT.md"), "legacy nested agent").unwrap();
 

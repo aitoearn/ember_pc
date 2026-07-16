@@ -273,7 +273,7 @@ export function ConnectConfirmDialog({
             添加 API Key
           </DialogTitle>
           <DialogDescription className="text-gray-500">
-            确认添加以下中转商的 API Key 到 Ember
+            确认添加以下中转商的 API Key 到 Lime
           </DialogDescription>
         </DialogHeader>
 

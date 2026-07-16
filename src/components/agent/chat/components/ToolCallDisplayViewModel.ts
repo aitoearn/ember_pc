@@ -212,7 +212,7 @@ export function buildToolResultMetaNoticeKeys(params: {
   if (!metadata) return [];
 
   const items: ToolResultMetaNoticeKey[] = [];
-  if (metadata.ember_offloaded === true || metadata.output_truncated === true) {
+  if (metadata.lime_offloaded === true || metadata.output_truncated === true) {
     items.push("truncatedPreview");
   }
   if (typeof metadata.exit_code === "number" && isResultFailure) {

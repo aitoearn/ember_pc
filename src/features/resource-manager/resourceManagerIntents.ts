@@ -7,11 +7,11 @@ import { hasDesktopHostEventCapability } from "@/lib/desktop-runtime";
 import { normalizeResourceManagerSourceContext } from "./resourceManagerSession";
 
 export const RESOURCE_MANAGER_NAVIGATION_INTENT_KEY =
-  "ember:resource-manager:navigation-intent";
+  "lime:resource-manager:navigation-intent";
 export const RESOURCE_MANAGER_NAVIGATION_INTENT_CONSUMED_KEY =
-  "ember:resource-manager:navigation-intent:consumed";
+  "lime:resource-manager:navigation-intent:consumed";
 export const RESOURCE_MANAGER_NAVIGATION_INTENT_EVENT =
-  "ember:resource-manager-navigation-intent";
+  "lime:resource-manager-navigation-intent";
 const RESOURCE_MANAGER_NAVIGATION_INTENT_TTL_MS = 1000 * 60 * 30;
 
 export type ResourceManagerNavigationIntentAction =

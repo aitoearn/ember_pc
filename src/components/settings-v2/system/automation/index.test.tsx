@@ -1,6 +1,6 @@
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
   cleanupMountedAutomationSettings,
   clickElement,
@@ -59,7 +59,7 @@ vi.mock("@/lib/api/project", () => ({
   listProjects: mockListProjects,
 }));
 
-vi.mock("@/lib/api/agentRuntime", () => ({
+vi.mock("@/lib/api/agentRuntime/objectiveClient", () => ({
   auditAgentRuntimeObjective: mockAuditAgentRuntimeObjective,
 }));
 
@@ -77,6 +77,7 @@ vi.mock("./AutomationJobDialog", () => ({
     open: boolean;
     mode: "create" | "edit";
     initialValues?: Record<string, unknown> | null;
+    threadLineage?: { sessionId?: string | null; threadId?: string | null };
   }) => {
     mockAutomationJobDialog(props);
     const payloadKind =
@@ -127,14 +128,14 @@ beforeEach(async () => {
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   setupDefaultAutomationMocks(automationMocks);
 });
 
 afterEach(async () => {
   await cleanupMountedAutomationSettings();
   vi.clearAllMocks();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("AutomationSettings", () => {
@@ -189,7 +190,7 @@ describe("AutomationSettings", () => {
 
   it("应展示 Google Sheets 作为输出目标标签", async () => {
     const sheetsTarget =
-      "spreadsheet_id=sheet-1;sheet=巡检结果;credentials_file=C:/ember/service-account.json";
+      "spreadsheet_id=sheet-1;sheet=巡检结果;credentials_file=C:/lime/service-account.json";
 
     mockGetAutomationJobs.mockResolvedValueOnce([
       createBrowserJob({
@@ -257,7 +258,7 @@ describe("AutomationSettings", () => {
     });
 
     expect(
-      container.querySelector(".ember-workbench-theme-scope"),
+      container.querySelector(".lime-workbench-theme-scope"),
     ).not.toBeNull();
     expect(container.textContent).toContain("持续流程");
     expect(container.textContent).toContain("开始这条");
@@ -288,7 +289,7 @@ describe("AutomationSettings", () => {
     await openJobDetails(container, "job-browser-1");
 
     expect(
-      document.body.querySelector(".ember-workbench-theme-scope"),
+      document.body.querySelector(".lime-workbench-theme-scope"),
     ).not.toBeNull();
     expect(
       document.body.querySelector(
@@ -355,7 +356,7 @@ describe("AutomationSettings", () => {
     await clickElement(openEvidenceButton);
 
     expect(mockOpenPathWithDefaultApp).toHaveBeenCalledWith(
-      "/workspace/default/.ember/harness/job-managed-objective-1/evidence",
+      "/workspace/default/.lime/harness/job-managed-objective-1/evidence",
     );
   });
 
@@ -381,9 +382,34 @@ describe("AutomationSettings", () => {
     ).not.toBeNull();
   });
 
-  it("workspace 模式点击模板后应打开 Agent 任务预填弹窗", async () => {
+  it("workspace 模式缺少 Thread lineage 时点击模板应 fail closed", async () => {
     const container = await renderSettings({
       mode: "workspace",
+    });
+
+    const templateButton = container.querySelector(
+      "[data-testid='automation-template-daily-brief']",
+    ) as HTMLButtonElement | null;
+
+    expect(templateButton).not.toBeNull();
+
+    await clickElement(templateButton);
+
+    expect(toast.error).toHaveBeenCalledWith(
+      "请先从当前项目对话中创建持续流程",
+    );
+    expect(
+      container.querySelector("[data-testid='automation-job-dialog']"),
+    ).toBeNull();
+  });
+
+  it("workspace 模式带 Thread lineage 时点击模板应打开 Agent 任务预填弹窗", async () => {
+    const container = await renderSettings({
+      mode: "workspace",
+      threadLineage: {
+        sessionId: "session-automation-1",
+        threadId: "thread-automation-1",
+      },
     });
 
     const templateButton = container.querySelector(
@@ -398,6 +424,14 @@ describe("AutomationSettings", () => {
       container.querySelector("[data-testid='automation-job-dialog']")
         ?.textContent,
     ).toBe("create:agent_turn:cron");
+    expect(mockAutomationJobDialog).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        threadLineage: {
+          sessionId: "session-automation-1",
+          threadId: "thread-automation-1",
+        },
+      }),
+    );
   });
 
   it("workspace 模式应支持从页面参数直接落到概览 tab", async () => {
@@ -463,7 +497,7 @@ describe("AutomationSettings", () => {
     const scheduledSkillMetadata = {
       service_skill: {
         id: "daily-trend-briefing",
-        title: "回归测试巡检",
+        title: "每日趋势摘要",
         runner_type: "scheduled",
         execution_location: "client_default",
         source: "cloud_catalog",
@@ -490,11 +524,13 @@ describe("AutomationSettings", () => {
     mockGetAutomationJobs.mockResolvedValueOnce([
       createAgentTurnJob({
         id: "job-service-skill-1",
-        name: "回归测试巡检｜定时执行",
+        name: "每日趋势摘要｜定时执行",
         description: "围绕指定平台与关键词输出趋势摘要。",
         payload: {
           kind: "agent_turn",
-          prompt: "[技能任务] 回归测试巡检",
+          prompt: "[技能任务] 每日趋势摘要",
+          session_id: "session-service-skill-1",
+          thread_id: "thread-service-skill-1",
           system_prompt: null,
           web_search: false,
           content_id: "content-service-skill-1",
@@ -561,7 +597,7 @@ describe("AutomationSettings", () => {
     expect(serviceSkillSummary?.textContent).toContain("定时运行");
     expect(serviceSkillSummary?.textContent).toContain("客户端执行");
     expect(serviceSkillSummary?.textContent).toContain("云目录");
-    expect(serviceSkillSummary?.textContent).toContain("技能：回归测试巡检");
+    expect(serviceSkillSummary?.textContent).toContain("技能：每日趋势摘要");
     expect(serviceSkillSummary?.textContent).toContain(
       "参数摘要: 监测平台: X / Twitter · 行业关键词: AI Agent，创作者工具",
     );
@@ -570,7 +606,7 @@ describe("AutomationSettings", () => {
     expect(runServiceSkillSummary?.textContent).toContain("技能流程运行上下文");
     expect(runServiceSkillSummary?.textContent).toContain("定时运行");
     expect(runServiceSkillSummary?.textContent).toContain("客户端执行");
-    expect(runServiceSkillSummary?.textContent).toContain("技能：回归测试巡检");
+    expect(runServiceSkillSummary?.textContent).toContain("技能：每日趋势摘要");
     expect(runServiceSkillSummary?.textContent).toContain(
       "参数摘要: 监测平台: 小红书 · 行业关键词: AI 短视频",
     );
@@ -579,7 +615,7 @@ describe("AutomationSettings", () => {
     );
     expect(dialog).not.toBeNull();
     expect(dialogText).toContain("技能流程上下文");
-    expect(dialogText).toContain("回归测试巡检");
+    expect(dialogText).toContain("每日趋势摘要");
     expect(dialogText).toContain("定时运行");
     expect(dialogText).toContain("客户端执行");
     expect(dialogText).toContain("云目录");
@@ -603,6 +639,8 @@ describe("AutomationSettings", () => {
         payload: {
           kind: "agent_turn",
           prompt: "继续推进每日目标摘要。",
+          session_id: "session-managed-objective-1",
+          thread_id: "thread-managed-objective-1",
           system_prompt: null,
           web_search: false,
           request_metadata: {
@@ -647,7 +685,7 @@ describe("AutomationSettings", () => {
     const compatSkillMetadata = {
       service_skill: {
         id: "account-performance-tracking",
-        title: "稳定性测试",
+        title: "账号增长跟踪",
         runner_type: "managed",
         execution_location: "cloud_required",
         source: "cloud_catalog",
@@ -655,7 +693,7 @@ describe("AutomationSettings", () => {
           {
             key: "account",
             label: "监测账号",
-            value: "@ember_next",
+            value: "@lime_next",
           },
         ],
       },
@@ -678,6 +716,8 @@ describe("AutomationSettings", () => {
         payload: {
           kind: "agent_turn",
           prompt: "[技能任务] 账号跟踪",
+          session_id: "session-service-skill-compat-1",
+          thread_id: "thread-service-skill-compat-1",
           system_prompt: null,
           web_search: false,
           content_id: "content-service-skill-compat-1",

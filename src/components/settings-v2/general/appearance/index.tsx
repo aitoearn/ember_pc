@@ -19,7 +19,6 @@ import {
   Palette,
   Sparkles,
   Sun,
-  Volume2,
   Shuffle,
   type LucideIcon,
 } from "lucide-react";
@@ -27,7 +26,7 @@ import { WorkbenchInfoTip } from "@/components/media/WorkbenchInfoTip";
 import { cn } from "@/lib/utils";
 import { getConfig, saveConfig, type Config } from "@/lib/api/appConfig";
 import { useI18nPatch } from "@/i18n/legacy-patch/I18nPatchProvider";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
   UI_LOCALE_OPTIONS,
   normalizeLocalePreference,
@@ -35,33 +34,32 @@ import {
   toLegacyPatchLanguage,
   type LocalePreference,
 } from "@/i18n/locales";
-import { useSoundContext } from "@/contexts/useSoundContext";
 import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "react-i18next";
 import {
-  EMBER_COLOR_SCHEME_CHANGED_EVENT,
-  EMBER_COLOR_SCHEMES,
-  EMBER_COLOR_SCHEME_STORAGE_KEY,
-  applyEmberColorScheme,
-  getEmberColorScheme,
-  loadEmberColorSchemeId,
-  persistEmberColorScheme,
-  type EmberColorSchemeChangedEventDetail,
-  type EmberColorSchemeId,
+  LIME_COLOR_SCHEME_CHANGED_EVENT,
+  LIME_COLOR_SCHEMES,
+  LIME_COLOR_SCHEME_STORAGE_KEY,
+  applyLimeColorScheme,
+  getLimeColorScheme,
+  loadLimeColorSchemeId,
+  persistLimeColorScheme,
+  type LimeColorSchemeChangedEventDetail,
+  type LimeColorSchemeId,
 } from "@/lib/appearance/colorSchemes";
 import {
-  EMBER_THEME_CHANGED_EVENT,
-  EMBER_THEME_MODE_OPTIONS,
-  EMBER_THEME_STORAGE_KEY,
-  applyEmberThemeMode,
-  loadEmberThemeMode,
-  persistEmberThemeMode,
-  type EmberThemeChangedEventDetail,
-  type EmberThemeMode,
+  LIME_THEME_CHANGED_EVENT,
+  LIME_THEME_MODE_OPTIONS,
+  LIME_THEME_STORAGE_KEY,
+  applyLimeThemeMode,
+  loadLimeThemeMode,
+  persistLimeThemeMode,
+  type LimeThemeChangedEventDetail,
+  type LimeThemeMode,
 } from "@/lib/appearance/themeMode";
 
 interface ThemeOption {
-  id: EmberThemeMode;
+  id: LimeThemeMode;
   label: string;
   description: string;
   icon: LucideIcon;
@@ -89,35 +87,32 @@ interface SurfacePanelProps {
   children: ReactNode;
 }
 
-const THEME_OPTION_ICONS: Record<EmberThemeMode, LucideIcon> = {
+const THEME_OPTION_ICONS: Record<LimeThemeMode, LucideIcon> = {
   dark: Moon,
   light: Sun,
   system: Monitor,
 };
 
 const ACTIVE_OPTION_CARD_CLASS =
-  "border-[color:var(--ember-surface-border-strong)] bg-[image:var(--ember-home-card-surface-strong)] text-[color:var(--ember-text-strong)] shadow-sm shadow-slate-950/10";
+  "border-[color:var(--lime-surface-border-strong)] bg-[image:var(--lime-home-card-surface-strong)] text-[color:var(--lime-text-strong)] shadow-sm shadow-slate-950/10";
 
 const INACTIVE_OPTION_CARD_CLASS =
-  "border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface)] text-[color:var(--ember-text)] hover:border-[color:var(--ember-surface-border-strong)] hover:bg-[color:var(--ember-surface-hover)] hover:text-[color:var(--ember-text-strong)]";
+  "border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface)] text-[color:var(--lime-text)] hover:border-[color:var(--lime-surface-border-strong)] hover:bg-[color:var(--lime-surface-hover)] hover:text-[color:var(--lime-text-strong)]";
 
 const HEADER_INFO_PILL_CLASS =
-  "rounded-full border border-[color:var(--ember-info-border)] bg-[color:var(--ember-info-soft)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--ember-info)]";
+  "rounded-full border border-[color:var(--lime-info-border)] bg-[color:var(--lime-info-soft)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--lime-info)]";
 
 const HEADER_SUCCESS_PILL_CLASS =
-  "rounded-full border border-[color:var(--ember-surface-border-strong)] bg-[color:var(--ember-brand-soft)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--ember-brand-strong)]";
-
-const HEADER_NEUTRAL_PILL_CLASS =
-  "rounded-full border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface-soft)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--ember-text-muted)]";
+  "rounded-full border border-[color:var(--lime-surface-border-strong)] bg-[color:var(--lime-brand-soft)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--lime-brand-strong)]";
 
 const CURRENT_INFO_PILL_CLASS =
-  "rounded-full border border-[color:var(--ember-info-border)] bg-[color:var(--ember-info-soft)] px-3 py-1 text-xs font-medium text-[color:var(--ember-info)]";
+  "rounded-full border border-[color:var(--lime-info-border)] bg-[color:var(--lime-info-soft)] px-3 py-1 text-xs font-medium text-[color:var(--lime-info)]";
 
 const CURRENT_SUCCESS_PILL_CLASS =
-  "rounded-full border border-[color:var(--ember-surface-border-strong)] bg-[color:var(--ember-brand-soft)] px-3 py-1 text-xs font-medium text-[color:var(--ember-brand-strong)]";
+  "rounded-full border border-[color:var(--lime-surface-border-strong)] bg-[color:var(--lime-brand-soft)] px-3 py-1 text-xs font-medium text-[color:var(--lime-brand-strong)]";
 
 const CONTEXT_STATUS_PILL_CLASS =
-  "rounded-full border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface-soft)] px-3 py-1 text-xs font-medium text-[color:var(--ember-text-muted)]";
+  "rounded-full border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface-soft)] px-3 py-1 text-xs font-medium text-[color:var(--lime-text-muted)]";
 
 function SurfacePanel({
   icon: Icon,
@@ -180,9 +175,9 @@ function resolveResponseLanguageOptionLabel(
 export function AppearanceSettings() {
   const { t } = useTranslation("settings");
   const [loading, setLoading] = useState(true);
-  const [theme, setTheme] = useState<EmberThemeMode>("system");
+  const [theme, setTheme] = useState<LimeThemeMode>("system");
   const [colorSchemeId, setColorSchemeId] =
-    useState<EmberColorSchemeId>("ember-classic");
+    useState<LimeColorSchemeId>("lime-classic");
   const [language, setLanguageState] = useState<LocalePreference>("zh-CN");
   const [agentResponseLanguage, setAgentResponseLanguage] =
     useState<LocalePreference>("auto");
@@ -194,8 +189,6 @@ export function AppearanceSettings() {
   const [error, setError] = useState<string | null>(null);
 
   const { setLanguage: setI18nLanguage } = useI18nPatch();
-  const { soundEnabled, setSoundEnabled, playToolcallSound } =
-    useSoundContext();
 
   const loadConfig = useCallback(async () => {
     setLoading(true);
@@ -227,29 +220,29 @@ export function AppearanceSettings() {
 
   useEffect(() => {
     const refreshAppearance = () => {
-      const nextTheme = loadEmberThemeMode();
-      const nextColorSchemeId = loadEmberColorSchemeId();
+      const nextTheme = loadLimeThemeMode();
+      const nextColorSchemeId = loadLimeColorSchemeId();
       setTheme(nextTheme);
       setColorSchemeId(nextColorSchemeId);
-      applyEmberThemeMode(nextTheme);
-      applyEmberColorScheme(nextColorSchemeId);
+      applyLimeThemeMode(nextTheme);
+      applyLimeColorScheme(nextColorSchemeId);
     };
 
     const handleThemeChanged = (event: Event) => {
-      const detail = (event as CustomEvent<EmberThemeChangedEventDetail>).detail;
-      setTheme(detail?.themeMode ?? loadEmberThemeMode());
+      const detail = (event as CustomEvent<LimeThemeChangedEventDetail>).detail;
+      setTheme(detail?.themeMode ?? loadLimeThemeMode());
     };
 
     const handleColorSchemeChanged = (event: Event) => {
-      const detail = (event as CustomEvent<EmberColorSchemeChangedEventDetail>)
+      const detail = (event as CustomEvent<LimeColorSchemeChangedEventDetail>)
         .detail;
-      setColorSchemeId(detail?.colorSchemeId ?? loadEmberColorSchemeId());
+      setColorSchemeId(detail?.colorSchemeId ?? loadLimeColorSchemeId());
     };
 
     const handleStorageChanged = (event: StorageEvent) => {
       if (
-        event.key === EMBER_THEME_STORAGE_KEY ||
-        event.key === EMBER_COLOR_SCHEME_STORAGE_KEY
+        event.key === LIME_THEME_STORAGE_KEY ||
+        event.key === LIME_COLOR_SCHEME_STORAGE_KEY
       ) {
         refreshAppearance();
       }
@@ -258,17 +251,17 @@ export function AppearanceSettings() {
     refreshAppearance();
     void loadConfig();
 
-    window.addEventListener(EMBER_THEME_CHANGED_EVENT, handleThemeChanged);
+    window.addEventListener(LIME_THEME_CHANGED_EVENT, handleThemeChanged);
     window.addEventListener(
-      EMBER_COLOR_SCHEME_CHANGED_EVENT,
+      LIME_COLOR_SCHEME_CHANGED_EVENT,
       handleColorSchemeChanged,
     );
     window.addEventListener("storage", handleStorageChanged);
 
     return () => {
-      window.removeEventListener(EMBER_THEME_CHANGED_EVENT, handleThemeChanged);
+      window.removeEventListener(LIME_THEME_CHANGED_EVENT, handleThemeChanged);
       window.removeEventListener(
-        EMBER_COLOR_SCHEME_CHANGED_EVENT,
+        LIME_COLOR_SCHEME_CHANGED_EVENT,
         handleColorSchemeChanged,
       );
       window.removeEventListener("storage", handleStorageChanged);
@@ -277,7 +270,7 @@ export function AppearanceSettings() {
 
   const themeOptions = useMemo<ThemeOption[]>(
     () =>
-      EMBER_THEME_MODE_OPTIONS.map((option) => ({
+      LIME_THEME_MODE_OPTIONS.map((option) => ({
         id: option.id,
         icon: THEME_OPTION_ICONS[option.id],
         label: t(
@@ -294,7 +287,7 @@ export function AppearanceSettings() {
 
   const colorSchemeOptions = useMemo(
     () =>
-      EMBER_COLOR_SCHEMES.map((option) => ({
+      LIME_COLOR_SCHEMES.map((option) => ({
         ...option,
         label: t(
           `settings.appearance.colorScheme.options.${option.id}.label`,
@@ -313,7 +306,7 @@ export function AppearanceSettings() {
     t("settings.appearance.theme.options.system.label", "跟随系统");
   const currentColorSchemeLabel =
     colorSchemeOptions.find((option) => option.id === colorSchemeId)?.label ??
-    getEmberColorScheme(colorSchemeId).label;
+    getLimeColorScheme(colorSchemeId).label;
 
   const workspaceSummary = useMemo(
     () => ({
@@ -324,16 +317,12 @@ export function AppearanceSettings() {
         agentResponseLanguage,
         t,
       ),
-      soundsLabel: soundEnabled
-        ? t("settings.appearance.status.enabled", "已开启")
-        : t("settings.appearance.status.disabled", "已关闭"),
     }),
     [
       agentResponseLanguage,
       currentColorSchemeLabel,
       currentThemeLabel,
       language,
-      soundEnabled,
       t,
     ],
   );
@@ -368,26 +357,26 @@ export function AppearanceSettings() {
     [t],
   );
 
-  const handleThemeChange = useCallback((nextTheme: EmberThemeMode) => {
-    const resolvedTheme = persistEmberThemeMode(nextTheme);
+  const handleThemeChange = useCallback((nextTheme: LimeThemeMode) => {
+    const resolvedTheme = persistLimeThemeMode(nextTheme);
     setTheme(resolvedTheme);
   }, []);
 
   const handleColorSchemeChange = useCallback(
-    (nextColorSchemeId: EmberColorSchemeId) => {
-      const resolvedId = persistEmberColorScheme(nextColorSchemeId);
+    (nextColorSchemeId: LimeColorSchemeId) => {
+      const resolvedId = persistLimeColorScheme(nextColorSchemeId);
       setColorSchemeId(resolvedId);
     },
     [],
   );
 
   const handleRandomColorScheme = useCallback(() => {
-    const candidates = EMBER_COLOR_SCHEMES.filter(
+    const candidates = LIME_COLOR_SCHEMES.filter(
       (scheme) => scheme.id !== colorSchemeId,
     );
     const nextScheme =
       candidates[Math.floor(Math.random() * candidates.length)] ??
-      EMBER_COLOR_SCHEMES[0];
+      LIME_COLOR_SCHEMES[0];
     handleColorSchemeChange(nextScheme.id);
   }, [colorSchemeId, handleColorSchemeChange]);
 
@@ -410,14 +399,14 @@ export function AppearanceSettings() {
       setI18nLanguage(toLegacyPatchLanguage(nextLanguage));
 
       try {
-        await changeEmberLocale(nextLanguage);
+        await changeLimeLocale(nextLanguage);
         await saveConfig(nextConfig);
       } catch (err) {
         console.error("保存语言设置失败:", err);
         setConfig(previousConfig);
         setLanguageState(previousLanguage);
         setI18nLanguage(toLegacyPatchLanguage(previousLanguage));
-        await changeEmberLocale(previousLanguage);
+        await changeLimeLocale(previousLanguage);
         setError(
           t(
             "settings.appearance.error.saveLanguage",
@@ -464,16 +453,6 @@ export function AppearanceSettings() {
       }
     },
     [agentResponseLanguage, config, t],
-  );
-
-  const handleSoundToggle = useCallback(
-    (checked: boolean) => {
-      setSoundEnabled(checked);
-      if (checked) {
-        playToolcallSound();
-      }
-    },
-    [playToolcallSound, setSoundEnabled],
   );
 
   const handleRecommendationSelectionToggle = useCallback(
@@ -547,7 +526,7 @@ export function AppearanceSettings() {
                 )}
                 content={t(
                   "settings.appearance.hero.tip",
-                  "管理主题、界面语言、回复语言、提示音效，以及推荐问题的上下文带入方式。",
+                  "管理主题、界面语言、回复语言，以及推荐问题的上下文带入方式。",
                 )}
                 tone="mint"
               />
@@ -555,7 +534,7 @@ export function AppearanceSettings() {
             <p className="text-[13px] text-slate-500">
               {t(
                 "settings.appearance.hero.description",
-                "管理主题、界面语言、回复语言、提示音效和推荐行为。",
+                "管理主题、界面语言、回复语言和推荐行为。",
               )}
             </p>
           </div>
@@ -585,18 +564,6 @@ export function AppearanceSettings() {
                 defaultValue: "回复：{{language}}",
               })}
             </span>
-            <span
-              className={
-                soundEnabled
-                  ? HEADER_SUCCESS_PILL_CLASS
-                  : HEADER_NEUTRAL_PILL_CLASS
-              }
-            >
-              {t("settings.appearance.summary.sounds", {
-                status: workspaceSummary.soundsLabel,
-                defaultValue: "提示音效：{{status}}",
-              })}
-            </span>
           </div>
         </div>
       </section>
@@ -608,7 +575,7 @@ export function AppearanceSettings() {
           title={t("settings.appearance.base.title", "基础外观")}
           description={t(
             "settings.appearance.base.description",
-            "先确定全局主题、语言和声音反馈，再统一工作区里的视觉节奏。",
+            "先确定全局主题、界面语言和回复语言，再统一工作区里的视觉节奏。",
           )}
           tipAriaLabel={t("settings.appearance.base.tipAria", "基础外观说明")}
         >
@@ -679,11 +646,11 @@ export function AppearanceSettings() {
               </div>
             </div>
 
-            <div className="rounded-[24px] border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface-soft)] p-4">
+            <div className="rounded-[24px] border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface-soft)] p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-[color:var(--ember-text-strong)]">
+                    <h3 className="text-sm font-semibold text-[color:var(--lime-text-strong)]">
                       {t("settings.appearance.colorScheme.title", "色彩方案")}
                     </h3>
                     <WorkbenchInfoTip
@@ -717,14 +684,14 @@ export function AppearanceSettings() {
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface)] text-[color:var(--ember-brand-strong)]">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface)] text-[color:var(--lime-brand-strong)]">
                       <Shuffle className="h-4 w-4" />
                     </div>
                   </div>
                   <p className="mt-4 text-sm font-semibold">
                     {t("settings.appearance.colorScheme.random.title", "随机")}
                   </p>
-                  <p className="mt-1 text-xs leading-5 text-[color:var(--ember-text-muted)]">
+                  <p className="mt-1 text-xs leading-5 text-[color:var(--lime-text-muted)]">
                     {t(
                       "settings.appearance.colorScheme.random.description",
                       "每次点击随机切换一个配色。",
@@ -765,8 +732,8 @@ export function AppearanceSettings() {
                         className={cn(
                           "mt-1 text-xs leading-5",
                           active
-                            ? "text-[color:var(--ember-text)]"
-                            : "text-[color:var(--ember-text-muted)]",
+                            ? "text-[color:var(--lime-text)]"
+                            : "text-[color:var(--lime-text-muted)]",
                         )}
                       >
                         {option.description}
@@ -924,39 +891,6 @@ export function AppearanceSettings() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-4 rounded-[24px] border border-slate-200/80 bg-slate-50/60 px-4 py-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700">
-                  <Volume2 className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-slate-900">
-                      {t("settings.appearance.sounds.title", "提示音效")}
-                    </p>
-                    <WorkbenchInfoTip
-                      ariaLabel={t(
-                        "settings.appearance.sounds.tipAria",
-                        "提示音效说明",
-                      )}
-                      content={t(
-                        "settings.appearance.sounds.tip",
-                        "在工具调用和消息生成时播放提示音，提升状态感知。",
-                      )}
-                      tone="slate"
-                    />
-                  </div>
-                </div>
-              </div>
-              <Switch
-                checked={soundEnabled}
-                onCheckedChange={handleSoundToggle}
-                aria-label={t(
-                  "settings.appearance.sounds.toggleAria",
-                  "切换提示音效",
-                )}
-              />
-            </div>
           </div>
         </SurfacePanel>
       </section>

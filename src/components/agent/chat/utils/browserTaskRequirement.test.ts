@@ -21,10 +21,28 @@ describe("browserTaskRequirement", () => {
     });
   });
 
+  it("写公众号文章不应误判为微信公众号后台操作", () => {
+    expect(
+      detectBrowserTaskRequirement("@内容工厂 写一篇公众号文章"),
+    ).toBeNull();
+    expect(detectBrowserTaskRequirement("写一篇公众号文章")).toBeNull();
+  });
+
   it("普通网页浏览与阅读不应误判为必须浏览器任务", () => {
     expect(
       detectBrowserTaskRequirement("打开京东商品页看看今天的价格"),
     ).toBeNull();
+  });
+
+  it("显式 URL + Browser Assist 指令应识别为必须浏览器任务", () => {
+    expect(
+      detectBrowserTaskRequirement(
+        "打开 https://news.baidu.com，使用浏览器协助模式执行，并把实时浏览器画面显示在右侧画布中。",
+      ),
+    ).toMatchObject({
+      requirement: "required",
+      launchUrl: "https://news.baidu.com",
+    });
   });
 
   it("发布验收与控制台检查不应误判为网页后台任务", () => {

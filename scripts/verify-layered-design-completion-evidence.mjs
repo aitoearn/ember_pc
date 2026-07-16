@@ -539,7 +539,7 @@ function validateGptImageLiveEvidence(evidencePath) {
     );
   } else {
     assert(
-      transport === "ember_images_gateway",
+      transport === "lime_images_gateway",
       `GPT Image live evidence transport 不支持: ${transport}`,
     );
     assert(
@@ -1040,7 +1040,7 @@ function createSelfTestFiles(rootDir) {
 
 function runSelfTest() {
   const rootDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ember-layered-design-completion-evidence-"),
+    path.join(os.tmpdir(), "lime-layered-design-completion-evidence-"),
   );
   const {
     evidencePath,
@@ -1062,10 +1062,10 @@ function runSelfTest() {
   const localGatewayGptImageLiveEvidence = structuredClone(gptImageLiveEvidence);
   localGatewayGptImageLiveEvidence.gateway = {
     baseUrlHash: "selftest-local",
-    transport: "ember_images_gateway",
+    transport: "lime_images_gateway",
     imagesPath: "/v1/images/generations",
   };
-  localGatewayGptImageLiveEvidence.result.transport = "ember_images_gateway";
+  localGatewayGptImageLiveEvidence.result.transport = "lime_images_gateway";
   localGatewayGptImageLiveEvidence.result.eventCount = 0;
   localGatewayGptImageLiveEvidence.result.outputItemCount = 0;
   fs.writeFileSync(
@@ -1074,7 +1074,7 @@ function runSelfTest() {
   );
   const localGatewaySummary = validateCompletionEvidenceFile(evidencePath);
   assert(
-    localGatewaySummary.gptImageLive.transport === "ember_images_gateway",
+    localGatewaySummary.gptImageLive.transport === "lime_images_gateway",
     "self-test 本地配图网关 GPT Image live transport 异常",
   );
   fs.writeFileSync(

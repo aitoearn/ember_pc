@@ -47,15 +47,15 @@ test("builds skill management requests with current methods", () => {
   const client = new AppServerClient();
 
   const list = client.listManagementSkills({
-    app: "ember",
+    app: "lime",
     refreshRemote: true,
   });
   const install = client.installManagementSkill({
-    app: "ember",
+    app: "lime",
     directory: "article-typesetting-master",
   });
   const uninstall = client.uninstallManagementSkill({
-    app: "ember",
+    app: "lime",
     directory: "article-typesetting-master",
   });
   const repos = client.listSkillRepositories();
@@ -74,11 +74,11 @@ test("builds skill management requests with current methods", () => {
   const refresh = client.refreshSkillCache();
   const installed = client.listInstalledSkillDirectories();
   const inspectLocal = client.inspectLocalSkill({
-    app: "ember",
+    app: "lime",
     directory: "article-typesetting-master",
   });
   const scaffold = client.createSkillScaffold({
-    app: "ember",
+    app: "lime",
     request: {
       target: "user",
       directory: "article-typesetting-master",
@@ -87,7 +87,7 @@ test("builds skill management requests with current methods", () => {
     },
   });
   const imported = client.importLocalSkill({
-    app: "ember",
+    app: "lime",
     sourcePath: "/Users/demo/article-typesetting-master",
   });
   const remote = client.inspectRemoteSkill({
@@ -99,7 +99,7 @@ test("builds skill management requests with current methods", () => {
 
   assert.equal(list.id, 1);
   assert.equal(list.method, METHOD_SKILL_MANAGEMENT_LIST);
-  assert.deepEqual(list.params, { app: "ember", refreshRemote: true });
+  assert.deepEqual(list.params, { app: "lime", refreshRemote: true });
   assert.equal(install.id, 2);
   assert.equal(install.method, METHOD_SKILL_MANAGEMENT_INSTALL);
   assert.equal(uninstall.id, 3);
@@ -128,34 +128,34 @@ test("builds local skill detail and package requests with current methods", () =
   const client = new AppServerClient();
 
   const detail = client.inspectLocalSkillDetail({
-    app: "ember",
+    app: "lime",
     directory: "article-typesetting-master",
   });
   const rename = client.renameLocalSkill({
-    app: "ember",
+    app: "lime",
     directory: "article-typesetting-master",
     newDirectory: "article-typesetting",
   });
   const inspect = client.inspectLocalSkillPackage({
-    app: "ember",
+    app: "lime",
     sourcePath: "/Users/demo/article-typesetting-master.skill",
   });
   const install = client.installLocalSkillPackage({
-    app: "ember",
+    app: "lime",
     sourcePath: "/Users/demo/article-typesetting-master.skill",
   });
   const exported = client.exportSkillPackage({
-    app: "ember",
+    app: "lime",
     directory: "article-typesetting-master",
     targetPath: "/Users/demo/article-typesetting-master.skills",
   });
   const replace = client.replaceLocalSkillPackage({
-    app: "ember",
+    app: "lime",
     directory: "article-typesetting-master",
     sourcePath: "/Users/demo/article-typesetting-master.skill",
   });
   const marketplace = client.installMarketplaceSkill({
-    app: "ember",
+    app: "lime",
     manifestVersion: "agentskills.v1",
     name: "article-typesetting-master",
     aliases: ["article-typesetting"],
@@ -172,7 +172,7 @@ test("builds local skill detail and package requests with current methods", () =
     ],
   });
   const download = client.installSkillFromDownload({
-    app: "ember",
+    app: "lime",
     skillName: "article-typesetting-master",
     downloadUrl: "https://example.com/article-typesetting-master.skill",
   });
@@ -180,14 +180,14 @@ test("builds local skill detail and package requests with current methods", () =
   assert.equal(detail.id, 1);
   assert.equal(detail.method, METHOD_SKILL_LOCAL_DETAIL_INSPECT);
   assert.deepEqual(detail.params, {
-    app: "ember",
+    app: "lime",
     directory: "article-typesetting-master",
   });
 
   assert.equal(rename.id, 2);
   assert.equal(rename.method, METHOD_SKILL_LOCAL_RENAME);
   assert.deepEqual(rename.params, {
-    app: "ember",
+    app: "lime",
     directory: "article-typesetting-master",
     newDirectory: "article-typesetting",
   });
@@ -195,21 +195,21 @@ test("builds local skill detail and package requests with current methods", () =
   assert.equal(inspect.id, 3);
   assert.equal(inspect.method, METHOD_SKILL_PACKAGE_LOCAL_INSPECT);
   assert.deepEqual(inspect.params, {
-    app: "ember",
+    app: "lime",
     sourcePath: "/Users/demo/article-typesetting-master.skill",
   });
 
   assert.equal(install.id, 4);
   assert.equal(install.method, METHOD_SKILL_PACKAGE_LOCAL_INSTALL);
   assert.deepEqual(install.params, {
-    app: "ember",
+    app: "lime",
     sourcePath: "/Users/demo/article-typesetting-master.skill",
   });
 
   assert.equal(exported.id, 5);
   assert.equal(exported.method, METHOD_SKILL_PACKAGE_EXPORT);
   assert.deepEqual(exported.params, {
-    app: "ember",
+    app: "lime",
     directory: "article-typesetting-master",
     targetPath: "/Users/demo/article-typesetting-master.skills",
   });
@@ -217,7 +217,7 @@ test("builds local skill detail and package requests with current methods", () =
   assert.equal(replace.id, 6);
   assert.equal(replace.method, METHOD_SKILL_PACKAGE_LOCAL_REPLACE);
   assert.deepEqual(replace.params, {
-    app: "ember",
+    app: "lime",
     directory: "article-typesetting-master",
     sourcePath: "/Users/demo/article-typesetting-master.skill",
   });
@@ -225,7 +225,7 @@ test("builds local skill detail and package requests with current methods", () =
   assert.equal(marketplace.id, 7);
   assert.equal(marketplace.method, METHOD_SKILL_MARKETPLACE_INSTALL);
   assert.deepEqual(marketplace.params, {
-    app: "ember",
+    app: "lime",
     manifestVersion: "agentskills.v1",
     name: "article-typesetting-master",
     aliases: ["article-typesetting"],
@@ -245,7 +245,7 @@ test("builds local skill detail and package requests with current methods", () =
   assert.equal(download.id, 8);
   assert.equal(download.method, METHOD_SKILL_PACKAGE_DOWNLOAD_INSTALL);
   assert.deepEqual(download.params, {
-    app: "ember",
+    app: "lime",
     skillName: "article-typesetting-master",
     downloadUrl: "https://example.com/article-typesetting-master.skill",
   });

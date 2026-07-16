@@ -1,5 +1,5 @@
 import type { MutableRefObject } from "react";
-import type { AsterExecutionStrategy } from "@/lib/api/agentRuntime";
+import type { AgentExecutionStrategy } from "@/lib/api/agentExecutionRuntime";
 import type { Message } from "../types";
 import type { AssistantDraftState } from "./agentChatShared";
 import type { ChatToolPreferences } from "../utils/chatToolPreferences";
@@ -9,26 +9,30 @@ import {
   recordAgentStreamPerformanceMetric,
   type AgentUiPerformanceTraceMetadata,
 } from "./agentStreamPerformanceMetrics";
+import type { SoulInteractionCopy } from "@/lib/soul/interactionCopy";
 
 interface ResolveAgentStreamSubmitContextOptions {
   ensureSession: (options?: {
+    targetSessionId?: string;
     skipSessionRestore?: boolean;
     skipSessionStartHooks?: boolean;
   }) => Promise<string | null>;
   sessionIdRef: MutableRefObject<string | null>;
-  getRequiredWorkspaceId: () => string;
+  getWorkspaceIdForSubmit: () => string | undefined;
   getSyncedSessionRecentPreferences?: (
     sessionId: string,
   ) => ChatToolPreferences | null;
   getSyncedSessionExecutionStrategy: (
     sessionId: string,
-  ) => AsterExecutionStrategy | null;
-  effectiveExecutionStrategy: AsterExecutionStrategy;
+  ) => AgentExecutionStrategy | null;
+  effectiveExecutionStrategy: AgentExecutionStrategy;
   assistantDraft?: AssistantDraftState;
   expectingQueue: boolean;
+  targetSessionId?: string;
   skipSessionRestore?: boolean;
   skipSessionStartHooks?: boolean;
   performanceTrace?: AgentUiPerformanceTraceMetadata | null;
+  soulCopy?: SoulInteractionCopy;
   activateStream: (
     activeSessionId: string,
     effectiveWaitingRuntimeStatus: NonNullable<Message["runtimeStatus"]>,
@@ -41,19 +45,22 @@ export async function resolveAgentStreamSubmitContext(
   const {
     ensureSession,
     sessionIdRef,
-    getRequiredWorkspaceId,
+    getWorkspaceIdForSubmit,
     getSyncedSessionRecentPreferences,
     getSyncedSessionExecutionStrategy,
     effectiveExecutionStrategy,
     assistantDraft,
     expectingQueue,
+    targetSessionId,
     skipSessionRestore,
     skipSessionStartHooks,
     performanceTrace,
+    soulCopy,
     activateStream,
   } = options;
 
   const hadActiveSessionBeforeEnsure = Boolean(sessionIdRef.current?.trim());
+  const normalizedTargetSessionId = targetSessionId?.trim() || undefined;
   const ensureStartedAt = Date.now();
   recordAgentStreamPerformanceMetric(
     "agentStream.ensureSession.start",
@@ -61,16 +68,19 @@ export async function resolveAgentStreamSubmitContext(
     {
       hadActiveSessionBeforeEnsure,
       sessionId: sessionIdRef.current,
+      targetSessionId: normalizedTargetSessionId ?? null,
       skipSessionRestore: skipSessionRestore === true,
       skipSessionStartHooks: skipSessionStartHooks === true,
     },
   );
   logAgentDebug("AgentStream", "ensureSession.start", {
     hadActiveSessionBeforeEnsure,
+    targetSessionId: normalizedTargetSessionId ?? null,
     skipSessionRestore: skipSessionRestore === true,
     skipSessionStartHooks: skipSessionStartHooks === true,
   });
   const activeSessionId = await ensureSession({
+    targetSessionId: normalizedTargetSessionId,
     skipSessionRestore,
     skipSessionStartHooks,
   });
@@ -82,6 +92,7 @@ export async function resolveAgentStreamSubmitContext(
     performanceTrace,
     {
       activeSessionId,
+      targetSessionId: normalizedTargetSessionId ?? null,
       durationMs: Date.now() - ensureStartedAt,
       hadActiveSessionBeforeEnsure,
       sessionId: activeSessionId,
@@ -91,20 +102,23 @@ export async function resolveAgentStreamSubmitContext(
   );
   logAgentDebug("AgentStream", "ensureSession.done", {
     activeSessionId,
+    targetSessionId: normalizedTargetSessionId ?? null,
     durationMs: Date.now() - ensureStartedAt,
     hadActiveSessionBeforeEnsure,
   });
 
-  const resolvedWorkspaceId = getRequiredWorkspaceId();
-  const submitWorkspaceId = hadActiveSessionBeforeEnsure
-    ? undefined
-    : resolvedWorkspaceId;
+  const resolvedWorkspaceId = getWorkspaceIdForSubmit();
+  const submitWorkspaceId =
+    hadActiveSessionBeforeEnsure || !resolvedWorkspaceId
+      ? undefined
+      : resolvedWorkspaceId;
   const syncedRecentPreferences =
     getSyncedSessionRecentPreferences?.(activeSessionId) || null;
   const syncedExecutionStrategy =
     getSyncedSessionExecutionStrategy(activeSessionId);
   const waitingRuntimeStatus = buildWaitingAgentRuntimeStatus({
     executionStrategy: effectiveExecutionStrategy,
+    soulCopy,
   });
   const effectiveWaitingRuntimeStatus =
     assistantDraft?.waitingRuntimeStatus || waitingRuntimeStatus;

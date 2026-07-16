@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   APP_SIDEBAR_ENABLED_ITEMS_STORAGE_KEY,
-  EMBER_COLOR_SCHEME_STORAGE_KEY,
-  EMBER_THEME_STORAGE_KEY,
+  LIME_COLOR_SCHEME_STORAGE_KEY,
+  LIME_THEME_STORAGE_KEY,
   act,
-  changeEmberLocale,
+  changeLimeLocale,
   cleanupAppSidebarTest,
   flushEffects,
   mockCheckForUpdates,
@@ -24,7 +24,7 @@ describe("AppSidebar preferences", () => {
       current: "1.57.0",
       latest: "1.58.0",
       hasUpdate: true,
-      downloadUrl: "https://example.com/ember",
+      downloadUrl: "https://example.com/lime",
       releaseNotesUrl: null,
       releaseNotes: null,
       pubDate: null,
@@ -37,6 +37,8 @@ describe("AppSidebar preferences", () => {
       } as AgentPageParams,
     });
     await flushEffects(3);
+
+    expect(mockCheckForUpdates).toHaveBeenCalledWith({ automatic: true });
 
     const accountSlot = container.querySelector(
       '[data-testid="app-sidebar-account-slot"]',
@@ -306,7 +308,7 @@ describe("AppSidebar preferences", () => {
     expect(popover?.textContent).toContain("海洋");
     expect(popover?.textContent).toContain("复古");
     expect(popover?.textContent).toContain("霓虹");
-    expect(popover?.textContent).toContain("柠黄");
+    expect(popover?.textContent).toContain("青柠");
     expect(popover?.textContent).toContain("黄昏");
     expect(popover?.textContent).toContain("极简");
     expect(popover?.textContent).toContain("活力");
@@ -320,10 +322,10 @@ describe("AppSidebar preferences", () => {
       await Promise.resolve();
     });
 
-    expect(localStorage.getItem(EMBER_COLOR_SCHEME_STORAGE_KEY)).toBe(
-      "ember-ocean",
+    expect(localStorage.getItem(LIME_COLOR_SCHEME_STORAGE_KEY)).toBe(
+      "lime-ocean",
     );
-    expect(document.documentElement.dataset.emberColorScheme).toBe("ember-ocean");
+    expect(document.documentElement.dataset.limeColorScheme).toBe("lime-ocean");
 
     await act(async () => {
       container
@@ -332,13 +334,13 @@ describe("AppSidebar preferences", () => {
       await Promise.resolve();
     });
 
-    expect(localStorage.getItem(EMBER_THEME_STORAGE_KEY)).toBe("dark");
-    expect(document.documentElement.dataset.emberTheme).toBe("dark");
+    expect(localStorage.getItem(LIME_THEME_STORAGE_KEY)).toBe("dark");
+    expect(document.documentElement.dataset.limeTheme).toBe("dark");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 
   it("外观快捷面板应使用 navigation 命名空间资源", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const container = mountSidebarContainer({
       currentPageParams: {
         agentEntry: "new-task",
@@ -405,11 +407,11 @@ describe("AppSidebar preferences", () => {
         await Promise.resolve();
       });
 
-      expect(localStorage.getItem(EMBER_COLOR_SCHEME_STORAGE_KEY)).toBe(
-        "ember-forest",
+      expect(localStorage.getItem(LIME_COLOR_SCHEME_STORAGE_KEY)).toBe(
+        "lime-forest",
       );
-      expect(document.documentElement.dataset.emberColorScheme).toBe(
-        "ember-forest",
+      expect(document.documentElement.dataset.limeColorScheme).toBe(
+        "lime-forest",
       );
     } finally {
       randomSpy.mockRestore();

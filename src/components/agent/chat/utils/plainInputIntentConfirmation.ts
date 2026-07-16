@@ -1,4 +1,4 @@
-import { getEmberI18n } from "@/i18n/createI18n";
+import { getLimeI18n } from "@/i18n/createI18n";
 import {
   getCurrentSkillCatalogSnapshot,
   listSkillCatalogCommandEntries,
@@ -40,7 +40,7 @@ function translateAgentString(
   key: string,
   options?: Record<string, unknown>,
 ): string {
-  const i18n = getEmberI18n();
+  const i18n = getLimeI18n();
   if (!i18n.exists(key, { ns: "agent" })) {
     return "";
   }

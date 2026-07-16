@@ -7,7 +7,7 @@ export const A2UI_TASK_CARD_TOKENS = {
   shellDefaultPadding: "my-2 p-3.5",
   shellEmbeddedPadding: "p-0",
   statusBadge:
-    "flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium leading-4 text-[color:var(--ember-text-muted)] shadow-none",
+    "flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium leading-4 text-[color:var(--lime-text-muted)] shadow-none",
   contentPanel:
     "mt-2.5 rounded-[12px] border border-slate-200 bg-white",
   contentPanelEmbedded:
@@ -17,7 +17,7 @@ export const A2UI_TASK_CARD_TOKENS = {
   contentPanelEmbeddedCompactPadding: "p-0",
   contentPanelEmbeddedDefaultPadding: "p-0",
   loadingPanel:
-    "mt-2 flex items-center gap-2 rounded-[12px] border border-slate-200 bg-white text-[color:var(--ember-text-muted)]",
+    "mt-2 flex items-center gap-2 rounded-[12px] border border-slate-200 bg-white text-[color:var(--lime-text-muted)]",
   loadingPanelCompactPadding: "px-2.5 py-2 text-xs",
   loadingPanelDefaultPadding: "px-3 py-2.5 text-sm",
   workspaceOverlay:

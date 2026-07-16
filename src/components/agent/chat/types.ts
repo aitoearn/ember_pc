@@ -17,6 +17,11 @@ export type {
 export interface MessageImage {
   data: string;
   mediaType: string;
+  sourceUri?: string;
+  sourcePath?: string;
+  previewUrl?: string;
+  metadata?: Record<string, unknown>;
+  index?: number;
 }
 
 export interface MessagePathReference {
@@ -53,21 +58,39 @@ export interface ImageRuntimeContractSnapshot {
   failureCode?: string | null;
   modelCapabilityAssessmentSource?: string | null;
   modelSupportsImageGeneration?: boolean | null;
-  embercorePolicySnapshotStatus?: string | null;
-  embercorePolicyDecision?: string | null;
-  embercorePolicyDecisionSource?: string | null;
-  embercorePolicyDecisionScope?: string | null;
-  embercorePolicyDecisionReason?: string | null;
-  embercorePolicyMissingInputs?: string[];
-  embercorePolicyPendingHitRefs?: string[];
-  embercorePolicyEvaluationStatus?: string | null;
-  embercorePolicyEvaluationDecision?: string | null;
-  embercorePolicyEvaluationDecisionSource?: string | null;
-  embercorePolicyEvaluationDecisionScope?: string | null;
-  embercorePolicyEvaluationDecisionReason?: string | null;
-  embercorePolicyEvaluationBlockingRefs?: string[];
-  embercorePolicyEvaluationAskRefs?: string[];
-  embercorePolicyEvaluationPendingRefs?: string[];
+  limecorePolicySnapshotStatus?: string | null;
+  limecorePolicyDecision?: string | null;
+  limecorePolicyDecisionSource?: string | null;
+  limecorePolicyDecisionScope?: string | null;
+  limecorePolicyDecisionReason?: string | null;
+  limecorePolicyMissingInputs?: string[];
+  limecorePolicyPendingHitRefs?: string[];
+  limecorePolicyEvaluationStatus?: string | null;
+  limecorePolicyEvaluationDecision?: string | null;
+  limecorePolicyEvaluationDecisionSource?: string | null;
+  limecorePolicyEvaluationDecisionScope?: string | null;
+  limecorePolicyEvaluationDecisionReason?: string | null;
+  limecorePolicyEvaluationBlockingRefs?: string[];
+  limecorePolicyEvaluationAskRefs?: string[];
+  limecorePolicyEvaluationPendingRefs?: string[];
+}
+
+export interface ImageGenerationSoulMetadata {
+  surface?: string | null;
+  phase?: string | null;
+  styleLevel?: string | null;
+  riskLevel?: string | null;
+  toneVariant?: string | null;
+  profileId?: string | null;
+  packId?: string | null;
+  titleStyleLevel?: string | null;
+  parameterSummaryStyleLevel?: string | null;
+  runningStatusStyleLevel?: string | null;
+  assistantIntroStyleLevel?: string | null;
+  completionCaptionStyleLevel?: string | null;
+  mediaArtifactStyleLevel?: string | null;
+  formalArtifactVoiceSource?: string | null;
+  productSoulDefault?: string | null;
 }
 
 export interface MessageImageWorkbenchPreview {
@@ -92,6 +115,7 @@ export interface MessageImageWorkbenchPreview {
   sourceImagePrompt?: string | null;
   sourceImageRef?: string | null;
   sourceImageCount?: number;
+  requestMetadata?: Record<string, unknown>;
   size?: string;
   phase?: string | null;
   statusMessage?: string | null;
@@ -99,7 +123,56 @@ export interface MessageImageWorkbenchPreview {
   attemptCount?: number;
   placeholderText?: string | null;
   runtimeContract?: ImageRuntimeContractSnapshot | null;
+  workflowRun?: ImageCommandRunSnapshot | null;
+  soulMetadata?: ImageGenerationSoulMetadata | null;
 }
+
+export interface ImageCommandRunSnapshot {
+  runId: string;
+  sessionId?: string | null;
+  threadId?: string | null;
+  turnId?: string | null;
+  workflowKey?: string | null;
+  title: string;
+  summary: string;
+  requestedCount: number;
+  status:
+    | "requires_parameters"
+    | "queued"
+    | "running"
+    | "succeeded"
+    | "partial"
+    | "failed";
+  steps: ImageCommandRunStep[];
+  branches: ImageGenerationBranch[];
+  nextActions: ImageCommandNextAction[];
+}
+
+export interface ImageCommandRunStep {
+  id: string;
+  title: string;
+  status: "pending" | "running" | "succeeded" | "failed";
+  detail?: string | null;
+}
+
+export interface ImageGenerationBranch {
+  branchId: string;
+  title: string;
+  prompt: string;
+  taskId?: string | null;
+  artifactPath?: string | null;
+  status: "queued" | "running" | "succeeded" | "failed" | "retryable";
+  previewUrl?: string | null;
+  failureReason?: string | null;
+  slotId?: string | null;
+  shotType?: string | null;
+}
+
+export type ImageCommandNextAction =
+  | { type: "retry_branch"; branchId: string }
+  | { type: "generate_more"; branchId?: string | null }
+  | { type: "open_workbench"; taskId?: string | null }
+  | { type: "apply_to_document"; slotId: string };
 
 export interface MessageImageWorkbenchPreviewSelection {
   imageUrl?: string | null;
@@ -199,6 +272,16 @@ export type MessagePreviewTarget =
       selection?: MessageImageWorkbenchPreviewSelection;
     }
   | {
+      kind: "message_attachment";
+      attachment: MessageImage;
+      index: number;
+    }
+  | {
+      kind: "media_reference";
+      reference: MessageMediaReference;
+      index: number;
+    }
+  | {
       kind: "task";
       preview: MessageTaskPreview;
     };
@@ -206,7 +289,7 @@ export type MessagePreviewTarget =
 /**
  * 内容片段类型（用于交错显示）
  *
- * 参考 aster 框架的 MessageContent 设计：
+ * 参考 agent 框架的 MessageContent 设计：
  * - text: 文本内容片段
  * - thinking: 推理内容片段（DeepSeek R1 等模型）
  * - tool_use: 工具调用（包含状态和结果）
@@ -214,6 +297,22 @@ export type MessagePreviewTarget =
  */
 interface AgentUiProjectionContentPartMeta {
   agentUiEvent?: AgentUiProjectionEvent;
+  metadata?: Record<string, unknown>;
+}
+
+export interface MessageMediaReference {
+  kind?: string;
+  uri: string;
+  refId?: string;
+  mimeType?: string;
+  title?: string;
+  caption?: string;
+  sidecarRef?: unknown;
+  sourceUri?: string;
+  sourcePath?: string;
+  previewUrl?: string;
+  sha256?: string;
+  byteSize?: number;
 }
 
 export type ContentPart =
@@ -230,6 +329,10 @@ export type ContentPart =
   | ({
       type: "file_changes_batch";
       aggregate: import("./utils/fileChangeSummary").FileChangesAggregate;
+    } & AgentUiProjectionContentPartMeta)
+  | ({
+      type: "media_reference";
+      reference: MessageMediaReference;
     } & AgentUiProjectionContentPartMeta);
 
 export type BrowserTaskRequirement =
@@ -270,6 +373,12 @@ export type PendingA2UISource =
     };
 
 // ============ 权限确认相关类型 ============
+
+export type ApprovalDecision =
+  | "allow_once"
+  | "allow_for_session"
+  | "decline"
+  | "cancel";
 
 export interface ActionRequiredScope {
   sessionId?: string;
@@ -322,6 +431,8 @@ export interface ActionRequired {
   submittedUserData?: unknown;
   /** 附加说明 */
   detail?: string;
+  /** 后端声明可用的授权动作；未声明时前端只展示一次允许/拒绝 */
+  availableDecisions?: ApprovalDecision[];
   /** 单轮澄清治理元数据 */
   governance?: ActionRequestGovernanceMeta;
 }
@@ -344,8 +455,10 @@ export interface QuestionOption {
 export interface ConfirmResponse {
   /** 请求 ID */
   requestId: string;
-  /** 是否确认 */
-  confirmed: boolean;
+  /** 非 approval 业务确认布尔；tool_confirmation 必须使用 decision */
+  confirmed?: boolean;
+  /** 授权决策语义 */
+  decision?: ApprovalDecision;
   /** 响应内容（用户输入或选择的答案） */
   response?: string;
   /** 操作类型（用于前端分流） */
@@ -390,6 +503,9 @@ export interface AgentRuntimeStatus {
     | "routing"
     | "context"
     | "permission_review"
+    | "retrying"
+    | "continuing"
+    | "synthesizing"
     | "failed"
     | "cancelled";
   title: string;
@@ -425,6 +541,8 @@ export interface Message {
   toolCalls?: ToolCallState[];
   /** Token 使用量（响应完成后） */
   usage?: TokenUsage;
+  /** 本轮发送/草稿关联的请求元数据 */
+  requestMetadata?: Record<string, unknown>;
   /** 权限确认请求列表 */
   actionRequests?: ActionRequired[];
   /**
@@ -439,6 +557,8 @@ export interface Message {
   artifacts?: Artifact[];
   /** 图片工作台消息卡预览 */
   imageWorkbenchPreview?: MessageImageWorkbenchPreview;
+  /** 图片任务运行时合约（旧兼容字段，优先从 imageWorkbenchPreview.runtimeContract 读取） */
+  imageRuntimeContract?: ImageRuntimeContractSnapshot;
   /** 通用任务消息卡预览 */
   taskPreview?: MessageTaskPreview;
   /** 首个流式事件到达前的本地运行态 */

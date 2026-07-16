@@ -5,7 +5,7 @@ import { toSerializableLegacySurfaceReport } from "./legacy-surface-report-core.
 describe("legacy-surface-report-core", () => {
   it("应把命令引用 Map 序列化成普通对象", () => {
     const serialized = toSerializableLegacySurfaceReport({
-      repoRoot: "/tmp/ember",
+      repoRoot: "/tmp/lime",
       runtimeSources: [{ relativePath: "src/foo.ts" }],
       testSources: [{ relativePath: "src/foo.test.ts" }],
       rustRuntimeSources: [

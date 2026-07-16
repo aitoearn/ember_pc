@@ -102,7 +102,7 @@ export function createDefaultLayeredDesignStructuredAnalyzerWorker(): Worker {
   return new Worker(
     new URL("./structuredAnalyzer.worker.ts", import.meta.url),
     {
-      name: "ember-layered-design-structured-analyzer",
+      name: "lime-layered-design-structured-analyzer",
       type: "module",
     },
   );

@@ -11,7 +11,7 @@ import {
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ember-i18n-scan-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lime-i18n-scan-"));
   tempDirs.push(dir);
   return dir;
 }

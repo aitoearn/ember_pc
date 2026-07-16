@@ -80,7 +80,7 @@ describe("DesignCanvas image generation", () => {
 
     expect(getImageTaskArtifact).toHaveBeenCalledWith({
       projectRootPath: "/workspace",
-      taskRef: ".ember/tasks/image_generate/task-subject.json",
+      taskRef: ".lime/tasks/image_generate/task-subject.json",
     });
     expect(
       mounted
@@ -206,7 +206,7 @@ describe("DesignCanvas image generation", () => {
 
     expect(getImageTaskArtifact).toHaveBeenCalledWith({
       projectRootPath: "/workspace",
-      taskRef: ".ember/tasks/image_generate/task-subject.json",
+      taskRef: ".lime/tasks/image_generate/task-subject.json",
     });
     expect(
       mounted

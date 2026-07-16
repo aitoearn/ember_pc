@@ -200,15 +200,15 @@ function resolveThemeWorkbenchToolTaskTitle(toolCall: ToolCallState): string {
     const commandValue = resolveThemeWorkbenchTextArg(args, ["command", "cmd"]);
     const commandProbe = commandValue.toLowerCase();
     if (
-      commandProbe.includes("ember media image generate") ||
-      commandProbe.includes("ember task create image")
+      commandProbe.includes("lime media image generate") ||
+      commandProbe.includes("lime task create image")
     ) {
       return "提交配图任务";
     }
-    if (commandProbe.includes("ember media cover generate")) {
+    if (commandProbe.includes("lime media cover generate")) {
       return "提交封面任务";
     }
-    if (commandProbe.includes("ember media video generate")) {
+    if (commandProbe.includes("lime media video generate")) {
       return "提交视频任务";
     }
     if (commandProbe.includes("ffmpeg")) {
@@ -833,11 +833,36 @@ export function isGeneralWorkbenchPrimaryDocumentArtifact(
   return isPrimaryResultDocumentPath(fileName);
 }
 
+const DOCUMENT_FILE_EXTENSIONS = new Set([
+  "csv",
+  "doc",
+  "docx",
+  "htm",
+  "html",
+  "json",
+  "md",
+  "mdx",
+  "odt",
+  "pdf",
+  "ppt",
+  "pptx",
+  "rtf",
+  "text",
+  "toml",
+  "tsv",
+  "txt",
+  "xls",
+  "xlsx",
+  "xml",
+  "yaml",
+  "yml",
+]);
+
 function inferTaskFileType(fileName: string): TaskFile["type"] {
   const normalized = fileName.trim().toLowerCase();
   const extension = normalized.split(".").pop() || "";
 
-  if (extension === "md" || extension === "markdown" || extension === "txt") {
+  if (DOCUMENT_FILE_EXTENSIONS.has(extension)) {
     return "document";
   }
   if (

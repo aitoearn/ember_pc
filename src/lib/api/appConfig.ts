@@ -6,14 +6,19 @@ import {
 } from "./appConfigTypes";
 import { assertNotDiagnosticFacade } from "./diagnosticFacade";
 
-const APP_CONFIG_CHANGE_STAMP_KEY = "ember.app-config.changed-at";
-const APP_CONFIG_CHANGED_EVENT = "ember:app-config-changed";
+const APP_CONFIG_CHANGE_STAMP_KEY = "lime.app-config.changed-at";
+const APP_CONFIG_CHANGED_EVENT = "lime:app-config-changed";
 
 let configCache: Config | null = null;
 let configLoadingPromise: Promise<Config> | null = null;
 let configCacheStamp: string | null = null;
+let configMutationTail: Promise<void> = Promise.resolve();
+
+export type ConfigUpdater = (current: Config) => Config;
 
 export type {
+  ClawTraceConfig,
+  ClawTraceLevelConfig,
   Config,
   CrashReportingConfig,
   ChatAppearanceConfig,
@@ -26,6 +31,7 @@ export type {
   MultiSearchConfig,
   MultiSearchEngineEntryConfig,
   NavigationConfig,
+  NativeAgentConfig,
   QuotaExceededConfig,
   RemoteManagementConfig,
   ResponseCacheConfig,
@@ -34,8 +40,19 @@ export type {
   ShellImportPreview,
   TlsConfig,
   ToolCallingConfig,
+  ToolExecutionCommandRiskLevelConfig,
+  ToolExecutionCommandRuleConfig,
+  ToolExecutionCommandRuleMatchTypeConfig,
+  ToolExecutionNetworkRuleConfig,
+  ToolExecutionNetworkRuleTargetConfig,
+  ToolExecutionOverrideConfig,
+  ToolExecutionPolicyConfig,
+  ToolExecutionRestrictionProfileConfig,
+  ToolExecutionSandboxProfileConfig,
+  ToolExecutionWarningPolicyConfig,
   UserProfile,
   WorkspacePreferencesConfig,
+  WorkspaceSandboxConfig,
 } from "./appConfigTypes";
 
 interface GetConfigOptions {
@@ -119,7 +136,10 @@ function assertConfigShape(value: unknown): asserts value is Config {
 
   const defaultProvider = (value as { default_provider?: unknown })
     .default_provider;
-  if (typeof defaultProvider !== "string" || defaultProvider.trim().length === 0) {
+  if (
+    typeof defaultProvider !== "string" ||
+    defaultProvider.trim().length === 0
+  ) {
     throw new Error("get_config 未返回有效配置");
   }
 }
@@ -176,7 +196,11 @@ export async function getConfig(
   if (!configLoadingPromise) {
     configLoadingPromise = safeInvoke<unknown>("get_config")
       .then((config) => {
-        assertNotDiagnosticFacade("get_config", config, "真实配置 current 通道");
+        assertNotDiagnosticFacade(
+          "get_config",
+          config,
+          "真实配置 current 通道",
+        );
         assertConfigShape(config);
         configCache = normalizeConfig(config);
         configCacheStamp = readAppConfigChangeStamp();
@@ -199,8 +223,24 @@ export async function saveConfig(config: Config): Promise<void> {
   configCacheStamp = markAppConfigChanged();
 }
 
+export function updateConfig(updater: ConfigUpdater): Promise<Config> {
+  const mutation = configMutationTail.then(async () => {
+    const currentConfig = await getConfig();
+    await saveConfig(updater(currentConfig));
+    return await getConfig();
+  });
+
+  configMutationTail = mutation.then(
+    () => undefined,
+    () => undefined,
+  );
+  return mutation;
+}
+
 export async function getEnvironmentPreview(): Promise<EnvironmentPreview> {
-  const result = await safeInvoke<EnvironmentPreview>("get_environment_preview");
+  const result = await safeInvoke<EnvironmentPreview>(
+    "get_environment_preview",
+  );
   assertNotDiagnosticFacade(
     "get_environment_preview",
     result,

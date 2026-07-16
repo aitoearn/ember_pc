@@ -1,9 +1,9 @@
 import { UI_LOCALE_OPTIONS } from "@/i18n/locales";
 
 export const APP_SIDEBAR_COLLAPSED_STORAGE_KEY =
-  "ember.app-sidebar.collapsed";
-export const APP_SIDEBAR_COLLAPSE_EVENT = "ember:app-sidebar-collapse";
-export const AGENT_APP_RUNTIME_SIDEBAR_COLLAPSE_SOURCE = "agent-app-runtime";
+  "lime.app-sidebar.collapsed";
+export const APP_SIDEBAR_COLLAPSE_EVENT = "lime:app-sidebar-collapse";
+export const PLUGIN_RUNTIME_SIDEBAR_COLLAPSE_SOURCE = "plugin-runtime";
 
 export const SIDEBAR_RECENT_SESSION_PAGE_SIZE = 10;
 export const SIDEBAR_SEARCH_RESULT_LIMIT = 8;
@@ -14,19 +14,15 @@ export const SIDEBAR_CONVERSATION_NAVIGATION_DEFER_MS =
   SIDEBAR_SESSION_ENTRY_REFRESH_DEFER_MS;
 
 export const SIDEBAR_NAV_LABEL_KEYS: Record<string, string> = {
-  "agent-apps": "navigation.sidebar.items.agentApps",
-  "agent-app-lab": "navigation.sidebar.items.agentAppLab",
+  "plugin-lab": "navigation.sidebar.items.pluginLab",
   automation: "navigation.sidebar.items.automation",
   channels: "navigation.sidebar.items.channels",
-  "device-automation": "navigation.sidebar.items.deviceAutomation",
-  "agent-observability": "navigation.sidebar.items.agentObservability",
   experts: "navigation.sidebar.items.experts",
   "home-general": "navigation.sidebar.items.homeGeneral",
   knowledge: "navigation.sidebar.items.knowledge",
-  memory: "navigation.sidebar.items.memory",
+  plugins: "navigation.sidebar.items.plugins",
   settings: "navigation.sidebar.items.settings",
   skills: "navigation.sidebar.items.skills",
-  "test-case-management": "navigation.sidebar.items.testCaseManagement",
 };
 
 export const APP_SIDEBAR_LANGUAGE_OPTIONS = UI_LOCALE_OPTIONS.map((option) => ({

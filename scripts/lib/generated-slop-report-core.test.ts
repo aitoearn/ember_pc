@@ -9,7 +9,7 @@ import {
 describe("generated-slop-report-core", () => {
   it("应把 trend seed 与活跃 legacy surface 转成治理建议", () => {
     const report = buildGeneratedSlopReport({
-      repoRoot: "/tmp/ember",
+      repoRoot: "/tmp/lime",
       trendReport: {
         sampleCount: 1,
         delta: {
@@ -467,7 +467,7 @@ describe("generated-slop-report-core", () => {
 
   it("应把 current guiSmoke failed 回挂成显式 GUI smoke 动作", () => {
     const report = buildGeneratedSlopReport({
-      repoRoot: "/tmp/ember",
+      repoRoot: "/tmp/lime",
       trendReport: {
         sampleCount: 2,
         delta: {
@@ -614,7 +614,7 @@ describe("generated-slop-report-core", () => {
 
   it("应把 current advisory verification outcome 回挂成具体补证据动作", () => {
     const report = buildGeneratedSlopReport({
-      repoRoot: "/tmp/ember",
+      repoRoot: "/tmp/lime",
       trendReport: {
         sampleCount: 2,
         delta: {
@@ -821,7 +821,7 @@ describe("generated-slop-report-core", () => {
 
   it("应把 current recovered verification outcome 固化成正向基线建议", () => {
     const report = buildGeneratedSlopReport({
-      repoRoot: "/tmp/ember",
+      repoRoot: "/tmp/lime",
       trendReport: {
         sampleCount: 2,
         delta: {
@@ -1188,7 +1188,7 @@ describe("generated-slop-report-core", () => {
 
   it("仅 degraded observability gap 不应触发主线补证据建议", () => {
     const report = buildGeneratedSlopReport({
-      repoRoot: "/tmp/ember",
+      repoRoot: "/tmp/lime",
       trendReport: {
         sampleCount: 2,
         delta: {
@@ -1348,7 +1348,7 @@ describe("generated-slop-report-core", () => {
 
   it("应把 governance 违规提升为 P0 守卫动作", () => {
     const report = buildGeneratedSlopReport({
-      repoRoot: "/tmp/ember",
+      repoRoot: "/tmp/lime",
       trendReport: {
         sampleCount: 2,
         delta: {
@@ -1409,7 +1409,7 @@ describe("generated-slop-report-core", () => {
       docFreshnessReport: {
         summary: {
           monitoredDocumentCount: 10,
-          existingDocumentCount: 9,
+          existingDocumentCount: 4,
           issueCount: 2,
           missingDocumentCount: 0,
           missingRequiredReferenceCount: 1,
@@ -1420,12 +1420,12 @@ describe("generated-slop-report-core", () => {
         issues: [
           {
             kind: "missing-required-reference",
-            documentPath: "docs/tech/harness/entropy-governance-workflow.md",
+            documentPath: "internal/tech/harness/README.md",
             detail: "harness-evals.md",
           },
           {
             kind: "broken-code-path-reference",
-            documentPath: "docs/tech/harness/tooling-roadmap.md",
+            documentPath: "internal/tech/harness/external-analysis-handoff.md",
             detail: "scripts/missing-tool.mjs",
           },
         ],
@@ -1458,7 +1458,7 @@ describe("generated-slop-report-core", () => {
 
   it("应把旧 requestTelemetry:unlinked 样本折叠成 known_gap", () => {
     const report = buildGeneratedSlopReport({
-      repoRoot: "/tmp/ember",
+      repoRoot: "/tmp/lime",
       trendReport: {
         sampleCount: 2,
         delta: {

@@ -2,11 +2,13 @@ import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import {
   getMediaTaskArtifact,
   listMediaTaskArtifacts,
-  type ListMediaTaskArtifactsOutput,
-  type MediaTaskModalityRuntimeContractIndexEntry,
-  type MediaTaskArtifactOutput,
-  type MediaTaskLookupRequest,
 } from "@/lib/api/mediaTasks";
+import type {
+  ListMediaTaskArtifactsOutput,
+  MediaTaskModalityRuntimeContractIndexEntry,
+  MediaTaskArtifactOutput,
+  MediaTaskLookupRequest,
+} from "@/lib/api/agentRuntime/mediaTaskTypes";
 import { readFilePreview } from "@/lib/api/fileBrowser";
 import { resolveArtifactProtocolFilePath } from "@/lib/artifact-protocol";
 import { safeListen } from "@/lib/api/bridgeEvents";
@@ -29,7 +31,7 @@ import {
 import { doesWorkspaceFileCandidateMatch } from "./workspaceFilePathMatch";
 import { resolveAbsoluteWorkspacePath } from "./workspacePath";
 
-const TRANSCRIPTION_TASK_EVENT_NAME = "ember://creation_task_submitted";
+const TRANSCRIPTION_TASK_EVENT_NAME = "lime://creation_task_submitted";
 const TRANSCRIPTION_TASK_POLL_INTERVAL_MS = 3000;
 const TRANSCRIPTION_TASK_INDEX_RESTORE_LIMIT = 24;
 const TRANSCRIPTION_TEXT_PREVIEW_MAX_SIZE = 256 * 1024;
@@ -658,6 +660,10 @@ function collectTrackedTranscriptionTasks(
   return Array.from(tasks.values());
 }
 
+function hasTrackedTranscriptionTasks(messages: Message[]): boolean {
+  return collectTrackedTranscriptionTasks(messages).length > 0;
+}
+
 function buildLookupRequest(params: {
   task: TrackedTranscriptionTask;
   projectRootPath?: string | null;
@@ -752,12 +758,17 @@ export function useWorkspaceTranscriptionTaskPreviewRuntime({
   setChatMessages,
 }: UseWorkspaceTranscriptionTaskPreviewRuntimeParams) {
   const contextRef = useRef({ projectRootPath, messages });
+  const shouldRunPreviewRuntime = hasTrackedTranscriptionTasks(messages);
 
   useEffect(() => {
     contextRef.current = { projectRootPath, messages };
   }, [projectRootPath, messages]);
 
   useEffect(() => {
+    if (!shouldRunPreviewRuntime) {
+      return;
+    }
+
     let disposed = false;
     let polling = false;
 
@@ -947,5 +958,5 @@ export function useWorkspaceTranscriptionTaskPreviewRuntime({
         unlisten();
       }
     };
-  }, [setChatMessages]);
+  }, [setChatMessages, shouldRunPreviewRuntime]);
 }

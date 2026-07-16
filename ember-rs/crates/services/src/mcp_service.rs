@@ -1,8 +1,8 @@
 use crate::mcp_sync;
-use ember_core::database::dao::mcp::McpDao;
-use ember_core::database::DbConnection;
-use ember_core::models::mcp_model::ConfigValidationError;
-use ember_core::models::{AppType, McpServer};
+use lime_core::database::dao::mcp::McpDao;
+use lime_core::database::DbConnection;
+use lime_core::models::mcp_model::ConfigValidationError;
+use lime_core::models::{AppType, McpServer};
 
 pub struct McpService;
 

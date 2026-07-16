@@ -1,13 +1,13 @@
 //! OpenAI API 数据模型
 //!
-//! Chat Completion types re-exported from `aster-models` crate (single source of truth).
-//! Image generation types are Ember-specific and defined locally.
-pub use aster_models::openai::*;
+//! Chat Completion types re-exported from `agent-protocol` crate.
+//! Image generation types are Lime-specific and defined locally.
+pub use agent_protocol::openai::*;
 
 use serde::{Deserialize, Serialize};
 
 // ============================================================================
-// 图像生成 API 数据模型 (Ember 特有)
+// 图像生成 API 数据模型 (Lime 特有)
 // ============================================================================
 
 /// OpenAI 图像生成请求
@@ -41,6 +41,14 @@ pub struct ImageGenerationRequest {
     /// 图像风格 (可选，Antigravity 可能忽略)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub style: Option<String>,
+
+    /// 参考图 URL 列表 (可选)
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        alias = "referenceImages"
+    )]
+    pub reference_images: Vec<String>,
 
     /// 用户标识 (可选)
     #[serde(skip_serializing_if = "Option::is_none")]

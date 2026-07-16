@@ -1,10 +1,12 @@
-import type { AgentRuntimeFileCheckpointThreadSummary } from "@/lib/api/agentRuntime";
-import type { AgentThreadItem } from "@/lib/api/agentProtocol";
+import type { AgentRuntimeFileCheckpointThreadSummary } from "@/lib/api/agentRuntime/sessionTypes";
+import type { CodingWorkbenchView } from "@embercloud/agent-runtime-projection";
+import type {
+  CanvasWorkbenchHeaderView,
+} from "../components/CanvasWorkbenchLayout";
 import type {
   CanvasWorkbenchChangeItem,
   CanvasWorkbenchChangeView,
-  CanvasWorkbenchHeaderView,
-} from "../components/CanvasWorkbenchLayout";
+} from "../components/canvas-workbench/changes/CanvasWorkbenchChangesPanelViewModel";
 import { extractFileNameFromPath } from "./workspacePath";
 
 export function resolvePathLeaf(value?: string | null): string {
@@ -111,193 +113,45 @@ export function buildWorkspaceHeaderView({
   };
 }
 
-function normalizeChangePath(value: string): string {
-  return value.replace(/\\/g, "/").trim().toLowerCase();
+function statusForCanvasChange(
+  status: string,
+): CanvasWorkbenchChangeItem["status"] {
+  if (status === "running" || status === "pending") return "in_progress";
+  if (status === "failed") return "failed";
+  return "completed";
 }
 
-function readMetadataRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function readMetadataText(
-  metadata: Record<string, unknown> | null,
-  keys: string[],
-): string | undefined {
-  for (const key of keys) {
-    const value = metadata?.[key];
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-  return undefined;
-}
-
-function readMetadataRecordValue(
-  metadata: Record<string, unknown> | null,
-  keys: string[],
-): Record<string, unknown> | null {
-  for (const key of keys) {
-    const value = readMetadataRecord(metadata?.[key]);
-    if (value) {
-      return value;
-    }
-  }
-  return null;
-}
-
-function readMetadataVersionNo(
-  metadata: Record<string, unknown> | null,
-): number | undefined {
-  const versionRecord = readMetadataRecordValue(metadata, [
-    "artifactVersion",
-    "artifact_version",
-  ]);
-  const rawValue =
-    metadata?.artifactVersionNo ??
-    metadata?.artifact_version_no ??
-    metadata?.versionNo ??
-    metadata?.version_no ??
-    versionRecord?.versionNo ??
-    versionRecord?.version_no;
-  if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
-    return rawValue;
-  }
-  if (typeof rawValue === "string" && rawValue.trim()) {
-    const parsed = Number(rawValue.trim());
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
-  return undefined;
-}
-
-export function buildFileArtifactChangeItem(
-  item: Extract<AgentThreadItem, { type: "file_artifact" }>,
-  fileCheckpointSummary?: AgentRuntimeFileCheckpointThreadSummary | null,
-): CanvasWorkbenchChangeItem | null {
-  const path = item.path.trim();
-  if (!path) {
-    return null;
-  }
-
-  const metadata = readMetadataRecord(item.metadata);
-  const versionRecord = readMetadataRecordValue(metadata, [
-    "artifactVersion",
-    "artifact_version",
-  ]);
-  const preview =
-    readMetadataText(metadata, [
-      "previewText",
-      "preview_text",
-      "artifactSummary",
-      "artifact_summary",
-      "summary",
-    ]) || item.content;
-  const latestCheckpoint = fileCheckpointSummary?.latest_checkpoint || null;
-  const metadataCheckpointPath =
-    readMetadataText(metadata, ["snapshotPath", "snapshot_path"]) ||
-    readMetadataText(versionRecord, ["snapshotPath", "snapshot_path"]);
-  const checkpointMatches =
-    latestCheckpoint?.path &&
-    normalizeChangePath(latestCheckpoint.path) === normalizeChangePath(path);
-  const versionNo = readMetadataVersionNo(metadata);
-
-  return {
-    id: item.id,
-    path,
-    displayName:
-      readMetadataText(metadata, [
-        "artifactTitle",
-        "artifact_title",
-        "title",
-        "fileName",
-        "filename",
-      ]) || extractFileNameFromPath(path),
-    source: item.source,
-    status: item.status,
-    preview,
-    currentContent: item.content || preview || null,
-    previousContent: null,
-    checkpointPath: checkpointMatches
-      ? latestCheckpoint.path
-      : metadataCheckpointPath || null,
-    checkpointLabel:
-      (checkpointMatches && latestCheckpoint.version_no) || versionNo
-        ? `v${latestCheckpoint?.version_no || versionNo}`
-        : null,
-  };
-}
-
-function upsertChangeItem(
-  byPath: Map<string, CanvasWorkbenchChangeItem>,
-  item: CanvasWorkbenchChangeItem | null,
-) {
-  if (!item) {
-    return;
-  }
-  const key = normalizeChangePath(item.path);
-  const previous = byPath.get(key);
-  if (!previous) {
-    byPath.set(key, item);
-    return;
-  }
-
-  byPath.set(key, {
-    ...previous,
-    ...item,
-    id: previous.id,
-    currentContent: item.currentContent || previous.currentContent,
-    previousContent: item.previousContent ?? previous.previousContent,
-    preview: item.preview || previous.preview,
-    source: item.source || previous.source,
-    absolutePath: item.absolutePath || previous.absolutePath,
-    status:
-      previous.status === "in_progress" || item.status === "in_progress"
-        ? "in_progress"
-        : previous.status === "failed" || item.status === "failed"
-          ? "failed"
-          : item.status || previous.status,
-    checkpointPath: item.checkpointPath || previous.checkpointPath,
-    checkpointLabel: item.checkpointLabel || previous.checkpointLabel,
-  });
-}
-
-export function buildCanvasWorkbenchChangeView({
-  threadItems,
+export function buildCanvasWorkbenchChangeViewFromCodingProjection({
+  codingView,
   fileCheckpointSummary,
   onOpenFile,
 }: {
-  threadItems: AgentThreadItem[];
+  codingView: CodingWorkbenchView;
   fileCheckpointSummary?: AgentRuntimeFileCheckpointThreadSummary | null;
   onOpenFile?: (path: string) => void | Promise<void>;
 }): CanvasWorkbenchChangeView | null {
-  const byPath = new Map<string, CanvasWorkbenchChangeItem>();
-
-  threadItems
-    .filter(
-      (item): item is Extract<AgentThreadItem, { type: "file_artifact" }> =>
-        item.type === "file_artifact",
-    )
-    .forEach((item) => {
-      upsertChangeItem(
-        byPath,
-        buildFileArtifactChangeItem(item, fileCheckpointSummary),
-      );
-    });
-
-  const items = [...byPath.values()];
+  const items = codingView.changes.map((change): CanvasWorkbenchChangeItem => ({
+    id: change.id,
+    path: change.path,
+    displayName: extractFileNameFromPath(change.path),
+    source: "runtime",
+    status: statusForCanvasChange(change.status),
+    changeKind: change.changeKind,
+    preview: change.preview,
+    currentContent: change.preview ?? null,
+    previousContent: null,
+    checkpointPath: change.checkpointRef || null,
+    checkpointLabel: change.checkpointRef ? "snapshot" : null,
+  }));
   if (items.length === 0 && !(fileCheckpointSummary?.count ?? 0)) {
     return null;
   }
-
   const latestCheckpoint = fileCheckpointSummary?.latest_checkpoint || null;
-  const latestCheckpointPath =
-    latestCheckpoint?.snapshot_path || latestCheckpoint?.path || null;
-
   return {
     items,
     checkpointCount: fileCheckpointSummary?.count ?? 0,
-    latestCheckpointPath,
+    latestCheckpointPath:
+      latestCheckpoint?.snapshot_path || latestCheckpoint?.path || null,
     onOpenFile,
   };
 }

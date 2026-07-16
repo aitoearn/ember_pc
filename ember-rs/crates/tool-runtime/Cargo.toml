@@ -1,0 +1,42 @@
+[package]
+name = "tool-runtime"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lib]
+name = "tool_runtime"
+path = "src/lib.rs"
+doctest = false
+
+[dependencies]
+agent-protocol.workspace = true
+app-server-protocol.workspace = true
+async-trait.workspace = true
+base64.workspace = true
+chrono.workspace = true
+dirs.workspace = true
+document-preview.workspace = true
+encoding_rs = "0.8"
+glob.workspace = true
+lime-core.workspace = true
+lime-skills.workspace = true
+patch-apply.workspace = true
+portable-pty.workspace = true
+rmcp.workspace = true
+regex.workspace = true
+reqwest.workspace = true
+scraper = "0.20"
+serde.workspace = true
+serde_json.workspace = true
+tiktoken-rs.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+url.workspace = true
+urlencoding.workspace = true
+uuid.workspace = true
+which = "8.0.0"
+
+[dev-dependencies]
+tempfile.workspace = true

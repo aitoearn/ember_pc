@@ -1,14 +1,14 @@
-window.__EMBER_OEM_CLOUD__ = {
+window.__LIME_OEM_CLOUD__ = {
   enabled: true,
-  baseUrl: "https://user.emberai.run",
-  gatewayBaseUrl: "https://llm.emberai.run",
-  hubProviderName: "Ember Hub",
+  baseUrl: "https://user.limeai.run",
+  gatewayBaseUrl: "https://llm.limeai.run",
+  hubProviderName: "Lime Hub",
   tenantId: "tenant-0001",
   loginPath: "/login",
   desktopClientId: "desktop-client",
-  desktopOauthRedirectUrl: "ember://oauth/callback",
+  desktopOauthRedirectUrl: "lime://oauth/callback",
   desktopOauthNextPath: "/welcome",
-  ...(window.__EMBER_OEM_CLOUD__ ?? {}),
+  ...(window.__LIME_OEM_CLOUD__ ?? {}),
 };
 
 /*
@@ -16,17 +16,17 @@ Replace this file during packaging when you need brand-specific runtime values.
 
 Example:
 
-window.__EMBER_OEM_CLOUD__ = {
+window.__LIME_OEM_CLOUD__ = {
   enabled: true,
-  baseUrl: "https://emberhub.example.com",
-  gatewayBaseUrl: "https://emberhub.example.com/gateway-api",
-  hubProviderName: "Ember Hub",
+  baseUrl: "https://limehub.example.com",
+  gatewayBaseUrl: "https://limehub.example.com/gateway-api",
+  hubProviderName: "Lime Hub",
   tenantId: "tenant-demo",
   loginPath: "/login",
   desktopClientId: "desktop-client",
-  desktopOauthRedirectUrl: "ember://oauth/callback",
+  desktopOauthRedirectUrl: "lime://oauth/callback",
   desktopOauthNextPath: "/welcome",
 };
 
-window.__EMBER_SESSION_TOKEN__ = "session-token-from-login";
+window.__LIME_SESSION_TOKEN__ = "session-token-from-login";
 */

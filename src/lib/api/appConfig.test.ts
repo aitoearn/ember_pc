@@ -6,6 +6,7 @@ import {
   invalidateAppConfigCache,
   getEnvironmentPreview,
   saveConfig,
+  updateConfig,
 } from "./appConfig";
 
 vi.mock("@/lib/dev-bridge", () => ({
@@ -34,7 +35,7 @@ describe("appConfig API", () => {
     await expect(getDefaultProvider()).resolves.toBe("claude");
   });
 
-  it("环境预览遇到 Electron degraded diagnostic facade 时应 fail closed", async () => {
+  it("环境预览应接收 Electron Host current 返回的局部 Shell 导入状态", async () => {
     vi.mocked(safeInvoke).mockResolvedValueOnce({
       shellImport: {
         enabled: false,
@@ -42,11 +43,30 @@ describe("appConfig API", () => {
         message: "Electron current 暂未接入 shell 环境导入预览。",
         importedCount: 0,
         durationMs: null,
-        diagnostic: {
-          source: "electron-host-diagnostic",
-          command: "get_environment_preview",
-          status: "degraded",
-        },
+      },
+      entries: [],
+    });
+
+    await expect(getEnvironmentPreview()).resolves.toEqual({
+      shellImport: {
+        enabled: false,
+        status: "disabled",
+        message: "Electron current 暂未接入 shell 环境导入预览。",
+        importedCount: 0,
+        durationMs: null,
+      },
+      entries: [],
+    });
+  });
+
+  it("环境预览遇到顶层 Electron degraded diagnostic facade 时应 fail closed", async () => {
+    vi.mocked(safeInvoke).mockResolvedValueOnce({
+      shellImport: {
+        enabled: false,
+        status: "disabled",
+        message: "Electron current 暂未接入 shell 环境导入预览。",
+        importedCount: 0,
+        durationMs: null,
       },
       entries: [],
       diagnostic: {
@@ -291,4 +311,92 @@ describe("appConfig API", () => {
     expect(vi.mocked(safeInvoke)).toHaveBeenCalledTimes(1);
   });
 
+  it("updateConfig 应串行合并连续 mutation，避免后写入覆盖前一笔 Provider", async () => {
+    let releaseFirstSave: (() => void) | undefined;
+    let saveCount = 0;
+    let secondUpdaterProvider: string | undefined;
+
+    vi.mocked(safeInvoke).mockImplementation(async (command) => {
+      if (command === "get_config") {
+        return {
+          default_provider: "openai",
+          workspace_preferences: {
+            media_defaults: {
+              image: {
+                preferredProviderId: "old-provider",
+                preferredModelId: "old-model",
+                allowFallback: false,
+              },
+            },
+          },
+        };
+      }
+      if (command === "save_config") {
+        saveCount += 1;
+        if (saveCount === 1) {
+          await new Promise<void>((resolve) => {
+            releaseFirstSave = resolve;
+          });
+        }
+        return undefined;
+      }
+      throw new Error(`unexpected command: ${command}`);
+    });
+
+    const providerUpdate = updateConfig((current) => ({
+      ...current,
+      workspace_preferences: {
+        ...current.workspace_preferences,
+        media_defaults: {
+          ...current.workspace_preferences?.media_defaults,
+          image: {
+            preferredProviderId: "new-provider",
+            allowFallback: false,
+          },
+        },
+      },
+    }));
+    const modelUpdate = updateConfig((current) => {
+      secondUpdaterProvider =
+        current.workspace_preferences?.media_defaults?.image
+          ?.preferredProviderId;
+      return {
+        ...current,
+        workspace_preferences: {
+          ...current.workspace_preferences,
+          media_defaults: {
+            ...current.workspace_preferences?.media_defaults,
+            image: {
+              ...current.workspace_preferences?.media_defaults?.image,
+              preferredModelId: "new-model",
+            },
+          },
+        },
+      };
+    });
+
+    await vi.waitFor(() => {
+      expect(saveCount).toBe(1);
+    });
+    expect(secondUpdaterProvider).toBeUndefined();
+
+    releaseFirstSave?.();
+    await expect(Promise.all([providerUpdate, modelUpdate])).resolves.toEqual([
+      expect.any(Object),
+      expect.any(Object),
+    ]);
+
+    expect(secondUpdaterProvider).toBe("new-provider");
+    const saveCalls = vi
+      .mocked(safeInvoke)
+      .mock.calls.filter(([command]) => command === "save_config");
+    expect(saveCalls).toHaveLength(2);
+    expect(
+      saveCalls[1]?.[1]?.config.workspace_preferences.media_defaults.image,
+    ).toEqual({
+      preferredProviderId: "new-provider",
+      preferredModelId: "new-model",
+      allowFallback: false,
+    });
+  });
 });

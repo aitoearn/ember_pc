@@ -1,32 +1,19 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  AlertTriangle,
-  Bot,
   Clock3,
-  Copy,
   FileText,
-  ListTodo,
   Loader2,
   PauseCircle,
   PlayCircle,
-  Waves,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { prefetchContextMemoryForTurn } from "@/lib/api/memoryRuntime";
-import {
-  buildTeamMemoryShadowRequestMetadata,
-  type TeamMemorySnapshot,
-} from "@/lib/teamMemorySync";
-import { recordRuntimeMemoryPrefetchHistory } from "@/lib/runtimeMemoryPrefetchHistory";
 import { cn } from "@/lib/utils";
-import type {
-  AgentRuntimeThreadReadModel,
-  QueuedTurnSnapshot,
-} from "@/lib/api/agentRuntime";
+import type { QueuedTurnSnapshot } from "@/lib/api/queuedTurn";
+import type { AgentRuntimeThreadReadModel } from "@/lib/api/agentRuntime/sessionTypes";
 import type {
   ActionRequired,
   AgentThreadItem,
@@ -40,34 +27,37 @@ import {
   buildReliabilityDiagnosticText,
   buildReliabilityRawPayload,
   formatDiagnosticDateTime,
-  resolveMemoryPrefetchComparison,
   truncateDiagnosticText,
   type AgentThreadReliabilityDiagnosticContext,
-  type RuntimeMemoryPrefetchComparisonState,
-  type RuntimeMemoryPrefetchState,
 } from "../utils/threadReliabilityDiagnosticText";
+import { type AgentUiProjectionTranslation } from "../projection/agentUiProjectionSummary";
 import {
-  formatAgentUiProjectionEventDetail,
-  formatAgentUiProjectionEventType,
-  formatAgentUiProjectionPhase,
-  type AgentUiProjectionTranslation,
+  EMPTY_AGENT_UI_PROJECTION_SUMMARY,
+  summarizeAgentUiProjectionEvents,
+  type AgentUiProjectionSummary,
 } from "../projection/agentUiProjectionSummary";
-import { useAgentUiProjectionSummary } from "../projection/useConversationProjectionStore";
+import {
+  conversationProjectionStore,
+  selectAgentUiProjectionEventsForScope,
+} from "../projection/conversationProjectionStore";
 import { AgentIncidentPanel } from "./AgentIncidentPanel";
 import { AgentThreadFileCheckpointDialog } from "./AgentThreadFileCheckpointDialog";
-import { AgentThreadMemoryPrefetchBaselineCard } from "./AgentThreadMemoryPrefetchBaselineCard";
-import { AgentThreadMemoryPrefetchPreview } from "./AgentThreadMemoryPrefetchPreview";
 import { AgentThreadOutcomeSummary } from "./AgentThreadOutcomeSummary";
 import { AgentThreadRoutingEvidenceCard } from "./AgentThreadRoutingEvidenceCard";
+import { AgentThreadPolicyEvidenceCard } from "./AgentThreadPolicyEvidenceCard";
+import { AgentThreadProviderSafetyBufferingCard } from "./AgentThreadProviderSafetyBufferingCard";
+import { AgentThreadReliabilityPanelHeader } from "./AgentThreadReliabilityPanelHeader";
+import { AgentThreadReliabilityStats } from "./AgentThreadReliabilityStats";
 import {
-  resolveLatestTurnPrompt,
+  resolveToneClassName,
   resolveRuntimeDecisionReason,
   resolveRuntimeFallbackChain,
-  resolveStatShellClassName,
-  resolveTeamMemoryShadowKey,
-  resolveToneClassName,
   serializeReliabilityClipboardPayload,
 } from "./AgentThreadReliabilityPanelViewModel";
+import type {
+  ExecutionPolicyFocusContext,
+  ProviderSettingsFocusContext,
+} from "@/types/page";
 
 interface AgentThreadReliabilityPanelProps {
   threadRead?: AgentRuntimeThreadReadModel | null;
@@ -83,11 +73,13 @@ interface AgentThreadReliabilityPanelProps {
   onReplayPendingRequest?: (requestId: string) => boolean | Promise<boolean>;
   onLocatePendingRequest?: (requestId: string) => void;
   onPromoteQueuedTurn?: (queuedTurnId: string) => boolean | Promise<boolean>;
-  onOpenMemoryWorkbench?: () => void;
+  onManageProviders?: (context?: ProviderSettingsFocusContext) => void;
+  onOpenExecutionPolicySettings?: (
+    context?: ExecutionPolicyFocusContext,
+  ) => void;
   className?: string;
   harnessState?: HarnessSessionState | null;
   messages?: Message[];
-  teamMemorySnapshot?: TeamMemorySnapshot | null;
   diagnosticRuntimeContext?: AgentThreadReliabilityDiagnosticContext | null;
 }
 
@@ -95,6 +87,20 @@ type AgentNamespaceTranslation = (
   key: string,
   options?: Record<string, unknown>,
 ) => unknown;
+
+function readAgentUiProjectionSummarySnapshot(
+  sessionId: string,
+): AgentUiProjectionSummary {
+  if (!sessionId) {
+    return EMPTY_AGENT_UI_PROJECTION_SUMMARY;
+  }
+  return summarizeAgentUiProjectionEvents(
+    selectAgentUiProjectionEventsForScope(
+      conversationProjectionStore.getSnapshot(),
+      { sessionId },
+    ),
+  );
+}
 
 export const AgentThreadReliabilityPanel: React.FC<
   AgentThreadReliabilityPanelProps
@@ -112,11 +118,11 @@ export const AgentThreadReliabilityPanel: React.FC<
   onReplayPendingRequest,
   onLocatePendingRequest,
   onPromoteQueuedTurn,
-  onOpenMemoryWorkbench,
+  onManageProviders,
+  onOpenExecutionPolicySettings,
   className,
   harnessState = null,
   messages = [],
-  teamMemorySnapshot = null,
   diagnosticRuntimeContext = null,
 }) => {
   const { t, i18n } = useTranslation("agent");
@@ -133,6 +139,9 @@ export const AgentThreadReliabilityPanel: React.FC<
   const locale = i18n.resolvedLanguage || i18n.language;
   const routingEvidenceText = useMemo(
     () => ({
+      appliedFallback: String(
+        agentT("agentChat.threadReliability.routingEvidence.appliedFallback"),
+      ),
       decisionReason: String(
         agentT("agentChat.threadReliability.routingEvidence.decisionReason"),
       ),
@@ -176,8 +185,87 @@ export const AgentThreadReliabilityPanel: React.FC<
       oemQuotaLow: String(
         agentT("agentChat.threadReliability.routingEvidence.oemQuotaLow"),
       ),
+      policy: String(
+        agentT("agentChat.threadReliability.routingEvidence.policy"),
+      ),
+      policyFailure: String(
+        agentT("agentChat.threadReliability.routingEvidence.policyFailure"),
+      ),
+      policyProfile: String(
+        agentT("agentChat.threadReliability.routingEvidence.policyProfile"),
+      ),
+      policySources: String(
+        agentT("agentChat.threadReliability.routingEvidence.policySources"),
+      ),
+      policyOpenSettings: String(
+        agentT(
+          "agentChat.threadReliability.routingEvidence.policyOpenSettings",
+        ),
+      ),
+      policySummary: String(
+        agentT("agentChat.threadReliability.routingEvidence.policySummary"),
+      ),
+      policyTitle: String(
+        agentT("agentChat.threadReliability.routingEvidence.policyTitle"),
+      ),
+      sandbox: String(
+        agentT("agentChat.threadReliability.routingEvidence.sandbox"),
+      ),
+      sandboxBackend: String(
+        agentT("agentChat.threadReliability.routingEvidence.sandboxBackend"),
+      ),
+      network: String(
+        agentT("agentChat.threadReliability.routingEvidence.network"),
+      ),
+      networkDecision: String(
+        agentT("agentChat.threadReliability.routingEvidence.networkDecision"),
+      ),
       selectedModel: String(
         agentT("agentChat.threadReliability.routingEvidence.selectedModel"),
+      ),
+      providerReadiness: String(
+        agentT("agentChat.threadReliability.routingEvidence.providerReadiness"),
+      ),
+      providerReadinessKeys: String(
+        agentT(
+          "agentChat.threadReliability.routingEvidence.providerReadinessKeys",
+        ),
+      ),
+      providerReadinessOpenSettings: String(
+        agentT(
+          "agentChat.threadReliability.routingEvidence.providerReadinessOpenSettings",
+        ),
+      ),
+      providerReadinessProviderType: String(
+        agentT(
+          "agentChat.threadReliability.routingEvidence.providerReadinessProviderType",
+        ),
+      ),
+      providerReadinessRecovery: String(
+        agentT(
+          "agentChat.threadReliability.routingEvidence.providerReadinessRecovery",
+        ),
+      ),
+      routingAttempts: String(
+        agentT("agentChat.threadReliability.routingEvidence.routingAttempts"),
+      ),
+      modelRegistry: String(
+        agentT("agentChat.threadReliability.routingEvidence.modelRegistry"),
+      ),
+      modelRegistryAlias: String(
+        agentT(
+          "agentChat.threadReliability.routingEvidence.modelRegistryAlias",
+        ),
+      ),
+      modelRegistryCapabilities: String(
+        agentT(
+          "agentChat.threadReliability.routingEvidence.modelRegistryCapabilities",
+        ),
+      ),
+      modelRegistryReasoning: String(
+        agentT(
+          "agentChat.threadReliability.routingEvidence.modelRegistryReasoning",
+        ),
       ),
       requestedModel: String(
         agentT("agentChat.threadReliability.routingEvidence.requestedModel"),
@@ -210,18 +298,6 @@ export const AgentThreadReliabilityPanel: React.FC<
   const [isPromotingQueuedTurn, setIsPromotingQueuedTurn] = useState(false);
   const [fileCheckpointDialogOpen, setFileCheckpointDialogOpen] =
     useState(false);
-  const [memoryPrefetchState, setMemoryPrefetchState] =
-    useState<RuntimeMemoryPrefetchState>({
-      status: "idle",
-      result: null,
-      error: null,
-    });
-  const [memoryPrefetchComparison, setMemoryPrefetchComparison] =
-    useState<RuntimeMemoryPrefetchComparisonState>({
-      baselineEntry: null,
-      diff: null,
-      assessment: null,
-    });
   const view = useMemo(
     () =>
       buildThreadReliabilityView({
@@ -288,117 +364,9 @@ export const AgentThreadReliabilityPanel: React.FC<
     latestFileCheckpoint?.preview_text,
     180,
   );
-  const latestTurnPrompt = useMemo(
-    () => resolveLatestTurnPrompt(turns, currentTurnId),
-    [currentTurnId, turns],
-  );
-  const teamMemoryShadowMetadata = useMemo(
-    () => buildTeamMemoryShadowRequestMetadata(teamMemorySnapshot),
-    [teamMemorySnapshot],
-  );
-  const teamMemoryShadowKey = useMemo(
-    () => resolveTeamMemoryShadowKey(teamMemoryShadowMetadata),
-    [teamMemoryShadowMetadata],
-  );
   const diagnosticSessionId = diagnosticRuntimeContext?.sessionId?.trim() || "";
   const diagnosticWorkingDir =
     diagnosticRuntimeContext?.workingDir?.trim() || "";
-  const agentUiProjectionSummary = useAgentUiProjectionSummary(
-    diagnosticSessionId ? { sessionId: diagnosticSessionId } : null,
-    { enabled: Boolean(diagnosticSessionId) },
-  );
-
-  useEffect(() => {
-    if (!diagnosticSessionId) {
-      setMemoryPrefetchState({ status: "idle", result: null, error: null });
-      setMemoryPrefetchComparison({
-        baselineEntry: null,
-        diff: null,
-        assessment: null,
-      });
-      return;
-    }
-    if (!diagnosticWorkingDir) {
-      setMemoryPrefetchState({
-        status: "error",
-        result: null,
-        error: text("memoryPrefetch.noWorkspace"),
-      });
-      setMemoryPrefetchComparison({
-        baselineEntry: null,
-        diff: null,
-        assessment: null,
-      });
-      return;
-    }
-
-    let cancelled = false;
-    setMemoryPrefetchState({
-      status: "loading",
-      result: null,
-      error: null,
-    });
-
-    void prefetchContextMemoryForTurn({
-      session_id: diagnosticSessionId,
-      working_dir: diagnosticWorkingDir,
-      user_message: latestTurnPrompt,
-      request_metadata: teamMemoryShadowMetadata
-        ? {
-            team_memory_shadow: teamMemoryShadowMetadata,
-          }
-        : undefined,
-    })
-      .then((result) => {
-        if (cancelled) {
-          return;
-        }
-        const historyEntries = recordRuntimeMemoryPrefetchHistory({
-          sessionId: diagnosticSessionId,
-          workingDir: diagnosticWorkingDir,
-          userMessage: latestTurnPrompt || null,
-          source: "thread_reliability",
-          result,
-        });
-        setMemoryPrefetchComparison(
-          resolveMemoryPrefetchComparison(historyEntries, diagnosticWorkingDir),
-        );
-        setMemoryPrefetchState({
-          status: "ready",
-          result,
-          error: null,
-        });
-      })
-      .catch((error) => {
-        if (cancelled) {
-          return;
-        }
-        setMemoryPrefetchState({
-          status: "error",
-          result: null,
-          error:
-            error instanceof Error
-              ? error.message
-              : text("memoryPrefetch.failed"),
-        });
-        setMemoryPrefetchComparison({
-          baselineEntry: null,
-          diff: null,
-          assessment: null,
-        });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    diagnosticSessionId,
-    diagnosticWorkingDir,
-    latestTurnPrompt,
-    text,
-    teamMemoryShadowKey,
-    teamMemoryShadowMetadata,
-  ]);
 
   if (!view.shouldRender) {
     return null;
@@ -473,6 +441,8 @@ export const AgentThreadReliabilityPanel: React.FC<
     }
 
     try {
+      const agentUiProjectionSummary =
+        readAgentUiProjectionSummarySnapshot(diagnosticSessionId);
       await navigator.clipboard.writeText(
         buildReliabilityDiagnosticText({
           threadRead,
@@ -482,8 +452,6 @@ export const AgentThreadReliabilityPanel: React.FC<
           threadItems,
           messages,
           harnessState,
-          memoryPrefetchState,
-          memoryPrefetchComparison,
           diagnosticRuntimeContext,
           agentUiProjectionSummary,
           routingEvidenceLineText: routingEvidenceText,
@@ -505,6 +473,8 @@ export const AgentThreadReliabilityPanel: React.FC<
     }
 
     try {
+      const agentUiProjectionSummary =
+        readAgentUiProjectionSummarySnapshot(diagnosticSessionId);
       await navigator.clipboard.writeText(
         serializeReliabilityClipboardPayload(
           buildReliabilityRawPayload({
@@ -518,8 +488,6 @@ export const AgentThreadReliabilityPanel: React.FC<
             view,
             harnessState,
             messages,
-            memoryPrefetchState,
-            memoryPrefetchComparison,
             diagnosticRuntimeContext,
             agentUiProjectionSummary,
           }),
@@ -541,212 +509,36 @@ export const AgentThreadReliabilityPanel: React.FC<
       )}
       data-testid="agent-thread-reliability-panel"
     >
-      <div className="flex flex-wrap items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="text-xs font-medium tracking-wide text-muted-foreground">
-            {text("title")}
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <Badge
-              variant="outline"
-              className="border-amber-200 bg-amber-50 text-amber-700"
-            >
-              {text("badge.quickDiagnostic")}
-            </Badge>
-            <Badge
-              variant="outline"
-              className={resolveToneClassName(statusTone)}
-            >
-              {statusLabel}
-            </Badge>
-            {view.activeTurnLabel ? (
-              <span className="text-sm font-medium text-foreground">
-                {view.activeTurnLabel}
-              </span>
-            ) : null}
-          </div>
-          <div className="mt-2 text-sm leading-6 text-muted-foreground">
-            {summary}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-end gap-2 text-xs text-muted-foreground">
-          {view.updatedAtLabel ? (
-            <span>{text("lastUpdated", { value: view.updatedAtLabel })}</span>
-          ) : null}
-          {view.interruptStateLabel ? (
-            <Badge
-              variant="outline"
-              className="border-slate-200 bg-slate-50 text-slate-700"
-            >
-              {view.interruptStateLabel}
-            </Badge>
-          ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => void handleCopyDiagnostic()}
-            className="h-8 rounded-full"
-            data-testid="agent-thread-reliability-copy"
-          >
-            <Copy className="mr-2 h-3.5 w-3.5" />
-            {text("copyDiagnostic")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => void handleCopyRawJson()}
-            className="h-8 rounded-full"
-            data-testid="agent-thread-reliability-copy-json"
-          >
-            <Copy className="mr-2 h-3.5 w-3.5" />
-            {text("copyJsonDebug")}
-          </Button>
-        </div>
-      </div>
+      <AgentThreadReliabilityPanelHeader
+        activeTurnLabel={view.activeTurnLabel}
+        copyDiagnosticLabel={text("copyDiagnostic")}
+        copyJsonDebugLabel={text("copyJsonDebug")}
+        interruptStateLabel={view.interruptStateLabel}
+        lastUpdatedLabel={
+          view.updatedAtLabel
+            ? text("lastUpdated", { value: view.updatedAtLabel })
+            : null
+        }
+        quickDiagnosticLabel={text("badge.quickDiagnostic")}
+        statusLabel={statusLabel}
+        statusTone={statusTone}
+        summary={summary}
+        title={text("title")}
+        onCopyDiagnostic={() => void handleCopyDiagnostic()}
+        onCopyRawJson={() => void handleCopyRawJson()}
+      />
       <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 text-[11px] leading-5 text-amber-900">
         {text("handoffNotice")}
       </div>
 
-      <div className="mt-4 grid gap-2 md:grid-cols-3">
-        <div
-          className={cn(
-            "rounded-2xl border px-3 py-3",
-            resolveStatShellClassName(
-              view.pendingRequestCount > 0 ? "waiting" : "neutral",
-            ),
-          )}
-        >
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <ListTodo className="h-4 w-4" />
-            <span>{text("stats.pendingRequests")}</span>
-          </div>
-          <div className="mt-2 text-2xl font-semibold text-foreground">
-            {view.pendingRequestCount}
-          </div>
-        </div>
-
-        <div
-          className={cn(
-            "rounded-2xl border px-3 py-3",
-            resolveStatShellClassName(
-              view.activeIncidentCount > 0 ? "failed" : "neutral",
-            ),
-          )}
-        >
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <AlertTriangle className="h-4 w-4" />
-            <span>{text("stats.activeIncidents")}</span>
-          </div>
-          <div className="mt-2 text-2xl font-semibold text-foreground">
-            {view.activeIncidentCount}
-          </div>
-        </div>
-
-        <div
-          className={cn(
-            "rounded-2xl border px-3 py-3",
-            resolveStatShellClassName(
-              view.queuedTurnCount > 0 ? "waiting" : "neutral",
-            ),
-          )}
-        >
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <Waves className="h-4 w-4" />
-            <span>{text("stats.queuedTurns")}</span>
-          </div>
-          <div className="mt-2 text-2xl font-semibold text-foreground">
-            {view.queuedTurnCount}
-          </div>
-        </div>
-      </div>
-
-      {agentUiProjectionSummary.total > 0 ? (
-        <div
-          className="mt-4 rounded-2xl border border-sky-200 bg-sky-50/70 px-4 py-3"
-          data-testid="agent-thread-reliability-agentui-projection"
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2 text-sm font-medium text-sky-900">
-              <Bot className="h-4 w-4" />
-              <span>{text("projection.title")}</span>
-            </div>
-            <Badge
-              variant="outline"
-              className="border-sky-300 bg-white text-sky-700"
-            >
-              {text("projection.count", {
-                count: agentUiProjectionSummary.total,
-              })}
-            </Badge>
-            <span className="text-xs text-sky-800">
-              {text("projection.source")}
-            </span>
-          </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            <div className="rounded-xl border border-sky-100 bg-white px-3 py-2">
-              <div className="text-[11px] text-sky-700">
-                {text("projection.metric.action")}
-              </div>
-              <div className="mt-1 text-lg font-semibold text-sky-950">
-                {agentUiProjectionSummary.actionCount}
-              </div>
-            </div>
-            <div className="rounded-xl border border-sky-100 bg-white px-3 py-2">
-              <div className="text-[11px] text-sky-700">
-                {text("projection.metric.task")}
-              </div>
-              <div className="mt-1 text-lg font-semibold text-sky-950">
-                {agentUiProjectionSummary.taskCount}
-              </div>
-            </div>
-            <div className="rounded-xl border border-sky-100 bg-white px-3 py-2">
-              <div className="text-[11px] text-sky-700">
-                {text("projection.metric.artifact")}
-              </div>
-              <div className="mt-1 text-lg font-semibold text-sky-950">
-                {agentUiProjectionSummary.artifactCount}
-              </div>
-            </div>
-            <div className="rounded-xl border border-sky-100 bg-white px-3 py-2">
-              <div className="text-[11px] text-sky-700">
-                {text("projection.metric.evidence")}
-              </div>
-              <div className="mt-1 text-lg font-semibold text-sky-950">
-                {agentUiProjectionSummary.evidenceCount}
-              </div>
-            </div>
-            <div className="rounded-xl border border-sky-100 bg-white px-3 py-2">
-              <div className="text-[11px] text-sky-700">
-                {text("projection.metric.diagnostics")}
-              </div>
-              <div className="mt-1 text-lg font-semibold text-sky-950">
-                {agentUiProjectionSummary.diagnosticsCount}
-              </div>
-            </div>
-          </div>
-          {agentUiProjectionSummary.latestEvent ? (
-            <div className="mt-3 text-xs leading-5 text-sky-900">
-              {text("projection.latestEventPrefix")}
-              {formatAgentUiProjectionEventType(
-                agentUiProjectionSummary.latestEvent.type,
-                translateProjection,
-              )}
-              {" · "}
-              {formatAgentUiProjectionPhase(
-                agentUiProjectionSummary.latestEvent.phase,
-                translateProjection,
-              )}
-              {" · "}
-              {formatAgentUiProjectionEventDetail(
-                agentUiProjectionSummary.latestEvent,
-              )}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      <AgentThreadReliabilityStats
+        activeIncidentCount={view.activeIncidentCount}
+        activeIncidentsLabel={text("stats.activeIncidents")}
+        pendingRequestCount={view.pendingRequestCount}
+        pendingRequestsLabel={text("stats.pendingRequests")}
+        queuedTurnCount={view.queuedTurnCount}
+        queuedTurnsLabel={text("stats.queuedTurns")}
+      />
 
       <AgentThreadRoutingEvidenceCard
         evidence={runtimeRoutingEvidence}
@@ -754,7 +546,32 @@ export const AgentThreadReliabilityPanel: React.FC<
         fallbackChain={fallbackChain}
         oemPolicy={oemPolicy}
         labels={routingEvidenceText}
+        onOpenProviderSettings={onManageProviders}
       />
+
+      <AgentThreadPolicyEvidenceCard
+        threadRead={threadRead}
+        decisionReason={runtimeDecisionReason}
+        fallbackChain={fallbackChain}
+        labels={{
+          title: routingEvidenceText.policyTitle,
+          policy: routingEvidenceText.policy,
+          policyProfile: routingEvidenceText.policyProfile,
+          policySources: routingEvidenceText.policySources,
+          sandbox: routingEvidenceText.sandbox,
+          sandboxBackend: routingEvidenceText.sandboxBackend,
+          network: routingEvidenceText.network,
+          networkDecision: routingEvidenceText.networkDecision,
+          failure: routingEvidenceText.policyFailure,
+          openSettings: routingEvidenceText.policyOpenSettings,
+          summary: routingEvidenceText.policySummary,
+          none: routingEvidenceText.none,
+          unknown: routingEvidenceText.unknown,
+        }}
+        onOpenExecutionPolicySettings={onOpenExecutionPolicySettings}
+      />
+
+      <AgentThreadProviderSafetyBufferingCard threadRead={threadRead} />
 
       {(canInterrupt && onInterruptCurrentTurn) ||
       (view.pendingRequests.length > 0 && onReplayPendingRequest) ||
@@ -984,35 +801,6 @@ export const AgentThreadReliabilityPanel: React.FC<
         </div>
       ) : null}
 
-      {diagnosticSessionId ? (
-        <AgentThreadMemoryPrefetchPreview
-          status={memoryPrefetchState.status}
-          result={memoryPrefetchState.result}
-          error={memoryPrefetchState.error}
-          actions={
-            onOpenMemoryWorkbench ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={onOpenMemoryWorkbench}
-                className="h-8 rounded-full border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50"
-              >
-                {text("memoryPrefetch.openWorkbench")}
-              </Button>
-            ) : undefined
-          }
-        />
-      ) : null}
-
-      {memoryPrefetchState.status === "ready" &&
-      memoryPrefetchComparison.baselineEntry &&
-      memoryPrefetchComparison.diff ? (
-        <AgentThreadMemoryPrefetchBaselineCard
-          comparison={memoryPrefetchComparison}
-        />
-      ) : null}
-
       {latestCompactionBoundary ? (
         <div
           className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3"
@@ -1159,7 +947,7 @@ export const AgentThreadReliabilityPanel: React.FC<
         />
       ) : null}
 
-      <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="mt-4 grid min-w-0 gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr))]">
         {view.outcome ? (
           <AgentThreadOutcomeSummary outcome={view.outcome} />
         ) : (

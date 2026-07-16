@@ -6,12 +6,12 @@ import {
 import { extractBaseSetupPackageFromBootstrapPayload } from "@/lib/base-setup/bootstrap";
 
 const SERVICE_SKILL_CATALOG_BOOTSTRAP_EVENT =
-  "ember:service-skill-catalog-bootstrap";
+  "lime:service-skill-catalog-bootstrap";
 
 declare global {
   interface Window {
-    __EMBER_BOOTSTRAP__?: unknown;
-    __EMBER_SERVICE_SKILL_CATALOG__?: unknown;
+    __LIME_BOOTSTRAP__?: unknown;
+    __LIME_SERVICE_SKILL_CATALOG__?: unknown;
   }
 }
 
@@ -92,16 +92,16 @@ export function applyInitialServiceSkillCatalogBootstrap(): ServiceSkillCatalog 
     return null;
   }
 
-  if (window.__EMBER_SERVICE_SKILL_CATALOG__ !== undefined) {
+  if (window.__LIME_SERVICE_SKILL_CATALOG__ !== undefined) {
     const directCatalog = syncServiceSkillCatalogFromBootstrapPayload({
-      serviceSkillCatalog: window.__EMBER_SERVICE_SKILL_CATALOG__,
+      serviceSkillCatalog: window.__LIME_SERVICE_SKILL_CATALOG__,
     });
     if (directCatalog) {
       return directCatalog;
     }
   }
 
-  return syncServiceSkillCatalogFromBootstrapPayload(window.__EMBER_BOOTSTRAP__);
+  return syncServiceSkillCatalogFromBootstrapPayload(window.__LIME_BOOTSTRAP__);
 }
 
 export function emitServiceSkillCatalogBootstrap(payload: unknown): void {

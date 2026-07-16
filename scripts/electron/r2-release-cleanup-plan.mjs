@@ -67,7 +67,7 @@ function extractKeys(value) {
 
 function releaseVersionFromKey(key, channel = "stable") {
   const escapedChannel = channel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = key.match(new RegExp(`^ember/${escapedChannel}/v([^/]+)/`));
+  const match = key.match(new RegExp(`^lime/${escapedChannel}/v([^/]+)/`));
   return match ? match[1] : null;
 }
 
@@ -115,13 +115,13 @@ function main() {
   }
   const raw = JSON.parse(fs.readFileSync(path.resolve(inputPath), "utf8"));
   const plan = planR2ReleaseCleanup({
-    channel: args.channel || process.env.EMBER_RELEASE_CHANNEL || "stable",
+    channel: args.channel || process.env.LIME_RELEASE_CHANNEL || "stable",
     currentVersion:
       args.current || process.env.RELEASE_TAG || process.env.GITHUB_REF_NAME,
-    keep: args.keep || process.env.EMBER_R2_KEEP_RELEASES || "3",
+    keep: args.keep || process.env.LIME_R2_KEEP_RELEASES || "3",
     keys: extractKeys(raw),
     minimumSupportedVersion:
-      args.minimum || process.env.EMBER_MINIMUM_SUPPORTED_VERSION || "",
+      args.minimum || process.env.LIME_MINIMUM_SUPPORTED_VERSION || "",
   });
 
   const outputPath = args.output ? path.resolve(args.output) : "";

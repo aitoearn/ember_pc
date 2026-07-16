@@ -53,25 +53,62 @@ export function hasStructuredHistoricalContentHint(content: string): boolean {
   return STRUCTURED_HISTORY_CONTENT_RE.test(content);
 }
 
-function hasRunningHistoricalProcessContentParts(
+function resolveHistoricalMessageHydrationText(
   message: HistoricalConversationMessageLike,
+): string {
+  const content = message.content.trim();
+  if (content) {
+    return content;
+  }
+
+  for (
+    let index = (message.contentParts?.length ?? 0) - 1;
+    index >= 0;
+    index -= 1
+  ) {
+    const part = message.contentParts?.[index];
+    if (!part || typeof part !== "object") {
+      continue;
+    }
+
+    const record = part as { type?: unknown; text?: unknown };
+    if (record.type !== "text" || typeof record.text !== "string") {
+      continue;
+    }
+
+    const text = record.text.trim();
+    if (text) {
+      return text;
+    }
+  }
+
+  return "";
+}
+
+function hasDeferrableHistoricalContentParts(
+  contentParts?: readonly unknown[],
 ): boolean {
-  return Boolean(
-    message.contentParts?.some((part) => {
-      if (!part || typeof part !== "object") {
-        return false;
-      }
-      const type = (part as { type?: unknown }).type;
-      if (type !== "tool_use") {
-        return false;
-      }
-      const toolCall = (part as { toolCall?: unknown }).toolCall;
-      if (!toolCall || typeof toolCall !== "object") {
-        return false;
-      }
-      return (toolCall as { status?: unknown }).status === "running";
-    }),
-  );
+  if ((contentParts?.length ?? 0) === 0) {
+    return true;
+  }
+
+  return (contentParts || []).every((part) => {
+    if (!part || typeof part !== "object") {
+      return false;
+    }
+    const record = part as {
+      type?: unknown;
+      toolCall?: { status?: unknown };
+    };
+    if (record.type === "tool_use") {
+      return record.toolCall?.status === "completed";
+    }
+    return (
+      record.type === "text" ||
+      record.type === "thinking" ||
+      record.type === "file_changes_batch"
+    );
+  });
 }
 
 export function isHistoricalAssistantMessageHydrationCandidate<
@@ -85,9 +122,9 @@ export function isHistoricalAssistantMessageHydrationCandidate<
     message.role === "assistant" &&
     !message.isThinking &&
     !message.thinkingContent &&
-    !hasRunningHistoricalProcessContentParts(message) &&
     (message.toolCalls?.length ?? 0) === 0 &&
-    (message.actionRequests?.length ?? 0) === 0
+    (message.actionRequests?.length ?? 0) === 0 &&
+    hasDeferrableHistoricalContentParts(message.contentParts)
   );
 }
 
@@ -103,7 +140,7 @@ export function buildHistoricalMarkdownHydrationTargets<
 
   const targetIds: string[] = [];
   for (const message of params.messages) {
-    const content = message.content.trim();
+    const content = resolveHistoricalMessageHydrationText(message);
     if (
       content &&
       !hasStructuredHistoricalContentHint(content) &&

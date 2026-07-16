@@ -13,8 +13,36 @@ function normalizeProjectId(projectId?: string | null): string {
   return projectId?.trim() ?? "";
 }
 
-function resolveProjectNameFromId(projectId: string): string {
-  return projectId.split(/[\\/]/).filter(Boolean).pop()?.trim() || projectId;
+function isUuidLike(value?: string | null): boolean {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return false;
+  }
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    normalized,
+  );
+}
+
+function isDisplayableProjectSummary(
+  project?: OpenedProjectSummary | null,
+  options: { allowPlaceholder?: boolean } = {},
+): project is OpenedProjectSummary {
+  if (!project) {
+    return false;
+  }
+  const projectId = normalizeProjectId(project.id);
+  const projectName = project.name.trim();
+  const projectRootPath = project.rootPath?.trim();
+  if (!projectId || !projectName) {
+    return false;
+  }
+  if (projectRootPath) {
+    return true;
+  }
+  if (options.allowPlaceholder && projectId && projectName) {
+    return true;
+  }
+  return !(isUuidLike(projectId) && projectName === projectId);
 }
 
 function dedupeProjectIds(projectIds: Array<string | null | undefined>) {
@@ -26,6 +54,16 @@ function dedupeProjectIds(projectIds: Array<string | null | undefined>) {
     seen.add(projectId);
     return true;
   });
+}
+
+export function shouldResolveOpenedProject(
+  projectId: string,
+  resolvedProjectsById: Record<string, OpenedProjectSummary | null>,
+): boolean {
+  return !Object.prototype.hasOwnProperty.call(
+    resolvedProjectsById,
+    projectId,
+  );
 }
 
 export function buildOpenedProjectIdOrder(
@@ -42,26 +80,53 @@ export function buildOpenedProjectIdOrder(
     : [...opened, normalizedCurrentProjectId];
 }
 
+export function compactOpenedProjectSummaries(
+  projectIds: string[],
+  resolvedProjectsById: Record<string, OpenedProjectSummary | null>,
+  currentProjectSummary?: OpenedProjectSummary | null,
+): OpenedProjectSummary[] {
+  return projectIds.flatMap((projectId) => {
+    if (projectId === normalizeProjectId(currentProjectSummary?.id)) {
+      return isDisplayableProjectSummary(currentProjectSummary, {
+        allowPlaceholder: true,
+      })
+        ? [currentProjectSummary]
+        : [];
+    }
+    const resolved = resolvedProjectsById[projectId];
+    return isDisplayableProjectSummary(resolved) ? [resolved] : [];
+  });
+}
+
 export function useOpenedProjectSummaries(
   currentProject?: OpenedProjectSummary | null,
+  options: { enabled?: boolean } = {},
 ): OpenedProjectSummary[] {
+  const enabled = options.enabled ?? true;
   const openedProjectIds = useOpenedProjectIds();
   const normalizedCurrentProjectId = normalizeProjectId(currentProject?.id);
   const [resolvedProjectsById, setResolvedProjectsById] = useState<
-    Record<string, OpenedProjectSummary>
+    Record<string, OpenedProjectSummary | null>
   >({});
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
     if (!normalizedCurrentProjectId) {
       return;
     }
     markProjectOpened(normalizedCurrentProjectId);
-  }, [normalizedCurrentProjectId]);
+  }, [enabled, normalizedCurrentProjectId]);
 
   const projectIds = useMemo(
     () =>
-      buildOpenedProjectIdOrder(openedProjectIds, normalizedCurrentProjectId),
-    [normalizedCurrentProjectId, openedProjectIds],
+      enabled
+        ? buildOpenedProjectIdOrder(openedProjectIds, normalizedCurrentProjectId)
+        : normalizedCurrentProjectId
+          ? [normalizedCurrentProjectId]
+          : [],
+    [enabled, normalizedCurrentProjectId, openedProjectIds],
   );
 
   const currentProjectSummary = useMemo<OpenedProjectSummary | null>(() => {
@@ -73,7 +138,7 @@ export function useOpenedProjectSummaries(
       name:
         currentProject?.name?.trim() ||
         resolvedProjectsById[normalizedCurrentProjectId]?.name ||
-        resolveProjectNameFromId(normalizedCurrentProjectId),
+        "",
       rootPath:
         currentProject?.rootPath ??
         resolvedProjectsById[normalizedCurrentProjectId]?.rootPath ??
@@ -86,11 +151,14 @@ export function useOpenedProjectSummaries(
   }, [currentProject, normalizedCurrentProjectId, resolvedProjectsById]);
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
     const idsToResolve = projectIds.filter((projectId) => {
       if (projectId === normalizedCurrentProjectId && currentProject?.name) {
         return false;
       }
-      return !resolvedProjectsById[projectId];
+      return shouldResolveOpenedProject(projectId, resolvedProjectsById);
     });
     if (idsToResolve.length === 0) {
       return;
@@ -101,26 +169,19 @@ export function useOpenedProjectSummaries(
       idsToResolve.map(async (projectId) => {
         try {
           const project = await getProject(projectId);
-          return project
+          const projectSummary = project
             ? {
                 id: project.id,
                 name: project.name,
                 rootPath: project.rootPath,
                 isFavorite: project.isFavorite,
               }
-            : {
-                id: projectId,
-                name: resolveProjectNameFromId(projectId),
-                rootPath: null,
-                isFavorite: false,
-              };
+            : null;
+          return isDisplayableProjectSummary(projectSummary)
+            ? projectSummary
+            : null;
         } catch {
-          return {
-            id: projectId,
-            name: resolveProjectNameFromId(projectId),
-            rootPath: null,
-            isFavorite: false,
-          };
+          return null;
         }
       }),
     ).then((projects) => {
@@ -129,8 +190,8 @@ export function useOpenedProjectSummaries(
       }
       setResolvedProjectsById((current) => {
         const next = { ...current };
-        projects.forEach((project) => {
-          next[project.id] = project;
+        projects.forEach((project, index) => {
+          next[idsToResolve[index]] = project;
         });
         return next;
       });
@@ -141,22 +202,15 @@ export function useOpenedProjectSummaries(
     };
   }, [
     currentProject?.name,
+    enabled,
     normalizedCurrentProjectId,
     projectIds,
     resolvedProjectsById,
   ]);
 
-  return projectIds.map((projectId) => {
-    if (projectId === normalizedCurrentProjectId && currentProjectSummary) {
-      return currentProjectSummary;
-    }
-    return (
-      resolvedProjectsById[projectId] ?? {
-        id: projectId,
-        name: resolveProjectNameFromId(projectId),
-        rootPath: null,
-        isFavorite: false,
-      }
-    );
-  });
+  return compactOpenedProjectSummaries(
+    projectIds,
+    resolvedProjectsById,
+    currentProjectSummary,
+  );
 }

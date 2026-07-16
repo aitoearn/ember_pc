@@ -1,6 +1,6 @@
 import type { ExpertInstallOverlayRecord, ExpertProfile } from "./types";
 
-const EXPERT_INSTALL_OVERLAY_STORAGE_KEY = "ember:expert-install-overlay:v1";
+const EXPERT_INSTALL_OVERLAY_STORAGE_KEY = "lime:expert-install-overlay:v1";
 
 function cloneOverlay(
   records: ExpertInstallOverlayRecord[],

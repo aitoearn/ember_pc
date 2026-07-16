@@ -360,7 +360,7 @@ describe("useBrowserRuntimeDebug", () => {
     });
     mockBrowserRuntimeApi.browserExecuteAction.mockResolvedValue({
       success: true,
-      backend: "ember_extension_bridge",
+      backend: "lime_extension_bridge",
       action: "click",
       request_id: "browser-control-1",
       attempts: [],
@@ -394,7 +394,7 @@ describe("useBrowserRuntimeDebug", () => {
     expect(mockBrowserRuntimeApi.browserExecuteAction).toHaveBeenCalledWith(
       expect.objectContaining({
         profile_key: "attached-github",
-        backend: "ember_extension_bridge",
+        backend: "lime_extension_bridge",
         action: "click",
         args: expect.objectContaining({
           x: 88,

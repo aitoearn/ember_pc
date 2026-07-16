@@ -5,8 +5,8 @@
 use super::{
     WsApiRequest, WsApiResponse, WsEndpoint, WsError, WsMessage, WsStreamChunk, WsStreamEnd,
 };
-use ember_core::models::anthropic::AnthropicMessagesRequest;
-use ember_core::models::openai::ChatCompletionRequest;
+use lime_core::models::anthropic::AnthropicMessagesRequest;
+use lime_core::models::openai::ChatCompletionRequest;
 use serde_json::Value;
 
 /// 消息处理器

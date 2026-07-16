@@ -32,9 +32,9 @@ describe("installedSkillPresentation", () => {
   it("已安装技能应优先复用 metadata 里的轻合同信息", () => {
     const skill = createSkill({
       metadata: {
-        ember_when_to_use: "当你需要复用内容改写方法时使用。",
-        ember_argument_hint: "主题、受众与风格约束",
-        ember_output_hint: "沿用这套写法进入生成",
+        lime_when_to_use: "当你需要复用内容改写方法时使用。",
+        lime_argument_hint: "主题、受众与风格约束",
+        lime_output_hint: "沿用这套写法进入生成",
       },
     });
 

@@ -6,6 +6,7 @@ import { HomeStartSurface } from "./HomeStartSurface";
 import type {
   HomeGuideCard,
   HomeProjectConversationGroup,
+  HomeRecoverySession,
   HomeSkillSection,
   HomeSkillSurfaceItem,
   HomeStarterChip,
@@ -37,17 +38,39 @@ const TEST_CHROME_COPY: HomeSurfaceChromeCopy = {
   guideCardsLabel: "首页引导帮助",
   moreSkillsDrawerLabel: "更多做法",
   galleryTitle: "你可以从这些任务开始",
-  galleryDescription: "往下看更多任务样例；真正执行仍会回到生成里继续补充。",
-  scrollCueLabel: "向下滑，看看 Ember 可以帮你做什么",
-  secondScreenLabel: "Ember 可执行任务示例",
+  secondScreenLabel: "Lime 可执行任务示例",
   projectConversationsMoreLabel: (count) => `更多 ${count} 个对话`,
+  recoverySessionTitle: (status, title) => {
+    if (status === "waiting") {
+      return `等待确认：${title}`;
+    }
+    if (status === "queued") {
+      return `排队等待：${title}`;
+    }
+    return `正在继续：${title}`;
+  },
+  recoverySessionSummary: (status) => {
+    if (status === "waiting") {
+      return "需要你确认后继续。";
+    }
+    if (status === "queued") {
+      return "仍有请求在队列中。";
+    }
+    return "后台输出仍在继续。";
+  },
+  recoverySessionActionLabel: (status) =>
+    status === "waiting"
+      ? "继续确认"
+      : status === "queued"
+        ? "查看队列"
+        : "查看输出",
   recentSessionDefaultActionLabel: "继续最近会话",
 };
 
 function createItem(): HomeSkillSurfaceItem {
   return {
     id: "daily-trend-briefing",
-    title: "冒烟检查清单",
+    title: "每日趋势摘要",
     summary: "先收一版内容趋势。",
     category: "social",
     sourceKind: "curated_task",
@@ -109,7 +132,9 @@ function renderSurface(options?: {
     typeof HomeStartSurface
   >["supplementalActions"];
   conversationGroups?: HomeProjectConversationGroup[];
+  recoverySession?: HomeRecoverySession | null;
   guideCards?: HomeGuideCard[];
+  onSelectRecoverySession?: () => void;
   onSelectConversation?: (
     conversationId: string,
     statusReason?: string,
@@ -126,6 +151,7 @@ function renderSurface(options?: {
   const onSelectGuideCard = options?.onSelectGuideCard ?? vi.fn();
   const onSelectSkillItem = options?.onSelectSkillItem ?? vi.fn();
   const onSelectConversation = options?.onSelectConversation ?? vi.fn();
+  const onSelectRecoverySession = options?.onSelectRecoverySession ?? vi.fn();
   mountedRoots.push({ root, container });
 
   act(() => {
@@ -134,6 +160,7 @@ function renderSurface(options?: {
         starterChips={options?.starterChips ?? createStarterChips()}
         copy={TEST_CHROME_COPY}
         guideCards={options?.guideCards ?? createGuideCards()}
+        recoverySession={options?.recoverySession}
         sections={
           options?.sections ?? [
             { id: "social", title: "社交媒体", items: [item] },
@@ -141,6 +168,7 @@ function renderSurface(options?: {
         }
         conversationGroups={options?.conversationGroups}
         supplementalActions={options?.supplementalActions}
+        onSelectRecoverySession={onSelectRecoverySession}
         onSelectConversation={onSelectConversation}
         onSelectStarterChip={onSelectStarterChip}
         onSelectGuideCard={onSelectGuideCard}
@@ -156,6 +184,7 @@ function renderSurface(options?: {
     onSelectGuideCard,
     onSelectSkillItem,
     onSelectConversation,
+    onSelectRecoverySession,
   };
 }
 
@@ -322,6 +351,91 @@ describe("HomeStartSurface", () => {
     });
 
     expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it("未完成恢复卡显示运行会话并触发恢复入口", () => {
+    const onSelectRecoverySession = vi.fn();
+    const { container } = renderSurface({
+      recoverySession: {
+        sessionId: "session-news",
+        title: "国际新闻证据整理",
+        summary: "正在继续输出。",
+        status: "running",
+      },
+      onSelectRecoverySession,
+    });
+
+    const card = container.querySelector(
+      '[data-testid="home-unfinished-session-card"]',
+    ) as HTMLButtonElement | null;
+
+    expect(card).toBeTruthy();
+    expect(card?.getAttribute("data-status")).toBe("running");
+    expect(card?.textContent).toContain("正在继续：国际新闻证据整理");
+    expect(card?.textContent).toContain("正在继续输出。");
+    expect(card?.textContent).toContain("查看输出");
+
+    act(() => {
+      card?.click();
+    });
+
+    expect(onSelectRecoverySession).toHaveBeenCalledTimes(1);
+  });
+
+  it("未完成恢复卡显示排队会话并触发恢复入口", () => {
+    const onSelectRecoverySession = vi.fn();
+    const { container } = renderSurface({
+      recoverySession: {
+        sessionId: "session-queued",
+        title: "待继续的后台请求",
+        summary: "仍有请求在队列中。",
+        status: "queued",
+      },
+      onSelectRecoverySession,
+    });
+
+    const card = container.querySelector(
+      '[data-testid="home-unfinished-session-card"]',
+    ) as HTMLButtonElement | null;
+
+    expect(card).toBeTruthy();
+    expect(card?.getAttribute("data-status")).toBe("queued");
+    expect(card?.textContent).toContain("排队等待：待继续的后台请求");
+    expect(card?.textContent).toContain("仍有请求在队列中。");
+    expect(card?.textContent).toContain("查看队列");
+
+    act(() => {
+      card?.click();
+    });
+
+    expect(onSelectRecoverySession).toHaveBeenCalledTimes(1);
+  });
+
+  it("引导帮助打开时不抢占展示未完成恢复卡", () => {
+    const { container } = renderSurface({
+      recoverySession: {
+        sessionId: "session-waiting",
+        title: "等待确认的任务",
+        status: "waiting",
+      },
+    });
+
+    expect(
+      container.querySelector('[data-testid="home-unfinished-session-card"]'),
+    ).toBeTruthy();
+
+    const guide = container.querySelector(
+      '[data-testid="home-guide-help-trigger"]',
+    ) as HTMLButtonElement | null;
+
+    act(() => {
+      guide?.click();
+    });
+
+    expect(
+      container.querySelector('[data-testid="home-unfinished-session-card"]'),
+    ).toBeNull();
+    expect(container.textContent).toContain("怎么添加模型？");
   });
 
   it("有项目会话时以左对齐目录替代补充入口", () => {

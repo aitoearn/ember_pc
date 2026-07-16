@@ -24,7 +24,7 @@ const agentCompatRestrictedPatterns = [
       "**/useAgentChat.*",
     ],
     message:
-      "useAgentChat 属于零引用 compat Hook，请改用 useAgentChatUnified 或 useAsterAgentChat；仅兼容回归测试允许引用。",
+      "useAgentChat 属于零引用 compat Hook，请改用 useAgentChatUnified 或 useAgentChat；仅兼容回归测试允许引用。",
   },
   {
     group: [
@@ -34,7 +34,7 @@ const agentCompatRestrictedPatterns = [
       "**/agentStore.*",
     ],
     message:
-      "agentStore 属于零引用遗留状态容器，请改用 useAgentChatUnified / useAsterAgentChat；仅兼容回归测试允许引用。",
+      "agentStore 属于零引用遗留状态容器，请改用 useAgentChatUnified / useAgentChat；仅兼容回归测试允许引用。",
   },
 ];
 
@@ -65,7 +65,7 @@ const generalChatRestrictedPaths = [
     name: "@/components/general-chat",
     importNames: ["useChat"],
     message:
-      "general-chat 的 useChat 属于旧路径，请优先使用 useAgentChatUnified / useAsterAgentChat 或当前现役聊天入口。",
+      "general-chat 的 useChat 属于旧路径，请优先使用 useAgentChatUnified / useAgentChat 或当前现役聊天入口。",
   },
   {
     name: "@/components/general-chat",
@@ -83,18 +83,18 @@ const generalChatRestrictedPaths = [
     name: "@/components/general-chat/hooks",
     importNames: ["useChat"],
     message:
-      "general-chat/hooks/useChat 属于旧路径，请优先使用 useAgentChatUnified / useAsterAgentChat 或当前现役聊天入口。",
+      "general-chat/hooks/useChat 属于旧路径，请优先使用 useAgentChatUnified / useAgentChat 或当前现役聊天入口。",
   },
   {
     name: "@/components/general-chat/hooks",
     importNames: ["useSession", "useStreaming"],
     message:
-      "general-chat/hooks 下的 useSession/useStreaming 属于兼容实现，请优先接入 useAgentChatUnified / useAsterAgentChat / agent_runtime_*。",
+      "general-chat/hooks 下的 useSession/useStreaming 属于兼容实现，请优先接入 useAgentChatUnified / useAgentChat / agent_runtime_*。",
   },
   {
     name: "@/components/general-chat/hooks/useChat",
     message:
-      "general-chat/hooks/useChat 属于旧路径，请优先使用 useAgentChatUnified / useAsterAgentChat 或当前现役聊天入口。",
+      "general-chat/hooks/useChat 属于旧路径，请优先使用 useAgentChatUnified / useAgentChat 或当前现役聊天入口。",
   },
   {
     name: "@/components/general-chat/GeneralChatPage",
@@ -134,12 +134,12 @@ const generalChatRestrictedPaths = [
   {
     name: "@/lib/api/compat",
     message:
-      "api/compat.ts 属于历史记忆兼容层，请不要在新代码中接入；旧记忆运行时请使用 @/lib/api/memoryRuntime，统一记忆请使用 @/lib/api/unifiedMemory。",
+      "api/compat.ts 属于历史记忆兼容层，请不要在新代码中接入；记忆主链请使用当前 memory store / MemoryBackend / memory tools / Soul 配置入口。",
   },
   {
     name: "@/lib/api/agent",
     message:
-      "agent.ts 已删除；请直接使用 @/lib/api/agentRuntime 或 @/lib/api/agentStream。",
+      "agent.ts 与 agentRuntime root aggregate 已删除；请直接使用 @/lib/api/agentRuntime/<domain> client 或 @/lib/api/agentStream。",
   },
   {
     name: LEGACY_DESKTOP_HOST_AGGREGATE_HOOK_PATH,
@@ -208,7 +208,7 @@ const generalChatRestrictedPaths = [
       "MemoryStatsResponse",
     ],
     message:
-      "记忆分析/清理能力已迁移到 @/lib/api/memoryRuntime，请不要继续从 已删除的桌面宿主聚合 Hook 聚合层引入。",
+      "旧记忆分析/清理能力已下线；记忆整理、审阅和重建索引请走 src/lib/api/memoryStore.ts -> App Server memoryStore/*，不要继续从已删除的桌面宿主聚合 Hook 聚合层引入。",
   },
   {
     name: LEGACY_DESKTOP_HOST_AGGREGATE_HOOK_PATH,
@@ -311,7 +311,7 @@ const generalChatRestrictedPaths = [
       "MemorySourcesConfig",
     ],
     message:
-      "记忆运行时相关能力已迁移到 @/lib/api/memoryRuntime，请不要继续从 已删除的桌面宿主聚合 Hook 聚合层引入。",
+      "旧记忆运行时相关能力已下线；记忆设置和显式整理请走 src/lib/api/memoryStore.ts 与 memory.soul current 配置，不要继续从已删除的桌面宿主聚合 Hook 聚合层引入。",
   },
   {
     name: LEGACY_DESKTOP_HOST_AGGREGATE_HOOK_PATH,
@@ -383,7 +383,7 @@ const generalChatRestrictedPaths = [
   {
     name: "@/stores/agentStore",
     message:
-      "agentStore 属于零引用遗留状态容器，请改用现役 useAgentChatUnified / useAsterAgentChat 链路。",
+      "agentStore 属于零引用遗留状态容器，请改用现役 useAgentChatUnified / useAgentChat 链路。",
   },
   {
     name: "@/stores",
@@ -395,7 +395,7 @@ const generalChatRestrictedPaths = [
       "usePendingActions",
     ],
     message:
-      "agentStore 相关导出属于零引用遗留状态容器，请改用现役 useAgentChatUnified / useAsterAgentChat 链路。",
+      "agentStore 相关导出属于零引用遗留状态容器，请改用现役 useAgentChatUnified / useAgentChat 链路。",
   },
   {
     name: "@/lib/api/agentCompat",
@@ -406,31 +406,29 @@ const generalChatRestrictedPaths = [
     name: "@/lib/api/agent",
     importNames: ["sendAgentMessage", "sendAgentMessageStream"],
     message:
-      "agent.ts 已删除；旧 Agent 发送 API 请改用 submitAgentRuntimeTurn() 或 useAsterAgentChat().sendMessage()。",
+      "agent.ts 已删除；旧 Agent 发送 API 请改用 submitAgentRuntimeTurn() 或 useAgentChat().sendMessage()。",
   },
   {
     name: "@/lib/api/agentRuntime",
     importNames: deprecatedAgentRuntimeHelperNames,
     message:
-      "agentRuntime 中这些旧命名 helper 只允许留在兼容层或兼容测试；业务层请改用 agent_runtime_* 对应 API 或 useAsterAgentChat。",
+      "agentRuntime root aggregate 已删除；业务层请直连对应分域 client 或 useAgentChat。",
   },
   {
     name: "@/hooks/useUnifiedChat",
     message:
-      "useUnifiedChat 已删除；Agent 工作台请改用 useAgentChatUnified / useAsterAgentChat，旧 General/Creator 路径如需恢复，必须基于 agent_runtime_* 重新设计。",
+      "useUnifiedChat 已删除；Agent 工作台请改用 useAgentChatUnified / useAgentChat，旧 General/Creator 路径如需恢复，必须基于 agent_runtime_* 重新设计。",
   },
   {
     name: "@/lib/api/agent",
     importNames: [
-      "initasterAgent",
-      "getasterAgentStatus",
-      "resetasterAgent",
-      "createasterSession",
-      "sendasterMessage",
-      "listasterProviders",
+      "initagent",
+      "getagentStatus",
+      "resetagent",
+      "listruntimeProviders",
     ],
     message:
-      "agent.ts 已删除；旧 aster 命名 API 请改用现役 Aster API 或 Provider 配置流程。",
+      "agent.ts 已删除；旧 agent 命名 API 请改用现役 Agent API 或 Provider 配置流程。",
   },
 ];
 
@@ -486,7 +484,7 @@ const agentRuntimeCommandSelectors = [
 ].map((command) => ({
   selector: `CallExpression[callee.name='safeInvoke'][arguments.0.value='${command}'], CallExpression[callee.name='invoke'][arguments.0.value='${command}']`,
   message:
-    "agent runtime 命令只允许集中放在 `src/lib/api/agentRuntime` 网关目录；旧 agent_/aster_ 命令已废弃，禁止在业务模块直接扩散。",
+    "agent runtime 命令只允许集中放在 `src/lib/api/agentRuntime` 网关目录；旧 agent_/agent_ 命令已废弃，禁止在业务模块直接扩散。",
 }));
 
 const projectGatewayCommandSelectors = [
@@ -723,7 +721,7 @@ const memoryRuntimeCommandSelectors = [
 ].map((command) => ({
   selector: `CallExpression[callee.name='safeInvoke'][arguments.0.value='${command}'], CallExpression[callee.name='invoke'][arguments.0.value='${command}']`,
   message:
-    "记忆运行时相关后端命令请统一通过 `src/lib/api/memoryRuntime.ts` 暴露的网关函数调用，避免继续在其他模块中直接拼接命令名。",
+    "旧记忆运行时命令已下线；记忆主链请走 `src/lib/api/memoryStore.ts`、MemoryBackend 和 memory tools，不要恢复旧 runtime 网关。",
 }));
 
 const projectMemoryCommandSelectors = [
@@ -745,7 +743,7 @@ const projectMemoryCommandSelectors = [
 ].map((command) => ({
   selector: `CallExpression[callee.name='safeInvoke'][arguments.0.value='${command}'], CallExpression[callee.name='invoke'][arguments.0.value='${command}']`,
   message:
-    "项目记忆 CRUD 相关后端命令请统一通过 `src/lib/api/memory.ts` 暴露的网关函数调用，避免继续在其他模块中直接拼接命令名。",
+    "旧项目记忆 CRUD 命令已下线；项目上下文读取请走 `src/lib/api/projectMemory.ts` -> `projectMemory/read`，不要恢复旧聚合网关。",
 }));
 
 const toolHooksCommandSelectors = [
@@ -782,7 +780,7 @@ const memoryFeedbackCommandSelectors = [
 ].map((command) => ({
   selector: `CallExpression[callee.name='safeInvoke'][arguments.0.value='${command}'], CallExpression[callee.name='invoke'][arguments.0.value='${command}']`,
   message:
-    "记忆反馈相关命令请统一通过 `src/lib/api/memoryFeedback.ts` 暴露的网关函数调用，避免继续在其他模块中直接拼接命令名。",
+    "旧记忆反馈命令已下线；记忆整理、审阅和证据展示请走 memory store current 主链，不要恢复旧反馈网关。",
 }));
 
 const contextMemoryCommandSelectors = [
@@ -797,7 +795,7 @@ const contextMemoryCommandSelectors = [
 ].map((command) => ({
   selector: `CallExpression[callee.name='safeInvoke'][arguments.0.value='${command}'], CallExpression[callee.name='invoke'][arguments.0.value='${command}']`,
   message:
-    "上下文记忆命令请统一通过 `src/lib/api/contextMemory.ts` 暴露的网关函数调用，避免继续在其他模块中直接拼接命令名。",
+    "旧上下文记忆命令已下线；长期记忆走 memory store，session / evidence 走 App Server current 方法，不要恢复旧上下文记忆网关。",
 }));
 
 const asrProviderCommandSelectors = [
@@ -833,7 +831,7 @@ const contentWorkflowCommandSelectors = [
 ].map((command) => ({
   selector: `CallExpression[callee.name='safeInvoke'][arguments.0.value='${command}'], CallExpression[callee.name='invoke'][arguments.0.value='${command}']`,
   message:
-    "内容工作流命令请统一通过 `src/lib/api/content-workflow.ts` 暴露的网关函数调用，避免继续在其他模块中直接拼接命令名。",
+    "旧 content_workflow_* 命令已下线，禁止恢复旧 content-workflow 网关；Workflow 控制面必须走 App Server current method：workflow/read、workflow/cancel、workflow/retry、workflow/respond。",
 }));
 
 const novelCommandSelectors = [
@@ -885,7 +883,7 @@ const unifiedMemoryCommandSelectors = [
 ].map((command) => ({
   selector: `CallExpression[callee.name='safeInvoke'][arguments.0.value='${command}'], CallExpression[callee.name='invoke'][arguments.0.value='${command}']`,
   message:
-    "统一记忆命令请统一通过 `src/lib/api/unifiedMemory.ts` 暴露的网关函数调用，避免继续在其他模块中直接拼接命令名。",
+    "旧 unified_memory_* 命令已下线；不要恢复旧统一记忆网关，记忆主链请收敛到当前 memory store / MemoryBackend / memory tools。",
 }));
 
 const apiCompatibilityCommandSelectors = ["check_api_compatibility"].map(
@@ -1181,21 +1179,16 @@ export default [
       "src/lib/api/posterMaterials.ts",
       "src/lib/api/subAgentScheduler.ts",
       "src/lib/api/fileSystem.ts",
-      "src/lib/api/memory.ts",
       "src/lib/api/fileBrowser.ts",
       "src/lib/api/a2uiForm.ts",
       "src/lib/api/appUpdate.ts",
       "src/lib/api/asrProvider.ts",
-      "src/lib/api/content-workflow.ts",
       "src/lib/api/screenshotChat.ts",
       "src/lib/api/notification.ts",
       "src/lib/api/novel.ts",
       "src/lib/api/autoFix.ts",
-      "src/lib/api/contextMemory.ts",
       "src/lib/api/frontendCrash.ts",
-      "src/lib/api/memoryFeedback.ts",
       "src/lib/api/toolHooks.ts",
-      "src/lib/api/unifiedMemory.ts",
       "src/lib/api/serverRuntime.ts",
       "src/lib/api/logs.ts",
       "src/lib/api/apiCompatibility.ts",
@@ -1203,7 +1196,6 @@ export default [
       "src/lib/api/channelsRuntime.ts",
       "src/lib/api/endpointProviders.ts",
       "src/lib/api/experimentalFeatures.ts",
-      "src/lib/api/memoryRuntime.ts",
       "src/lib/api/modelCatalog.ts",
       "src/lib/api/profileAssets.ts",
       "src/lib/api/usageStats.ts",
@@ -1226,12 +1218,17 @@ export default [
             {
               name: "../agentRuntime",
               message:
-                "agentRuntime 目录内部已收敛到 `./types` + 分域 client；禁止再回绕 compat 根入口 `../agentRuntime`。",
+                "agentRuntime 目录内部必须直连 session/request/evidence/media/tool/execution owner；禁止回绕已退役根入口 `../agentRuntime`。",
             },
             {
               name: "@/lib/api/agentRuntime",
               message:
-                "agentRuntime 目录内部已收敛到 `./types` + 分域 client；禁止再通过 alias 根入口回绕 compat barrel。",
+                "agentRuntime 目录内部必须直连分域 owner；禁止通过 alias 回绕已退役根入口。",
+            },
+            {
+              name: "./types",
+              message:
+                "agentRuntime/types 已退役；请直接依赖 sessionTypes、requestTypes、evidenceTypes、mediaTaskTypes、toolInventoryTypes 或 agentExecutionRuntime。",
             },
           ],
         },
@@ -1240,7 +1237,7 @@ export default [
   },
   {
     files: ["src/lib/api/*.ts"],
-    ignores: ["src/lib/api/agentRuntime.ts", "src/lib/api/agent.test.ts"],
+    ignores: ["src/lib/api/agent.test.ts"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -1249,7 +1246,12 @@ export default [
             {
               name: "./agentRuntime",
               message:
-                "src/lib/api 根层如需复用 agent runtime，请直接依赖 `./agentRuntime/types` 或具体分域 client，不要回绕 compat barrel `./agentRuntime`。",
+                "src/lib/api 根层如需复用 agent runtime，请直接依赖具体分域 client/type owner；禁止恢复已删除的 `./agentRuntime` root aggregate。",
+            },
+            {
+              name: "./agentRuntime/types",
+              message:
+                "agentRuntime/types 已退役；请直接依赖 sessionTypes、requestTypes、evidenceTypes、mediaTaskTypes、toolInventoryTypes 或 agentExecutionRuntime。",
             },
           ],
         },
@@ -1304,17 +1306,17 @@ export default [
             {
               group: ["@/components/**"],
               message:
-                "lib 层禁止 import components 层。将纯逻辑下沉到 lib，或把 UI 留在 components 层消费 lib。详见 docs/refactor/progressive-refactor-plan.md R-30。",
+                "lib 层禁止 import components 层。将纯逻辑下沉到 lib，或把 UI 留在 components 层消费 lib。详见 internal/refactor/progressive-refactor-plan.md R-30。",
             },
             {
               group: ["@/features/**"],
               message:
-                "lib 层禁止 import features 层。将共享逻辑下沉到 lib，或用参数注入/类型契约解耦。详见 docs/refactor/progressive-refactor-plan.md R-30。",
+                "lib 层禁止 import features 层。将共享逻辑下沉到 lib，或用参数注入/类型契约解耦。详见 internal/refactor/progressive-refactor-plan.md R-30。",
             },
             {
               group: ["@/pages/**"],
               message:
-                "lib 层禁止 import pages 层。详见 docs/refactor/progressive-refactor-plan.md R-30。",
+                "lib 层禁止 import pages 层。详见 internal/refactor/progressive-refactor-plan.md R-30。",
             },
           ],
         },
@@ -1333,7 +1335,7 @@ export default [
             {
               group: ["@/components/**"],
               message:
-                "features 层禁止 import components 层。将 UI 组件下沉到共享层，或通过 contracts/类型契约解耦。详见 docs/refactor/progressive-refactor-plan.md R-30。",
+                "features 层禁止 import components 层。将 UI 组件下沉到共享层，或通过 contracts/类型契约解耦。详见 internal/refactor/progressive-refactor-plan.md R-30。",
             },
           ],
         },
@@ -1342,7 +1344,11 @@ export default [
   },
   // === R-40：业务代码禁止直接 import dev-bridge ===
   {
-    files: ["src/components/**/*.{ts,tsx}", "src/features/**/*.{ts,tsx}", "src/hooks/**/*.ts"],
+    files: [
+      "src/components/**/*.{ts,tsx}",
+      "src/features/**/*.{ts,tsx}",
+      "src/hooks/**/*.ts",
+    ],
     ignores: ["**/*.test.ts", "**/*.test.tsx", "**/*.d.ts", "src/lib/**"],
     rules: {
       "no-restricted-imports": [
@@ -1352,7 +1358,7 @@ export default [
             {
               group: ["@/lib/dev-bridge/**", "@/lib/dev-bridge"],
               message:
-                "业务代码禁止直接 import dev-bridge。请改用 lib/api/ 统一入口（如 lib/api/bridgeEvents.ts）。详见 docs/refactor/progressive-refactor-plan.md R-40。",
+                "业务代码禁止直接 import dev-bridge。请改用 lib/api/ 统一入口（如 lib/api/bridgeEvents.ts）。详见 internal/refactor/progressive-refactor-plan.md R-40。",
             },
           ],
         },

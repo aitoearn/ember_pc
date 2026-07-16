@@ -22,7 +22,7 @@ vi.mock("@/lib/api/oemCloudControlPlane", () => ({
 function setCloudSession(tenantId = "tenant-0001") {
   setStoredOemCloudSessionState({
     token: "session-token-001",
-    tenant: { id: tenantId, name: "Ember" },
+    tenant: { id: tenantId, name: "Lime" },
     user: { id: "user-001", displayName: "晚风" },
     session: { id: "session-001" },
   });
@@ -35,9 +35,9 @@ describe("oemCloudReferralClaim", () => {
     vi.clearAllMocks();
     mockClaimClientReferral.mockResolvedValue({});
     window.localStorage.clear();
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_OEM_CLOUD__;
-    delete window.__EMBER_SESSION_TOKEN__;
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_OEM_CLOUD__;
+    delete window.__LIME_SESSION_TOKEN__;
   });
 
   afterEach(() => {
@@ -46,12 +46,12 @@ describe("oemCloudReferralClaim", () => {
     vi.useRealTimers();
   });
 
-  it("应解析 ember 与 web 邀请链接并规范化邀请码", () => {
+  it("应解析 lime 与 web 邀请链接并规范化邀请码", () => {
     const deepLink = parseOemCloudReferralInviteUrl(
-      "ember://invite?code=nm-45bc-8dhw&tenantId=tenant-0001",
+      "lime://invite?code=nm-45bc-8dhw&tenantId=tenant-0001",
     );
     const webLink = parseOemCloudReferralInviteUrl(
-      "https://limeai.run/referral?referralCode=ember-2026",
+      "https://limeai.run/referral?referralCode=lime-2026",
     );
 
     expect(deepLink).toMatchObject({
@@ -62,7 +62,7 @@ describe("oemCloudReferralClaim", () => {
     });
     expect(webLink).toMatchObject({
       code: "LIME-2026",
-      landingPath: "/referral?referralCode=ember-2026",
+      landingPath: "/referral?referralCode=lime-2026",
     });
     expect(parseOemCloudReferralInviteUrl("https://limeai.run/download")).toBe(
       null,
@@ -71,7 +71,7 @@ describe("oemCloudReferralClaim", () => {
 
   it("未登录时应缓存邀请码等待登录后领取", async () => {
     const result = await handleOemCloudReferralInviteUrl(
-      "https://limeai.run/invite?code=ember-2026&tenantId=tenant-0001",
+      "https://limeai.run/invite?code=lime-2026&tenantId=tenant-0001",
     );
 
     expect(result.status).toBe("pending_login");

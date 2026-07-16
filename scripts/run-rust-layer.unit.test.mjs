@@ -1,22 +1,314 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
   countExecutedTestsFromCargoOutput,
+  expandWithWorkspaceDependents,
   findCargoTestFilters,
+  parseArgs,
+  resolveRustTestEnv,
+  resolveRustPathSelection,
   shouldFailOnZeroExecutedTests,
 } from "./run-rust-layer.mjs";
 
+function createFixtureRepo() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "lime-rust-runner-"));
+  function writeFile(relPath, content) {
+    const target = path.join(tempRoot, relPath);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, content);
+  }
+
+  writeFile(
+    "ember-rs/Cargo.toml",
+    `
+[workspace]
+members = ["crates/*"]
+exclude = ["crates/agent-rust"]
+`,
+  );
+  writeFile(
+    "ember-rs/crates/core/Cargo.toml",
+    `
+[package]
+name = "lime-core"
+version = "0.0.0"
+`,
+  );
+  writeFile(
+    "ember-rs/crates/agent/Cargo.toml",
+    `
+[package]
+name = "lime-agent"
+version = "0.0.0"
+`,
+  );
+  writeFile(
+    "ember-rs/crates/app-server/Cargo.toml",
+    `
+[package]
+name = "app-server"
+version = "0.0.0"
+`,
+  );
+  writeFile(
+    "ember-rs/crates/agent-rust/Cargo.toml",
+    `
+[package]
+name = "agent-rust"
+version = "0.0.0"
+`,
+  );
+
+  return tempRoot;
+}
+
 describe("run-rust-layer unit helpers", () => {
+  it("macOS 默认使用 8 MiB test worker 栈并保留显式覆盖", () => {
+    expect(resolveRustTestEnv({ PATH: "/bin" }, "darwin")).toEqual({
+      PATH: "/bin",
+      RUST_MIN_STACK: "8388608",
+    });
+    expect(
+      resolveRustTestEnv(
+        { PATH: "/bin", RUST_MIN_STACK: "16777216" },
+        "darwin",
+      ),
+    ).toEqual({
+      PATH: "/bin",
+      RUST_MIN_STACK: "16777216",
+    });
+    expect(resolveRustTestEnv({ PATH: "/bin" }, "linux")).toEqual({
+      PATH: "/bin",
+    });
+  });
+
+  it("解析 --changed 和 --related runner 参数", () => {
+    expect(
+      parseArgs(["unit", "--changed", "origin/main", "request_tool_policy"]),
+    ).toMatchObject({
+      layer: "unit",
+      options: {
+        changed: true,
+        changedRef: "origin/main",
+      },
+      cargoArgs: ["request_tool_policy"],
+    });
+    expect(
+      parseArgs(["unit", "--changed", "request_tool_policy"]),
+    ).toMatchObject({
+      options: {
+        changed: true,
+        changedRef: "HEAD",
+      },
+      cargoArgs: ["request_tool_policy"],
+    });
+    expect(
+      parseArgs([
+        "unit",
+        "--related",
+        "ember-rs/crates/agent/src/lib.rs",
+        "ember-rs/crates/core/src/lib.rs",
+        "--",
+        "--nocapture",
+      ]),
+    ).toMatchObject({
+      options: {
+        related: true,
+        relatedPaths: [
+          "ember-rs/crates/agent/src/lib.rs",
+          "ember-rs/crates/core/src/lib.rs",
+        ],
+      },
+      testArgs: ["--nocapture"],
+    });
+  });
+
+  it("按 Rust 文件路径映射 workspace crate 并扩展反向依赖", () => {
+    const repoRoot = createFixtureRepo();
+    try {
+      const graph = new Map([
+        ["lime-core", new Set()],
+        ["lime-agent", new Set(["lime-core"])],
+        ["app-server", new Set(["lime-agent"])],
+      ]);
+
+      expect(
+        resolveRustPathSelection(["ember-rs/crates/core/src/lib.rs"], {
+          dependencyGraph: graph,
+          repoRoot,
+        }),
+      ).toMatchObject({
+        directPackages: ["lime-core"],
+        packages: ["app-server", "lime-agent", "lime-core"],
+        addedDependents: ["app-server", "lime-agent"],
+        workspaceWide: false,
+      });
+    } finally {
+      fs.rmSync(repoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it("根 manifest 和 lockfile 变更扩大到 workspace", () => {
+    const repoRoot = createFixtureRepo();
+    try {
+      expect(
+        resolveRustPathSelection(["ember-rs/Cargo.toml"], { repoRoot }),
+      ).toMatchObject({
+        workspaceWide: true,
+        workspaceReasons: ["ember-rs/Cargo.toml"],
+      });
+    } finally {
+      fs.rmSync(repoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it("vendored Rust 依赖变更扩大到 workspace", () => {
+    const repoRoot = createFixtureRepo();
+    try {
+      fs.mkdirSync(
+        path.join(repoRoot, "ember-rs/vendor/agent-rust/crates/agent/src"),
+        { recursive: true },
+      );
+      fs.writeFileSync(
+        path.join(
+          repoRoot,
+          "ember-rs/vendor/agent-rust/crates/agent/src/agent.rs",
+        ),
+        "",
+      );
+
+      expect(
+        resolveRustPathSelection(
+          ["ember-rs/vendor/agent-rust/crates/agent/src/agent.rs"],
+          { repoRoot },
+        ),
+      ).toMatchObject({
+        errors: [],
+        rustPaths: ["ember-rs/vendor/agent-rust/crates/agent/src/agent.rs"],
+        workspaceReasons: [
+          "ember-rs/vendor/agent-rust/crates/agent/src/agent.rs (vendored Rust dependency)",
+        ],
+        workspaceWide: true,
+      });
+    } finally {
+      fs.rmSync(repoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it("excluded subcrate 路径失败而不是静默空跑", () => {
+    const repoRoot = createFixtureRepo();
+    try {
+      const selection = resolveRustPathSelection(
+        ["ember-rs/crates/agent-rust/src/lib.rs"],
+        { repoRoot },
+      );
+      expect(selection.errors.join("\n")).toContain("workspace exclude");
+      expect(selection.packages).toEqual([]);
+    } finally {
+      fs.rmSync(repoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it("excluded subcrate 元数据路径不阻断 workspace 边界校验", () => {
+    const repoRoot = createFixtureRepo();
+    try {
+      expect(
+        resolveRustPathSelection(
+          ["ember-rs/Cargo.lock", "ember-rs/crates/agent-rust/Cargo.lock"],
+          { repoRoot },
+        ),
+      ).toMatchObject({
+        rustPaths: ["ember-rs/Cargo.lock"],
+        skippedPaths: ["ember-rs/crates/agent-rust/Cargo.lock"],
+        workspaceWide: true,
+      });
+    } finally {
+      fs.rmSync(repoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it("excluded subcrate 元数据路径单独出现时跳过 Rust 层而不是空跑失败", () => {
+    const repoRoot = createFixtureRepo();
+    try {
+      expect(
+        resolveRustPathSelection(["ember-rs/crates/agent-rust/Cargo.lock"], {
+          repoRoot,
+        }),
+      ).toMatchObject({
+        errors: [],
+        rustPaths: [],
+        skippedPaths: ["ember-rs/crates/agent-rust/Cargo.lock"],
+        packages: [],
+      });
+    } finally {
+      fs.rmSync(repoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it("非 Rust 路径在 Rust changed scope 中可跳过", () => {
+    const repoRoot = createFixtureRepo();
+    try {
+      expect(
+        resolveRustPathSelection(["src/components/App.tsx"], { repoRoot }),
+      ).toMatchObject({
+        rustPaths: [],
+        skippedPaths: ["src/components/App.tsx"],
+        packages: [],
+      });
+    } finally {
+      fs.rmSync(repoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it("已删除的 unmanaged root Rust 路径可跳过，避免迁移后阻断 changed scope", () => {
+    const repoRoot = createFixtureRepo();
+    try {
+      expect(
+        resolveRustPathSelection(["ember-rs/tests/deleted_live_test.rs"], {
+          repoRoot,
+        }),
+      ).toMatchObject({
+        errors: [],
+        rustPaths: [],
+        skippedPaths: ["ember-rs/tests/deleted_live_test.rs"],
+        packages: [],
+      });
+    } finally {
+      fs.rmSync(repoRoot, { force: true, recursive: true });
+    }
+  });
+
+  it("可独立扩展 workspace 反向依赖图", () => {
+    expect(
+      expandWithWorkspaceDependents(
+        new Set(["lime-core"]),
+        new Map([
+          ["lime-core", new Set()],
+          ["lime-agent", new Set(["lime-core"])],
+          ["app-server", new Set(["lime-agent"])],
+        ]),
+      ),
+    ).toEqual({
+      packages: ["app-server", "lime-agent", "lime-core"],
+      addedDependents: ["app-server", "lime-agent"],
+      missingPackages: [],
+    });
+  });
+
   it("识别 Cargo package 参数后的测试过滤器", () => {
     expect(
-      findCargoTestFilters(["-p", "ember-agent", "request_tool_policy"]),
+      findCargoTestFilters(["-p", "lime-agent", "request_tool_policy"]),
     ).toEqual(["request_tool_policy"]);
   });
 
   it("不会把 Cargo 选项值当成测试过滤器", () => {
     expect(
       findCargoTestFilters([
-        "--package=ember-agent",
+        "--package=lime-agent",
         "--features",
         "offline-fixtures",
         "--workspace",
@@ -48,7 +340,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1552 filtered out; f
   it("只在带测试过滤器且非 --list 时启用空跑失败保护", () => {
     expect(
       shouldFailOnZeroExecutedTests(
-        ["-p", "ember-agent", "request_tool_policy"],
+        ["-p", "lime-agent", "request_tool_policy"],
         [],
       ),
     ).toBe(true);

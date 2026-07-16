@@ -169,7 +169,7 @@ const SelectContent: React.FC<SelectContentProps> = ({
     <div
       aria-hidden={!open}
       className={cn(
-        "absolute z-50 w-full max-h-60 overflow-y-auto overscroll-contain rounded-md border bg-background shadow-lg transition-[opacity,transform] will-change-[opacity,transform]",
+        "absolute z-50 w-full rounded-md border bg-background shadow-lg transition-[opacity,transform] will-change-[opacity,transform]",
         open
           ? "opacity-100 scale-100 pointer-events-auto duration-[160ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
           : "opacity-0 scale-95 pointer-events-none duration-[120ms] ease-[cubic-bezier(0.4,0,1,1)]",

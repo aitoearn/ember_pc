@@ -1,6 +1,11 @@
 import type { HandleSendOptions } from "./hooks/handleSendTypes";
 import type { Message, MessageImage } from "./types";
-import { buildDiagnosticsRuntimeStatusMetadata } from "./utils/agentRuntimeStatus";
+import {
+  buildDiagnosticsRuntimeStatusMetadata,
+  buildSoulRuntimeStatusMetadata,
+} from "./utils/agentRuntimeStatus";
+import type { SoulInteractionCopy } from "@/lib/soul/interactionCopy";
+import { resolveSoulInteractionCopy } from "@/lib/soul/interactionCopy";
 
 export interface TaskCenterDraftSendRequest {
   id: string;
@@ -11,12 +16,16 @@ export interface TaskCenterDraftSendRequest {
   sendOptions?: HandleSendOptions;
   submittedAt: number;
   materializeDraft: boolean;
+  dispatchState?: "queued" | "dispatched";
+  sessionReady?: boolean;
   source: "task-center-empty-state" | "empty-state";
+  triggerSource?: string | null;
 }
 
 export function buildHomePendingPreviewMessages(
   request: TaskCenterDraftSendRequest,
   executionStrategy: "react",
+  soulCopy: SoulInteractionCopy = resolveSoulInteractionCopy(),
 ): Message[] {
   const timestamp = new Date(request.submittedAt);
   void request.sendExecutionStrategy;
@@ -41,14 +50,12 @@ export function buildHomePendingPreviewMessages(
       isThinking: true,
       runtimeStatus: {
         phase: "preparing",
-        title: "正在进入对话",
-        detail: "已收到输入，正在后台准备会话和执行环境。",
-        checkpoints: [
-          "对话执行待命",
-          "工具面由模型按需判断",
-          "推理强度由模型按任务复杂度判断",
-        ],
-        metadata: buildDiagnosticsRuntimeStatusMetadata(),
+        title: soulCopy.preparingTitle,
+        detail: soulCopy.preparingDetail,
+        checkpoints: soulCopy.preparingCheckpoints,
+        metadata: buildDiagnosticsRuntimeStatusMetadata(
+          buildSoulRuntimeStatusMetadata(soulCopy.descriptors.preparingTitle),
+        ),
       },
     },
   ];

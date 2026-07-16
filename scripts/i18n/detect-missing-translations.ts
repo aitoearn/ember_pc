@@ -442,7 +442,7 @@ function createTranslationCheckReport(
   result: TranslationCheckResult,
 ): Record<string, unknown> {
   return {
-    schemaVersion: "ember.i18n.translationCheckReport.v1",
+    schemaVersion: "lime.i18n.translationCheckReport.v1",
     absoluteResourcesDir: result.resourcesDir,
     resourcesDir:
       path.relative(REPO_ROOT, result.resourcesDir) || result.resourcesDir,

@@ -6,8 +6,25 @@ import {
 export const DEFAULT_OEM_CLOUD_LOGIN_PATH = "/login";
 export const DEFAULT_OEM_CLOUD_DESKTOP_CLIENT_ID = "desktop-client";
 export const DEFAULT_OEM_CLOUD_DESKTOP_OAUTH_REDIRECT_URL =
-  "ember://oauth/callback";
+  "lime://oauth/callback";
 export const DEFAULT_OEM_CLOUD_DESKTOP_OAUTH_NEXT_PATH = "/welcome";
+
+export type OemCloudPluginSignatureAlgorithm =
+  | "RSASSA-PKCS1-v1_5-SHA256"
+  | "RSA-PSS-SHA256"
+  | "ECDSA-P256-SHA256"
+  | "Ed25519";
+
+export interface OemCloudPluginSignatureTrustRoot {
+  publicKeyId: string;
+  algorithm: OemCloudPluginSignatureAlgorithm;
+  publicKey: string;
+  appIds?: string[];
+  notBefore?: string;
+  notAfter?: string;
+  revoked?: boolean;
+  revokedAt?: string;
+}
 
 function normalizeText(value: unknown): string | null {
   if (typeof value !== "string") {
@@ -57,6 +74,14 @@ function readRecordText(
 
   return null;
 }
+
+const PLUGIN_SIGNATURE_ALGORITHMS =
+  new Set<OemCloudPluginSignatureAlgorithm>([
+    "RSASSA-PKCS1-v1_5-SHA256",
+    "RSA-PSS-SHA256",
+    "ECDSA-P256-SHA256",
+    "Ed25519",
+  ]);
 
 function extractTenantIdFromPayload(payload: unknown): string | null {
   if (!isRecord(payload)) {
@@ -125,6 +150,159 @@ function extractSessionTokenFromPayload(payload: unknown): string | null {
   return null;
 }
 
+function readStringList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const items = value
+    .map((item) => normalizeText(item))
+    .filter((item): item is string => Boolean(item));
+  return items.length > 0 ? items : undefined;
+}
+
+function hasRecordKey(
+  record: Record<string, unknown>,
+  ...keys: string[]
+): boolean {
+  return keys.some((key) => Object.prototype.hasOwnProperty.call(record, key));
+}
+
+function isValidDateText(value: string): boolean {
+  return Number.isFinite(Date.parse(value));
+}
+
+function readOptionalDateText(
+  record: Record<string, unknown>,
+  ...keys: string[]
+): string | null | undefined {
+  if (!hasRecordKey(record, ...keys)) {
+    return undefined;
+  }
+  const value = readRecordText(record, ...keys);
+  if (!value || !isValidDateText(value)) {
+    return null;
+  }
+  return value;
+}
+
+function readOptionalBoolean(
+  record: Record<string, unknown>,
+  key: string,
+): boolean | null | undefined {
+  if (!hasRecordKey(record, key)) {
+    return undefined;
+  }
+  return typeof record[key] === "boolean" ? record[key] : null;
+}
+
+function parsePluginSignatureTrustRoot(
+  value: unknown,
+): OemCloudPluginSignatureTrustRoot | null {
+  if (!isRecord(value) || Array.isArray(value)) {
+    return null;
+  }
+  const publicKeyId = readRecordText(
+    value,
+    "publicKeyId",
+    "public_key_id",
+    "keyId",
+    "key_id",
+  );
+  const algorithm = readRecordText(value, "algorithm");
+  const publicKey = readRecordText(value, "publicKey", "public_key", "spki");
+  if (
+    !publicKeyId ||
+    !algorithm ||
+    !publicKey ||
+    !PLUGIN_SIGNATURE_ALGORITHMS.has(
+      algorithm as OemCloudPluginSignatureAlgorithm,
+    )
+  ) {
+    return null;
+  }
+  const notBefore = readOptionalDateText(value, "notBefore", "not_before");
+  const notAfter = readOptionalDateText(value, "notAfter", "not_after");
+  const revokedAt = readOptionalDateText(value, "revokedAt", "revoked_at");
+  const revoked = readOptionalBoolean(value, "revoked");
+  if (
+    notBefore === null ||
+    notAfter === null ||
+    revokedAt === null ||
+    revoked === null
+  ) {
+    return null;
+  }
+
+  return {
+    publicKeyId,
+    algorithm: algorithm as OemCloudPluginSignatureAlgorithm,
+    publicKey,
+    appIds: readStringList(value.appIds ?? value.app_ids),
+    ...(notBefore ? { notBefore } : {}),
+    ...(notAfter ? { notAfter } : {}),
+    ...(revoked !== undefined ? { revoked } : {}),
+    ...(revokedAt ? { revokedAt } : {}),
+  };
+}
+
+function readPluginSignatureTrustRoots(
+  value: unknown,
+): OemCloudPluginSignatureTrustRoot[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map(parsePluginSignatureTrustRoot)
+    .filter(
+      (
+        item,
+      ): item is OemCloudPluginSignatureTrustRoot => Boolean(item),
+    );
+}
+
+function extractPluginSignatureTrustRootsFromPayload(
+  payload: unknown,
+): OemCloudPluginSignatureTrustRoot[] {
+  if (!isRecord(payload)) {
+    return [];
+  }
+
+  const directRoots = readPluginSignatureTrustRoots(
+    payload.pluginSignatureTrustRoots ??
+      payload.plugin_signature_trust_roots,
+  );
+  if (directRoots.length > 0) {
+    return directRoots;
+  }
+
+  const plugins = payload.plugins ?? payload.plugins;
+  if (isRecord(plugins)) {
+    const nestedRoots = readPluginSignatureTrustRoots(
+      plugins.signatureTrustRoots ?? plugins.signature_trust_roots,
+    );
+    if (nestedRoots.length > 0) {
+      return nestedRoots;
+    }
+  }
+
+  const security = payload.security;
+  if (isRecord(security)) {
+    const securityRoots = readPluginSignatureTrustRoots(
+      security.pluginSignatureTrustRoots ??
+        security.plugin_signature_trust_roots,
+    );
+    if (securityRoots.length > 0) {
+      return securityRoots;
+    }
+  }
+
+  if (payload.bootstrap) {
+    return extractPluginSignatureTrustRootsFromPayload(payload.bootstrap);
+  }
+
+  return [];
+}
+
 interface OemCloudRuntimeOverride {
   enabled?: boolean;
   baseUrl: string | null;
@@ -136,6 +314,7 @@ interface OemCloudRuntimeOverride {
   desktopClientId: string | null;
   desktopOauthRedirectUrl: string | null;
   desktopOauthNextPath: string | null;
+  pluginSignatureTrustRoots: OemCloudPluginSignatureTrustRoot[];
 }
 
 function parseOemCloudRuntimeOverride(
@@ -152,6 +331,7 @@ function parseOemCloudRuntimeOverride(
       desktopClientId: null,
       desktopOauthRedirectUrl: null,
       desktopOauthNextPath: null,
+      pluginSignatureTrustRoots: [],
     };
   }
 
@@ -174,8 +354,8 @@ function parseOemCloudRuntimeOverride(
     payload,
     "hubProviderName",
     "hub_provider_name",
-    "emberHubProviderName",
-    "ember_hub_provider_name",
+    "limeHubProviderName",
+    "lime_hub_provider_name",
   );
   const loginPath = normalizeAppPath(
     payload.loginPath ??
@@ -201,6 +381,8 @@ function parseOemCloudRuntimeOverride(
       payload.desktop_oauth_next_path ??
       payload.desktopOAuthNextPath,
   );
+  const pluginSignatureTrustRoots =
+    extractPluginSignatureTrustRootsFromPayload(payload);
 
   return {
     enabled: typeof payload.enabled === "boolean" ? payload.enabled : undefined,
@@ -213,6 +395,7 @@ function parseOemCloudRuntimeOverride(
     desktopClientId,
     desktopOauthRedirectUrl,
     desktopOauthNextPath,
+    pluginSignatureTrustRoots,
   };
 }
 
@@ -233,13 +416,14 @@ export interface OemCloudRuntimeContext {
   desktopClientId: string;
   desktopOauthRedirectUrl: string;
   desktopOauthNextPath: string;
+  pluginSignatureTrustRoots: OemCloudPluginSignatureTrustRoot[];
 }
 
 declare global {
   interface Window {
-    __EMBER_BOOTSTRAP__?: unknown;
-    __EMBER_OEM_CLOUD__?: unknown;
-    __EMBER_SESSION_TOKEN__?: unknown;
+    __LIME_BOOTSTRAP__?: unknown;
+    __LIME_OEM_CLOUD__?: unknown;
+    __LIME_SESSION_TOKEN__?: unknown;
   }
 }
 
@@ -277,6 +461,7 @@ export function resolveOemCloudRuntimeContext(): OemCloudRuntimeContext | null {
     desktopClientId: envDesktopClientId,
     desktopOauthRedirectUrl: envDesktopOauthRedirectUrl,
     desktopOauthNextPath: envDesktopOauthNextPath,
+    pluginSignatureTrustRoots: [],
   };
 
   const runtimeOverride =
@@ -291,11 +476,12 @@ export function resolveOemCloudRuntimeContext(): OemCloudRuntimeContext | null {
           desktopClientId: null,
           desktopOauthRedirectUrl: null,
           desktopOauthNextPath: null,
+          pluginSignatureTrustRoots: [],
         }
-      : parseOemCloudRuntimeOverride(window.__EMBER_OEM_CLOUD__);
+      : parseOemCloudRuntimeOverride(window.__LIME_OEM_CLOUD__);
 
   const bootstrapPayload =
-    typeof window === "undefined" ? null : window.__EMBER_BOOTSTRAP__;
+    typeof window === "undefined" ? null : window.__LIME_BOOTSTRAP__;
   const bootstrapTenantId = extractTenantIdFromPayload(bootstrapPayload);
   const bootstrapSessionToken =
     extractSessionTokenFromPayload(bootstrapPayload);
@@ -306,7 +492,7 @@ export function resolveOemCloudRuntimeContext(): OemCloudRuntimeContext | null {
   const explicitWindowSessionToken =
     typeof window === "undefined"
       ? null
-      : normalizeText(window.__EMBER_SESSION_TOKEN__);
+      : normalizeText(window.__LIME_SESSION_TOKEN__);
 
   const enabled =
     runtimeOverride.enabled ??
@@ -347,6 +533,10 @@ export function resolveOemCloudRuntimeContext(): OemCloudRuntimeContext | null {
     runtimeOverride.desktopOauthNextPath ??
     envOverride.desktopOauthNextPath ??
     DEFAULT_OEM_CLOUD_DESKTOP_OAUTH_NEXT_PATH;
+  const pluginSignatureTrustRoots =
+    runtimeOverride.pluginSignatureTrustRoots.length > 0
+      ? runtimeOverride.pluginSignatureTrustRoots
+      : extractPluginSignatureTrustRootsFromPayload(bootstrapPayload);
 
   if (!enabled || !baseUrl || !gatewayBaseUrl || !tenantId) {
     return null;
@@ -364,7 +554,19 @@ export function resolveOemCloudRuntimeContext(): OemCloudRuntimeContext | null {
     desktopClientId,
     desktopOauthRedirectUrl,
     desktopOauthNextPath,
+    pluginSignatureTrustRoots,
   };
+}
+
+export function resolveOemCloudPluginSignatureTrustRoots(): OemCloudPluginSignatureTrustRoot[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+  const runtimeOverride = parseOemCloudRuntimeOverride(window.__LIME_OEM_CLOUD__);
+  if (runtimeOverride.pluginSignatureTrustRoots.length > 0) {
+    return runtimeOverride.pluginSignatureTrustRoots;
+  }
+  return extractPluginSignatureTrustRootsFromPayload(window.__LIME_BOOTSTRAP__);
 }
 
 export function hasOemCloudSession(

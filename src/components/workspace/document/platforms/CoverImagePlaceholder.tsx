@@ -44,9 +44,9 @@ function isPlaceholderUrl(src: string): boolean {
 }
 
 /** 自定义事件名：封面图重新生成成功 */
-export const COVER_IMAGE_REPLACED_EVENT = "ember:cover-image-replaced";
+export const COVER_IMAGE_REPLACED_EVENT = "lime:cover-image-replaced";
 export const COVER_IMAGE_WORKBENCH_REQUEST_EVENT =
-  "ember:cover-image-workbench-request";
+  "lime:cover-image-workbench-request";
 
 /** 自定义事件 detail 类型 */
 export interface CoverImageReplacedDetail {

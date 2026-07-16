@@ -58,14 +58,16 @@ function renderSection() {
   const root = createRoot(container);
 
   act(() => {
-    root.render(<ApiKeyProviderSection />);
+    root.render(
+      <ApiKeyProviderSection exposeOemLoginPrompt onOemLogin={vi.fn()} />,
+    );
   });
 
   mountedRoots.push({ root, container });
   return container;
 }
 
-describe("ApiKeyProviderSection OEM Hub 边界", () => {
+describe("ApiKeyProviderSection OEM 登录提示", () => {
   beforeEach(() => {
     (
       globalThis as typeof globalThis & {
@@ -77,38 +79,25 @@ describe("ApiKeyProviderSection OEM Hub 边界", () => {
 
     const providers: ProviderWithKeysDisplay[] = [
       createProvider({
-        id: "ember-hub",
-        name: "Ember Hub",
-        api_host: "https://hub.ember.test",
+        id: "lime-hub",
+        name: "Lime Hub",
+        api_host: "https://hub.lime.test",
         group: "cloud",
         sort_order: 0,
       }),
       createProvider({
-        id: "deepseek",
-        name: "DeepSeek",
-        api_host: "https://api.deepseek.com",
+        id: "openai",
+        name: "OpenAI",
         sort_order: 1,
-        custom_models: ["deepseek-chat"],
-        api_key_count: 1,
-        api_keys: [
-          {
-            id: "key-1",
-            provider_id: "deepseek",
-            api_key_masked: "sk-****1234",
-            enabled: true,
-            usage_count: 0,
-            error_count: 0,
-            created_at: "2026-03-15T00:00:00.000Z",
-          },
-        ],
       }),
     ];
+    const uiStateWrites: unknown[] = [];
 
     mockSafeInvoke.mockImplementation(
       async (command: string, payload?: Record<string, unknown>) => {
         switch (command) {
           case "app_server_handle_json_lines":
-            return handleAppServerJsonLines(payload, providers);
+            return handleAppServerJsonLines(payload, providers, uiStateWrites);
           default:
             throw new Error(`未处理的 safeInvoke 命令：${command}`);
         }
@@ -131,24 +120,41 @@ describe("ApiKeyProviderSection OEM Hub 边界", () => {
     vi.clearAllMocks();
   });
 
-  it("AI 服务商设置页不应展示 Ember Hub 登录提示", async () => {
+  it("未登录 Lime Hub 可被选中为登录提示，不应被本地 Provider 重定向抢回", async () => {
     const container = renderSection();
     await flushEffects();
 
     expect(
       container.querySelector('[data-testid="provider-login-required"]'),
-    ).toBeNull();
-    expect(container.textContent ?? "").not.toContain("Ember Hub");
-    expect(container.textContent ?? "").toContain("DeepSeek");
-    expect(
-      container.querySelector('[data-provider-id="ember-hub"]'),
-    ).toBeNull();
+    ).not.toBeNull();
+    expect(container.textContent ?? "").toContain("登录后会自动同步 Lime Hub");
+
+    const persistedSelections = collectAppServerUiStateWrites().map(
+      (params) => params.value,
+    );
+
+    expect(persistedSelections).toContain("lime-hub");
+    expect(persistedSelections).not.toContain("openai");
   });
 });
+
+function collectAppServerUiStateWrites(): Array<{ value?: string }> {
+  return mockSafeInvoke.mock.calls.flatMap(([, payload]) => {
+    const request = (payload as { request?: { lines?: string[] } } | undefined)
+      ?.request;
+    return (request?.lines ?? [])
+      .map((line) => JSON.parse(line))
+      .filter(
+        (message) => message.method === METHOD_MODEL_PROVIDER_UI_STATE_WRITE,
+      )
+      .map((message) => message.params ?? {});
+  });
+}
 
 function handleAppServerJsonLines(
   payload: Record<string, unknown> | undefined,
   providers: ProviderWithKeysDisplay[],
+  uiStateWrites: unknown[],
 ): { lines: string[] } {
   const request = payload?.request as { lines?: string[] } | undefined;
   const messages = request?.lines?.map((line) => JSON.parse(line)) ?? [];
@@ -163,11 +169,12 @@ function handleAppServerJsonLines(
       return `${JSON.stringify({
         id: message.id,
         result: {
-          value: message.params?.key === "selected_provider" ? "ember-hub" : null,
+          value: message.params?.key === "selected_provider" ? "openai" : null,
         },
       })}\n`;
     }
     if (message.method === METHOD_MODEL_PROVIDER_UI_STATE_WRITE) {
+      uiStateWrites.push(message.params);
       return `${JSON.stringify({
         id: message.id,
         result: {},

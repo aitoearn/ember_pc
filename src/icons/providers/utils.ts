@@ -45,7 +45,6 @@ export const availableIcons = [
   "nebius",
   "nano-gpt",
   "openai",
-  "opencode",
   "ovhcloud",
   "alibaba",
   "copilot",
@@ -60,8 +59,8 @@ export const availableIcons = [
   "doubao",
   "azure",
   "cloudflare",
-  "ember",
-  "ember-hub",
+  "lime",
+  "lime-hub",
   "meta",
   "upstage",
   "v0",
@@ -135,7 +134,7 @@ export const availableIcons = [
 
 export type AvailableIcon = (typeof availableIcons)[number];
 
-const LEGACY_EMBER_HUB_ICON_ALIAS = `${"lobe"}${"hub"}`;
+const LEGACY_LIME_HUB_ICON_ALIAS = `${"lobe"}${"hub"}`;
 
 // ============================================================================
 // Provider 类型到图标名称的映射
@@ -161,9 +160,9 @@ export const providerTypeToIcon: Record<string, string> = {
   "alibaba-cn": "alibaba",
   copilot: "copilot",
   aws: "aws",
-  ember: "ember",
-  "ember-hub": "ember-hub",
-  [LEGACY_EMBER_HUB_ICON_ALIAS]: "ember",
+  lime: "lime",
+  "lime-hub": "lime-hub",
+  [LEGACY_LIME_HUB_ICON_ALIAS]: "lime",
 
   // ===== 主流 AI Provider =====
   deepseek: "deepseek",
@@ -291,7 +290,6 @@ export const providerTypeToIcon: Record<string, string> = {
   "nano-gpt": "nano-gpt",
   nebius: "nebius",
   novita: "novita",
-  opencode: "opencode",
   ovhcloud: "ovhcloud",
   requesty: "requesty",
   replicate: "replicate",

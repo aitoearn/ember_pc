@@ -2,12 +2,12 @@
 name: content-reviewer
 description: 内容工厂专用复核 Skill，检查事实依据、平台适配、AI 味、风险和人工确认建议。
 metadata:
-  ember_argument_hint: 输入内容工厂生成草稿、项目资料、平台规则、数量目标和待确认问题。
-  ember_when_to_use: 内容工厂 App 需要质量检查、复盘分析、交付风险判断或确认链同步时使用。
-  ember_version: 0.1.1
-  ember_execution_mode: prompt
-  ember_surface: agent_app
-  ember_category: content_factory
+  lime_argument_hint: 输入内容工厂生成草稿、项目资料、平台规则、数量目标和待确认问题。
+  lime_when_to_use: 内容工厂 App 需要质量检查、复盘分析、交付风险判断或确认链同步时使用。
+  lime_version: 0.1.1
+  lime_execution_mode: prompt
+  lime_surface: plugin
+  lime_category: content_factory
 ---
 
 # 内容工厂复核 Skill

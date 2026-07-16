@@ -22,41 +22,20 @@ import {
   McpToolResult,
   McpPromptResult,
   McpResourceContent,
-  McpServerCapabilities,
+  McpServerOAuthLoginOptions,
+  McpServerOAuthLoginResponse,
 } from "@/lib/api/mcp";
-import { safeListen } from "@/lib/api/bridgeEvents";
-
-// ============================================================================
-// 事件 Payload 类型
-// ============================================================================
-
-interface McpServerStartedPayload {
-  server_name: string;
-  server_info?: McpServerCapabilities;
-}
-
-interface McpServerStoppedPayload {
-  server_name: string;
-}
-
-interface McpServerErrorPayload {
-  server_name: string;
-  error: string;
-}
-
-interface McpToolsUpdatedPayload {
-  tools: McpToolDefinition[];
-}
+import {
+  setupMcpEventListeners,
+  type McpOAuthCompletionState,
+  type McpServerConnectionState,
+} from "./useMcpEvents";
 
 // ============================================================================
 // Hook 返回类型
 // ============================================================================
 
-export interface McpServerConnectionState {
-  phase: "idle" | "starting" | "stopping" | "reconnecting";
-  error: string | null;
-  updatedAt: number | null;
-}
+export type { McpOAuthCompletionState, McpServerConnectionState };
 
 export interface UseMcpReturn {
   // 状态
@@ -67,11 +46,16 @@ export interface UseMcpReturn {
   loading: boolean;
   error: string | null;
   serverConnectionStates: Record<string, McpServerConnectionState>;
+  oauthCompletion: McpOAuthCompletionState | null;
 
   // 服务器操作
   startServer: (name: string) => Promise<void>;
   stopServer: (name: string) => Promise<void>;
   reconnectServer: (name: string) => Promise<void>;
+  loginOAuthServer: (
+    name: string,
+    options?: McpServerOAuthLoginOptions,
+  ) => Promise<McpServerOAuthLoginResponse>;
   refreshServers: () => Promise<void>;
 
   // 工具操作
@@ -84,13 +68,16 @@ export interface UseMcpReturn {
   // 提示词操作
   refreshPrompts: () => Promise<void>;
   getPrompt: (
+    server: string,
     name: string,
     args: Record<string, unknown>,
   ) => Promise<McpPromptResult>;
 
   // 资源操作
   refreshResources: () => Promise<void>;
-  readResource: (uri: string) => Promise<McpResourceContent>;
+  readResource: (server: string, uri: string) => Promise<McpResourceContent>;
+  subscribeResource: (server: string, uri: string) => Promise<void>;
+  unsubscribeResource: (server: string, uri: string) => Promise<void>;
 }
 
 // ============================================================================
@@ -105,6 +92,8 @@ export function useMcp(): UseMcpReturn {
   const [resources, setResources] = useState<McpResourceDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [oauthCompletion, setOAuthCompletion] =
+    useState<McpOAuthCompletionState | null>(null);
   const [serverConnectionStates, setServerConnectionStates] = useState<
     Record<string, McpServerConnectionState>
   >({});
@@ -258,6 +247,27 @@ export function useMcp(): UseMcpReturn {
     [refreshServers, refreshTools, servers, updateServerConnectionState],
   );
 
+  const loginOAuthServer = useCallback(
+    async (
+      name: string,
+      options: McpServerOAuthLoginOptions = {},
+    ): Promise<McpServerOAuthLoginResponse> => {
+      try {
+        setError(null);
+        return await mcpApi.loginOAuthServer(name, options);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(msg);
+        updateServerConnectionState(name, {
+          phase: "idle",
+          error: msg,
+        });
+        throw e;
+      }
+    },
+    [updateServerConnectionState],
+  );
+
   // --------------------------------------------------------------------------
   // 工具操作
   // --------------------------------------------------------------------------
@@ -283,11 +293,12 @@ export function useMcp(): UseMcpReturn {
 
   const getPrompt = useCallback(
     async (
+      server: string,
       name: string,
       args: Record<string, unknown>,
     ): Promise<McpPromptResult> => {
       try {
-        return await mcpApi.getPrompt(name, args);
+        return await mcpApi.getPrompt(server, name, args);
       } catch (e) {
         console.error("[useMcp] 获取提示词失败:", e);
         throw e;
@@ -301,11 +312,35 @@ export function useMcp(): UseMcpReturn {
   // --------------------------------------------------------------------------
 
   const readResource = useCallback(
-    async (uri: string): Promise<McpResourceContent> => {
+    async (server: string, uri: string): Promise<McpResourceContent> => {
       try {
-        return await mcpApi.readResource(uri);
+        return await mcpApi.readResource(server, uri);
       } catch (e) {
         console.error("[useMcp] 读取资源失败:", e);
+        throw e;
+      }
+    },
+    [],
+  );
+
+  const subscribeResource = useCallback(
+    async (server: string, uri: string): Promise<void> => {
+      try {
+        await mcpApi.subscribeResource(server, uri);
+      } catch (e) {
+        console.error("[useMcp] 订阅资源失败:", e);
+        throw e;
+      }
+    },
+    [],
+  );
+
+  const unsubscribeResource = useCallback(
+    async (server: string, uri: string): Promise<void> => {
+      try {
+        await mcpApi.unsubscribeResource(server, uri);
+      } catch (e) {
+        console.error("[useMcp] 取消订阅资源失败:", e);
         throw e;
       }
     },
@@ -336,61 +371,17 @@ export function useMcp(): UseMcpReturn {
 
     const setupListeners = async () => {
       try {
-        const unlistenStarted = await safeListen<McpServerStartedPayload>(
-          "mcp:server_started",
-          (event) => {
-            console.log("[useMcp] 服务器已启动:", event.payload.server_name);
-            updateServerConnectionState(event.payload.server_name, {
-              phase: "idle",
-            });
-            refreshServers();
-            refreshTools();
-          },
-        );
-        unlisteners.push(unlistenStarted);
-
-        const unlistenStopped = await safeListen<McpServerStoppedPayload>(
-          "mcp:server_stopped",
-          (event) => {
-            console.log("[useMcp] 服务器已停止:", event.payload.server_name);
-            updateServerConnectionState(event.payload.server_name, {
-              phase: "idle",
-            });
-            refreshServers();
-            refreshTools();
-          },
-        );
-        unlisteners.push(unlistenStopped);
-
-        const unlistenError = await safeListen<McpServerErrorPayload>(
-          "mcp:server_error",
-          (event) => {
-            console.error(
-              "[useMcp] 服务器错误:",
-              event.payload.server_name,
-              event.payload.error,
-            );
-            if (mounted) {
-              setError(`${event.payload.server_name}: ${event.payload.error}`);
-            }
-            updateServerConnectionState(event.payload.server_name, {
-              phase: "idle",
-              error: event.payload.error,
-            });
-          },
-        );
-        unlisteners.push(unlistenError);
-
-        const unlistenTools = await safeListen<McpToolsUpdatedPayload>(
-          "mcp:tools_updated",
-          (event) => {
-            console.log("[useMcp] 工具列表已更新:", event.payload.tools.length);
-            if (mounted) {
-              setTools(event.payload.tools);
-            }
-          },
-        );
-        unlisteners.push(unlistenTools);
+        const registered = await setupMcpEventListeners({
+          isMounted: () => mounted,
+          updateServerConnectionState,
+          refreshServers,
+          refreshTools,
+          refreshResources,
+          setError,
+          setTools,
+          setOAuthCompletion,
+        });
+        unlisteners.push(...registered);
       } catch (error) {
         console.error("[useMcp] 注册 MCP 事件监听失败:", error);
       }
@@ -419,9 +410,11 @@ export function useMcp(): UseMcpReturn {
     loading,
     error,
     serverConnectionStates,
+    oauthCompletion,
     startServer,
     stopServer,
     reconnectServer,
+    loginOAuthServer,
     refreshServers,
     refreshTools,
     callTool,
@@ -429,5 +422,7 @@ export function useMcp(): UseMcpReturn {
     getPrompt,
     refreshResources,
     readResource,
+    subscribeResource,
+    unsubscribeResource,
   };
 }

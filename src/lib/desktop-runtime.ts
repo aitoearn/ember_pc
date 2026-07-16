@@ -12,7 +12,7 @@ export function hasDesktopHostRuntimeMarkers(): boolean {
 
   return (
     Boolean(getElectronHostBridge()) ||
-    currentWindow.__EMBER_ELECTRON__ === true
+    currentWindow.__LIME_ELECTRON__ === true
   );
 }
 

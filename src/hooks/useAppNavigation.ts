@@ -1,8 +1,11 @@
 import { useCallback, useLayoutEffect, useState } from "react";
-import { buildHomeAgentParams } from "@/lib/workspace/navigation";
-import type { Page, PageParams } from "@/types/page";
+import {
+  buildClawAgentParams,
+  buildHomeAgentParams,
+} from "@/lib/workspace/navigation";
+import type { AgentPageParams, Page, PageParams } from "@/types/page";
 
-const NAVIGATION_RESTORE_STORAGE_KEY = "ember.appNavigation.restore.v1";
+const NAVIGATION_RESTORE_STORAGE_KEY = "lime.appNavigation.restore.v1";
 
 interface UseAppNavigationResult {
   currentPage: Page;
@@ -18,8 +21,73 @@ function normalizePageParams(params?: PageParams): PageParams {
   return params ? { ...params } : {};
 }
 
+type SerializableNavigationValue =
+  | null
+  | boolean
+  | number
+  | string
+  | SerializableNavigationValue[]
+  | { [key: string]: SerializableNavigationValue };
+
+function normalizeNavigationParamValue(
+  value: unknown,
+  insideArray = false,
+): SerializableNavigationValue | undefined {
+  if (
+    value === undefined ||
+    typeof value === "function" ||
+    typeof value === "symbol"
+  ) {
+    return insideArray ? null : undefined;
+  }
+
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === "bigint") {
+    throw new TypeError("BigInt values are not supported in navigation params");
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(
+      (item) => normalizeNavigationParamValue(item, true) ?? null,
+    );
+  }
+
+  if (typeof value === "object") {
+    const toJson = (value as { toJSON?: unknown }).toJSON;
+    if (typeof toJson === "function") {
+      return normalizeNavigationParamValue(
+        (toJson as () => unknown).call(value),
+        insideArray,
+      );
+    }
+
+    const record = value as Record<string, unknown>;
+    const normalized: { [key: string]: SerializableNavigationValue } = {};
+    for (const key of Object.keys(record).sort()) {
+      const normalizedValue = normalizeNavigationParamValue(record[key]);
+      if (normalizedValue !== undefined) {
+        normalized[key] = normalizedValue;
+      }
+    }
+    return normalized;
+  }
+
+  return insideArray ? null : undefined;
+}
+
 function serializePageParams(params: PageParams): string {
-  return JSON.stringify(params);
+  return JSON.stringify(normalizeNavigationParamValue(params) ?? {});
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -31,10 +99,12 @@ function readString(value: unknown): string | undefined {
 }
 
 function readNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
-function pickRestorableAgentAppParams(params: unknown): PageParams | null {
+function pickRestorablePluginParams(params: unknown): PageParams | null {
   if (!isRecord(params)) {
     return null;
   }
@@ -49,6 +119,26 @@ function pickRestorableAgentAppParams(params: unknown): PageParams | null {
     entryKey: readString(params.entryKey),
     launchRequestKey: readNumber(params.launchRequestKey),
   };
+}
+
+function pickRestorableAgentParams(params: unknown): AgentPageParams | null {
+  if (!isRecord(params)) {
+    return null;
+  }
+
+  const initialSessionId = readString(params.initialSessionId);
+  if (!initialSessionId) {
+    return null;
+  }
+
+  return buildClawAgentParams({
+    initialSessionId,
+    projectId: readString(params.projectId),
+    contentId: readString(params.contentId),
+    theme: readString(params.theme),
+    lockTheme:
+      typeof params.lockTheme === "boolean" ? params.lockTheme : undefined,
+  });
 }
 
 function clearRestoredNavigationState(): void {
@@ -77,19 +167,28 @@ function readRestoredNavigationState(): {
       return null;
     }
     const parsed = JSON.parse(raw) as unknown;
-    if (!isRecord(parsed) || parsed.page !== "agent-app") {
+    if (!isRecord(parsed)) {
       clearRestoredNavigationState();
       return null;
     }
 
-    const params = pickRestorableAgentAppParams(parsed.params);
+    const page = parsed.page;
+    if (page !== "plugin" && page !== "agent") {
+      clearRestoredNavigationState();
+      return null;
+    }
+
+    const params =
+      page === "plugin"
+        ? pickRestorablePluginParams(parsed.params)
+        : pickRestorableAgentParams(parsed.params);
     if (!params) {
       clearRestoredNavigationState();
       return null;
     }
 
     return {
-      page: "agent-app",
+      page,
       params,
     };
   } catch {
@@ -104,12 +203,12 @@ function persistRestorableNavigation(page: Page, params: PageParams): void {
   }
 
   try {
-    if (page !== "agent-app") {
-      clearRestoredNavigationState();
-      return;
-    }
-
-    const restorableParams = pickRestorableAgentAppParams(params);
+    const restorableParams =
+      page === "plugin"
+        ? pickRestorablePluginParams(params)
+        : page === "agent"
+          ? pickRestorableAgentParams(params)
+          : null;
     if (!restorableParams) {
       clearRestoredNavigationState();
       return;

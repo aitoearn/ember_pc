@@ -173,10 +173,10 @@ interface CuratedTaskTemplateUsageRecord {
 }
 
 const CURATED_TASK_TEMPLATE_USAGE_STORAGE_KEY =
-  "ember:curated-task-template-usage:v2";
+  "lime:curated-task-template-usage:v2";
 const MAX_CURATED_TASK_TEMPLATE_USAGE_RECORDS = 12;
 export const CURATED_TASK_TEMPLATE_USAGE_CHANGED_EVENT =
-  "ember:curated-task-template-usage-changed";
+  "lime:curated-task-template-usage-changed";
 
 export interface CuratedTaskTemplateLaunchPrefill {
   inputValues?: CuratedTaskInputValues;
@@ -208,7 +208,7 @@ const CURATED_TASK_TEMPLATES: CuratedTaskTemplateDefinition[] = [
   {
     id: "daily-trend-briefing",
     prompt:
-      "请先给我做一版冒烟检查清单：围绕当前被测模块梳理今日待测范围、阻塞项、高风险路径、环境依赖，以及最值得立即开工的 3 个测试项。",
+      "请先给我做一版每日趋势摘要：围绕当前主题梳理最近值得关注的趋势、热点内容方向、代表案例、用户正在关心的问题，以及最值得立即开工的 3 个选题。",
     requiredInputFields: [
       {
         key: "theme_target",
@@ -227,7 +227,7 @@ const CURATED_TASK_TEMPLATES: CuratedTaskTemplateDefinition[] = [
   {
     id: "social-post-starter",
     prompt:
-      "请先帮我起草一版功能测试用例：明确被测功能、用户场景、前置条件、测试步骤、预期结果和优先级，并给我一版适合继续补充边界与异常场景的用例初稿。",
+      "请先帮我起草一版内容首稿：明确目标受众、标题方向、正文结构、核心观点和可继续扩写的角度，并给我一版适合继续打磨的正文。",
     requiredInputFields: [
       {
         key: "subject_or_product",
@@ -245,7 +245,7 @@ const CURATED_TASK_TEMPLATES: CuratedTaskTemplateDefinition[] = [
   {
     id: "viral-content-breakdown",
     prompt:
-      "请帮我做缺陷根因分析：归纳缺陷现象、复现条件、影响范围、可能根因和关联模块，并给出修复验证与回归测试建议。",
+      "请帮我拆解这条爆款内容：识别它的目标受众、标题钩子、开场方式、结构节奏、视觉/素材手法、情绪推动点和转化动作，并总结一版可复用模板。",
     requiredInputFields: [
       {
         key: "source_content",
@@ -264,7 +264,7 @@ const CURATED_TASK_TEMPLATES: CuratedTaskTemplateDefinition[] = [
   {
     id: "longform-multiplatform-rewrite",
     prompt:
-      "请把这份需求文档整理成测试用例集：先提炼功能点与验收标准，再给我输出主路径、边界、异常场景用例，以及覆盖缺口建议。",
+      "请把这篇长文整理成多平台发布稿：先提炼核心观点，再给我输出标题组、摘要、正文结构，以及适合不同平台的发布版本和 CTA 建议。",
     requiredInputFields: [
       {
         key: "source_article",
@@ -282,7 +282,7 @@ const CURATED_TASK_TEMPLATES: CuratedTaskTemplateDefinition[] = [
   {
     id: "script-to-voiceover",
     prompt:
-      "请把这份手测步骤整理成自动化脚本骨架：补齐操作步骤、断言点、测试数据、等待策略和可复用的 Page Object 结构建议。",
+      "请把这份脚本整理成适合口播和字幕的版本：优化句长、停顿、重音提示、镜头感表达和字幕切分，并附上适合配音录制的版本。",
     requiredInputFields: [
       {
         key: "existing_script",
@@ -300,7 +300,7 @@ const CURATED_TASK_TEMPLATES: CuratedTaskTemplateDefinition[] = [
   {
     id: "account-project-review",
     prompt:
-      "请帮我做测试迭代复盘：先明确测试目标、当前执行结果、关键缺陷、哪些模块风险高、哪些覆盖还不足，再给出下一轮最值得执行的测试动作建议。",
+      "请帮我判断这个账号或项目当前该怎么推进：先明确目标、当前结果、关键问题、哪些动作有效、哪些地方拖后腿，再给出下一轮最值得执行的优化建议。",
     requiredInputFields: [
       {
         key: "project_goal",
@@ -339,73 +339,74 @@ export const FEATURED_HOME_CURATED_TASK_TEMPLATE_IDS = [
 
 const CURATED_TASK_RECOMMENDATION_KEYWORDS: Record<string, string[]> = {
   "daily-trend-briefing": [
-    "冒烟",
-    "清单",
-    "开工",
-    "待测",
-    "阻塞",
-    "smoke",
-    "checklist",
-    "scope",
-    "risk",
-    "回归",
+    "趋势",
+    "热点",
+    "选题",
+    "热度",
+    "趋势摘要",
+    "trend",
+    "topic",
+    "tiktok",
+    "instagram",
+    "x",
+    "小红书",
   ],
   "social-post-starter": [
-    "用例",
-    "功能",
-    "场景",
-    "步骤",
-    "预期",
-    "验收",
-    "case",
-    "test",
-    "coverage",
-    "priority",
+    "文案",
+    "主稿",
+    "品牌",
+    "语气",
+    "口吻",
+    "风格",
+    "调性",
+    "卖点",
+    "内容",
+    "受众",
   ],
   "viral-content-breakdown": [
-    "缺陷",
-    "根因",
-    "复现",
-    "bug",
-    "issue",
-    "regression",
-    "fix",
-    "日志",
-    "影响",
+    "爆款",
+    "拆解",
+    "案例",
+    "复刻",
+    "参考",
+    "链接",
+    "竞品",
+    "对标",
+    "素材",
   ],
   "longform-multiplatform-rewrite": [
-    "需求",
-    "prd",
-    "文档",
-    "用例集",
-    "边界",
-    "异常",
-    "requirement",
-    "matrix",
-    "覆盖",
+    "长文",
+    "文章",
+    "改写",
+    "发布",
+    "平台",
+    "公众号",
+    "linkedin",
+    "cta",
+    "摘要",
   ],
   "script-to-voiceover": [
-    "自动化",
     "脚本",
-    "断言",
-    "playwright",
-    "appium",
-    "pytest",
-    "page object",
-    "手测",
-    "ci",
+    "口播",
+    "字幕",
+    "配音",
+    "旁白",
+    "视频",
+    "出镜",
+    "voice",
   ],
   "account-project-review": [
     "复盘",
-    "迭代",
-    "覆盖率",
-    "缺陷",
-    "发布",
-    "review",
+    "反馈",
+    "优化",
+    "问题",
+    "数据",
+    "账号",
+    "项目",
+    "表现",
+    "增长",
     "scorecard",
-    "回归",
-    "测试",
-    "版本",
+    "review",
   ],
 };
 
@@ -1792,7 +1793,7 @@ function scoreTemplateForRecommendationSignal(params: {
   const projectMatchBonus =
     projectId && signal.projectId && projectId === signal.projectId ? 4 : 0;
   const recentSignalBonus =
-    signal.source === "saved_inspiration" || signal.source === "review_feedback"
+    signal.source === "memory_reference" || signal.source === "review_feedback"
       ? Math.max(
           0,
           5 -

@@ -112,7 +112,7 @@ describe("protocolResidue", () => {
     const leaked = [
       "任务类型：image_generate",
       "任务 ID：task-image-skill-1",
-      "任务文件：.ember/tasks/image_generate/task-image-skill-1.json",
+      "任务文件：.lime/tasks/image_generate/task-image-skill-1.json",
       "状态：pending_submit",
     ].join("\n");
 
@@ -122,7 +122,7 @@ describe("protocolResidue", () => {
 
   it("应清理图片生成失败时泄露的内部工具协议错误", () => {
     const leaked =
-      "好的，马上用漫画风格来生成。-32603: -32002: ember_create_image_generation_task";
+      "好的，马上用漫画风格来生成。-32603: -32002: lime_create_image_generation_task";
 
     expect(containsAssistantProtocolResidue(leaked)).toBe(true);
     expect(stripAssistantProtocolResidue(leaked)).toBe("");
@@ -130,7 +130,7 @@ describe("protocolResidue", () => {
 
   it("应清理内容工作台任务失败时泄露的内部工具协议错误", () => {
     const leaked =
-      "已准备发起视频任务。-32603: -32002: ember_create_video_generation_task";
+      "已准备发起视频任务。-32603: -32002: lime_create_video_generation_task";
 
     expect(containsAssistantProtocolResidue(leaked)).toBe(true);
     expect(stripAssistantProtocolResidue(leaked)).toBe("");

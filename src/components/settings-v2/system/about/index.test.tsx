@@ -1,11 +1,12 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import type { UpdateInstallSession } from "@/lib/api/appUpdate";
 
 const {
   mockCheckForUpdates,
+  mockGetRuntimeAppVersion,
   mockGetUpdateInstallSession,
   mockGetSkillPackageFileAssociationStatus,
   mockListenUpdateInstallSession,
@@ -13,6 +14,7 @@ const {
   mockStartUpdateInstallSession,
 } = vi.hoisted(() => ({
   mockCheckForUpdates: vi.fn(),
+  mockGetRuntimeAppVersion: vi.fn(),
   mockGetUpdateInstallSession: vi.fn(),
   mockGetSkillPackageFileAssociationStatus: vi.fn(),
   mockListenUpdateInstallSession: vi.fn(),
@@ -49,6 +51,9 @@ vi.mock("@/lib/api/skills", () => ({
 }));
 vi.mock("@/lib/api/externalUrl", () => ({
   openExternalUrlWithSystemBrowser: mockOpenExternalUrlWithSystemBrowser,
+}));
+vi.mock("@/lib/appVersion", () => ({
+  getRuntimeAppVersion: mockGetRuntimeAppVersion,
 }));
 
 import { AboutSection } from ".";
@@ -105,7 +110,7 @@ function createInstallSession(
     stage: "downloading",
     currentVersion: "1.10.0",
     latestVersion: "1.10.1",
-    downloadUrl: "https://example.com/ember",
+    downloadUrl: "https://example.com/lime",
     downloadedBytes: 50,
     totalBytes: 100,
     percent: 0.5,
@@ -128,7 +133,7 @@ beforeEach(async () => {
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
   vi.clearAllMocks();
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
   originalUserAgent = Object.getOwnPropertyDescriptor(
     window.navigator,
     "userAgent",
@@ -138,12 +143,13 @@ beforeEach(async () => {
     value: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
   });
 
+  mockGetRuntimeAppVersion.mockReturnValue("1.10.0");
   mockCheckForUpdates.mockResolvedValue({
     current: "1.10.0",
     latest: "1.10.1",
     hasUpdate: true,
-    downloadUrl: "https://example.com/ember",
-    releaseNotesUrl: "https://example.com/ember/releases",
+    downloadUrl: "https://example.com/lime",
+    releaseNotesUrl: "https://example.com/lime/releases",
     releaseNotes: "修复设置页视觉层级并优化更新体验。",
     pubDate: "2026-03-20T00:00:00.000Z",
     error: undefined,
@@ -165,7 +171,7 @@ beforeEach(async () => {
     platform: "macos",
     extension: "skill",
     extensions: ["skill", "skills"],
-    mimeType: "application/vnd.ember.skill+zip",
+    mimeType: "application/vnd.lime.skill+zip",
     appIdentifier: "com.embercloud.ember",
     isDefault: false,
     canSetDefault: true,
@@ -181,7 +187,7 @@ beforeEach(async () => {
       platform: "macos",
       extension: "skill",
       extensions: ["skill", "skills"],
-      mimeType: "application/vnd.ember.skill+zip",
+      mimeType: "application/vnd.lime.skill+zip",
       appIdentifier: "com.embercloud.ember",
       isDefault: true,
       canSetDefault: true,
@@ -215,7 +221,7 @@ afterEach(async () => {
     Reflect.deleteProperty(window.navigator, "userAgent");
   }
 
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("AboutSection", () => {
@@ -224,12 +230,12 @@ describe("AboutSection", () => {
     await waitForLoad();
 
     const text = container.textContent ?? "";
-    expect(container.querySelector("img[alt='Ember']")).toBeInstanceOf(
+    expect(container.querySelector("img[alt='Lime']")).toBeInstanceOf(
       HTMLImageElement,
     );
-    expect(text).toContain("Ember");
+    expect(text).toContain("Lime");
     expect(text).toContain("Version 1.10.0 (1.10.0)");
-    expect(text).toContain("Copyright © 2026 Ember");
+    expect(text).toContain("Copyright © 2026 Lime");
     expect(text).toContain("Update available: 1.10.1");
     expect(text).toContain("Check for Updates");
     expect(text).toContain("Download Update");
@@ -274,6 +280,10 @@ describe("AboutSection", () => {
     });
 
     expect(mockCheckForUpdates).toHaveBeenCalledTimes(2);
+    expect(mockCheckForUpdates).toHaveBeenNthCalledWith(1, {
+      automatic: true,
+    });
+    expect(mockCheckForUpdates).toHaveBeenNthCalledWith(2);
 
     await act(async () => {
       findButton(container, "Download Update").click();
@@ -296,7 +306,7 @@ describe("AboutSection", () => {
     );
     expect(link).toBeInstanceOf(HTMLAnchorElement);
     expect(link?.getAttribute("href")).toBe(
-      "https://example.com/ember/releases",
+      "https://example.com/lime/releases",
     );
     expect(link?.getAttribute("target")).toBeNull();
     expect(link?.getAttribute("rel")).toBe("noreferrer noopener");
@@ -312,7 +322,7 @@ describe("AboutSection", () => {
 
     expect(clickEvent.defaultPrevented).toBe(true);
     expect(mockOpenExternalUrlWithSystemBrowser).toHaveBeenCalledWith(
-      "https://example.com/ember/releases",
+      "https://example.com/lime/releases",
     );
   });
 
@@ -342,7 +352,7 @@ describe("AboutSection", () => {
     );
     expect(link).toBeInstanceOf(HTMLAnchorElement);
     expect(link?.getAttribute("href")).toBe(
-      "https://example.com/ember/releases",
+      "https://example.com/lime/releases",
     );
     expect(link?.getAttribute("target")).toBeNull();
     expect(link?.getAttribute("rel")).toBe("noreferrer noopener");
@@ -358,7 +368,7 @@ describe("AboutSection", () => {
 
     expect(clickEvent.defaultPrevented).toBe(true);
     expect(mockOpenExternalUrlWithSystemBrowser).toHaveBeenCalledWith(
-      "https://example.com/ember/releases",
+      "https://example.com/lime/releases",
     );
   });
 
@@ -373,20 +383,20 @@ describe("AboutSection", () => {
     expect(container.textContent).not.toContain("offline 安装包");
   });
 
-  it("应允许从关于页将 .skill 默认打开方式切回 Ember", async () => {
+  it("应允许从关于页将 .skill 默认打开方式切回 Lime", async () => {
     const container = renderComponent();
     await waitForLoad();
 
     await act(async () => {
-      findButton(container, "Set Ember as Default").click();
+      findButton(container, "Set Lime as Default").click();
       await waitForLoad();
     });
 
     expect(mockSetSkillPackageFileAssociationDefault).toHaveBeenCalledTimes(1);
     expect(container.textContent).toContain(
-      ".skill / .skills files now open with Ember.",
+      ".skill / .skills files now open with Lime.",
     );
-    expect(container.textContent).toContain("Ember is the default");
+    expect(container.textContent).toContain("Lime is the default");
   });
 
   it("更新检查失败时应隐藏技术错误", async () => {
@@ -416,6 +426,31 @@ describe("AboutSection", () => {
       expect(consoleWarnSpy).not.toHaveBeenCalled();
     } finally {
       consoleWarnSpy.mockRestore();
+    }
+  });
+
+  it("更新通道不可用时应使用构建版本兜底，不显示双重读取中", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    try {
+      mockGetRuntimeAppVersion.mockReturnValue("1.60.0");
+      mockCheckForUpdates.mockRejectedValueOnce(
+        new Error("Electron updater unavailable"),
+      );
+
+      const container = renderComponent();
+      await waitForLoad();
+
+      const text = container.textContent ?? "";
+      expect(text).toContain("Version 1.60.0 (1.60.0)");
+      expect(text).toContain(
+        "Unable to check for updates right now. Please try again later.",
+      );
+      expect(text).not.toContain("Version Loading (Loading)");
+      expect(text).not.toContain("Electron updater unavailable");
+    } finally {
+      consoleErrorSpy.mockRestore();
     }
   });
 });

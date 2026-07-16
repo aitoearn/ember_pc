@@ -94,12 +94,14 @@ interface ModalityRuntimeContractRecord {
   modality?: string;
   required_capabilities?: string[];
   routing_slot?: string;
-  embercore_policy_refs?: string[];
+  route_execution_status?: string;
+  route_execution_exit_condition?: string;
+  limecore_policy_refs?: string[];
   executor_binding?: unknown;
   bound_entries?: ModalityRuntimeContractEntryBinding[];
 }
 
-export interface EmberCorePolicySnapshot {
+export interface LimeCorePolicySnapshot {
   status: "local_defaults_evaluated" | "policy_inputs_evaluated";
   decision: "allow" | "ask" | "deny";
   source: "modality_runtime_contract";
@@ -114,17 +116,17 @@ export interface EmberCorePolicySnapshot {
   evaluated_refs: string[];
   unresolved_refs: string[];
   missing_inputs: string[];
-  policy_inputs: EmberCorePolicyInput[];
+  policy_inputs: LimeCorePolicyInput[];
   pending_hit_refs: string[];
-  policy_value_hits: EmberCorePolicyValueHit[];
+  policy_value_hits: LimeCorePolicyValueHit[];
   policy_value_hit_count: number;
-  policy_evaluation: EmberCorePolicyEvaluation;
+  policy_evaluation: LimeCorePolicyEvaluation;
 }
 
-type EmberCorePolicySnapshotDecisionReason =
-  EmberCorePolicySnapshot["decision_reason"];
+type LimeCorePolicySnapshotDecisionReason =
+  LimeCorePolicySnapshot["decision_reason"];
 
-export interface EmberCorePolicyEvaluation {
+export interface LimeCorePolicyEvaluation {
   status: "input_gap" | "evaluated";
   decision: "allow" | "ask" | "deny";
   decision_source: "policy_input_evaluator";
@@ -139,14 +141,14 @@ export interface EmberCorePolicyEvaluation {
   pending_refs: string[];
 }
 
-export interface EmberCorePolicyInput {
+export interface LimeCorePolicyInput {
   ref_key: string;
   status: "declared_only" | "resolved" | "pending" | "stale" | "error";
   source: string;
   value_source: string;
 }
 
-export interface EmberCorePolicyValueHit {
+export interface LimeCorePolicyValueHit {
   ref_key: string;
   status: "resolved" | "pending" | "stale" | "error";
   source: string;
@@ -162,8 +164,8 @@ export interface ModalityRuntimeContractBinding {
   modality: string;
   requiredCapabilities: string[];
   routingSlot: string;
-  embercorePolicyRefs: string[];
-  embercorePolicySnapshot: EmberCorePolicySnapshot;
+  limecorePolicyRefs: string[];
+  limecorePolicySnapshot: LimeCorePolicySnapshot;
   executionProfileKey?: string;
   executorAdapterKey?: string;
   executionProfile?: ModalityExecutionProfileSnapshot;
@@ -173,8 +175,10 @@ export interface ModalityRuntimeContractBinding {
     modality: string;
     routing_slot: string;
     required_capabilities: string[];
-    embercore_policy_refs: string[];
-    embercore_policy_snapshot: EmberCorePolicySnapshot;
+    route_execution_status?: string;
+    route_execution_exit_condition?: string;
+    limecore_policy_refs: string[];
+    limecore_policy_snapshot: LimeCorePolicySnapshot;
     executor_binding?: unknown;
     execution_profile?: ModalityExecutionProfileSnapshot;
     executor_adapter?: ModalityExecutorAdapterSnapshot;
@@ -196,7 +200,7 @@ export type TextTransformRuntimeContractBinding =
   ModalityRuntimeContractBinding;
 
 export interface ResolveModalityRuntimeContractBindingOptions {
-  policyValueHits?: EmberCorePolicyValueHit[];
+  policyValueHits?: LimeCorePolicyValueHit[];
 }
 
 function asContractRecord(
@@ -221,8 +225,8 @@ function readStringArray(value: unknown): string[] {
 
 function normalizePolicyValueHits(
   refs: string[],
-  hits: EmberCorePolicyValueHit[] | undefined,
-): EmberCorePolicyValueHit[] {
+  hits: LimeCorePolicyValueHit[] | undefined,
+): LimeCorePolicyValueHit[] {
   const refSet = new Set(refs);
   return (hits ?? []).filter(
     (hit) => refSet.has(hit.ref_key) && Boolean(hit.status),
@@ -234,13 +238,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function readPolicyHitValue(
-  hit: EmberCorePolicyValueHit,
+  hit: LimeCorePolicyValueHit,
 ): Record<string, unknown> | null {
   return isRecord(hit.value) ? hit.value : null;
 }
 
 function readPolicyHitValueBool(
-  hit: EmberCorePolicyValueHit,
+  hit: LimeCorePolicyValueHit,
   keys: string[],
 ): boolean | null {
   const value = readPolicyHitValue(hit);
@@ -254,7 +258,7 @@ function readPolicyHitValueBool(
 }
 
 function readPolicyHitValueString(
-  hit: EmberCorePolicyValueHit,
+  hit: LimeCorePolicyValueHit,
   keys: string[],
 ): string | null {
   const value = readPolicyHitValue(hit);
@@ -272,7 +276,7 @@ function readPolicyHitValueString(
 }
 
 function readPolicyHitFeatureFlag(
-  hit: EmberCorePolicyValueHit,
+  hit: LimeCorePolicyValueHit,
   key: string,
 ): boolean | null {
   const flags = readPolicyHitValue(hit)?.flags;
@@ -291,7 +295,7 @@ function appendUnique(values: string[], value: string): void {
 
 function collectPolicyHitDenyRefs(
   refs: string[],
-  hit: EmberCorePolicyValueHit,
+  hit: LimeCorePolicyValueHit,
 ): string[] {
   const denyRefs: string[] = [];
   if (
@@ -334,7 +338,7 @@ function collectPolicyHitDenyRefs(
   return denyRefs;
 }
 
-function collectPolicyHitAskRefs(hit: EmberCorePolicyValueHit): string[] {
+function collectPolicyHitAskRefs(hit: LimeCorePolicyValueHit): string[] {
   const askRefs: string[] = [];
   if (hit.ref_key !== "gateway_policy") {
     return askRefs;
@@ -357,11 +361,11 @@ function collectPolicyHitAskRefs(hit: EmberCorePolicyValueHit): string[] {
   return askRefs;
 }
 
-function buildEmberCorePolicyEvaluation(
+function buildLimeCorePolicyEvaluation(
   refs: string[],
-  hits: EmberCorePolicyValueHit[],
+  hits: LimeCorePolicyValueHit[],
   pendingHitRefs: string[],
-): EmberCorePolicyEvaluation {
+): LimeCorePolicyEvaluation {
   if (pendingHitRefs.length > 0) {
     return {
       status: "input_gap",
@@ -424,22 +428,22 @@ function buildEmberCorePolicyEvaluation(
   };
 }
 
-function buildEmberCorePolicySnapshot(
+function buildLimeCorePolicySnapshot(
   refs: string[],
-  policyValueHits?: EmberCorePolicyValueHit[],
-): EmberCorePolicySnapshot {
+  policyValueHits?: LimeCorePolicyValueHit[],
+): LimeCorePolicySnapshot {
   const hits = normalizePolicyValueHits(refs, policyValueHits);
   const resolvedRefs = new Set(
     hits.filter((hit) => hit.status === "resolved").map((hit) => hit.ref_key),
   );
   const pendingHitRefs = refs.filter((refKey) => !resolvedRefs.has(refKey));
-  const policyEvaluation = buildEmberCorePolicyEvaluation(
+  const policyEvaluation = buildLimeCorePolicyEvaluation(
     refs,
     hits,
     pendingHitRefs,
   );
   const policyInputsFullyEvaluated = policyEvaluation.status === "evaluated";
-  const decisionReason: EmberCorePolicySnapshotDecisionReason =
+  const decisionReason: LimeCorePolicySnapshotDecisionReason =
     policyInputsFullyEvaluated
       ? policyEvaluation.decision_reason ===
         "declared_policy_refs_missing_inputs"
@@ -473,7 +477,7 @@ function buildEmberCorePolicySnapshot(
         value_source:
           hit?.status === "resolved" && hit.value_source
             ? hit.value_source
-            : "embercore_pending",
+            : "limecore_pending",
       };
     }),
     pending_hit_refs: [...pendingHitRefs],
@@ -516,14 +520,19 @@ export function resolveModalityRuntimeContractBinding(
       : [...params.fallbackRequiredCapabilities];
   const routingSlot =
     readTrimmedString(contract?.routing_slot) ?? params.fallbackRoutingSlot;
-  const embercorePolicyRefs = readStringArray(contract?.embercore_policy_refs);
-  const embercorePolicySnapshot = buildEmberCorePolicySnapshot(
-    embercorePolicyRefs,
+  const routeExecutionStatus =
+    readTrimmedString(contract?.route_execution_status) ?? undefined;
+  const routeExecutionExitCondition =
+    readTrimmedString(contract?.route_execution_exit_condition) ?? undefined;
+  const limecorePolicyRefs = readStringArray(contract?.limecore_policy_refs);
+  const limecorePolicySnapshot = buildLimeCorePolicySnapshot(
+    limecorePolicyRefs,
     params.policyValueHits,
   );
   const profileBinding = resolveModalityExecutionProfileBinding({
     contractKey,
     executorBinding: contract?.executor_binding,
+    allowDefaultAdapter: routeExecutionStatus !== "metadata_only",
   });
   const boundEntrySources = Array.from(
     new Set(
@@ -538,8 +547,8 @@ export function resolveModalityRuntimeContractBinding(
     modality,
     requiredCapabilities,
     routingSlot,
-    embercorePolicyRefs,
-    embercorePolicySnapshot,
+    limecorePolicyRefs,
+    limecorePolicySnapshot,
     executionProfileKey: profileBinding?.profileKey,
     executorAdapterKey: profileBinding?.executorAdapterKey ?? undefined,
     executionProfile: profileBinding?.executionProfile,
@@ -549,8 +558,10 @@ export function resolveModalityRuntimeContractBinding(
       modality,
       routing_slot: routingSlot,
       required_capabilities: requiredCapabilities,
-      embercore_policy_refs: embercorePolicyRefs,
-      embercore_policy_snapshot: embercorePolicySnapshot,
+      route_execution_status: routeExecutionStatus,
+      route_execution_exit_condition: routeExecutionExitCondition,
+      limecore_policy_refs: limecorePolicyRefs,
+      limecore_policy_snapshot: limecorePolicySnapshot,
       executor_binding: contract?.executor_binding,
       execution_profile: profileBinding?.executionProfile,
       executor_adapter: profileBinding?.executorAdapter,

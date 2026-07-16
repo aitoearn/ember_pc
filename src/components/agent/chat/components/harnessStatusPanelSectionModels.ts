@@ -4,14 +4,13 @@ import type {
   AgentUiProjectionTranslation,
 } from "../projection/agentUiProjectionSummary";
 import type { buildThreadReliabilityView } from "../utils/threadReliabilityView";
-import type { ActionRequired } from "../types";
 import type { TranslationFunction } from "./HarnessActivityTypes";
 import type { HarnessStatusPanelProps } from "./HarnessStatusPanelTypes";
 import type { AgentTranslation } from "./HarnessStatusPanelPrimitives";
 import type { HarnessStatusPanelSectionsProps } from "./HarnessStatusPanelSections";
 import type { useHarnessActivityModel } from "./useHarnessActivityModel";
 import type { useHarnessFileReviewState } from "./useHarnessFileReviewState";
-import type { useHarnessHandoffExports } from "./useHarnessHandoffExports";
+import type { useHarnessEvidencePackExport } from "./useHarnessEvidencePackExport";
 import type { useHarnessPreviewDialog } from "./useHarnessPreviewDialog";
 import type { useHarnessToolInventoryModel } from "./useHarnessToolInventoryModel";
 import type {
@@ -22,7 +21,7 @@ import type {
 
 type ActivityModel = ReturnType<typeof useHarnessActivityModel>;
 type FileReviewState = ReturnType<typeof useHarnessFileReviewState>;
-type HandoffExports = ReturnType<typeof useHarnessHandoffExports>;
+type EvidencePackExport = ReturnType<typeof useHarnessEvidencePackExport>;
 type PreviewModel = ReturnType<typeof useHarnessPreviewDialog>;
 type ToolInventoryModel = ReturnType<typeof useHarnessToolInventoryModel>;
 type ThreadReliabilityView = ReturnType<typeof buildThreadReliabilityView>;
@@ -31,32 +30,30 @@ interface BuildHarnessStatusPanelSectionModelsInput {
   activityModel: ActivityModel;
   agentUiProjectionSummary: AgentUiProjectionSummary;
   canInterrupt: boolean;
-  childSubagentSessions: NonNullable<
-    HarnessStatusPanelProps["childSubagentSessions"]
-  >;
+  canonicalChildren: NonNullable<HarnessStatusPanelProps["canonicalChildren"]>;
   currentSessionId: string | null;
   currentTurnId: HarnessStatusPanelProps["currentTurnId"];
   diagnosticRuntimeContext: HarnessStatusPanelProps["diagnosticRuntimeContext"];
   environment: HarnessStatusPanelProps["environment"];
   fileReviewState: FileReviewState;
-  handleApprovalResponse: (
-    item: ActionRequired,
-    confirmed: boolean,
-  ) => void | Promise<void>;
   handleOpenExternalLink: (url: string) => void | Promise<void>;
-  handoffExports: HandoffExports;
+  evidencePackExport: EvidencePackExport;
   hasAgentUiProjectionSection: boolean;
   hasHandoffSection: boolean;
-  hasSelectedTeamConfig: boolean;
   harnessState: HarnessStatusPanelProps["harnessState"];
   messages: NonNullable<HarnessStatusPanelProps["messages"]>;
   onInterruptCurrentTurn: HarnessStatusPanelProps["onInterruptCurrentTurn"];
   onObjectiveChanged: HarnessStatusPanelProps["onObjectiveChanged"];
+  onManageProviders: HarnessStatusPanelProps["onManageProviders"];
+  onOpenExecutionPolicySettings: HarnessStatusPanelProps["onOpenExecutionPolicySettings"];
   onOpenFileCheckpoints: HarnessStatusPanelProps["onOpenFileCheckpoints"];
-  onOpenMemoryWorkbench: HarnessStatusPanelProps["onOpenMemoryWorkbench"];
   onOpenSubagentSession: HarnessStatusPanelProps["onOpenSubagentSession"];
   onPromoteQueuedTurn: HarnessStatusPanelProps["onPromoteQueuedTurn"];
   onRefreshToolInventory: HarnessStatusPanelProps["onRefreshToolInventory"];
+  mcpPrepareCandidateCount: number;
+  mcpPrepareLoading: boolean;
+  mcpPrepareError: string | null;
+  onPrepareMcpTargets: HarnessStatusPanelProps["onPrepareMcpTargets"];
   onReplayPendingRequest: HarnessStatusPanelProps["onReplayPendingRequest"];
   onRespondToAction: HarnessStatusPanelProps["onRespondToAction"];
   onResumeThread: HarnessStatusPanelProps["onResumeThread"];
@@ -67,18 +64,13 @@ interface BuildHarnessStatusPanelSectionModelsInput {
   registerSectionRef: HarnessStatusPanelSectionsProps["registerSectionRef"];
   runtimeFactSummary: HarnessRuntimeFactSummary | null;
   runtimeTaskPresentation: RuntimeTaskPresentation | null;
-  selectedTeamLabel: HarnessStatusPanelProps["selectedTeamLabel"];
-  selectedTeamRoles: HarnessStatusPanelProps["selectedTeamRoles"];
-  selectedTeamSummary: HarnessStatusPanelProps["selectedTeamSummary"];
-  submittedActionIds: ReadonlySet<string>;
   submittedActionsInFlight: NonNullable<
     HarnessStatusPanelProps["submittedActionsInFlight"]
   >;
   t: TranslationFunction;
-  teamMemorySnapshot: HarnessStatusPanelProps["teamMemorySnapshot"];
   threadItems: NonNullable<HarnessStatusPanelProps["threadItems"]>;
   threadRead: HarnessStatusPanelProps["threadRead"];
-  threadReliabilityView: ThreadReliabilityView;
+  threadReliabilityView: ThreadReliabilityView | null;
   toolInventory: HarnessStatusPanelProps["toolInventory"];
   toolInventoryError: string | null;
   toolInventoryLoading: boolean;
@@ -92,29 +84,32 @@ export function buildHarnessStatusPanelSectionModels({
   activityModel,
   agentUiProjectionSummary,
   canInterrupt,
-  childSubagentSessions,
+  canonicalChildren,
   currentSessionId,
   currentTurnId,
   diagnosticRuntimeContext,
   environment,
   fileReviewState,
-  handleApprovalResponse,
   handleOpenExternalLink,
-  handoffExports,
+  evidencePackExport,
   hasAgentUiProjectionSection,
   hasHandoffSection,
-  hasSelectedTeamConfig,
   harnessState,
   messages,
   onInterruptCurrentTurn,
   onObjectiveChanged,
+  onManageProviders,
+  onOpenExecutionPolicySettings,
   onOpenFileCheckpoints,
-  onOpenMemoryWorkbench,
   onOpenSubagentSession,
   onPromoteQueuedTurn,
   onRefreshToolInventory,
+  mcpPrepareCandidateCount,
+  mcpPrepareLoading,
+  mcpPrepareError,
+  onPrepareMcpTargets,
   onReplayPendingRequest,
-  onRespondToAction,
+  onRespondToAction: _onRespondToAction,
   onResumeThread,
   pendingActions,
   previewModel,
@@ -123,13 +118,8 @@ export function buildHarnessStatusPanelSectionModels({
   registerSectionRef,
   runtimeFactSummary,
   runtimeTaskPresentation,
-  selectedTeamLabel,
-  selectedTeamRoles,
-  selectedTeamSummary,
-  submittedActionIds,
   submittedActionsInFlight,
   t,
-  teamMemorySnapshot,
   threadItems,
   threadRead,
   threadReliabilityView,
@@ -179,7 +169,8 @@ export function buildHarnessStatusPanelSectionModels({
     toolInventoryExtensionTools,
     toolInventoryFilter,
     toolInventoryMcpTools,
-    toolInventoryRegistryTools,
+    toolInventoryPluginMcpTargets,
+    toolInventoryNativeTools,
     toolInventoryRuntimeTools,
     toolInventorySourceStats,
     toolInventoryWarnings,
@@ -189,22 +180,12 @@ export function buildHarnessStatusPanelSectionModels({
     evidenceExporting,
     evidencePack,
     handleExportEvidencePack,
-  } = handoffExports;
-  const {
-    handleOpenPathValue,
-    openBrowserReplayPreview,
-    openPreview,
-  } = previewModel;
+  } = evidencePackExport;
+  const { handleOpenPathValue, openBrowserReplayPreview, openPreview } =
+    previewModel;
 
   return {
     registerSectionRef,
-    hasSelectedTeamConfig,
-    teamConfigSectionProps: {
-      selectedTeamLabel: selectedTeamLabel ?? null,
-      selectedTeamSummary: selectedTeamSummary ?? null,
-      selectedTeamRoles: selectedTeamRoles ?? null,
-      registerSectionRef,
-    },
     runtimeTaskSectionProps: runtimeTaskPresentation
       ? {
           runtimeTaskPresentation,
@@ -248,8 +229,8 @@ export function buildHarnessStatusPanelSectionModels({
         }
       : null,
     reliabilitySection: {
-      shouldRender: threadReliabilityView.shouldRender,
-      statusLabel: threadReliabilityView.statusLabel,
+      shouldRender: Boolean(threadReliabilityView?.shouldRender),
+      statusLabel: threadReliabilityView?.statusLabel ?? "",
       panelProps: {
         threadRead,
         turns,
@@ -263,10 +244,10 @@ export function buildHarnessStatusPanelSectionModels({
         onResumeThread,
         onReplayPendingRequest,
         onPromoteQueuedTurn,
-        onOpenMemoryWorkbench,
+        onManageProviders,
+        onOpenExecutionPolicySettings,
         harnessState,
         messages,
-        teamMemorySnapshot,
         diagnosticRuntimeContext,
       },
     },
@@ -366,6 +347,10 @@ export function buildHarnessStatusPanelSectionModels({
       runtimeToolTotal,
       registerSectionRef,
       onRefreshToolInventory,
+      mcpPrepareCandidateCount,
+      mcpPrepareLoading,
+      mcpPrepareError,
+      onPrepareMcpTargets,
       toolInventorySourceStats,
       toolInventoryWarnings,
       runtimeToolAvailability,
@@ -375,10 +360,11 @@ export function buildHarnessStatusPanelSectionModels({
       filteredCatalogTools,
       toolInventoryFilter,
       setToolInventoryFilter,
-      toolInventoryRegistryTools,
+      toolInventoryNativeTools,
       toolInventoryExtensionSurfaces,
       toolInventoryExtensionTools,
       toolInventoryMcpTools,
+      toolInventoryPluginMcpTargets,
     },
     activitySectionsProps: {
       harnessState,
@@ -386,9 +372,6 @@ export function buildHarnessStatusPanelSectionModels({
       t,
       handleOpenExternalLink,
       handleOpenPathValue,
-      handleApprovalResponse,
-      submittedActionIds,
-      canRespondToActions: Boolean(onRespondToAction),
       fileFilterOptions,
       fileFilter,
       setFileFilter,
@@ -398,7 +381,7 @@ export function buildHarnessStatusPanelSectionModels({
       groupedFileEvents,
       openPreview,
       realTeamSummary,
-      childSubagentSessions,
+      canonicalChildren,
       onOpenSubagentSession,
       environment,
     },

@@ -69,12 +69,12 @@ const DEFAULT_REPO_ROOT = REPO_ROOT;
 
 const EVIDENCE_PATHS = {
   appMetadata:
-    "docs/roadmap/i18n/evidence/app-metadata-workflow-inventory.json",
+    "internal/roadmap/i18n/evidence/app-metadata-workflow-inventory.json",
   chromeExtension:
-    "docs/roadmap/i18n/evidence/chrome-extension-workflow-inventory.json",
+    "internal/roadmap/i18n/evidence/chrome-extension-workflow-inventory.json",
   releaseDocs:
-    "docs/roadmap/i18n/evidence/release-docs-workflow-inventory.json",
-  rtlReadiness: "docs/roadmap/i18n/evidence/rtl-readiness-inventory.json",
+    "internal/roadmap/i18n/evidence/release-docs-workflow-inventory.json",
+  rtlReadiness: "internal/roadmap/i18n/evidence/rtl-readiness-inventory.json",
 } as const;
 
 function normalizePath(filePath: string): string {
@@ -471,7 +471,7 @@ export function analyzeI18nP4ReadinessReport(
     evidence: evidenceRefs,
     knownGaps,
     repoRoot,
-    schemaVersion: "ember.i18n.p4ReadinessReport.v1",
+    schemaVersion: "lime.i18n.p4ReadinessReport.v1",
     summary: {
       acceptanceFailedCount,
       acceptancePassedCount,

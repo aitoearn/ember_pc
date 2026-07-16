@@ -16,7 +16,7 @@ import { saveSkillCatalog } from "@/lib/api/skillCatalog";
 import { recordSlashEntryUsage } from "./slashEntryUsage";
 
 describe("CharacterMention slash actions", () => {
-  it("slash 面板选择 Ember 命令时应回填到输入框", async () => {
+  it("slash 面板选择 Lime 命令时应回填到输入框", async () => {
     const onChangeSpy = vi.fn<(value: string) => void>();
     const container = renderHarness({
       onChangeSpy,

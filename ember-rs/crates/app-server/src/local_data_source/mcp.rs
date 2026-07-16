@@ -9,6 +9,9 @@ use app_server_protocol::McpPromptMessage;
 use app_server_protocol::McpResourceListResponse;
 use app_server_protocol::McpResourceReadParams;
 use app_server_protocol::McpResourceReadResponse;
+use app_server_protocol::McpResourceSubscribeParams;
+use app_server_protocol::McpResourceSubscriptionResponse;
+use app_server_protocol::McpResourceUnsubscribeParams;
 use app_server_protocol::McpServerCreateParams;
 use app_server_protocol::McpServerDeleteParams;
 use app_server_protocol::McpServerEnabledSetParams;
@@ -16,6 +19,8 @@ use app_server_protocol::McpServerImportFromAppParams;
 use app_server_protocol::McpServerImportFromAppResponse;
 use app_server_protocol::McpServerLifecycleResponse;
 use app_server_protocol::McpServerListResponse;
+use app_server_protocol::McpServerOauthLoginParams;
+use app_server_protocol::McpServerOauthLoginResponse;
 use app_server_protocol::McpServerStartParams;
 use app_server_protocol::McpServerStatusListResponse;
 use app_server_protocol::McpServerStopParams;
@@ -26,12 +31,12 @@ use app_server_protocol::McpToolCallWithCallerParams;
 use app_server_protocol::McpToolListForContextParams;
 use app_server_protocol::McpToolListResponse;
 use app_server_protocol::McpToolSearchParams;
-use ember_core::database::DbConnection;
-use ember_core::models::McpServer;
-use ember_mcp::McpError;
-use ember_mcp::McpManagerState;
-use ember_mcp::McpServerConfig;
-use ember_services::mcp_service::McpService;
+use lime_core::database::DbConnection;
+use lime_core::models::McpServer;
+use lime_mcp::McpError;
+use lime_mcp::McpManagerState;
+use lime_mcp::McpServerConfig;
+use lime_services::mcp_service::McpService;
 use serde_json::json;
 use serde_json::Value;
 
@@ -51,20 +56,19 @@ pub(crate) async fn list_mcp_servers_with_status(
     let manager = manager.lock().await;
     let mut result = Vec::with_capacity(servers.len());
     for server in servers {
-        let is_running = manager.is_server_running(&server.name).await;
-        let server_info = if is_running {
-            manager.get_client_capabilities(&server.name).await
-        } else {
-            None
-        };
+        let parsed_config = parse_mcp_server_config(&server.server_config);
+        let runtime_status = manager
+            .get_server_runtime_status(&server.name, Some(&parsed_config))
+            .await;
         result.push(json!({
             "id": server.id,
             "name": server.name,
             "description": server.description,
-            "config": server.parse_config(),
-            "is_running": is_running,
-            "server_info": server_info,
-            "enabled_ember": server.enabled_ember,
+            "config": parsed_config,
+            "is_running": runtime_status.is_running,
+            "server_info": runtime_status.server_info,
+            "runtime_status": runtime_status,
+            "enabled_lime": server.enabled_lime,
             "enabled_claude": server.enabled_claude,
             "enabled_codex": server.enabled_codex,
             "enabled_gemini": server.enabled_gemini,
@@ -157,6 +161,35 @@ pub(crate) async fn stop_mcp_server(
     Ok(McpServerLifecycleResponse::default())
 }
 
+pub(crate) async fn login_mcp_server_oauth(
+    db: &DbConnection,
+    manager: &McpManagerState,
+    params: McpServerOauthLoginParams,
+) -> Result<McpServerOauthLoginResponse, RuntimeCoreError> {
+    let server = McpService::get_all(db)
+        .map_err(data_error)?
+        .into_iter()
+        .find(|server| server.name == params.name)
+        .ok_or_else(|| {
+            RuntimeCoreError::Backend(format!("MCP server not found: {}", params.name))
+        })?;
+    let config = parse_mcp_server_config(&server.server_config);
+    let manager = manager.lock().await;
+    manager
+        .start_oauth_login(
+            &params.name,
+            &config,
+            params.scopes.clone(),
+            params.timeout_secs,
+        )
+        .await
+        .map_err(mcp_error)
+        .map(|response| McpServerOauthLoginResponse {
+            authorization_url: response.authorization_url,
+            state: response.state,
+        })
+}
+
 pub(crate) async fn list_mcp_tools(
     manager: &McpManagerState,
 ) -> Result<McpToolListResponse, RuntimeCoreError> {
@@ -164,6 +197,23 @@ pub(crate) async fn list_mcp_tools(
     Ok(McpToolListResponse {
         tools: values_from_serializable_vec(manager.list_tools().await.map_err(mcp_error)?)?,
     })
+}
+
+pub(crate) fn list_mcp_runtime_server_specs(
+    db: &DbConnection,
+) -> Result<Vec<lime_mcp::McpRuntimeServerSpec>, RuntimeCoreError> {
+    Ok(McpService::get_all(db)
+        .map_err(data_error)?
+        .into_iter()
+        .filter(|server| server.enabled_lime)
+        .filter_map(|server| {
+            let config = parse_mcp_server_config(&server.server_config);
+            config.enabled.then(|| lime_mcp::McpRuntimeServerSpec {
+                name: server.name,
+                config,
+            })
+        })
+        .collect::<Vec<_>>())
 }
 
 pub(crate) async fn list_mcp_tools_for_context(
@@ -239,7 +289,7 @@ pub(crate) async fn get_mcp_prompt(
 ) -> Result<McpPromptGetResponse, RuntimeCoreError> {
     let manager = manager.lock().await;
     let result = manager
-        .get_prompt(&params.name, params.arguments)
+        .get_prompt(&params.server, &params.name, params.arguments)
         .await
         .map_err(mcp_error)?;
     Ok(to_mcp_prompt_get_response(result))
@@ -253,6 +303,9 @@ pub(crate) async fn list_mcp_resources(
         resources: values_from_serializable_vec(
             manager.list_resources().await.map_err(mcp_error)?,
         )?,
+        resource_templates: values_from_serializable_vec(
+            manager.list_resource_templates().await.map_err(mcp_error)?,
+        )?,
     })
 }
 
@@ -262,7 +315,7 @@ pub(crate) async fn read_mcp_resource(
 ) -> Result<McpResourceReadResponse, RuntimeCoreError> {
     let manager = manager.lock().await;
     let result = manager
-        .read_resource(&params.uri)
+        .read_resource(&params.server, &params.uri)
         .await
         .map_err(mcp_error)?;
     Ok(McpResourceReadResponse {
@@ -273,44 +326,32 @@ pub(crate) async fn read_mcp_resource(
     })
 }
 
+pub(crate) async fn subscribe_mcp_resource(
+    manager: &McpManagerState,
+    params: McpResourceSubscribeParams,
+) -> Result<McpResourceSubscriptionResponse, RuntimeCoreError> {
+    let manager = manager.lock().await;
+    manager
+        .subscribe_resource(&params.server, &params.uri)
+        .await
+        .map_err(mcp_error)?;
+    Ok(McpResourceSubscriptionResponse::default())
+}
+
+pub(crate) async fn unsubscribe_mcp_resource(
+    manager: &McpManagerState,
+    params: McpResourceUnsubscribeParams,
+) -> Result<McpResourceSubscriptionResponse, RuntimeCoreError> {
+    let manager = manager.lock().await;
+    manager
+        .unsubscribe_resource(&params.server, &params.uri)
+        .await
+        .map_err(mcp_error)?;
+    Ok(McpResourceSubscriptionResponse::default())
+}
+
 fn parse_mcp_server_config(config_value: &Value) -> McpServerConfig {
-    serde_json::from_value(config_value.clone()).unwrap_or_else(|_| McpServerConfig {
-        command: config_value
-            .get("command")
-            .and_then(|value| value.as_str())
-            .unwrap_or("")
-            .to_string(),
-        args: config_value
-            .get("args")
-            .and_then(|value| value.as_array())
-            .map(|values| {
-                values
-                    .iter()
-                    .filter_map(|value| value.as_str().map(ToString::to_string))
-                    .collect()
-            })
-            .unwrap_or_default(),
-        env: config_value
-            .get("env")
-            .and_then(|value| value.as_object())
-            .map(|values| {
-                values
-                    .iter()
-                    .filter_map(|(key, value)| {
-                        value.as_str().map(|value| (key.clone(), value.to_string()))
-                    })
-                    .collect()
-            })
-            .unwrap_or_default(),
-        cwd: config_value
-            .get("cwd")
-            .and_then(|value| value.as_str())
-            .map(ToString::to_string),
-        timeout: config_value
-            .get("timeout")
-            .and_then(|value| value.as_u64())
-            .unwrap_or(30),
-    })
+    McpServerConfig::from_value(config_value.clone()).unwrap_or_default()
 }
 
 fn mcp_server_from_value(value: Value) -> Result<McpServer, RuntimeCoreError> {
@@ -321,14 +362,15 @@ fn mcp_error(error: McpError) -> RuntimeCoreError {
     RuntimeCoreError::Backend(format!("MCP current runtime error: {error}"))
 }
 
-fn to_mcp_tool_call_response(result: ember_mcp::McpToolResult) -> McpToolCallResponse {
+fn to_mcp_tool_call_response(result: lime_mcp::McpToolResult) -> McpToolCallResponse {
     McpToolCallResponse {
         content: result.content.into_iter().map(to_mcp_content).collect(),
+        structured_content: result.structured_content,
         is_error: result.is_error,
     }
 }
 
-fn to_mcp_prompt_get_response(result: ember_mcp::McpPromptResult) -> McpPromptGetResponse {
+fn to_mcp_prompt_get_response(result: lime_mcp::McpPromptResult) -> McpPromptGetResponse {
     McpPromptGetResponse {
         description: result.description,
         messages: result
@@ -342,12 +384,48 @@ fn to_mcp_prompt_get_response(result: ember_mcp::McpPromptResult) -> McpPromptGe
     }
 }
 
-fn to_mcp_content(content: ember_mcp::McpContent) -> McpContent {
+fn to_mcp_content(content: lime_mcp::McpContent) -> McpContent {
     match content {
-        ember_mcp::McpContent::Text { text } => McpContent::Text { text },
-        ember_mcp::McpContent::Image { data, mime_type } => McpContent::Image { data, mime_type },
-        ember_mcp::McpContent::Resource { uri, text, blob } => {
+        lime_mcp::McpContent::Text { text } => McpContent::Text { text },
+        lime_mcp::McpContent::Image { data, mime_type } => McpContent::Image { data, mime_type },
+        lime_mcp::McpContent::Resource { uri, text, blob } => {
             McpContent::Resource { uri, text, blob }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn to_mcp_tool_call_response_preserves_structured_content() {
+        let response = to_mcp_tool_call_response(lime_mcp::McpToolResult {
+            content: vec![lime_mcp::McpContent::Text {
+                text: "ok".to_string(),
+            }],
+            structured_content: Some(json!({
+                "results": [
+                    { "title": "MCP current" }
+                ]
+            })),
+            is_error: false,
+        });
+
+        assert_eq!(
+            response.structured_content,
+            Some(json!({
+                "results": [
+                    { "title": "MCP current" }
+                ]
+            }))
+        );
+        assert_eq!(
+            response.content,
+            vec![McpContent::Text {
+                text: "ok".to_string(),
+            }]
+        );
+        assert!(!response.is_error);
     }
 }

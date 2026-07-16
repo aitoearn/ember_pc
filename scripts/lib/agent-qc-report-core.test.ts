@@ -18,7 +18,7 @@ const packageJson = {
 
 const evidenceSchema = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
-  $id: "https://ember.local/agent-qc-evidence.schema.json",
+  $id: "https://lime.local/agent-qc-evidence.schema.json",
   type: "object",
   required: [
     "schemaVersion",
@@ -43,8 +43,8 @@ const evidenceSchema = {
 
 const validManifest = {
   manifestVersion: "v1",
-  title: "Ember Agent QC",
-  evidenceSchema: "docs/test/agent-qc-evidence.schema.json",
+  title: "Lime Agent QC",
+  evidenceSchema: "internal/test/agent-qc-evidence.schema.json",
   qcloop: {
     workerPromptTemplate:
       "worker {{item}} evidence_required failure_modes QCLOOP_WORKER_RESULT=BLOCKED QCLOOP_EVIDENCE_SUMMARY_JSON",
@@ -238,7 +238,7 @@ describe("agent-qc-report-core", () => {
     });
     const markdown = renderAgentQcMarkdownReport(report);
 
-    expect(markdown).toContain("Ember Agent QC 场景报告");
+    expect(markdown).toContain("Lime Agent QC 场景报告");
     expect(markdown).toContain("状态: PASS");
     expect(markdown).toContain("command-bridge-contract");
   });

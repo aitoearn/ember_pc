@@ -62,7 +62,7 @@ const defaultAnalyzeLayeredDesignFlatImage =
   createLayeredDesignWorkerFirstFlatImageAnalyzer();
 
 const DESIGN_CANVAS_ANALYZER_ENDPOINT_STORAGE_KEY =
-  "ember.layeredDesign.analyzerEndpoint";
+  "lime.layeredDesign.analyzerEndpoint";
 const DESIGN_CANVAS_AUTO_REFRESH_ATTEMPTS = 3;
 const DESIGN_CANVAS_AUTO_REFRESH_DELAY_MS = 2200;
 
@@ -1636,7 +1636,7 @@ export const DesignCanvas: React.FC<DesignCanvasProps> = memo(
               {
                 endpointUrl: normalizedAnalyzerEndpointUrl,
                 headers: {
-                  "x-ember-layered-design-analyzer": "design-canvas-main-app",
+                  "x-lime-layered-design-analyzer": "design-canvas-main-app",
                 },
                 timeoutMs: 60_000,
               },

@@ -5,8 +5,8 @@ use app_server_protocol::VoiceInstructionIdParams;
 use app_server_protocol::VoiceInstructionListResponse;
 use app_server_protocol::VoiceInstructionMutationResponse;
 use app_server_protocol::VoiceInstructionSaveParams;
-use ember_core::config::VoiceInstruction as CoreVoiceInstruction;
-use ember_services::voice_config_service;
+use lime_core::config::VoiceInstruction as CoreVoiceInstruction;
+use lime_services::voice_config_service;
 
 pub(crate) fn list_voice_instructions() -> Result<VoiceInstructionListResponse, RuntimeCoreError> {
     let instructions = voice_config_service::get_instructions()

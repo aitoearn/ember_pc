@@ -20,9 +20,6 @@ interface SceneAppExecutionSummaryCardProps {
   latestReviewFeedbackSignal?: CuratedTaskRecommendationSignal | null;
   onContinueReviewFeedback?: (taskId: string) => void;
   onReviewCurrentProject?: () => void;
-  savedAsInspiration?: boolean;
-  onSaveAsInspiration?: () => void;
-  onOpenInspirationLibrary?: () => void;
   onSaveAsSkill?: () => void;
   onOpenSceneAppDetail?: () => void;
   onOpenSceneAppGovernance?: () => void;
@@ -143,7 +140,7 @@ function resolveRuntimeToneClass(
     case "accent":
       return "border-sky-200 bg-sky-50 text-sky-700";
     case "success":
-      return "border-ember-200 bg-ember-50 text-ember-700";
+      return "border-lime-200 bg-lime-50 text-lime-700";
     case "watch":
       return "border-amber-200 bg-amber-50 text-amber-700";
     case "risk":
@@ -161,7 +158,7 @@ function resolveAggregateToneClass(
 ): string {
   switch (status) {
     case "good":
-      return "border-ember-200 bg-ember-50 text-ember-700";
+      return "border-lime-200 bg-lime-50 text-lime-700";
     case "watch":
       return "border-amber-200 bg-amber-50 text-amber-700";
     case "risk":
@@ -177,7 +174,7 @@ function resolveContentPostReadinessToneClass(
 ): string {
   switch (tone) {
     case "success":
-      return "border-ember-200 bg-ember-50 text-ember-700";
+      return "border-lime-200 bg-lime-50 text-lime-700";
     case "watch":
       return "border-amber-200 bg-amber-50 text-amber-700";
     case "default":
@@ -191,9 +188,6 @@ export function SceneAppExecutionSummaryCard({
   latestReviewFeedbackSignal = null,
   onContinueReviewFeedback,
   onReviewCurrentProject,
-  savedAsInspiration = false,
-  onSaveAsInspiration,
-  onOpenInspirationLibrary,
   onSaveAsSkill,
   onOpenSceneAppDetail,
   onOpenSceneAppGovernance,
@@ -233,7 +227,6 @@ export function SceneAppExecutionSummaryCard({
       : t("sceneAppExecutionSummary.value.pending"));
   const hasFollowupSection = Boolean(
     onReviewCurrentProject ||
-    onSaveAsInspiration ||
     onSaveAsSkill ||
     onOpenSceneAppDetail ||
     onOpenSceneAppGovernance ||
@@ -269,7 +262,7 @@ export function SceneAppExecutionSummaryCard({
             <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600">
               {summary.typeLabel}
             </span>
-            <span className="rounded-full border border-ember-200 bg-ember-50 px-2.5 py-1 text-[11px] font-medium text-ember-700">
+            <span className="rounded-full border border-lime-200 bg-lime-50 px-2.5 py-1 text-[11px] font-medium text-lime-700">
               {deliveryContractLabel}
             </span>
             <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-700">
@@ -390,7 +383,7 @@ export function SceneAppExecutionSummaryCard({
                 </div>
                 {renderPartChips(
                   summary.runtimeBackflow.deliveryCompletedParts,
-                  "border-ember-200 bg-white text-ember-700",
+                  "border-lime-200 bg-white text-lime-700",
                   "sceneapp-execution-summary-runtime-completed-parts",
                 )}
               </div>
@@ -535,7 +528,7 @@ export function SceneAppExecutionSummaryCard({
                 </div>
                 {renderPartChips(
                   summary.projectPackPlan.requiredParts,
-                  "border-ember-200 bg-ember-50 text-ember-700",
+                  "border-lime-200 bg-lime-50 text-lime-700",
                 )}
                 {summary.projectPackPlan.notes.length ? (
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -657,28 +650,6 @@ export function SceneAppExecutionSummaryCard({
                   {t("sceneAppExecutionSummary.followup.action.reviewCurrent")}
                 </Button>
               ) : null}
-              {onSaveAsInspiration ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  data-testid="sceneapp-execution-summary-save-as-inspiration"
-                  disabled={savedAsInspiration}
-                  className={
-                    savedAsInspiration
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
-                      : undefined
-                  }
-                  onClick={onSaveAsInspiration}
-                >
-                  {savedAsInspiration
-                    ? t(
-                        "sceneAppExecutionSummary.followup.action.inspirationSaved",
-                      )
-                    : t(
-                        "sceneAppExecutionSummary.followup.action.saveInspiration",
-                      )}
-                </Button>
-              ) : null}
               {onSaveAsSkill ? (
                 <Button
                   type="button"
@@ -724,30 +695,6 @@ export function SceneAppExecutionSummaryCard({
                 </Button>
               ) : null}
             </div>
-            {savedAsInspiration ? (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <p
-                  className="text-xs leading-5 text-emerald-700"
-                  data-testid="sceneapp-execution-summary-saved-inspiration-hint"
-                >
-                  {t("sceneAppExecutionSummary.followup.savedHint")}
-                </p>
-                {onOpenInspirationLibrary ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 rounded-full px-2 text-xs font-medium text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900"
-                    data-testid="sceneapp-execution-summary-open-inspiration-library"
-                    onClick={onOpenInspirationLibrary}
-                  >
-                    {t(
-                      "sceneAppExecutionSummary.followup.action.openInspiration",
-                    )}
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
             {humanReviewAvailable && quickReviewActions.length ? (
               <div className="mt-4">
                 <div className="text-xs font-medium text-slate-500">

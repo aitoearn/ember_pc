@@ -159,7 +159,7 @@ describe("latestSavedSiteContentTarget", () => {
         toolCalls: [
           {
             id: "tool-site-final",
-            name: "ember_site_run",
+            name: "lime_site_run",
             status: "completed",
             startTime: new Date("2026-04-09T13:00:00.000Z"),
             endTime: new Date("2026-04-09T13:00:01.000Z"),
@@ -179,7 +179,7 @@ describe("latestSavedSiteContentTarget", () => {
           },
           {
             id: "tool-site-preload",
-            name: "ember_site_run",
+            name: "lime_site_run",
             status: "completed",
             startTime: new Date("2026-04-09T13:00:02.000Z"),
             endTime: new Date("2026-04-09T13:00:03.000Z"),

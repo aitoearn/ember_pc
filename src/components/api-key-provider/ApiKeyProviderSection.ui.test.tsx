@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProviderWithKeysDisplay } from "@/lib/api/apiKeyProvider";
+import type { ProviderSettingsFocusContext } from "@/types/page";
 
 const {
   mockUseApiKeyProvider,
@@ -83,6 +84,7 @@ vi.mock("react-i18next", () => ({
 vi.mock("./ProviderSetting", () => ({
   ProviderSetting: (props: {
     provider: ProviderWithKeysDisplay | null;
+    focus?: ProviderSettingsFocusContext | null;
     authStatus?: "ready" | "login_required";
     onLogin?: () => void | Promise<void>;
     onTestConnection?: (
@@ -99,7 +101,7 @@ vi.mock("./ProviderSetting", () => ({
       return (
         <div data-testid="provider-login-required">
           {props.provider.name} 需要登录
-          <p>登录后会自动同步 Ember Hub 的可用模型</p>
+          <p>登录后会自动同步 Lime Hub 的可用模型</p>
           <button
             type="button"
             data-testid="provider-login-button"
@@ -114,7 +116,12 @@ vi.mock("./ProviderSetting", () => ({
     }
 
     return (
-      <div data-testid="provider-setting-stub">
+      <div
+        data-testid="provider-setting-stub"
+        data-focus-provider-id={props.focus?.providerId ?? ""}
+        data-focus-model-id={props.focus?.modelId ?? ""}
+        data-focus-reason-code={props.focus?.reasonCode ?? ""}
+      >
         {props.provider?.name ?? "未选择模型"}
         {props.provider ? (
           <button
@@ -174,13 +181,15 @@ function createHookState(overrides: Record<string, unknown> = {}) {
   return createApiKeyProviderHookState(mockUseApiKeyProvider, vi.fn, overrides);
 }
 
-function renderSection() {
+function renderSection(
+  props: Partial<React.ComponentProps<typeof ApiKeyProviderSection>> = {},
+) {
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
 
   act(() => {
-    root.render(<ApiKeyProviderSection />);
+    root.render(<ApiKeyProviderSection {...props} />);
   });
 
   mountedRoots.push({ container, root });
@@ -328,10 +337,71 @@ describe("ApiKeyProviderSection 模型管理布局", () => {
     expect(container.textContent ?? "").not.toContain("OpenAI");
   });
 
-  it("AI 服务商设置页不应展示 Ember Hub", async () => {
-    const emberHub = createProvider({
-      id: "ember-hub",
-      name: "Ember Cloud",
+  it("initialFocus 命中 providerId 时应切换到目标服务商并透传焦点", async () => {
+    const customCoder = createProvider({
+      id: "custom-coder",
+      name: "Custom Coder",
+      sort_order: 3,
+      custom_models: ["coder-small"],
+      api_keys: [],
+      api_key_count: 0,
+    });
+    const hookState = createHookState({
+      providers: [createProvider(), customCoder],
+      selectedProviderId: "deepseek",
+      selectedProvider: customCoder,
+      filteredProviders: [createProvider(), customCoder],
+    });
+
+    const container = renderSection({
+      initialFocus: {
+        providerId: "custom-coder",
+        modelId: "coder-large",
+        reasonCode: "missing_enabled_api_key",
+        recoveryAction: "add_enabled_api_key",
+      },
+    });
+    await flushEffects();
+
+    expect(hookState.selectProvider).toHaveBeenCalledWith("custom-coder");
+    const stub = maybeByTestId(container, "provider-setting-stub");
+    expect(stub?.getAttribute("data-focus-provider-id")).toBe("custom-coder");
+    expect(stub?.getAttribute("data-focus-model-id")).toBe("coder-large");
+    expect(stub?.getAttribute("data-focus-reason-code")).toBe(
+      "missing_enabled_api_key",
+    );
+  });
+
+  it("initialFocus 只有 modelId 时应按已启用模型反查服务商", async () => {
+    const codingProvider = createProvider({
+      id: "coding-provider",
+      name: "Coding Provider",
+      sort_order: 3,
+      custom_models: ["coder-large"],
+    });
+    const hookState = createHookState({
+      providers: [createProvider(), codingProvider],
+      selectedProviderId: "deepseek",
+      selectedProvider: codingProvider,
+      filteredProviders: [createProvider(), codingProvider],
+    });
+
+    renderSection({
+      initialFocus: {
+        modelId: "coder-large",
+        reasonCode: "model_not_enabled",
+      },
+    });
+    await flushEffects();
+
+    expect(hookState.selectProvider).toHaveBeenCalledWith("coding-provider");
+  });
+
+  it("未登录时可在 AI 服务商列表中展示 Lime Hub 登录提示", async () => {
+    const onOemLogin = vi.fn();
+    const limeHub = createProvider({
+      id: "lime-hub",
+      name: "Lime 云端",
       group: "cloud",
       sort_order: 0,
       custom_models: [],
@@ -339,10 +409,10 @@ describe("ApiKeyProviderSection 模型管理布局", () => {
       api_key_count: 0,
     });
     const deepseek = createProvider();
-    createHookState({
-      providers: [emberHub, deepseek],
-      selectedProviderId: "deepseek",
-      selectedProvider: deepseek,
+    const hookState = createHookState({
+      providers: [limeHub, deepseek],
+      selectedProviderId: "lime-hub",
+      selectedProvider: limeHub,
       filteredProviders: [deepseek],
     });
 
@@ -350,15 +420,30 @@ describe("ApiKeyProviderSection 模型管理布局", () => {
     document.body.appendChild(container);
     const root = createRoot(container);
     act(() => {
-      root.render(<ApiKeyProviderSection />);
+      root.render(
+        <ApiKeyProviderSection exposeOemLoginPrompt onOemLogin={onOemLogin} />,
+      );
     });
     mountedRoots.push({ container, root });
     await flushEffects();
 
-    expect(maybeProviderItem(container, "ember-hub")).toBeNull();
-    expect(container.textContent ?? "").not.toContain("Ember Cloud");
-    expect(container.textContent ?? "").not.toContain("需要登录");
-    expect(container.textContent ?? "").toContain("DeepSeek");
+    expect(maybeProviderItem(container, "lime-hub")).not.toBeNull();
+    expect(container.textContent ?? "").toContain("Lime 云端");
+    expect(container.textContent ?? "").toContain("需要登录");
+    expect(container.textContent ?? "").toContain(
+      "登录后会自动同步 Lime Hub 的可用模型",
+    );
+    expect(hookState.selectProvider).not.toHaveBeenCalledWith("deepseek");
+
+    await act(async () => {
+      maybeByTestId<HTMLButtonElement>(
+        container,
+        "provider-login-button",
+      )?.click();
+      await Promise.resolve();
+    });
+
+    expect(onOemLogin).toHaveBeenCalledTimes(1);
   });
 
   it("Provider 设置页请求聊天试跑时应走真实聊天测试命令", async () => {
@@ -621,6 +706,58 @@ describe("ApiKeyProviderSection 模型管理布局", () => {
       "https://api.sensenova.cn/compatible-mode/v2",
     );
     expect(container.textContent ?? "").toContain("SenseChat-5");
+  });
+
+  it("推荐 Agnes 模板应使用 OpenAI 格式和官方图片模型", async () => {
+    const hookState = createHookState();
+    const container = renderSection();
+
+    await act(async () => {
+      findByTestId<HTMLButtonElement>("add-model-button").click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      maybeTemplateCard(container, "agnes-image-flash")?.click();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent ?? "").toContain("Agnes");
+    expect(container.textContent ?? "").toContain(
+      "https://apihub.agnes-ai.com/v1",
+    );
+    expect(container.textContent ?? "").toContain("OpenAI 兼容");
+    expect(container.textContent ?? "").toContain("agnes-image-2.1-flash");
+    expect(container.textContent ?? "").not.toContain("Anthropic 格式");
+
+    await act(async () => {
+      setInputValue(
+        findByTestId<HTMLInputElement>("model-api-key-input"),
+        "sk-agnes-test",
+      );
+    });
+    await clickByTestId("model-activate-button", 3);
+
+    expect(hookState.addCustomProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Agnes",
+        type: "openai",
+        api_host: "https://apihub.agnes-ai.com/v1",
+      }),
+    );
+    expect(hookState.updateProvider).toHaveBeenCalledWith(
+      "custom-1",
+      expect.objectContaining({
+        enabled: true,
+        custom_models: ["agnes-image-2.1-flash"],
+      }),
+    );
+    expect(mockTestConnection).toHaveBeenCalledWith(
+      "custom-1",
+      "agnes-image-2.1-flash",
+    );
+    expect(hookState.selectProvider).toHaveBeenCalledWith("custom-1");
   });
 
   it("海外分类应展示国内厂商的国际订阅入口", async () => {

@@ -15,7 +15,7 @@ function parseArgs(argv) {
     format: "text",
     generateCurrent: false,
     help: false,
-    input: ".ember/harness/reports/harness-cleanup-report.json",
+    input: ".lime/harness/reports/harness-cleanup-report.json",
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -48,16 +48,16 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Harness Cleanup Report Contract Check
+Lime Harness Cleanup Report Contract Check
 
 用法:
   node scripts/check-generated-slop-report.mjs
   node scripts/check-generated-slop-report.mjs --generate-current
-  node scripts/check-generated-slop-report.mjs --input ".ember/harness/reports/harness-cleanup-report.json"
+  node scripts/check-generated-slop-report.mjs --input ".lime/harness/reports/harness-cleanup-report.json"
   node scripts/check-generated-slop-report.mjs --input "./tmp/harness-cleanup-report.json" --format json
 
 选项:
-  --input PATH     cleanup report JSON 路径，默认 ".ember/harness/reports/harness-cleanup-report.json"
+  --input PATH     cleanup report JSON 路径，默认 ".lime/harness/reports/harness-cleanup-report.json"
   --generate-current 先生成当前 cleanup report，再校验其契约
   --format FMT     输出格式：text | json
   -h, --help       显示帮助
@@ -70,7 +70,7 @@ function resolveInputPath(inputPath) {
 
 function buildCurrentCleanupReport() {
   const tempRoot = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ember-cleanup-report-contract-"),
+    path.join(os.tmpdir(), "lime-cleanup-report-contract-"),
   );
   const outputPath = path.join(tempRoot, "harness-cleanup-report.json");
 

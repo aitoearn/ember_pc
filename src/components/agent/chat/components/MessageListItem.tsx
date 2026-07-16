@@ -3,7 +3,7 @@ import { Check, Copy, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Artifact } from "@/lib/artifact/types";
 import type { A2UIFormData } from "@/components/workspace/a2ui/types";
-import type { AgentRuntimeThreadReadModel } from "@/lib/api/agentRuntime";
+import type { AgentRuntimeThreadReadModel } from "@/lib/api/agentRuntime/sessionTypes";
 import { formatDate } from "@/i18n/format";
 import { MessageWrapper, ContentColumn, MessageBubble } from "../styles";
 import { type TokenUsagePromptCacheNotice } from "./TokenUsageDisplay";
@@ -18,19 +18,84 @@ import type {
   SiteSavedContentTarget,
   WriteArtifactContext,
 } from "../types";
-import { AssistantFirstTokenRuntimeStatus } from "./MessageListRuntimeStatus";
 import { MessageArtifactCards } from "./MessageArtifactCards";
 import { MessageActionButtons } from "./MessageActionButtons";
 import { MessageImageAttachments } from "./MessageImageAttachments";
 import { MessageAssistantBody } from "./MessageAssistantBody";
 import { MessageAssistantMetaFooter } from "./MessageAssistantMetaFooter";
-import {
-  resolveMessageAssistantMetaFooterState,
-} from "./messageAssistantMetaFooterState";
+import { resolveMessageAssistantMetaFooterState } from "./messageAssistantMetaFooterState";
+import { AssistantFirstTokenRuntimeStatus } from "./MessageListRuntimeStatus";
 import { MessageTimelineSection } from "./MessageTimelineSection";
 import { MessageUserBody } from "./MessageUserBody";
 import type { MessageListRenderGroup } from "./MessageList.types";
 import { resolveMessageListItemProjection } from "./messageListItemProjection";
+import type { SearchResultPreviewItem } from "../utils/searchResultPreview";
+import { canonicalAgentMessageItemId } from "../utils/contentPartTimeline";
+
+function contentPartDebugSignature(parts: Message["contentParts"]): string {
+  return (parts || [])
+    .map((part) => {
+      if (part.type === "tool_use") {
+        const sequence =
+          typeof part.metadata?.sequence === "number"
+            ? `#${part.metadata.sequence}`
+            : "";
+        return `tool:${part.toolCall.name}:${part.toolCall.status}${sequence}`;
+      }
+      if (part.type === "thinking") {
+        const sequence =
+          typeof part.metadata?.sequence === "number"
+            ? `#${part.metadata.sequence}`
+            : "";
+        return `thinking${sequence}`;
+      }
+      return part.type;
+    })
+    .join("|");
+}
+
+function timelineDebugSignature(
+  timeline: MessageListRenderGroup["timeline"],
+): string {
+  return (timeline?.items || [])
+    .map((item) => `${item.type}:${item.id}`)
+    .join("|");
+}
+
+function resolveCanonicalMessageItemId(
+  message: Message,
+  group: MessageListRenderGroup,
+  threadRead: AgentRuntimeThreadReadModel | null,
+): string | null {
+  if (message.role === "assistant") {
+    const fromContentParts = canonicalAgentMessageItemId(message.contentParts);
+    if (fromContentParts) {
+      return fromContentParts;
+    }
+  }
+
+  const turnId =
+    message.runtimeTurnId?.trim() || group.timeline?.turn?.id?.trim() || null;
+  const itemType =
+    message.role === "assistant"
+      ? "agent_message"
+      : message.role === "user"
+        ? "user_message"
+        : null;
+  if (!itemType) {
+    return null;
+  }
+  const candidates = [
+    ...(group.timeline?.items ?? []),
+    ...(threadRead?.thread_items ?? []),
+  ];
+  return (
+    candidates.find(
+      (item) =>
+        item.type === itemType && (!turnId || item.turn_id === turnId),
+    )?.id ?? null
+  );
+}
 
 export interface MessageListItemProps {
   msg: Message;
@@ -75,6 +140,7 @@ export interface MessageListItemProps {
   onFileClick?: (fileName: string, content: string) => void;
   onInterruptCurrentTurn?: () => void | Promise<void>;
   onOpenArtifactFromTimeline?: (target: ArtifactTimelineOpenTarget) => void;
+  onOpenUrlPreview?: (item: SearchResultPreviewItem) => void;
   onOpenMessagePreview?: (
     target: MessagePreviewTarget,
     message: Message,
@@ -84,10 +150,6 @@ export interface MessageListItemProps {
   onOpenSubagentSession?: (sessionId: string) => void;
   onPermissionResponse?: (response: ConfirmResponse) => void;
   onQuoteMessage?: (content: string, id: string) => void;
-  onSaveMessageAsInspiration?: (source: {
-    messageId: string;
-    content: string;
-  }) => void;
   onSaveMessageAsKnowledge?: (source: {
     messageId: string;
     content: string;
@@ -148,13 +210,13 @@ export function MessageListItem({
   onFileClick,
   onInterruptCurrentTurn,
   onOpenArtifactFromTimeline,
+  onOpenUrlPreview,
   onOpenMessagePreview,
   onEditMessage,
   onOpenSavedSiteContent,
   onOpenSubagentSession,
   onPermissionResponse,
   onQuoteMessage,
-  onSaveMessageAsInspiration,
   onSaveMessageAsKnowledge,
   onSaveMessageAsSkill,
   onWriteFile,
@@ -184,10 +246,12 @@ export function MessageListItem({
     canCopyMessage,
     displayContent,
     hasAssistantBodyContent,
+    hasArticleArtifactFrame,
     hasImageWorkbenchLeadContent,
     historicalAssistantPreviewContent,
     imageWorkbenchRendererState,
     installedSkillMessageLabel,
+    isActiveProcessOnlyOutput,
     isConversationTailAssistant,
     isCurrentInteractiveAssistantMessage,
     isUserCommandMessage,
@@ -230,9 +294,6 @@ export function MessageListItem({
   const canSaveMessageAsSkill = Boolean(
     onSaveMessageAsSkill && projection.canSaveMessageAsSkill,
   );
-  const canSaveMessageAsInspiration = Boolean(
-    onSaveMessageAsInspiration && projection.canSaveMessageAsInspiration,
-  );
   const canSaveMessageAsKnowledge = Boolean(
     onSaveMessageAsKnowledge && projection.canSaveMessageAsKnowledge,
   );
@@ -241,7 +302,6 @@ export function MessageListItem({
       Boolean(msg.imageWorkbenchPreview) &&
       (canQuoteMessage || canCopyMessage)) ||
     canSaveMessageAsSkill ||
-    canSaveMessageAsInspiration ||
     canSaveMessageAsKnowledge;
   const userMessageFooter =
     msg.role === "user" && !isUserCommandMessage ? (
@@ -284,7 +344,9 @@ export function MessageListItem({
     ) : null;
   const assistantMetaFooterState = resolveMessageAssistantMetaFooterState({
     activeConversationRuntimeStatusLine,
-    hasAssistantBodyContent,
+    hasActiveInteractiveRuntime,
+    hasAssistantBodyContent:
+      hasAssistantBodyContent && !shouldRenderFirstTokenRuntimeStatus,
     isConversationTailAssistant,
     lastAssistantMessageId,
     message: msg,
@@ -292,6 +354,7 @@ export function MessageListItem({
     shouldPreviewHistoricalAssistantMessage,
     shouldSuppressStandaloneImageWorkbenchProcess,
     tailRuntimeStatusLine,
+    threadReadStatus: threadRead?.status ?? null,
   });
   const assistantMetaFooter = (
     <MessageAssistantMetaFooter
@@ -305,15 +368,10 @@ export function MessageListItem({
       tailRuntimeStatusLine={tailRuntimeStatusLine}
     />
   );
-  const firstTokenRuntimeStatusNode = shouldRenderFirstTokenRuntimeStatus ? (
-    <AssistantFirstTokenRuntimeStatus status={msg.runtimeStatus} />
-  ) : null;
-
   if (
     msg.role === "assistant" &&
     !hasAssistantBodyContent &&
-    !assistantMetaFooterState.hasAssistantMetaFooter &&
-    !firstTokenRuntimeStatusNode
+    !assistantMetaFooterState.hasAssistantMetaFooter
   ) {
     return null;
   }
@@ -324,6 +382,7 @@ export function MessageListItem({
       actionRequests={primaryActionRequests}
       activeCurrentTurnId={activeCurrentTurnId}
       detailsDeferred={arePrimaryTimelineDetailsDeferred}
+      expandCompletedProcessDetails={hasArticleArtifactFrame}
       focusedTimelineItemId={focusedTimelineItemId}
       focusRequestKey={timelineFocusRequestKey}
       isCurrentTurnSending={isSending}
@@ -349,6 +408,30 @@ export function MessageListItem({
       threadRead={threadRead}
     />
   ) : null;
+  const trailingTimelineNode =
+    msg.role === "assistant" && trailingTimeline ? (
+      <MessageTimelineSection
+        timeline={trailingTimeline}
+        actionRequests={trailingActionRequests}
+        activeCurrentTurnId={activeCurrentTurnId}
+        expandCompletedProcessDetails={hasArticleArtifactFrame}
+        focusedTimelineItemId={focusedTimelineItemId}
+        focusRequestKey={timelineFocusRequestKey}
+        isCurrentTurnSending={isSending}
+        messageId={msg.id}
+        onFileClick={onFileClick}
+        onOpenArtifactFromTimeline={onOpenArtifactFromTimeline}
+        onOpenSavedSiteContent={onOpenSavedSiteContent}
+        onOpenSubagentSession={onOpenSubagentSession}
+        onPermissionResponse={onPermissionResponse}
+        onSaveMessageAsKnowledge={onSaveMessageAsKnowledge}
+        placement="trailing"
+        shouldDeferHistoricalTimelineDetails={
+          shouldDeferHistoricalTimelineDetails
+        }
+        threadRead={threadRead}
+      />
+    ) : null;
 
   return (
     <MessageWrapper
@@ -362,14 +445,6 @@ export function MessageListItem({
             {primaryTimelineNode}
           </div>
         ) : null}
-        {firstTokenRuntimeStatusNode ? (
-          <div
-            className="mb-1.5 px-1"
-            data-testid="assistant-runtime-status-shell"
-          >
-            {firstTokenRuntimeStatusNode}
-          </div>
-        ) : null}
         {hasAssistantBodyContent ? (
           <MessageBubble
             $isUser={msg.role === "user"}
@@ -377,80 +452,99 @@ export function MessageListItem({
             className={
               isUserCommandMessage ? "message-bubble-user-command" : undefined
             }
+            data-message-id={msg.id}
             data-message-role={msg.role}
+            data-runtime-turn-id={msg.runtimeTurnId || ""}
+            data-thread-item-id={
+              resolveCanonicalMessageItemId(msg, group, threadRead) ||
+              undefined
+            }
+            data-message-content-part-types={contentPartDebugSignature(
+              msg.contentParts,
+            )}
+            data-renderer-content-part-types={contentPartDebugSignature(
+              rendererContentParts,
+            )}
+            data-timeline-items={timelineDebugSignature(group.timeline)}
             data-visual-tone={
               msg.role === "user" ? "neutral-user" : "neutral-assistant"
             }
             aria-label={msg.role === "assistant" ? assistantLabel : undefined}
           >
             {msg.role === "assistant" ? (
-              <MessageAssistantBody
-                a2uiFormDataMap={a2uiFormDataMap}
-                actionContent={actionContent}
-                collapseCodeBlocks={collapseCodeBlocks}
-                displayContent={displayContent}
-                handleExpandHistoricalAssistantMessage={
-                  handleExpandHistoricalAssistantMessage
-                }
-                handleExpandLongHistoricalMessage={
-                  handleExpandLongHistoricalMessage
-                }
-                hasImageWorkbenchLeadContent={hasImageWorkbenchLeadContent}
-                historicalAssistantPreviewContent={
-                  historicalAssistantPreviewContent
-                }
-                imageWorkbenchRendererState={imageWorkbenchRendererState}
-                isCurrentInteractiveAssistantMessage={
-                  isCurrentInteractiveAssistantMessage
-                }
-                message={msg}
-                sessionId={sessionId}
-                messageCanvasShortcutPath={messageCanvasShortcutPath}
-                messageCanvasShortcutTitle={messageCanvasShortcutTitle}
-                messageSavedSiteContentTarget={messageSavedSiteContentTarget}
-                onA2UIFormChange={onA2UIFormChange}
-                onA2UISubmit={onA2UISubmit}
-                onCodeBlockClick={onCodeBlockClick}
-                onFileClick={onFileClick}
-                onOpenMessagePreview={onOpenMessagePreview}
-                onOpenSavedSiteContent={onOpenSavedSiteContent}
-                onPermissionResponse={onPermissionResponse}
-                onQuoteMessage={onQuoteMessage}
-                onWriteFile={onWriteFile}
-                primaryTimeline={primaryTimelineNode}
-                promoteActionRequestsToA2UI={promoteActionRequestsToA2UI}
-                readOnlyInteractiveContent={shouldReadOnlyInteractiveContent}
-                renderA2UIInline={renderA2UIInline}
-                rendererActionRequests={rendererActionRequests}
-                rendererContent={rendererContent}
-                rendererContentParts={rendererContentParts}
-                rendererMarkdownRenderMode={rendererMarkdownRenderMode}
-                rendererRawContent={rendererRawContent}
-                rendererThinkingContent={rendererThinkingContent}
-                rendererToolCalls={rendererToolCalls}
-                renderProposedPlanBlocks={shouldRenderProposedPlanBlocks}
-                shouldCollapseCodeBlock={shouldCollapseCodeBlock}
-                shouldCollapseLongHistoricalMessage={
-                  shouldCollapseLongHistoricalMessage
-                }
-                shouldDeferHistoricalMarkdownRender={
-                  shouldDeferHistoricalMarkdownRender
-                }
-                shouldPreviewHistoricalAssistantMessage={
-                  shouldPreviewHistoricalAssistantMessage
-                }
-                shouldRenderMessageCanvasShortcut={
-                  shouldRenderMessageCanvasShortcut
-                }
-                shouldRenderPrimaryTimelineOutsideBubble={
-                  shouldRenderPrimaryTimelineOutsideBubble
-                }
-                shouldSuppressInlineA2UI={shouldSuppressInlineA2UI}
-                shouldSuppressRendererProcessFlow={
-                  shouldSuppressRendererProcessFlow
-                }
-                suppressedActionRequestId={suppressedActionRequestId}
-              />
+              shouldRenderFirstTokenRuntimeStatus ? (
+                <AssistantFirstTokenRuntimeStatus status={msg.runtimeStatus} />
+              ) : (
+                <MessageAssistantBody
+                  a2uiFormDataMap={a2uiFormDataMap}
+                  actionContent={actionContent}
+                  collapseCodeBlocks={collapseCodeBlocks}
+                  displayContent={displayContent}
+                  handleExpandHistoricalAssistantMessage={
+                    handleExpandHistoricalAssistantMessage
+                  }
+                  handleExpandLongHistoricalMessage={
+                    handleExpandLongHistoricalMessage
+                  }
+                  hasImageWorkbenchLeadContent={hasImageWorkbenchLeadContent}
+                  historicalAssistantPreviewContent={
+                    historicalAssistantPreviewContent
+                  }
+                  imageWorkbenchRendererState={imageWorkbenchRendererState}
+                  isActiveProcessOnlyOutput={isActiveProcessOnlyOutput}
+                  isCurrentInteractiveAssistantMessage={
+                    isCurrentInteractiveAssistantMessage
+                  }
+                  message={msg}
+                  sessionId={sessionId}
+                  messageCanvasShortcutPath={messageCanvasShortcutPath}
+                  messageCanvasShortcutTitle={messageCanvasShortcutTitle}
+                  messageSavedSiteContentTarget={messageSavedSiteContentTarget}
+                  onA2UIFormChange={onA2UIFormChange}
+                  onA2UISubmit={onA2UISubmit}
+                  onCodeBlockClick={onCodeBlockClick}
+                  onFileClick={onFileClick}
+                  onOpenUrlPreview={onOpenUrlPreview}
+                  onOpenMessagePreview={onOpenMessagePreview}
+                  onOpenSavedSiteContent={onOpenSavedSiteContent}
+                  onPermissionResponse={onPermissionResponse}
+                  onQuoteMessage={onQuoteMessage}
+                  onWriteFile={onWriteFile}
+                  primaryTimeline={primaryTimelineNode}
+                  promoteActionRequestsToA2UI={promoteActionRequestsToA2UI}
+                  readOnlyInteractiveContent={shouldReadOnlyInteractiveContent}
+                  renderA2UIInline={renderA2UIInline}
+                  rendererActionRequests={rendererActionRequests}
+                  rendererContent={rendererContent}
+                  rendererContentParts={rendererContentParts}
+                  rendererMarkdownRenderMode={rendererMarkdownRenderMode}
+                  rendererRawContent={rendererRawContent}
+                  rendererThinkingContent={rendererThinkingContent}
+                  rendererToolCalls={rendererToolCalls}
+                  renderProposedPlanBlocks={shouldRenderProposedPlanBlocks}
+                  shouldCollapseCodeBlock={shouldCollapseCodeBlock}
+                  shouldCollapseLongHistoricalMessage={
+                    shouldCollapseLongHistoricalMessage
+                  }
+                  shouldDeferHistoricalMarkdownRender={
+                    shouldDeferHistoricalMarkdownRender
+                  }
+                  shouldPreviewHistoricalAssistantMessage={
+                    shouldPreviewHistoricalAssistantMessage
+                  }
+                  shouldRenderMessageCanvasShortcut={
+                    shouldRenderMessageCanvasShortcut
+                  }
+                  shouldRenderPrimaryTimelineOutsideBubble={
+                    shouldRenderPrimaryTimelineOutsideBubble
+                  }
+                  shouldSuppressInlineA2UI={shouldSuppressInlineA2UI}
+                  shouldSuppressRendererProcessFlow={
+                    shouldSuppressRendererProcessFlow
+                  }
+                  suppressedActionRequestId={suppressedActionRequestId}
+                />
+              )
             ) : (
               <MessageUserBody
                 content={displayContent}
@@ -464,7 +558,30 @@ export function MessageListItem({
               />
             )}
 
-            <MessageImageAttachments images={msg.images} />
+            <MessageImageAttachments
+              images={msg.images}
+              onOpenImage={
+                onOpenMessagePreview
+                  ? (attachment, index) =>
+                      onOpenMessagePreview(
+                        {
+                          kind: "message_attachment",
+                          attachment,
+                          index,
+                        },
+                        msg,
+                      )
+                  : undefined
+              }
+            />
+
+            {msg.role === "assistant" &&
+            trailingTimeline &&
+            !shouldRenderFirstTokenRuntimeStatus
+              ? trailingTimelineNode
+              : null}
+
+            {assistantMetaFooter}
 
             {msg.role === "assistant" &&
             visibleAssistantArtifacts.length > 0 ? (
@@ -476,39 +593,11 @@ export function MessageListItem({
               />
             ) : null}
 
-            {msg.role === "assistant" &&
-            trailingTimeline &&
-            !shouldRenderFirstTokenRuntimeStatus ? (
-              <MessageTimelineSection
-                timeline={trailingTimeline}
-                actionRequests={trailingActionRequests}
-                activeCurrentTurnId={activeCurrentTurnId}
-                focusedTimelineItemId={focusedTimelineItemId}
-                focusRequestKey={timelineFocusRequestKey}
-                isCurrentTurnSending={isSending}
-                messageId={msg.id}
-                onFileClick={onFileClick}
-                onOpenArtifactFromTimeline={onOpenArtifactFromTimeline}
-                onOpenSavedSiteContent={onOpenSavedSiteContent}
-                onOpenSubagentSession={onOpenSubagentSession}
-                onPermissionResponse={onPermissionResponse}
-                onSaveMessageAsKnowledge={onSaveMessageAsKnowledge}
-                placement="trailing"
-                shouldDeferHistoricalTimelineDetails={
-                  shouldDeferHistoricalTimelineDetails
-                }
-                threadRead={threadRead}
-              />
-            ) : null}
-
-            {assistantMetaFooter}
-
             {showMessageActions ? (
               <MessageActionButtons
                 actionContent={actionContent}
                 canCopyMessage={canCopyMessage}
                 canQuoteMessage={canQuoteMessage}
-                canSaveMessageAsInspiration={canSaveMessageAsInspiration}
                 canSaveMessageAsKnowledge={canSaveMessageAsKnowledge}
                 canSaveMessageAsSkill={canSaveMessageAsSkill}
                 copied={copiedId === msg.id}
@@ -519,7 +608,6 @@ export function MessageListItem({
                 messageId={msg.id}
                 onCopy={handleCopy}
                 onQuoteMessage={onQuoteMessage}
-                onSaveMessageAsInspiration={onSaveMessageAsInspiration}
                 onSaveMessageAsKnowledge={onSaveMessageAsKnowledge}
                 onSaveMessageAsSkill={onSaveMessageAsSkill}
               />

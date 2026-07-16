@@ -2,10 +2,10 @@ import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const {
-  mockInitAsterAgent,
+  mockGetRuntimeProviderSelection,
   mockCreateAgentRuntimeSession,
   mockListAgentRuntimeSessions,
   mockGetAgentRuntimeSession,
@@ -22,7 +22,7 @@ const {
   mockEmitProviderDataChanged,
   mockWechatChannelSetRuntimeModel,
 } = vi.hoisted(() => ({
-  mockInitAsterAgent: vi.fn(),
+  mockGetRuntimeProviderSelection: vi.fn(),
   mockCreateAgentRuntimeSession: vi.fn(),
   mockListAgentRuntimeSessions: vi.fn(),
   mockGetAgentRuntimeSession: vi.fn(),
@@ -45,14 +45,24 @@ const {
   mockWechatChannelSetRuntimeModel: vi.fn(async () => undefined),
 }));
 
-vi.mock("@/lib/api/agentRuntime", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/api/agentRuntime")>(
-    "@/lib/api/agentRuntime",
-  );
+vi.mock("@/lib/api/agentRuntime/agentClient", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/api/agentRuntime/agentClient")
+  >("@/lib/api/agentRuntime/agentClient");
 
   return {
     ...actual,
-    initAsterAgent: mockInitAsterAgent,
+    getRuntimeProviderSelection: mockGetRuntimeProviderSelection,
+  };
+});
+
+vi.mock("@/lib/api/agentRuntime/sessionClient", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/api/agentRuntime/sessionClient")
+  >("@/lib/api/agentRuntime/sessionClient");
+
+  return {
+    ...actual,
     createAgentRuntimeSession: mockCreateAgentRuntimeSession,
     listAgentRuntimeSessions: mockListAgentRuntimeSessions,
     getAgentRuntimeSession: mockGetAgentRuntimeSession,
@@ -127,10 +137,9 @@ vi.mock("@/lib/api/apiKeyProvider", () => ({
 }));
 
 vi.mock("@/lib/api/appConfig", async () => {
-  const actual =
-    await vi.importActual<typeof import("@/lib/api/appConfig")>(
-      "@/lib/api/appConfig",
-    );
+  const actual = await vi.importActual<typeof import("@/lib/api/appConfig")>(
+    "@/lib/api/appConfig",
+  );
   return {
     ...actual,
     getDefaultProvider: mockGetDefaultProvider,
@@ -145,7 +154,7 @@ vi.mock("@/lib/api/channelsRuntime", () => ({
   wechatChannelSetRuntimeModel: mockWechatChannelSetRuntimeModel,
 }));
 
-import { useAsterAgentChat } from "../hooks/useAsterAgentChat";
+import { useAgentChat } from "../hooks";
 import type { AgentRuntimeAdapter } from "../hooks/agentRuntimeAdapter";
 import { ChatModelSelector } from "./ChatModelSelector";
 
@@ -155,7 +164,7 @@ interface MountedRoot {
 }
 
 interface MountedHarness extends MountedRoot {
-  getChat: () => ReturnType<typeof useAsterAgentChat>;
+  getChat: () => ReturnType<typeof useAgentChat>;
 }
 
 const mountedRoots: MountedRoot[] = [];
@@ -236,7 +245,7 @@ function createRuntimeAdapterFixture(): AgentRuntimeAdapter {
   };
 
   return {
-    init: () => mockInitAsterAgent(),
+    getRuntimeProviderSelection: () => mockGetRuntimeProviderSelection(),
     createSession: (workspaceId, name, executionStrategy, options) =>
       mockCreateAgentRuntimeSession(
         workspaceId,
@@ -298,8 +307,6 @@ function createRuntimeAdapterFixture(): AgentRuntimeAdapter {
     respondToAction: unsupported,
     listenToTurnEvents: (eventName, handler) =>
       mockSafeListen(eventName, handler),
-    listenToTeamEvents: (eventName, handler) =>
-      mockSafeListen(eventName, handler),
   };
 }
 
@@ -312,10 +319,10 @@ function mount(
   document.body.appendChild(container);
   const root = createRoot(container);
   const runtimeAdapter = createRuntimeAdapterFixture();
-  let chatValue: ReturnType<typeof useAsterAgentChat> | null = null;
+  let chatValue: ReturnType<typeof useAgentChat> | null = null;
 
   function TestComponent() {
-    const chat = useAsterAgentChat({ workspaceId, runtimeAdapter });
+    const chat = useAgentChat({ workspaceId, runtimeAdapter });
     chatValue = chat;
     return (
       <div>
@@ -394,13 +401,15 @@ beforeEach(async () => {
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 
   vi.clearAllMocks();
   localStorage.clear();
   sessionStorage.clear();
 
-  mockInitAsterAgent.mockResolvedValue(undefined);
+  mockGetRuntimeProviderSelection.mockResolvedValue({
+    provider_configured: false,
+  });
   mockCreateAgentRuntimeSession.mockResolvedValue("created-session");
   mockUpdateAgentRuntimeSession.mockResolvedValue(undefined);
   mockSafeListen.mockResolvedValue(() => {});
@@ -473,10 +482,10 @@ afterEach(async () => {
   }
   localStorage.clear();
   sessionStorage.clear();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
-describe("ChatModelSelector + useAsterAgentChat 集成", () => {
+describe("ChatModelSelector + useAgentChat 集成", () => {
   it("通过 UI 选择模型后切换话题再切回，应恢复会话模型", async () => {
     const workspaceId = "ws-model-selector-integration";
     const harness = mount(workspaceId);

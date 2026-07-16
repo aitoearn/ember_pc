@@ -2,16 +2,12 @@ import React from "react";
 import styled from "styled-components";
 import { useTranslation } from "react-i18next";
 import type { MessagePathReference } from "../../types";
-import type { Character } from "@/lib/api/memory";
-import type {
-  AsterSessionExecutionRuntime,
-  QueuedTurnSnapshot,
-} from "@/lib/api/agentRuntime";
-import type { TaskFile } from "../TaskFiles";
+import type { Character } from "@/lib/api/projectMemory";
+import type { AgentSessionExecutionRuntime } from "@/lib/api/agentExecutionRuntime";
+import type { QueuedTurnSnapshot } from "@/lib/api/queuedTurn";
 import { InputbarComposerSection } from "./components/InputbarComposerSection";
 import type { InputbarOpenedProject } from "./components/InputbarProjectContextBar";
 import { HintRoutePopup } from "./components/HintRoutePopup";
-import { TaskFilesPanel } from "./components/TaskFilesPanel";
 import { InputbarSurface } from "./components/InputbarSurface";
 import type { SkillSelectionSourceProps } from "../../skill-selection/skillSelectionBindings";
 import type {
@@ -27,12 +23,12 @@ import type {
   InputbarKnowledgePackOption,
   InputbarKnowledgePackSelection,
 } from "./types";
+import type { InputbarPluginCapability } from "./pluginInputCapability";
 import { buildInputbarComposerSectionCopy } from "./components/inputbarComposerSectionCopy";
 import { buildInputbarCoreCopy } from "./components/inputbarCoreCopy";
-import {
-  buildInputbarWorkflowPanelCopy,
-} from "./inputbarWorkflowCopy";
+import { buildInputbarWorkflowPanelCopy } from "./inputbarWorkflowCopy";
 import type { InputbarSendHandler } from "./inputbarSendPayload";
+import type { InterruptedInputRestoreRequest } from "../../hooks/agentStreamInputRestoreTypes";
 import type { ModelReasoningEffortLevel } from "@/lib/types/modelRegistry";
 
 const SecondaryControlsRow = styled.div`
@@ -42,13 +38,14 @@ const SecondaryControlsRow = styled.div`
   left: 8px;
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: stretch;
   align-items: flex-end;
   gap: 8px;
   pointer-events: none;
   z-index: 80;
 
   > * {
+    flex: 1 1 100%;
     pointer-events: auto;
     max-width: 100%;
   }
@@ -62,16 +59,6 @@ interface InputbarProps extends SkillSelectionSourceProps {
   onStop?: () => void;
   isLoading: boolean;
   disabled?: boolean;
-  /** 任务文件列表 */
-  taskFiles?: TaskFile[];
-  /** 选中的文件 ID */
-  selectedFileId?: string;
-  /** 任务文件面板是否展开 */
-  taskFilesExpanded?: boolean;
-  /** 切换任务文件面板 */
-  onToggleTaskFiles?: () => void;
-  /** 文件点击回调 */
-  onTaskFileClick?: (file: TaskFile) => void;
   /** 输入区上方并排浮层控件 */
   overlayAccessory?: React.ReactNode;
   /** 角色列表（用于 @ 引用） */
@@ -84,7 +71,7 @@ interface InputbarProps extends SkillSelectionSourceProps {
   setModel?: (model: string) => void;
   reasoningEffort?: ModelReasoningEffortLevel | "";
   setReasoningEffort?: (value: ModelReasoningEffortLevel | "") => void;
-  executionRuntime?: AsterSessionExecutionRuntime | null;
+  executionRuntime?: AgentSessionExecutionRuntime | null;
   accessMode?: AgentAccessMode;
   setAccessMode?: (mode: AgentAccessMode) => void;
   toolStates?: Partial<InputbarToolStates>;
@@ -98,6 +85,12 @@ interface InputbarProps extends SkillSelectionSourceProps {
   workflowRunState?: "idle" | "auto_running" | "await_user_decision";
   knowledgePackSelection?: InputbarKnowledgePackSelection | null;
   knowledgePackOptions?: InputbarKnowledgePackOption[];
+  pluginSuggestions?: InputbarPluginCapability[];
+  pluginSuggestionsError?: string | null;
+  pluginSuggestionsLoading?: boolean;
+  onSkillSuggestionsNeeded?: () => void;
+  onPluginSuggestionsNeeded?: () => void;
+  onKnowledgePacksNeeded?: () => void;
   onToggleKnowledgePack?: (enabled: boolean) => void;
   onSelectKnowledgePack?: (packName: string) => void;
   onToggleKnowledgeCompanionPack?: (packName: string, enabled: boolean) => void;
@@ -115,6 +108,8 @@ interface InputbarProps extends SkillSelectionSourceProps {
   sessionId?: string | null;
   pathReferences?: MessagePathReference[];
   onAddPathReferences?: (references: MessagePathReference[]) => void;
+  inputRestoreRequest?: InterruptedInputRestoreRequest | null;
+  onInputRestoreRequestHandled?: (requestId: string) => void;
   onImportPathReferenceAsKnowledge?: (reference: MessagePathReference) => void;
   onRemovePathReference?: (id: string) => void;
   onClearPathReferences?: () => void;
@@ -132,11 +127,6 @@ export const Inputbar: React.FC<InputbarProps> = ({
   onStop,
   isLoading,
   disabled,
-  taskFiles = [],
-  selectedFileId,
-  taskFilesExpanded = false,
-  onToggleTaskFiles,
-  onTaskFileClick,
   overlayAccessory,
   characters = [],
   skills,
@@ -168,6 +158,12 @@ export const Inputbar: React.FC<InputbarProps> = ({
   workflowRunState,
   knowledgePackSelection = null,
   knowledgePackOptions = [],
+  pluginSuggestions = [],
+  pluginSuggestionsError = null,
+  pluginSuggestionsLoading = false,
+  onSkillSuggestionsNeeded,
+  onPluginSuggestionsNeeded,
+  onKnowledgePacksNeeded,
   onToggleKnowledgePack,
   onSelectKnowledgePack,
   onToggleKnowledgeCompanionPack,
@@ -181,6 +177,8 @@ export const Inputbar: React.FC<InputbarProps> = ({
   sessionId = null,
   pathReferences = [],
   onAddPathReferences,
+  inputRestoreRequest = null,
+  onInputRestoreRequestHandled,
   onImportPathReferenceAsKnowledge,
   onRemovePathReference,
   onClearPathReferences,
@@ -197,25 +195,20 @@ export const Inputbar: React.FC<InputbarProps> = ({
   );
   const inputbarComposerCopy = React.useMemo(
     () =>
-      buildInputbarComposerSectionCopy((key, values) =>
-        t(key, values ?? {}),
-      ),
+      buildInputbarComposerSectionCopy((key, values) => t(key, values ?? {})),
     [t],
   );
   const workflowPanelCopy = React.useMemo(
-    () =>
-      buildInputbarWorkflowPanelCopy((key, values) =>
-        t(key, values ?? {}),
-      ),
+    () => buildInputbarWorkflowPanelCopy((key, values) => t(key, values ?? {})),
     [t],
   );
   const showModelControls = Boolean(
     providerType ||
-      model ||
-      setProviderType ||
-      setModel ||
-      onManageProviders ||
-      executionRuntime,
+    model ||
+    setProviderType ||
+    setModel ||
+    onManageProviders ||
+    executionRuntime,
   );
   const {
     textareaRef,
@@ -251,6 +244,9 @@ export const Inputbar: React.FC<InputbarProps> = ({
     skillSelection,
     handleSelectInputCapability,
     activeCapability,
+    pluginSuggestions: resolvedPluginSuggestions,
+    activePluginSelection,
+    handleSelectPlugin,
     knowledgeHubOpenRequestKey,
   } = useInputbarController({
     input,
@@ -273,12 +269,16 @@ export const Inputbar: React.FC<InputbarProps> = ({
     workflowSteps,
     workflowRunState,
     knowledgePackSelection,
+    pluginSuggestions,
+    onKnowledgePacksNeeded,
     onStartKnowledgeOrganize,
     onManageKnowledgePacks,
     projectId,
     sessionId,
     pathReferences,
     onAddPathReferences,
+    inputRestoreRequest,
+    onInputRestoreRequestHandled,
     onClearPathReferences,
     skills,
     serviceSkills,
@@ -304,15 +304,8 @@ export const Inputbar: React.FC<InputbarProps> = ({
           onSelect={handleHintSelect}
         />
       ) : null}
-      {taskFiles.length > 0 || overlayAccessory ? (
+      {overlayAccessory ? (
         <SecondaryControlsRow data-testid="inputbar-secondary-controls">
-          <TaskFilesPanel
-            files={taskFiles}
-            selectedFileId={selectedFileId}
-            expanded={taskFilesExpanded}
-            onToggle={onToggleTaskFiles}
-            onFileClick={onTaskFileClick}
-          />
           {overlayAccessory}
         </SecondaryControlsRow>
       ) : null}
@@ -338,11 +331,18 @@ export const Inputbar: React.FC<InputbarProps> = ({
         inputAdapter={inputAdapter}
         characters={characters}
         skillSelection={skillSelection}
+        onSkillSuggestionsNeeded={onSkillSuggestionsNeeded}
         textareaRef={textareaRef}
         input={input}
         onSelectCharacter={onSelectCharacter}
         onSelectInputCapability={handleSelectInputCapability}
         activeCapability={activeCapability}
+        activePluginSelection={activePluginSelection}
+        pluginSuggestions={resolvedPluginSuggestions}
+        pluginSuggestionsError={pluginSuggestionsError}
+        pluginSuggestionsLoading={pluginSuggestionsLoading}
+        onPluginSuggestionsNeeded={onPluginSuggestionsNeeded}
+        onSelectPlugin={handleSelectPlugin}
         projectId={projectId}
         sessionId={sessionId}
         defaultCuratedTaskReferenceMemoryIds={
@@ -352,6 +352,7 @@ export const Inputbar: React.FC<InputbarProps> = ({
         knowledgePackSelection={knowledgePackSelection}
         knowledgePackOptions={knowledgePackOptions}
         knowledgeHubOpenRequestKey={knowledgeHubOpenRequestKey}
+        onKnowledgePacksNeeded={onKnowledgePacksNeeded}
         onToggleKnowledgePack={onToggleKnowledgePack}
         onSelectKnowledgePack={onSelectKnowledgePack}
         onToggleKnowledgeCompanionPack={onToggleKnowledgeCompanionPack}

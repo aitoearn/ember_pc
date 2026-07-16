@@ -4,22 +4,22 @@ import {
   buildHarnessEvidenceVerificationCardPresentations,
   resolveHarnessVerificationOutcomeBadgePresentation,
 } from "./harnessVerificationPresentation";
-import { changeEmberLocale, getEmberI18n } from "@/i18n/createI18n";
+import { changeLimeLocale, getLimeI18n } from "@/i18n/createI18n";
 
 function buildPresentationOptions() {
   return {
     locale: "en-US",
-    t: getEmberI18n().getFixedT("en-US", "agent"),
+    t: getLimeI18n().getFixedT("en-US", "agent"),
   };
 }
 
 describe("harnessVerificationPresentation", () => {
   beforeEach(async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
   });
 
   afterEach(async () => {
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
   });
 
   it("应统一 outcome 徽标文案与样式", () => {

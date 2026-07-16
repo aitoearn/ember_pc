@@ -5,11 +5,11 @@ import type {
 } from "./analyzer";
 
 export const LAYERED_DESIGN_STRUCTURED_ANALYZER_WORKER_REQUEST =
-  "ember.layered_design.structured_analyzer.request" as const;
+  "lime.layered_design.structured_analyzer.request" as const;
 export const LAYERED_DESIGN_STRUCTURED_ANALYZER_WORKER_RESULT =
-  "ember.layered_design.structured_analyzer.result" as const;
+  "lime.layered_design.structured_analyzer.result" as const;
 export const LAYERED_DESIGN_STRUCTURED_ANALYZER_WORKER_ERROR =
-  "ember.layered_design.structured_analyzer.error" as const;
+  "lime.layered_design.structured_analyzer.error" as const;
 
 export interface LayeredDesignStructuredAnalyzerWorkerRequest {
   type: typeof LAYERED_DESIGN_STRUCTURED_ANALYZER_WORKER_REQUEST;

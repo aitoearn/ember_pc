@@ -2,7 +2,7 @@ import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
   CodeWorkbenchGuide,
   type CodeWorkbenchGuideTarget,
@@ -46,7 +46,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 afterEach(async () => {
@@ -60,7 +60,7 @@ afterEach(async () => {
     });
     mounted.container.remove();
   }
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 describe("CodeWorkbenchGuide", () => {
@@ -161,7 +161,7 @@ describe("CodeWorkbenchGuide", () => {
   });
 
   it("英文界面应使用 agent namespace 文案并只在复核阶段显示快照提示", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
 
     const { container } = renderGuide({
       pendingFileChangeCount: 2,

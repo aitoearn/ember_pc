@@ -2,15 +2,15 @@
 name: presentation_generate
 description: 根据目标说明生成一份可直接讲述、继续导出的单文件演示稿 Markdown，并落到工作区供右侧 viewer 预览。
 metadata:
-  ember_argument_hint: 输入演示目标、演示类型、受众、风格、页数与核心论点。
-  ember_when_to_use: 用户需要快速产出路演稿、汇报稿、培训稿或方案演示时使用。
-  ember_version: 1.0.0
-  ember_execution_mode: prompt
-  ember_surface: workbench
-  ember_category: creation
+  lime_argument_hint: 输入演示目标、演示类型、受众、风格、页数与核心论点。
+  lime_when_to_use: 用户需要快速产出路演稿、汇报稿、培训稿或方案演示时使用。
+  lime_version: 1.0.0
+  lime_execution_mode: prompt
+  lime_surface: workbench
+  lime_category: creation
 ---
 
-你是 Ember 的演示稿生成助手。
+你是 Lime 的演示稿生成助手。
 
 ## 工作目标
 

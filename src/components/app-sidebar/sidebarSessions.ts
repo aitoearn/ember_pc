@@ -1,4 +1,5 @@
-import type { AsterSessionInfo } from "@/lib/api/agentRuntime";
+import type { AgentSessionInfo } from "@/lib/api/agentRuntime/sessionTypes";
+import type { ConversationImportThreadCommitResponse } from "@/lib/api/conversationImport";
 import { isAuxiliaryAgentSessionId } from "@/lib/api/agentRuntime/sessionIdentity";
 import { resolveSidebarSessionTitle } from "./sidebarSessionFormatting";
 
@@ -11,11 +12,11 @@ export function buildSidebarSessionRequestLimit(
 }
 
 export function splitSidebarSessionResult(params: {
-  sessions: AsterSessionInfo[];
+  sessions: AgentSessionInfo[];
   visibleCount: number;
   pageSize: number;
 }): {
-  sessions: AsterSessionInfo[];
+  sessions: AgentSessionInfo[];
   hasMore: boolean;
 } {
   const { sessions, visibleCount, pageSize } = params;
@@ -27,7 +28,7 @@ export function splitSidebarSessionResult(params: {
 }
 
 export function hasCachedSidebarSessionEntry(
-  sessions: AsterSessionInfo[],
+  sessions: AgentSessionInfo[],
   sessionId?: string | null,
 ): boolean {
   const normalizedSessionId = sessionId?.trim();
@@ -38,29 +39,49 @@ export function hasCachedSidebarSessionEntry(
   return sessions.some((session) => session.id === normalizedSessionId);
 }
 
+function compareSidebarSessionTimeDesc(left?: number, right?: number): number {
+  const leftValue =
+    typeof left === "number" && Number.isFinite(left) ? left : 0;
+  const rightValue =
+    typeof right === "number" && Number.isFinite(right) ? right : 0;
+  return rightValue - leftValue;
+}
+
+function compareSidebarSessionIdAsc(left?: string, right?: string): number {
+  return String(left || "").localeCompare(String(right || ""));
+}
+
 export function sortSidebarSessions(
-  sessions: AsterSessionInfo[],
-): AsterSessionInfo[] {
+  sessions: AgentSessionInfo[],
+): AgentSessionInfo[] {
   return sessions
     .filter((session) => !isAuxiliaryAgentSessionId(session.id))
     .sort((left, right) => {
-      if (left.updated_at !== right.updated_at) {
-        return right.updated_at - left.updated_at;
+      const updatedAtComparison = compareSidebarSessionTimeDesc(
+        left.updated_at,
+        right.updated_at,
+      );
+      if (updatedAtComparison !== 0) {
+        return updatedAtComparison;
       }
 
-      if (left.created_at !== right.created_at) {
-        return right.created_at - left.created_at;
+      const createdAtComparison = compareSidebarSessionTimeDesc(
+        left.created_at,
+        right.created_at,
+      );
+      if (createdAtComparison !== 0) {
+        return createdAtComparison;
       }
 
-      return left.id.localeCompare(right.id);
+      return compareSidebarSessionIdAsc(left.id, right.id);
     });
 }
 
 export function buildVisibleSidebarSessions(params: {
-  sessions: AsterSessionInfo[];
+  sessions: AgentSessionInfo[];
   currentSessionId?: string | null;
   limit: number;
-}): AsterSessionInfo[] {
+}): AgentSessionInfo[] {
   const { sessions, currentSessionId, limit } = params;
   if (limit <= 0) {
     return [];
@@ -94,7 +115,7 @@ export function normalizeSidebarSearchText(value: string): string {
 }
 
 export function matchesSidebarSessionTitle(
-  session: AsterSessionInfo,
+  session: AgentSessionInfo,
   normalizedQuery: string,
   fallbackTitle: string,
 ): boolean {
@@ -105,4 +126,40 @@ export function matchesSidebarSessionTitle(
   return normalizeSidebarSearchText(
     resolveSidebarSessionTitle(session, fallbackTitle),
   ).includes(normalizedQuery);
+}
+
+function parseTimestampSeconds(value?: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+  const timestampMs = Date.parse(value);
+  if (!Number.isFinite(timestampMs)) {
+    return null;
+  }
+  return Math.floor(timestampMs / 1000);
+}
+
+export function buildImportedSidebarSession(
+  response: ConversationImportThreadCommitResponse,
+): AgentSessionInfo {
+  const createdAt =
+    parseTimestampSeconds(response.session.createdAt) ??
+    parseTimestampSeconds(response.thread.createdAt) ??
+    Math.floor(Date.now() / 1000);
+  const updatedAt =
+    parseTimestampSeconds(response.session.updatedAt) ??
+    parseTimestampSeconds(response.thread.updatedAt) ??
+    createdAt;
+
+  return {
+    id: response.session.sessionId,
+    name: response.thread.title?.trim() || undefined,
+    created_at: createdAt,
+    updated_at: updatedAt,
+    archived_at: response.thread.archived ? updatedAt : null,
+    model: response.thread.modelProvider,
+    messages_count: response.importedMessages,
+    workspace_id: response.session.workspaceId,
+    working_dir: response.thread.cwd,
+  };
 }

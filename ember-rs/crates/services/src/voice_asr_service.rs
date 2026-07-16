@@ -9,7 +9,7 @@
 //! - 讯飞语音识别（WebSocket 流式）
 //!
 //! ## 模型文件路径
-//! Whisper 模型文件存储在：`~/Library/Application Support/ember/models/whisper/`
+//! Whisper 模型文件存储在：`~/Library/Application Support/lime/models/whisper/`
 //!
 //! 支持的模型：
 //! - `ggml-tiny.bin` (~75MB)
@@ -27,10 +27,10 @@
 use std::path::PathBuf;
 
 #[cfg(feature = "local-sensevoice")]
-use ember_core::app_paths;
+use lime_core::app_paths;
 #[cfg(feature = "local-whisper")]
-use ember_core::config::WhisperModelSize;
-use ember_core::config::{AsrCredentialEntry, AsrProviderType};
+use lime_core::config::WhisperModelSize;
+use lime_core::config::{AsrCredentialEntry, AsrProviderType};
 #[cfg(feature = "local-sensevoice")]
 use once_cell::sync::Lazy;
 #[cfg(feature = "local-sensevoice")]
@@ -319,7 +319,7 @@ impl AsrService {
 
     #[cfg(feature = "local-sensevoice")]
     fn get_sensevoice_model_dir(
-        config: &ember_core::config::SenseVoiceLocalConfig,
+        config: &lime_core::config::SenseVoiceLocalConfig,
     ) -> Result<PathBuf, String> {
         if let Some(model_dir) = config.model_dir.as_ref() {
             let trimmed = model_dir.trim();
@@ -370,10 +370,10 @@ impl AsrService {
             WhisperModelSize::Medium => "ggml-medium.bin",
         };
 
-        // 模型存储目录：~/Library/Application Support/ember/models/whisper/
+        // 模型存储目录：~/Library/Application Support/lime/models/whisper/
         let models_dir = dirs::data_dir()
             .ok_or("无法获取数据目录")?
-            .join("ember")
+            .join("lime")
             .join("models")
             .join("whisper");
 
@@ -495,7 +495,7 @@ mod tests {
     #[cfg(feature = "local-sensevoice")]
     use super::{AsrService, SENSEVOICE_MODEL_FILE, SENSEVOICE_TOKENS_FILE, SENSEVOICE_VAD_FILE};
     #[cfg(feature = "local-sensevoice")]
-    use ember_core::config::SenseVoiceLocalConfig;
+    use lime_core::config::SenseVoiceLocalConfig;
     #[cfg(feature = "local-sensevoice")]
     use std::path::PathBuf;
 
@@ -503,13 +503,13 @@ mod tests {
     #[test]
     fn sensevoice_model_dir_prefers_explicit_config_path() {
         let config = SenseVoiceLocalConfig {
-            model_dir: Some("/tmp/ember-sensevoice".to_string()),
+            model_dir: Some("/tmp/lime-sensevoice".to_string()),
             ..SenseVoiceLocalConfig::default()
         };
 
         let path = AsrService::get_sensevoice_model_dir(&config).expect("model dir");
 
-        assert_eq!(path, PathBuf::from("/tmp/ember-sensevoice"));
+        assert_eq!(path, PathBuf::from("/tmp/lime-sensevoice"));
     }
 
     #[cfg(feature = "local-sensevoice")]

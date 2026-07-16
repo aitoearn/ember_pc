@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
 import type { AgentChatWorkspaceProps } from "./agentChatWorkspaceContract";
-import { resolveAgentChatPageShellViewModel } from "./agentChatPageShellViewModel";
 import { AgentChatWorkspace } from "./AgentChatWorkspace";
+import { resolveAgentChatPageShellViewModel } from "./agentChatPageShellViewModel";
 
 export type {
+  AgentBackgroundSessionRuntimeSnapshot,
   AgentChatWorkspaceProps,
   WorkflowProgressSnapshot,
 } from "./agentChatWorkspaceContract";
@@ -12,6 +13,7 @@ export function AgentChatPage(props: AgentChatWorkspaceProps) {
   const {
     onHasMessagesChange,
     onSessionChange,
+    onAgentStreamingChange,
     onWorkflowProgressChange,
   } = props;
 
@@ -29,11 +31,6 @@ export function AgentChatPage(props: AgentChatWorkspaceProps) {
     shouldForceClawWorkspace,
   } = resolveAgentChatPageShellViewModel(props);
 
-  // 用首次渲染时的时间戳作为强制重挂载的 key，避免复用旧工作区实例导致旧状态闪烁
-  const forcedMountKey = useRef<number | null>(
-    shouldForceClawWorkspace ? Date.now() : null,
-  );
-
   useEffect(() => {
     if (!shouldForceClawWorkspace) {
       return;
@@ -41,10 +38,12 @@ export function AgentChatPage(props: AgentChatWorkspaceProps) {
 
     onHasMessagesChange?.(false);
     onSessionChange?.(null);
+    onAgentStreamingChange?.(false);
     onWorkflowProgressChange?.(null);
   }, [
     onHasMessagesChange,
     onSessionChange,
+    onAgentStreamingChange,
     onWorkflowProgressChange,
     shouldForceClawWorkspace,
   ]);
@@ -52,7 +51,6 @@ export function AgentChatPage(props: AgentChatWorkspaceProps) {
   return (
     <AgentChatWorkspace
       {...props}
-      key={forcedMountKey.current ?? undefined}
       agentEntry={effectiveAgentEntry}
       showChatPanel={effectiveShowChatPanel}
     />

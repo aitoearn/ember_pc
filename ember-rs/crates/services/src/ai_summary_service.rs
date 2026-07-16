@@ -2,7 +2,7 @@
 //!
 //! 使用 AI 模型生成高质量的会话摘要，提取关键主题和重要决策
 
-use ember_core::general_chat::{ChatMessage, MessageRole};
+use lime_core::general_chat::{ChatMessage, MessageRole};
 use serde::{Deserialize, Serialize};
 
 /// AI 摘要请求
@@ -51,7 +51,7 @@ impl Default for AISummaryConfig {
 
 /// AI 摘要服务
 ///
-/// 使用 Ember current model runtime 生成摘要。
+/// 使用 Lime current model runtime 生成摘要。
 pub struct AISummaryService {
     config: AISummaryConfig,
 }
@@ -137,11 +137,11 @@ impl AISummaryService {
 
     /// 调用摘要模型（临时 stub 实现）
     ///
-    /// TODO: 接入 Ember current API Key Provider / model registry runtime。
+    /// TODO: 接入 Lime current API Key Provider / model registry runtime。
     async fn call_summary_model_stub(&self, _prompt: &str) -> Result<String, String> {
         // 临时返回 stub 数据，后续接入真实的模型调用。
         Ok(r#"{
-  "summary": "本次对话主要讨论了 Ember AI Agent 的上下文管理改进方案，包括引入 AI 驱动的摘要生成、渐进式工具响应移除等策略。",
+  "summary": "本次对话主要讨论了 Lime AI Agent 的上下文管理改进方案，包括引入 AI 驱动的摘要生成、渐进式工具响应移除等策略。",
   "key_topics": ["上下文管理", "AI 摘要", "工具响应移除", "性能优化"],
   "decisions": ["采用分阶段混合策略", "优先使用 AI 摘要，失败时降级到本地摘要"]
 }"#.to_string())
@@ -165,7 +165,7 @@ mod tests {
                 id: "msg-1".to_string(),
                 session_id: "test-session".to_string(),
                 role: MessageRole::User,
-                content: "你好，我想了解 Ember 的上下文管理功能".to_string(),
+                content: "你好，我想了解 Lime 的上下文管理功能".to_string(),
                 blocks: None,
                 status: "complete".to_string(),
                 created_at: 1000,
@@ -175,7 +175,7 @@ mod tests {
                 id: "msg-2".to_string(),
                 session_id: "test-session".to_string(),
                 role: MessageRole::Assistant,
-                content: "Ember 的上下文管理包括消息历史管理、智能摘要生成等功能".to_string(),
+                content: "Lime 的上下文管理包括消息历史管理、智能摘要生成等功能".to_string(),
                 blocks: None,
                 status: "complete".to_string(),
                 created_at: 2000,
@@ -192,7 +192,7 @@ mod tests {
 
         assert!(formatted.contains("[用户]"));
         assert!(formatted.contains("[助手]"));
-        assert!(formatted.contains("Ember"));
+        assert!(formatted.contains("Lime"));
     }
 
     #[test]

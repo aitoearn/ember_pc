@@ -11,7 +11,7 @@ const tempRoots: string[] = [];
 
 function createTempRoot() {
   const tempRoot = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ember-harness-history-window-"),
+    path.join(os.tmpdir(), "lime-harness-history-window-"),
   );
   tempRoots.push(tempRoot);
   return tempRoot;
@@ -104,11 +104,11 @@ function createReplayFixture(tempRoot: string) {
     },
     linkedArtifacts: {
       handoffBundle: {
-        relativeRoot: ".ember/handoff",
+        relativeRoot: ".lime/handoff",
         absoluteRoot: handoffRoot,
       },
       evidencePack: {
-        relativeRoot: ".ember/evidence",
+        relativeRoot: ".lime/evidence",
         absoluteRoot: evidenceRoot,
       },
     },
@@ -127,11 +127,11 @@ function createReplayFixture(tempRoot: string) {
   });
   writeJson(path.join(caseDir, "evidence-links.json"), {
     handoffBundle: {
-      relativeRoot: ".ember/handoff",
+      relativeRoot: ".lime/handoff",
       absoluteRoot: handoffRoot,
     },
     evidencePack: {
-      relativeRoot: ".ember/evidence",
+      relativeRoot: ".lime/evidence",
       absoluteRoot: evidenceRoot,
     },
   });

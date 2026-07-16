@@ -4,8 +4,9 @@ import {
   type AppServerAgentSessionReadResponse,
   type AppServerJsonRpcNotification,
 } from "@/lib/api/appServer";
+import { createRuntimeRequest } from "@embercloud/app-server-client";
 
-const CONTEXT_SEARCH_SESSION_PREFIX = "__ember_theme_context_search__";
+const CONTEXT_SEARCH_SESSION_PREFIX = "__lime_theme_context_search__";
 const DEFAULT_APP_ID = "desktop";
 
 export type ThemeContextSearchMode = "web" | "social";
@@ -63,7 +64,7 @@ function buildContextSearchPrompt(
       : "优先提供最新且可信的公开网络资料，兼顾官方来源与主流媒体。";
 
   return [
-    "你是 Ember 的资料检索助手。",
+    "你是 Lime 的资料检索助手。",
     "本任务用于生成工作台上下文。请根据检索主题自主判断是否需要使用可用联网搜索工具；需要最新事实时先检索再整理。",
     "不要编造来源。若可用资料不足，请在摘要中明确说明不确定性。",
     "你必须返回且仅返回一个 JSON 对象，不要使用 Markdown 代码块，不要输出多余说明。",
@@ -80,7 +81,7 @@ function buildContextSearchPrompt(
 
 function buildContextSearchSystemPrompt(): string {
   return [
-    "你是 Ember 桌面端里的资料检索助手。",
+    "你是 Lime 桌面端里的资料检索助手。",
     "你需要为用户的工作台生成可信上下文；需要最新公开事实时，自己判断并使用可用联网搜索工具。",
     "只输出调用方要求的 JSON 对象。",
   ].join("\n");
@@ -173,27 +174,13 @@ export async function searchThemeContextWithAppServer(
     },
     runtimeOptions: {
       stream: true,
-      providerPreference: providerType,
-      modelPreference: model,
-      metadata,
-      hostOptions: {
-        asterChatRequest: {
-          message: prompt,
-          session_id: sessionId,
-          workspace_id: workspaceId,
-          provider_preference: providerType,
-          model_preference: model,
-          system_prompt: systemPrompt,
-          turn_id: turnId,
-          metadata,
-          turn_config: {
-            provider_preference: providerType,
-            model_preference: model,
-            system_prompt: systemPrompt,
-            metadata,
-          },
-        },
-      },
+      runtimeRequest: createRuntimeRequest({
+        workspaceId,
+        providerPreference: providerType,
+        modelPreference: model,
+        systemPrompt,
+        metadata,
+      }),
     },
     queueIfBusy: false,
     skipPreSubmitResume: true,
@@ -257,10 +244,7 @@ function extractAttemptsSummary(
 ): string | undefined {
   for (let index = notifications.length - 1; index >= 0; index -= 1) {
     const event = eventFromNotification(notifications[index]);
-    if (
-      event?.turnId !== turnId ||
-      (event.type !== "turn.final_done" && event.type !== "turn.completed")
-    ) {
+    if (event?.turnId !== turnId || event.type !== "turn.completed") {
       continue;
     }
     const payload = asRecord(event.payload);

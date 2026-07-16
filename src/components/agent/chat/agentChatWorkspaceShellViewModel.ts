@@ -2,14 +2,15 @@ export interface AgentChatWorkspaceShellViewModelInput {
   agentEntry: string;
   showChatPanel: boolean;
   contentId?: string | null;
+  initialSessionId?: string | null;
   displayMessageCount: number;
+  threadItemCount?: number;
   isHomePendingPreviewActive: boolean;
   shouldSuppressTaskCenterDraftContent: boolean;
   hasCanvasWorkbenchContent: boolean;
   isThemeWorkbench: boolean;
   shouldUseCompactGeneralWorkbench: boolean;
   isBootstrapDispatchPending: boolean;
-  isSessionHydrating: boolean;
   isSending: boolean;
   queuedTurnCount: number;
 }
@@ -25,28 +26,39 @@ export function resolveAgentChatWorkspaceShellViewModel({
   agentEntry,
   showChatPanel,
   contentId,
+  initialSessionId,
   displayMessageCount,
+  threadItemCount = 0,
   isHomePendingPreviewActive,
   shouldSuppressTaskCenterDraftContent,
   hasCanvasWorkbenchContent,
   isThemeWorkbench,
   shouldUseCompactGeneralWorkbench,
   isBootstrapDispatchPending,
-  isSessionHydrating,
   isSending,
   queuedTurnCount,
 }: AgentChatWorkspaceShellViewModelInput): AgentChatWorkspaceShellViewModel {
   const hasDisplayMessages =
     !shouldSuppressTaskCenterDraftContent &&
-    (displayMessageCount > 0 || isHomePendingPreviewActive);
+    (displayMessageCount > 0 ||
+      threadItemCount > 0 ||
+      isHomePendingPreviewActive);
+  const hasClawConversationActivity =
+    agentEntry === "claw" &&
+    (Boolean(initialSessionId?.trim()) ||
+      hasDisplayMessages ||
+      isHomePendingPreviewActive ||
+      (!shouldUseCompactGeneralWorkbench && isBootstrapDispatchPending) ||
+      isSending ||
+      queuedTurnCount > 0);
   const effectiveShowChatPanel =
     showChatPanel ||
+    hasClawConversationActivity ||
     hasCanvasWorkbenchContent ||
     (agentEntry === "new-task" &&
       (hasDisplayMessages ||
         isThemeWorkbench ||
         (!shouldUseCompactGeneralWorkbench && isBootstrapDispatchPending) ||
-        isSessionHydrating ||
         isHomePendingPreviewActive ||
         isSending ||
         queuedTurnCount > 0));

@@ -15,6 +15,6 @@ pub mod conversation_summarizer;
 pub mod processor;
 pub mod steps;
 
-pub use ember_core::processor::RequestContext;
+pub use lime_core::processor::RequestContext;
 pub use processor::RequestProcessor;
 pub use steps::*;

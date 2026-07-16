@@ -40,7 +40,7 @@ const translations: Record<string, string> = {
   "common.projectSelector.placeholder.project": "选择项目",
   "common.projectSelector.placeholder.workspace": "选择工作区",
   "common.projectSelector.remove.dangerDescription":
-    "只移除 Ember 中的记录，不删除本地目录和已有文件。",
+    "只移除 Lime 中的记录，不删除本地目录和已有文件。",
   "common.projectSelector.remove.dangerTitle": "本地文件会保留",
   "common.projectSelector.remove.description": "确定要移除{{entity}}{{name}}吗？",
   "common.projectSelector.remove.title": "移除{{entity}}",

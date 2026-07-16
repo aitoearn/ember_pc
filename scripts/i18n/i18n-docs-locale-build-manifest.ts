@@ -73,7 +73,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEFAULT_REPO_ROOT = path.resolve(__dirname, "../..");
 const DEFAULT_SCOPE_PATH =
-  "docs/roadmap/i18n/release-docs-translation-scope.json";
+  "internal/roadmap/i18n/release-docs-translation-scope.json";
 const DEFAULT_DOCS_CONTENT_DIR = "docs/content";
 
 function normalizePath(filePath: string): string {
@@ -253,7 +253,7 @@ export function buildDocsLocaleBuildManifest(
     },
     entries,
     repoRoot,
-    schemaVersion: "ember.i18n.docsLocaleBuildManifest.v1",
+    schemaVersion: "lime.i18n.docsLocaleBuildManifest.v1",
     scopePath: DEFAULT_SCOPE_PATH,
     sourceLocale,
     summary: {

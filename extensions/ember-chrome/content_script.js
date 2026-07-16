@@ -2,20 +2,20 @@
 (function () {
   // 检查是否已经注入过
   if (
-    window.__EMBER_CONTENT_SCRIPT_LOADED__ ||
+    window.__LIME_CONTENT_SCRIPT_LOADED__ ||
     window.__PROXYCAST_CONTENT_SCRIPT_LOADED__
   ) {
     return;
   }
-  window.__EMBER_CONTENT_SCRIPT_LOADED__ = true;
+  window.__LIME_CONTENT_SCRIPT_LOADED__ = true;
   window.__PROXYCAST_CONTENT_SCRIPT_LOADED__ = true;
 
   let refCounter = 0;
-  const REF_ATTR = "ember-id";
+  const REF_ATTR = "lime-id";
 
   function nextRefId() {
     refCounter += 1;
-    return `ember-${refCounter}`;
+    return `lime-${refCounter}`;
   }
 
   function resetRefs() {
@@ -480,10 +480,10 @@
   };
 
   const generatedSiteAdapterRunners =
-    window.__EMBER_SITE_ADAPTER_RUNNERS__ &&
-    typeof window.__EMBER_SITE_ADAPTER_RUNNERS__ === "object" &&
-    !Array.isArray(window.__EMBER_SITE_ADAPTER_RUNNERS__)
-      ? window.__EMBER_SITE_ADAPTER_RUNNERS__
+    window.__LIME_SITE_ADAPTER_RUNNERS__ &&
+    typeof window.__LIME_SITE_ADAPTER_RUNNERS__ === "object" &&
+    !Array.isArray(window.__LIME_SITE_ADAPTER_RUNNERS__)
+      ? window.__LIME_SITE_ADAPTER_RUNNERS__
       : {};
 
   const legacySiteAdapterRunners = {

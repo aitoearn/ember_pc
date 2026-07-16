@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  changeEmberLocale,
-  getEmberI18n,
-  emberI18nResources,
+  changeLimeLocale,
+  getLimeI18n,
+  limeI18nResources,
 } from "@/i18n/createI18n";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "@/i18n/locales";
 import {
@@ -21,7 +21,7 @@ const LEGACY_VISUAL_BRIEF_SEGMENT = ["plain", "Visual", "Brief"].join("");
 const LEGACY_VISUAL_BRIEF_ID = ["plain", "visual", "brief"].join("_");
 
 function readAgentResource(locale: SupportedLocale, key: string): string {
-  const value = emberI18nResources[locale]?.agent?.[key];
+  const value = limeI18nResources[locale]?.agent?.[key];
   return typeof value === "string" ? value : "";
 }
 
@@ -80,7 +80,7 @@ function buildLocaleExcludedText(
 
 describe("plainInputIntentConfirmation", () => {
   beforeEach(async () => {
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
   });
 
   it("catalog 中声明的 plain input intent confirmation 应覆盖 current 五语言", () => {
@@ -115,9 +115,9 @@ describe("plainInputIntentConfirmation", () => {
     const triggerPrefix = command.triggers[0]?.prefix;
 
     for (const locale of SUPPORTED_LOCALES) {
-      await changeEmberLocale(locale);
+      await changeLimeLocale(locale);
       const matchText = buildLocaleMatchText(locale, intent);
-      const translate = getEmberI18n().t as unknown as (
+      const translate = getLimeI18n().t as unknown as (
         key: string,
         options?: Record<string, unknown>,
       ) => string;
@@ -149,6 +149,15 @@ describe("plainInputIntentConfirmation", () => {
     const resolved = resolveFirstPlainInputIntentConfirmation();
     expect(resolved?.confirmation).toBeTruthy();
     expect(resolved?.systemPrompt).toContain(resolved?.confirmation);
+  });
+
+  it("明确中文画图句式应命中图片生成意图", () => {
+    expect(
+      resolvePlainInputIntentConfirmation("画一张广州夏天的图"),
+    ).toMatchObject({
+      commandKey: "image_generate",
+      intentId: "plain_image_generation",
+    });
   });
 
   it("强浏览器后台任务不应被 plain input 本地确认拦截", () => {

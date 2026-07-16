@@ -5,12 +5,11 @@ import { GitCompare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { AgentI18nKey } from "@/i18n/agentResources";
-import type {
-  AsterSessionExecutionRuntime,
-  AsterSubagentSessionInfo,
-  AgentRuntimeFileCheckpointThreadSummary,
-} from "@/lib/api/agentRuntime";
+import { buildAgentUiCollaborationPayloadMetadata } from "@embercloud/agent-runtime-projection";
+import type { AgentSessionExecutionRuntime } from "@/lib/api/agentExecutionRuntime";
+import type { AgentRuntimeFileCheckpointThreadSummary } from "@/lib/api/agentRuntime/sessionTypes";
 
+import type { CanonicalChildThreadSummary } from "../projection/canonicalChildThreadSummary";
 import type { ChatToolPreferences } from "../utils/chatToolPreferences";
 import type { HarnessSessionState } from "../utils/harnessState";
 import { getOutputSchemaRuntimeLabel } from "../utils/sessionExecutionRuntime";
@@ -21,15 +20,11 @@ interface AgentRuntimeStripProps {
   toolPreferences: ChatToolPreferences;
   runtimeToolAvailability?: RuntimeToolAvailability | null;
   harnessState: HarnessSessionState;
-  childSubagentSessions?: AsterSubagentSessionInfo[];
+  canonicalChildren?: CanonicalChildThreadSummary[];
   variant?: "standalone" | "embedded";
   isSending?: boolean;
-  executionRuntime?: AsterSessionExecutionRuntime | null;
-  isExecutionRuntimeActive?: boolean;
+  executionRuntime?: AgentSessionExecutionRuntime | null;
   runtimeStatusTitle?: string | null;
-  selectedTeamLabel?: string | null;
-  selectedTeamSummary?: string | null;
-  selectedTeamRoleCount?: number;
   fileCheckpointSummary?: AgentRuntimeFileCheckpointThreadSummary | null;
   onOpenFileCheckpoints?: () => void;
 }
@@ -46,19 +41,84 @@ interface StatusItem {
   tone?: "default" | "outline" | "secondary";
 }
 
+interface RuntimeTeamStatusCounts {
+  source: "canonical";
+  active: number;
+  completed: number;
+  errored: number;
+  interrupted: number;
+  notFound: number;
+  pendingInit: number;
+  queued: number;
+  running: number;
+  shutdown: number;
+  total: number;
+}
+
+function readFactString(
+  facts: Record<string, unknown> | undefined,
+  key: string,
+): string | undefined {
+  const value = facts?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function summarizeRuntimeTeamStatus(
+  canonicalChildren: CanonicalChildThreadSummary[],
+): RuntimeTeamStatusCounts {
+  const counts: RuntimeTeamStatusCounts = {
+    source: "canonical",
+    active: 0,
+    completed: 0,
+    errored: 0,
+    interrupted: 0,
+    notFound: 0,
+    pendingInit: 0,
+    queued: 0,
+    running: 0,
+    shutdown: 0,
+    total: canonicalChildren.length,
+  };
+
+  for (const child of canonicalChildren) {
+    switch (child.status) {
+      case "pendingInit":
+        counts.pendingInit += 1;
+        counts.active += 1;
+        break;
+      case "running":
+        counts.running += 1;
+        counts.active += 1;
+        break;
+      case "interrupted":
+        counts.interrupted += 1;
+        break;
+      case "completed":
+        counts.completed += 1;
+        break;
+      case "errored":
+        counts.errored += 1;
+        break;
+      case "shutdown":
+        counts.shutdown += 1;
+        break;
+      case "notFound":
+        counts.notFound += 1;
+        break;
+    }
+  }
+  return counts;
+}
+
 export const AgentRuntimeStrip: React.FC<AgentRuntimeStripProps> = ({
   toolPreferences,
   runtimeToolAvailability = null,
   harnessState,
-  childSubagentSessions = [],
+  canonicalChildren = [],
   variant = "standalone",
   isSending = false,
   executionRuntime = null,
-  isExecutionRuntimeActive = false,
   runtimeStatusTitle = null,
-  selectedTeamLabel = null,
-  selectedTeamSummary = null,
-  selectedTeamRoleCount = 0,
   fileCheckpointSummary = null,
   onOpenFileCheckpoints,
 }) => {
@@ -78,23 +138,83 @@ export const AgentRuntimeStrip: React.FC<AgentRuntimeStripProps> = ({
     hasRuntimeFileSignals || hasRuntimeOutputSignals;
   const themeLabel = translate("agentChat.runtimeStrip.theme.general");
   const stripTitle = translate("agentChat.runtimeStrip.title.general");
-  const hasSelectedTeam =
-    Boolean(selectedTeamLabel?.trim()) || selectedTeamRoleCount > 0;
-  const selectedTeamBadgeLabel =
-    selectedTeamLabel?.trim() ||
-    translate("agentChat.runtimeStrip.team.badgeRoleCount", {
-      count: selectedTeamRoleCount,
-    });
-  const selectedTeamSummaryText =
-    selectedTeamSummary?.trim() ||
-    (hasSelectedTeam
-      ? translate("agentChat.runtimeStrip.team.configuredSummary", {
-          count: selectedTeamRoleCount,
-        })
-      : translate("agentChat.runtimeStrip.team.defaultSummary"));
   const canReviewFileCheckpoints =
-    fileCheckpointCount > 0 &&
-    Boolean(onOpenFileCheckpoints);
+    fileCheckpointCount > 0 && Boolean(onOpenFileCheckpoints);
+  const reasoningStatus = harnessState.reasoning?.reasoning;
+  const reasoningRunStatus = reasoningStatus?.status;
+  const hasReasoningSignal =
+    reasoningStatus?.supported === true &&
+    ((typeof reasoningRunStatus === "string" &&
+      reasoningRunStatus !== "idle") ||
+      Boolean(reasoningStatus.text?.trim()));
+  const runtimeTeamCounts = useMemo(
+    () => summarizeRuntimeTeamStatus(canonicalChildren),
+    [canonicalChildren],
+  );
+  const hasCanonicalSubagents = runtimeTeamCounts.total > 0;
+  const canonicalSubagentsLabel = translate(
+    "agentChat.runtimeStrip.team.badgeRoleCount",
+    { count: runtimeTeamCounts.total },
+  );
+  const canonicalSubagentsSummary = hasCanonicalSubagents
+    ? translate("agentChat.runtimeStrip.team.configuredSummary", {
+        count: runtimeTeamCounts.total,
+      })
+    : translate("agentChat.runtimeStrip.team.defaultSummary");
+  const runtimeStripCollaboration = useMemo(() => {
+    const totalTeamSessions = runtimeTeamCounts.total;
+    const delegatedTaskCount = harnessState.delegatedTasks.length;
+    if (
+      !toolPreferences.subagent &&
+      totalTeamSessions === 0 &&
+      delegatedTaskCount === 0
+    ) {
+      return null;
+    }
+    const phase =
+      runtimeTeamCounts.active > 0
+        ? "acting"
+        : totalTeamSessions > 0 || delegatedTaskCount > 0
+          ? "completed"
+          : "configured";
+    return buildAgentUiCollaborationPayloadMetadata({
+      sourceType: "runtime_strip",
+      surface: "runtime_strip",
+      phase,
+      status: phase,
+      runtimeEntity: "subagent_turn",
+      collaborationKind: "team_runtime_status",
+      payload: {
+        collaborationFacts: {
+          source: "runtime_strip",
+          surface: "runtime_strip",
+          collaborationSurface: "runtime_strip",
+          collaborationPhase: phase,
+          collaborationKind: "team_runtime_status",
+          status: phase,
+          runtimeEntity: "subagent_turn",
+          rosterSource: runtimeTeamCounts.source,
+          activeCount: runtimeTeamCounts.active,
+          pendingInitCount: runtimeTeamCounts.pendingInit,
+          runningCount: runtimeTeamCounts.running,
+          queuedCount: runtimeTeamCounts.queued,
+          interruptedCount: runtimeTeamCounts.interrupted,
+          completedCount: runtimeTeamCounts.completed,
+          erroredCount: runtimeTeamCounts.errored,
+          shutdownCount: runtimeTeamCounts.shutdown,
+          notFoundCount: runtimeTeamCounts.notFound,
+          totalCount: totalTeamSessions,
+          delegatedTaskCount,
+        },
+      },
+    });
+  }, [
+    harnessState.delegatedTasks.length,
+    runtimeTeamCounts,
+    toolPreferences.subagent,
+  ]);
+  const runtimeStripCollaborationFacts =
+    runtimeStripCollaboration?.collaborationFacts;
 
   const capabilities = useMemo<CapabilityItem[]>(
     () => [
@@ -134,19 +254,6 @@ export const AgentRuntimeStrip: React.FC<AgentRuntimeStripProps> = ({
     const outputSchemaLabel = getOutputSchemaRuntimeLabel(
       executionRuntime?.output_schema_runtime,
     );
-    const runningTeamSessions = childSubagentSessions.filter(
-      (session) => session.runtime_status === "running",
-    ).length;
-    const queuedTeamSessions = childSubagentSessions.filter(
-      (session) => session.runtime_status === "queued",
-    ).length;
-    const activeTeamSessions = runningTeamSessions + queuedTeamSessions;
-    const completedTeamSessions = childSubagentSessions.filter(
-      (session) =>
-        session.runtime_status === "completed" ||
-        session.runtime_status === "failed" ||
-        session.runtime_status === "aborted",
-    ).length;
     if (hasRuntimeWorkbenchSignals) {
       nextItems.push({
         key: "runtime_outputs",
@@ -180,13 +287,21 @@ export const AgentRuntimeStrip: React.FC<AgentRuntimeStripProps> = ({
       });
     }
 
+    if (hasReasoningSignal) {
+      nextItems.push({
+        key: "reasoning",
+        label: translate("agentChat.runtimeStrip.capability.thinking"),
+        tone: reasoningRunStatus === "running" ? "secondary" : "outline",
+      });
+    }
+
     if (outputSchemaLabel) {
       nextItems.push({
         key: "output_schema_runtime",
         label: translate("agentChat.runtimeStrip.status.outputSchema", {
           label: outputSchemaLabel,
         }),
-        tone: isExecutionRuntimeActive ? "secondary" : "outline",
+        tone: isSending ? "secondary" : "outline",
       });
     }
 
@@ -199,11 +314,11 @@ export const AgentRuntimeStrip: React.FC<AgentRuntimeStripProps> = ({
         tone: "outline",
       });
 
-      if (!runtimeToolAvailability.taskRuntime) {
+      if (!runtimeToolAvailability.planRuntime) {
         nextItems.push({
-          key: "task_runtime_gap",
-          label: translate("agentChat.runtimeStrip.status.taskToolGap", {
-            count: runtimeToolAvailability.missingTaskTools.length,
+          key: "plan_runtime_gap",
+          label: translate("agentChat.runtimeStrip.status.planToolGap", {
+            count: runtimeToolAvailability.missingPlanTools.length,
           }),
           tone: "outline",
         });
@@ -222,7 +337,7 @@ export const AgentRuntimeStrip: React.FC<AgentRuntimeStripProps> = ({
         !runtimeToolAvailability.subagentRuntime
       ) {
         nextItems.push({
-          key: "subagent_runtime_gap",
+          key: "subagent_tool_gap",
           label: translate("agentChat.runtimeStrip.status.subagentToolGap", {
             count: [
               ...runtimeToolAvailability.missingSubagentCoreTools,
@@ -262,33 +377,33 @@ export const AgentRuntimeStrip: React.FC<AgentRuntimeStripProps> = ({
       });
     }
 
-    if (activeTeamSessions > 0) {
+    if (runtimeTeamCounts.active > 0) {
       nextItems.push({
         key: "team_running",
         label:
-          queuedTeamSessions > 0
+          runtimeTeamCounts.queued > 0
             ? translate("agentChat.runtimeStrip.status.teamRunningQueued", {
-                active: activeTeamSessions,
-                total: childSubagentSessions.length,
-                queued: queuedTeamSessions,
+                active: runtimeTeamCounts.active,
+                total: runtimeTeamCounts.total,
+                queued: runtimeTeamCounts.queued,
               })
             : translate("agentChat.runtimeStrip.status.teamRunning", {
-                active: activeTeamSessions,
-                total: childSubagentSessions.length,
+                active: runtimeTeamCounts.active,
+                total: runtimeTeamCounts.total,
               }),
         tone: "secondary",
       });
-    } else if (childSubagentSessions.length > 0) {
+    } else if (runtimeTeamCounts.total > 0) {
       nextItems.push({
         key: "team_sessions",
         label:
-          completedTeamSessions > 0
+          runtimeTeamCounts.completed > 0
             ? translate("agentChat.runtimeStrip.status.teamCompleted", {
-                total: childSubagentSessions.length,
-                completed: completedTeamSessions,
+                total: runtimeTeamCounts.total,
+                completed: runtimeTeamCounts.completed,
               })
             : translate("agentChat.runtimeStrip.status.teamSessions", {
-                total: childSubagentSessions.length,
+                total: runtimeTeamCounts.total,
               }),
         tone: "outline",
       });
@@ -298,6 +413,14 @@ export const AgentRuntimeStrip: React.FC<AgentRuntimeStripProps> = ({
         label: translate("agentChat.runtimeStrip.status.delegated", {
           count: harnessState.delegatedTasks.length,
         }),
+        tone: "outline",
+      });
+    }
+
+    if (runtimeTeamCounts.interrupted > 0) {
+      nextItems.push({
+        key: "team_interrupted",
+        label: `${translate("agentChat.collaboration.status.interrupted")} ${runtimeTeamCounts.interrupted}`,
         tone: "outline",
       });
     }
@@ -322,13 +445,14 @@ export const AgentRuntimeStrip: React.FC<AgentRuntimeStripProps> = ({
 
     return nextItems;
   }, [
-    childSubagentSessions,
     executionRuntime,
     fileCheckpointCount,
     harnessState,
     hasRuntimeWorkbenchSignals,
-    isExecutionRuntimeActive,
+    hasReasoningSignal,
     isSending,
+    reasoningRunStatus,
+    runtimeTeamCounts,
     runtimeToolAvailability,
     runtimeStatusTitle,
     translate,
@@ -340,6 +464,33 @@ export const AgentRuntimeStrip: React.FC<AgentRuntimeStripProps> = ({
       data-testid="agent-runtime-strip"
       data-runtime-kind={hasRuntimeWorkbenchSignals ? "runtime" : "general"}
       data-execution-strategy={executionRuntime?.execution_strategy ?? ""}
+      data-team-roster-source={runtimeTeamCounts.source}
+      data-team-total-count={runtimeTeamCounts.total}
+      data-team-active-count={runtimeTeamCounts.active}
+      data-team-pending-init-count={runtimeTeamCounts.pendingInit}
+      data-team-running-count={runtimeTeamCounts.running}
+      data-team-queued-count={runtimeTeamCounts.queued}
+      data-team-interrupted-count={runtimeTeamCounts.interrupted}
+      data-team-completed-count={runtimeTeamCounts.completed}
+      data-team-errored-count={runtimeTeamCounts.errored}
+      data-team-shutdown-count={runtimeTeamCounts.shutdown}
+      data-team-not-found-count={runtimeTeamCounts.notFound}
+      data-collaboration-facts={
+        runtimeStripCollaborationFacts ? "yes" : undefined
+      }
+      data-collaboration-surface={
+        runtimeStripCollaboration?.collaborationSurface
+      }
+      data-collaboration-phase={runtimeStripCollaboration?.collaborationPhase}
+      data-collaboration-kind={readFactString(
+        runtimeStripCollaborationFacts,
+        "collaborationKind",
+      )}
+      data-soul-style-level={runtimeStripCollaboration?.styleLevel}
+      data-soul-risk-level={runtimeStripCollaboration?.riskLevel}
+      data-soul-tone-variant={runtimeStripCollaboration?.toneVariant}
+      data-soul-profile-id={runtimeStripCollaboration?.profileId}
+      data-soul-pack-id={runtimeStripCollaboration?.packId}
       className={
         variant === "embedded"
           ? "rounded-xl border border-border/70 bg-[linear-gradient(135deg,hsl(var(--background)),hsl(var(--muted)/0.35))] px-4 py-3"
@@ -355,10 +506,10 @@ export const AgentRuntimeStrip: React.FC<AgentRuntimeStripProps> = ({
         </div>
         <Badge variant="outline">{themeLabel}</Badge>
         {toolPreferences.subagent ? (
-          <Badge variant={hasSelectedTeam ? "secondary" : "outline"}>
-            {hasSelectedTeam
+          <Badge variant={hasCanonicalSubagents ? "secondary" : "outline"}>
+            {hasCanonicalSubagents
               ? translate("agentChat.runtimeStrip.team.badgeConfigured", {
-                  label: selectedTeamBadgeLabel,
+                  label: canonicalSubagentsLabel,
                 })
               : translate("agentChat.runtimeStrip.team.badgeEnabled")}
           </Badge>
@@ -383,11 +534,29 @@ export const AgentRuntimeStrip: React.FC<AgentRuntimeStripProps> = ({
         ))}
       </div>
       {toolPreferences.subagent ? (
-        <div className="mb-3 rounded-xl border border-border/70 bg-background/80 px-3 py-2 text-xs text-muted-foreground">
+        <div
+          className="mb-3 rounded-xl border border-border/70 bg-background/80 px-3 py-2 text-xs text-muted-foreground"
+          data-testid="agent-runtime-strip-team-summary"
+          data-collaboration-facts={
+            runtimeStripCollaborationFacts ? "yes" : undefined
+          }
+          data-collaboration-surface={
+            runtimeStripCollaboration?.collaborationSurface
+          }
+          data-collaboration-phase={
+            runtimeStripCollaboration?.collaborationPhase
+          }
+          data-collaboration-kind={readFactString(
+            runtimeStripCollaborationFacts,
+            "collaborationKind",
+          )}
+          data-soul-style-level={runtimeStripCollaboration?.styleLevel}
+          data-soul-risk-level={runtimeStripCollaboration?.riskLevel}
+        >
           <span className="font-medium text-foreground">
             {translate("agentChat.runtimeStrip.team.title")}
           </span>
-          <span> · {selectedTeamSummaryText}</span>
+          <span> · {canonicalSubagentsSummary}</span>
         </div>
       ) : null}
       <div className="flex flex-wrap gap-2">

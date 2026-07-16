@@ -90,21 +90,21 @@ const __dirname = path.dirname(__filename);
 const DEFAULT_REPO_ROOT = path.resolve(__dirname, "../..");
 
 const EVIDENCE_PATHS = {
-  bundleStrategy: "docs/roadmap/i18n/evidence/bundle-strategy-report.json",
+  bundleStrategy: "internal/roadmap/i18n/evidence/bundle-strategy-report.json",
   contentTargetLanguageBoundary:
-    "docs/roadmap/i18n/evidence/content-target-language-boundary-report.json",
+    "internal/roadmap/i18n/evidence/content-target-language-boundary-report.json",
   i18nextCliParityBenchmark:
-    "docs/roadmap/i18n/evidence/i18next-cli-parity-benchmark.json",
+    "internal/roadmap/i18n/evidence/i18next-cli-parity-benchmark.json",
   languageBoundary:
-    "docs/roadmap/i18n/evidence/language-boundary-report.json",
-  p4Readiness: "docs/roadmap/i18n/evidence/p4-readiness-report.json",
+    "internal/roadmap/i18n/evidence/language-boundary-report.json",
+  p4Readiness: "internal/roadmap/i18n/evidence/p4-readiness-report.json",
   patchRetirementGate:
-    "docs/roadmap/i18n/evidence/patch-retirement-gate-report.json",
+    "internal/roadmap/i18n/evidence/patch-retirement-gate-report.json",
   sourceLocaleExport:
-    "docs/roadmap/i18n/evidence/source-locale-export.json",
+    "internal/roadmap/i18n/evidence/source-locale-export.json",
   translationCoverage:
-    "docs/roadmap/i18n/evidence/translation-coverage-report.json",
-  translationPrPack: "docs/roadmap/i18n/evidence/translation-pr-pack.json",
+    "internal/roadmap/i18n/evidence/translation-coverage-report.json",
+  translationPrPack: "internal/roadmap/i18n/evidence/translation-pr-pack.json",
 } as const;
 
 const SOURCE_PATHS = {
@@ -112,7 +112,7 @@ const SOURCE_PATHS = {
   appConfigTypes: "src/lib/api/appConfigTypes.ts",
   appearanceSettings: "src/components/settings-v2/general/appearance/index.tsx",
   createI18n: "src/i18n/createI18n.ts",
-  glossary: "docs/roadmap/i18n/glossary.md",
+  glossary: "internal/roadmap/i18n/glossary.md",
   legacyPatchProvider: "src/i18n/legacy-patch/I18nPatchProvider.tsx",
   loadNamespaceTest: "src/i18n/__tests__/loadNamespace.test.ts",
   locales: "src/i18n/locales.ts",
@@ -644,10 +644,10 @@ export function analyzeI18nRoadmapReadinessReport(
         SOURCE_PATHS.appearanceSettings,
         appearanceSettingsText.includes("UI_LOCALE_OPTIONS") &&
           appearanceSettingsText.includes("useTranslation") &&
-          appearanceSettingsText.includes("changeEmberLocale"),
+          appearanceSettingsText.includes("changeLimeLocale"),
         {
           hasChangeLimeLocale:
-            appearanceSettingsText.includes("changeEmberLocale"),
+            appearanceSettingsText.includes("changeLimeLocale"),
           hasUiLocaleOptions:
             appearanceSettingsText.includes("UI_LOCALE_OPTIONS"),
           usesTranslation: appearanceSettingsText.includes("useTranslation"),
@@ -688,12 +688,12 @@ export function analyzeI18nRoadmapReadinessReport(
         "ui-regression-tests",
         "新增 UI 回归测试，覆盖语言选择、持久化、关键文案。",
         SOURCE_PATHS.appSidebarTest,
-        appSidebarTestText.includes("changeEmberLocale") &&
+        appSidebarTestText.includes("changeLimeLocale") &&
           appSidebarTestText.includes("document.documentElement.lang") &&
           appSidebarTestText.includes("saveConfig"),
         {
           appSidebarTestHasLocaleChange:
-            appSidebarTestText.includes("changeEmberLocale"),
+            appSidebarTestText.includes("changeLimeLocale"),
           appSidebarTestHasPersistence:
             appSidebarTestText.includes("saveConfig"),
           appSidebarTestHasRootLang: appSidebarTestText.includes(
@@ -707,11 +707,11 @@ export function analyzeI18nRoadmapReadinessReport(
         "language-switch-updates-shell",
         "切换语言后设置页、侧栏、Workspace shell 立即更新。",
         SOURCE_PATHS.appSidebarTest,
-        appSidebarTestText.includes('changeEmberLocale("en-US")') &&
+        appSidebarTestText.includes('changeLimeLocale("en-US")') &&
           appSidebarTestText.includes("document.documentElement.lang"),
         {
           testsEnglishSwitch: appSidebarTestText.includes(
-            'changeEmberLocale("en-US")',
+            'changeLimeLocale("en-US")',
           ),
           testsRootLang: appSidebarTestText.includes(
             "document.documentElement.lang",
@@ -818,11 +818,11 @@ export function analyzeI18nRoadmapReadinessReport(
         ) &&
           (sourceExportContains(
             evidence.sourceLocaleExport.report,
-            "不控制 Ember 界面语言",
+            "不控制 Lime 界面语言",
           ) ||
             sourceExportContains(
               evidence.sourceLocaleExport.report,
-              "do not control Ember UI language",
+              "do not control Lime UI language",
             )),
         {
           mentionsAcceptLanguage: sourceExportContains(
@@ -831,11 +831,11 @@ export function analyzeI18nRoadmapReadinessReport(
           ),
           mentionsUiLanguageBoundary: sourceExportContains(
             evidence.sourceLocaleExport.report,
-            "不控制 Ember 界面语言",
+            "不控制 Lime 界面语言",
           ),
           mentionsUiLanguageBoundaryEnglish: sourceExportContains(
             evidence.sourceLocaleExport.report,
-            "do not control Ember UI language",
+            "do not control Lime UI language",
           ),
         },
       ),
@@ -1204,7 +1204,7 @@ export function analyzeI18nRoadmapReadinessReport(
     evidence: evidenceRefs,
     phases,
     repoRoot,
-    schemaVersion: "ember.i18n.roadmapReadinessReport.v1",
+    schemaVersion: "lime.i18n.roadmapReadinessReport.v1",
     summary: {
       acceptanceFailedCount,
       acceptancePassedCount,

@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { SettingsGroupKey, SettingsTabs } from "@/types/settings";
 import { useSettingsCategory, type CategoryGroup } from "./useSettingsCategory";
 
@@ -36,7 +36,7 @@ beforeEach(async () => {
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 afterEach(async () => {
@@ -52,7 +52,7 @@ afterEach(async () => {
     current.container.remove();
   }
 
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("useSettingsCategory", () => {
@@ -73,7 +73,13 @@ describe("useSettingsCategory", () => {
 
     expect(systemGroup?.title).toBe("System");
     expect(systemKeys).toContain(SettingsTabs.Developer);
+    expect(systemKeys).toContain(SettingsTabs.ExecutionPolicy);
     expect(systemKeys).not.toContain(SettingsTabs.Experimental);
+    expect(
+      systemGroup?.items.find(
+        (item) => item.key === SettingsTabs.ExecutionPolicy,
+      )?.label,
+    ).toBe("Execution Policy");
     expect(developerItem?.label).toBe("Developer & Labs");
     expect(developerItem?.label).not.toBe("开发者与实验功能");
     expect(developerItem?.label).not.toContain("settings.tab.developerLab");
@@ -96,8 +102,13 @@ describe("useSettingsCategory", () => {
 
     expect(generalGroup?.title).toBe("General");
     expect(archivedItem?.label).toBe("Archived Conversations");
-    expect(generalGroup?.items.map((item) => item.key)).toContain(
+    const generalKeys = generalGroup?.items.map((item) => item.key) ?? [];
+
+    expect(generalKeys).toContain(SettingsTabs.Appearance);
+    expect(generalKeys).toContain(SettingsTabs.Memory);
+    expect(generalKeys).toContain(
       SettingsTabs.ArchivedConversations,
     );
+    expect(generalKeys).not.toContain(SettingsTabs.Hotkeys);
   });
 });

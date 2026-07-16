@@ -1,6 +1,7 @@
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import type { AgentRuntimeThreadReadModel } from "@/lib/api/agentRuntime/sessionTypes";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { conversationProjectionStore } from "../projection/conversationProjectionStore";
 import { renderPanel } from "./AgentThreadReliabilityPanel.testFixtures";
 
@@ -68,6 +69,44 @@ describe("AgentThreadReliabilityPanel", () => {
     expect(container.textContent).toContain(
       "审批等待过久，建议尽快处理或停止当前执行",
     );
+  });
+
+  it("应给 header 主信息块保留可读宽度，避免中文逐字竖排", () => {
+    const container = renderPanel({
+      threadRead: {
+        thread_id: "thread-layout",
+        status: "failed",
+        updated_at: "2026-06-28T01:49:00Z",
+        last_outcome: {
+          thread_id: "thread-layout",
+          turn_id: "turn-layout",
+          outcome_type: "failed_provider",
+          summary: "最近一次回合执行失败",
+          retryable: true,
+          ended_at: "2026-06-28T01:49:00Z",
+        },
+      },
+    });
+
+    const headerMain = container.querySelector(
+      '[data-testid="agent-thread-reliability-header-main"]',
+    );
+    const headerActions = container.querySelector(
+      '[data-testid="agent-thread-reliability-header-actions"]',
+    );
+    const copyButton = container.querySelector(
+      '[data-testid="agent-thread-reliability-copy"]',
+    );
+    const copyJsonButton = container.querySelector(
+      '[data-testid="agent-thread-reliability-copy-json"]',
+    );
+
+    expect(headerMain?.className).toContain("min-w-[min(100%,18rem)]");
+    expect(headerMain?.className).toContain("flex-[1_1_24rem]");
+    expect(headerActions?.className).toContain("w-full");
+    expect(headerActions?.className).toContain("lg:w-auto");
+    expect(copyButton?.className).toContain("whitespace-nowrap");
+    expect(copyJsonButton?.className).toContain("whitespace-nowrap");
   });
 
   it("后端 pending 为 0 且存在 runtime_error 时应显示故障而不是本地旧待补", () => {
@@ -270,8 +309,285 @@ describe("AgentThreadReliabilityPanel", () => {
     );
   });
 
+  it("应展示 thread_read.model_routing 中的模型注册诊断事实", () => {
+    const container = renderPanel({
+      threadRead: {
+        thread_id: "thread-model-registry",
+        status: "completed",
+        model_routing: {
+          serviceModelSlot: "coding",
+          decisionSource: "coding_profile_slot",
+          selectedProvider: "custom-coder",
+          selectedModel: "coder-large",
+          modelRegistry: {
+            source: "provider_declared_model",
+            status: "matched",
+            reasonCode: "matched_provider_custom_models",
+            matchedModelId: "coder-large",
+            modelCapabilities: {
+              capabilities: {
+                tools: true,
+                streaming: true,
+                reasoning: true,
+              },
+              taskFamilies: ["chat", "reasoning"],
+              runtimeFeatures: ["streaming", "tool_calling", "reasoning"],
+            },
+            modelAlias: {
+              canonicalModelId: "coder-large",
+              providerModelId: "provider/coder-large",
+              aliasSource: "local",
+            },
+            reasoning: {
+              supported: true,
+              reasoningEffort: {
+                supported: true,
+                levels: ["low", "medium", "high"],
+                default: "medium",
+              },
+            },
+          },
+        },
+      },
+    });
+
+    expect(container.textContent).toContain("模型注册事实");
+    expect(container.textContent).toContain("provider_declared_model");
+    expect(container.textContent).toContain("matched_provider_custom_models");
+    expect(container.textContent).toContain("模型能力");
+    expect(container.textContent).toContain("tools");
+    expect(container.textContent).toContain("tool_calling");
+    expect(container.textContent).toContain("模型别名");
+    expect(container.textContent).toContain(
+      "canonical=coder-large · provider=provider/coder-large · source=local",
+    );
+    expect(container.textContent).toContain("推理能力");
+    expect(container.textContent).toContain(
+      "supported=true · effort=true · levels=low/medium/high · default=medium",
+    );
+  });
+
+  it("应展示 thread_read.model_routing 中的 provider readiness 阻断诊断", () => {
+    const onManageProviders = vi.fn();
+    const container = renderPanel({
+      threadRead: {
+        thread_id: "thread-provider-readiness",
+        status: "failed",
+        model_routing: {
+          serviceModelSlot: "coding",
+          decisionSource: "coding_profile_slot",
+          selectedProvider: "custom-coder",
+          selectedModel: "coder-large",
+          providerReadiness: {
+            ready: false,
+            status: "needs_setup",
+            source: "provider_store",
+            reasonCode: "missing_enabled_api_key",
+            providerType: "openai-compatible",
+            enabled: true,
+            enabledKeyCount: 0,
+            totalKeyCount: 2,
+          },
+        },
+      },
+      onManageProviders,
+    });
+
+    expect(container.textContent).toContain("服务商就绪状态");
+    expect(container.textContent).toContain("needs_setup");
+    expect(container.textContent).toContain("provider_store");
+    expect(container.textContent).toContain("missing_enabled_api_key");
+    expect(container.textContent).toContain("服务商类型");
+    expect(container.textContent).toContain("openai-compatible");
+    expect(container.textContent).toContain("可用密钥");
+    expect(container.textContent).toContain("0/2");
+    expect(container.textContent).toContain("恢复动作");
+    expect(container.textContent).toContain("add_enabled_api_key");
+    expect(container.textContent).toContain("打开 AI 服务商设置");
+
+    const button = Array.from(container.querySelectorAll("button")).find(
+      (element) => element.textContent?.includes("打开 AI 服务商设置"),
+    );
+    expect(button).not.toBeNull();
+    act(() => {
+      button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(onManageProviders).toHaveBeenCalledTimes(1);
+    expect(onManageProviders).toHaveBeenCalledWith({
+      providerId: "custom-coder",
+      modelId: "coder-large",
+      reasonCode: "missing_enabled_api_key",
+      recoveryAction: "add_enabled_api_key",
+    });
+  });
+
+  it("应展示 coding 槽位不可用后的自动回退尝试链", () => {
+    const container = renderPanel({
+      threadRead: {
+        thread_id: "thread-routing-attempts",
+        status: "completed",
+        model_routing: {
+          serviceModelSlot: "base",
+          decisionSource: "profile_model_slot",
+          selectedProvider: "openai",
+          selectedModel: "gpt-4.1-mini",
+          fallbackApplied: true,
+          requestedSelection: {
+            provider: "custom-coding",
+            model: "coder-large",
+            source: "profile_model_slot",
+          },
+          routingAttempts: [
+            {
+              slot: "coding",
+              provider: "custom-coding",
+              model: "coder-large",
+              source: "profile_model_slot",
+              providerReadiness: {
+                status: "needs_setup",
+                reasonCode: "missing_enabled_api_key",
+              },
+            },
+            {
+              slot: "base",
+              provider: "openai",
+              model: "gpt-4.1-mini",
+              source: "profile_model_slot",
+              providerReadiness: {
+                status: "ready",
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    expect(container.textContent).toContain("自动回退");
+    expect(container.textContent).toContain("路由尝试");
+    expect(container.textContent).toContain("请求模型");
+    expect(container.textContent).toContain("custom-coding/coder-large");
+    expect(container.textContent).toContain("coding");
+    expect(container.textContent).toContain("needs_setup");
+    expect(container.textContent).toContain("missing_enabled_api_key");
+    expect(container.textContent).toContain("base");
+    expect(container.textContent).toContain("openai/gpt-4.1-mini");
+  });
+
+  it("policy 与 network 诊断没有设置回调时不应显示假入口", () => {
+    const container = renderPanel({
+      threadRead: {
+        thread_id: "thread-policy-network-no-action",
+        status: "failed",
+        diagnostics: {
+          primary_blocking_kind: "sandbox_blocked",
+          primary_blocking_summary: "read-only sandbox blocked curl download",
+          latest_failed_command: {
+            item_id: "command-1",
+            command: "curl https://example.com/install.sh",
+            exit_code: 1,
+            error: "blocked by workspace policy",
+            updated_at: "2026-06-14T00:00:00Z",
+            policyName: "workspace_tool_execution",
+            policyProfile: "read-only",
+            sandboxPolicy: "read-only",
+          },
+        } as unknown as AgentRuntimeThreadReadModel["diagnostics"],
+        model_routing: {
+          networkRuleId: "download-block",
+          networkRuleTarget: "url",
+          networkRuleSource: "request",
+        },
+      },
+    });
+
+    expect(
+      container.querySelector(
+        '[data-testid="agent-thread-reliability-policy-evidence"]',
+      ),
+    ).not.toBeNull();
+    expect(container.textContent).toContain("策略与网络事实");
+    expect(container.textContent).not.toContain("打开执行策略设置");
+  });
+
+  it("应从 thread_read diagnostics 展示 provider safety buffering", () => {
+    const container = renderPanel({
+      threadRead: {
+        thread_id: "thread-provider-safety-buffering",
+        status: "running",
+        diagnostics: {
+          provider_safety_buffering_count: 1,
+          latest_provider_safety_buffering: {
+            source_event_id: "event-safety-1",
+            source_event_type: "provider_safety_buffering",
+            thread_id: "thread-provider-safety-buffering",
+            turn_id: "turn-provider-safety-buffering",
+            timestamp: "2026-07-07T08:00:00Z",
+            provider: "openai",
+            model: "gpt-5-codex",
+            use_cases: ["cyber"],
+            reasons: ["policy"],
+            show_buffering_ui: true,
+            retry_model: "gpt-5-mini",
+            fallback_header_model: "legacy-fast",
+            source: "payload_retry_model",
+            backend: "runtime",
+          },
+        } as unknown as AgentRuntimeThreadReadModel["diagnostics"],
+      },
+    });
+
+    expect(
+      container.querySelector(
+        '[data-testid="agent-thread-provider-safety-buffering"]',
+      ),
+    ).not.toBeNull();
+    expect(container.textContent).toContain("响应安全缓冲");
+    expect(container.textContent).toContain("显示缓冲提示");
+    expect(container.textContent).toContain("openai / gpt-5-codex");
+    expect(container.textContent).toContain("gpt-5-mini");
+    expect(container.textContent).toContain("legacy-fast");
+    expect(container.textContent).toContain("cyber");
+    expect(container.textContent).toContain("policy");
+    expect(container.textContent).toContain("payload_retry_model");
+    expect(container.textContent).not.toContain("runtimeEvent");
+    expect(container.textContent).not.toContain("retryModel");
+  });
+
+  it("provider readiness 没有管理回调时不应显示假入口", () => {
+    const container = renderPanel({
+      threadRead: {
+        thread_id: "thread-provider-readiness-no-action",
+        status: "failed",
+        model_routing: {
+          serviceModelSlot: "coding",
+          selectedProvider: "custom-coder",
+          selectedModel: "coder-large",
+          providerReadiness: {
+            ready: false,
+            status: "needs_setup",
+            source: "provider_store",
+            reasonCode: "missing_enabled_api_key",
+            providerType: "openai-compatible",
+            enabled: true,
+            enabledKeyCount: 0,
+            totalKeyCount: 2,
+          },
+        },
+      },
+    });
+
+    expect(container.textContent).toContain("恢复动作");
+    expect(container.textContent).toContain("add_enabled_api_key");
+    expect(container.textContent).not.toContain("打开 AI 服务商设置");
+    expect(
+      Array.from(container.querySelectorAll("button")).some((element) =>
+        element.textContent?.includes("打开 AI 服务商设置"),
+      ),
+    ).toBe(false);
+  });
+
   it("应使用当前 locale 展示路由证据标签", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
 
     const container = renderPanel({
       threadRead: {
@@ -306,7 +622,7 @@ describe("AgentThreadReliabilityPanel", () => {
     expect(container.textContent).toContain("First text");
   });
 
-  it("应从 AgentUI projection store 展示并导出标准投影诊断", async () => {
+  it("应按需从 AgentUI projection store 导出标准投影诊断，不常驻渲染摘要", async () => {
     conversationProjectionStore.recordAgentUiProjectionEvents([
       {
         type: "task.changed",
@@ -398,15 +714,11 @@ describe("AgentThreadReliabilityPanel", () => {
       container.querySelector(
         '[data-testid="agent-thread-reliability-agentui-projection"]',
       ),
-    ).not.toBeNull();
-    expect(container.textContent).toContain("AgentUI 标准投影");
-    expect(container.textContent).toContain("3 条");
-    expect(container.textContent).toContain(
+    ).toBeNull();
+    expect(container.textContent).not.toContain(
       "来源：conversationProjectionStore.agentUi",
     );
-    expect(container.textContent).toContain("任务 / Agent");
-    expect(container.textContent).toContain("制品");
-    expect(container.textContent).toContain("Diagnostics");
+    expect(container.textContent).not.toContain("3 条");
 
     const copyButton = container.querySelector(
       '[data-testid="agent-thread-reliability-copy"]',
@@ -436,5 +748,4 @@ describe("AgentThreadReliabilityPanel", () => {
       expect.stringContaining('"agent_ui_projection_summary"'),
     );
   });
-
- });
+});

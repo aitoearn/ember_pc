@@ -32,8 +32,8 @@ describe("buildExpertCatalogProjection", () => {
 
   it("应按分类和搜索词过滤，且隐藏 overlay 不进入结果", () => {
     const projection = buildExpertCatalogProjection(getSeededExpertCatalog(), {
-      category: "performance",
-      query: "压测",
+      category: "marketing",
+      query: "脚本",
       overlays: [
         {
           expertId: "short-video-scriptwriter",
@@ -50,7 +50,7 @@ describe("buildExpertCatalogProjection", () => {
 
   it("榜单 profile 应复用过滤后的同一批 projection item", () => {
     const projection = buildExpertCatalogProjection(getSeededExpertCatalog(), {
-      category: "quality",
+      category: "analytics",
     });
 
     expect(projection.items.map((item) => item.id)).toEqual(["data-analyst"]);
@@ -62,7 +62,7 @@ describe("buildExpertCatalogProjection", () => {
     expect(
       projection.rankings
         .flatMap((ranking) => ranking.profiles)
-        .every((profile) => profile.category === "quality"),
+        .every((profile) => profile.category === "analytics"),
     ).toBe(true);
   });
 });

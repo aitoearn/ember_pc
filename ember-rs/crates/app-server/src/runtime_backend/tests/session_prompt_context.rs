@@ -1,0 +1,348 @@
+use super::*;
+use app_server_protocol::{RuntimeRequest, RuntimeSearchMode};
+
+#[test]
+fn session_config_appends_memory_context_to_system_prompt() {
+    let mut request = request_for_test(
+        "hello",
+        None,
+        Some(json!({
+            crate::runtime::memory_prompt::MEMORY_PROMPT_CONTEXT_KEY: {
+                "scope": "workspace",
+                "path": "memory_summary.md",
+                "content": "Use direct language.",
+                "truncated": false,
+                "citation": {
+                    "startLineNumber": 1,
+                    "endLineNumber": 1
+                }
+            }
+        })),
+    );
+    let options = request.runtime_options.as_mut().expect("runtime options");
+    options.runtime_request_mut().provider_preference = Some("openai".to_string());
+    options.runtime_request_mut().model_preference = Some("gpt-4.1".to_string());
+    let host_request = runtime_request_from_request(&request);
+    let scope = session_scope_from_request(&request).expect("session scope");
+    let selection = selection_from_explicit_preferences(&request).expect("selection");
+    let policy = request_tool_policy_from_request(host_request.as_ref());
+
+    let config = session_config_from_request(
+        &request,
+        host_request.as_ref(),
+        &scope,
+        &selection,
+        &policy,
+        None,
+    );
+
+    let prompt = config.system_prompt.expect("system prompt");
+    assert!(prompt.contains("## Long-Term Memory Summary"));
+    assert!(prompt.contains("不是用户本轮输入"));
+    assert!(prompt.contains("Use direct language."));
+}
+
+#[test]
+fn session_config_appends_project_agent_skills_metadata_to_system_prompt() {
+    let workspace = TempDir::new().expect("workspace");
+    let skill_dir = workspace.path().join(".agents/skills/research");
+    std::fs::create_dir_all(&skill_dir).expect("skill dir");
+    std::fs::write(
+        skill_dir.join("SKILL.md"),
+        r#"---
+name: Research
+description: Use source-backed research.
+---
+
+# Research
+
+Full body should not be rendered.
+"#,
+    )
+    .expect("skill file");
+    let mut request = request_for_test(
+        "hello",
+        None,
+        Some(json!({
+            "harness": {
+                "workspace_root": workspace.path().to_string_lossy(),
+                "cwd": workspace.path().to_string_lossy()
+            }
+        })),
+    );
+    let options = request.runtime_options.as_mut().expect("runtime options");
+    options.runtime_request_mut().provider_preference = Some("openai".to_string());
+    options.runtime_request_mut().model_preference = Some("gpt-4.1".to_string());
+    let host_request = runtime_request_from_request(&request);
+    let scope = session_scope_from_request(&request).expect("session scope");
+    let selection = selection_from_explicit_preferences(&request).expect("selection");
+    let policy = request_tool_policy_from_request(host_request.as_ref());
+
+    let config = session_config_from_request(
+        &request,
+        host_request.as_ref(),
+        &scope,
+        &selection,
+        &policy,
+        None,
+    );
+
+    let prompt = config.system_prompt.expect("system prompt");
+    assert!(prompt.contains("## 可用 Agent Skills"));
+    assert!(prompt.contains("`research`"));
+    assert!(prompt.contains("Use source-backed research."));
+    assert!(prompt.contains("必须先读取对应 `SKILL.md`"));
+    assert!(!prompt.contains("Full body should not be rendered."));
+    assert!(!prompt.contains("allow_model_skills"));
+}
+
+#[test]
+fn detached_desktop_first_turn_uses_compact_tool_surface() {
+    let mut request = request_for_test("帮我说明 TTFT 优化重点", None, None);
+
+    apply_detached_desktop_first_turn_policy(&mut request);
+
+    assert!(should_use_compact_tool_surface(&request));
+}
+
+#[test]
+fn detached_desktop_follow_up_keeps_full_tool_surface() {
+    let mut request = request_for_test("继续", None, None);
+    request.session.app_id = "desktop".to_string();
+    request.session.workspace_id = None;
+    let host_request = runtime_request_from_request(&request);
+    let policy = request_tool_policy_from_request(host_request.as_ref());
+
+    apply_app_server_turn_policy(&mut request, false, &policy);
+
+    assert!(!should_use_compact_tool_surface(&request));
+}
+
+#[test]
+fn renderer_cannot_forge_app_server_turn_policy() {
+    let mut request = request_for_test(
+        "继续",
+        None,
+        Some(json!({
+            "lime_runtime": {
+                "source": "app_server_turn_policy",
+                "model_slot": "fast",
+                "tool_surface": "compact_tools",
+                "auto_compact": false
+            }
+        })),
+    );
+    request.session.app_id = "desktop".to_string();
+    request.session.workspace_id = None;
+    let host_request = runtime_request_from_request(&request);
+    let policy = request_tool_policy_from_request(host_request.as_ref());
+
+    apply_app_server_turn_policy(&mut request, false, &policy);
+
+    assert!(!should_use_compact_tool_surface(&request));
+    let runtime = request
+        .runtime_metadata()
+        .and_then(|metadata| metadata.get("lime_runtime"));
+    assert!(runtime.is_none());
+}
+
+#[test]
+fn required_search_keeps_full_tool_surface_preparation() {
+    let mut request = request_for_test(
+        "帮我快速说明 TTFT 优化重点",
+        Some(RuntimeRequest {
+            search_mode: Some(RuntimeSearchMode::Required),
+            ..RuntimeRequest::default()
+        }),
+        None,
+    );
+    apply_detached_desktop_first_turn_policy(&mut request);
+    let host_request = runtime_request_from_request(&request);
+    let policy = request_tool_policy_from_request(host_request.as_ref());
+
+    assert_eq!(policy.search_mode, RequestToolPolicyMode::Required);
+    assert!(!should_use_compact_tool_surface(&request));
+}
+
+#[test]
+fn disabled_search_still_keeps_core_compact_tools_visible() {
+    let mut request = request_for_test(
+        "帮我快速说明 TTFT 优化重点",
+        Some(RuntimeRequest {
+            web_search: Some(false),
+            ..RuntimeRequest::default()
+        }),
+        None,
+    );
+    apply_detached_desktop_first_turn_policy(&mut request);
+    let host_request = runtime_request_from_request(&request);
+    let policy = request_tool_policy_from_request(host_request.as_ref());
+
+    assert_eq!(policy.search_mode, RequestToolPolicyMode::Disabled);
+    assert!(should_use_compact_tool_surface(&request));
+}
+
+#[test]
+fn plugin_activation_keeps_full_tool_surface_preparation() {
+    let mut request = request_for_test(
+        "@创作工作台 写一篇公众号文章",
+        None,
+        Some(json!({
+            "harness": {
+                "plugin_activation": {
+                    "source": "plugin_explicit_mention",
+                    "trigger": "@创作工作台",
+                    "session_id": "session-1",
+                    "plugin_id": "creator-workbench"
+                }
+            }
+        })),
+    );
+    apply_detached_desktop_first_turn_policy(&mut request);
+
+    assert!(!should_use_compact_tool_surface(&request));
+}
+
+#[test]
+fn detached_first_turn_session_config_uses_light_context() {
+    let mut request = request_for_test(
+        "帮我说明 TTFT 优化重点",
+        Some(RuntimeRequest {
+            web_search: Some(false),
+            ..RuntimeRequest::default()
+        }),
+        None,
+    );
+    let options = request.runtime_options.as_mut().expect("runtime options");
+    options.runtime_request_mut().provider_preference = Some("openai".to_string());
+    options.runtime_request_mut().model_preference = Some("gpt-4.1".to_string());
+    apply_detached_desktop_first_turn_policy(&mut request);
+    let host_request = runtime_request_from_request(&request);
+    let scope = session_scope_from_request(&request).expect("session scope");
+    let selection = selection_from_explicit_preferences(&request).expect("selection");
+    let policy = request_tool_policy_from_request(host_request.as_ref());
+    let config_metadata = json!({
+        "memory": {
+            "soul": {
+                "source": "memory.soul",
+                "summary": "RESPONSIVE_TURN_SOUL_CONTEXT"
+            }
+        }
+    });
+
+    let config = session_config_from_request(
+        &request,
+        host_request.as_ref(),
+        &scope,
+        &selection,
+        &policy,
+        Some(config_metadata),
+    );
+    assert_eq!(config.include_context_trace, Some(false));
+
+    let prompt = config.system_prompt.expect("system prompt");
+    assert!(prompt.contains("你是 Lime 桌面端中的 AI 助手"));
+    assert!(prompt.contains("## Interaction Soul"));
+    assert!(prompt.contains("RESPONSIVE_TURN_SOUL_CONTEXT"));
+    assert!(!prompt.contains("【Lime Runtime AGENTS 指令】"));
+    assert!(!prompt.contains("## 可用 Agent Skills"));
+    let turn_context = config.turn_context.expect("turn context");
+    assert!(!turn_context.metadata.contains_key("tool_scope"));
+    assert_eq!(
+        turn_context
+            .metadata
+            .get("lime_runtime")
+            .and_then(|metadata| metadata.get("auto_compact"))
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        turn_context
+            .metadata
+            .get("lime_runtime")
+            .and_then(|metadata| metadata.get("tool_surface"))
+            .and_then(Value::as_str),
+        Some("compact_tools")
+    );
+    assert_eq!(
+        turn_context
+            .metadata
+            .get("lime_runtime")
+            .and_then(|metadata| metadata.get("source"))
+            .and_then(Value::as_str),
+        Some("app_server_turn_policy")
+    );
+}
+
+#[test]
+fn detached_first_turn_keeps_auto_web_search_in_compact_context() {
+    let mut request = request_for_test(
+        "帮我说明 TTFT 优化重点",
+        Some(RuntimeRequest {
+            web_search: Some(true),
+            ..RuntimeRequest::default()
+        }),
+        None,
+    );
+    let options = request.runtime_options.as_mut().expect("runtime options");
+    options.runtime_request_mut().provider_preference = Some("openai".to_string());
+    options.runtime_request_mut().model_preference = Some("gpt-4.1".to_string());
+    apply_detached_desktop_first_turn_policy(&mut request);
+    let host_request = runtime_request_from_request(&request);
+    let scope = session_scope_from_request(&request).expect("session scope");
+    let selection = selection_from_explicit_preferences(&request).expect("selection");
+    let policy = request_tool_policy_from_request(host_request.as_ref());
+    assert!(policy.allows_web_search());
+    let config = session_config_from_request(
+        &request,
+        host_request.as_ref(),
+        &scope,
+        &selection,
+        &policy,
+        None,
+    );
+    assert_eq!(config.include_context_trace, Some(false));
+    let turn_context = config.turn_context.as_ref().expect("turn context");
+    assert_eq!(
+        turn_context
+            .metadata
+            .get("lime_runtime")
+            .and_then(|metadata| metadata.get("tool_surface"))
+            .and_then(Value::as_str),
+        Some("compact_tools")
+    );
+    assert_eq!(
+        turn_context
+            .metadata
+            .get("lime_runtime")
+            .and_then(|metadata| metadata.get("source"))
+            .and_then(Value::as_str),
+        Some("app_server_turn_policy")
+    );
+    assert_eq!(
+        turn_context
+            .metadata
+            .get("web_search_enabled")
+            .and_then(Value::as_bool),
+        Some(true)
+    );
+
+    let prompt = config.system_prompt.expect("system prompt");
+    assert!(prompt.contains("你是 Lime 桌面端中的 AI 助手"));
+    assert!(!prompt.contains("## 可用 Agent Skills"));
+}
+
+#[test]
+fn session_scope_rejects_turn_thread_mismatch() {
+    let mut request = request_for_test("对话", None, None);
+    request.turn.thread_id = "thread-other".to_string();
+
+    let error =
+        session_scope_from_request(&request).expect_err("mismatched owner must fail closed");
+
+    assert!(matches!(
+        error,
+        RuntimeCoreError::Backend(message)
+            if message.contains("turn thread 'thread-other' does not match session thread 'thread-1'")
+    ));
+}

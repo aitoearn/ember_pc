@@ -1,5 +1,5 @@
 [package]
-name = "ember-websocket"
+name = "lime-websocket"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -8,9 +8,7 @@ homepage.workspace = true
 
 [dependencies]
 # 项目内 crate
-ember-core.workspace = true
-ember-agent = { path = "../agent" }
-ember-scheduler.workspace = true
+lime-core.workspace = true
 
 # 序列化
 serde.workspace = true

@@ -12,7 +12,7 @@ import {
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ember-i18n-rtl-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lime-i18n-rtl-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -104,10 +104,10 @@ describe("i18n rtl readiness report", () => {
     );
     writeFile(
       root,
-      "docs/roadmap/i18n/evidence/rtl-playwright-smoke-report.json",
+      "internal/roadmap/i18n/evidence/rtl-playwright-smoke-report.json",
       JSON.stringify(
         {
-          schemaVersion: "ember.i18n.rtlPlaywrightSmokeReport.v1",
+          schemaVersion: "lime.i18n.rtlPlaywrightSmokeReport.v1",
           summary: {
             homeSidebarOnRight: true,
             settingsNavVisible: true,
@@ -121,7 +121,7 @@ describe("i18n rtl readiness report", () => {
 
     const report = analyzeI18nRtlReadinessReport({ repoRoot: root });
 
-    expect(report.schemaVersion).toBe("ember.i18n.rtlReadinessReport.v1");
+    expect(report.schemaVersion).toBe("lime.i18n.rtlReadinessReport.v1");
     expect(report.summary.directionAwareFoundationFileCount).toBe(1);
     expect(report.summary.surfaceCount).toBe(5);
     expect(report.summary.totalMarkerCount).toBeGreaterThan(0);
@@ -168,7 +168,7 @@ describe("i18n rtl readiness report", () => {
     );
     expect(JSON.parse(formatI18nRtlReadinessReport(report, "json"))).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.rtlReadinessReport.v1",
+        schemaVersion: "lime.i18n.rtlReadinessReport.v1",
       }),
     );
   });
@@ -178,10 +178,10 @@ describe("i18n rtl readiness report", () => {
 
     writeFile(
       root,
-      "docs/roadmap/i18n/evidence/rtl-playwright-smoke-report.json",
+      "internal/roadmap/i18n/evidence/rtl-playwright-smoke-report.json",
       JSON.stringify(
         {
-          schemaVersion: "ember.i18n.rtlPlaywrightSmokeReport.v1",
+          schemaVersion: "lime.i18n.rtlPlaywrightSmokeReport.v1",
           summary: {
             homeSidebarOnRight: true,
             settingsNavVisible: true,
@@ -235,7 +235,7 @@ describe("i18n rtl readiness report", () => {
     expect(writeSpy).not.toHaveBeenCalled();
     expect(JSON.parse(fs.readFileSync(outFile, "utf8"))).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.rtlReadinessReport.v1",
+        schemaVersion: "lime.i18n.rtlReadinessReport.v1",
       }),
     );
   });

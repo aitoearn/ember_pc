@@ -497,7 +497,7 @@ function summarizeAgentQcManifest(manifest, validation) {
   const lanes = asArray(manifest?.lanes);
   const scenarios = asArray(manifest?.scenarios);
   return {
-    title: manifest?.title ?? "Ember Agent QC",
+    title: manifest?.title ?? "Lime Agent QC",
     manifestVersion: manifest?.manifestVersion ?? "unknown",
     evidenceSchema: manifest?.evidenceSchema ?? "",
     valid: validation.valid,

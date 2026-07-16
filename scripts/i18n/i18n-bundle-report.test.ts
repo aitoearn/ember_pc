@@ -12,7 +12,7 @@ import {
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ember-i18n-bundle-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lime-i18n-bundle-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -71,7 +71,7 @@ describe("i18n bundle report", () => {
       sourceLocale: "zh-CN",
     });
 
-    expect(report.schemaVersion).toBe("ember.i18n.bundleStrategyReport.v1");
+    expect(report.schemaVersion).toBe("lime.i18n.bundleStrategyReport.v1");
     expect(report.localeCount).toBe(2);
     expect(report.summary.inlineGroupCount).toBe(3);
     expect(report.summary.lazyGroupCount).toBe(1);
@@ -132,7 +132,7 @@ describe("i18n bundle report", () => {
     expect(writeSpy).toHaveBeenCalledTimes(1);
     expect(JSON.parse(String(writeSpy.mock.calls[0]?.[0] ?? ""))).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.bundleStrategyReport.v1",
+        schemaVersion: "lime.i18n.bundleStrategyReport.v1",
       }),
     );
   });
@@ -161,7 +161,7 @@ describe("i18n bundle report", () => {
     expect(exitCode).toBe(0);
     expect(JSON.parse(fs.readFileSync(outputPath, "utf8"))).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.bundleStrategyReport.v1",
+        schemaVersion: "lime.i18n.bundleStrategyReport.v1",
       }),
     );
   });

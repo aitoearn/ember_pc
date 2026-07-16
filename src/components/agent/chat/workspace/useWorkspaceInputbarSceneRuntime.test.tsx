@@ -2,7 +2,7 @@ import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { useWorkspaceInputbarSceneRuntime } from "./useWorkspaceInputbarSceneRuntime";
 
 const mockInputbarRender = vi.hoisted(() => vi.fn());
@@ -35,30 +35,93 @@ vi.mock("./knowledge/useWorkspaceKnowledgeRuntime", () => ({
 }));
 
 type HookProps = Parameters<typeof useWorkspaceInputbarSceneRuntime>[0];
+type HarnessPanelBaseProps = HookProps["generalWorkbenchHarnessPanelBaseProps"];
+type HookPropsOverrides = Partial<
+  Omit<HookProps, "generalWorkbenchHarnessPanelBaseProps">
+> &
+  Partial<HarnessPanelBaseProps> & {
+    generalWorkbenchHarnessPanelBaseProps?: Partial<HarnessPanelBaseProps>;
+  };
 
 const mountedRoots: Array<{ container: HTMLDivElement; root: Root }> = [];
 
-function createDefaultProps(
-  overrides: Partial<HookProps> = {},
-): HookProps {
+function createDefaultHarnessPanelBaseProps(
+  noop: ReturnType<typeof vi.fn>,
+  overrides: Partial<HarnessPanelBaseProps> = {},
+): HarnessPanelBaseProps {
+  return {
+    environment: {
+      skillsCount: 0,
+      skillNames: [],
+      memorySignals: [],
+      contextItemsCount: 0,
+      activeContextCount: 0,
+      contextItemNames: [],
+      contextEnabled: false,
+    },
+    canonicalChildren: [],
+    threadRead: null,
+    turns: [],
+    threadItems: [],
+    currentTurnId: null,
+    pendingActions: [],
+    submittedActionsInFlight: [],
+    onRespondToAction: noop,
+    messages: [],
+    queuedTurns: [],
+    canInterrupt: false,
+    onInterruptCurrentTurn: noop,
+    onResumeThread: noop,
+    onReplayPendingRequest: noop,
+    onPromoteQueuedTurn: noop,
+    onObjectiveChanged: noop,
+    onManageProviders: noop,
+    onOpenExecutionPolicySettings: noop,
+    diagnosticRuntimeContext: {
+      sessionId: null,
+      workspaceId: "project-1",
+      workingDir: "/tmp/project-1",
+      providerType: "openai",
+      model: "gpt-5",
+      executionStrategy: "react",
+      activeTheme: "general",
+    },
+    toolInventory: null,
+    toolInventoryLoading: false,
+    toolInventoryError: null,
+    onRefreshToolInventory: noop,
+    onOpenSubagentSession: noop,
+    onLoadFilePreview: noop,
+    onOpenFile: noop,
+    ...overrides,
+  };
+}
+
+function createDefaultProps(overrides: HookPropsOverrides = {}): HookProps {
   const noop = vi.fn();
+  const {
+    generalWorkbenchHarnessPanelBaseProps,
+    pendingActions,
+    submittedActionsInFlight,
+    onRespondToAction,
+    ...hookOverrides
+  } = overrides;
 
   return {
     setMentionedCharacters: noop,
-    taskFiles: [],
-    taskFilesExpanded: false,
-    setTaskFilesExpanded: noop,
-    selectedFileId: undefined,
     isThemeWorkbench: true,
     sessionId: "session-1",
-    childSubagentSessions: [],
-    subagentParentContext: null,
-    selectedTeamLabel: undefined,
-    selectedTeamSummary: undefined,
-    teamMemorySnapshot: null,
+    generalWorkbenchHarnessPanelBaseProps: createDefaultHarnessPanelBaseProps(
+      noop,
+      {
+        ...generalWorkbenchHarnessPanelBaseProps,
+        ...(pendingActions ? { pendingActions } : {}),
+        ...(submittedActionsInFlight ? { submittedActionsInFlight } : {}),
+        ...(onRespondToAction ? { onRespondToAction } : {}),
+      },
+    ),
     currentSessionTitle: "当前会话",
     handleStopSending: noop,
-    handleOpenSubagentSession: noop,
     input: "",
     setInput: noop,
     currentGate: null,
@@ -83,12 +146,11 @@ function createDefaultProps(
     activeTheme: "general",
     navigationActions: {
       handleManageProviders: noop,
+      handleOpenExecutionPolicySettings: noop,
       handleOpenRuntimeMemoryWorkbench: noop,
       handleOpenKnowledgeManagement: noop,
       handleProjectChange: noop,
     },
-    selectedTeam: null,
-    handleTaskFileClick: noop,
     characters: [],
     skills: [],
     serviceSkills: [],
@@ -103,23 +165,7 @@ function createDefaultProps(
     soulArtifactVoiceGenerationBrief: null,
     soulArtifactVoiceEnabledForTurn: true,
     onSoulArtifactVoiceEnabledForTurnChange: noop,
-    turns: [],
-    threadItems: [],
-    currentTurnId: null,
-    threadRead: null,
-    activeExecutionRuntime: null,
-    pendingActions: [],
-    submittedActionsInFlight: [],
-    onRespondToAction: noop,
-    messages: [],
-    queuedTurns: [],
-    resumeThread: noop,
-    replayPendingAction: noop,
-    promoteQueuedTurn: noop,
-    onObjectiveChanged: noop,
     removeQueuedTurn: noop,
-    latestAssistantMessageId: null,
-    sessionIdForDiagnostics: null,
     generalWorkbenchEntryPrompt: null,
     handleRestartGeneralWorkbenchEntryPrompt: noop,
     handleContinueGeneralWorkbenchEntryPrompt: noop,
@@ -148,23 +194,8 @@ function createDefaultProps(
       recentFileEvents: [],
       hasSignals: false,
     },
-    harnessEnvironment: {
-      skillsCount: 0,
-      skillNames: [],
-      memorySignals: [],
-      contextItemsCount: 0,
-      activeContextCount: 0,
-      contextItemNames: [],
-      contextEnabled: false,
-    },
-    toolInventory: null,
-    toolInventoryLoading: false,
-    toolInventoryError: null,
-    refreshToolInventory: noop,
     mappedTheme: "general",
     activeRuntimeStatusTitle: null,
-    handleHarnessLoadFilePreview: noop,
-    handleFileClick: noop,
     chatToolPreferences: {
       task: false,
       subagent: false,
@@ -178,7 +209,7 @@ function createDefaultProps(
     fileManagerOpen: false,
     onToggleFileManager: noop,
     inputCompletionEnabled: true,
-    ...overrides,
+    ...hookOverrides,
   };
 }
 
@@ -201,14 +232,42 @@ function renderHookNode(props: HookProps): HTMLDivElement {
 }
 
 function getLatestInputbarProps(): {
+  disabled?: boolean;
+  isLoading?: boolean;
+  inputRestoreRequest?: unknown;
+  onInputRestoreRequestHandled?: (requestId: string) => void;
+  onSend?: (payload?: {
+    images?: unknown[];
+    textOverride?: string;
+    sendOptions?: {
+      requestMetadata?: Record<string, unknown>;
+      targetSessionId?: string;
+      skipSessionRestore?: boolean;
+    };
+  }) => void | Promise<boolean> | boolean;
   toolStates?: Record<string, boolean>;
   onToolStatesChange?: (states: Record<string, boolean>) => void;
+  queuedTurns?: Array<{ queued_turn_id: string }>;
 } {
   const latestCall = mockInputbarRender.mock.calls.at(-1);
   expect(latestCall).toBeTruthy();
   return latestCall?.[0] as {
+    disabled?: boolean;
+    isLoading?: boolean;
+    inputRestoreRequest?: unknown;
+    onInputRestoreRequestHandled?: (requestId: string) => void;
+    onSend?: (payload?: {
+      images?: unknown[];
+      textOverride?: string;
+      sendOptions?: {
+        requestMetadata?: Record<string, unknown>;
+        targetSessionId?: string;
+        skipSessionRestore?: boolean;
+      };
+    }) => void | Promise<boolean> | boolean;
     toolStates?: Record<string, boolean>;
     onToolStatesChange?: (states: Record<string, boolean>) => void;
+    queuedTurns?: Array<{ queued_turn_id: string }>;
   };
 }
 
@@ -218,7 +277,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 afterEach(() => {
@@ -236,6 +295,104 @@ afterEach(() => {
 });
 
 describe("useWorkspaceInputbarSceneRuntime", () => {
+  it("只有 queued turn 时应展示队列但不伪装成正在输出", () => {
+    renderHookNode(
+      createDefaultProps({
+        isSending: false,
+        generalWorkbenchHarnessPanelBaseProps: {
+          queuedTurns: [
+            {
+              queued_turn_id: "turn-queued",
+              message_preview: "稍后继续",
+              message_text: "稍后继续",
+              created_at: 1,
+              image_count: 0,
+              position: 0,
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(getLatestInputbarProps()).toMatchObject({
+      isLoading: false,
+      queuedTurns: [{ queued_turn_id: "turn-queued" }],
+    });
+  });
+
+  it("Inputbar 发送应绑定当前会话，避免落到旧 active session", async () => {
+    const handleSend = vi.fn().mockResolvedValue(true);
+    renderHookNode(
+      createDefaultProps({
+        sessionId: "session-current-inputbar",
+        handleSend,
+      }),
+    );
+
+    await act(async () => {
+      await getLatestInputbarProps().onSend?.({
+        textOverride: "整理今天的国际新闻",
+        sendOptions: {
+          requestMetadata: {
+            harness: {
+              scenario: "home-hotpath",
+            },
+          },
+        },
+      });
+    });
+
+    expect(handleSend).toHaveBeenCalledWith(
+      undefined,
+      undefined,
+      undefined,
+      "整理今天的国际新闻",
+      "react",
+      undefined,
+      expect.objectContaining({
+        requestMetadata: {
+          harness: {
+            scenario: "home-hotpath",
+          },
+        },
+        targetSessionId: "session-current-inputbar",
+      }),
+    );
+  });
+
+  it("Inputbar 显式 targetSessionId 应优先于当前会话", async () => {
+    const handleSend = vi.fn().mockResolvedValue(true);
+    renderHookNode(
+      createDefaultProps({
+        sessionId: "session-current-inputbar",
+        handleSend,
+      }),
+    );
+
+    await act(async () => {
+      await getLatestInputbarProps().onSend?.({
+        textOverride: "继续处理草稿",
+        sendOptions: {
+          targetSessionId: "session-explicit-target",
+          skipSessionRestore: true,
+        },
+      });
+    });
+
+    expect(handleSend).toHaveBeenCalledWith(
+      undefined,
+      undefined,
+      undefined,
+      "继续处理草稿",
+      "react",
+      undefined,
+      expect.objectContaining({
+        targetSessionId: "session-explicit-target",
+        skipSessionRestore: true,
+      }),
+    );
+  });
+
   it("有已保存创作声线时应在输入区显示本轮开关并响应切换", () => {
     const onSoulArtifactVoiceEnabledForTurnChange = vi.fn();
     const container = renderHookNode(
@@ -270,8 +427,254 @@ describe("useWorkspaceInputbarSceneRuntime", () => {
     const container = renderHookNode(createDefaultProps());
 
     expect(
-      container.querySelector('[data-testid="soul-artifact-voice-turn-toggle"]'),
+      container.querySelector(
+        '[data-testid="soul-artifact-voice-turn-toggle"]',
+      ),
     ).toBeNull();
+  });
+
+  it("应在 Plan 确认态替换底部输入框而不是叠加渲染", () => {
+    const container = renderHookNode(
+      createDefaultProps({
+        planDecisionAccessory: (
+          <div data-testid="plan-composer-decision-panel">计划确认</div>
+        ),
+      }),
+    );
+
+    expect(
+      container.querySelector('[data-testid="plan-composer-decision-panel"]'),
+    ).not.toBeNull();
+    expect(container.textContent).toContain("计划确认");
+    expect(container.querySelector('[data-testid="inputbar-mock"]')).toBeNull();
+  });
+
+  it("Plan 确认态与 pending approval 同时存在时应优先展示 approval", () => {
+    const container = renderHookNode(
+      createDefaultProps({
+        planDecisionAccessory: (
+          <div data-testid="plan-composer-decision-panel">计划确认</div>
+        ),
+        pendingActions: [
+          {
+            requestId: "approval-over-plan-1",
+            actionType: "tool_confirmation",
+            status: "pending",
+            toolName: "functions.exec_command",
+            prompt: "允许执行当前命令？",
+          },
+        ],
+      }),
+    );
+
+    expect(
+      container.querySelector('[data-testid="inputbar-approval-replacement"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="inputbar-approval-prompt"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="plan-composer-decision-panel"]'),
+    ).toBeNull();
+    expect(container.querySelector('[data-testid="inputbar-mock"]')).toBeNull();
+  });
+
+  it("pending approval 应在输入区替换普通输入框并提交 tool_confirmation 响应", async () => {
+    const onRespondToAction = vi.fn().mockResolvedValue(undefined);
+    const container = renderHookNode(
+      createDefaultProps({
+        pendingActions: [
+          {
+            requestId: "approval-inputbar-1",
+            actionType: "tool_confirmation",
+            status: "pending",
+            toolName: "functions.exec_command",
+            prompt: "允许执行当前命令？",
+            arguments: {
+              command: "npm test -- --runInBand",
+              cwd: "/tmp/project-1",
+            },
+          },
+        ],
+        onRespondToAction,
+      }),
+    );
+
+    expect(
+      container.querySelector('[data-testid="inputbar-approval-replacement"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="inputbar-approval-prompt"]'),
+    ).not.toBeNull();
+    expect(container.querySelector('[data-testid="inputbar-mock"]')).toBeNull();
+    expect(container.textContent).toContain("允许执行当前命令？");
+    expect(container.textContent).not.toContain("functions.exec_command");
+    expect(container.textContent).not.toContain("npm test -- --runInBand");
+
+    const allowButton = container.querySelector(
+      'button[data-decision="allow_once"]',
+    ) as HTMLButtonElement | null;
+
+    await act(async () => {
+      allowButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(onRespondToAction).toHaveBeenCalledWith({
+      requestId: "approval-inputbar-1",
+      decision: "allow_once",
+      response: "允许本次工具操作",
+      actionType: "tool_confirmation",
+    });
+  });
+
+  it("pending approval 应只展示后端声明可用的 decision 动作", async () => {
+    const onRespondToAction = vi.fn().mockResolvedValue(undefined);
+    const container = renderHookNode(
+      createDefaultProps({
+        pendingActions: [
+          {
+            requestId: "approval-cancel-only-1",
+            actionType: "tool_confirmation",
+            status: "pending",
+            toolName: "functions.exec_command",
+            prompt: "允许执行高风险命令？",
+            availableDecisions: ["decline", "cancel"],
+          },
+        ],
+        onRespondToAction,
+      }),
+    );
+
+    expect(
+      container.querySelector('button[data-decision="allow_once"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('button[data-decision="allow_for_session"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('button[data-decision="decline"]'),
+    ).not.toBeNull();
+    const cancelButton = container.querySelector(
+      'button[data-decision="cancel"]',
+    ) as HTMLButtonElement | null;
+    expect(cancelButton).not.toBeNull();
+
+    await act(async () => {
+      cancelButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(onRespondToAction).toHaveBeenCalledWith({
+      requestId: "approval-cancel-only-1",
+      decision: "cancel",
+      response: "用户取消了当前任务",
+      actionType: "tool_confirmation",
+    });
+  });
+
+  it("已提交中的 approval 不应继续占用输入区替换槽", () => {
+    const container = renderHookNode(
+      createDefaultProps({
+        pendingActions: [
+          {
+            requestId: "approval-submitted-1",
+            actionType: "tool_confirmation",
+            status: "pending",
+            toolName: "Bash",
+            prompt: "允许执行当前命令？",
+          },
+        ],
+        submittedActionsInFlight: [
+          {
+            requestId: "approval-submitted-1",
+            actionType: "tool_confirmation",
+            status: "submitted",
+          },
+        ],
+      }),
+    );
+
+    expect(
+      container.querySelector('[data-testid="inputbar-approval-prompt"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('[data-testid="inputbar-mock"]'),
+    ).not.toBeNull();
+  });
+
+  it("approval 提交中释放输入区后应回到 Plan 确认态且不误发 approval response", () => {
+    const onPlanContinue = vi.fn();
+    const onRespondToAction = vi.fn();
+    const container = renderHookNode(
+      createDefaultProps({
+        planDecisionAccessory: (
+          <button
+            type="button"
+            data-testid="plan-composer-continue"
+            onClick={onPlanContinue}
+          >
+            确认计划
+          </button>
+        ),
+        pendingActions: [
+          {
+            requestId: "approval-submitted-plan-1",
+            actionType: "tool_confirmation",
+            status: "pending",
+            toolName: "Bash",
+            prompt: "允许执行当前命令？",
+          },
+        ],
+        submittedActionsInFlight: [
+          {
+            requestId: "approval-submitted-plan-1",
+            actionType: "tool_confirmation",
+            status: "submitted",
+          },
+        ],
+        onRespondToAction,
+      }),
+    );
+
+    expect(
+      container.querySelector('[data-testid="inputbar-approval-prompt"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector(
+        '[data-testid="plan-decision-inputbar-replacement"]',
+      ),
+    ).not.toBeNull();
+    const continueButton = container.querySelector(
+      '[data-testid="plan-composer-continue"]',
+    ) as HTMLButtonElement | null;
+
+    act(() => {
+      continueButton?.click();
+    });
+
+    expect(onPlanContinue).toHaveBeenCalledTimes(1);
+    expect(onRespondToAction).not.toHaveBeenCalled();
+  });
+
+  it("非 Plan 决策态仍应把附加面板作为输入区 overlay accessory 渲染", () => {
+    const container = renderHookNode(
+      createDefaultProps({
+        generalWorkbenchEntryPrompt: {
+          kind: "resume",
+          signature: "resume:continue-last-work",
+          title: "继续上次工作",
+          description: "补充上下文后继续。",
+          actionLabel: "继续",
+          prompt: "继续上次工作",
+        },
+      }),
+    );
+
+    expect(
+      container.querySelector('[data-testid="inputbar-mock"]'),
+    ).not.toBeNull();
+    expect(container.textContent).toContain("继续上次工作");
   });
 
   it("应把工作区 task 偏好映射为 Inputbar plan 受控状态", () => {
@@ -299,9 +702,10 @@ describe("useWorkspaceInputbarSceneRuntime", () => {
       });
     });
 
-    const updater = setChatToolPreferences.mock.calls[0]?.[0] as (
-      previous: { task: boolean; subagent: boolean },
-    ) => { task: boolean; subagent: boolean };
+    const updater = setChatToolPreferences.mock.calls[0]?.[0] as (previous: {
+      task: boolean;
+      subagent: boolean;
+    }) => { task: boolean; subagent: boolean };
     expect(updater({ task: true, subagent: true })).toEqual({
       task: false,
       subagent: true,
@@ -338,5 +742,83 @@ describe("useWorkspaceInputbarSceneRuntime", () => {
 
     expect(setChatToolPreferences).not.toHaveBeenCalled();
     expect(onObjectiveEnabledChange).toHaveBeenCalledWith(true);
+  });
+
+  it("任务中心 detached 会话没有 projectId 时仍应允许继续输入", () => {
+    renderHookNode(
+      createDefaultProps({
+        contextVariant: "task-center",
+        projectId: null,
+        isPreparingSend: false,
+      }),
+    );
+
+    expect(getLatestInputbarProps().disabled).toBe(false);
+  });
+
+  it("会话恢复中应禁用任务中心输入，避免消息落到新会话", () => {
+    renderHookNode(
+      createDefaultProps({
+        contextVariant: "task-center",
+        projectId: null,
+        isPreparingSend: false,
+        isSessionRestoring: true,
+      }),
+    );
+
+    expect(getLatestInputbarProps().disabled).toBe(true);
+  });
+
+  it("普通会话没有 projectId 但已有 sessionId 时仍应允许继续输入", () => {
+    renderHookNode(
+      createDefaultProps({
+        contextVariant: "default",
+        projectId: null,
+        sessionId: "session-detached",
+        isPreparingSend: false,
+      }),
+    );
+
+    expect(getLatestInputbarProps().disabled).toBe(false);
+  });
+
+  it("普通工作区没有 projectId 且没有 sessionId 时仍应禁用输入", () => {
+    renderHookNode(
+      createDefaultProps({
+        contextVariant: "default",
+        projectId: null,
+        sessionId: null,
+        isPreparingSend: false,
+      }),
+    );
+
+    expect(getLatestInputbarProps().disabled).toBe(true);
+  });
+
+  it("应把中断输入恢复请求透传给 inline Inputbar", () => {
+    const onInputRestoreRequestHandled = vi.fn();
+    const inputRestoreRequest = {
+      requestId: "restore-1",
+      reason: "thinking_only_cancelled_turn" as const,
+      draft: {
+        text: "恢复这段输入",
+        images: [],
+        pathReferences: [],
+        inputCapabilityRoute: null,
+      },
+    };
+
+    renderHookNode(
+      createDefaultProps({
+        inputRestoreRequest,
+        onInputRestoreRequestHandled,
+      }),
+    );
+
+    expect(getLatestInputbarProps().inputRestoreRequest).toBe(
+      inputRestoreRequest,
+    );
+    getLatestInputbarProps().onInputRestoreRequestHandled?.("restore-1");
+    expect(onInputRestoreRequestHandled).toHaveBeenCalledWith("restore-1");
   });
 });

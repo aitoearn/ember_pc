@@ -1,25 +1,25 @@
-export const EMBER_APP_BACKGROUND = "var(--ember-app-bg, #f4f7f1)";
-export const EMBER_STAGE_SURFACE =
-  "var(--ember-stage-surface, var(--ember-chrome-surface, #f4f7f1))";
-export const EMBER_STAGE_SURFACE_SOFT =
-  "var(--ember-stage-surface-soft, var(--ember-stage-surface, #f4f7f1))";
-export const EMBER_CARD_SUBTLE =
-  "var(--ember-card-subtle, var(--ember-home-card-surface, #ffffff))";
-export const EMBER_CARD_SUBTLE_BORDER =
-  "var(--ember-card-subtle-border, var(--ember-surface-border, #e2f0e2))";
-export const EMBER_DIVIDER_SUBTLE =
-  "var(--ember-divider-subtle, rgba(143, 154, 132, 0.18))";
-export const TASK_CENTER_CHROME_RAIL = "var(--ember-chrome-rail, #f0f4ed)";
+export const LIME_APP_BACKGROUND = "var(--lime-app-bg, #f4f7f1)";
+export const LIME_STAGE_SURFACE =
+  "var(--lime-stage-surface, var(--lime-chrome-surface, #f4f7f1))";
+export const LIME_STAGE_SURFACE_SOFT =
+  "var(--lime-stage-surface-soft, var(--lime-stage-surface, #f4f7f1))";
+export const LIME_CARD_SUBTLE =
+  "var(--lime-card-subtle, var(--lime-home-card-surface, #ffffff))";
+export const LIME_CARD_SUBTLE_BORDER =
+  "var(--lime-card-subtle-border, var(--lime-surface-border, #e2f0e2))";
+export const LIME_DIVIDER_SUBTLE =
+  "var(--lime-divider-subtle, rgba(143, 154, 132, 0.18))";
+export const TASK_CENTER_CHROME_RAIL = "var(--lime-chrome-rail, #f0f4ed)";
 export const TASK_CENTER_CHROME_RAIL_SURFACE =
-  "var(--ember-chrome-rail-surface, var(--ember-chrome-rail, #f0f4ed))";
-export const TASK_CENTER_CHROME_SURFACE = "var(--ember-chrome-surface, #f4f7f1)";
+  "var(--lime-chrome-rail-surface, var(--lime-chrome-rail, #f0f4ed))";
+export const TASK_CENTER_CHROME_SURFACE = "var(--lime-chrome-surface, #f4f7f1)";
 export const TASK_CENTER_CHROME_ACTIVE_TAB =
-  "var(--ember-chrome-tab-active-surface, var(--ember-chrome-active-tab, #fbfcf8))";
+  "var(--lime-chrome-tab-active-surface, var(--lime-chrome-active-tab, #fbfcf8))";
 export const TASK_CENTER_CHROME_STAGE_BLEND =
-  "var(--ember-chrome-stage-blend, linear-gradient(180deg, var(--ember-chrome-tab-active-surface, #fbfcf8) 0%, var(--ember-stage-surface-top, var(--ember-home-bg-start, #f8fcf7)) 100%))";
+  "var(--lime-chrome-stage-blend, linear-gradient(180deg, var(--lime-chrome-tab-active-surface, #fbfcf8) 0%, var(--lime-stage-surface-top, var(--lime-home-bg-start, #f8fcf7)) 100%))";
 export const TASK_CENTER_CHROME_DIVIDER =
-  "var(--ember-chrome-divider, var(--ember-chrome-border, rgba(204, 214, 197, 0.72)))";
+  "var(--lime-chrome-divider, var(--lime-chrome-border, rgba(204, 214, 197, 0.72)))";
 export const TASK_CENTER_CHROME_STAGE_SEAM =
-  "var(--ember-chrome-stage-seam, color-mix(in srgb, var(--ember-chrome-divider, rgba(204, 214, 197, 0.72)) 24%, transparent))";
+  "var(--lime-chrome-stage-seam, color-mix(in srgb, var(--lime-chrome-divider, rgba(204, 214, 197, 0.72)) 24%, transparent))";
 export const TASK_CENTER_CHROME_SHADOW =
-  "var(--ember-chrome-shadow-subtle, 0 12px 26px -28px rgba(15, 23, 42, 0.42))";
+  "var(--lime-chrome-shadow-subtle, 0 12px 26px -28px rgba(15, 23, 42, 0.42))";

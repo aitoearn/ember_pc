@@ -20,6 +20,7 @@ import {
   readStringField,
   truncateText,
 } from "./normalization.js";
+import { extractAgentUiToolLifecyclePayloadMetadata } from "./toolLifecycleMetadata.js";
 
 export interface AgentUiThreadItemProjectionInput {
   id: string;
@@ -58,6 +59,7 @@ export interface AgentUiThreadItemProjectionInput {
   detail?: string;
   message?: string;
   code?: string;
+  contentParts?: readonly unknown[] | null;
 }
 
 export interface AgentUiTaskOwnerChangeProjectionInput {
@@ -154,10 +156,7 @@ export function resolveAgentUiThreadItemPhase(
 }
 
 export function resolveAgentUiThreadItemToolResultType(
-  item: Pick<
-    AgentUiThreadItemProjectionInput,
-    "exit_code" | "status" | "type"
-  >,
+  item: Pick<AgentUiThreadItemProjectionInput, "exit_code" | "status" | "type">,
 ): AgentUiEventClass {
   if (item.status === "failed") {
     return "tool.failed";
@@ -176,10 +175,7 @@ export function resolveAgentUiThreadItemToolResultType(
 }
 
 export function resolveAgentUiThreadItemToolPhase(
-  item: Pick<
-    AgentUiThreadItemProjectionInput,
-    "exit_code" | "status" | "type"
-  >,
+  item: Pick<AgentUiThreadItemProjectionInput, "exit_code" | "status" | "type">,
 ): AgentUiPhase {
   if (resolveAgentUiThreadItemToolResultType(item) === "tool.failed") {
     return "failed";
@@ -188,15 +184,28 @@ export function resolveAgentUiThreadItemToolPhase(
 }
 
 export function resolveAgentUiThreadItemSubagentRuntimeStatus(
-  item: Pick<AgentUiThreadItemProjectionInput, "status">,
+  item: Pick<AgentUiThreadItemProjectionInput, "status_label">,
 ): AgentUiRuntimeStatus {
-  if (item.status === "failed") {
-    return "failed";
+  switch (item.status_label?.trim().toLowerCase()) {
+    case "started":
+    case "interacted":
+      return "running";
+    case "interrupted":
+      return "cancelled";
+    default:
+      return "unknown";
   }
-  if (item.status === "completed") {
-    return "completed";
-  }
-  return "running";
+}
+
+function resolveAgentUiThreadItemSubagentPhase(
+  item: Pick<AgentUiThreadItemProjectionInput, "status_label">,
+): AgentUiPhase {
+  return item.status_label?.trim().toLowerCase() === "interrupted"
+    ? "interrupted"
+    : item.status_label?.trim().toLowerCase() === "started" ||
+        item.status_label?.trim().toLowerCase() === "interacted"
+      ? "acting"
+      : "unknown";
 }
 
 export function buildAgentUiThreadItemBase(
@@ -209,6 +218,55 @@ export function buildAgentUiThreadItemBase(
     threadId: item.thread_id,
     turnId: item.turn_id,
     partId: item.id,
+  };
+}
+
+function isInlineMediaReference(uri: string): boolean {
+  return uri.trimStart().toLowerCase().startsWith("data:");
+}
+
+function pushUnique(values: string[], value: string | undefined): void {
+  const normalized = value?.trim();
+  if (!normalized || values.includes(normalized)) {
+    return;
+  }
+  values.push(normalized);
+}
+
+function summarizeAgentMessageContentParts(
+  contentParts: readonly unknown[] | null | undefined,
+): {
+  contentPartCount: number;
+  mediaKinds: string[];
+  referenceUris: string[];
+} {
+  if (!Array.isArray(contentParts)) {
+    return {
+      contentPartCount: 0,
+      mediaKinds: [],
+      referenceUris: [],
+    };
+  }
+
+  const mediaKinds: string[] = [];
+  const referenceUris: string[] = [];
+  for (const part of contentParts) {
+    const record = readRecord(part);
+    if (readStringField(record, ["type"]) !== "media") {
+      continue;
+    }
+    pushUnique(mediaKinds, readStringField(record, ["kind"]));
+    const reference = readRecord(record?.reference);
+    const uri = readStringField(reference, ["uri"]);
+    if (uri && !isInlineMediaReference(uri)) {
+      pushUnique(referenceUris, uri);
+    }
+  }
+
+  return {
+    contentPartCount: contentParts.length,
+    mediaKinds,
+    referenceUris,
   };
 }
 
@@ -229,7 +287,7 @@ export function buildAgentUiThreadItemSubagentActivityEvent(
     agentId: item.session_id,
     owner: "task",
     scope: "agent",
-    phase: resolveAgentUiThreadItemPhase(item),
+    phase: resolveAgentUiThreadItemSubagentPhase(item),
     surface: "task_capsule",
     persistence: "archive",
     runtimeEntity: "subagent_turn",
@@ -240,50 +298,6 @@ export function buildAgentUiThreadItemSubagentActivityEvent(
       runtimeEntity: "subagent_turn",
       statusLabel: item.status_label,
       title: item.title,
-      role: item.role,
-      model: item.model,
-      childSessionId: item.session_id,
-    },
-  };
-}
-
-export function buildAgentUiThreadItemSubagentWorkerNotificationEvent(
-  sourceType: AgentUiProjectionSourceType | string,
-  item: AgentUiThreadItemProjectionInput,
-  context: AgentUiProjectionContext = {},
-): AgentUiProjectionEvent | null {
-  if (item.type !== "subagent_activity") {
-    return null;
-  }
-
-  const phase = resolveAgentUiThreadItemPhase(item);
-  if (phase !== "completed" && phase !== "failed") {
-    return null;
-  }
-
-  const runtimeStatus = phase === "failed" ? "failed" : "completed";
-  return {
-    ...buildAgentUiThreadItemBase(sourceType, item, context),
-    type: "worker.notification",
-    taskId: item.session_id,
-    agentId: item.session_id,
-    workerNotificationId: item.id,
-    transcriptRef: `${item.thread_id}:${item.turn_id}:${item.id}`,
-    owner: "agent",
-    scope: "agent",
-    phase,
-    surface: "worker_notifications",
-    persistence: "archive",
-    runtimeEntity: "subagent_turn",
-    runtimeStatus,
-    latestTurnStatus: runtimeStatus,
-    topology: "coordinator_team",
-    payload: {
-      runtimeEntity: "subagent_turn",
-      notificationKind: "worker_result",
-      statusLabel: item.status_label,
-      title: item.title,
-      summaryPreview: truncateText(readThreadItemSummaryText(item.summary)),
       role: item.role,
       model: item.model,
       childSessionId: item.session_id,
@@ -351,6 +365,25 @@ export function buildAgentUiThreadItemEvent(
         item,
         context,
       );
+    case "agent_message": {
+      const contentSummary = summarizeAgentMessageContentParts(
+        item.contentParts,
+      );
+      return {
+        ...base,
+        type: item.status === "completed" ? "messages.snapshot" : "text.delta",
+        owner: "model",
+        scope: "part",
+        phase: resolveAgentUiThreadItemPhase(item),
+        surface: "conversation",
+        persistence: "transcript",
+        payload: {
+          textLength: item.text?.length ?? 0,
+          preview: truncateText(item.text),
+          ...contentSummary,
+        },
+      };
+    }
     case "plan":
       return {
         ...base,
@@ -404,6 +437,7 @@ export function buildAgentUiThreadItemEvent(
           outputPreview: truncateText(item.output),
           errorPreview: truncateText(item.error),
           metadataKeys: metadataKeys(item.metadata),
+          ...extractAgentUiToolLifecyclePayloadMetadata(item.metadata),
         },
         refs: extractArtifactRefs(item.metadata),
       };

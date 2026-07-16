@@ -1,5 +1,5 @@
 import type { AutomationJobDialogInitialValues } from "@/components/settings-v2/system/automation/AutomationJobDialog";
-import type { AgentRuntimeWorkspaceSkillBinding } from "@/lib/api/agentRuntime";
+import type { AgentRuntimeWorkspaceSkillBinding } from "@/lib/api/agentRuntime/toolInventoryTypes";
 import type { AutomationJobRecord, TaskSchedule } from "@/lib/api/automation";
 
 const DEFAULT_CRON_TIMEZONE = "Asia/Shanghai";
@@ -193,7 +193,7 @@ export function buildWorkspaceSkillAgentAutomationRequestMetadata(input: {
           : {}),
       },
       workspace_skill_runtime_enable: {
-        source: "agent_envelope_scheduled_run",
+        source: "manual_session_enable",
         approval: "manual",
         workspace_root: workspaceRoot,
         bindings: [

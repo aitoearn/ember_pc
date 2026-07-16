@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
   ShortcutSettings,
   type ShortcutSettingsProps,
@@ -55,7 +55,7 @@ describe("ShortcutSettings", () => {
         IS_REACT_ACT_ENVIRONMENT?: boolean;
       }
     ).IS_REACT_ACT_ENVIRONMENT = true;
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
   });
 
   afterEach(async () => {
@@ -68,7 +68,7 @@ describe("ShortcutSettings", () => {
       mounted.container.remove();
     }
     document.body.replaceChildren();
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
   });
 
   it("快捷键设置 chrome 文案应走 common namespace 英文资源", () => {

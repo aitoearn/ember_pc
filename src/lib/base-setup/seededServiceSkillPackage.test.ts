@@ -12,7 +12,7 @@ describe("seededServiceSkillPackage", () => {
   it("应提供 seeded 基础设置包事实源", () => {
     const pkg = createSeededServiceSkillBaseSetupPackage();
 
-    expect(pkg.id).toBe("ember-seeded-service-skills");
+    expect(pkg.id).toBe("lime-seeded-service-skills");
     expect(pkg.version).toBe(SEEDED_SERVICE_SKILL_CATALOG_VERSION);
     expect(pkg.catalogProjections).toHaveLength(17);
     expect(pkg.catalogProjections).toEqual(
@@ -22,9 +22,9 @@ describe("seededServiceSkillPackage", () => {
           targetCatalog: "service_skill_catalog",
           bindingProfileRef: "native-skill-instant",
           skillBundleMetadata: expect.objectContaining({
-            Ember_knowledge_pack_type: "personal-profile",
-            Ember_agent_knowledge_runtime_mode: "persona",
-            Ember_skill_bundle_path:
+            Lime_knowledge_pack_type: "personal-profile",
+            Lime_agent_knowledge_runtime_mode: "persona",
+            Lime_skill_bundle_path:
               "ember-rs/resources/default-skills/personal-ip-knowledge-builder",
           }),
         }),
@@ -33,9 +33,9 @@ describe("seededServiceSkillPackage", () => {
           targetCatalog: "service_skill_catalog",
           bindingProfileRef: "native-skill-instant",
           skillBundleMetadata: expect.objectContaining({
-            Ember_knowledge_pack_type: "brand-persona",
-            Ember_agent_knowledge_runtime_mode: "persona",
-            Ember_skill_bundle_path:
+            Lime_knowledge_pack_type: "brand-persona",
+            Lime_agent_knowledge_runtime_mode: "persona",
+            Lime_skill_bundle_path:
               "ember-rs/resources/default-skills/brand-persona-knowledge-builder",
           }),
         }),
@@ -44,9 +44,9 @@ describe("seededServiceSkillPackage", () => {
           targetCatalog: "service_skill_catalog",
           bindingProfileRef: "native-skill-instant",
           skillBundleMetadata: expect.objectContaining({
-            Ember_knowledge_pack_type: "content-operations",
-            Ember_agent_knowledge_runtime_mode: "data",
-            Ember_skill_bundle_path:
+            Lime_knowledge_pack_type: "content-operations",
+            Lime_agent_knowledge_runtime_mode: "data",
+            Lime_skill_bundle_path:
               "ember-rs/resources/default-skills/content-operations-knowledge-builder",
           }),
         }),
@@ -55,9 +55,9 @@ describe("seededServiceSkillPackage", () => {
           targetCatalog: "service_skill_catalog",
           bindingProfileRef: "native-skill-instant",
           skillBundleMetadata: expect.objectContaining({
-            Ember_knowledge_pack_type: "brand-product",
-            Ember_agent_knowledge_runtime_mode: "data",
-            Ember_skill_bundle_path:
+            Lime_knowledge_pack_type: "brand-product",
+            Lime_agent_knowledge_runtime_mode: "data",
+            Lime_skill_bundle_path:
               "ember-rs/resources/default-skills/brand-product-knowledge-builder",
           }),
         }),
@@ -84,7 +84,7 @@ describe("seededServiceSkillPackage", () => {
   it("应提供 seeded 本地定制场景的基础设置包事实源", () => {
     const pkg = createSeededLocalCustomServiceSkillBaseSetupPackage();
 
-    expect(pkg.id).toBe("ember-seeded-local-custom-service-skills");
+    expect(pkg.id).toBe("lime-seeded-local-custom-service-skills");
     expect(pkg.version).toBe(SEEDED_SERVICE_SKILL_CATALOG_VERSION);
     expect(pkg.catalogProjections).toHaveLength(1);
     expect(pkg.catalogProjections).toEqual(
@@ -115,12 +115,12 @@ describe("seededServiceSkillPackage", () => {
       expect.arrayContaining([
         expect.objectContaining({
           id: "carousel-post-replication",
-          title: "兼容性测试",
+          title: "复制轮播帖",
           skillBundle: expect.objectContaining({
             name: "carousel-post-replication",
             metadata: expect.objectContaining({
-              Ember_base_setup_package_id: "ember-seeded-service-skills",
-              Ember_prompt_template_key: "replication",
+              Lime_base_setup_package_id: "lime-seeded-service-skills",
+              Lime_prompt_template_key: "replication",
             }),
           }),
         }),
@@ -130,14 +130,14 @@ describe("seededServiceSkillPackage", () => {
           defaultExecutorBinding: "automation_job",
           skillBundle: expect.objectContaining({
             metadata: expect.objectContaining({
-              Ember_automation_profile_ref:
+              Lime_automation_profile_ref:
                 "account-performance-tracking-automation",
             }),
           }),
         }),
         expect.objectContaining({
           id: "cloud-video-dubbing",
-          title: "性能测试",
+          title: "视频配音",
           defaultExecutorBinding: "agent_turn",
           executionLocation: "client_default",
         }),
@@ -153,10 +153,10 @@ describe("seededServiceSkillPackage", () => {
               hasAssets: true,
             },
             metadata: expect.objectContaining({
-              Ember_knowledge_builder: "true",
-              Ember_knowledge_pack_type: "personal-profile",
-              Ember_knowledge_template: "personal-ip",
-              Ember_knowledge_family: "persona",
+              Lime_knowledge_builder: "true",
+              Lime_knowledge_pack_type: "personal-profile",
+              Lime_knowledge_template: "personal-ip",
+              Lime_knowledge_family: "persona",
             }),
           }),
         }),
@@ -172,10 +172,10 @@ describe("seededServiceSkillPackage", () => {
               hasAssets: false,
             },
             metadata: expect.objectContaining({
-              Ember_knowledge_builder: "true",
-              Ember_knowledge_pack_type: "brand-persona",
-              Ember_knowledge_template: "brand-persona",
-              Ember_knowledge_family: "persona",
+              Lime_knowledge_builder: "true",
+              Lime_knowledge_pack_type: "brand-persona",
+              Lime_knowledge_template: "brand-persona",
+              Lime_knowledge_family: "persona",
             }),
           }),
         }),
@@ -191,9 +191,9 @@ describe("seededServiceSkillPackage", () => {
               hasAssets: false,
             },
             metadata: expect.objectContaining({
-              Ember_knowledge_builder: "true",
-              Ember_knowledge_pack_type: "content-operations",
-              Ember_knowledge_family: "data",
+              Lime_knowledge_builder: "true",
+              Lime_knowledge_pack_type: "content-operations",
+              Lime_knowledge_family: "data",
             }),
           }),
         }),
@@ -215,8 +215,8 @@ describe("seededServiceSkillPackage", () => {
           skillBundle: expect.objectContaining({
             name: "brand-product-knowledge-builder",
             metadata: expect.objectContaining({
-              Ember_knowledge_pack_type: "brand-product",
-              Ember_knowledge_family: "data",
+              Lime_knowledge_pack_type: "brand-product",
+              Lime_knowledge_family: "data",
             }),
           }),
         }),
@@ -250,10 +250,10 @@ describe("seededServiceSkillPackage", () => {
         }),
         skillBundle: expect.objectContaining({
           metadata: expect.objectContaining({
-            Ember_base_setup_package_id:
-              "ember-seeded-local-custom-service-skills",
-            Ember_executor_binding: "browser_assist",
-            Ember_runner_type: "instant",
+            Lime_base_setup_package_id:
+              "lime-seeded-local-custom-service-skills",
+            Lime_executor_binding: "browser_assist",
+            Lime_runner_type: "instant",
           }),
         }),
       }),

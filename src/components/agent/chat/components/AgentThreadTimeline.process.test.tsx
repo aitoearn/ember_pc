@@ -1,7 +1,12 @@
 import { act } from "react";
 import { describe, expect, it } from "vitest";
 import type { AgentThreadItem } from "../types";
-import { at, createBaseItem, renderTimeline } from "./AgentThreadTimeline.testFixtures";
+import {
+  at,
+  createBaseItem,
+  renderTimeline,
+} from "./AgentThreadTimeline.testFixtures";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 describe("AgentThreadTimeline", () => {
   it("应按真实发生顺序渲染思考与工具块", () => {
@@ -124,6 +129,136 @@ describe("AgentThreadTimeline", () => {
       container.querySelectorAll('[data-testid="tool-call-item"]'),
     ).toHaveLength(0);
   });
+
+  it("本地历史完成态应与普通历史一样默认折叠并可展开", () => {
+    const container = renderTimeline(
+      [
+        {
+          ...createBaseItem("command-imported", 1),
+          type: "command_execution",
+          command: "npm test",
+          cwd: "/workspace/imported-codex",
+          aggregated_output: "Exit code: 0\nOutput:\nok",
+          exit_code: 0,
+          metadata: {
+            imported: true,
+            source_client: "codex",
+          },
+        },
+        {
+          ...createBaseItem("search-imported", 2),
+          type: "web_search",
+          action: "search_query",
+          query: "Lime history import",
+          output: "search result summary",
+          metadata: {
+            imported: true,
+            source_client: "codex",
+          },
+        },
+      ] as AgentThreadItem[],
+      {
+        turn: {
+          status: "completed",
+        },
+        collapseInactiveDetails: true,
+      },
+    );
+
+    const block = container.querySelector<HTMLDetailsElement>(
+      '[data-testid="agent-thread-block:1:process"]',
+    );
+
+    expect(block?.open).toBe(false);
+    act(() => {
+      block
+        ?.querySelector("summary")
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(block?.open).toBe(true);
+    expect(container.textContent).toContain("npm test");
+    expect(container.textContent).toContain("Lime history import");
+    expect(
+      container.querySelectorAll('[data-testid="tool-call-item"]'),
+    ).toHaveLength(2);
+  });
+
+  it("本地历史过程摘要不应使用 imported-only 文案", async () => {
+    await changeLimeLocale("en-US");
+    const container = renderTimeline(
+      [
+        {
+          ...createBaseItem("command-imported", 1),
+          type: "command_execution",
+          command: "npm test",
+          cwd: "/workspace/imported-codex",
+          aggregated_output: "Exit code: 0\nOutput:\nok",
+          exit_code: 0,
+          metadata: {
+            imported: true,
+            source_client: "codex",
+          },
+        },
+        {
+          ...createBaseItem("search-imported", 2),
+          type: "web_search",
+          action: "search_query",
+          query: "Lime history import",
+          output: "search result summary",
+          metadata: {
+            imported: true,
+            source_client: "codex",
+          },
+        },
+      ] as AgentThreadItem[],
+      {
+        turn: {
+          status: "completed",
+        },
+        collapseInactiveDetails: true,
+      },
+    );
+
+    const summaryText =
+      container
+        .querySelector<HTMLDetailsElement>(
+          '[data-testid="agent-thread-block:1:process"]',
+        )
+        ?.querySelector("summary")?.textContent ?? "";
+
+    expect(summaryText).not.toContain("导入的命令记录");
+    expect(summaryText).not.toContain("Imported command record");
+  });
+
+  it("子任务协作卡片应跟随 collaboration copy 资源", async () => {
+    await changeLimeLocale("en-US");
+    const container = renderTimeline(
+      [
+        {
+          ...createBaseItem("subagent-1", 1),
+          type: "subagent_activity",
+          title: "Review",
+          summary: "Checking edge cases",
+          status: "in_progress",
+          status_label: "queued",
+          completed_at: undefined,
+          session_id: "child-session-1",
+        } as AgentThreadItem,
+      ],
+      {
+        turn: {
+          status: "running",
+        },
+        onOpenSubagentSession: () => undefined,
+      },
+    );
+
+    expect(container.textContent).toContain("Subtask: Review");
+    expect(container.textContent).toContain("Queued");
+    expect(container.textContent).toContain("View subtask details");
+    expect(container.textContent).not.toContain("查看子任务详情");
+  });
+
   it("连续执行流里有运行中步骤时，应聚合为一个高亮过程块", () => {
     const items: AgentThreadItem[] = [
       {
@@ -351,6 +486,58 @@ describe("AgentThreadTimeline", () => {
     );
     expect(container.textContent).not.toContain("Payment Required");
     expect(container.textContent).not.toContain("Insufficient Balance");
+  });
+  it("Provider 404 失败不应在普通时间线暴露原始错误", () => {
+    const rawProviderError =
+      'execution backend error: Agent provider execution failed: Request failed: Resource not found (404): ***.NotFoundError: NotFoundError: OpenAIException - {"detail":"Not Found"}';
+    const items: AgentThreadItem[] = [
+      {
+        ...createBaseItem("provider-error-404", 1),
+        type: "error",
+        message: rawProviderError,
+      },
+    ];
+
+    const container = renderTimeline(items, {
+      turn: {
+        status: "failed",
+        error_message: rawProviderError,
+      },
+    });
+
+    expect(container.textContent).toContain("碰到错误");
+    expect(container.textContent).toContain("当前模型通道暂时不可用");
+    expect(container.textContent).not.toContain(
+      "Agent provider execution failed",
+    );
+    expect(container.textContent).not.toContain("OpenAIException");
+    expect(container.textContent).not.toContain("NotFoundError");
+  });
+  it("运行时工具生命周期错误不应在普通时间线暴露内部字段", () => {
+    const rawRuntimeError =
+      "execution backend error: agent runtime tool lifecycle validation failed: tool_args_without_start event_id=evt_1 tool_call_id=call_1";
+    const items: AgentThreadItem[] = [
+      {
+        ...createBaseItem("runtime-lifecycle-error-1", 1),
+        type: "error",
+        message: rawRuntimeError,
+      },
+    ];
+
+    const container = renderTimeline(items, {
+      turn: {
+        status: "failed",
+        error_message: rawRuntimeError,
+      },
+    });
+
+    expect(container.textContent).toContain("碰到错误");
+    expect(container.textContent).toContain("运行时返回内部错误");
+    expect(container.textContent).not.toContain(
+      "agent runtime tool lifecycle validation failed",
+    );
+    expect(container.textContent).not.toContain("tool_args_without_start");
+    expect(container.textContent).not.toContain("tool_call_id");
   });
   it("普通 aborted 回合应显示已暂停提示", () => {
     const items: AgentThreadItem[] = [

@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 
-const DEFAULT_PRODUCT_NAME = "Ember";
+const DEFAULT_PRODUCT_NAME = "Lime";
 const MAIN_APP_ICON_FILE = "icon.icns";
 
 export default async function afterPack(context) {
@@ -19,35 +19,24 @@ export default async function afterPack(context) {
 
   return brandMacHelperApps({
     appOutDir: context.appOutDir,
-    productName:
-      context.packager?.appInfo?.executableName ||
-      context.packager?.config?.executableName ||
-      DEFAULT_PRODUCT_NAME,
-    bundleName:
-      context.packager?.appInfo?.productName ||
-      context.packager?.config?.name ||
-      DEFAULT_PRODUCT_NAME,
+    productName: context.packager?.appInfo?.productName || DEFAULT_PRODUCT_NAME,
   });
 }
 
 export function brandMacHelperApps({
   appOutDir,
   productName = DEFAULT_PRODUCT_NAME,
-  bundleName = productName,
 }) {
   if (!appOutDir || !existsSync(appOutDir)) {
     return [];
   }
 
-  const mainAppPath = findMainAppPath(appOutDir, bundleName);
+  const mainAppPath = findMainAppPath(appOutDir, productName);
   if (!mainAppPath) {
     return [];
   }
 
-  const mainAppBranding = brandMainAppInfoPlist(mainAppPath, {
-    displayName: bundleName,
-    executableName: productName,
-  });
+  const mainAppBranding = brandMainAppInfoPlist(mainAppPath);
   const frameworksDir = path.join(mainAppPath, "Contents", "Frameworks");
   if (!existsSync(frameworksDir)) {
     return mainAppBranding ? [mainAppBranding] : [];
@@ -138,19 +127,15 @@ function brandHelperInfoPlist(helperAppPath, productName) {
   return { changed: true, infoPlistPath };
 }
 
-function brandMainAppInfoPlist(
-  mainAppPath,
-  { displayName, executableName } = {},
-) {
+function brandMainAppInfoPlist(mainAppPath) {
   const infoPlistPath = path.join(mainAppPath, "Contents", "Info.plist");
   const resourcesDir = path.join(mainAppPath, "Contents", "Resources");
   if (!existsSync(infoPlistPath) || !existsSync(resourcesDir)) {
     return null;
   }
 
-  let content = readFileSync(infoPlistPath, "utf8");
-  const before = content;
-  const currentIconFile = plistStringValue(content, "CFBundleIconFile");
+  const before = readFileSync(infoPlistPath, "utf8");
+  const currentIconFile = plistStringValue(before, "CFBundleIconFile");
   if (!currentIconFile) {
     return { changed: false, infoPlistPath };
   }
@@ -161,26 +146,11 @@ function brandMainAppInfoPlist(
     copyFileSync(currentIconPath, desiredIconPath);
   }
 
-  content = replacePlistStringValue(
-    content,
+  const content = replacePlistStringValue(
+    before,
     "CFBundleIconFile",
     () => MAIN_APP_ICON_FILE,
   );
-
-  if (displayName) {
-    for (const key of ["CFBundleDisplayName", "CFBundleName"]) {
-      content = replacePlistStringValue(content, key, () => displayName);
-    }
-  }
-
-  if (executableName) {
-    content = replacePlistStringValue(
-      content,
-      "CFBundleExecutable",
-      (value) => (value === "Electron" ? executableName : value),
-    );
-  }
-
   if (content === before) {
     return { changed: false, infoPlistPath };
   }

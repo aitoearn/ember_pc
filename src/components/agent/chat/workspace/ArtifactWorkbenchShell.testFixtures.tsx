@@ -189,7 +189,7 @@ export function createArtifactDocumentArtifact(
     content,
     status: "complete",
     meta: {
-      filePath: ".ember/artifacts/thread-1/board-review.artifact.json",
+      filePath: ".lime/artifacts/thread-1/board-review.artifact.json",
       filename: "board-review.artifact.json",
       language: "json",
       ...options.meta,
@@ -251,7 +251,7 @@ export function createStructuredEditableArtifact(): Artifact {
     content,
     status: "complete",
     meta: {
-      filePath: ".ember/artifacts/thread-1/structured-edit.artifact.json",
+      filePath: ".lime/artifacts/thread-1/structured-edit.artifact.json",
       filename: "structured-edit.artifact.json",
       language: "json",
     },
@@ -276,14 +276,14 @@ export function createTranscriptionDocumentArtifact(): Artifact {
         type: "table",
         title: "转写时间轴（可逐段编辑校对）",
         columns: ["时间", "说话人", "内容"],
-        rows: [["00:01 - 00:03", "主持人", "欢迎来到 Ember 访谈节目。"]],
+        rows: [["00:01 - 00:03", "主持人", "欢迎来到 Lime 访谈节目。"]],
       },
       {
         id: "transcript-text",
         type: "code_block",
         title: "转写文本（可编辑校对）",
         language: "text",
-        code: "欢迎来到 Ember 访谈节目。",
+        code: "欢迎来到 Lime 访谈节目。",
       },
     ],
     sources: [
@@ -292,7 +292,7 @@ export function createTranscriptionDocumentArtifact(): Artifact {
         type: "file",
         label: "transcript output",
         locator: {
-          path: ".ember/runtime/transcripts/task-transcription-1.txt",
+          path: ".lime/runtime/transcripts/task-transcription-1.txt",
         },
         reliability: "primary",
       },
@@ -301,8 +301,8 @@ export function createTranscriptionDocumentArtifact(): Artifact {
       taskId: "task-transcription-1",
       taskType: "transcription_generate",
       modalityContractKey: "audio_transcription",
-      transcriptPath: ".ember/runtime/transcripts/task-transcription-1.txt",
-      transcriptText: "欢迎来到 Ember 访谈节目。",
+      transcriptPath: ".lime/runtime/transcripts/task-transcription-1.txt",
+      transcriptText: "欢迎来到 Lime 访谈节目。",
       transcriptSegments: [
         {
           id: "segment-1",
@@ -310,7 +310,7 @@ export function createTranscriptionDocumentArtifact(): Artifact {
           startMs: 1000,
           endMs: 3000,
           speaker: "主持人",
-          text: "欢迎来到 Ember 访谈节目。",
+          text: "欢迎来到 Lime 访谈节目。",
         },
       ],
       transcriptCorrectionEnabled: true,
@@ -327,7 +327,7 @@ export function createTranscriptionDocumentArtifact(): Artifact {
     status: "complete",
     meta: {
       filePath:
-        ".ember/runtime/transcription-generate/task-transcription-1.artifact.json",
+        ".lime/runtime/transcription-generate/task-transcription-1.artifact.json",
       filename: "task-transcription-1.artifact.json",
       language: "json",
     },
@@ -425,7 +425,7 @@ export function createAdvancedEditableArtifact(): Artifact {
     status: "complete",
     meta: {
       filePath:
-        ".ember/artifacts/thread-1/advanced-structured-edit.artifact.json",
+        ".lime/artifacts/thread-1/advanced-structured-edit.artifact.json",
       filename: "advanced-structured-edit.artifact.json",
       language: "json",
     },
@@ -447,7 +447,7 @@ export function createArtifactTimelineItems(): AgentThreadItem[] {
       completed_at: "2026-03-25T10:00:01Z",
       updated_at: "2026-03-25T10:00:01Z",
       type: "file_artifact",
-      path: ".ember/artifacts/thread-1/board-review.artifact.json",
+      path: ".lime/artifacts/thread-1/board-review.artifact.json",
       source: "artifact_snapshot",
       content: createArtifactDocumentArtifact().content,
       metadata: {

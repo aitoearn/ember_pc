@@ -141,7 +141,7 @@ describe("webview-api Browser bridge diagnostics", () => {
       profile_key: "google",
       browser_source: "system" as const,
       browser_path: "/Applications/Google Chrome.app",
-      profile_dir: "/tmp/ember-profile-google",
+      profile_dir: "/tmp/lime-profile-google",
       remote_debugging_port: 9222,
       pid: 12345,
       started_at: "2026-06-08T00:00:00.000Z",
@@ -164,7 +164,7 @@ describe("webview-api Browser bridge diagnostics", () => {
       pending_commands: [],
     };
     const backendPolicy = {
-      priority: ["ember_extension_bridge", "cdp_direct"],
+      priority: ["lime_extension_bridge", "cdp_direct"],
       auto_fallback: false,
     };
     const backendsStatus = {
@@ -173,11 +173,11 @@ describe("webview-api Browser bridge diagnostics", () => {
       bridge_control_count: 0,
       running_profile_count: 0,
       cdp_alive_profile_count: 0,
-      aster_native_host_supported: false,
-      aster_native_host_configured: false,
+      agent_native_host_supported: false,
+      agent_native_host_configured: false,
       backends: [
         {
-          backend: "ember_extension_bridge",
+          backend: "lime_extension_bridge",
           available: false,
           reason: "未连接",
           capabilities: [],
@@ -187,7 +187,7 @@ describe("webview-api Browser bridge diagnostics", () => {
     const connectorSettings = {
       enabled: true,
       install_root_dir: "/tmp/browser-connectors",
-      install_dir: "/tmp/browser-connectors/Ember Browser Connector",
+      install_dir: "/tmp/browser-connectors/Lime Browser Connector",
       system_connectors: [
         {
           id: "calendar",
@@ -214,8 +214,8 @@ describe("webview-api Browser bridge diagnostics", () => {
     const connectorInstallStatus = {
       status: "not_installed" as const,
       install_root_dir: "/tmp/browser-connectors",
-      install_dir: "/tmp/browser-connectors/Ember Browser Connector",
-      bundled_name: "Ember Browser Connector",
+      install_dir: "/tmp/browser-connectors/Lime Browser Connector",
+      bundled_name: "Lime Browser Connector",
       bundled_version: "1.60.0",
       installed_name: null,
       installed_version: null,

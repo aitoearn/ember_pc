@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import type { AgentToolCallState } from "@/lib/api/agentProtocol";
 import type { SkillDetailInfo } from "@/lib/api/skill-execution";
 import type { Message } from "../types";
@@ -81,11 +81,11 @@ function toolCall(
 
 describe("generalWorkbenchExecLogData", () => {
   beforeEach(async () => {
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
   });
 
   afterEach(async () => {
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
   });
 
   it("应把消息、thinking、工具调用和响应投影成按时间排序的执行日志", () => {
@@ -147,7 +147,7 @@ describe("generalWorkbenchExecLogData", () => {
           toolCalls: [
             toolCall({
               id: "tool-browser-1",
-              name: "mcp__ember-browser__browser_navigate",
+              name: "mcp__lime-browser__browser_navigate",
               arguments: JSON.stringify({ url: "https://example.com/docs" }),
               status: "completed",
               result: { success: true, output: "ok" },
@@ -161,7 +161,7 @@ describe("generalWorkbenchExecLogData", () => {
             }),
             toolCall({
               id: "tool-input-1",
-              name: "AskUserQuestion",
+              name: "request_user_input",
               arguments: JSON.stringify({ question: "需要继续吗？" }),
               status: "running",
             }),
@@ -176,7 +176,7 @@ describe("generalWorkbenchExecLogData", () => {
     expect(entries.map((entry) => entry.typeLabel)).toEqual([
       "页面打开",
       "查看任务结果",
-      "用户确认",
+      "用户输入",
     ]);
   });
 

@@ -2,7 +2,7 @@ import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { useImageAttachments } from "./useImageAttachments";
 
 const { toastMock } = vi.hoisted(() => ({
@@ -145,7 +145,7 @@ beforeEach(async () => {
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
   globalThis.FileReader = MockFileReader as never;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 afterEach(() => {
@@ -227,7 +227,7 @@ describe("useImageAttachments", () => {
   });
 
   it("图片粘贴反馈应跟随 en-US 资源", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const container = renderHarness();
     const pasteButton = container.querySelector(
       '[data-testid="paste-image"]',

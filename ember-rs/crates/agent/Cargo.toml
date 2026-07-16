@@ -1,17 +1,21 @@
 [package]
-name = "ember-agent"
+name = "lime-agent"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 repository.workspace = true
 
 [dependencies]
-ember-core.workspace = true
-ember-mcp.workspace = true
-ember-services.workspace = true
-ember-providers.workspace = true
-ember-skills.workspace = true
-aster.workspace = true
+agent-protocol.workspace = true
+app-server-protocol.workspace = true
+agent-runtime.workspace = true
+lime-core.workspace = true
+lime-mcp.workspace = true
+lime-services.workspace = true
+lime-skills.workspace = true
+model-provider.workspace = true
+thread-store.workspace = true
+tool-runtime.workspace = true
 rmcp.workspace = true
 serde.workspace = true
 serde_json.workspace = true

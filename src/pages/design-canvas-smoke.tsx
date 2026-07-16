@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import styled from "styled-components";
 import { createCanvasStateFromArtifact } from "@/components/artifact/canvasAdapterUtils";
 import { CanvasFactory } from "@/components/workspace/canvas/CanvasFactory";
@@ -10,7 +11,7 @@ import {
 import type {
   CreateImageGenerationTaskArtifactRequest,
   MediaTaskArtifactOutput,
-} from "@/lib/api/mediaTasks";
+} from "@/lib/api/agentRuntime/mediaTaskTypes";
 import {
   LAYERED_DESIGN_DEFAULT_MODEL_SLOT_TEXT_OCR_PRIORITY_LABEL,
   createLayeredDesignDefaultAnalyzerModelSlotJsonExecutor,
@@ -115,7 +116,7 @@ interface SmokeModelSlotQualityContractEvidence {
   reviewFindingIds: string[];
 }
 interface SmokeModelSlotQualityContractWindow {
-  __emberDesignCanvasSmokeModelSlotQualityContracts?: SmokeModelSlotQualityContractEvidence[];
+  __limeDesignCanvasSmokeModelSlotQualityContracts?: SmokeModelSlotQualityContractEvidence[];
 }
 const SMOKE_MODEL_SLOT_QUALITY_CONTRACT_EXPECTATIONS = {
   subject_matting: {
@@ -184,7 +185,7 @@ const smokeGeneratedLayerDataUrl =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAIElEQVR42mP8z8DwnwEJMDIwMDAwYGRk+M8ABYwMDAwAw8AD9tHX3zYAAAAASUVORK5CYII=";
 
 const smokeArtifact = createLayeredDesignArtifactFromPrompt(
-  "@海报 为 Ember AI 图层化设计生成一张咖啡快闪活动海报，保留背景、主体、氛围特效、标题和 CTA 独立图层",
+  "@海报 为 Lime AI 图层化设计生成一张咖啡快闪活动海报，保留背景、主体、氛围特效、标题和 CTA 独立图层",
   {
     id: "design-canvas-smoke",
     title: "Smoke 图层设计海报",
@@ -243,7 +244,7 @@ function createSmokeImageTaskOutput(
   result?: Record<string, unknown>,
 ): MediaTaskArtifactOutput {
   const taskId = `smoke-image-task-${request.slotId ?? "layer"}`;
-  const taskPath = `.ember/tasks/image_generate/${taskId}.json`;
+  const taskPath = `.lime/tasks/image_generate/${taskId}.json`;
   const status = result ? "succeeded" : "pending_submit";
   const normalizedStatus = result ? "succeeded" : "pending";
   const timestamp = "2026-05-05T01:00:00.000Z";
@@ -429,7 +430,7 @@ function recordSmokeModelSlotQualityContract(
   }
   const smokeWindow = window as Window & SmokeModelSlotQualityContractWindow;
   const contracts =
-    smokeWindow.__emberDesignCanvasSmokeModelSlotQualityContracts ?? [];
+    smokeWindow.__limeDesignCanvasSmokeModelSlotQualityContracts ?? [];
   contracts.push({
     kind: request.kind,
     slotId: request.context.slotId,
@@ -438,7 +439,7 @@ function recordSmokeModelSlotQualityContract(
     requiredParamKeys: [...contract.requiredParamKeys],
     reviewFindingIds: [...contract.reviewFindingIds],
   });
-  smokeWindow.__emberDesignCanvasSmokeModelSlotQualityContracts = contracts;
+  smokeWindow.__limeDesignCanvasSmokeModelSlotQualityContracts = contracts;
 }
 
 function createSmokeRefinedWorkerAnalyzer() {
@@ -665,6 +666,7 @@ const CanvasCard = styled.div`
 `;
 
 export function DesignCanvasSmokePage() {
+  const { t } = useTranslation("workspace");
   const projectRootPath = useMemo(() => readSearchParam("projectRootPath"), []);
   const projectId = useMemo(() => readSearchParam("projectId"), []);
   const modelSlotEndpointUrl = useMemo(
@@ -725,7 +727,7 @@ export function DesignCanvasSmokePage() {
             {
               endpointUrl: modelSlotEndpointUrl,
               headers: {
-                "x-ember-smoke-analyzer": "worker-model-slots-http-json",
+                "x-lime-smoke-analyzer": "worker-model-slots-http-json",
               },
             },
             {
@@ -748,29 +750,39 @@ export function DesignCanvasSmokePage() {
     <Page data-testid="design-canvas-smoke-page">
       <Header>
         <TitleGroup>
-          <Eyebrow>canvas:design 专属 GUI Smoke</Eyebrow>
-          <Title>AI 图层化设计画布</Title>
+          <Eyebrow>{t("workspace.designCanvasSmoke.header.eyebrow")}</Eyebrow>
+          <Title>{t("workspace.designCanvasSmoke.header.title")}</Title>
         </TitleGroup>
         <BadgeRow>
           <Badge data-testid="design-canvas-smoke-artifact-type">
             {smokeArtifact.type}
           </Badge>
-          <Badge>LayeredDesignDocument</Badge>
+          <Badge>{t("workspace.designCanvasSmoke.badge.artifactType")}</Badge>
           <Badge>
-            {projectRootPath ? "工作区已绑定" : "工作区未绑定，仅验证画布"}
+            {t(
+              projectRootPath
+                ? "workspace.designCanvasSmoke.badge.workspaceBound"
+                : "workspace.designCanvasSmoke.badge.workspaceUnbound",
+            )}
           </Badge>
           <Badge data-testid="design-canvas-smoke-analyzer">
             {analyzerBadgeLabels[analyzerMode]}
           </Badge>
           {imageTaskMode === "auto-refresh-fixture" ? (
             <Badge data-testid="design-canvas-smoke-image-task">
-              图片任务自动刷新 fixture
+              {t("workspace.designCanvasSmoke.badge.imageTaskAutoRefresh")}
             </Badge>
           ) : null}
           {imageTaskMode === "live-single-layer" ? (
             <Badge data-testid="design-canvas-smoke-image-task">
-              真实图片任务单层验收 / {liveImageProviderId ?? "默认 Provider"} /{" "}
-              {liveImageModelId ?? "默认模型"}
+              {t("workspace.designCanvasSmoke.badge.imageTaskLive", {
+                provider:
+                  liveImageProviderId ??
+                  t("workspace.designCanvasSmoke.badge.defaultProvider"),
+                model:
+                  liveImageModelId ??
+                  t("workspace.designCanvasSmoke.badge.defaultModel"),
+              })}
             </Badge>
           ) : null}
           {analyzerMode === "worker-refined" ? (
@@ -778,8 +790,10 @@ export function DesignCanvasSmokePage() {
           ) : null}
           {analyzerMode === "worker-matting" ? (
             <Badge>
-              {WORKER_MATTING_FIXTURE_LABEL} / 置信度{" "}
-              {Math.round(WORKER_MATTING_SUBJECT_CONFIDENCE * 100)}%
+              {t("workspace.designCanvasSmoke.badge.analyzerConfidence", {
+                label: WORKER_MATTING_FIXTURE_LABEL,
+                confidence: Math.round(WORKER_MATTING_SUBJECT_CONFIDENCE * 100),
+              })}
             </Badge>
           ) : null}
           {analyzerMode === "worker-ocr" ? (

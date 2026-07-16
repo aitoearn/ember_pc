@@ -272,7 +272,7 @@ function readServiceSkillBundleMetadata(
 function resolveServiceSkillTypeFromBundle(
   item: Pick<ServiceSkillItem, "skillBundle">,
 ): ServiceSkillType | null {
-  const skillType = readServiceSkillBundleMetadata(item, "Ember_skill_type");
+  const skillType = readServiceSkillBundleMetadata(item, "Lime_skill_type");
   if (
     skillType === "service" ||
     skillType === "site" ||
@@ -462,7 +462,7 @@ export function getServiceSkillOutputDestination(
 
   const outputDestinationFromBundle = readServiceSkillBundleMetadata(
     item,
-    "Ember_output_destination",
+    "Lime_output_destination",
   );
   if (outputDestinationFromBundle) {
     return outputDestinationFromBundle;

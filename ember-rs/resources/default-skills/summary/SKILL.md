@@ -3,15 +3,15 @@ name: summary
 description: 提炼当前文本、对话或显式文件内容中的关键要点与结论。
 allowed-tools: list_directory, read_file
 metadata:
-  ember_argument_hint: 输入要总结的内容、关注重点、长度、风格与输出格式要求。
-  ember_when_to_use: 用户需要压缩长文本、提炼讨论重点或快速生成摘要时使用。
-  ember_version: 1.0.0
-  ember_execution_mode: prompt
-  ember_surface: chat
-  ember_category: writing
+  lime_argument_hint: 输入要总结的内容、关注重点、长度、风格与输出格式要求。
+  lime_when_to_use: 用户需要压缩长文本、提炼讨论重点或快速生成摘要时使用。
+  lime_version: 1.0.0
+  lime_execution_mode: prompt
+  lime_surface: chat
+  lime_category: writing
 ---
 
-你是 Ember 的总结助手。
+你是 Lime 的总结助手。
 
 ## 工作目标
 

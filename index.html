@@ -4,20 +4,20 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>熠测</title>
+    <title>Lime</title>
     <script>
       (() => {
         try {
           const params = new URLSearchParams(window.location.search);
-          const emberWindow = params.get("ember_window");
+          const limeWindow = params.get("lime_window");
           if (
-            emberWindow === "update-notification" ||
+            limeWindow === "update-notification" ||
             window.location.pathname.endsWith("/update-notification")
           ) {
-            document.documentElement.dataset.emberWindow = "update-notification";
+            document.documentElement.dataset.limeWindow = "update-notification";
           }
           if (params.get("nativeStartup") === "1") {
-            document.documentElement.dataset.emberNativeStartup = "1";
+            document.documentElement.dataset.limeNativeStartup = "1";
           }
 
           const locale = (navigator.languages?.[0] || navigator.language || "")
@@ -36,9 +36,9 @@
                   : locale.startsWith("ko")
                     ? "ko-KR"
                     : "zh-CN";
-          document.documentElement.dataset.emberStartupLocale = startupLocale;
+          document.documentElement.dataset.limeStartupLocale = startupLocale;
         } catch {
-          document.documentElement.dataset.emberStartupLocale = "zh-CN";
+          document.documentElement.dataset.limeStartupLocale = "zh-CN";
         }
       })();
     </script>
@@ -82,15 +82,15 @@
           sans-serif;
       }
 
-      html[data-ember-window="update-notification"],
-      html[data-ember-window="update-notification"] body,
-      html[data-ember-window="update-notification"] #root {
+      html[data-lime-window="update-notification"],
+      html[data-lime-window="update-notification"] body,
+      html[data-lime-window="update-notification"] #root {
         background: transparent !important;
         background-color: transparent !important;
         background-image: none !important;
       }
 
-      html[data-ember-window="update-notification"] .index-startup-shell {
+      html[data-lime-window="update-notification"] .index-startup-shell {
         display: none !important;
       }
 
@@ -125,11 +125,11 @@
         pointer-events: none;
       }
 
-      html[data-ember-native-startup="1"] .index-startup-shell {
+      html[data-lime-native-startup="1"] .index-startup-shell {
         display: flex;
       }
 
-      html[data-ember-native-startup="1"][data-ember-native-startup-ready="1"]
+      html[data-lime-native-startup="1"][data-lime-native-startup-ready="1"]
         .index-startup-shell {
         opacity: 0;
       }
@@ -247,11 +247,11 @@
         display: none;
       }
 
-      html[data-ember-startup-locale="zh-CN"] .index-startup-copy-zh-cn,
-      html[data-ember-startup-locale="zh-TW"] .index-startup-copy-zh-tw,
-      html[data-ember-startup-locale="en-US"] .index-startup-copy-en-us,
-      html[data-ember-startup-locale="ja-JP"] .index-startup-copy-ja-jp,
-      html[data-ember-startup-locale="ko-KR"] .index-startup-copy-ko-kr {
+      html[data-lime-startup-locale="zh-CN"] .index-startup-copy-zh-cn,
+      html[data-lime-startup-locale="zh-TW"] .index-startup-copy-zh-tw,
+      html[data-lime-startup-locale="en-US"] .index-startup-copy-en-us,
+      html[data-lime-startup-locale="ja-JP"] .index-startup-copy-ja-jp,
+      html[data-lime-startup-locale="ko-KR"] .index-startup-copy-ko-kr {
         display: inline;
       }
 
@@ -312,7 +312,7 @@
   </head>
   <body>
     <div id="root"></div>
-    <main class="index-startup-shell" data-ember-startup-shell>
+    <main class="index-startup-shell" data-lime-startup-shell>
       <div
         class="index-startup-orb index-startup-orb-primary"
         aria-hidden="true"
@@ -331,36 +331,34 @@
           <img
             class="index-startup-logo"
             src="./logo.png"
-            alt="Ember"
-            decoding="sync"
-            fetchpriority="high"
-            data-ember-startup-logo
+            alt="Lime"
+            data-lime-startup-logo
           />
         </div>
         <div class="index-startup-copy">
           <h1 class="index-startup-slogan">
             <span class="index-startup-copy-locale index-startup-copy-zh-cn"
-              >熠测一下，端测即启</span
+              >青柠一下，灵感即来</span
             >
             <span class="index-startup-copy-locale index-startup-copy-zh-tw"
-              >餘燼一下，端測即啟</span
+              >青檸一下，靈感即來</span
             >
             <span class="index-startup-copy-locale index-startup-copy-en-us"
-              >Tap Ember, test every device</span
+              >Tap Lime, inspiration arrives</span
             >
             <span class="index-startup-copy-locale index-startup-copy-ja-jp"
-              >Ember で、端末テストをすぐに</span
+              >Lime で、ひらめきをすぐに</span
             >
             <span class="index-startup-copy-locale index-startup-copy-ko-kr"
-              >Ember로, 기기 테스트를 바로</span
+              >Lime으로, 영감이 바로</span
             >
           </h1>
           <p class="index-startup-subtitle">
             <span class="index-startup-copy-locale index-startup-copy-zh-cn"
-              >从单点测试，到多端贯通</span
+              >从一句想法，到成稿、成图、成片、成事</span
             >
             <span class="index-startup-copy-locale index-startup-copy-zh-tw"
-              >從單點測試，到多端貫通</span
+              >從一句想法，到成稿、成圖、成片、成事</span
             >
             <span class="index-startup-copy-locale index-startup-copy-en-us"
               >From one thought to polished copy, images, videos, and finished

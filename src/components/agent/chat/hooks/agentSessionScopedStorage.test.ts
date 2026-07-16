@@ -1,220 +1,23 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { AgentThreadItem, AgentThreadTurn, Message } from "../types";
+import type { AgentThreadItem, AgentThreadTurn } from "../types";
 import {
+  clearAgentSessionCachedSnapshot,
+  getAgentSessionCachedSnapshotAvailability,
   loadAgentSessionCachedSnapshot,
   saveAgentSessionCachedMessagesSnapshot,
   saveAgentSessionCachedSnapshot,
 } from "./agentSessionScopedStorage";
-
-function createMessage(index: number): Message {
-  return {
-    id: `message-${index}`,
-    role: index % 2 === 0 ? "assistant" : "user",
-    content: `message-${index}`,
-    timestamp: new Date(
-      `2026-04-24T00:${String(index % 60).padStart(2, "0")}:00.000Z`,
-    ),
-  };
-}
-
-function createTurn(index: number): AgentThreadTurn {
-  return {
-    id: `turn-${index}`,
-    thread_id: "thread-1",
-    status: "completed",
-    prompt_text: `turn-${index}`,
-    started_at: "2026-04-24T00:00:00.000Z",
-    completed_at: "2026-04-24T00:00:01.000Z",
-    created_at: "2026-04-24T00:00:00.000Z",
-    updated_at: "2026-04-24T00:00:01.000Z",
-  };
-}
-
-function createItem(index: number): AgentThreadItem {
-  return {
-    id: `item-${index}`,
-    thread_id: "thread-1",
-    turn_id: `turn-${index}`,
-    sequence: index,
-    type: "agent_message",
-    text: `item-${index}`,
-    status: "completed",
-    started_at: "2026-04-24T00:00:00.000Z",
-    completed_at: "2026-04-24T00:00:01.000Z",
-    updated_at: "2026-04-24T00:00:01.000Z",
-  } as AgentThreadItem;
-}
-
-function createHeavyAssistantMessage(): Message {
-  const timestamp = new Date("2026-04-24T00:00:02.000Z");
-
-  return {
-    id: "message-heavy-assistant",
-    role: "assistant",
-    content: "最终回复正文",
-    timestamp,
-    thinkingContent: "大量思考过程",
-    contentParts: [
-      {
-        type: "thinking",
-        text: "大量思考过程",
-      },
-      {
-        type: "tool_use",
-        toolCall: {
-          id: "tool-heavy",
-          name: "Bash",
-          arguments: '{"command":"printf slow"}',
-          status: "completed",
-          startTime: timestamp,
-          endTime: timestamp,
-          result: {
-            success: true,
-            output: "x".repeat(12_000),
-          },
-        },
-      },
-      {
-        type: "text",
-        text: "最终回复正文",
-      },
-    ],
-    toolCalls: [
-      {
-        id: "tool-heavy",
-        name: "Bash",
-        arguments: '{"command":"printf slow"}',
-        status: "completed",
-        startTime: timestamp,
-        endTime: timestamp,
-        result: {
-          success: true,
-          output: "x".repeat(12_000),
-        },
-      },
-    ],
-  };
-}
-
-function createCompletedAssistantMessageWithStaleRunningTool(): Message {
-  const timestamp = new Date("2026-06-07T10:34:45.000Z");
-
-  return {
-    id: "message-news-assistant-complete",
-    role: "assistant",
-    content:
-      "根据多源检索结果，以下是 2026年6月7日 的主要国际新闻整理。",
-    timestamp,
-    isThinking: false,
-    contentParts: [
-      {
-        type: "text",
-        text: "我来搜索今天（2026年6月7日）的国际新闻。",
-      },
-      {
-        type: "tool_use",
-        toolCall: {
-          id: "tool-web-search-stale-running",
-          name: "WebSearch",
-          arguments: "{\"query\":\"2026年6月7日 国际新闻\"}",
-          status: "running",
-          startTime: timestamp,
-        },
-      },
-      {
-        type: "text",
-        text: "根据多源检索结果，以下是 2026年6月7日 的主要国际新闻整理。",
-      },
-    ],
-    toolCalls: [
-      {
-        id: "tool-web-search-stale-running",
-        name: "WebSearch",
-        arguments: "{\"query\":\"2026年6月7日 国际新闻\"}",
-        status: "running",
-        startTime: timestamp,
-      },
-    ],
-  };
-}
-
-function createStandaloneSkillAssistantMessage(): Message {
-  const timestamp = new Date("2026-04-24T00:00:03.000Z");
-
-  return {
-    id: "message-skill-assistant",
-    role: "assistant",
-    content: "最终 Skill 回复",
-    timestamp,
-    runtimeTurnId: "skill-exec-message-skill-assistant",
-    thinkingContent: "正在执行 Skill: brand-product-knowledge-builder...",
-    contentParts: [
-      {
-        type: "thinking",
-        text: "正在执行 Skill: brand-product-knowledge-builder...",
-      },
-      {
-        type: "text",
-        text: "最终 Skill 回复",
-      },
-    ],
-  };
-}
-
-function createServiceSceneSkillAssistantMessage(): Message {
-  const timestamp = new Date("2026-04-24T00:00:06.000Z");
-
-  return {
-    id: "message-service-scene-skill-assistant",
-    role: "assistant",
-    content: "服务型 Skill 最终回复",
-    timestamp,
-    runtimeTurnId: "turn-service-scene-skill",
-    inlineProcessRetention: "skill",
-    thinkingContent: "先读取服务 Skill，再整理产品边界。",
-    contentParts: [
-      {
-        type: "thinking",
-        text: "先读取服务 Skill，再整理产品边界。",
-      },
-      {
-        type: "text",
-        text: "服务型 Skill 最终回复",
-      },
-    ],
-  };
-}
-
-function createLegacyCommandSkillAssistantMessage(): Message {
-  const timestamp = new Date("2026-04-24T00:00:04.000Z");
-
-  return {
-    id: "message-legacy-command-skill-assistant",
-    role: "assistant",
-    content: "历史 Skill 回复",
-    timestamp,
-    thinkingContent: "先读取 Skill，再生成回复。",
-    contentParts: [
-      {
-        type: "thinking",
-        text: "先读取 Skill，再生成回复。",
-      },
-      {
-        type: "text",
-        text: "历史 Skill 回复",
-      },
-    ],
-  };
-}
-
-function createStandaloneSkillUserMessage(): Message {
-  return {
-    id: "message-skill-user",
-    role: "user",
-    content: "请整理产品知识库",
-    timestamp: new Date("2026-04-24T00:00:02.000Z"),
-  };
-}
+import {
+  createCompletedAssistantMessageWithStaleRunningTool,
+  createHeavyAssistantMessage,
+  createItem,
+  createLegacyCommandSkillAssistantMessage,
+  createMessage,
+  createServiceSceneSkillAssistantMessage,
+  createStandaloneSkillAssistantMessage,
+  createStandaloneSkillUserMessage,
+  createTurn,
+} from "./agentSessionScopedStorage.testFixtures";
 
 describe("agentSessionScopedStorage", () => {
   beforeEach(() => {
@@ -617,6 +420,81 @@ describe("agentSessionScopedStorage", () => {
     expect(restored?.currentTurnId).toBe("turn-15");
   });
 
+  it("保存快照时应同步维护轻量索引，供会话点击路径跳过无缓存重解析", () => {
+    const workspaceId = "ws-session-snapshot-index";
+    const sessionId = "topic-indexed";
+    const nowMs = Date.parse("2026-04-24T00:00:00.000Z");
+
+    expect(
+      getAgentSessionCachedSnapshotAvailability(workspaceId, sessionId),
+    ).toEqual({
+      hasSnapshot: true,
+      hasIndex: false,
+    });
+
+    saveAgentSessionCachedSnapshot(
+      workspaceId,
+      sessionId,
+      {
+        messages: [createMessage(1)],
+        threadTurns: [],
+        threadItems: [],
+        currentTurnId: null,
+      },
+      {
+        nowMs,
+        sessionUpdatedAt: nowMs,
+        messagesCount: 1,
+      },
+    );
+
+    expect(
+      getAgentSessionCachedSnapshotAvailability(workspaceId, sessionId),
+    ).toMatchObject({
+      hasSnapshot: true,
+      hasIndex: true,
+      transient: {
+        updatedAt: nowMs,
+        sessionUpdatedAt: nowMs,
+        messagesCount: 1,
+        historyTruncated: false,
+      },
+      persisted: {
+        updatedAt: nowMs,
+        sessionUpdatedAt: nowMs,
+        messagesCount: 1,
+        historyTruncated: false,
+      },
+    });
+    expect(
+      getAgentSessionCachedSnapshotAvailability(workspaceId, "topic-missing"),
+    ).toEqual({
+      hasSnapshot: false,
+      hasIndex: true,
+    });
+  });
+
+  it("清理快照时应同步移除索引项，避免后续点击误解析空缓存", () => {
+    const workspaceId = "ws-session-snapshot-index-clear";
+    const sessionId = "topic-index-clear";
+
+    saveAgentSessionCachedSnapshot(workspaceId, sessionId, {
+      messages: [createMessage(1)],
+      threadTurns: [],
+      threadItems: [],
+      currentTurnId: null,
+    });
+
+    clearAgentSessionCachedSnapshot(workspaceId, sessionId);
+
+    expect(
+      getAgentSessionCachedSnapshotAvailability(workspaceId, sessionId),
+    ).toEqual({
+      hasSnapshot: false,
+      hasIndex: true,
+    });
+  });
+
   it("持久化 tail 超过热缓存窗口后仍应作为 stale 回放，避免隔天恢复只能等待后端详情", () => {
     const workspaceId = "ws-session-snapshot-persisted-stale";
     const sessionId = "topic-persisted-stale";
@@ -653,7 +531,7 @@ describe("agentSessionScopedStorage", () => {
     const sessionId = "topic-legacy-seconds";
     const nowMs = Date.parse("2026-04-24T00:00:00.000Z");
     const sessionUpdatedAtMs = Date.parse("2026-04-24T00:01:00.000Z");
-    const cacheKey = `aster_session_snapshots_${workspaceId}`;
+    const cacheKey = `agent_session_snapshots_${workspaceId}`;
 
     sessionStorage.setItem(
       cacheKey,
@@ -740,7 +618,7 @@ describe("agentSessionScopedStorage", () => {
       nowMs: nowMs + 10_000,
     });
     const snapshotMap = JSON.parse(
-      sessionStorage.getItem(`aster_session_snapshots_${workspaceId}`) || "{}",
+      sessionStorage.getItem(`agent_session_snapshots_${workspaceId}`) || "{}",
     ) as Record<string, { lastAccessedAt?: number }>;
 
     expect(restored).not.toBeNull();
@@ -769,7 +647,7 @@ describe("agentSessionScopedStorage", () => {
       nowMs: nowMs + 32 * 60 * 1000 + 1,
     });
     const snapshotMap = JSON.parse(
-      sessionStorage.getItem(`aster_session_snapshots_${workspaceId}`) || "{}",
+      sessionStorage.getItem(`agent_session_snapshots_${workspaceId}`) || "{}",
     ) as Record<string, unknown>;
 
     expect(restored).toBeNull();
@@ -829,11 +707,11 @@ describe("agentSessionScopedStorage", () => {
     }
 
     const transientMap = JSON.parse(
-      sessionStorage.getItem(`aster_session_snapshots_${workspaceId}`) || "{}",
+      sessionStorage.getItem(`agent_session_snapshots_${workspaceId}`) || "{}",
     ) as Record<string, unknown>;
     const persistedMap = JSON.parse(
       localStorage.getItem(
-        `aster_session_snapshots_persisted_${workspaceId}`,
+        `agent_session_snapshots_persisted_${workspaceId}`,
       ) || "{}",
     ) as Record<string, unknown>;
 

@@ -11,7 +11,7 @@ import {
 } from "./electron-launcher.mjs";
 
 const ELECTRON_EXECUTABLE = path.resolve(
-  "/repo/ember/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
+  "/repo/lime/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron",
 );
 
 describe("electron launcher", () => {
@@ -20,7 +20,7 @@ describe("electron launcher", () => {
     const child = { once() {} };
 
     const result = spawnElectron({
-      electronPath: "/repo/ember/node_modules/.bin/electron",
+      electronPath: "/repo/lime/node_modules/.bin/electron",
       args: ["."],
       env: { NODE_ENV: "test" },
       platform: "linux",
@@ -33,7 +33,7 @@ describe("electron launcher", () => {
     expect(result).toBe(child);
     expect(calls).toEqual([
       {
-        command: "/repo/ember/node_modules/.bin/electron",
+        command: "/repo/lime/node_modules/.bin/electron",
         args: ["."],
         options: {
           env: { NODE_ENV: "test" },
@@ -48,12 +48,12 @@ describe("electron launcher", () => {
     const result = resolveElectronLaunchPath({
       electronPath: ELECTRON_EXECUTABLE,
       platform: "darwin",
-      repoRoot: "/repo/ember",
+      repoRoot: "/repo/lime",
       prepare({ electronPath, repoRoot }) {
         return {
           executablePath: path.join(
             repoRoot,
-            ".ember/electron-dev-host/Ember.app/Contents/MacOS",
+            ".lime/electron-dev-host/Lime.app/Contents/MacOS",
             path.basename(electronPath),
           ),
         };
@@ -62,7 +62,7 @@ describe("electron launcher", () => {
 
     expect(result).toBe(
       path.resolve(
-        "/repo/ember/.ember/electron-dev-host/Ember.app/Contents/MacOS/Electron",
+        "/repo/lime/.lime/electron-dev-host/Lime.app/Contents/MacOS/Electron",
       ),
     );
   });
@@ -71,7 +71,7 @@ describe("electron launcher", () => {
     expect(
       resolveElectronLaunchPath({
         electronPath: ELECTRON_EXECUTABLE,
-        env: { EMBER_ELECTRON_BRAND_DEV_APP: "0" },
+        env: { LIME_ELECTRON_BRAND_DEV_APP: "0" },
         platform: "darwin",
         prepare() {
           throw new Error("should not prepare app bundle");
@@ -82,7 +82,7 @@ describe("electron launcher", () => {
 
   it("从 Electron 可执行文件路径解析 .app bundle 根目录", () => {
     expect(resolveMacElectronAppBundle(ELECTRON_EXECUTABLE)).toBe(
-      path.resolve("/repo/ember/node_modules/electron/dist/Electron.app"),
+      path.resolve("/repo/lime/node_modules/electron/dist/Electron.app"),
     );
   });
 
@@ -109,13 +109,13 @@ describe("electron launcher", () => {
     const branded = brandInfoPlist(original);
 
     expect(branded).toContain(
-      "<key>CFBundleDisplayName</key>\n\t<string>Ember</string>",
+      "<key>CFBundleDisplayName</key>\n\t<string>Lime</string>",
     );
     expect(branded).toContain(
-      "<key>CFBundleName</key>\n\t<string>Ember</string>",
+      "<key>CFBundleName</key>\n\t<string>Lime</string>",
     );
     expect(branded).toContain(
-      "<key>CFBundleExecutable</key>\n\t<string>Ember</string>",
+      "<key>CFBundleExecutable</key>\n\t<string>Lime</string>",
     );
     expect(branded).toContain(
       "<key>CFBundleIdentifier</key>\n\t<string>com.embercloud.ember.dev</string>",
@@ -137,7 +137,7 @@ describe("electron launcher", () => {
 
     const result = prepareBrandedElectronApp({
       electronPath: ELECTRON_EXECUTABLE,
-      repoRoot: "/repo/ember",
+      repoRoot: "/repo/lime",
       copyApp(...args) {
         calls.push(["copyApp", ...args]);
       },
@@ -184,22 +184,22 @@ describe("electron launcher", () => {
     });
 
     expect(result.appPath).toBe(
-      path.resolve("/repo/ember/.ember/electron-dev-host/Ember.app"),
+      path.resolve("/repo/lime/.lime/electron-dev-host/Lime.app"),
     );
     expect(result.executablePath).toBe(
       path.resolve(
-        "/repo/ember/.ember/electron-dev-host/Ember.app/Contents/MacOS/Ember",
+        "/repo/lime/.lime/electron-dev-host/Lime.app/Contents/MacOS/Lime",
       ),
     );
     expect(calls).toContainEqual([
       "makeDir",
-      path.resolve("/repo/ember/.ember/electron-dev-host"),
+      path.resolve("/repo/lime/.lime/electron-dev-host"),
       { recursive: true },
     ]);
     expect(calls).toContainEqual([
       "copyApp",
-      path.resolve("/repo/ember/node_modules/electron/dist/Electron.app"),
-      path.resolve("/repo/ember/.ember/electron-dev-host/Ember.app"),
+      path.resolve("/repo/lime/node_modules/electron/dist/Electron.app"),
+      path.resolve("/repo/lime/.lime/electron-dev-host/Lime.app"),
       {
         recursive: true,
         force: true,
@@ -209,48 +209,48 @@ describe("electron launcher", () => {
     ]);
     expect(calls).toContainEqual([
       "copyFile",
-      path.resolve("/repo/ember/ember-rs/icons/icon.icns"),
+      path.resolve("/repo/lime/ember-rs/icons/icon.icns"),
       path.resolve(
-        "/repo/ember/.ember/electron-dev-host/Ember.app/Contents/Resources/icon.icns",
+        "/repo/lime/.lime/electron-dev-host/Lime.app/Contents/Resources/icon.icns",
       ),
     ]);
     expect(calls).toContainEqual([
       "renameFile",
       path.resolve(
-        "/repo/ember/.ember/electron-dev-host/Ember.app/Contents/MacOS/Electron",
+        "/repo/lime/.lime/electron-dev-host/Lime.app/Contents/MacOS/Electron",
       ),
       path.resolve(
-        "/repo/ember/.ember/electron-dev-host/Ember.app/Contents/MacOS/Ember",
+        "/repo/lime/.lime/electron-dev-host/Lime.app/Contents/MacOS/Lime",
       ),
     ]);
     expect(calls).toContainEqual([
       "signApp",
-      path.resolve("/repo/ember/.ember/electron-dev-host/Ember.app"),
+      path.resolve("/repo/lime/.lime/electron-dev-host/Lime.app"),
     ]);
     expect(written).toHaveLength(1);
     expect(written[0].filePath).toBe(
       path.resolve(
-        "/repo/ember/.ember/electron-dev-host/Ember.app/Contents/Info.plist",
+        "/repo/lime/.lime/electron-dev-host/Lime.app/Contents/Info.plist",
       ),
     );
-    expect(written[0].content).toContain("<string>Ember</string>");
+    expect(written[0].content).toContain("<string>Lime</string>");
     expect(written[0].content).toContain(
-      "<key>CFBundleExecutable</key>\n\t<string>Ember</string>",
+      "<key>CFBundleExecutable</key>\n\t<string>Lime</string>",
     );
     expect(written[0].content).not.toContain("com.github.Electron");
   });
 
-  it("历史 Ember.app 缓存不可用时改用稳定的 Ember-dev.app fallback", () => {
+  it("历史 Lime.app 缓存不可用时改用稳定的 Lime-dev.app fallback", () => {
     const calls = [];
     const written = [];
     const existing = new Set([
-      path.resolve("/repo/ember/.ember/electron-dev-host/Ember.app"),
-      path.resolve("/repo/ember/ember-rs/icons/icon.icns"),
+      path.resolve("/repo/lime/.lime/electron-dev-host/Lime.app"),
+      path.resolve("/repo/lime/ember-rs/icons/icon.icns"),
     ]);
 
     const result = prepareBrandedElectronApp({
       electronPath: ELECTRON_EXECUTABLE,
-      repoRoot: "/repo/ember",
+      repoRoot: "/repo/lime",
       copyApp(...args) {
         calls.push(["copyApp", ...args]);
       },
@@ -264,7 +264,7 @@ describe("electron launcher", () => {
         const normalized = path.resolve(filePath);
         return (
           existing.has(normalized) ||
-          normalized.endsWith("Ember-dev.app/Contents/MacOS/Electron")
+          normalized.endsWith("Lime-dev.app/Contents/MacOS/Electron")
         );
       },
       makeDir(...args) {
@@ -282,17 +282,17 @@ describe("electron launcher", () => {
     });
 
     expect(result.appPath).toBe(
-      path.resolve("/repo/ember/.ember/electron-dev-host/Ember-dev.app"),
+      path.resolve("/repo/lime/.lime/electron-dev-host/Lime-dev.app"),
     );
     expect(result.executablePath).toBe(
       path.resolve(
-        "/repo/ember/.ember/electron-dev-host/Ember-dev.app/Contents/MacOS/Ember",
+        "/repo/lime/.lime/electron-dev-host/Lime-dev.app/Contents/MacOS/Lime",
       ),
     );
     expect(calls).toContainEqual([
       "copyApp",
-      path.resolve("/repo/ember/node_modules/electron/dist/Electron.app"),
-      path.resolve("/repo/ember/.ember/electron-dev-host/Ember-dev.app"),
+      path.resolve("/repo/lime/node_modules/electron/dist/Electron.app"),
+      path.resolve("/repo/lime/.lime/electron-dev-host/Lime-dev.app"),
       {
         recursive: true,
         force: true,
@@ -302,24 +302,24 @@ describe("electron launcher", () => {
     ]);
     expect(written[0].filePath).toBe(
       path.resolve(
-        "/repo/ember/.ember/electron-dev-host/Ember-dev.app/Contents/Info.plist",
+        "/repo/lime/.lime/electron-dev-host/Lime-dev.app/Contents/Info.plist",
       ),
     );
     expect(calls).toContainEqual([
       "renameFile",
       path.resolve(
-        "/repo/ember/.ember/electron-dev-host/Ember-dev.app/Contents/MacOS/Electron",
+        "/repo/lime/.lime/electron-dev-host/Lime-dev.app/Contents/MacOS/Electron",
       ),
       path.resolve(
-        "/repo/ember/.ember/electron-dev-host/Ember-dev.app/Contents/MacOS/Ember",
+        "/repo/lime/.lime/electron-dev-host/Lime-dev.app/Contents/MacOS/Lime",
       ),
     ]);
   });
 
   it("branded dev bundle ready 判断会拒绝指向源 Electron.app 的 framework symlink", () => {
-    const appPath = path.resolve("/repo/ember/.ember/electron-dev-host/Ember.app");
+    const appPath = path.resolve("/repo/lime/.lime/electron-dev-host/Lime.app");
     const infoPlistPath = path.join(appPath, "Contents/Info.plist");
-    const executablePath = path.join(appPath, "Contents/MacOS/Ember");
+    const executablePath = path.join(appPath, "Contents/MacOS/Lime");
     const requiredResourcePath = path.join(
       appPath,
       "Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/icudtl.dat",
@@ -337,9 +337,9 @@ describe("electron launcher", () => {
       readFile() {
         return [
           "<plist><dict>",
-          "<key>CFBundleDisplayName</key><string>Ember</string>",
-          "<key>CFBundleName</key><string>Ember</string>",
-          "<key>CFBundleExecutable</key><string>Ember</string>",
+          "<key>CFBundleDisplayName</key><string>Lime</string>",
+          "<key>CFBundleName</key><string>Lime</string>",
+          "<key>CFBundleExecutable</key><string>Lime</string>",
           "<key>CFBundleIdentifier</key><string>com.embercloud.ember.dev</string>",
           "<key>CFBundleIconFile</key><string>icon.icns</string>",
           "</dict></plist>",
@@ -351,7 +351,7 @@ describe("electron launcher", () => {
         }
         if (String(filePath).endsWith("Resources")) {
           return path.resolve(
-            "/repo/ember/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Framework.framework/Versions/Current/Resources",
+            "/repo/lime/node_modules/electron/dist/Electron.app/Contents/Frameworks/Electron Framework.framework/Versions/Current/Resources",
           );
         }
         return "Versions/Current/Electron Framework";
@@ -363,10 +363,10 @@ describe("electron launcher", () => {
 
   it("branded dev bundle ready 判断接受完整相对 framework symlink", () => {
     const appPath = path.resolve(
-      "/repo/ember/.ember/electron-dev-host/Ember-dev.app",
+      "/repo/lime/.lime/electron-dev-host/Lime-dev.app",
     );
     const infoPlistPath = path.join(appPath, "Contents/Info.plist");
-    const executablePath = path.join(appPath, "Contents/MacOS/Ember");
+    const executablePath = path.join(appPath, "Contents/MacOS/Lime");
     const requiredResourcePath = path.join(
       appPath,
       "Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/icudtl.dat",
@@ -384,9 +384,9 @@ describe("electron launcher", () => {
       readFile() {
         return [
           "<plist><dict>",
-          "<key>CFBundleDisplayName</key><string>Ember</string>",
-          "<key>CFBundleName</key><string>Ember</string>",
-          "<key>CFBundleExecutable</key><string>Ember</string>",
+          "<key>CFBundleDisplayName</key><string>Lime</string>",
+          "<key>CFBundleName</key><string>Lime</string>",
+          "<key>CFBundleExecutable</key><string>Lime</string>",
           "<key>CFBundleIdentifier</key><string>com.embercloud.ember.dev</string>",
           "<key>CFBundleIconFile</key><string>icon.icns</string>",
           "</dict></plist>",

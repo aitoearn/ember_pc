@@ -1,17 +1,16 @@
 export {
-  AppServerAgentRuntimeClient,
   AppServerConnection,
-  createAgentRuntimeClient,
   type AgentEvent,
   type AgentRuntimeClient,
-  type AgentRuntimeClientOptions,
   type AgentRuntimeClientSubscription,
   type AgentRuntimeEventListener,
+  type CanonicalThreadEventListener,
+  type CanonicalThreadEventNotification,
   type AgentSessionActionRespondParams,
   type AgentSessionActionRespondResponse,
   type AgentSessionEventNotification,
-  type AgentSessionReadParams,
-  type AgentSessionReadResponse,
+  type ThreadReadParams,
+  type ThreadReadResponse,
   type AgentSessionTurnCancelParams,
   type AgentSessionTurnCancelResponse,
   type AgentSessionTurnStartParams,
@@ -21,10 +20,37 @@ export {
   type AppServerRequestResult,
   type EvidenceExportParams,
   type EvidenceExportResponse,
+  type StructuredOutputContract,
 } from "@embercloud/app-server-client";
 
 export {
+  AppServerAgentRuntimeClient,
+  createAgentRuntimeClient,
+  type AgentRuntimeClientOptions,
+} from "./runtimeClient.js";
+
+export {
+  AgentRuntimeEventSequenceGate,
+  AgentRuntimeSequenceViolationError,
+  runtimeExecutionEventFromCanonicalEvent,
+  type AgentRuntimeSequenceVerifierLike,
+  type AgentRuntimeSequenceVerifierMode,
+} from "./eventVerifier.js";
+
+export {
+  AgentRuntimeEventPipeline,
+  withEvent,
+  type AgentRuntimeEventAdapter,
+  type AgentRuntimeEventMiddleware,
+  type AgentRuntimeEventMiddlewareFunction,
+  type AgentRuntimeEventPipelineContext,
+  type AgentRuntimeEventPipelineMiddleware,
+  type AgentRuntimeEventPipelineOptions,
+} from "./eventPipeline.js";
+
+export {
   createAgentRuntimeClientFromSessionGateway,
+  type AgentRuntimeClientFromGatewayOptions,
   type AgentRuntimeLifecycleClient,
   type AgentRuntimeSessionGateway,
 } from "./sessionGateway.js";

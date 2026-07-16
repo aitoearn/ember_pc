@@ -1,7 +1,7 @@
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { resolveLocalFilePreviewUrl } from "@/lib/api/fileSystem";
 import type { Artifact } from "@/lib/artifact/types";
 import { HtmlRenderer } from "./HtmlRenderer";
@@ -66,7 +66,7 @@ beforeEach(async () => {
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
   vi.spyOn(console, "error").mockImplementation(() => undefined);
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 afterEach(async () => {
@@ -82,7 +82,7 @@ afterEach(async () => {
     mounted.container.remove();
   }
 
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   vi.restoreAllMocks();
 });
 
@@ -139,15 +139,15 @@ describe("HtmlRenderer", () => {
   it("有真实 HTML 文件路径时应使用文件 URL 预览而不是 srcDoc", () => {
     const container = renderHtmlRenderer({
       content: "<!doctype html><html><body><div id=\"app\">{{ title }}</div></body></html>",
-      meta: { filename: "prototype.html", filePath: "/tmp/ember/prototype.html" },
+      meta: { filename: "prototype.html", filePath: "/tmp/lime/prototype.html" },
     });
 
     const iframe = container.querySelector("iframe");
     expect(resolveLocalFilePreviewUrl).toHaveBeenCalledWith(
-      "/tmp/ember/prototype.html",
+      "/tmp/lime/prototype.html",
     );
     expect(iframe?.getAttribute("src")).toBe(
-      "asset://local//tmp/ember/prototype.html",
+      "asset://local//tmp/lime/prototype.html",
     );
     expect(iframe?.getAttribute("srcdoc")).toBeNull();
     expect(iframe?.getAttribute("sandbox")).toContain("allow-same-origin");
@@ -157,7 +157,7 @@ describe("HtmlRenderer", () => {
     vi.mocked(resolveLocalFilePreviewUrl).mockReturnValueOnce(null);
     const container = renderHtmlRenderer({
       content: "<main>Fallback</main>",
-      meta: { filename: "prototype.html", filePath: "/tmp/ember/prototype.html" },
+      meta: { filename: "prototype.html", filePath: "/tmp/lime/prototype.html" },
     });
 
     const iframe = container.querySelector("iframe");

@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useDeepLink } from "./useDeepLink";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { getCurrent, onOpenUrl } from "@/lib/desktop-host/plugin-deep-link";
 import { hasDesktopHostInvokeCapability } from "@/lib/desktop-runtime";
 import {
@@ -76,8 +76,8 @@ vi.mock("@/lib/api/oemCloudControlPlane", () => ({
   claimClientReferral: mockClaimClientReferral,
 }));
 
-vi.mock("@/lib/oemEmberHubProvider", () => ({
-  resolveOemEmberHubProviderName: vi.fn(() => "Ember Hub"),
+vi.mock("@/lib/oemLimeHubProvider", () => ({
+  resolveOemLimeHubProviderName: vi.fn(() => "Lime Hub"),
 }));
 
 vi.mock("sonner", () => ({
@@ -111,7 +111,7 @@ function renderHook(options?: Parameters<typeof useDeepLink>[0]) {
 
 describe("useDeepLink", () => {
   beforeEach(async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     vi.clearAllMocks();
     (
       globalThis as typeof globalThis & {
@@ -146,9 +146,9 @@ describe("useDeepLink", () => {
     });
     mockClaimClientReferral.mockResolvedValue({});
     window.localStorage.clear();
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_OEM_CLOUD__;
-    delete window.__EMBER_SESSION_TOKEN__;
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_OEM_CLOUD__;
+    delete window.__LIME_SESSION_TOKEN__;
   });
 
   afterEach(async () => {
@@ -162,10 +162,10 @@ describe("useDeepLink", () => {
       });
       mounted.container.remove();
     }
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_OEM_CLOUD__;
-    delete window.__EMBER_SESSION_TOKEN__;
-    await changeEmberLocale("zh-CN");
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_OEM_CLOUD__;
+    delete window.__LIME_SESSION_TOKEN__;
+    await changeLimeLocale("zh-CN");
   });
 
   it("浏览器开发模式下不应注册 deep-link 事件桥", async () => {
@@ -188,7 +188,7 @@ describe("useDeepLink", () => {
 
     await act(async () => {
       deepLinkHandler?.([
-        "ember://connect?relay=relay-one&key=sk-relay-key&name=Relay%20Key",
+        "lime://connect?relay=relay-one&key=sk-relay-key&name=Relay%20Key",
       ]);
       await Promise.resolve();
       await Promise.resolve();
@@ -196,14 +196,14 @@ describe("useDeepLink", () => {
 
     expect(onOpenUrl).toHaveBeenCalledTimes(1);
     expect(mockResolveConnectDeepLink).toHaveBeenCalledWith(
-      "ember://connect?relay=relay-one&key=sk-relay-key&name=Relay%20Key",
+      "lime://connect?relay=relay-one&key=sk-relay-key&name=Relay%20Key",
     );
   });
 
   it("应解析官网 open deep link 并回调前端导航", async () => {
     const onOpenWebsiteDeepLink = vi.fn();
     vi.mocked(getCurrent).mockResolvedValue([
-      "ember://open?kind=prompt&slug=gemini-longform-master&source=website&v=1",
+      "lime://open?kind=prompt&slug=gemini-longform-master&source=website&v=1",
     ]);
 
     await renderHook({
@@ -211,7 +211,7 @@ describe("useDeepLink", () => {
     });
 
     expect(mockResolveOpenDeepLink).toHaveBeenCalledWith(
-      "ember://open?kind=prompt&slug=gemini-longform-master&source=website&v=1",
+      "lime://open?kind=prompt&slug=gemini-longform-master&source=website&v=1",
     );
     expect(onOpenWebsiteDeepLink).toHaveBeenCalledWith({
       kind: "prompt",
@@ -224,7 +224,7 @@ describe("useDeepLink", () => {
   it("应把官网 install action 透传给前端安装链路", async () => {
     const onOpenWebsiteDeepLink = vi.fn();
     vi.mocked(getCurrent).mockResolvedValue([
-      "ember://open?kind=skill&slug=viral-content-breakdown&source=website&v=1&action=install",
+      "lime://open?kind=skill&slug=viral-content-breakdown&source=website&v=1&action=install",
     ]);
     mockResolveOpenDeepLink.mockResolvedValueOnce({
       payload: {
@@ -256,7 +256,7 @@ describe("useDeepLink", () => {
     };
     window.addEventListener(OEM_CLOUD_PAYMENT_RETURN_EVENT, listener);
     vi.mocked(getCurrent).mockResolvedValue([
-      "ember://payment/return?tenantId=tenant-0001&orderId=order-001&kind=plan_order&status=success",
+      "lime://payment/return?tenantId=tenant-0001&orderId=order-001&kind=plan_order&status=success",
     ]);
 
     await renderHook();
@@ -287,7 +287,7 @@ describe("useDeepLink", () => {
 
   it("应缓存邀请 deep link，等待云端登录后自动领取", async () => {
     vi.mocked(getCurrent).mockResolvedValue([
-      "ember://invite?code=nm-45bc-8dhw&tenantId=tenant-0001",
+      "lime://invite?code=nm-45bc-8dhw&tenantId=tenant-0001",
     ]);
 
     await renderHook();
@@ -308,7 +308,7 @@ describe("useDeepLink", () => {
   it("已有云端会话时应自动调用邀请 claim 接口", async () => {
     setStoredOemCloudSessionState({
       token: "session-token-001",
-      tenant: { id: "tenant-0001", name: "Ember" },
+      tenant: { id: "tenant-0001", name: "Lime" },
       user: { id: "user-001", displayName: "晚风" },
       session: { id: "session-001" },
     });
@@ -347,7 +347,7 @@ describe("useDeepLink", () => {
       {} as Awaited<ReturnType<typeof completeOemCloudDesktopOAuthLogin>>,
     );
     vi.mocked(getCurrent).mockResolvedValue([
-      "ember://oauth/callback?tenantId=tenant-0001&token=session-token-001",
+      "lime://oauth/callback?tenantId=tenant-0001&token=session-token-001",
     ]);
 
     await renderHook();
@@ -361,7 +361,7 @@ describe("useDeepLink", () => {
     expect(mockToastSuccess).toHaveBeenCalledWith(
       "Google sign-in complete",
       expect.objectContaining({
-        description: expect.stringContaining("Ember Hub cloud catalog"),
+        description: expect.stringContaining("Lime Hub cloud catalog"),
       }),
     );
   });

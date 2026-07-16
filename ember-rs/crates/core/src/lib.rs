@@ -1,4 +1,4 @@
-//! Ember Core Crate
+//! Lime Core Crate
 //!
 //! 包含纯数据类型、基础模块和无外部业务依赖的独立模块。
 //!
@@ -22,6 +22,7 @@ pub mod app_paths;
 pub mod app_utils;
 pub mod data;
 pub mod env_compat;
+pub mod image_generation_matcher;
 pub mod logger;
 pub mod models;
 pub mod tray_format;
@@ -42,14 +43,15 @@ pub mod tool_calling;
 
 // 类型模块（纯数据类型，供 database 等模块使用）
 pub mod agent;
-pub mod agent_app_runtime_token;
 pub mod general_chat;
+pub mod plugin_runtime_token;
 
 // 路由系统
 pub mod router;
 
 // 请求处理器核心类型（context, error）
 pub mod processor;
+pub mod product_db_migration_cleanup;
 pub mod provider_prompt_cache_support;
 
 // WebSocket 核心类型

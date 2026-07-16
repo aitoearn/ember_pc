@@ -11,10 +11,8 @@ import {
   Workflow,
   Wrench,
 } from "lucide-react";
-import type {
-  AgentRuntimeEvidencePack,
-  AgentRuntimeToolInventory,
-} from "@/lib/api/agentRuntime";
+import type { AgentRuntimeEvidencePack } from "@/lib/api/agentRuntime/evidenceTypes";
+import type { AgentRuntimeToolInventory } from "@/lib/api/agentRuntime/toolInventoryTypes";
 import type {
   AgentUiProjectionSummary,
   AgentUiProjectionTranslation,
@@ -51,7 +49,6 @@ interface BuildHarnessPanelSectionNavItemsInput {
   fileChangeReviewEntriesLength: number;
   hasAgentUiProjectionSection: boolean;
   hasHandoffSection: boolean;
-  hasSelectedTeamConfig: boolean;
   hasToolInventorySection: boolean;
   harnessState: Pick<
     HarnessSessionState,
@@ -74,7 +71,6 @@ export function buildHarnessPanelSectionNavItems({
   fileChangeReviewEntriesLength,
   hasAgentUiProjectionSection,
   hasHandoffSection,
-  hasSelectedTeamConfig,
   hasToolInventorySection,
   harnessState,
   realTeamSummary,
@@ -83,10 +79,6 @@ export function buildHarnessPanelSectionNavItems({
   fileReviewTitle,
 }: BuildHarnessPanelSectionNavItemsInput): HarnessSectionNavItem[] {
   const sections: HarnessSectionNavItem[] = [];
-
-  if (hasSelectedTeamConfig) {
-    sections.push({ key: "team_config", label: "Subagents" });
-  }
 
   if (runtimeTaskPresentation) {
     sections.push({ key: "runtime", label: "任务进行时" });
@@ -149,7 +141,6 @@ interface BuildHarnessSummaryCardsInput {
   evidencePack: AgentRuntimeEvidencePack | null;
   hasAgentUiProjectionSection: boolean;
   hasHandoffSection: boolean;
-  hasSelectedTeamConfig: boolean;
   hasToolInventorySection: boolean;
   harnessState: Pick<
     HarnessSessionState,
@@ -159,9 +150,6 @@ interface BuildHarnessSummaryCardsInput {
   runtimeTaskPresentation: RuntimeTaskPresentation | null;
   runtimeToolTotal: number;
   runtimeToolVisibleTotal: number;
-  selectedTeamLabel: string | null;
-  selectedTeamRolesCount: number;
-  selectedTeamSummary: string | null;
   threadReliability: HarnessThreadReliabilitySummary;
   toolInventory: AgentRuntimeToolInventory | null;
   toolInventoryError: string | null;
@@ -177,16 +165,12 @@ export function buildHarnessSummaryCards({
   evidencePack,
   hasAgentUiProjectionSection,
   hasHandoffSection,
-  hasSelectedTeamConfig,
   hasToolInventorySection,
   harnessState,
   realTeamSummary,
   runtimeTaskPresentation,
   runtimeToolTotal,
   runtimeToolVisibleTotal,
-  selectedTeamLabel,
-  selectedTeamRolesCount,
-  selectedTeamSummary,
   threadReliability,
   toolInventory,
   toolInventoryError,
@@ -245,20 +229,6 @@ export function buildHarnessSummaryCards({
     });
   }
 
-  if (hasSelectedTeamConfig) {
-    cards.push({
-      sectionKey: "team_config",
-      title: "Subagents",
-      value: selectedTeamLabel?.trim() || `${selectedTeamRolesCount} 个子代理`,
-      hint:
-        selectedTeamSummary?.trim() ||
-        (selectedTeamRolesCount > 0
-          ? `已配置 ${selectedTeamRolesCount} 个子代理`
-          : "本次已启用 Subagents"),
-      icon: Bot,
-    });
-  }
-
   if (fileChangeReviewEntries.length > 0) {
     cards.push({
       sectionKey: "file_review",
@@ -308,7 +278,7 @@ export function buildHarnessSummaryCards({
       hint: toolInventoryError
         ? toolInventoryError
         : toolInventory
-          ? `runtime ${runtimeToolVisibleTotal}/${runtimeToolTotal} · registry ${toolInventory.counts.registry_visible_total}`
+          ? `runtime ${runtimeToolVisibleTotal}/${runtimeToolTotal} · native ${toolInventory.counts.native_visible_total}`
           : "等待拉取运行时库存",
       icon: Wrench,
     });

@@ -53,7 +53,7 @@ describe("agentThreadGrouping", () => {
         ...createBaseItem("search-1", 3),
         type: "web_search",
         action: "web_search",
-        query: "Ember CDP 并行渲染",
+        query: "Lime CDP 并行渲染",
       },
       {
         ...createBaseItem("browser-3", 4),
@@ -70,7 +70,7 @@ describe("agentThreadGrouping", () => {
       "打开了 https://example.com",
     );
     expect(model.groups[0]?.previewLines).toContain("点了 #submit");
-    expect(model.groups[0]?.previewLines).toContain("搜了 Ember CDP 并行渲染");
+    expect(model.groups[0]?.previewLines).toContain("搜了 Lime CDP 并行渲染");
     expect(model.summaryChips).toEqual([
       { kind: "process", label: "执行过程", count: 4 },
     ]);
@@ -203,6 +203,73 @@ describe("agentThreadGrouping", () => {
     ]);
   });
 
+  it("reasoning 与工具混排时不应被工具批量摘要覆盖", () => {
+    const items: AgentThreadItem[] = [
+      {
+        ...createBaseItem("reasoning-1", 1),
+        type: "reasoning",
+        text: "先确认用户要的是今天国际新闻。",
+      },
+      {
+        ...createBaseItem("search-1", 2),
+        type: "web_search",
+        action: "web_search",
+        query: "today world news Reuters",
+      },
+      {
+        ...createBaseItem("reasoning-2", 3),
+        type: "reasoning",
+        text: "再按地区和影响力筛选来源。",
+      },
+      {
+        ...createBaseItem("browser-1", 4),
+        type: "tool_call",
+        tool_name: "browser_navigate",
+        arguments: { url: "https://apnews.com/hub/world-news" },
+      },
+    ];
+
+    const model = buildAgentThreadDisplayModel(items);
+
+    expect(model.orderedBlocks).toHaveLength(1);
+    expect(model.orderedBlocks[0]?.title).toBe("执行过程");
+    expect(model.orderedBlocks[0]?.previewLines).toEqual([
+      "先确认用户要的是今天国际新闻。",
+      "搜了 today world news Reuters",
+      "再按地区和影响力筛选来源。",
+    ]);
+  });
+
+  it("同一 turn 内过程预览应按 sequence 排序而不是按完成时间排序", () => {
+    const items: AgentThreadItem[] = [
+      {
+        ...createBaseItem("search-2", 2),
+        started_at: at(1),
+        completed_at: at(1),
+        updated_at: at(1),
+        type: "web_search",
+        action: "web_search",
+        query: "第二步资料",
+      },
+      {
+        ...createBaseItem("browser-1", 1),
+        started_at: at(10),
+        completed_at: at(10),
+        updated_at: at(10),
+        type: "tool_call",
+        tool_name: "browser_navigate",
+        arguments: { url: "https://example.com/first" },
+      },
+    ];
+
+    const model = buildAgentThreadDisplayModel(items);
+
+    expect(model.orderedBlocks[0]?.previewLines).toEqual([
+      "打开了 https://example.com/first",
+      "搜了 第二步资料",
+    ]);
+  });
+
   it("reasoning 预览应压平碎片化过程文本", () => {
     const items: AgentThreadItem[] = [
       {
@@ -307,7 +374,7 @@ describe("agentThreadGrouping", () => {
     expect(model.orderedBlocks[0]?.rawDetailLabel).toBe("展开查看探索明细");
   });
 
-  it("连续 WebSearch 线程项应折叠成网页搜索摘要", () => {
+  it("连续 WebSearch 线程项应按调用边界拆成独立搜索过程", () => {
     const items: AgentThreadItem[] = [
       {
         ...createBaseItem("search-1", 1),
@@ -325,14 +392,308 @@ describe("agentThreadGrouping", () => {
 
     const model = buildAgentThreadDisplayModel(items);
 
-    expect(model.orderedBlocks).toHaveLength(1);
-    expect(model.orderedBlocks[0]?.title).toBe("已搜索网页 2 次");
+    expect(model.orderedBlocks).toHaveLength(2);
+    expect(model.orderedBlocks[0]?.title).toBe(
+      "已搜索网页：today world news Reuters",
+    );
     expect(model.orderedBlocks[0]?.previewLines).toEqual([
       "today world news Reuters",
+    ]);
+    expect(model.orderedBlocks[0]?.countLabel).toBe("1 次");
+    expect(model.orderedBlocks[0]?.rawDetailLabel).toBe("展开查看搜索来源");
+    expect(model.orderedBlocks[1]?.title).toBe(
+      "已搜索网页：https://apnews.com/hub/world-news",
+    );
+    expect(model.orderedBlocks[1]?.previewLines).toEqual([
       "https://apnews.com/hub/world-news",
     ]);
-    expect(model.orderedBlocks[0]?.countLabel).toBe("2 次");
-    expect(model.orderedBlocks[0]?.rawDetailLabel).toBe("展开查看搜索来源");
+    expect(model.orderedBlocks[1]?.countLabel).toBe("1 次");
+    expect(model.orderedBlocks[1]?.rawDetailLabel).toBe("展开查看搜索来源");
+  });
+
+  it("WebSearch 读取页面后遇到下一次 WebSearch 应新开过程块", () => {
+    const items: AgentThreadItem[] = [
+      {
+        ...createBaseItem("search-1", 1),
+        type: "web_search",
+        action: "search",
+        query: "today world news Reuters",
+      },
+      {
+        ...createBaseItem("fetch-1", 2),
+        type: "tool_call",
+        tool_name: "WebFetch",
+        arguments: { url: "https://www.reuters.com/world/" },
+      },
+      {
+        ...createBaseItem("search-2", 3),
+        type: "web_search",
+        action: "search",
+        query: "global headlines AP",
+      },
+      {
+        ...createBaseItem("fetch-2", 4),
+        type: "tool_call",
+        tool_name: "WebFetch",
+        arguments: { url: "https://apnews.com/hub/world-news" },
+      },
+    ];
+
+    const model = buildAgentThreadDisplayModel(items);
+
+    expect(model.orderedBlocks).toHaveLength(2);
+    expect(model.orderedBlocks[0]?.title).toBe(
+      "已搜索网页 1 次，读取网页 1 次",
+    );
+    expect(model.orderedBlocks[0]?.previewLines).toEqual([
+      "today world news Reuters",
+      "reuters.com/world",
+    ]);
+    expect(model.orderedBlocks[0]?.countLabel).toBe("搜 1 / 读 1");
+    expect(model.orderedBlocks[1]?.title).toBe(
+      "已搜索网页 1 次，读取网页 1 次",
+    );
+    expect(model.orderedBlocks[1]?.previewLines).toEqual([
+      "global headlines AP",
+      "apnews.com/hub/world-news",
+    ]);
+    expect(model.orderedBlocks[1]?.countLabel).toBe("搜 1 / 读 1");
+  });
+
+  it("运行中的 WebSearch 线程项应折叠成搜索进行态摘要", () => {
+    const items: AgentThreadItem[] = [
+      {
+        ...createBaseItem("search-running-1", 1),
+        status: "in_progress",
+        completed_at: undefined,
+        type: "web_search",
+        action: "search",
+        query: "today AI news",
+      },
+      {
+        ...createBaseItem("fetch-running-1", 2),
+        status: "in_progress",
+        completed_at: undefined,
+        type: "tool_call",
+        tool_name: "WebFetch",
+        arguments: {
+          url: "https://www.reuters.com/technology/artificial-intelligence/",
+        },
+      },
+    ];
+
+    const model = buildAgentThreadDisplayModel(items);
+
+    expect(model.orderedBlocks).toHaveLength(1);
+    expect(model.orderedBlocks[0]?.title).toBe(
+      "正在搜索网页 1 次，读取网页 1 次",
+    );
+    expect(model.orderedBlocks[0]?.previewLines[0]).toBe("today AI news");
+    expect(model.orderedBlocks[0]?.previewLines[1]).toBe(
+      "reuters.com/technology/artificial-intelligen…",
+    );
+    expect(model.orderedBlocks[0]?.previewLines[1]).not.toContain(
+      "https://www.reuters.com/",
+    );
+    expect(model.orderedBlocks[0]?.countLabel).toBe("搜 1 / 读 1");
+    expect(model.orderedBlocks[0]?.rawDetailLabel).toBe(
+      "展开查看搜索与读取进度",
+    );
+  });
+
+  it("本地历史 provenance 不应改变普通过程分组", () => {
+    const importedMetadata = {
+      imported: true,
+      imported_synthetic: true,
+      source_client: "codex",
+    };
+    const items: AgentThreadItem[] = [
+      {
+        ...createBaseItem("cmd-imported", 1),
+        type: "command_execution",
+        command: "npm test",
+        cwd: "/workspace/imported-codex",
+        aggregated_output: "ok",
+        metadata: importedMetadata,
+      },
+      {
+        ...createBaseItem("search-imported", 2),
+        type: "web_search",
+        action: "search_query",
+        output: '"search_query"',
+        metadata: importedMetadata,
+      },
+    ];
+
+    const model = buildAgentThreadDisplayModel(items);
+
+    expect(model.orderedBlocks).toHaveLength(1);
+    expect(model.orderedBlocks[0]?.title).toBe("执行过程");
+    expect(model.orderedBlocks[0]?.countLabel).toBe("2 步");
+    expect(model.orderedBlocks[0]?.rawDetailLabel).toBe("查看执行过程");
+    expect(model.orderedBlocks[0]?.defaultExpanded).toBe(false);
+    expect(model.orderedBlocks[0]?.forceExpanded).toBeUndefined();
+    expect(JSON.stringify(model.orderedBlocks[0])).toContain("npm test");
+  });
+
+  it("workspace patch 宿主工具 WebSearch 也应按调用边界拆分", () => {
+    const items: AgentThreadItem[] = [
+      {
+        ...createBaseItem("content-factory-search-1", 1),
+        type: "web_search",
+        query: "golang 学习路径",
+        output: "检索到 3 条资料",
+        metadata: {
+          source: "workspace_patch_host_tool_requests",
+          workflowKey: "content_article_workflow",
+        },
+      },
+      {
+        ...createBaseItem("content-factory-search-2", 2),
+        type: "web_search",
+        query: "golang 并发实践",
+        output: "检索到 2 条资料",
+        metadata: {
+          source: "legacy_tool_event",
+          workflow_key: "content_article_workflow",
+        },
+      },
+    ];
+
+    const model = buildAgentThreadDisplayModel(items);
+
+    expect(model.orderedBlocks).toHaveLength(2);
+    expect(model.orderedBlocks[0]?.kind).toBe("process");
+    expect(model.orderedBlocks[0]?.status).toBe("completed");
+    expect(model.orderedBlocks[0]?.defaultExpanded).toBe(false);
+    expect(model.orderedBlocks[0]?.title).toBe("已搜索网页：golang 学习路径");
+    expect(model.orderedBlocks[1]?.kind).toBe("process");
+    expect(model.orderedBlocks[1]?.status).toBe("completed");
+    expect(model.orderedBlocks[1]?.defaultExpanded).toBe(false);
+    expect(model.orderedBlocks[1]?.title).toBe("已搜索网页：golang 并发实践");
+  });
+
+  it("本地历史混合推理过程应复用普通过程分组", () => {
+    const importedMetadata = {
+      imported: true,
+      imported_synthetic: true,
+      source_client: "codex",
+    };
+    const items: AgentThreadItem[] = [
+      {
+        ...createBaseItem("assistant-imported-progress", 1),
+        type: "agent_message",
+        text: "我会先运行测试并检查失败。",
+        metadata: importedMetadata,
+      },
+      {
+        ...createBaseItem("reasoning-imported", 2),
+        type: "reasoning",
+        text: "需要先确认测试失败点。",
+        metadata: importedMetadata,
+      },
+      {
+        ...createBaseItem("cmd-imported", 3),
+        type: "command_execution",
+        command: "npm test",
+        cwd: "/workspace/imported-codex",
+        aggregated_output: "ok",
+        metadata: importedMetadata,
+      },
+      {
+        ...createBaseItem("search-imported", 5),
+        type: "web_search",
+        action: "search_query",
+        output: '"search_query"',
+        metadata: importedMetadata,
+      },
+      {
+        ...createBaseItem("patch-imported", 6),
+        type: "patch",
+        text: "Patch changed /workspace/imported-codex/src/lib.rs",
+        paths: ["/workspace/imported-codex/src/lib.rs"],
+        metadata: importedMetadata,
+      },
+    ];
+
+    const model = buildAgentThreadDisplayModel(items);
+
+    expect(model.orderedBlocks).toHaveLength(1);
+    expect(model.orderedBlocks[0]?.title).toBe("执行过程");
+    expect(model.orderedBlocks[0]?.defaultExpanded).toBe(false);
+    expect(model.orderedBlocks[0]?.forceExpanded).toBeUndefined();
+    expect(JSON.stringify(model.orderedBlocks[0])).toContain("npm test");
+    expect(JSON.stringify(model.orderedBlocks[0])).toContain(
+      "需要先确认测试失败点",
+    );
+  });
+
+  it("本地历史 provenance 不应触发 imported-only 本地化分支", () => {
+    const importedMetadata = {
+      imported: true,
+      imported_synthetic: true,
+      source_client: "codex",
+    };
+    const items: AgentThreadItem[] = [
+      {
+        ...createBaseItem("reasoning-imported", 1),
+        type: "reasoning",
+        text: "Need to inspect the repo",
+        metadata: importedMetadata,
+      },
+      {
+        ...createBaseItem("cmd-imported", 2),
+        type: "command_execution",
+        command: "npm test",
+        cwd: "/workspace/imported-codex",
+        aggregated_output: "ok",
+        metadata: importedMetadata,
+      },
+    ];
+
+    const model = buildAgentThreadDisplayModel(items);
+
+    expect(model.orderedBlocks[0]?.title).toBe("执行过程");
+    expect(model.orderedBlocks[0]?.countLabel).toBe("2 步");
+    expect(model.orderedBlocks[0]?.rawDetailLabel).toBe("查看执行过程");
+  });
+
+  it("无翻译回调时本地历史也应使用普通过程语义", () => {
+    const importedMetadata = {
+      imported: true,
+      imported_synthetic: true,
+      source_client: "codex",
+    };
+    const items: AgentThreadItem[] = [
+      {
+        ...createBaseItem("reasoning-imported", 1),
+        type: "reasoning",
+        text: "Need to inspect the repo",
+        metadata: importedMetadata,
+      },
+      {
+        ...createBaseItem("cmd-imported", 2),
+        type: "command_execution",
+        command: "npm test",
+        cwd: "/workspace/imported-codex",
+        aggregated_output: "ok",
+        metadata: importedMetadata,
+      },
+      {
+        ...createBaseItem("patch-imported", 3),
+        type: "patch",
+        text: "Patch changed /workspace/imported-codex/src/lib.rs",
+        paths: ["/workspace/imported-codex/src/lib.rs"],
+        metadata: importedMetadata,
+      },
+    ];
+
+    const model = buildAgentThreadDisplayModel(items);
+
+    expect(model.orderedBlocks[0]?.title).toBe("执行过程");
+    expect(model.orderedBlocks[0]?.countLabel).toBe("3 步");
+    expect(model.orderedBlocks[0]?.rawDetailLabel).toBe("查看执行过程");
+    expect(JSON.stringify(model.orderedBlocks[0])).toContain("npm test");
   });
 
   it("交互与任务结果预览应使用更直白的用户文案", () => {
@@ -340,7 +701,7 @@ describe("agentThreadGrouping", () => {
       {
         ...createBaseItem("question-1", 1),
         type: "tool_call",
-        tool_name: "AskUserQuestion",
+        tool_name: "request_user_input",
         arguments: { question: "需要继续吗？" },
       },
       {

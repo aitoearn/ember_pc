@@ -4,10 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-const DEFAULT_MANIFEST_PATH = "docs/test/harness-evals.manifest.json";
-const DEFAULT_FIXTURES_ROOT = "docs/test/harness-fixtures/replay";
+const DEFAULT_MANIFEST_PATH = "internal/test/harness-evals.manifest.json";
+const DEFAULT_FIXTURES_ROOT = "internal/test/harness-fixtures/replay";
 const DEFAULT_SUITE_ID = "repo-promoted-replays";
-const DEFAULT_SANITIZED_WORKSPACE_ROOT = "/workspace/ember";
+const DEFAULT_SANITIZED_WORKSPACE_ROOT = "/workspace/lime";
 const REVIEW_DECISION_JSON_FILE_NAME = "review-decision.json";
 const REVIEW_DECISION_MARKDOWN_FILE_NAME = "review-decision.md";
 const REQUIRED_ARTIFACTS = [
@@ -137,23 +137,23 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Harness Replay Promote
+Lime Harness Replay Promote
 
 用法:
   node scripts/harness/replay-promote.mjs --session-id "session-123" --slug "pending-request-runtime"
-  node scripts/harness/replay-promote.mjs --replay-dir ".ember/harness/sessions/session-123/replay" --slug "pending-request-runtime"
+  node scripts/harness/replay-promote.mjs --replay-dir ".lime/harness/sessions/session-123/replay" --slug "pending-request-runtime"
 
 选项:
-  --session-id ID                  从 <workspace>/.ember/harness/sessions/<id>/replay 提升
+  --session-id ID                  从 <workspace>/.lime/harness/sessions/<id>/replay 提升
   --replay-dir PATH                直接指定 replay 目录；与 --session-id 二选一
   --workspace-root PATH            工作区根目录，默认当前目录
-  --manifest PATH                  manifest 路径，默认 docs/test/harness-evals.manifest.json
-  --fixtures-root PATH             目标 fixture 根目录，默认 docs/test/harness-fixtures/replay
+  --manifest PATH                  manifest 路径，默认 internal/test/harness-evals.manifest.json
+  --fixtures-root PATH             目标 fixture 根目录，默认 internal/test/harness-fixtures/replay
   --suite-id ID                    目标 suite，默认 repo-promoted-replays
   --slug NAME                      目标目录名；未提供时会从 sessionId 推导
   --case-id ID                     manifest 中的 case id；默认 repo-promoted-<slug>
   --title TEXT                     manifest 中的 case 标题；默认用 goal summary 推导
-  --sanitized-workspace-root PATH  写入仓库样本时替换绝对工作区路径，默认 /workspace/ember
+  --sanitized-workspace-root PATH  写入仓库样本时替换绝对工作区路径，默认 /workspace/lime
   --replace                        已存在同名 case / 目录时覆盖
   --dry-run                        只预览，不写文件
   --format FMT                     标准输出格式：text | json
@@ -233,7 +233,7 @@ function deriveReplayDirectory(options, workspaceRoot) {
 
   return path.join(
     workspaceRoot,
-    ".ember",
+    ".lime",
     "harness",
     "sessions",
     options.sessionId,
@@ -695,7 +695,7 @@ function main() {
     workspaceRoot,
     options.sanitizedWorkspaceRoot,
   );
-  inputPayload.source = "ember.repo_promoted.replay_case";
+  inputPayload.source = "lime.repo_promoted.replay_case";
   inputPayload.classification = {
     ...(inputPayload.classification ?? {}),
     sourceKind: "repo_promoted_fixture",

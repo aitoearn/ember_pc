@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { AgentToolExecutionResult } from "@/lib/api/agentProtocol";
 import {
-  EMBER_TOOL_METADATA_BEGIN,
-  EMBER_TOOL_METADATA_END,
+  LIME_TOOL_METADATA_BEGIN,
+  LIME_TOOL_METADATA_END,
 } from "./agentChatCoreUtils";
 import { buildAgentStreamToolEndPreApplyPlan } from "./agentStreamToolEventController";
 
@@ -18,21 +18,21 @@ function toolResult(
 
 describe("agentStreamToolEventController", () => {
   it("应查找 tool name 并归一化 tool result", () => {
-    const toolNameByToolId = new Map([["tool-a", "ember_tool"]]);
+    const toolNameByToolId = new Map([["tool-a", "lime_tool"]]);
     const plan = buildAgentStreamToolEndPreApplyPlan({
       toolId: "tool-a",
       toolNameByToolId,
       result: toolResult({
         output: [
           "正文",
-          EMBER_TOOL_METADATA_BEGIN,
+          LIME_TOOL_METADATA_BEGIN,
           '{"task_id":"task-a","task_type":"image_generate"}',
-          EMBER_TOOL_METADATA_END,
+          LIME_TOOL_METADATA_END,
         ].join("\n"),
       }),
     });
 
-    expect(plan.toolName).toBe("ember_tool");
+    expect(plan.toolName).toBe("lime_tool");
     expect(plan.normalizedResult?.output).toBe("正文");
     expect(plan.normalizedResult?.metadata).toMatchObject({
       task_id: "task-a",
@@ -44,7 +44,7 @@ describe("agentStreamToolEventController", () => {
     const plan = buildAgentStreamToolEndPreApplyPlan({
       toolId: "tool-a",
       toolNameByToolId: new Map([
-        ["tool-a", "ember_create_image_generation_task"],
+        ["tool-a", "lime_create_image_generation_task"],
       ]),
       result: toolResult({
         metadata: {

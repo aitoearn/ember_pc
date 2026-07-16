@@ -1,62 +1,38 @@
-## Ember v1.0.0
+## Lime v1.105.0
 
 <sub>The Simplified Chinese release notes are the primary version. This English page is a companion for international readers.</sub>
 
-Open-source AI test workspace for QA teams: test design, regression planning, API/E2E validation, test-context management, multi-model analysis, and device automation.
-
-- **Repository**: https://github.com/aitoearn/ember_pc
-- **Issues**: https://github.com/aitoearn/ember_pc/issues
-- **Downloads**: https://github.com/aitoearn/ember_pc/releases
-- **Homebrew** (macOS): `brew tap aitoearn/tap && brew install --cask ember`
-
 ### New Features
 
-- Product positioning now aligns with the AI test-workspace narrative; README, release notes, and GitHub metadata all point to `aitoearn/ember_pc` so Issues, Releases, and Homebrew publishing share one remote repository.
-- Device automation mirror UX improvements: added `DeviceMirrorViewport` for unified scrcpy / screenshot mirror rendering; added Android brand inference (`deviceBrand`), display formatting (`deviceDisplay`), and `androidDeviceMetadata` reads for more stable device list and debug views.
-- Agent App runtime now connects to the current App Server client and capability APIs, allowing standalone Agent Apps to reuse the JSON-RPC client, capability host, and runtime projection path.
-- Agent Runtime standard packages now include App Server facts, fixture replay, subagents, refs, and validation support for shared runtime, projection, and UI consumption.
-- App Server workspace / project git / session admin protocols now expose workspace update, workspace delete, project git worktree delete, and batch session archive capabilities through the current JSON-RPC path, with matching Rust protocol catalog, schema export, npm `app-server-client`, and frontend API updates.
-- App Server workspace protocol now exposes project-summary reads, and the Agent input bar can read and surface project context so workspace project summaries can participate in the main chat orchestration path.
-- Agent Chat Home and empty-state workbench now include task entry points, grouped navigation, a lightweight task panel, and localized copy resources for a more complete workspace start surface.
+- Added the Codex-aligned `exec_command` and `write_stdin` current tool surface with PTY support, persistent sessions, incremental output, timed yields, output budgets, stdin writes, and terminal cleanup. Command execution now flows through the App Server execution process, approval, sandbox, and canonical Tool/Command lifecycle.
+- Added `spawn_agent.fork_turns` support for `all`, `none`, and the latest N canonical Turns. Children rebuild optional history and provider transcripts under independent stable identities, while the Pending -> Open crash commit exposes a child only after durable setup completes.
+- Added a DeepSWE adapter, project-level Gate candidate/coverage entry points, and an Electron smoke evidence owner to provide auditable snapshots, surface contracts, and proof levels for the next complete Gate A/B candidate freeze.
 
 ### Fixes
 
-- Fixed Agent UI projection summary and subagents read-model naming so old Team Workbench terminology no longer leaks into the current model.
-- Fixed Agent App runtime page and projection bridge wiring for the current capability host / client APIs, reducing drift between standalone apps and the desktop host.
-- Fixed several state-sync issues around the input bar, tool display, workspace send runtime, and thread grouping.
-- Fixed DevBridge command policy and legacy surface catalog classification for retired command surfaces.
-- Fixed protocol drift across local data sources, processor dispatch, and client shapes for session archive, workspace deletion, and project git worktree deletion.
+- Changed provider SSE handling to a 300-second idle timeout instead of a total request deadline and preserved nested transport errors. OpenAI chat streams now ignore fully empty tool-call placeholders and fail closed when arguments arrive without a tool name.
+- Preserved final-answer/commentary phase at TextEnd, projected failed commands as canonical Command items instead of generic Tools, and exposed stable runtime Turn status in the streaming DOM.
+- Prevented AgentControl spawn failures during history, lineage, graph, identity, or mailbox writes from leaving partial children. Startup recovery now exposes only Open children that completed the crash commit.
 
-### Improvements And Refactors
+### Improvements and Refactors
 
-- Converged the Agent Chat workbench path from old Team Workspace components, selectors, canvas runtime, and suggestion helpers onto the current subagents / workbench presentation, deleting a large amount of retired team-workspace UI surface.
-- Split `AppSidebar` into account, appearance, invite, search, session, navigation-target, and style modules, reducing single-file complexity.
-- Removed Companion API, settings card, provider overview, desktop mock, and sidebar-entry remnants from the current settings and provider surfaces.
-- Continued moving input-bar project context, team preference, project storage, and workspace selection logic into hooks and focused helpers.
-- Expanded the Agent Runtime / Agent UI npm packages with standard contracts, fixtures, projection helpers, runtime facts, and UI exports to reduce duplicated GUI and SDK implementation.
-- Continued splitting App Server processor logic into agent app, automation, gallery, gateway, MCP, media, model, project, skill, unified, voice, and workspace domain modules to reduce central dispatcher growth.
-- `packages/ember-cli-npm/bin/ember` is no longer committed as a platform-specific binary; CLI release assets continue to be built by the release pipeline.
-- Repository Git URLs across the codebase now point to `https://github.com/aitoearn/ember_pc`, replacing legacy `lmtestplatform`, `aiclientproxy/ember`, and `embercloud/ember` references in package metadata, README, Homebrew workflow, Cargo manifests, and frontend feedback links.
+- Started rebuilding Codex local-history imports directly as canonical Thread/Turn/Item history. Removed the imported runtime-event sidecar, `conversationImport/thread/runtimeEvents/read`, the dedicated detail panel, and imported-only tool projection so imports no longer maintain a second full-history fact source.
+- Removed legacy Bash, PowerShell, and shell aliases together with the separate `shell_execution` owner. Live processes, PTY, output draining, interruption/termination, and sandbox command preparation now converge in the current Tool Runtime and App Server owners.
+- Removed Renderer synthetic Team projection, Team Memory shadow, selected-team/session metadata, Workspace Agent Team settings, and the old SubAgent tool whitelist. The GUI, read model, and runtime now continue from canonical child Thread/graph facts only.
+- Split Task Center draft-send dispatch, conversation-import history building, execution process handling, sandbox command preparation, and Electron smoke evidence into focused owners to reduce hot-file size and hidden cross-layer wiring.
 
-### Tests And Quality
+### Tests and Quality
 
-- Expanded App Server protocol catalog, workspace / project git / session admin APIs, npm `app-server-client`, Agent Runtime client, projection, UI contracts, and fixture replay regressions.
-- Updated AppSidebar, Agent Chat input bar, Home / EmptyState / task tabs, workspace scene, workspace send, settings v2, Agent App runtime page, and i18n resource tests.
-- Added unit and component regressions for device mirror viewport, brand/display projection, and Android metadata helpers.
-- Updated Electron SDK fixture smoke, tool-surface smoke, command-contract checks, quality-task planning, and i18n readiness reporting.
-- Updated the root app, Rust workspace, CLI npm package, Agent App runtime package, App Server client package, Agent Runtime client dependency, and lockfiles to `1.0.0`.
-- Updated app-server-client contract checks, script root governance baseline, `tsconfig.electron.json`, and `.gitignore` so generated protocol files, Electron typechecking, and script entry governance stay aligned.
+- Expanded Rust and TypeScript coverage for unified exec/PTY, execution-process JSON-RPC, sandbox/policy decisions, AgentControl fork/crash recovery, provider SSE, canonical conversation-import mapping, and GUI projection.
+- Added a DeepSWE coding slice, project Gate candidate digests, a 34-surface coverage contract, Gate B execution evidence, and an App Server stdio transport fixture. Removed the old benchmark-release parallel pipeline and obsolete manifests.
+- Synchronized App Server protocol schemas, the generated TypeScript client, command catalogs, runtime fixtures, Electron smoke coverage, and current documentation guards.
 
 ### Documentation
 
-- Added Agent Workbench and Subagents roadmap entries, including acceptance, iteration plan, parallel workstreams, and task board artifacts.
-- Updated Agent Runtime, Agent UI standard gap, completion audit, implementation plan, test cases, and adjacent protocol documentation.
-- Updated quality workflow, command-boundary, Playwright E2E, protocol standards map, and tech-debt tracking docs for the current workbench / subagents / App Server boundaries.
-- Updated script governance documentation for the current release, generated schema, and app-server-client contract maintenance entries.
+- Updated the global architecture, Refactor V2 central plan, Codex import roadmap, Multi-Agent/Agent UI guidance, testing strategy, and project Gate A/B plan with current owners, deletion classifications, candidate-freeze rules, and remaining acceptance conditions.
 
 ### Other
 
-- This release keeps release facts centered on App Server JSON-RPC, Electron Desktop Host, current npm clients, `ember-rs/crates/**`, generated schemas, and machine-readable guards while preventing old Team Workspace, Companion, and legacy command surfaces from flowing back into the product path.
-- GitHub Releases, Homebrew Cask files, and the CI `update-homebrew` workflow now use `aitoearn/ember_pc` as the download and homepage source of truth.
+- Bumped version facts to `1.105.0` across the root app, CLI npm package, Rust workspace, `ember-rs/Cargo.lock`, and release notes.
 
-**Full changes**: `v1.65.0` -> `v1.0.0`
+**Full changes**: `v1.104.0` -> `v1.105.0`

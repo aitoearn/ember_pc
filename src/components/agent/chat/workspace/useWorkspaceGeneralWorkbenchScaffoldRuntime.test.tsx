@@ -126,7 +126,7 @@ describe("useWorkspaceGeneralWorkbenchScaffoldRuntime", () => {
   it("应接收并去重 creation_task_submitted 事件", async () => {
     let listener: CreationTaskListener | null = null;
     vi.mocked(safeListen).mockImplementationOnce(async (event, handler) => {
-      expect(event).toBe("ember://creation_task_submitted");
+      expect(event).toBe("lime://creation_task_submitted");
       listener = handler;
       return vi.fn();
     });
@@ -135,7 +135,7 @@ describe("useWorkspaceGeneralWorkbenchScaffoldRuntime", () => {
     await render();
 
     expect(safeListen).toHaveBeenCalledWith(
-      "ember://creation_task_submitted",
+      "lime://creation_task_submitted",
       expect.any(Function),
     );
 
@@ -144,7 +144,7 @@ describe("useWorkspaceGeneralWorkbenchScaffoldRuntime", () => {
         payload: {
           task_id: "task-cover-1",
           task_type: "cover_generate",
-          path: " .ember/tasks/cover_generate/demo.json ",
+          path: " .lime/tasks/cover_generate/demo.json ",
           absolute_path: " /tmp/demo.json ",
         },
       });
@@ -155,7 +155,7 @@ describe("useWorkspaceGeneralWorkbenchScaffoldRuntime", () => {
       expect.objectContaining({
         taskId: "task-cover-1",
         taskType: "cover_generate",
-        path: ".ember/tasks/cover_generate/demo.json",
+        path: ".lime/tasks/cover_generate/demo.json",
         absolutePath: "/tmp/demo.json",
       }),
     ]);
@@ -165,7 +165,7 @@ describe("useWorkspaceGeneralWorkbenchScaffoldRuntime", () => {
         payload: {
           task_id: "task-cover-1",
           task_type: "cover_generate",
-          path: ".ember/tasks/cover_generate/demo.json",
+          path: ".lime/tasks/cover_generate/demo.json",
           absolute_path: "/tmp/demo.json",
         },
       });
@@ -173,7 +173,7 @@ describe("useWorkspaceGeneralWorkbenchScaffoldRuntime", () => {
         payload: {
           task_id: "   ",
           task_type: "cover_generate",
-          path: ".ember/tasks/cover_generate/ignored.json",
+          path: ".lime/tasks/cover_generate/ignored.json",
         },
       });
       await Promise.resolve();

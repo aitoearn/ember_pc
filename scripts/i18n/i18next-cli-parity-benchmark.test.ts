@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { summarizeReport } from "./i18next-cli-parity-benchmark.mjs";
 
 describe("i18next-cli parity benchmark", () => {
-  it("应把 Ember sidecar 的 unused 报告纳入 summary", () => {
+  it("应把 Lime sidecar 的 unused 报告纳入 summary", () => {
     const report = summarizeReport(
       {
         extractDryRun: {
@@ -61,7 +61,7 @@ describe("i18next-cli parity benchmark", () => {
       },
     );
 
-    expect(report.emberUnused).toEqual(
+    expect(report.limeUnused).toEqual(
       expect.objectContaining({
         exitCode: 0,
         protectedKeyCount: 2,

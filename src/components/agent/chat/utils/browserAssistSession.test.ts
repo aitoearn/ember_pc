@@ -22,7 +22,7 @@ describe("browserAssistSession", () => {
         toolCalls: [
           {
             id: "tool-1",
-            name: "mcp__ember-browser__browser_navigate",
+            name: "mcp__lime-browser__browser_navigate",
             arguments: JSON.stringify({
               profile_key: "general_browser_assist",
               url: "https://example.com",
@@ -154,9 +154,9 @@ describe("browserAssistSession", () => {
     );
     expect(
       resolveBrowserAssistSessionStorageKey("project-a", "session-a"),
-    ).toBe("aster_browser_assist_session_session-a_project-a");
+    ).toBe("agent_browser_assist_session_session-a_project-a");
     expect(resolveBrowserAssistSessionStorageKey("project-a", null)).toBe(
-      "aster_browser_assist_session_active_project-a",
+      "agent_browser_assist_session_active_project-a",
     );
   });
 

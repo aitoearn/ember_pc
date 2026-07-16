@@ -13,12 +13,12 @@ import {
   User,
   BarChart3,
   Palette,
-  Keyboard,
   Brain,
   Bot,
   Image,
   Plug,
   Search,
+  ShieldCheck,
   Variable,
   Monitor,
   Code,
@@ -98,11 +98,6 @@ export function useSettingsCategory(): CategoryGroup[] {
           icon: Palette,
         },
         {
-          key: SettingsTabs.Hotkeys,
-          label: t("settings.tab.hotkeys"),
-          icon: Keyboard,
-        },
-        {
           key: SettingsTabs.Memory,
           label: t("settings.tab.memory"),
           icon: Brain,
@@ -152,6 +147,11 @@ export function useSettingsCategory(): CategoryGroup[] {
           key: SettingsTabs.Environment,
           label: t("settings.tab.environment"),
           icon: Variable,
+        },
+        {
+          key: SettingsTabs.ExecutionPolicy,
+          label: t("settings.tab.executionPolicy"),
+          icon: ShieldCheck,
         },
         {
           key: SettingsTabs.ChromeRelay,

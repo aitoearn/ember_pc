@@ -13,7 +13,7 @@ function appServerClientMock() {
     id: 1,
     result: {
       session: {
-        sessionId: "__ember_theme_context_search__-session",
+        sessionId: "__lime_theme_context_search__-session",
         threadId: "thread-theme-context-search",
         appId: "desktop",
         workspaceId: "workspace-1",
@@ -45,7 +45,7 @@ function appServerClientMock() {
         method: APP_SERVER_METHOD_AGENT_SESSION_EVENT,
         params: {
           event: {
-            type: "turn.final_done",
+            type: "turn.completed",
             turnId: params.turnId,
             payload: {
               attempts: "web search completed",
@@ -68,7 +68,7 @@ function appServerClientMock() {
       id: 3,
       result: {
         session: {
-          sessionId: "__ember_theme_context_search__-session",
+          sessionId: "__lime_theme_context_search__-session",
           threadId: "thread-theme-context-search",
           appId: "desktop",
           workspaceId: "workspace-1",
@@ -116,7 +116,7 @@ describe("themeContextSearch API", () => {
     expect(result.attemptsSummary).toBe("web search completed");
     expect(appServerClient.startSession).toHaveBeenCalledWith(
       expect.objectContaining({
-        sessionId: expect.stringMatching(/^__ember_theme_context_search__-/),
+        sessionId: expect.stringMatching(/^__lime_theme_context_search__-/),
         appId: "desktop",
         workspaceId: "workspace-1",
         businessObjectRef: expect.objectContaining({
@@ -135,15 +135,17 @@ describe("themeContextSearch API", () => {
 
     expect(appServerClient.startTurn).toHaveBeenCalledWith(
       expect.objectContaining({
-        sessionId: expect.stringMatching(/^__ember_theme_context_search__-/),
+        sessionId: expect.stringMatching(/^__lime_theme_context_search__-/),
         turnId: expect.stringMatching(/^turn-theme-context-search-/),
         input: expect.objectContaining({
           text: expect.stringContaining("检索主题：今天的国际新闻"),
         }),
         runtimeOptions: expect.objectContaining({
           stream: true,
-          providerPreference: "openai-compatible",
-          modelPreference: "gpt-4.1-mini",
+          runtimeRequest: expect.objectContaining({
+            providerPreference: "openai-compatible",
+            modelPreference: "gpt-4.1-mini",
+          }),
         }),
         queueIfBusy: false,
         skipPreSubmitResume: true,
@@ -151,6 +153,13 @@ describe("themeContextSearch API", () => {
     );
 
     const startTurnParams = appServerClient.startTurn.mock.calls[0]?.[0];
+    expect(startTurnParams?.runtimeOptions).not.toHaveProperty(
+      "providerPreference",
+    );
+    expect(startTurnParams?.runtimeOptions).not.toHaveProperty(
+      "modelPreference",
+    );
+    expect(startTurnParams?.runtimeOptions).not.toHaveProperty("metadata");
     const serialized = JSON.stringify(startTurnParams);
     expect(serialized).not.toContain("web_search");
     expect(serialized).not.toContain("webSearch");
@@ -165,7 +174,7 @@ describe("themeContextSearch API", () => {
       id: 3,
       result: {
         session: {
-          sessionId: "__ember_theme_context_search__-session",
+          sessionId: "__lime_theme_context_search__-session",
           threadId: "thread-theme-context-search",
           appId: "desktop",
           workspaceId: "workspace-1",
@@ -258,7 +267,7 @@ describe("themeContextSearch API", () => {
       id: 3,
       result: {
         session: {
-          sessionId: "__ember_theme_context_search__-session",
+          sessionId: "__lime_theme_context_search__-session",
           threadId: "thread-theme-context-search",
           appId: "desktop",
           workspaceId: "workspace-1",

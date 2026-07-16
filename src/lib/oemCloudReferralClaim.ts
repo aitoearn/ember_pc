@@ -2,7 +2,7 @@ import { claimClientReferral } from "@/lib/api/oemCloudControlPlane";
 import { getStoredOemCloudSessionState } from "@/lib/oemCloudSession";
 
 const OEM_CLOUD_REFERRAL_PENDING_STORAGE_KEY =
-  "ember:oem-cloud-referral:pending";
+  "lime:oem-cloud-referral:pending";
 const OEM_CLOUD_REFERRAL_PENDING_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 export type OemCloudReferralClaimStatus =
@@ -88,7 +88,7 @@ export function parseOemCloudReferralInviteUrl(
     const parsed = new URL(value);
     const normalizedPath = parsed.pathname.replace(/\/+$/, "") || "/";
     const isLimeInvite =
-      parsed.protocol === "ember:" &&
+      parsed.protocol === "lime:" &&
       ["invite", "referral"].includes(parsed.hostname);
     const isWebInvite =
       (parsed.protocol === "https:" || parsed.protocol === "http:") &&

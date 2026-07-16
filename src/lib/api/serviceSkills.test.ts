@@ -29,7 +29,7 @@ function buildRemoteBaseSetupPackage() {
       {
         id: "tenant-bundle",
         source: "remote",
-        path_or_uri: "ember://bundles/tenant",
+        path_or_uri: "lime://bundles/tenant",
         kind: "skill_bundle",
       },
     ],
@@ -169,8 +169,8 @@ describe("serviceSkills API", () => {
 
   afterEach(() => {
     window.localStorage.clear();
-    delete window.__EMBER_OEM_CLOUD__;
-    delete window.__EMBER_SESSION_TOKEN__;
+    delete window.__LIME_OEM_CLOUD__;
+    delete window.__LIME_SESSION_TOKEN__;
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -219,9 +219,9 @@ describe("serviceSkills API", () => {
             isStandard: true,
           }),
           metadata: expect.objectContaining({
-            Ember_base_setup_package_id: "ember-seeded-service-skills",
-            Ember_skill_type: "service",
-            Ember_prompt_template_key: "replication",
+            Lime_base_setup_package_id: "lime-seeded-service-skills",
+            Lime_skill_type: "service",
+            Lime_prompt_template_key: "replication",
           }),
         }),
       }),
@@ -259,10 +259,10 @@ describe("serviceSkills API", () => {
         ]),
         skillBundle: expect.objectContaining({
           metadata: expect.objectContaining({
-            Ember_base_setup_package_id:
-              "ember-seeded-local-custom-service-skills",
-            Ember_executor_binding: "browser_assist",
-            Ember_runner_type: "instant",
+            Lime_base_setup_package_id:
+              "lime-seeded-local-custom-service-skills",
+            Lime_executor_binding: "browser_assist",
+            Lime_runner_type: "instant",
           }),
         }),
       }),
@@ -271,7 +271,7 @@ describe("serviceSkills API", () => {
       catalog.items.find((item) => item.id === "account-performance-tracking"),
     ).toEqual(
       expect.objectContaining({
-        title: "稳定性测试",
+        title: "账号增长跟踪",
         aliases: expect.arrayContaining(["增长跟踪", "自动增长"]),
         triggerHints: expect.arrayContaining([
           "需要围绕目标账号持续跟踪内容节奏和提醒条件时使用。",
@@ -279,7 +279,7 @@ describe("serviceSkills API", () => {
       }),
     );
 
-    const cached = window.localStorage.getItem("ember:service-skill-catalog:v1");
+    const cached = window.localStorage.getItem("lime:service-skill-catalog:v1");
     expect(cached).toContain(
       `"tenantId":"${SEEDED_SERVICE_SKILL_CATALOG_TENANT_ID}"`,
     );
@@ -317,8 +317,8 @@ describe("serviceSkills API", () => {
           isStandard: true,
         }),
         metadata: expect.objectContaining({
-          Ember_skill_type: "service",
-          Ember_output_destination:
+          Lime_skill_type: "service",
+          Lime_output_destination:
             "结果会写回当前工作区中的内容草稿，方便继续改写和发布。",
         }),
       }),
@@ -341,22 +341,22 @@ describe("serviceSkills API", () => {
         executionLocation: "client_default",
         skillBundle: expect.objectContaining({
           metadata: expect.objectContaining({
-            Ember_execution_location: "client_default",
-            Ember_executor_binding: "agent_turn",
+            Lime_execution_location: "client_default",
+            Lime_executor_binding: "agent_turn",
           }),
         }),
       }),
     );
 
-    const stored = window.localStorage.getItem("ember:service-skill-catalog:v1");
-    expect(stored).toContain('"Ember_execution_location":"client_default"');
-    expect(stored).toContain('"Ember_executor_binding":"agent_turn"');
+    const stored = window.localStorage.getItem("lime:service-skill-catalog:v1");
+    expect(stored).toContain('"Lime_execution_location":"client_default"');
+    expect(stored).toContain('"Lime_executor_binding":"agent_turn"');
     expect(stored).toContain('"executionLocation":"client_default"');
     expect(stored).toContain('"defaultExecutorBinding":"agent_turn"');
     expect(stored).not.toContain('"executionLocation":"cloud_required"');
     expect(stored).not.toContain('"defaultExecutorBinding":"cloud_scene"');
-    expect(stored).not.toContain('"Ember_execution_location":"cloud_required"');
-    expect(stored).not.toContain('"Ember_executor_binding":"cloud_scene"');
+    expect(stored).not.toContain('"Lime_execution_location":"cloud_required"');
+    expect(stored).not.toContain('"Lime_executor_binding":"cloud_scene"');
   });
 
   it("清空缓存后应恢复到 seeded catalog", async () => {
@@ -371,7 +371,7 @@ describe("serviceSkills API", () => {
 
   it("当前 OEM 租户不匹配时不应读取其他租户的缓存目录", async () => {
     saveServiceSkillCatalog(buildRemoteCatalog(), "manual_override");
-    window.__EMBER_OEM_CLOUD__ = {
+    window.__LIME_OEM_CLOUD__ = {
       baseUrl: "https://oem.example.com",
       tenantId: "tenant-other",
     };
@@ -392,7 +392,7 @@ describe("serviceSkills API", () => {
     };
 
     window.localStorage.setItem(
-      "ember:service-skill-catalog:v1",
+      "lime:service-skill-catalog:v1",
       JSON.stringify(downgraded),
     );
 
@@ -401,7 +401,7 @@ describe("serviceSkills API", () => {
     expect(
       catalog.items.some((item) => item.id === "daily-trend-briefing"),
     ).toBe(true);
-    const stored = window.localStorage.getItem("ember:service-skill-catalog:v1");
+    const stored = window.localStorage.getItem("lime:service-skill-catalog:v1");
     expect(stored).toContain('"daily-trend-briefing"');
   });
 
@@ -421,11 +421,11 @@ describe("serviceSkills API", () => {
   });
 
   it("存在 OEM 注入时应优先从远端刷新目录", async () => {
-    window.__EMBER_OEM_CLOUD__ = {
+    window.__LIME_OEM_CLOUD__ = {
       baseUrl: "https://oem.example.com",
       tenantId: "tenant-demo",
     };
-    window.__EMBER_SESSION_TOKEN__ = "session-token-demo";
+    window.__LIME_SESSION_TOKEN__ = "session-token-demo";
 
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -456,11 +456,11 @@ describe("serviceSkills API", () => {
 
   it("远端刷新返回更旧目录时不应回退当前缓存版本", async () => {
     saveServiceSkillCatalog(buildRemoteCatalog(), "manual_override");
-    window.__EMBER_OEM_CLOUD__ = {
+    window.__LIME_OEM_CLOUD__ = {
       baseUrl: "https://oem.example.com",
       tenantId: "tenant-demo",
     };
-    window.__EMBER_SESSION_TOKEN__ = "session-token-demo";
+    window.__LIME_SESSION_TOKEN__ = "session-token-demo";
 
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -505,8 +505,8 @@ describe("serviceSkills API", () => {
           outputDestination: "workspace",
           skillBundle: expect.objectContaining({
             metadata: expect.objectContaining({
-              Ember_base_setup_package_id: "tenant-scene-pack",
-              Ember_projection_id: "tenant-base-setup-skill",
+              Lime_base_setup_package_id: "tenant-scene-pack",
+              Lime_projection_id: "tenant-base-setup-skill",
             }),
           }),
         }),
@@ -526,11 +526,11 @@ describe("serviceSkills API", () => {
   });
 
   it("远端刷新应支持服务端直接返回 Base Setup Package", async () => {
-    window.__EMBER_OEM_CLOUD__ = {
+    window.__LIME_OEM_CLOUD__ = {
       baseUrl: "https://oem.example.com",
       tenantId: "tenant-demo",
     };
-    window.__EMBER_SESSION_TOKEN__ = "session-token-demo";
+    window.__LIME_SESSION_TOKEN__ = "session-token-demo";
 
     const fetchMock = vi.fn(async () => ({
       ok: true,

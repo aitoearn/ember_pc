@@ -189,7 +189,7 @@ describe("layered-design analyzer model slot HTTP JSON executor client", () => {
           endpointUrl: "http://127.0.0.1:4455/layered-design/model-slot",
           fetchImpl,
           headers: {
-            "x-ember-fixture": "http-json-executor",
+            "x-lime-fixture": "http-json-executor",
           },
         },
         {
@@ -216,7 +216,7 @@ describe("layered-design analyzer model slot HTTP JSON executor client", () => {
         headers: expect.objectContaining({
           "content-type": "application/json",
           accept: "application/json",
-          "x-ember-fixture": "http-json-executor",
+          "x-lime-fixture": "http-json-executor",
         }),
       }),
     );

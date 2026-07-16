@@ -14,45 +14,60 @@ name = "app_server"
 path = "src/lib.rs"
 doctest = false
 
-[features]
-default = []
-aster-backend = []
-
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true
-aster.workspace = true
 base64.workspace = true
 chrono.workspace = true
 chrono-tz.workspace = true
 cron.workspace = true
 dirs.workspace = true
 flate2.workspace = true
+futures.workspace = true
+agent-protocol.workspace = true
+agent-runtime.workspace = true
 app-server-protocol.workspace = true
 app-server-transport.workspace = true
-ember-core.workspace = true
-ember-gateway.workspace = true
-ember-agent.workspace = true
-ember-knowledge.workspace = true
-ember-media-runtime.workspace = true
-ember-mcp.workspace = true
-ember-skills.workspace = true
-ember-services.workspace = true
+lime-core.workspace = true
+lime-gateway.workspace = true
+lime-infra.workspace = true
+lime-agent.workspace = true
+lime-knowledge.workspace = true
+lime-browser-runtime.workspace = true
+lime-media-runtime.workspace = true
+lime-mcp.workspace = true
+model-provider.workspace = true
+runtime-core.workspace = true
+lime-skills.workspace = true
+lime-services = { workspace = true, features = ["local-sensevoice"] }
 hex.workspace = true
+jsonschema.workspace = true
+opentelemetry.workspace = true
+opentelemetry-otlp.workspace = true
+opentelemetry_sdk.workspace = true
 reqwest.workspace = true
+rmcp.workspace = true
 rusqlite.workspace = true
 scopeguard.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 sha2.workspace = true
+portable-pty.workspace = true
+patch-apply.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
+tool-runtime.workspace = true
+thread-store.workspace = true
 tracing.workspace = true
+tracing-opentelemetry.workspace = true
+tracing-subscriber = { version = "0.3", default-features = false, features = ["registry", "std"] }
 url.workspace = true
 uuid.workspace = true
 zip.workspace = true
+zstd.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

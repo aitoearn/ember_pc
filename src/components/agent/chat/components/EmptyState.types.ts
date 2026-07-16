@@ -1,9 +1,10 @@
-import type { Character } from "@/lib/api/memory";
+import type { Character } from "@/lib/api/projectMemory";
 import type { ModelReasoningEffortLevel } from "@/lib/types/modelRegistry";
 import type { AgentI18nResource } from "@/i18n/agentResources";
 import type { AgentInitialInputCapabilityParams } from "@/types/page";
 import type { SkillSelectionSourceProps } from "../skill-selection/skillSelectionBindings";
 import type { AgentAccessMode } from "../hooks/agentChatStorage";
+import type { InterruptedInputRestoreRequest } from "../hooks/agentStreamInputRestoreTypes";
 import type { CreationReplaySurfaceModel } from "../utils/creationReplaySurface";
 import type { CuratedTaskReferenceEntry } from "../utils/curatedTaskReferenceSelection";
 import type { AgentTaskRuntimeCardModel } from "../utils/agentTaskRuntime";
@@ -12,11 +13,13 @@ import type { MessagePathReference } from "../types";
 import type { InputbarSendHandler } from "./Inputbar/inputbarSendPayload";
 import type { InputbarOpenedProject } from "./Inputbar/components/InputbarProjectContextBar";
 import type { EmptyStateProjectConversationGroupModel } from "./EmptyStateViewModel";
+import type { InputbarPluginCapability } from "./Inputbar/pluginInputCapability";
 import type {
   InputbarKnowledgePackOption,
   InputbarKnowledgePackSelection,
 } from "./Inputbar/types";
 import type { CreationMode } from "./types";
+import type { HomeRecoverySession } from "../home/homeSurfaceTypes";
 
 export type AgentI18nKey = keyof AgentI18nResource;
 
@@ -24,6 +27,9 @@ export interface EmptyStateProps extends SkillSelectionSourceProps {
   input: string;
   setInput: (value: string) => void;
   onSend: InputbarSendHandler;
+  onStop?: () => void;
+  /** 首页首发按钮在 pointerdown 阶段发送，避免 click 后短暂停留首页空态。 */
+  sendOnPointerDown?: boolean;
   isLoading?: boolean;
   disabled?: boolean;
   /** 创作模式 */
@@ -66,6 +72,8 @@ export interface EmptyStateProps extends SkillSelectionSourceProps {
   recentSessionSummary?: string | null;
   /** 最近会话恢复动作文案 */
   recentSessionActionLabel?: string;
+  /** 首页未完成会话恢复卡 */
+  homeRecoverySession?: HomeRecoverySession | null;
   /** 恢复最近一次会话上下文 */
   onResumeRecentSession?: () => void;
   /** 当前项目下可继续的会话列表 */
@@ -83,6 +91,14 @@ export interface EmptyStateProps extends SkillSelectionSourceProps {
   onProjectContextChange?: (projectId: string | null) => void;
   /** 当前会话 ID */
   sessionId?: string | null;
+  /** 当前输入栏可显式激活的插件候选 */
+  pluginSuggestions?: InputbarPluginCapability[];
+  /** 插件候选读取失败信息 */
+  pluginSuggestionsError?: string | null;
+  /** 插件候选是否读取中 */
+  pluginSuggestionsLoading?: boolean;
+  /** 用户显式打开插件候选入口 */
+  onPluginSuggestionsNeeded?: () => void;
   /** 当前 runtime tool surface */
   runtimeToolAvailability?: RuntimeToolAvailability | null;
   /** 当前执行态摘要 */
@@ -118,6 +134,8 @@ export interface EmptyStateProps extends SkillSelectionSourceProps {
   /** 输入框已添加的本地文件/文件夹引用 */
   pathReferences?: MessagePathReference[];
   onAddPathReferences?: (references: MessagePathReference[]) => void;
+  inputRestoreRequest?: InterruptedInputRestoreRequest | null;
+  onInputRestoreRequestHandled?: (requestId: string) => void;
   onImportPathReferenceAsKnowledge?: (reference: MessagePathReference) => void;
   onRemovePathReference?: (id: string) => void;
   onClearPathReferences?: () => void;

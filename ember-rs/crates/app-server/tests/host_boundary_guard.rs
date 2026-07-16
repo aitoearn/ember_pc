@@ -17,11 +17,11 @@ const FORBIDDEN_HOST_SURFACES: &[&str] = &[
 ];
 
 const FORBIDDEN_DEFAULT_EVENT_SURFACES: &[&str] = &[
-    "ember_agent::AgentEvent",
-    "Vec<ember_agent::AgentEvent>",
-    "ember_agent_event_to_runtime_event",
-    "emit_ember_agent_event_to_sink",
-    "runtime_event_type_from_ember_agent_type",
+    "lime_agent::AgentEvent",
+    "Vec<lime_agent::AgentEvent>",
+    "lime_agent_event_to_runtime_event",
+    "emit_lime_agent_event_to_sink",
+    "runtime_event_type_from_lime_agent_type",
 ];
 
 #[test]
@@ -76,7 +76,6 @@ fn app_server_public_backend_contract_must_use_runtime_events() {
         crate_root.join("src/capability.rs"),
         crate_root.join("src/lib.rs"),
         crate_root.join("src/runtime.rs"),
-        crate_root.join("src/aster_backend.rs"),
         crate_root.join("src/runtime_factory.rs"),
     ];
 
@@ -100,7 +99,7 @@ fn app_server_public_backend_contract_must_use_runtime_events() {
     assert_eq!(
         offenders,
         Vec::<String>::new(),
-        "app-server 公共后端边界只能暴露 RuntimeEvent；Ember/Aster 私有事件转换必须留在 Desktop compat adapter"
+        "app-server 公共后端边界只能暴露 RuntimeEvent；Lime/Agent 私有事件转换必须留在 Desktop compat adapter"
     );
 }
 

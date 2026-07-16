@@ -1,33 +1,40 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
+import type { Config } from "@/lib/api/appConfig";
 
-const { mockGetConfig, mockSaveConfig } = vi.hoisted(() => ({
+const { mockGetConfig, mockSaveConfig, mockUpdateConfig } = vi.hoisted(() => ({
   mockGetConfig: vi.fn(),
   mockSaveConfig: vi.fn(),
+  mockUpdateConfig: vi.fn(),
+}));
+const { mockModelSelectorRender } = vi.hoisted(() => ({
+  mockModelSelectorRender: vi.fn(),
 }));
 
 vi.mock("@/lib/api/appConfig", () => ({
   getConfig: mockGetConfig,
   saveConfig: mockSaveConfig,
+  updateConfig: mockUpdateConfig,
 }));
 
 vi.mock("@/components/input-kit", () => ({
-  ModelSelector: ({
-    providerType,
-    model,
-    placeholderLabel,
-  }: {
+  ModelSelector: (props: {
     providerType: string;
     model: string;
     placeholderLabel?: string;
-  }) => (
-    <div data-testid="settings-model-selector">
-      {providerType || placeholderLabel || "Auto"} /{" "}
-      {model || placeholderLabel || "Auto"}
-    </div>
-  ),
+    setProviderType: (value: string) => void;
+    setModel: (value: string) => void;
+  }) => {
+    mockModelSelectorRender(props);
+    return (
+      <div data-testid="settings-model-selector">
+        {props.providerType || props.placeholderLabel || "Auto"} /{" "}
+        {props.model || props.placeholderLabel || "Auto"}
+      </div>
+    );
+  },
 }));
 
 vi.mock("../image-gen", () => ({
@@ -50,6 +57,7 @@ interface Mounted {
 }
 
 const mounted: Mounted[] = [];
+let persistedConfig: Config;
 
 function renderComponent() {
   const container = document.createElement("div");
@@ -130,9 +138,11 @@ beforeEach(async () => {
   );
 
   vi.clearAllMocks();
-  await changeEmberLocale("en-US");
+  mockModelSelectorRender.mockReset();
+  await changeLimeLocale("en-US");
 
-  mockGetConfig.mockResolvedValue({
+  persistedConfig = {
+    default_provider: "openai",
     workspace_preferences: {
       schema_version: 2,
       service_models: {
@@ -154,8 +164,16 @@ beforeEach(async () => {
     image_gen: {
       default_count: 2,
     },
-  });
+  } as Config;
+  mockGetConfig.mockImplementation(async () => persistedConfig);
   mockSaveConfig.mockResolvedValue(undefined);
+  mockUpdateConfig.mockImplementation(
+    async (updater: (current: Config) => Config) => {
+      persistedConfig = updater(persistedConfig);
+      await mockSaveConfig(persistedConfig);
+      return persistedConfig;
+    },
+  );
 });
 
 afterEach(async () => {
@@ -172,7 +190,7 @@ afterEach(async () => {
   }
 
   vi.clearAllMocks();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("MediaServicesSettings", () => {
@@ -282,6 +300,46 @@ describe("MediaServicesSettings", () => {
         default_count: 5,
       }),
     );
+  });
+
+  it("连续切换服务模型 provider 和 model 时应基于最新配置保存", async () => {
+    const container = renderComponent();
+    await flushEffects();
+
+    const selectorProps = mockModelSelectorRender.mock.calls.find(
+      ([props]) =>
+        props.providerType === "openai" && props.model === "gpt-4o-mini",
+    )?.[0];
+
+    expect(selectorProps).toBeDefined();
+
+    await act(async () => {
+      selectorProps.setProviderType("deepseek");
+      selectorProps.setModel("deepseek-v4-pro");
+      await flushEffects(2);
+    });
+
+    expect(mockSaveConfig).toHaveBeenCalledTimes(2);
+    const firstSavedConfig = mockSaveConfig.mock.calls[0][0];
+    const secondSavedConfig = mockSaveConfig.mock.calls[1][0];
+
+    expect(
+      firstSavedConfig.workspace_preferences.service_models.responsive_chat,
+    ).toEqual(
+      expect.objectContaining({
+        preferredProviderId: "deepseek",
+        preferredModelId: undefined,
+      }),
+    );
+    expect(
+      secondSavedConfig.workspace_preferences.service_models.responsive_chat,
+    ).toEqual(
+      expect.objectContaining({
+        preferredProviderId: "deepseek",
+        preferredModelId: "deepseek-v4-pro",
+      }),
+    );
+    expect(container.textContent ?? "").toContain("Settings saved");
   });
 
   it("添加项目资料自定义提示词后应写入 service_models 配置", async () => {

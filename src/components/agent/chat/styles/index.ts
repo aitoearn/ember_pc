@@ -1,6 +1,7 @@
 import styled from "styled-components";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { EMBER_STAGE_SURFACE } from "../workspace/taskCenterChromeTokens";
+import { LIME_STAGE_SURFACE } from "../workspace/taskCenterChromeTokens";
+import { CONVERSATION_CONTENT_MAX_WIDTH } from "./conversationLayoutTokens";
 
 export const Navbar = styled.div<{
   $compact?: boolean;
@@ -30,19 +31,19 @@ export const Navbar = styled.div<{
   border-bottom: ${({ $collapsed }) =>
     $collapsed
       ? "none"
-      : "1px solid var(--ember-surface-border, rgba(226, 240, 226, 0.72))"};
+      : "1px solid var(--lime-surface-border, rgba(226, 240, 226, 0.72))"};
   border-bottom-color: ${({ $collapsed, $taskCenter }) =>
     $collapsed
       ? "transparent"
       : $taskCenter
         ? "transparent"
-        : "var(--ember-surface-border, rgba(226, 240, 226, 0.72))"};
+        : "var(--lime-surface-border, rgba(226, 240, 226, 0.72))"};
   background: ${({ $collapsed, $taskCenter }) =>
     $collapsed
       ? "transparent"
       : $taskCenter
         ? "transparent"
-        : "var(--ember-composer-surface-floating)"};
+        : "var(--lime-composer-surface-floating)"};
   box-shadow: ${({ $collapsed, $taskCenter }) =>
     $collapsed
       ? "none"
@@ -67,11 +68,12 @@ export const MessageListContainer = styled(ScrollArea)<{
   flex: 1;
   min-height: 0;
   height: 100%;
-  padding: 6px 0 16px;
+  padding: ${({ $taskCenterSurface }) =>
+    $taskCenterSurface ? "6px 0 16px" : "22px 0 16px"};
   overscroll-behavior: contain;
   background: ${({ $taskCenterSurface }) =>
     $taskCenterSurface
-      ? EMBER_STAGE_SURFACE
+      ? LIME_STAGE_SURFACE
       : `linear-gradient(
           180deg,
           rgba(248, 250, 252, 0.62) 0%,
@@ -159,7 +161,7 @@ export const MessageBubble = styled.div<{
       ? "min(100%, 800px)"
       : $isUser
         ? "min(72%, 560px)"
-        : "min(100%, 1040px)"};
+        : CONVERSATION_CONTENT_MAX_WIDTH};
   padding: ${({ $isUser, $bareMedia }) =>
     $isUser ? "6px 12px" : $bareMedia ? "0" : "0 4px"};
   display: flex;

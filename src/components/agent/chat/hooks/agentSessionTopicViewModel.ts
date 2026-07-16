@@ -1,8 +1,8 @@
 import type {
   AgentRuntimeThreadReadModel,
-  AsterExecutionStrategy,
-  AsterSessionDetail,
-} from "@/lib/api/agentRuntime";
+  AgentSessionDetail,
+} from "@/lib/api/agentRuntime/sessionTypes";
+import type { AgentExecutionStrategy } from "@/lib/api/agentExecutionRuntime";
 import { normalizeLegacyThreadItems } from "@/lib/api/agentTextNormalization";
 import { isAuxiliaryAgentSessionId } from "@/lib/api/agentRuntime/sessionIdentity";
 import type { AgentThreadItem, AgentThreadTurn, Message } from "../types";
@@ -111,26 +111,29 @@ export function shouldAutoResumeHydratedRuntimeThread(
 }
 
 export function resolveRuntimeThreadStatusFromSessionDetail(
-  detail: AsterSessionDetail,
+  detail: AgentSessionDetail,
 ): Topic["status"] | null {
   const status = detail.thread_read?.status?.trim().toLowerCase();
-  if (status === "running" || status === "queued") {
-    return "running";
-  }
-
-  if ((detail.thread_read?.queued_turns?.length ?? 0) > 0) {
-    return "running";
-  }
-
-  if ((detail.queued_turns?.length ?? 0) > 0) {
-    return "running";
-  }
-
   if (
+    status === "waitingaction" ||
+    status === "waiting_action" ||
     status === "waiting_request" ||
+    status === "needs_input" ||
     (detail.thread_read?.pending_requests?.length ?? 0) > 0
   ) {
     return "waiting";
+  }
+
+  if (
+    status === "queued" ||
+    (detail.thread_read?.queued_turns?.length ?? 0) > 0 ||
+    (detail.queued_turns?.length ?? 0) > 0
+  ) {
+    return "queued";
+  }
+
+  if (status === "running") {
+    return "running";
   }
 
   if (status === "failed") {
@@ -141,7 +144,7 @@ export function resolveRuntimeThreadStatusFromSessionDetail(
 }
 
 export function resolveRuntimePreviewFromSessionDetail(
-  detail: AsterSessionDetail,
+  detail: AgentSessionDetail,
 ): string | null {
   const queuedPreview =
     detail.queued_turns?.[0]?.message_preview ||
@@ -155,7 +158,7 @@ export function resolveRuntimePreviewFromSessionDetail(
 
 export function mapSessionDetailToTopic(
   sessionId: string,
-  detail: AsterSessionDetail,
+  detail: AgentSessionDetail,
   fallbackWorkspaceId: string | null,
 ): Topic {
   const topic = mapSessionToTopic({
@@ -177,7 +180,7 @@ export function mapSessionDetailToTopic(
   return {
     ...topic,
     status: runtimeStatus,
-    statusReason: "default",
+    statusReason: runtimeStatus === "waiting" ? "user_action" : "default",
     lastPreview:
       resolveRuntimePreviewFromSessionDetail(detail) ?? topic.lastPreview,
   };
@@ -231,6 +234,7 @@ export function upsertTopicFromSessionDetail(
           ? existingTopic.title
           : detailTopic.title,
         workspaceId: detailTopic.workspaceId ?? existingTopic.workspaceId,
+        workingDir: detailTopic.workingDir ?? existingTopic.workingDir,
         isPinned: existingTopic.isPinned,
         hasUnread: existingTopic.hasUnread,
         tag: existingTopic.tag,
@@ -265,10 +269,11 @@ export function upsertFreshSessionDraftTopic(
   topics: Topic[],
   params: {
     createdAt: Date;
-    executionStrategy: AsterExecutionStrategy;
+    executionStrategy: AgentExecutionStrategy;
     sessionId: string;
     sessionName?: string | null;
     workspaceId: string | null | undefined;
+    workingDir?: string | null;
   },
 ): Topic[] {
   const title = params.sessionName?.trim() || "新任务";
@@ -278,6 +283,7 @@ export function upsertFreshSessionDraftTopic(
     createdAt: params.createdAt,
     updatedAt: params.createdAt,
     workspaceId: params.workspaceId,
+    workingDir: params.workingDir ?? null,
     messagesCount: 0,
     executionStrategy: params.executionStrategy,
     status: "draft",
@@ -294,7 +300,7 @@ export function upsertFreshSessionDraftTopic(
 export function prependVerifiedSessionTopicFromDetail(
   topics: Topic[],
   sessionId: string,
-  detail: AsterSessionDetail,
+  detail: AgentSessionDetail,
   options: { workspaceId?: string | null } = {},
 ): Topic[] {
   if (topics.some((topic) => topic.id === sessionId)) {
@@ -323,7 +329,7 @@ export function prependVerifiedSessionTopicFromDetail(
 export function applyTopicExecutionStrategyToTopics(
   topics: Topic[],
   targetSessionId: string,
-  nextExecutionStrategy: AsterExecutionStrategy,
+  nextExecutionStrategy: AgentExecutionStrategy,
 ): Topic[] {
   return topics.map((topic) =>
     topic.id === targetSessionId

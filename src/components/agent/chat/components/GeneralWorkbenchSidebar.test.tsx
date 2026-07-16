@@ -233,9 +233,6 @@ describe("GeneralWorkbenchSidebar", () => {
     expect(container.textContent).toContain("当前进展");
     expect(container.textContent).toContain("当前焦点");
     expect(container.textContent).toContain("撰写主稿");
-    expect(container.textContent).toContain("后续任务");
-    expect(container.textContent).toContain("已完成 1/4");
-    expect(container.textContent).toContain("已完成 1 项");
     expect(container.textContent).toContain("结果去向");
     expect(container.textContent).toContain("产出记录 / 执行经过");
     expect(container.textContent).toContain("继续上次做法");
@@ -251,15 +248,13 @@ describe("GeneralWorkbenchSidebar", () => {
       '[data-testid="workflow-sidebar-branch-section"]',
     ) as HTMLElement | null;
 
-    expect(stepNodes).toHaveLength(2);
-    expect(stepNodes.map((node) => node.getAttribute("data-status"))).toEqual([
-      "error",
-      "pending",
-    ]);
     expect(taskSection).toBeTruthy();
     expect(branchSection).toBeTruthy();
+    expect(stepNodes).toHaveLength(0);
     expect(taskSection?.textContent).toContain("当前焦点");
-    expect(taskSection?.textContent).toContain("后续任务");
+    expect(container.textContent).not.toContain("后续任务");
+    expect(container.textContent).not.toContain("已完成 1/4");
+    expect(container.textContent).not.toContain("已完成 1 项");
     expect(
       taskSection?.querySelector(
         '[data-testid="workflow-sidebar-result-destination-hint"]',
@@ -271,6 +266,48 @@ describe("GeneralWorkbenchSidebar", () => {
           Node.DOCUMENT_POSITION_FOLLOWING
         : 0;
     expect(taskSectionOrder).toBeTruthy();
+  });
+
+  it("Workflow 控制项应在当前进展里渲染并触发回调", () => {
+    const onTriggerWorkflowControl = vi.fn();
+    const workflowControlItem = {
+      id: "workflow-run-1-retry-draft",
+      kind: "retry" as const,
+      workflowRunId: "workflow-run-1",
+      stepId: "draft",
+      requestId: null,
+      actionType: null,
+      labelKey: "generalWorkbench.workflow.control.retry",
+      ariaLabelKey: "generalWorkbench.workflow.control.retryAria",
+      tone: "warning" as const,
+    };
+    const { container } = renderSidebar({
+      workflowControlItems: [workflowControlItem],
+      onTriggerWorkflowControl,
+    });
+
+    const workflowTab = container.querySelector(
+      'button[aria-label="打开当前进展"]',
+    ) as HTMLButtonElement | null;
+    expect(workflowTab).toBeTruthy();
+    if (workflowTab) {
+      act(() => {
+        workflowTab.click();
+      });
+    }
+
+    const retryButton = container.querySelector(
+      '[data-testid="workflow-control-retry"]',
+    ) as HTMLButtonElement | null;
+    expect(retryButton).toBeTruthy();
+    expect(retryButton?.textContent).toContain("重试失败步骤");
+    if (retryButton) {
+      act(() => {
+        retryButton.click();
+      });
+    }
+
+    expect(onTriggerWorkflowControl).toHaveBeenCalledWith(workflowControlItem);
   });
 
   it("传入折叠回调时应显示折叠按钮并可触发", () => {

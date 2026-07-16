@@ -266,7 +266,7 @@ describe("ArtifactWorkbenchShell editing", () => {
       if (codeInput) {
         setTextControlValue(
           codeInput,
-          "欢迎来到 Ember 访谈节目。\n这里是人工校对后的补充。",
+          "欢迎来到 Lime 访谈节目。\n这里是人工校对后的补充。",
         );
       }
       await Promise.resolve();
@@ -290,7 +290,7 @@ describe("ArtifactWorkbenchShell editing", () => {
           expect.objectContaining({
             id: "transcript-text",
             type: "code_block",
-            code: "欢迎来到 Ember 访谈节目。\n这里是人工校对后的补充。",
+            code: "欢迎来到 Lime 访谈节目。\n这里是人工校对后的补充。",
           }),
           expect.objectContaining({
             id: "transcript-correction-status",
@@ -312,7 +312,7 @@ describe("ArtifactWorkbenchShell editing", () => {
           transcriptCorrectionSegmentCount: 1,
           transcriptCorrectionSpeakerCount: 1,
           transcriptCorrectionSourceTranscriptPath:
-            ".ember/runtime/transcripts/task-transcription-1.txt",
+            ".lime/runtime/transcripts/task-transcription-1.txt",
           transcriptCorrectionDiffSummary: expect.objectContaining({
             textChanged: true,
             originalSegmentCount: 1,
@@ -327,7 +327,7 @@ describe("ArtifactWorkbenchShell editing", () => {
               startMs: 1000,
               endMs: 3000,
               speaker: "主持人",
-              text: "欢迎来到 Ember 访谈节目。",
+              text: "欢迎来到 Lime 访谈节目。",
             }),
           ],
         }),

@@ -100,7 +100,7 @@ const REVIEWED_METADATA_FIELDS = [
   { path: "forge.config.mjs", field: "mac.target" },
   { path: "forge.config.mjs", field: "win.icon" },
   { path: "forge.config.mjs", field: "win.target" },
-  { path: "ember-rs/capabilities/agent-app-shell.json", field: "description" },
+  { path: "ember-rs/capabilities/plugin-shell.json", field: "description" },
 ] as const;
 
 function normalizePath(filePath: string): string {
@@ -482,7 +482,7 @@ export function analyzeAppMetadataWorkflowReport(
     repoRoot,
     "ember-rs",
     "capabilities",
-    "agent-app-shell.json",
+    "plugin-shell.json",
   );
   const appMetadataTranslationScopePath = path.join(
     repoRoot,
@@ -552,7 +552,7 @@ export function analyzeAppMetadataWorkflowReport(
     repoRoot,
     shellCapability,
     rustCargoToml: cargoToml,
-    schemaVersion: "ember.i18n.appMetadataWorkflowReport.v1",
+    schemaVersion: "lime.i18n.appMetadataWorkflowReport.v1",
     summary: {
       appMetadataLocaleBuildManifestReady,
       hasInstallerLocalizationWorkflow: appMetadataLocaleBuildManifestReady,

@@ -204,7 +204,7 @@ describe("AgentThreadTimeline", () => {
     ).not.toBeNull();
     expect(container.textContent).toContain("随后补齐自动续提。");
   });
-  it("reasoning 展开后应压平被切碎成多行的过程 prose", () => {
+  it("reasoning 展开后应保留被切碎的来源行，不再压平成 prose", () => {
     const items: AgentThreadItem[] = [
       {
         ...createBaseItem("reasoning-1", 1),
@@ -220,7 +220,7 @@ describe("AgentThreadTimeline", () => {
           "",
           "整个",
           "",
-          ".ember",
+          ".lime",
           "",
           "目录",
           "",
@@ -245,8 +245,9 @@ describe("AgentThreadTimeline", () => {
     const markdownBlocks = container.querySelectorAll(
       '[data-testid="markdown-renderer"]',
     );
-    expect(markdownBlocks[0]?.textContent).toBe(
-      "目录也不存在。可能整个 .ember 目录都不存在。",
+    expect(markdownBlocks[0]?.textContent).toContain("目录\n\n也\n\n不存在。");
+    expect(markdownBlocks[0]?.textContent).toContain(
+      "可能\n\n整个\n\n.lime\n\n目录",
     );
   });
   it("reasoning 缺少正文时应回退显示 summary", () => {
@@ -294,6 +295,46 @@ describe("AgentThreadTimeline", () => {
     });
 
     expect(container.textContent).toContain("这里是更完整的正文。");
+  });
+  it("clawstream reasoning-first-visible hydrate 后默认只显示 summary，展开才显示 raw reasoning", () => {
+    const summaryText = "摘要：先确认用户只需要一个标记。";
+    const rawReasoningText =
+      "完整推理：用户只要求输出一个标记，因此不需要启动额外工具，也不应把 raw reasoning 拼进最终正文。";
+    const items: AgentThreadItem[] = [
+      {
+        ...createBaseItem("reasoning-clawstream-hydrate", 1),
+        type: "reasoning",
+        text: rawReasoningText,
+        summary: [summaryText],
+      },
+    ];
+
+    const container = renderTimeline(items, {
+      turn: {
+        status: "completed",
+      },
+    });
+
+    const block = container.querySelector<HTMLDetailsElement>(
+      '[data-testid="agent-thread-block:1:process"]',
+    );
+    const summary = block?.querySelector("summary");
+
+    expect(block?.open).toBe(false);
+    expect(container.textContent).toContain(summaryText);
+    expect(container.textContent).not.toContain(rawReasoningText);
+    expect((container.textContent?.split(summaryText).length ?? 1) - 1).toBe(1);
+
+    act(() => {
+      summary?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(block?.open).toBe(true);
+    expect(container.textContent).toContain(rawReasoningText);
+    expect((container.textContent?.split(summaryText).length ?? 1) - 1).toBe(1);
+    expect(
+      (container.textContent?.split(rawReasoningText).length ?? 1) - 1,
+    ).toBe(1);
   });
   it("reasoning 的 summary 与正文相同时不应重复渲染", () => {
     const repeatedText = "先判断任务类型\n\n再决定是否联网";
@@ -362,12 +403,12 @@ describe("AgentThreadTimeline", () => {
         ...createBaseItem("subagent-1", 1),
         type: "subagent_activity",
         status: "completed",
-        status_label: "completed",
+        status_label: "interacted",
         title: "Image #1",
         summary: "封面图已生成",
         role: "image_editor",
         model: "gpt-image-1",
-        session_id: "child-session-1",
+        session_id: "thread-child",
       },
     ];
 
@@ -379,6 +420,19 @@ describe("AgentThreadTimeline", () => {
     expect(container.textContent).not.toContain("Image #1");
     expect(container.textContent).toContain("子任务：图片任务 1");
 
+    const activityRow = container.querySelector(
+      '[data-testid="subagent-activity-row"]',
+    );
+    expect(activityRow?.getAttribute("data-subagent-activity-item-id")).toBe(
+      "subagent-1",
+    );
+    expect(activityRow?.getAttribute("data-subagent-activity-kind")).toBe(
+      "interacted",
+    );
+    expect(activityRow?.getAttribute("data-subagent-thread-id")).toBe(
+      "thread-child",
+    );
+
     const button = Array.from(
       container.querySelectorAll<HTMLButtonElement>("button"),
     ).find((element) => element.textContent?.includes("查看子任务详情"));
@@ -389,6 +443,6 @@ describe("AgentThreadTimeline", () => {
       button?.click();
     });
 
-    expect(onOpenSubagentSession).toHaveBeenCalledWith("child-session-1");
+    expect(onOpenSubagentSession).toHaveBeenCalledWith("thread-child");
   });
 });

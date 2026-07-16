@@ -125,6 +125,27 @@ REMINDER: You MUST include the sources above in your response.
     ]);
   });
 
+  it("不应把 Codex 半结构化片段中的 url 字段行当成来源标题", () => {
+    const items = resolveSearchResultPreviewItemsFromText(`
+"url": ""
+https://help.yahoo.com/kb/mail-for-desktop
+"url": ""
+https://login.yahoo.com/
+"title": "知乎专栏 › p › 658835261",
+https://zhuanlan.zhihu.com/p/658835261
+    `);
+
+    expect(items).toEqual([
+      {
+        id: "search-text-0-https://zhuanlan.zhihu.com/p/658835261",
+        title: "知乎专栏 › p › 658835261",
+        url: "https://zhuanlan.zhihu.com/p/658835261",
+        hostname: "zhuanlan.zhihu.com",
+        snippet: undefined,
+      },
+    ]);
+  });
+
   it("应过滤搜索引擎导航与备案页脚噪音，只保留真实来源", () => {
     const items = resolveSearchResultPreviewItemsFromText(
       JSON.stringify({
@@ -150,6 +171,45 @@ REMINDER: You MUST include the sources above in your response.
         url: "https://www.reuters.com/world/",
         hostname: "reuters.com",
         snippet: "Latest world headlines",
+      },
+    ]);
+  });
+
+  it("应过滤 Yahoo 搜索页导航噪音，只保留用户真正需要的来源", () => {
+    const items = resolveSearchResultPreviewItemsFromText(
+      JSON.stringify({
+        results: [
+          {
+            title: "Help",
+            url: "https://help.yahoo.com/kb/search-for-desktop",
+            snippet: "Yahoo Search help page",
+          },
+          {
+            title: "Sign In",
+            url: "https://login.yahoo.com/?src=search",
+            snippet: "Sign in to Yahoo",
+          },
+          {
+            title: "Yahoo Scout",
+            url: "https://scout.yahoo.com/chat",
+            snippet: "Chat on Yahoo Scout",
+          },
+          {
+            title: "学生学习机选购指南",
+            url: "https://example.com/learning-tablet-guide",
+            snippet: "五年级学习机场景对比",
+          },
+        ],
+      }),
+    );
+
+    expect(items).toEqual([
+      {
+        id: "search-record-0-https://example.com/learning-tablet-guide",
+        title: "学生学习机选购指南",
+        url: "https://example.com/learning-tablet-guide",
+        hostname: "example.com",
+        snippet: "五年级学习机场景对比",
       },
     ]);
   });

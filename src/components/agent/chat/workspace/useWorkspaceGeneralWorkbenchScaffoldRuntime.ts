@@ -17,7 +17,7 @@ import { useTopicBranchBoard } from "../hooks";
 import type { TopicBranchStatus } from "../hooks/useTopicBranchBoard";
 
 const GENERAL_WORKBENCH_CREATION_TASK_EVENT_NAME =
-  "ember://creation_task_submitted";
+  "lime://creation_task_submitted";
 const MAX_GENERAL_WORKBENCH_CREATION_TASK_EVENTS = 120;
 
 interface CreationTaskSubmittedPayload {

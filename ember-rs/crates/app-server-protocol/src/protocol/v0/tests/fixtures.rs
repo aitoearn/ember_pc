@@ -226,7 +226,7 @@ fn artifact_summary_content_status_matches_protocol_fixture_shape() {
         sequence: 7,
         turn_id: Some("turn_1".to_string()),
         artifact_id: Some("req-1".to_string()),
-        path: Some(".ember/artifacts/report.md".to_string()),
+        path: Some(".lime/artifacts/report.md".to_string()),
         title: Some("Report".to_string()),
         kind: Some("document".to_string()),
         status: Some("ready".to_string()),
@@ -244,7 +244,7 @@ fn artifact_summary_content_status_matches_protocol_fixture_shape() {
             "sequence": 7,
             "turnId": "turn_1",
             "artifactId": "req-1",
-            "path": ".ember/artifacts/report.md",
+            "path": ".lime/artifacts/report.md",
             "title": "Report",
             "kind": "document",
             "status": "ready",
@@ -341,9 +341,9 @@ fn evidence_export_response_matches_protocol_fixture_shape() {
         }],
         exported_at: "2026-06-05T00:00:02.000Z".to_string(),
         evidence_pack: Some(EvidencePackSummary {
-            pack_relative_root: ".ember/harness/sessions/sess_1/evidence".to_string(),
+            pack_relative_root: ".lime/harness/sessions/sess_1/evidence".to_string(),
             pack_absolute_root: Some(
-                "/workspace/.ember/harness/sessions/sess_1/evidence".to_string(),
+                "/workspace/.lime/harness/sessions/sess_1/evidence".to_string(),
             ),
             exported_at: "2026-06-05T00:00:03.000Z".to_string(),
             thread_status: "running".to_string(),
@@ -363,7 +363,7 @@ fn evidence_export_response_matches_protocol_fixture_shape() {
             artifacts: vec![EvidencePackArtifact {
                 kind: "summary".to_string(),
                 title: "Evidence Summary".to_string(),
-                relative_path: ".ember/harness/sessions/sess_1/evidence/summary.md".to_string(),
+                relative_path: ".lime/harness/sessions/sess_1/evidence/summary.md".to_string(),
                 absolute_path: None,
                 bytes: 128,
             }],
@@ -414,8 +414,8 @@ fn evidence_export_response_matches_protocol_fixture_shape() {
             }],
             "exportedAt": "2026-06-05T00:00:02.000Z",
             "evidencePack": {
-                "packRelativeRoot": ".ember/harness/sessions/sess_1/evidence",
-                "packAbsoluteRoot": "/workspace/.ember/harness/sessions/sess_1/evidence",
+                "packRelativeRoot": ".lime/harness/sessions/sess_1/evidence",
+                "packAbsoluteRoot": "/workspace/.lime/harness/sessions/sess_1/evidence",
                 "exportedAt": "2026-06-05T00:00:03.000Z",
                 "threadStatus": "running",
                 "latestTurnStatus": "accepted",
@@ -434,7 +434,7 @@ fn evidence_export_response_matches_protocol_fixture_shape() {
                 "artifacts": [{
                     "kind": "summary",
                     "title": "Evidence Summary",
-                    "relativePath": ".ember/harness/sessions/sess_1/evidence/summary.md",
+                    "relativePath": ".lime/harness/sessions/sess_1/evidence/summary.md",
                     "bytes": 128
                 }]
             }
@@ -462,12 +462,15 @@ fn agent_session_turn_start_request_matches_protocol_fixture_shape() {
                 runtime_options: Some(RuntimeOptions {
                     capability_id: Some("draft.write".to_string()),
                     stream: true,
-                    event_name: Some("agent_app_runtime:app:task".to_string()),
-                    provider_preference: Some("deepseek".to_string()),
-                    model_preference: Some("deepseek-v4-flash".to_string()),
-                    metadata: Some(json!({ "taskId": "task-1" })),
+                    event_name: Some("plugin_runtime:app:task".to_string()),
                     queued_turn_id: Some("queued-turn-1".to_string()),
-                    host_options: Some(json!({ "adapter": "desktop" })),
+                    runtime_request: Some(RuntimeRequest {
+                        provider_preference: Some("deepseek".to_string()),
+                        model_preference: Some("deepseek-v4-flash".to_string()),
+                        metadata: Some(json!({ "taskId": "task-1" })),
+                        ..RuntimeRequest::default()
+                    }),
+                    ..RuntimeOptions::default()
                 }),
                 queue_if_busy: true,
                 skip_pre_submit_resume: true,
@@ -498,19 +501,60 @@ fn agent_session_turn_start_request_matches_protocol_fixture_shape() {
                 "runtimeOptions": {
                     "capabilityId": "draft.write",
                     "stream": true,
-                    "eventName": "agent_app_runtime:app:task",
-                    "providerPreference": "deepseek",
-                    "modelPreference": "deepseek-v4-flash",
-                    "metadata": {
-                        "taskId": "task-1"
-                    },
+                    "eventName": "plugin_runtime:app:task",
                     "queuedTurnId": "queued-turn-1",
-                    "hostOptions": {
-                        "adapter": "desktop"
+                    "runtimeRequest": {
+                        "providerPreference": "deepseek",
+                        "modelPreference": "deepseek-v4-flash",
+                        "metadata": {
+                            "taskId": "task-1"
+                        }
                     }
                 },
                 "queueIfBusy": true,
                 "skipPreSubmitResume": true
+            }
+        })
+    );
+}
+
+#[test]
+fn agent_session_runtime_events_append_request_matches_protocol_fixture_shape() {
+    let value = serde_json::to_value(JsonRpcRequest::new(
+        RequestId::Integer(8),
+        METHOD_AGENT_SESSION_RUNTIME_EVENTS_APPEND,
+        Some(
+            serde_json::to_value(AgentSessionRuntimeEventAppendParams {
+                session_id: "sess_1".to_string(),
+                turn_id: Some("turn_1".to_string()),
+                runtime_events: vec![AgentSessionRuntimeEventInput {
+                    event_type: "artifact.snapshot".to_string(),
+                    payload: json!({
+                        "artifactId": "artifact-worker",
+                        "kind": "content_factory.workspace_patch",
+                    }),
+                }],
+            })
+            .expect("serialize params"),
+        ),
+    ))
+    .expect("serialize request");
+
+    assert_eq!(
+        value,
+        json!({
+            "id": 8,
+            "method": "agentSession/runtimeEvents/append",
+            "params": {
+                "sessionId": "sess_1",
+                "turnId": "turn_1",
+                "runtimeEvents": [{
+                    "type": "artifact.snapshot",
+                    "payload": {
+                        "artifactId": "artifact-worker",
+                        "kind": "content_factory.workspace_patch"
+                    }
+                }]
             }
         })
     );
@@ -582,11 +626,12 @@ fn agent_session_action_respond_request_matches_protocol_fixture_shape() {
                 session_id: "sess_1".to_string(),
                 request_id: "req_confirm_1".to_string(),
                 action_type: AgentSessionActionType::ToolConfirmation,
-                confirmed: true,
+                decision: Some(AgentSessionApprovalDecision::AllowOnce),
+                confirmed: None,
                 response: Some("allow".to_string()),
                 user_data: Some(json!({ "choice": "allow" })),
                 metadata: Some(json!({ "source": "content-studio" })),
-                event_name: Some("agent_app_runtime:app:task".to_string()),
+                event_name: Some("plugin_runtime:app:task".to_string()),
                 action_scope: Some(AgentSessionActionScope {
                     session_id: Some("sess_1".to_string()),
                     thread_id: Some("thread_1".to_string()),
@@ -607,7 +652,7 @@ fn agent_session_action_respond_request_matches_protocol_fixture_shape() {
                 "sessionId": "sess_1",
                 "requestId": "req_confirm_1",
                 "actionType": "tool_confirmation",
-                "confirmed": true,
+                "decision": "allow_once",
                 "response": "allow",
                 "userData": {
                     "choice": "allow"
@@ -615,7 +660,7 @@ fn agent_session_action_respond_request_matches_protocol_fixture_shape() {
                 "metadata": {
                     "source": "content-studio"
                 },
-                "eventName": "agent_app_runtime:app:task",
+                "eventName": "plugin_runtime:app:task",
                 "actionScope": {
                     "sessionId": "sess_1",
                     "threadId": "thread_1",
@@ -631,23 +676,29 @@ fn agent_session_event_notification_matches_protocol_fixture_shape() {
     let value = serde_json::to_value(JsonRpcNotification::new(
         METHOD_AGENT_SESSION_EVENT,
         Some(
-            serde_json::to_value(AgentSessionEventParams {
-                event: AgentEvent {
-                    event_id: "evt_1".to_string(),
-                    sequence: 1,
-                    session_id: "sess_1".to_string(),
-                    thread_id: Some("thread_1".to_string()),
-                    turn_id: Some("turn_1".to_string()),
-                    event_type: "turn.started".to_string(),
-                    timestamp: "2026-06-04T00:00:00Z".to_string(),
-                    payload: json!({
-                        "status": "running",
-                        "delta": {
-                            "text": "hello"
-                        }
-                    }),
-                },
-            })
+            serde_json::to_value(AgentSessionEventParams::from_event(AgentEvent {
+                event_id: "evt_1".to_string(),
+                sequence: 1,
+                session_id: "sess_1".to_string(),
+                thread_id: Some("thread_1".to_string()),
+                turn_id: Some("turn_1".to_string()),
+                event_type: "turn.started".to_string(),
+                timestamp: "2026-06-04T00:00:00Z".to_string(),
+                payload: json!({
+                    "status": "running",
+                    "delta": {
+                        "text": "hello"
+                    },
+                    "turn": {
+                        "sessionId": "sess_1",
+                        "threadId": "thread_1",
+                        "turnId": "turn_1",
+                        "status": "inProgress",
+                        "createdAtMs": 100,
+                        "updatedAtMs": 120
+                    }
+                }),
+            }))
             .expect("serialize params"),
         ),
     ))
@@ -670,10 +721,105 @@ fn agent_session_event_notification_matches_protocol_fixture_shape() {
                         "status": "running",
                         "delta": {
                             "text": "hello"
+                        },
+                        "turn": {
+                            "sessionId": "sess_1",
+                            "threadId": "thread_1",
+                            "turnId": "turn_1",
+                            "status": "inProgress",
+                            "createdAtMs": 100,
+                            "updatedAtMs": 120
                         }
+                    }
+                },
+                "typedEvent": {
+                    "method": "turn/started",
+                    "params": {
+                        "eventId": "evt_1",
+                        "sequence": 1,
+                        "sessionId": "sess_1",
+                        "threadId": "thread_1",
+                        "turnId": "turn_1",
+                        "timestamp": "2026-06-04T00:00:00Z",
+                        "status": "running"
+                    }
+                },
+                "canonicalEvent": {
+                    "method": "turn/updated",
+                    "params": {
+                        "sessionId": "sess_1",
+                        "threadId": "thread_1",
+                        "turnId": "turn_1",
+                        "status": "inProgress",
+                        "admission": "accepted",
+                        "queue": {
+                            "state": "notQueued"
+                        },
+                        "approval": "notRequired",
+                        "items": [],
+                        "itemsView": "full",
+                        "createdAtMs": 100,
+                        "updatedAtMs": 120
                     }
                 }
             }
         })
     );
+}
+
+#[test]
+fn canonical_thread_read_requests_match_protocol_fixture_shapes() {
+    let cases = [
+        (
+            METHOD_THREAD_READ,
+            json!({ "threadId": "thread_1", "turnsView": "full" }),
+        ),
+        (
+            METHOD_THREAD_LIST,
+            json!({
+                "cursor": "opaque:thread:2",
+                "limit": 20,
+                "sortDirection": "desc",
+                "includeArchived": true,
+                "turnsView": "summary"
+            }),
+        ),
+        (
+            METHOD_THREAD_TURNS_LIST,
+            json!({
+                "threadId": "thread_1",
+                "cursor": "opaque:turn:4",
+                "limit": 10,
+                "sortDirection": "asc",
+                "itemsView": "summary"
+            }),
+        ),
+        (
+            METHOD_THREAD_ITEMS_LIST,
+            json!({
+                "threadId": "thread_1",
+                "turnId": "turn_1",
+                "cursor": "opaque:item:8",
+                "limit": 50,
+                "sortDirection": "asc"
+            }),
+        ),
+    ];
+
+    for (index, (method, params)) in cases.into_iter().enumerate() {
+        let request = JsonRpcRequest::new(
+            RequestId::Integer(index as i64 + 1),
+            method,
+            Some(params.clone()),
+        );
+        let typed = AppServerClientRequest::try_from(request.clone()).expect("typed request");
+        let round_trip: JsonRpcRequest = typed.into();
+
+        assert_eq!(round_trip, request);
+    }
+
+    serde_json::from_value::<ThreadReadParams>(
+        json!({ "threadId": "thread_1", "turnsView": "full" }),
+    )
+    .expect("thread/read params");
 }

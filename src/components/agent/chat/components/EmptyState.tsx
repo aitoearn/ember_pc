@@ -59,7 +59,6 @@ import {
 import {
   buildEmptyStateQuickActionItems,
   resolveEffectiveCuratedTaskReferences,
-  shouldExposeHomeInputSuggestions,
 } from "./EmptyStateViewModel";
 import { useEmptyStateAttachments } from "./useEmptyStateAttachments";
 import { useEmptyStateRecommendationPreferences } from "./useEmptyStateRecommendationPreferences";
@@ -67,6 +66,8 @@ import { useHomeSkillSurface } from "./useHomeSkillSurface";
 import { useCuratedTaskLauncherState } from "./useCuratedTaskLauncherState";
 import { useEmptyStateHomeActions } from "./useEmptyStateHomeActions";
 import type { AgentI18nKey, EmptyStateProps } from "./EmptyState.types";
+import type { BaseComposerSendMetadata } from "@/components/input-kit";
+import { recordAgentUiPerformanceMetric } from "@/lib/agentUiPerformanceMetrics";
 
 const CREATION_THEMES: string[] = [];
 
@@ -74,6 +75,8 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   input,
   setInput,
   onSend,
+  onStop,
+  sendOnPointerDown = false,
   creationMode = "guided",
   onCreationModeChange,
   activeTheme = "general",
@@ -110,6 +113,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   recentSessionTitle = null,
   recentSessionSummary = null,
   recentSessionActionLabel,
+  homeRecoverySession = null,
   onResumeRecentSession,
   projectConversationGroups = [],
   onOpenProjectConversation,
@@ -117,6 +121,10 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   openedProjects = [],
   onProjectContextChange,
   sessionId = null,
+  pluginSuggestions = [],
+  pluginSuggestionsError = null,
+  pluginSuggestionsLoading = false,
+  onPluginSuggestionsNeeded,
   isLoading = false,
   disabled = false,
   initialInputCapability,
@@ -132,6 +140,8 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   onManageKnowledgePacks,
   pathReferences = [],
   onAddPathReferences,
+  inputRestoreRequest = null,
+  onInputRestoreRequestHandled,
   onImportPathReferenceAsKnowledge,
   onRemovePathReference,
   onClearPathReferences,
@@ -161,6 +171,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     [translateAgentCopyKey],
   );
   const handledInitialInputCapabilitySignatureRef = useRef("");
+  const inputRestoreEpochRef = useRef(0);
   const [activeCapability, setActiveCapability] =
     useState<InputCapabilitySelection | null>(null);
   const [knowledgeHubOpenRequestKey, setKnowledgeHubOpenRequestKey] =
@@ -383,10 +394,45 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     handlePaste,
     handleRemoveImage,
     pendingImages,
+    replacePendingImages,
   } = useEmptyStateAttachments({
     toastCopy: homeSurfaceCopy.toast,
     onAddPathReferences,
   });
+
+  useEffect(() => {
+    if (!inputRestoreRequest || isComposerBusy) {
+      return;
+    }
+
+    inputRestoreEpochRef.current += 1;
+    const { draft, requestId } = inputRestoreRequest;
+    const restoredPathReferences = [...(draft.pathReferences ?? [])];
+    setInput(draft.text);
+    replacePendingImages([...(draft.images ?? [])]);
+    onClearPathReferences?.();
+    if (restoredPathReferences.length > 0) {
+      onAddPathReferences?.(restoredPathReferences);
+    }
+    setActiveCapability(
+      draft.inputCapabilityRoute
+        ? resolveInputCapabilitySelectionFromRoute({
+            route: draft.inputCapabilityRoute,
+            skills,
+          })
+        : null,
+    );
+    onInputRestoreRequestHandled?.(requestId);
+  }, [
+    inputRestoreRequest,
+    isComposerBusy,
+    onAddPathReferences,
+    onClearPathReferences,
+    onInputRestoreRequestHandled,
+    replacePendingImages,
+    setInput,
+    skills,
+  ]);
 
   const recommendationSelectedText = appendSelectedTextToRecommendation
     ? selectedText
@@ -442,7 +488,27 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       planEnabled?: boolean;
       subagentEnabled?: boolean;
     },
+    triggerMetadata?: BaseComposerSendMetadata,
   ) => {
+    const handlerEnteredAt = Date.now();
+    const triggeredAt =
+      typeof triggerMetadata?.triggeredAt === "number" &&
+      Number.isFinite(triggerMetadata.triggeredAt)
+        ? triggerMetadata.triggeredAt
+        : handlerEnteredAt;
+    const triggerSource = triggerMetadata?.triggerSource ?? "adapter";
+    recordAgentUiPerformanceMetric("inputbar.send.enter", {
+      durationMs: Math.max(0, handlerEnteredAt - triggeredAt),
+      hasTriggerMetadata: Boolean(triggerMetadata),
+      imageCount: pendingImages.length,
+      inputLength: inputOverride.trim().length,
+      pathReferenceCount: pathReferences.length,
+      sessionId: sessionId ?? null,
+      source: "empty-state",
+      triggerSource,
+      workspaceId: projectId ?? null,
+    });
+    const sendRestoreEpoch = inputRestoreEpochRef.current;
     const hasPathReferences = pathReferences.length > 0;
     if (
       isComposerBusy ||
@@ -477,6 +543,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         : baseRequestMetadata;
     const inputbarModeState = {
       goalEnabled: modeState?.goalEnabled ?? objectiveEnabled,
+      objectiveText: inputOverride,
       planEnabled: modeState?.planEnabled ?? taskEnabled,
       source: "empty_state",
       subagentEnabled: modeState?.subagentEnabled ?? subagentEnabled,
@@ -493,14 +560,24 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       : hasPathReferences
         ? homeSurfaceCopy.composerPathReferenceFallbackPrompt
         : inputOverride;
+    const inputRestoreDraft = {
+      text: inputOverride.trim() ? inputOverride : "",
+      images: [...pendingImages],
+      pathReferences: [...pathReferences],
+      inputCapabilityRoute: capabilityDispatch.capabilityRoute,
+    };
+    const shouldAttachInputRestoreDraft =
+      pendingImages.length > 0 || pathReferences.length > 0;
     const sendOptions =
       capabilityDispatch.capabilityRoute ||
       capabilityDispatch.displayContent ||
-      requestMetadata
+      requestMetadata ||
+      shouldAttachInputRestoreDraft
         ? {
             ...(capabilityDispatch.capabilityRoute
               ? { capabilityRoute: capabilityDispatch.capabilityRoute }
               : {}),
+            ...(shouldAttachInputRestoreDraft ? { inputRestoreDraft } : {}),
             ...(capabilityDispatch.displayContent
               ? { displayContent: capabilityDispatch.displayContent }
               : {}),
@@ -509,14 +586,38 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           }
         : undefined;
 
-    onSend({
+    const sendResult = onSend({
       images: imagesToSend,
       textOverride: effectiveInput,
       sendOptions,
+      ...(triggerMetadata
+        ? {
+            triggeredAt: triggerMetadata.triggeredAt,
+            triggerSource: triggerMetadata.triggerSource,
+          }
+        : {}),
     });
-    clearPendingImages();
-    onClearPathReferences?.();
-    clearSelectedSkill?.();
+    const clearAcceptedSubmissionState = () => {
+      if (inputRestoreEpochRef.current !== sendRestoreEpoch) {
+        return;
+      }
+      clearPendingImages();
+      onClearPathReferences?.();
+      clearSelectedSkill?.();
+    };
+    if (sendResult === false) {
+      return false;
+    }
+    if (sendResult && typeof sendResult === "object" && "then" in sendResult) {
+      return sendResult.then((accepted) => {
+        if (accepted !== false) {
+          clearAcceptedSubmissionState();
+        }
+        return accepted;
+      });
+    }
+    clearAcceptedSubmissionState();
+    return sendResult;
   };
 
   // Dynamic Placeholder
@@ -680,7 +781,6 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   const {
     galleryItems: homeGalleryItems,
     guideCards: homeGuideCards,
-    inputSuggestions: homeInputSuggestions,
     serviceSkillItems: homeServiceSkillItems,
     skillItems: homeSkillItems,
     skillSections: homeSkillSections,
@@ -743,6 +843,8 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
             : getPlaceholder()
         }
         onSend={handleSend}
+        onStop={onStop}
+        sendOnPointerDown={sendOnPointerDown}
         activeTheme={activeTheme}
         providerType={providerType}
         setProviderType={setProviderType}
@@ -809,6 +911,10 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         onManageKnowledgePacks={onManageKnowledgePacks}
         copy={homeSurfaceCopy.composer}
         inputbarCopy={inputbarCoreCopy}
+        pluginSuggestions={pluginSuggestions}
+        pluginSuggestionsError={pluginSuggestionsError}
+        pluginSuggestionsLoading={pluginSuggestionsLoading}
+        onPluginSuggestionsNeeded={onPluginSuggestionsNeeded}
         showCreationModeSelector={showCreationModeSelector}
         creationMode={creationMode}
         onCreationModeChange={onCreationModeChange}
@@ -829,14 +935,6 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         onRemovePathReference={onRemovePathReference}
         fileManagerOpen={fileManagerOpen}
         onToggleFileManager={onToggleFileManager}
-        inputSuggestions={
-          shouldExposeHomeInputSuggestions({
-            hasAutoLaunchSiteSkill,
-            guideHelpActive,
-          })
-            ? homeInputSuggestions
-            : []
-        }
         guideHelpActive={guideHelpActive}
         guideHelpLabel={guideHelpLabel}
         onClearGuideHelp={() => setGuideHelpActive(false)}
@@ -865,10 +963,12 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       copy={homeSurfaceCopy.chrome}
       guideCards={homeGuideCards}
       guideOpen={guideHelpActive}
+      recoverySession={homeRecoverySession}
       sections={homeSkillSections}
       conversationGroups={projectConversationGroups}
       supplementalActions={homeSupplementalActions}
       onGuideOpenChange={setGuideHelpActive}
+      onSelectRecoverySession={onResumeRecentSession}
       onSelectConversation={onOpenProjectConversation}
       onSelectStarterChip={handleSelectHomeStarterChip}
       onSelectGuideCard={handleSelectHomeGuideCard}

@@ -32,7 +32,7 @@ impl BinaryDownloader {
         Self {
             client: Client::builder()
                 .timeout(std::time::Duration::from_secs(300))
-                .user_agent("Ember")
+                .user_agent("Lime")
                 .build()
                 .expect("Failed to create HTTP client"),
         }
@@ -260,7 +260,7 @@ impl BinaryDownloader {
     pub fn get_plugins_dir() -> Result<PathBuf, String> {
         dirs::config_dir()
             .ok_or_else(|| "无法获取配置目录".to_string())
-            .map(|p| p.join("ember").join("plugins"))
+            .map(|p| p.join("lime").join("plugins"))
     }
 
     /// 获取特定组件的目录
@@ -297,8 +297,8 @@ mod tests {
 
     #[test]
     fn test_get_platform_binary_name() {
-        let name = BinaryDownloader::get_platform_binary_name("aster-server");
-        assert!(name.starts_with("aster-server-"));
+        let name = BinaryDownloader::get_platform_binary_name("agent-server");
+        assert!(name.starts_with("agent-server-"));
     }
 
     #[test]
@@ -306,6 +306,6 @@ mod tests {
         let result = BinaryDownloader::get_plugins_dir();
         assert!(result.is_ok());
         let path = result.unwrap();
-        assert!(path.ends_with("ember/plugins") || path.ends_with("ember\\plugins"));
+        assert!(path.ends_with("lime/plugins") || path.ends_with("lime\\plugins"));
     }
 }

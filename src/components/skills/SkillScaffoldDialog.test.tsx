@@ -1,7 +1,7 @@
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SkillScaffoldDialog } from "./SkillScaffoldDialog";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
   cleanupMountedRoots,
   clickButtonByText,
@@ -43,17 +43,17 @@ function renderDialog(overrides: Partial<SkillScaffoldDialogProps> = {}) {
 
 beforeEach(async () => {
   setupReactActEnvironment();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 afterEach(async () => {
   cleanupMountedRoots(mountedRoots);
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("SkillScaffoldDialog", () => {
   it("应通过 agent namespace 渲染英文脚手架表单并允许切换创建位置", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     renderDialog();
 
     expect(document.body.textContent).toContain("New Skill");

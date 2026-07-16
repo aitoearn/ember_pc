@@ -10,8 +10,14 @@ import type { ProviderWithKeysDisplay } from "@/lib/api/apiKeyProvider";
 import { useApiKeyProvider } from "./useApiKeyProvider";
 import { getRegistryIdFromType } from "@/lib/constants/providerMappings";
 import { resolvePromptCacheSupportNotice } from "@/lib/model/providerPromptCacheSupport";
+import { isManagedLimeHubTenantModelEndpoint } from "@/lib/model/providerModelFetchSupport";
 import type { ProviderDeclaredPromptCacheMode } from "@/lib/types/provider";
-import { isOemManagedHubProvider } from "@/lib/oemEmberHubProvider";
+import {
+  buildOemLimeHubApiHost,
+  DEFAULT_OEM_LIME_HUB_CHAT_MODEL,
+  OEM_LIME_HUB_PROVIDER_ID,
+  resolveOemLimeHubProviderName,
+} from "@/lib/oemLimeHubProvider";
 import {
   resolveOemCloudRuntimeContext,
   type OemCloudRuntimeContext,
@@ -49,6 +55,8 @@ export interface ConfiguredProvider {
   promptCacheMode?: ProviderDeclaredPromptCacheMode | null;
   /** 自定义模型列表（用于 API Key Provider） */
   customModels?: string[];
+  /** 当前 Provider 是否具备可直接调用需要凭证的模型接口的条件 */
+  hasApiKey?: boolean;
   /** 需要登录或授权时，供模型选择器展示明确状态 */
   authStatus?: "ready" | "login_required";
 }
@@ -89,10 +97,14 @@ function normalizeConfiguredProviderSelector(value?: string | null): string {
 function hasConfiguredKeylessAccess(
   provider: ProviderWithKeysDisplay,
 ): boolean {
+  const apiHost = (provider.api_host || "").trim();
+  if (!provider.enabled || apiHost.length === 0) {
+    return false;
+  }
+
   return (
-    normalizeProviderType(provider.type) === "ollama" &&
-    provider.enabled &&
-    provider.api_host.trim().length > 0
+    normalizeProviderType(provider.type) === "ollama" ||
+    isManagedLimeHubTenantModelEndpoint({ apiHost })
   );
 }
 
@@ -103,6 +115,59 @@ function isConfiguredApiKeyProvider(
     provider.enabled &&
     (provider.api_key_count > 0 || hasConfiguredKeylessAccess(provider))
   );
+}
+
+function hasProviderModelApiAccess(provider: ProviderWithKeysDisplay): boolean {
+  if (Array.isArray(provider.api_keys)) {
+    return (
+      provider.api_keys.some((apiKey) => apiKey.enabled !== false) ||
+      hasConfiguredKeylessAccess(provider)
+    );
+  }
+
+  return provider.api_key_count > 0 || hasConfiguredKeylessAccess(provider);
+}
+
+function isLimeHubProvider(provider: ProviderWithKeysDisplay): boolean {
+  return provider.id.trim().toLowerCase() === OEM_LIME_HUB_PROVIDER_ID;
+}
+
+function hasOemCloudLogin(runtime?: OemCloudRuntimeContext | null): boolean {
+  return Boolean(runtime?.sessionToken?.trim());
+}
+
+function shouldExposeLimeHubLoginPrompt(
+  provider: ProviderWithKeysDisplay,
+  runtime?: OemCloudRuntimeContext | null,
+): boolean {
+  if (
+    hasConfiguredKeylessAccess(provider) &&
+    resolveConfiguredProviderCustomModels(provider).length > 0
+  ) {
+    return false;
+  }
+
+  return Boolean(
+    runtime &&
+    provider.enabled &&
+    isLimeHubProvider(provider) &&
+    !hasOemCloudLogin(runtime),
+  );
+}
+
+function resolveConfiguredProviderCustomModels(
+  provider: ProviderWithKeysDisplay,
+): string[] {
+  const customModels = (provider.custom_models ?? [])
+    .map((modelId) => modelId.trim())
+    .filter(Boolean);
+  if (customModels.length > 0) {
+    return Array.from(new Set(customModels));
+  }
+  if (isLimeHubProvider(provider) && hasConfiguredKeylessAccess(provider)) {
+    return [DEFAULT_OEM_LIME_HUB_CHAT_MODEL];
+  }
+  return [];
 }
 
 function buildConfiguredProviderFromApiKeyProvider(
@@ -119,8 +184,28 @@ function buildConfiguredProviderFromApiKeyProvider(
     providerId: provider.id,
     apiHost: provider.api_host,
     promptCacheMode: provider.prompt_cache_mode,
-    customModels: provider.custom_models,
+    customModels: resolveConfiguredProviderCustomModels(provider),
+    hasApiKey: hasProviderModelApiAccess(provider),
     authStatus,
+  };
+}
+
+function buildSyntheticLimeHubLoginProvider(
+  runtime: OemCloudRuntimeContext,
+): ConfiguredProvider {
+  return {
+    key: OEM_LIME_HUB_PROVIDER_ID,
+    label: resolveOemLimeHubProviderName(runtime),
+    registryId: OEM_LIME_HUB_PROVIDER_ID,
+    fallbackRegistryId: getRegistryIdFromType("openai", runtime.gatewayBaseUrl),
+    type: "openai",
+    credentialType: "openai_key",
+    providerId: OEM_LIME_HUB_PROVIDER_ID,
+    apiHost: buildOemLimeHubApiHost(runtime) ?? runtime.gatewayBaseUrl,
+    promptCacheMode: null,
+    customModels: [DEFAULT_OEM_LIME_HUB_CHAT_MODEL],
+    hasApiKey: false,
+    authStatus: "login_required",
   };
 }
 
@@ -135,22 +220,31 @@ export function buildConfiguredProviders(
   const providerMap = new Map<string, ConfiguredProvider>();
 
   safeApiKeyProviders.forEach((provider) => {
-    // Ember Hub / ProxyCast 托管渠道不在模型选择器展示，改由账号中心单独管理。
-    if (isOemManagedHubProvider(provider)) {
-      return;
-    }
+    const loginRequired = shouldExposeLimeHubLoginPrompt(provider, oemRuntime);
     if (
       !providerMap.has(provider.id) &&
-      isConfiguredApiKeyProvider(provider)
+      (isConfiguredApiKeyProvider(provider) || loginRequired)
     ) {
       providerMap.set(
         provider.id,
-        buildConfiguredProviderFromApiKeyProvider(provider),
+        buildConfiguredProviderFromApiKeyProvider(
+          provider,
+          loginRequired ? "login_required" : "ready",
+        ),
       );
     }
   });
 
-  void oemRuntime;
+  if (
+    oemRuntime &&
+    !hasOemCloudLogin(oemRuntime) &&
+    !providerMap.has(OEM_LIME_HUB_PROVIDER_ID)
+  ) {
+    providerMap.set(
+      OEM_LIME_HUB_PROVIDER_ID,
+      buildSyntheticLimeHubLoginProvider(oemRuntime),
+    );
+  }
 
   return Array.from(providerMap.values());
 }

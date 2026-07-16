@@ -1,18 +1,5 @@
 pub use app_server_protocol::is_app_server_notification_method;
 pub use app_server_protocol::is_app_server_request_method;
-pub use app_server_protocol::AgentAppFetchCloudPackageParams;
-pub use app_server_protocol::AgentAppInstalledDisabledSetParams;
-pub use app_server_protocol::AgentAppInstalledListResponse;
-pub use app_server_protocol::AgentAppInstalledSaveParams;
-pub use app_server_protocol::AgentAppLocalPackageInspectParams;
-pub use app_server_protocol::AgentAppShellPrepareParams;
-pub use app_server_protocol::AgentAppShellPrepareResponse;
-pub use app_server_protocol::AgentAppUiRuntimeStartParams;
-pub use app_server_protocol::AgentAppUiRuntimeStatusParams;
-pub use app_server_protocol::AgentAppUiRuntimeStatusResponse;
-pub use app_server_protocol::AgentAppUiRuntimeStopParams;
-pub use app_server_protocol::AgentAppUninstallParams;
-pub use app_server_protocol::AgentAppUninstallRehearsalParams;
 pub use app_server_protocol::AgentSessionActionReplayParams;
 pub use app_server_protocol::AgentSessionActionRespondParams;
 pub use app_server_protocol::AgentSessionAnalysisHandoffExportParams;
@@ -79,6 +66,22 @@ pub use app_server_protocol::AutomationSchedulerConfigReadResponse;
 pub use app_server_protocol::AutomationSchedulerConfigUpdateParams;
 pub use app_server_protocol::AutomationSchedulerConfigUpdateResponse;
 pub use app_server_protocol::AutomationSchedulerStatusResponse;
+pub use app_server_protocol::BrowserSessionActionExecuteParams;
+pub use app_server_protocol::BrowserSessionActionExecuteResponse;
+pub use app_server_protocol::BrowserSessionCloseResponse;
+pub use app_server_protocol::BrowserSessionEventItem;
+pub use app_server_protocol::BrowserSessionEventListParams;
+pub use app_server_protocol::BrowserSessionEventListResponse;
+pub use app_server_protocol::BrowserSessionIdParams;
+pub use app_server_protocol::BrowserSessionOpenParams;
+pub use app_server_protocol::BrowserSessionOpenResponse;
+pub use app_server_protocol::BrowserSessionPageInfo;
+pub use app_server_protocol::BrowserSessionReadResponse;
+pub use app_server_protocol::BrowserSessionState;
+pub use app_server_protocol::BrowserSessionTargetInfo;
+pub use app_server_protocol::BrowserSessionTargetListParams;
+pub use app_server_protocol::BrowserSessionTargetListResponse;
+pub use app_server_protocol::CanonicalThreadEventNotification;
 pub use app_server_protocol::CapabilityListParams;
 pub use app_server_protocol::DiagnosticsCapabilityRoutingMetricsSnapshot;
 pub use app_server_protocol::DiagnosticsIdempotencyDiagnostics;
@@ -138,6 +141,9 @@ pub use app_server_protocol::McpPromptListResponse;
 pub use app_server_protocol::McpResourceListResponse;
 pub use app_server_protocol::McpResourceReadParams;
 pub use app_server_protocol::McpResourceReadResponse;
+pub use app_server_protocol::McpResourceSubscribeParams;
+pub use app_server_protocol::McpResourceSubscriptionResponse;
+pub use app_server_protocol::McpResourceUnsubscribeParams;
 pub use app_server_protocol::McpServerCreateParams;
 pub use app_server_protocol::McpServerDeleteParams;
 pub use app_server_protocol::McpServerEnabledSetParams;
@@ -162,12 +168,49 @@ pub use app_server_protocol::MediaTaskArtifactListParams;
 pub use app_server_protocol::MediaTaskArtifactListResponse;
 pub use app_server_protocol::MediaTaskArtifactLookupParams;
 pub use app_server_protocol::MediaTaskArtifactResponse;
+pub use app_server_protocol::MemoryStoreAddNoteParams;
+pub use app_server_protocol::MemoryStoreAddNoteResponse;
+pub use app_server_protocol::MemoryStoreConsolidateParams;
+pub use app_server_protocol::MemoryStoreConsolidateResponse;
+pub use app_server_protocol::MemoryStoreHealthResponse;
+pub use app_server_protocol::MemoryStoreIndexRebuildResponse;
+pub use app_server_protocol::MemoryStoreListParams;
+pub use app_server_protocol::MemoryStoreListResponse;
+pub use app_server_protocol::MemoryStoreReadParams;
+pub use app_server_protocol::MemoryStoreReadResponse;
+pub use app_server_protocol::MemoryStoreResetParams;
+pub use app_server_protocol::MemoryStoreResetResponse;
+pub use app_server_protocol::MemoryStoreReviewListParams;
+pub use app_server_protocol::MemoryStoreReviewListResponse;
+pub use app_server_protocol::MemoryStoreReviewNote;
+pub use app_server_protocol::MemoryStoreReviewResolveAction;
+pub use app_server_protocol::MemoryStoreReviewResolveParams;
+pub use app_server_protocol::MemoryStoreReviewResolveResponse;
+pub use app_server_protocol::MemoryStoreRootParams;
+pub use app_server_protocol::MemoryStoreSearchParams;
+pub use app_server_protocol::MemoryStoreSearchResponse;
 pub use app_server_protocol::ModelListParams;
 pub use app_server_protocol::ModelProviderAliasReadParams;
+pub use app_server_protocol::PluginFetchCloudPackageParams;
+pub use app_server_protocol::PluginInstalledDisabledSetParams;
+pub use app_server_protocol::PluginInstalledListResponse;
+pub use app_server_protocol::PluginInstalledSaveParams;
+pub use app_server_protocol::PluginLocalPackageExportParams;
+pub use app_server_protocol::PluginLocalPackageExportResponse;
+pub use app_server_protocol::PluginLocalPackageInspectParams;
+pub use app_server_protocol::PluginShellPrepareParams;
+pub use app_server_protocol::PluginShellPrepareResponse;
+pub use app_server_protocol::PluginUiRuntimeStartParams;
+pub use app_server_protocol::PluginUiRuntimeStatusParams;
+pub use app_server_protocol::PluginUiRuntimeStatusResponse;
+pub use app_server_protocol::PluginUiRuntimeStopParams;
+pub use app_server_protocol::PluginUninstallParams;
+pub use app_server_protocol::PluginUninstallRehearsalParams;
 pub use app_server_protocol::ProjectMemoryReadParams;
 pub use app_server_protocol::ProjectMemoryReadResponse;
 use app_server_protocol::RequestId;
 pub use app_server_protocol::ServerDiagnosticsResponse;
+use app_server_protocol::ServerNotification;
 pub use app_server_protocol::SkillDownloadInstallParams;
 pub use app_server_protocol::SkillDownloadInstallResponse;
 pub use app_server_protocol::SkillListResponse;
@@ -175,6 +218,7 @@ pub use app_server_protocol::SkillLocalDetailInspectParams;
 pub use app_server_protocol::SkillLocalDetailInspectResponse;
 pub use app_server_protocol::SkillLocalRenameParams;
 pub use app_server_protocol::SkillLocalRenameResponse;
+pub use app_server_protocol::SkillManagementListResponse;
 pub use app_server_protocol::SkillMarketplaceInstallParams;
 pub use app_server_protocol::SkillMarketplaceInstallResponse;
 pub use app_server_protocol::SkillPackageExportParams;
@@ -188,6 +232,14 @@ pub use app_server_protocol::SkillPackageLocalReplaceResponse;
 pub use app_server_protocol::SkillReadParams;
 pub use app_server_protocol::SkillReadResponse;
 pub use app_server_protocol::SupportBundleExportResponse;
+pub use app_server_protocol::ThreadItemsListParams;
+pub use app_server_protocol::ThreadItemsListResponse;
+pub use app_server_protocol::ThreadListParams;
+pub use app_server_protocol::ThreadListResponse;
+pub use app_server_protocol::ThreadReadParams;
+pub use app_server_protocol::ThreadReadResponse;
+pub use app_server_protocol::ThreadTurnsListParams;
+pub use app_server_protocol::ThreadTurnsListResponse;
 pub use app_server_protocol::UsageStatsDailyTrendsListResponse;
 pub use app_server_protocol::UsageStatsDailyUsage;
 pub use app_server_protocol::UsageStatsModelRankingListResponse;
@@ -199,6 +251,14 @@ pub use app_server_protocol::WechatChannelAccountListResponse;
 pub use app_server_protocol::WechatConfiguredAccount;
 pub use app_server_protocol::WindowsStartupCheck;
 pub use app_server_protocol::WindowsStartupDiagnosticsResponse;
+pub use app_server_protocol::WorkflowCancelParams;
+pub use app_server_protocol::WorkflowCancelResponse;
+pub use app_server_protocol::WorkflowReadParams;
+pub use app_server_protocol::WorkflowReadResponse;
+pub use app_server_protocol::WorkflowRespondParams;
+pub use app_server_protocol::WorkflowRespondResponse;
+pub use app_server_protocol::WorkflowRetryParams;
+pub use app_server_protocol::WorkflowRetryResponse;
 pub use app_server_protocol::WorkspaceEnsureParams;
 pub use app_server_protocol::WorkspaceEnsureProjectParams;
 pub use app_server_protocol::WorkspaceEnsureProjectResponse;
@@ -210,20 +270,19 @@ pub use app_server_protocol::WorkspaceProjectPathResolveResponse;
 pub use app_server_protocol::WorkspaceProjectsRootReadResponse;
 pub use app_server_protocol::WorkspaceReadParams;
 pub use app_server_protocol::WorkspaceReadResponse;
+pub use app_server_protocol::WorkspaceRightSurfacePendingChangedParams;
+pub use app_server_protocol::WorkspaceRightSurfacePendingConsumeParams;
+pub use app_server_protocol::WorkspaceRightSurfacePendingConsumeResponse;
+pub use app_server_protocol::WorkspaceRightSurfacePendingDismissParams;
+pub use app_server_protocol::WorkspaceRightSurfacePendingDismissResponse;
+pub use app_server_protocol::WorkspaceRightSurfacePendingListParams;
+pub use app_server_protocol::WorkspaceRightSurfacePendingListResponse;
+pub use app_server_protocol::WorkspaceRightSurfacePendingRequest;
+pub use app_server_protocol::WorkspaceRightSurfaceRequestParams;
+pub use app_server_protocol::WorkspaceRightSurfaceRequestResponse;
 pub use app_server_protocol::WorkspaceSkillBindingsListParams;
 pub use app_server_protocol::WorkspaceSkillBindingsListResponse;
 pub use app_server_protocol::APP_SERVER_METHODS;
-pub use app_server_protocol::METHOD_AGENT_APP_INSTALLED_DISABLED_SET;
-pub use app_server_protocol::METHOD_AGENT_APP_INSTALLED_LIST;
-pub use app_server_protocol::METHOD_AGENT_APP_INSTALLED_SAVE;
-pub use app_server_protocol::METHOD_AGENT_APP_INSTALLED_UNINSTALL;
-pub use app_server_protocol::METHOD_AGENT_APP_INSTALLED_UNINSTALL_REHEARSAL;
-pub use app_server_protocol::METHOD_AGENT_APP_LOCAL_PACKAGE_INSPECT;
-pub use app_server_protocol::METHOD_AGENT_APP_PACKAGE_FETCH_CLOUD;
-pub use app_server_protocol::METHOD_AGENT_APP_SHELL_PREPARE;
-pub use app_server_protocol::METHOD_AGENT_APP_UI_RUNTIME_START;
-pub use app_server_protocol::METHOD_AGENT_APP_UI_RUNTIME_STATUS;
-pub use app_server_protocol::METHOD_AGENT_APP_UI_RUNTIME_STOP;
 pub use app_server_protocol::METHOD_AGENT_SESSION_ACTION_REPLAY;
 pub use app_server_protocol::METHOD_AGENT_SESSION_ACTION_RESPOND;
 pub use app_server_protocol::METHOD_AGENT_SESSION_ANALYSIS_HANDOFF_EXPORT;
@@ -263,6 +322,12 @@ pub use app_server_protocol::METHOD_AUTOMATION_SCHEDULER_CONFIG_UPDATE;
 pub use app_server_protocol::METHOD_AUTOMATION_SCHEDULER_STATUS;
 pub use app_server_protocol::METHOD_AUTOMATION_SCHEDULE_PREVIEW;
 pub use app_server_protocol::METHOD_AUTOMATION_SCHEDULE_VALIDATE;
+pub use app_server_protocol::METHOD_BROWSER_SESSION_ACTION_EXECUTE;
+pub use app_server_protocol::METHOD_BROWSER_SESSION_CLOSE;
+pub use app_server_protocol::METHOD_BROWSER_SESSION_EVENT_LIST;
+pub use app_server_protocol::METHOD_BROWSER_SESSION_OPEN;
+pub use app_server_protocol::METHOD_BROWSER_SESSION_READ;
+pub use app_server_protocol::METHOD_BROWSER_SESSION_TARGET_LIST;
 pub use app_server_protocol::METHOD_CAPABILITY_LIST;
 pub use app_server_protocol::METHOD_DIAGNOSTICS_LOG_STORAGE_READ;
 pub use app_server_protocol::METHOD_DIAGNOSTICS_SERVER_READ;
@@ -303,6 +368,8 @@ pub use app_server_protocol::METHOD_MCP_PROMPT_GET;
 pub use app_server_protocol::METHOD_MCP_PROMPT_LIST;
 pub use app_server_protocol::METHOD_MCP_RESOURCE_LIST;
 pub use app_server_protocol::METHOD_MCP_RESOURCE_READ;
+pub use app_server_protocol::METHOD_MCP_RESOURCE_SUBSCRIBE;
+pub use app_server_protocol::METHOD_MCP_RESOURCE_UNSUBSCRIBE;
 pub use app_server_protocol::METHOD_MCP_SERVER_CREATE;
 pub use app_server_protocol::METHOD_MCP_SERVER_DELETE;
 pub use app_server_protocol::METHOD_MCP_SERVER_ENABLED_SET;
@@ -324,6 +391,16 @@ pub use app_server_protocol::METHOD_MEDIA_TASK_ARTIFACT_CANCEL;
 pub use app_server_protocol::METHOD_MEDIA_TASK_ARTIFACT_GET;
 pub use app_server_protocol::METHOD_MEDIA_TASK_ARTIFACT_IMAGE_CREATE;
 pub use app_server_protocol::METHOD_MEDIA_TASK_ARTIFACT_LIST;
+pub use app_server_protocol::METHOD_MEMORY_STORE_ADD_NOTE;
+pub use app_server_protocol::METHOD_MEMORY_STORE_CONSOLIDATE;
+pub use app_server_protocol::METHOD_MEMORY_STORE_HEALTH;
+pub use app_server_protocol::METHOD_MEMORY_STORE_INDEX_REBUILD;
+pub use app_server_protocol::METHOD_MEMORY_STORE_LIST;
+pub use app_server_protocol::METHOD_MEMORY_STORE_READ;
+pub use app_server_protocol::METHOD_MEMORY_STORE_RESET;
+pub use app_server_protocol::METHOD_MEMORY_STORE_REVIEW_LIST;
+pub use app_server_protocol::METHOD_MEMORY_STORE_REVIEW_RESOLVE;
+pub use app_server_protocol::METHOD_MEMORY_STORE_SEARCH;
 pub use app_server_protocol::METHOD_MODEL_LIST;
 pub use app_server_protocol::METHOD_MODEL_PREFERENCES_LIST;
 pub use app_server_protocol::METHOD_MODEL_PROVIDER_ALIAS_LIST;
@@ -331,6 +408,18 @@ pub use app_server_protocol::METHOD_MODEL_PROVIDER_ALIAS_READ;
 pub use app_server_protocol::METHOD_MODEL_PROVIDER_CATALOG_LIST;
 pub use app_server_protocol::METHOD_MODEL_PROVIDER_LIST;
 pub use app_server_protocol::METHOD_MODEL_SYNC_STATE_READ;
+pub use app_server_protocol::METHOD_PLUGIN_INSTALLED_DISABLED_SET;
+pub use app_server_protocol::METHOD_PLUGIN_INSTALLED_LIST;
+pub use app_server_protocol::METHOD_PLUGIN_INSTALLED_SAVE;
+pub use app_server_protocol::METHOD_PLUGIN_INSTALLED_UNINSTALL;
+pub use app_server_protocol::METHOD_PLUGIN_INSTALLED_UNINSTALL_REHEARSAL;
+pub use app_server_protocol::METHOD_PLUGIN_LOCAL_PACKAGE_EXPORT;
+pub use app_server_protocol::METHOD_PLUGIN_LOCAL_PACKAGE_INSPECT;
+pub use app_server_protocol::METHOD_PLUGIN_PACKAGE_FETCH_CLOUD;
+pub use app_server_protocol::METHOD_PLUGIN_SHELL_PREPARE;
+pub use app_server_protocol::METHOD_PLUGIN_UI_RUNTIME_START;
+pub use app_server_protocol::METHOD_PLUGIN_UI_RUNTIME_STATUS;
+pub use app_server_protocol::METHOD_PLUGIN_UI_RUNTIME_STOP;
 pub use app_server_protocol::METHOD_PROJECT_MEMORY_READ;
 pub use app_server_protocol::METHOD_SKILL_LIST;
 pub use app_server_protocol::METHOD_SKILL_LOCAL_DETAIL_INSPECT;
@@ -342,10 +431,18 @@ pub use app_server_protocol::METHOD_SKILL_PACKAGE_LOCAL_INSPECT;
 pub use app_server_protocol::METHOD_SKILL_PACKAGE_LOCAL_INSTALL;
 pub use app_server_protocol::METHOD_SKILL_PACKAGE_LOCAL_REPLACE;
 pub use app_server_protocol::METHOD_SKILL_READ;
+pub use app_server_protocol::METHOD_THREAD_ITEMS_LIST;
+pub use app_server_protocol::METHOD_THREAD_LIST;
+pub use app_server_protocol::METHOD_THREAD_READ;
+pub use app_server_protocol::METHOD_THREAD_TURNS_LIST;
 pub use app_server_protocol::METHOD_USAGE_STATS_DAILY_TRENDS_LIST;
 pub use app_server_protocol::METHOD_USAGE_STATS_MODEL_RANKING_LIST;
 pub use app_server_protocol::METHOD_USAGE_STATS_READ;
 pub use app_server_protocol::METHOD_WECHAT_CHANNEL_ACCOUNT_LIST;
+pub use app_server_protocol::METHOD_WORKFLOW_CANCEL;
+pub use app_server_protocol::METHOD_WORKFLOW_READ;
+pub use app_server_protocol::METHOD_WORKFLOW_RESPOND;
+pub use app_server_protocol::METHOD_WORKFLOW_RETRY;
 pub use app_server_protocol::METHOD_WORKSPACE_BY_PATH_READ;
 pub use app_server_protocol::METHOD_WORKSPACE_DEFAULT_ENSURE;
 pub use app_server_protocol::METHOD_WORKSPACE_DEFAULT_READ;
@@ -355,6 +452,11 @@ pub use app_server_protocol::METHOD_WORKSPACE_LIST;
 pub use app_server_protocol::METHOD_WORKSPACE_PROJECTS_ROOT_READ;
 pub use app_server_protocol::METHOD_WORKSPACE_PROJECT_PATH_RESOLVE;
 pub use app_server_protocol::METHOD_WORKSPACE_READ;
+pub use app_server_protocol::METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED;
+pub use app_server_protocol::METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CONSUME;
+pub use app_server_protocol::METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_DISMISS;
+pub use app_server_protocol::METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_LIST;
+pub use app_server_protocol::METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST;
 pub use app_server_protocol::METHOD_WORKSPACE_SKILL_BINDINGS_LIST;
 use app_server_transport::encode_message;
 use serde::Serialize;
@@ -362,6 +464,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ClientError {
+    #[error("invalid request params: {0}")]
+    InvalidParams(String),
     #[error("failed to serialize request params: {0}")]
     Serialize(#[from] serde_json::Error),
     #[error(transparent)]
@@ -392,8 +496,37 @@ impl<P> TypedRequest<P> {
     }
 }
 
+fn validate_mcp_resource_target(server: &str, uri: &str) -> Result<(), ClientError> {
+    if server.trim().is_empty() {
+        return Err(ClientError::InvalidParams(
+            "MCP resource server cannot be empty".to_string(),
+        ));
+    }
+    if uri.trim().is_empty() {
+        return Err(ClientError::InvalidParams(
+            "MCP resource URI cannot be empty".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_mcp_prompt_target(server: &str, name: &str) -> Result<(), ClientError> {
+    if server.trim().is_empty() {
+        return Err(ClientError::InvalidParams(
+            "MCP prompt server cannot be empty".to_string(),
+        ));
+    }
+    if name.trim().is_empty() {
+        return Err(ClientError::InvalidParams(
+            "MCP prompt name cannot be empty".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ClientEvent {
+    CanonicalThread(CanonicalThreadEventNotification),
     AgentSession(JsonRpcNotification),
     Notification(JsonRpcNotification),
     Request(JsonRpcRequest),
@@ -407,7 +540,13 @@ impl From<JsonRpcMessage> for ClientEvent {
             JsonRpcMessage::Notification(notification)
                 if notification.method == METHOD_AGENT_SESSION_EVENT =>
             {
-                Self::AgentSession(notification)
+                match ServerNotification::try_from(notification.clone()) {
+                    Ok(ServerNotification::AgentSessionEvent(params)) => params
+                        .canonical_event
+                        .map(Self::CanonicalThread)
+                        .unwrap_or(Self::AgentSession(notification)),
+                    _ => Self::AgentSession(notification),
+                }
             }
             JsonRpcMessage::Notification(notification) => Self::Notification(notification),
             JsonRpcMessage::Request(request) => Self::Request(request),
@@ -459,6 +598,31 @@ impl AppServerClient {
         self.typed_request(typed::list_sessions(params))
     }
 
+    pub fn read_thread(&mut self, params: ThreadReadParams) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::read_thread(params))
+    }
+
+    pub fn list_threads(
+        &mut self,
+        params: ThreadListParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::list_threads(params))
+    }
+
+    pub fn list_thread_turns(
+        &mut self,
+        params: ThreadTurnsListParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::list_thread_turns(params))
+    }
+
+    pub fn list_thread_items(
+        &mut self,
+        params: ThreadItemsListParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::list_thread_items(params))
+    }
+
     pub fn start_session(
         &mut self,
         params: AgentSessionStartParams,
@@ -471,6 +635,34 @@ impl AppServerClient {
         params: AgentSessionReadParams,
     ) -> Result<JsonRpcRequest, ClientError> {
         self.typed_request(typed::read_session(params))
+    }
+
+    pub fn read_workflow(
+        &mut self,
+        params: WorkflowReadParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::read_workflow(params))
+    }
+
+    pub fn cancel_workflow(
+        &mut self,
+        params: WorkflowCancelParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::cancel_workflow(params))
+    }
+
+    pub fn retry_workflow(
+        &mut self,
+        params: WorkflowRetryParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::retry_workflow(params))
+    }
+
+    pub fn respond_workflow(
+        &mut self,
+        params: WorkflowRespondParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::respond_workflow(params))
     }
 
     pub fn read_agent_session_objective(
@@ -550,6 +742,76 @@ impl AppServerClient {
         params: WorkspaceEnsureParams,
     ) -> Result<JsonRpcRequest, ClientError> {
         self.typed_request(typed::ensure_workspace_ready(params))
+    }
+
+    pub fn request_workspace_right_surface(
+        &mut self,
+        params: WorkspaceRightSurfaceRequestParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::request_workspace_right_surface(params))
+    }
+
+    pub fn list_workspace_right_surface_pending(
+        &mut self,
+        params: WorkspaceRightSurfacePendingListParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::list_workspace_right_surface_pending(params))
+    }
+
+    pub fn consume_workspace_right_surface_pending(
+        &mut self,
+        params: WorkspaceRightSurfacePendingConsumeParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::consume_workspace_right_surface_pending(params))
+    }
+
+    pub fn dismiss_workspace_right_surface_pending(
+        &mut self,
+        params: WorkspaceRightSurfacePendingDismissParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::dismiss_workspace_right_surface_pending(params))
+    }
+
+    pub fn list_browser_session_targets(
+        &mut self,
+        params: BrowserSessionTargetListParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::list_browser_session_targets(params))
+    }
+
+    pub fn open_browser_session(
+        &mut self,
+        params: BrowserSessionOpenParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::open_browser_session(params))
+    }
+
+    pub fn read_browser_session(
+        &mut self,
+        params: BrowserSessionIdParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::read_browser_session(params))
+    }
+
+    pub fn close_browser_session(
+        &mut self,
+        params: BrowserSessionIdParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::close_browser_session(params))
+    }
+
+    pub fn list_browser_session_events(
+        &mut self,
+        params: BrowserSessionEventListParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::list_browser_session_events(params))
+    }
+
+    pub fn execute_browser_session_action(
+        &mut self,
+        params: BrowserSessionActionExecuteParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::execute_browser_session_action(params))
     }
 
     pub fn list_skills(&mut self) -> Result<JsonRpcRequest, ClientError> {
@@ -737,78 +999,85 @@ impl AppServerClient {
         self.typed_request(typed::list_workspace_skill_bindings(params))
     }
 
-    pub fn inspect_agent_app_local_package(
+    pub fn inspect_plugin_local_package(
         &mut self,
-        params: AgentAppLocalPackageInspectParams,
+        params: PluginLocalPackageInspectParams,
     ) -> Result<JsonRpcRequest, ClientError> {
-        self.typed_request(typed::inspect_agent_app_local_package(params))
+        self.typed_request(typed::inspect_plugin_local_package(params))
     }
 
-    pub fn fetch_agent_app_cloud_package(
+    pub fn export_plugin_local_package(
         &mut self,
-        params: AgentAppFetchCloudPackageParams,
+        params: PluginLocalPackageExportParams,
     ) -> Result<JsonRpcRequest, ClientError> {
-        self.typed_request(typed::fetch_agent_app_cloud_package(params))
+        self.typed_request(typed::export_plugin_local_package(params))
     }
 
-    pub fn save_agent_app_installed(
+    pub fn fetch_plugin_cloud_package(
         &mut self,
-        params: AgentAppInstalledSaveParams,
+        params: PluginFetchCloudPackageParams,
     ) -> Result<JsonRpcRequest, ClientError> {
-        self.typed_request(typed::save_agent_app_installed(params))
+        self.typed_request(typed::fetch_plugin_cloud_package(params))
     }
 
-    pub fn list_agent_app_installed(&mut self) -> Result<JsonRpcRequest, ClientError> {
-        self.typed_request(typed::list_agent_app_installed())
+    pub fn save_plugin_installed(
+        &mut self,
+        params: PluginInstalledSaveParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::save_plugin_installed(params))
     }
 
-    pub fn set_agent_app_installed_disabled(
-        &mut self,
-        params: AgentAppInstalledDisabledSetParams,
-    ) -> Result<JsonRpcRequest, ClientError> {
-        self.typed_request(typed::set_agent_app_installed_disabled(params))
+    pub fn list_plugin_installed(&mut self) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::list_plugin_installed())
     }
 
-    pub fn preview_agent_app_uninstall(
+    pub fn set_plugin_installed_disabled(
         &mut self,
-        params: AgentAppUninstallRehearsalParams,
+        params: PluginInstalledDisabledSetParams,
     ) -> Result<JsonRpcRequest, ClientError> {
-        self.typed_request(typed::preview_agent_app_uninstall(params))
+        self.typed_request(typed::set_plugin_installed_disabled(params))
     }
 
-    pub fn uninstall_agent_app(
+    pub fn preview_plugin_uninstall(
         &mut self,
-        params: AgentAppUninstallParams,
+        params: PluginUninstallRehearsalParams,
     ) -> Result<JsonRpcRequest, ClientError> {
-        self.typed_request(typed::uninstall_agent_app(params))
+        self.typed_request(typed::preview_plugin_uninstall(params))
     }
 
-    pub fn prepare_agent_app_shell(
+    pub fn uninstall_plugin(
         &mut self,
-        params: AgentAppShellPrepareParams,
+        params: PluginUninstallParams,
     ) -> Result<JsonRpcRequest, ClientError> {
-        self.typed_request(typed::prepare_agent_app_shell(params))
+        self.typed_request(typed::uninstall_plugin(params))
     }
 
-    pub fn start_agent_app_ui_runtime(
+    pub fn prepare_plugin_shell(
         &mut self,
-        params: AgentAppUiRuntimeStartParams,
+        params: PluginShellPrepareParams,
     ) -> Result<JsonRpcRequest, ClientError> {
-        self.typed_request(typed::start_agent_app_ui_runtime(params))
+        self.typed_request(typed::prepare_plugin_shell(params))
     }
 
-    pub fn agent_app_ui_runtime_status(
+    pub fn start_plugin_ui_runtime(
         &mut self,
-        params: AgentAppUiRuntimeStatusParams,
+        params: PluginUiRuntimeStartParams,
     ) -> Result<JsonRpcRequest, ClientError> {
-        self.typed_request(typed::agent_app_ui_runtime_status(params))
+        self.typed_request(typed::start_plugin_ui_runtime(params))
     }
 
-    pub fn stop_agent_app_ui_runtime(
+    pub fn plugin_ui_runtime_status(
         &mut self,
-        params: AgentAppUiRuntimeStopParams,
+        params: PluginUiRuntimeStatusParams,
     ) -> Result<JsonRpcRequest, ClientError> {
-        self.typed_request(typed::stop_agent_app_ui_runtime(params))
+        self.typed_request(typed::plugin_ui_runtime_status(params))
+    }
+
+    pub fn stop_plugin_ui_runtime(
+        &mut self,
+        params: PluginUiRuntimeStopParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::stop_plugin_ui_runtime(params))
     }
 
     pub fn list_knowledge_packs(
@@ -1050,7 +1319,7 @@ impl AppServerClient {
         &mut self,
         params: McpPromptGetParams,
     ) -> Result<JsonRpcRequest, ClientError> {
-        self.typed_request(typed::get_mcp_prompt(params))
+        self.typed_request(typed::get_mcp_prompt(params)?)
     }
 
     pub fn list_mcp_resources(&mut self) -> Result<JsonRpcRequest, ClientError> {
@@ -1061,7 +1330,21 @@ impl AppServerClient {
         &mut self,
         params: McpResourceReadParams,
     ) -> Result<JsonRpcRequest, ClientError> {
-        self.typed_request(typed::read_mcp_resource(params))
+        self.typed_request(typed::read_mcp_resource(params)?)
+    }
+
+    pub fn subscribe_mcp_resource(
+        &mut self,
+        params: McpResourceSubscribeParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::subscribe_mcp_resource(params)?)
+    }
+
+    pub fn unsubscribe_mcp_resource(
+        &mut self,
+        params: McpResourceUnsubscribeParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::unsubscribe_mcp_resource(params)?)
     }
 
     pub fn read_project_memory(
@@ -1069,6 +1352,76 @@ impl AppServerClient {
         params: ProjectMemoryReadParams,
     ) -> Result<JsonRpcRequest, ClientError> {
         self.typed_request(typed::read_project_memory(params))
+    }
+
+    pub fn list_memory_store(
+        &mut self,
+        params: MemoryStoreListParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::list_memory_store(params))
+    }
+
+    pub fn read_memory_store(
+        &mut self,
+        params: MemoryStoreReadParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::read_memory_store(params))
+    }
+
+    pub fn search_memory_store(
+        &mut self,
+        params: MemoryStoreSearchParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::search_memory_store(params))
+    }
+
+    pub fn add_memory_store_note(
+        &mut self,
+        params: MemoryStoreAddNoteParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::add_memory_store_note(params))
+    }
+
+    pub fn consolidate_memory_store(
+        &mut self,
+        params: MemoryStoreConsolidateParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::consolidate_memory_store(params))
+    }
+
+    pub fn list_memory_store_review_notes(
+        &mut self,
+        params: MemoryStoreReviewListParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::list_memory_store_review_notes(params))
+    }
+
+    pub fn resolve_memory_store_review_note(
+        &mut self,
+        params: MemoryStoreReviewResolveParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::resolve_memory_store_review_note(params))
+    }
+
+    pub fn health_memory_store(
+        &mut self,
+        params: MemoryStoreRootParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::health_memory_store(params))
+    }
+
+    pub fn reset_memory_store(
+        &mut self,
+        params: MemoryStoreResetParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::reset_memory_store(params))
+    }
+
+    pub fn rebuild_memory_store_index(
+        &mut self,
+        params: MemoryStoreRootParams,
+    ) -> Result<JsonRpcRequest, ClientError> {
+        self.typed_request(typed::rebuild_memory_store_index(params))
     }
 
     pub fn list_logs(&mut self) -> Result<JsonRpcRequest, ClientError> {
@@ -1316,12 +1669,44 @@ pub mod typed {
         TypedRequest::new(METHOD_AGENT_SESSION_LIST, params)
     }
 
+    pub fn read_thread(params: ThreadReadParams) -> TypedRequest<ThreadReadParams> {
+        TypedRequest::new(METHOD_THREAD_READ, params)
+    }
+
+    pub fn list_threads(params: ThreadListParams) -> TypedRequest<ThreadListParams> {
+        TypedRequest::new(METHOD_THREAD_LIST, params)
+    }
+
+    pub fn list_thread_turns(params: ThreadTurnsListParams) -> TypedRequest<ThreadTurnsListParams> {
+        TypedRequest::new(METHOD_THREAD_TURNS_LIST, params)
+    }
+
+    pub fn list_thread_items(params: ThreadItemsListParams) -> TypedRequest<ThreadItemsListParams> {
+        TypedRequest::new(METHOD_THREAD_ITEMS_LIST, params)
+    }
+
     pub fn start_session(params: AgentSessionStartParams) -> TypedRequest<AgentSessionStartParams> {
         TypedRequest::new(METHOD_AGENT_SESSION_START, params)
     }
 
     pub fn read_session(params: AgentSessionReadParams) -> TypedRequest<AgentSessionReadParams> {
         TypedRequest::new(METHOD_AGENT_SESSION_READ, params)
+    }
+
+    pub fn read_workflow(params: WorkflowReadParams) -> TypedRequest<WorkflowReadParams> {
+        TypedRequest::new(METHOD_WORKFLOW_READ, params)
+    }
+
+    pub fn cancel_workflow(params: WorkflowCancelParams) -> TypedRequest<WorkflowCancelParams> {
+        TypedRequest::new(METHOD_WORKFLOW_CANCEL, params)
+    }
+
+    pub fn retry_workflow(params: WorkflowRetryParams) -> TypedRequest<WorkflowRetryParams> {
+        TypedRequest::new(METHOD_WORKFLOW_RETRY, params)
+    }
+
+    pub fn respond_workflow(params: WorkflowRespondParams) -> TypedRequest<WorkflowRespondParams> {
+        TypedRequest::new(METHOD_WORKFLOW_RESPOND, params)
     }
 
     pub fn read_agent_session_objective(
@@ -1390,6 +1775,66 @@ pub mod typed {
         params: WorkspaceEnsureParams,
     ) -> TypedRequest<WorkspaceEnsureParams> {
         TypedRequest::new(METHOD_WORKSPACE_ENSURE_READY, params)
+    }
+
+    pub fn request_workspace_right_surface(
+        params: WorkspaceRightSurfaceRequestParams,
+    ) -> TypedRequest<WorkspaceRightSurfaceRequestParams> {
+        TypedRequest::new(METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST, params)
+    }
+
+    pub fn list_workspace_right_surface_pending(
+        params: WorkspaceRightSurfacePendingListParams,
+    ) -> TypedRequest<WorkspaceRightSurfacePendingListParams> {
+        TypedRequest::new(METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_LIST, params)
+    }
+
+    pub fn consume_workspace_right_surface_pending(
+        params: WorkspaceRightSurfacePendingConsumeParams,
+    ) -> TypedRequest<WorkspaceRightSurfacePendingConsumeParams> {
+        TypedRequest::new(METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CONSUME, params)
+    }
+
+    pub fn dismiss_workspace_right_surface_pending(
+        params: WorkspaceRightSurfacePendingDismissParams,
+    ) -> TypedRequest<WorkspaceRightSurfacePendingDismissParams> {
+        TypedRequest::new(METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_DISMISS, params)
+    }
+
+    pub fn list_browser_session_targets(
+        params: BrowserSessionTargetListParams,
+    ) -> TypedRequest<BrowserSessionTargetListParams> {
+        TypedRequest::new(METHOD_BROWSER_SESSION_TARGET_LIST, params)
+    }
+
+    pub fn open_browser_session(
+        params: BrowserSessionOpenParams,
+    ) -> TypedRequest<BrowserSessionOpenParams> {
+        TypedRequest::new(METHOD_BROWSER_SESSION_OPEN, params)
+    }
+
+    pub fn read_browser_session(
+        params: BrowserSessionIdParams,
+    ) -> TypedRequest<BrowserSessionIdParams> {
+        TypedRequest::new(METHOD_BROWSER_SESSION_READ, params)
+    }
+
+    pub fn close_browser_session(
+        params: BrowserSessionIdParams,
+    ) -> TypedRequest<BrowserSessionIdParams> {
+        TypedRequest::new(METHOD_BROWSER_SESSION_CLOSE, params)
+    }
+
+    pub fn list_browser_session_events(
+        params: BrowserSessionEventListParams,
+    ) -> TypedRequest<BrowserSessionEventListParams> {
+        TypedRequest::new(METHOD_BROWSER_SESSION_EVENT_LIST, params)
+    }
+
+    pub fn execute_browser_session_action(
+        params: BrowserSessionActionExecuteParams,
+    ) -> TypedRequest<BrowserSessionActionExecuteParams> {
+        TypedRequest::new(METHOD_BROWSER_SESSION_ACTION_EXECUTE, params)
     }
 
     pub fn list_skills() -> TypedRequest<serde_json::Value> {
@@ -1545,68 +1990,72 @@ pub mod typed {
         TypedRequest::new(METHOD_WORKSPACE_SKILL_BINDINGS_LIST, params)
     }
 
-    pub fn inspect_agent_app_local_package(
-        params: AgentAppLocalPackageInspectParams,
-    ) -> TypedRequest<AgentAppLocalPackageInspectParams> {
-        TypedRequest::new(METHOD_AGENT_APP_LOCAL_PACKAGE_INSPECT, params)
+    pub fn inspect_plugin_local_package(
+        params: PluginLocalPackageInspectParams,
+    ) -> TypedRequest<PluginLocalPackageInspectParams> {
+        TypedRequest::new(METHOD_PLUGIN_LOCAL_PACKAGE_INSPECT, params)
     }
 
-    pub fn fetch_agent_app_cloud_package(
-        params: AgentAppFetchCloudPackageParams,
-    ) -> TypedRequest<AgentAppFetchCloudPackageParams> {
-        TypedRequest::new(METHOD_AGENT_APP_PACKAGE_FETCH_CLOUD, params)
+    pub fn export_plugin_local_package(
+        params: PluginLocalPackageExportParams,
+    ) -> TypedRequest<PluginLocalPackageExportParams> {
+        TypedRequest::new(METHOD_PLUGIN_LOCAL_PACKAGE_EXPORT, params)
     }
 
-    pub fn save_agent_app_installed(
-        params: AgentAppInstalledSaveParams,
-    ) -> TypedRequest<AgentAppInstalledSaveParams> {
-        TypedRequest::new(METHOD_AGENT_APP_INSTALLED_SAVE, params)
+    pub fn fetch_plugin_cloud_package(
+        params: PluginFetchCloudPackageParams,
+    ) -> TypedRequest<PluginFetchCloudPackageParams> {
+        TypedRequest::new(METHOD_PLUGIN_PACKAGE_FETCH_CLOUD, params)
     }
 
-    pub fn list_agent_app_installed() -> TypedRequest<serde_json::Value> {
-        TypedRequest::new(METHOD_AGENT_APP_INSTALLED_LIST, serde_json::json!({}))
+    pub fn save_plugin_installed(
+        params: PluginInstalledSaveParams,
+    ) -> TypedRequest<PluginInstalledSaveParams> {
+        TypedRequest::new(METHOD_PLUGIN_INSTALLED_SAVE, params)
     }
 
-    pub fn set_agent_app_installed_disabled(
-        params: AgentAppInstalledDisabledSetParams,
-    ) -> TypedRequest<AgentAppInstalledDisabledSetParams> {
-        TypedRequest::new(METHOD_AGENT_APP_INSTALLED_DISABLED_SET, params)
+    pub fn list_plugin_installed() -> TypedRequest<serde_json::Value> {
+        TypedRequest::new(METHOD_PLUGIN_INSTALLED_LIST, serde_json::json!({}))
     }
 
-    pub fn preview_agent_app_uninstall(
-        params: AgentAppUninstallRehearsalParams,
-    ) -> TypedRequest<AgentAppUninstallRehearsalParams> {
-        TypedRequest::new(METHOD_AGENT_APP_INSTALLED_UNINSTALL_REHEARSAL, params)
+    pub fn set_plugin_installed_disabled(
+        params: PluginInstalledDisabledSetParams,
+    ) -> TypedRequest<PluginInstalledDisabledSetParams> {
+        TypedRequest::new(METHOD_PLUGIN_INSTALLED_DISABLED_SET, params)
     }
 
-    pub fn uninstall_agent_app(
-        params: AgentAppUninstallParams,
-    ) -> TypedRequest<AgentAppUninstallParams> {
-        TypedRequest::new(METHOD_AGENT_APP_INSTALLED_UNINSTALL, params)
+    pub fn preview_plugin_uninstall(
+        params: PluginUninstallRehearsalParams,
+    ) -> TypedRequest<PluginUninstallRehearsalParams> {
+        TypedRequest::new(METHOD_PLUGIN_INSTALLED_UNINSTALL_REHEARSAL, params)
     }
 
-    pub fn prepare_agent_app_shell(
-        params: AgentAppShellPrepareParams,
-    ) -> TypedRequest<AgentAppShellPrepareParams> {
-        TypedRequest::new(METHOD_AGENT_APP_SHELL_PREPARE, params)
+    pub fn uninstall_plugin(params: PluginUninstallParams) -> TypedRequest<PluginUninstallParams> {
+        TypedRequest::new(METHOD_PLUGIN_INSTALLED_UNINSTALL, params)
     }
 
-    pub fn start_agent_app_ui_runtime(
-        params: AgentAppUiRuntimeStartParams,
-    ) -> TypedRequest<AgentAppUiRuntimeStartParams> {
-        TypedRequest::new(METHOD_AGENT_APP_UI_RUNTIME_START, params)
+    pub fn prepare_plugin_shell(
+        params: PluginShellPrepareParams,
+    ) -> TypedRequest<PluginShellPrepareParams> {
+        TypedRequest::new(METHOD_PLUGIN_SHELL_PREPARE, params)
     }
 
-    pub fn agent_app_ui_runtime_status(
-        params: AgentAppUiRuntimeStatusParams,
-    ) -> TypedRequest<AgentAppUiRuntimeStatusParams> {
-        TypedRequest::new(METHOD_AGENT_APP_UI_RUNTIME_STATUS, params)
+    pub fn start_plugin_ui_runtime(
+        params: PluginUiRuntimeStartParams,
+    ) -> TypedRequest<PluginUiRuntimeStartParams> {
+        TypedRequest::new(METHOD_PLUGIN_UI_RUNTIME_START, params)
     }
 
-    pub fn stop_agent_app_ui_runtime(
-        params: AgentAppUiRuntimeStopParams,
-    ) -> TypedRequest<AgentAppUiRuntimeStopParams> {
-        TypedRequest::new(METHOD_AGENT_APP_UI_RUNTIME_STOP, params)
+    pub fn plugin_ui_runtime_status(
+        params: PluginUiRuntimeStatusParams,
+    ) -> TypedRequest<PluginUiRuntimeStatusParams> {
+        TypedRequest::new(METHOD_PLUGIN_UI_RUNTIME_STATUS, params)
+    }
+
+    pub fn stop_plugin_ui_runtime(
+        params: PluginUiRuntimeStopParams,
+    ) -> TypedRequest<PluginUiRuntimeStopParams> {
+        TypedRequest::new(METHOD_PLUGIN_UI_RUNTIME_STOP, params)
     }
 
     pub fn list_knowledge_packs(
@@ -1804,22 +2253,98 @@ pub mod typed {
         TypedRequest::new(METHOD_MCP_PROMPT_LIST, serde_json::json!({}))
     }
 
-    pub fn get_mcp_prompt(params: McpPromptGetParams) -> TypedRequest<McpPromptGetParams> {
-        TypedRequest::new(METHOD_MCP_PROMPT_GET, params)
+    pub fn get_mcp_prompt(
+        params: McpPromptGetParams,
+    ) -> Result<TypedRequest<McpPromptGetParams>, ClientError> {
+        validate_mcp_prompt_target(&params.server, &params.name)?;
+        Ok(TypedRequest::new(METHOD_MCP_PROMPT_GET, params))
     }
 
     pub fn list_mcp_resources() -> TypedRequest<serde_json::Value> {
         TypedRequest::new(METHOD_MCP_RESOURCE_LIST, serde_json::json!({}))
     }
 
-    pub fn read_mcp_resource(params: McpResourceReadParams) -> TypedRequest<McpResourceReadParams> {
-        TypedRequest::new(METHOD_MCP_RESOURCE_READ, params)
+    pub fn read_mcp_resource(
+        params: McpResourceReadParams,
+    ) -> Result<TypedRequest<McpResourceReadParams>, ClientError> {
+        validate_mcp_resource_target(&params.server, &params.uri)?;
+        Ok(TypedRequest::new(METHOD_MCP_RESOURCE_READ, params))
+    }
+
+    pub fn subscribe_mcp_resource(
+        params: McpResourceSubscribeParams,
+    ) -> Result<TypedRequest<McpResourceSubscribeParams>, ClientError> {
+        validate_mcp_resource_target(&params.server, &params.uri)?;
+        Ok(TypedRequest::new(METHOD_MCP_RESOURCE_SUBSCRIBE, params))
+    }
+
+    pub fn unsubscribe_mcp_resource(
+        params: McpResourceUnsubscribeParams,
+    ) -> Result<TypedRequest<McpResourceUnsubscribeParams>, ClientError> {
+        validate_mcp_resource_target(&params.server, &params.uri)?;
+        Ok(TypedRequest::new(METHOD_MCP_RESOURCE_UNSUBSCRIBE, params))
     }
 
     pub fn read_project_memory(
         params: ProjectMemoryReadParams,
     ) -> TypedRequest<ProjectMemoryReadParams> {
         TypedRequest::new(METHOD_PROJECT_MEMORY_READ, params)
+    }
+
+    pub fn list_memory_store(params: MemoryStoreListParams) -> TypedRequest<MemoryStoreListParams> {
+        TypedRequest::new(METHOD_MEMORY_STORE_LIST, params)
+    }
+
+    pub fn read_memory_store(params: MemoryStoreReadParams) -> TypedRequest<MemoryStoreReadParams> {
+        TypedRequest::new(METHOD_MEMORY_STORE_READ, params)
+    }
+
+    pub fn search_memory_store(
+        params: MemoryStoreSearchParams,
+    ) -> TypedRequest<MemoryStoreSearchParams> {
+        TypedRequest::new(METHOD_MEMORY_STORE_SEARCH, params)
+    }
+
+    pub fn add_memory_store_note(
+        params: MemoryStoreAddNoteParams,
+    ) -> TypedRequest<MemoryStoreAddNoteParams> {
+        TypedRequest::new(METHOD_MEMORY_STORE_ADD_NOTE, params)
+    }
+
+    pub fn consolidate_memory_store(
+        params: MemoryStoreConsolidateParams,
+    ) -> TypedRequest<MemoryStoreConsolidateParams> {
+        TypedRequest::new(METHOD_MEMORY_STORE_CONSOLIDATE, params)
+    }
+
+    pub fn list_memory_store_review_notes(
+        params: MemoryStoreReviewListParams,
+    ) -> TypedRequest<MemoryStoreReviewListParams> {
+        TypedRequest::new(METHOD_MEMORY_STORE_REVIEW_LIST, params)
+    }
+
+    pub fn resolve_memory_store_review_note(
+        params: MemoryStoreReviewResolveParams,
+    ) -> TypedRequest<MemoryStoreReviewResolveParams> {
+        TypedRequest::new(METHOD_MEMORY_STORE_REVIEW_RESOLVE, params)
+    }
+
+    pub fn health_memory_store(
+        params: MemoryStoreRootParams,
+    ) -> TypedRequest<MemoryStoreRootParams> {
+        TypedRequest::new(METHOD_MEMORY_STORE_HEALTH, params)
+    }
+
+    pub fn reset_memory_store(
+        params: MemoryStoreResetParams,
+    ) -> TypedRequest<MemoryStoreResetParams> {
+        TypedRequest::new(METHOD_MEMORY_STORE_RESET, params)
+    }
+
+    pub fn rebuild_memory_store_index(
+        params: MemoryStoreRootParams,
+    ) -> TypedRequest<MemoryStoreRootParams> {
+        TypedRequest::new(METHOD_MEMORY_STORE_INDEX_REBUILD, params)
     }
 
     pub fn list_logs() -> TypedRequest<serde_json::Value> {
@@ -2059,6 +2584,108 @@ mod tests {
         assert_eq!(request.id, RequestId::Integer(1));
         assert_eq!(request.method, METHOD_AGENT_SESSION_READ);
         assert_eq!(request.params.expect("params")["sessionId"], "sess_1");
+
+        let typed = typed::read_workflow(WorkflowReadParams {
+            session_id: "sess_1".to_string(),
+        });
+
+        assert_eq!(typed.method(), METHOD_WORKFLOW_READ);
+        assert_eq!(typed.params().session_id, "sess_1");
+
+        let request = client.typed_request(typed).expect("request");
+
+        assert_eq!(request.id, RequestId::Integer(2));
+        assert_eq!(request.method, METHOD_WORKFLOW_READ);
+        assert_eq!(request.params.expect("params")["sessionId"], "sess_1");
+
+        let typed = typed::cancel_workflow(WorkflowCancelParams {
+            session_id: "sess_1".to_string(),
+            workflow_run_id: "run_1".to_string(),
+            step_id: Some("step_1".to_string()),
+            reason_code: Some("user_requested".to_string()),
+            reason: None,
+        });
+
+        assert_eq!(typed.method(), METHOD_WORKFLOW_CANCEL);
+        assert_eq!(typed.params().workflow_run_id, "run_1");
+
+        let typed = typed::retry_workflow(WorkflowRetryParams {
+            session_id: "sess_1".to_string(),
+            workflow_run_id: "run_1".to_string(),
+            step_id: None,
+            reason_code: None,
+            reason: Some("retry".to_string()),
+        });
+
+        assert_eq!(typed.method(), METHOD_WORKFLOW_RETRY);
+        assert_eq!(typed.params().session_id, "sess_1");
+
+        let typed = typed::respond_workflow(WorkflowRespondParams {
+            session_id: "sess_1".to_string(),
+            workflow_run_id: "run_1".to_string(),
+            step_id: Some("approval".to_string()),
+            request_id: Some("ask-1".to_string()),
+            action_type: Some(AgentSessionActionType::AskUser),
+            confirmed: Some(true),
+            response: Some(json!({ "approved": true })),
+        });
+
+        assert_eq!(typed.method(), METHOD_WORKFLOW_RESPOND);
+        assert_eq!(typed.params().step_id.as_deref(), Some("approval"));
+    }
+
+    #[test]
+    fn canonical_thread_read_helpers_bind_current_methods() {
+        let mut client = AppServerClient::new();
+        let cases = [
+            client
+                .read_thread(
+                    serde_json::from_value(json!({
+                        "threadId": "thread_1",
+                        "turnsView": "full"
+                    }))
+                    .expect("thread/read params"),
+                )
+                .expect("thread/read request"),
+            client
+                .list_threads(
+                    serde_json::from_value(json!({
+                        "cursor": "opaque:thread:2",
+                        "includeArchived": true,
+                        "turnsView": "summary"
+                    }))
+                    .expect("thread/list params"),
+                )
+                .expect("thread/list request"),
+            client
+                .list_thread_turns(
+                    serde_json::from_value(json!({
+                        "threadId": "thread_1",
+                        "itemsView": "summary"
+                    }))
+                    .expect("thread/turns/list params"),
+                )
+                .expect("thread/turns/list request"),
+            client
+                .list_thread_items(
+                    serde_json::from_value(json!({
+                        "threadId": "thread_1",
+                        "turnId": "turn_1"
+                    }))
+                    .expect("thread/items/list params"),
+                )
+                .expect("thread/items/list request"),
+        ];
+
+        assert_eq!(
+            cases.map(|request| request.method),
+            [
+                METHOD_THREAD_READ,
+                METHOD_THREAD_LIST,
+                METHOD_THREAD_TURNS_LIST,
+                METHOD_THREAD_ITEMS_LIST,
+            ]
+        );
     }
 
     #[test]
@@ -2084,7 +2711,7 @@ mod tests {
             "id": "server-1",
             "name": "filesystem",
             "server_config": { "command": "node", "args": ["server.js"] },
-            "enabled_ember": true,
+            "enabled_lime": true,
             "enabled_claude": false,
             "enabled_codex": true,
             "enabled_gemini": false,
@@ -2157,6 +2784,7 @@ mod tests {
         let prompts = client.list_mcp_prompts().expect("prompts");
         let prompt = client
             .get_mcp_prompt(McpPromptGetParams {
+                server: "filesystem".to_string(),
                 name: "summarize".to_string(),
                 arguments: serde_json::Map::from_iter([(
                     "topic".to_string(),
@@ -2167,9 +2795,22 @@ mod tests {
         let resources = client.list_mcp_resources().expect("resources");
         let resource = client
             .read_mcp_resource(McpResourceReadParams {
+                server: "filesystem".to_string(),
                 uri: "file:///workspace/README.md".to_string(),
             })
             .expect("resource");
+        let resource_subscription = client
+            .subscribe_mcp_resource(McpResourceSubscribeParams {
+                server: "filesystem".to_string(),
+                uri: "file:///workspace/README.md".to_string(),
+            })
+            .expect("subscribe resource");
+        let resource_unsubscription = client
+            .unsubscribe_mcp_resource(McpResourceUnsubscribeParams {
+                server: "filesystem".to_string(),
+                uri: "file:///workspace/README.md".to_string(),
+            })
+            .expect("unsubscribe resource");
 
         assert_eq!(servers.method, METHOD_MCP_SERVER_LIST);
         assert_eq!(servers.params.expect("params"), json!({}));
@@ -2241,6 +2882,7 @@ mod tests {
         assert_eq!(
             prompt.params.expect("params"),
             json!({
+                "server": "filesystem",
                 "name": "summarize",
                 "arguments": { "topic": "release notes" },
             })
@@ -2250,8 +2892,71 @@ mod tests {
         assert_eq!(resource.method, METHOD_MCP_RESOURCE_READ);
         assert_eq!(
             resource.params.expect("params"),
-            json!({ "uri": "file:///workspace/README.md" })
+            json!({
+                "server": "filesystem",
+                "uri": "file:///workspace/README.md"
+            })
         );
+        assert_eq!(resource_subscription.method, METHOD_MCP_RESOURCE_SUBSCRIBE);
+        assert_eq!(
+            resource_subscription.params.expect("params"),
+            json!({
+                "server": "filesystem",
+                "uri": "file:///workspace/README.md"
+            })
+        );
+        assert_eq!(
+            resource_unsubscription.method,
+            METHOD_MCP_RESOURCE_UNSUBSCRIBE
+        );
+        assert_eq!(
+            resource_unsubscription.params.expect("params"),
+            json!({
+                "server": "filesystem",
+                "uri": "file:///workspace/README.md"
+            })
+        );
+    }
+
+    #[test]
+    fn mcp_resource_helpers_reject_empty_exact_target() {
+        let mut client = AppServerClient::new();
+
+        let read = client.read_mcp_resource(McpResourceReadParams {
+            server: " ".to_string(),
+            uri: "docs://readme".to_string(),
+        });
+        let subscribe = client.subscribe_mcp_resource(McpResourceSubscribeParams {
+            server: "docs".to_string(),
+            uri: " ".to_string(),
+        });
+        let unsubscribe = client.unsubscribe_mcp_resource(McpResourceUnsubscribeParams {
+            server: " ".to_string(),
+            uri: " ".to_string(),
+        });
+
+        assert!(matches!(read, Err(ClientError::InvalidParams(_))));
+        assert!(matches!(subscribe, Err(ClientError::InvalidParams(_))));
+        assert!(matches!(unsubscribe, Err(ClientError::InvalidParams(_))));
+    }
+
+    #[test]
+    fn mcp_prompt_helper_rejects_empty_exact_target() {
+        let mut client = AppServerClient::new();
+
+        let missing_server = client.get_mcp_prompt(McpPromptGetParams {
+            server: " ".to_string(),
+            name: "summarize".to_string(),
+            arguments: serde_json::Map::new(),
+        });
+        let missing_name = client.get_mcp_prompt(McpPromptGetParams {
+            server: "docs".to_string(),
+            name: " ".to_string(),
+            arguments: serde_json::Map::new(),
+        });
+
+        assert!(matches!(missing_server, Err(ClientError::InvalidParams(_))));
+        assert!(matches!(missing_name, Err(ClientError::InvalidParams(_))));
     }
 
     #[test]
@@ -2291,6 +2996,7 @@ mod tests {
                 include_archived: Some(true),
                 archived_only: Some(false),
                 workspace_id: Some("workspace-main".to_string()),
+                cwd: None,
                 limit: Some(50),
             })
             .expect("request");
@@ -2449,6 +3155,80 @@ mod tests {
                 id: "workspace-main".to_string(),
             })
             .expect("ready");
+        let right_surface_request = client
+            .request_workspace_right_surface(WorkspaceRightSurfaceRequestParams {
+                workspace_id: Some("workspace-main".to_string()),
+                workspace_root: Some("/workspace/project".to_string()),
+                session_id: Some("sess-main".to_string()),
+                surface_kind: "objectCanvas".to_string(),
+                origin: "mcp:browser".to_string(),
+                reason: Some("Browser candidate".to_string()),
+                priority: Some("high".to_string()),
+                candidate_id: Some("candidate-1".to_string()),
+                ttl_ms: Some(60_000),
+                metadata: Some(json!({ "source": "browser-assist" })),
+            })
+            .expect("right surface request");
+        let right_surface_pending = client
+            .list_workspace_right_surface_pending(WorkspaceRightSurfacePendingListParams {
+                workspace_id: Some("workspace-main".to_string()),
+                workspace_root: Some("/workspace/project".to_string()),
+                session_id: Some("sess-main".to_string()),
+                surface_kind: Some("objectCanvas".to_string()),
+                limit: Some(10),
+            })
+            .expect("right surface pending");
+        let right_surface_consume = client
+            .consume_workspace_right_surface_pending(WorkspaceRightSurfacePendingConsumeParams {
+                request_id: Some("right-surface:req-1".to_string()),
+                request_ids: vec!["right-surface:req-2".to_string()],
+            })
+            .expect("right surface consume");
+        let right_surface_dismiss = client
+            .dismiss_workspace_right_surface_pending(WorkspaceRightSurfacePendingDismissParams {
+                request_id: Some("right-surface:req-3".to_string()),
+                request_ids: vec!["right-surface:req-4".to_string()],
+                reason: Some("user_closed_surface".to_string()),
+            })
+            .expect("right surface dismiss");
+        let browser_targets = client
+            .list_browser_session_targets(BrowserSessionTargetListParams {
+                remote_debugging_port: 9222,
+            })
+            .expect("browser targets");
+        let browser_open = client
+            .open_browser_session(BrowserSessionOpenParams {
+                profile_key: "task-profile".to_string(),
+                remote_debugging_port: 9222,
+                target_id: Some("target-1".to_string()),
+                launch_url: Some("https://example.com".to_string()),
+                environment_preset_id: None,
+                environment_preset_name: None,
+            })
+            .expect("browser open");
+        let browser_read = client
+            .read_browser_session(BrowserSessionIdParams {
+                session_id: "browser-session-1".to_string(),
+            })
+            .expect("browser read");
+        let browser_close = client
+            .close_browser_session(BrowserSessionIdParams {
+                session_id: "browser-session-1".to_string(),
+            })
+            .expect("browser close");
+        let browser_events = client
+            .list_browser_session_events(BrowserSessionEventListParams {
+                session_id: "browser-session-1".to_string(),
+                cursor: Some(3),
+            })
+            .expect("browser events");
+        let browser_action = client
+            .execute_browser_session_action(BrowserSessionActionExecuteParams {
+                session_id: "browser-session-1".to_string(),
+                action: "get_page_info".to_string(),
+                args: Some(json!({ "includeMarkdown": true })),
+            })
+            .expect("browser action");
 
         assert_eq!(workspaces.method, METHOD_WORKSPACE_LIST);
         assert_eq!(workspaces.params.expect("params"), json!({}));
@@ -2487,6 +3267,104 @@ mod tests {
             ready.params.expect("params"),
             json!({ "id": "workspace-main" })
         );
+        assert_eq!(
+            right_surface_request.method,
+            METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST
+        );
+        assert_eq!(
+            right_surface_request.params.expect("params"),
+            json!({
+                "workspaceId": "workspace-main",
+                "workspaceRoot": "/workspace/project",
+                "sessionId": "sess-main",
+                "surfaceKind": "objectCanvas",
+                "origin": "mcp:browser",
+                "reason": "Browser candidate",
+                "priority": "high",
+                "candidateId": "candidate-1",
+                "ttlMs": 60000,
+                "metadata": { "source": "browser-assist" },
+            })
+        );
+        assert_eq!(
+            right_surface_pending.method,
+            METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_LIST
+        );
+        assert_eq!(
+            right_surface_pending.params.expect("params"),
+            json!({
+                "workspaceId": "workspace-main",
+                "workspaceRoot": "/workspace/project",
+                "sessionId": "sess-main",
+                "surfaceKind": "objectCanvas",
+                "limit": 10,
+            })
+        );
+        assert_eq!(
+            right_surface_consume.method,
+            METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CONSUME
+        );
+        assert_eq!(
+            right_surface_consume.params.expect("params"),
+            json!({
+                "requestId": "right-surface:req-1",
+                "requestIds": ["right-surface:req-2"],
+            })
+        );
+        assert_eq!(
+            right_surface_dismiss.method,
+            METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_DISMISS
+        );
+        assert_eq!(
+            right_surface_dismiss.params.expect("params"),
+            json!({
+                "requestId": "right-surface:req-3",
+                "requestIds": ["right-surface:req-4"],
+                "reason": "user_closed_surface",
+            })
+        );
+        assert_eq!(browser_targets.method, METHOD_BROWSER_SESSION_TARGET_LIST);
+        assert_eq!(
+            browser_targets.params.expect("params"),
+            json!({ "remoteDebuggingPort": 9222 })
+        );
+        assert_eq!(browser_open.method, METHOD_BROWSER_SESSION_OPEN);
+        assert_eq!(
+            browser_open.params.expect("params"),
+            json!({
+                "profileKey": "task-profile",
+                "remoteDebuggingPort": 9222,
+                "targetId": "target-1",
+                "launchUrl": "https://example.com",
+            })
+        );
+        assert_eq!(browser_read.method, METHOD_BROWSER_SESSION_READ);
+        assert_eq!(
+            browser_read.params.expect("params"),
+            json!({ "sessionId": "browser-session-1" })
+        );
+        assert_eq!(browser_close.method, METHOD_BROWSER_SESSION_CLOSE);
+        assert_eq!(
+            browser_close.params.expect("params"),
+            json!({ "sessionId": "browser-session-1" })
+        );
+        assert_eq!(browser_events.method, METHOD_BROWSER_SESSION_EVENT_LIST);
+        assert_eq!(
+            browser_events.params.expect("params"),
+            json!({
+                "sessionId": "browser-session-1",
+                "cursor": 3,
+            })
+        );
+        assert_eq!(browser_action.method, METHOD_BROWSER_SESSION_ACTION_EXECUTE);
+        assert_eq!(
+            browser_action.params.expect("params"),
+            json!({
+                "sessionId": "browser-session-1",
+                "action": "get_page_info",
+                "args": { "includeMarkdown": true },
+            })
+        );
     }
 
     #[test]
@@ -2496,52 +3374,52 @@ mod tests {
         let skills = client.list_skills().expect("skills");
         let skill = client
             .read_skill(SkillReadParams {
-                skill_name: "article-writer".to_string(),
+                skill_id: "project:article-writer".to_string(),
             })
             .expect("skill");
         let inspect_detail = client
             .inspect_local_skill_detail(SkillLocalDetailInspectParams {
-                app: "ember".to_string(),
+                app: "lime".to_string(),
                 directory: "article-writer".to_string(),
             })
             .expect("inspect detail");
         let rename_skill = client
             .rename_local_skill(SkillLocalRenameParams {
-                app: "ember".to_string(),
+                app: "lime".to_string(),
                 directory: "article-writer".to_string(),
                 new_directory: "article-writer-renamed".to_string(),
             })
             .expect("rename skill");
         let inspect_package = client
             .inspect_local_skill_package(SkillPackageLocalInspectParams {
-                app: "ember".to_string(),
+                app: "lime".to_string(),
                 source_path: "/tmp/article-writer.skill".to_string(),
             })
             .expect("inspect package");
         let install_package = client
             .install_local_skill_package(SkillPackageLocalInstallParams {
-                app: "ember".to_string(),
+                app: "lime".to_string(),
                 source_path: "/tmp/article-writer.skill".to_string(),
                 skill_name: Some("article-writer".to_string()),
             })
             .expect("install package");
         let replace_package = client
             .replace_local_skill_package(SkillPackageLocalReplaceParams {
-                app: "ember".to_string(),
+                app: "lime".to_string(),
                 directory: "article-writer".to_string(),
                 source_path: "/tmp/article-writer.skill".to_string(),
             })
             .expect("replace package");
         let export_package = client
             .export_skill_package(SkillPackageExportParams {
-                app: "ember".to_string(),
+                app: "lime".to_string(),
                 directory: "article-writer".to_string(),
                 target_path: "/tmp/article-writer.skills".to_string(),
             })
             .expect("export package");
         let install_marketplace = client
             .install_marketplace_skill(SkillMarketplaceInstallParams {
-                app: "ember".to_string(),
+                app: "lime".to_string(),
                 manifest_version: "agentskills.v1".to_string(),
                 name: "article-writer".to_string(),
                 aliases: vec!["writer".to_string()],
@@ -2558,7 +3436,7 @@ mod tests {
             .expect("install marketplace");
         let install_download = client
             .install_skill_from_download_url(SkillDownloadInstallParams {
-                app: "ember".to_string(),
+                app: "lime".to_string(),
                 skill_name: "article-writer".to_string(),
                 download_url: "https://example.com/article-writer.skill".to_string(),
             })
@@ -2577,18 +3455,18 @@ mod tests {
         assert_eq!(skill.method, METHOD_SKILL_READ);
         assert_eq!(
             skill.params.expect("params"),
-            json!({ "skillName": "article-writer" })
+            json!({ "skillId": "project:article-writer" })
         );
         assert_eq!(inspect_detail.method, METHOD_SKILL_LOCAL_DETAIL_INSPECT);
         assert_eq!(
             inspect_detail.params.expect("params"),
-            json!({ "app": "ember", "directory": "article-writer" })
+            json!({ "app": "lime", "directory": "article-writer" })
         );
         assert_eq!(rename_skill.method, METHOD_SKILL_LOCAL_RENAME);
         assert_eq!(
             rename_skill.params.expect("params"),
             json!({
-                "app": "ember",
+                "app": "lime",
                 "directory": "article-writer",
                 "newDirectory": "article-writer-renamed",
             })
@@ -2596,13 +3474,13 @@ mod tests {
         assert_eq!(inspect_package.method, METHOD_SKILL_PACKAGE_LOCAL_INSPECT);
         assert_eq!(
             inspect_package.params.expect("params"),
-            json!({ "app": "ember", "sourcePath": "/tmp/article-writer.skill" })
+            json!({ "app": "lime", "sourcePath": "/tmp/article-writer.skill" })
         );
         assert_eq!(install_package.method, METHOD_SKILL_PACKAGE_LOCAL_INSTALL);
         assert_eq!(
             install_package.params.expect("params"),
             json!({
-                "app": "ember",
+                "app": "lime",
                 "sourcePath": "/tmp/article-writer.skill",
                 "skillName": "article-writer",
             })
@@ -2611,7 +3489,7 @@ mod tests {
         assert_eq!(
             replace_package.params.expect("params"),
             json!({
-                "app": "ember",
+                "app": "lime",
                 "directory": "article-writer",
                 "sourcePath": "/tmp/article-writer.skill",
             })
@@ -2620,7 +3498,7 @@ mod tests {
         assert_eq!(
             export_package.params.expect("params"),
             json!({
-                "app": "ember",
+                "app": "lime",
                 "directory": "article-writer",
                 "targetPath": "/tmp/article-writer.skills",
             })
@@ -2629,7 +3507,7 @@ mod tests {
         assert_eq!(
             install_marketplace.params.expect("params"),
             json!({
-                "app": "ember",
+                "app": "lime",
                 "manifestVersion": "agentskills.v1",
                 "name": "article-writer",
                 "aliases": ["writer"],
@@ -2649,7 +3527,7 @@ mod tests {
         assert_eq!(
             install_download.params.expect("params"),
             json!({
-                "app": "ember",
+                "app": "lime",
                 "skillName": "article-writer",
                 "downloadUrl": "https://example.com/article-writer.skill",
             })
@@ -2670,16 +3548,14 @@ mod tests {
     fn app_data_surface_helpers_use_current_methods() {
         let mut client = AppServerClient::new();
 
-        let installed = client
-            .list_agent_app_installed()
-            .expect("installed agent apps");
+        let installed = client.list_plugin_installed().expect("installed plugins");
         let shell_prepare = client
-            .prepare_agent_app_shell(AgentAppShellPrepareParams {
+            .prepare_plugin_shell(PluginShellPrepareParams {
                 descriptor: json!({
                     "appId": "content-factory-app",
                 }),
             })
-            .expect("agent app shell prepare");
+            .expect("plugin shell prepare");
         let knowledge = client
             .list_knowledge_packs(KnowledgeListPacksParams {
                 working_dir: "/workspace/project".to_string(),
@@ -2832,6 +3708,105 @@ mod tests {
                 project_id: "workspace-main".to_string(),
             })
             .expect("project memory");
+        let memory_store_list = client
+            .list_memory_store(MemoryStoreListParams {
+                root: MemoryStoreRootParams {
+                    scope: app_server_protocol::MemoryStoreScope::Workspace,
+                    workspace_root: Some("/workspace/project".to_string()),
+                },
+                path: Some("skills".to_string()),
+                cursor: None,
+                max_results: Some(20),
+            })
+            .expect("memory store list");
+        let memory_store_read = client
+            .read_memory_store(MemoryStoreReadParams {
+                root: MemoryStoreRootParams {
+                    scope: app_server_protocol::MemoryStoreScope::Workspace,
+                    workspace_root: Some("/workspace/project".to_string()),
+                },
+                path: "MEMORY.md".to_string(),
+                line_offset: None,
+                max_lines: Some(40),
+                max_tokens: None,
+            })
+            .expect("memory store read");
+        let memory_store_search = client
+            .search_memory_store(MemoryStoreSearchParams {
+                root: MemoryStoreRootParams {
+                    scope: app_server_protocol::MemoryStoreScope::Workspace,
+                    workspace_root: Some("/workspace/project".to_string()),
+                },
+                queries: vec!["voice".to_string(), "preference".to_string()],
+                match_mode: app_server_protocol::MemoryStoreSearchMatchMode::AllWithinLines,
+                within_lines: Some(4),
+                case_sensitive: false,
+                normalized: false,
+                context_lines: 0,
+                cursor: None,
+                max_results: None,
+            })
+            .expect("memory store search");
+        let memory_store_add_note = client
+            .add_memory_store_note(MemoryStoreAddNoteParams {
+                root: MemoryStoreRootParams {
+                    scope: app_server_protocol::MemoryStoreScope::Workspace,
+                    workspace_root: Some("/workspace/project".to_string()),
+                },
+                content: "Prefer concise answers.".to_string(),
+                title: Some("Tone note".to_string()),
+                slug: None,
+            })
+            .expect("memory store add note");
+        let memory_store_consolidate = client
+            .consolidate_memory_store(MemoryStoreConsolidateParams {
+                root: MemoryStoreRootParams {
+                    scope: app_server_protocol::MemoryStoreScope::Workspace,
+                    workspace_root: Some("/workspace/project".to_string()),
+                },
+                max_notes: Some(10),
+            })
+            .expect("memory store consolidate");
+        let memory_store_review_list = client
+            .list_memory_store_review_notes(MemoryStoreReviewListParams {
+                root: MemoryStoreRootParams {
+                    scope: app_server_protocol::MemoryStoreScope::Workspace,
+                    workspace_root: Some("/workspace/project".to_string()),
+                },
+                cursor: None,
+                max_results: Some(10),
+            })
+            .expect("memory store review list");
+        let memory_store_review_resolve = client
+            .resolve_memory_store_review_note(MemoryStoreReviewResolveParams {
+                root: MemoryStoreRootParams {
+                    scope: app_server_protocol::MemoryStoreScope::Workspace,
+                    workspace_root: Some("/workspace/project".to_string()),
+                },
+                path: "extensions/ad_hoc/review/secret.md".to_string(),
+                action: MemoryStoreReviewResolveAction::Reject,
+            })
+            .expect("memory store review resolve");
+        let memory_store_health = client
+            .health_memory_store(MemoryStoreRootParams {
+                scope: app_server_protocol::MemoryStoreScope::Workspace,
+                workspace_root: Some("/workspace/project".to_string()),
+            })
+            .expect("memory store health");
+        let memory_store_reset = client
+            .reset_memory_store(MemoryStoreResetParams {
+                root: MemoryStoreRootParams {
+                    scope: app_server_protocol::MemoryStoreScope::Workspace,
+                    workspace_root: Some("/workspace/project".to_string()),
+                },
+            })
+            .expect("memory store reset");
+        let memory_store_index_rebuild = client
+            .rebuild_memory_store_index(MemoryStoreRootParams {
+                scope: app_server_protocol::MemoryStoreScope::Workspace,
+                workspace_root: Some("/workspace/project".to_string()),
+            })
+            .expect("memory store index rebuild");
         let logs = client.list_logs().expect("logs");
         let persisted_tail = client
             .read_persisted_log_tail(LogPersistedTailParams { lines: Some(250) })
@@ -2841,9 +3816,9 @@ mod tests {
             .clear_diagnostic_log_history()
             .expect("clear diagnostic history");
 
-        assert_eq!(installed.method, METHOD_AGENT_APP_INSTALLED_LIST);
+        assert_eq!(installed.method, METHOD_PLUGIN_INSTALLED_LIST);
         assert_eq!(installed.params.expect("params"), json!({}));
-        assert_eq!(shell_prepare.method, METHOD_AGENT_APP_SHELL_PREPARE);
+        assert_eq!(shell_prepare.method, METHOD_PLUGIN_SHELL_PREPARE);
         assert_eq!(
             shell_prepare.params.expect("params"),
             json!({
@@ -3025,6 +4000,114 @@ mod tests {
         assert_eq!(
             memory.params.expect("params"),
             json!({ "projectId": "workspace-main" })
+        );
+        assert_eq!(memory_store_list.method, METHOD_MEMORY_STORE_LIST);
+        assert_eq!(
+            memory_store_list.params.expect("params"),
+            json!({
+                "scope": "workspace",
+                "workspaceRoot": "/workspace/project",
+                "path": "skills",
+                "maxResults": 20,
+            })
+        );
+        assert_eq!(memory_store_read.method, METHOD_MEMORY_STORE_READ);
+        assert_eq!(
+            memory_store_read.params.expect("params"),
+            json!({
+                "scope": "workspace",
+                "workspaceRoot": "/workspace/project",
+                "path": "MEMORY.md",
+                "maxLines": 40,
+            })
+        );
+        assert_eq!(memory_store_search.method, METHOD_MEMORY_STORE_SEARCH);
+        assert_eq!(
+            memory_store_search.params.expect("params"),
+            json!({
+                "scope": "workspace",
+                "workspaceRoot": "/workspace/project",
+                "queries": ["voice", "preference"],
+                "matchMode": "allWithinLines",
+                "withinLines": 4,
+                "caseSensitive": false,
+                "normalized": false,
+                "contextLines": 0,
+            })
+        );
+        assert_eq!(memory_store_add_note.method, METHOD_MEMORY_STORE_ADD_NOTE);
+        assert_eq!(
+            memory_store_add_note.params.expect("params"),
+            json!({
+                "scope": "workspace",
+                "workspaceRoot": "/workspace/project",
+                "content": "Prefer concise answers.",
+                "title": "Tone note",
+            })
+        );
+        assert_eq!(
+            memory_store_consolidate.method,
+            METHOD_MEMORY_STORE_CONSOLIDATE
+        );
+        assert_eq!(
+            memory_store_consolidate.params.expect("params"),
+            json!({
+                "scope": "workspace",
+                "workspaceRoot": "/workspace/project",
+                "maxNotes": 10,
+            })
+        );
+        assert_eq!(
+            memory_store_review_list.method,
+            METHOD_MEMORY_STORE_REVIEW_LIST
+        );
+        assert_eq!(
+            memory_store_review_list.params.expect("params"),
+            json!({
+                "scope": "workspace",
+                "workspaceRoot": "/workspace/project",
+                "maxResults": 10,
+            })
+        );
+        assert_eq!(
+            memory_store_review_resolve.method,
+            METHOD_MEMORY_STORE_REVIEW_RESOLVE
+        );
+        assert_eq!(
+            memory_store_review_resolve.params.expect("params"),
+            json!({
+                "scope": "workspace",
+                "workspaceRoot": "/workspace/project",
+                "path": "extensions/ad_hoc/review/secret.md",
+                "action": "reject",
+            })
+        );
+        assert_eq!(memory_store_health.method, METHOD_MEMORY_STORE_HEALTH);
+        assert_eq!(
+            memory_store_health.params.expect("params"),
+            json!({
+                "scope": "workspace",
+                "workspaceRoot": "/workspace/project",
+            })
+        );
+        assert_eq!(memory_store_reset.method, METHOD_MEMORY_STORE_RESET);
+        assert_eq!(
+            memory_store_reset.params.expect("params"),
+            json!({
+                "scope": "workspace",
+                "workspaceRoot": "/workspace/project",
+            })
+        );
+        assert_eq!(
+            memory_store_index_rebuild.method,
+            METHOD_MEMORY_STORE_INDEX_REBUILD
+        );
+        assert_eq!(
+            memory_store_index_rebuild.params.expect("params"),
+            json!({
+                "scope": "workspace",
+                "workspaceRoot": "/workspace/project",
+            })
         );
         assert_eq!(logs.method, METHOD_LOG_LIST);
         assert_eq!(logs.params.expect("params"), json!({}));
@@ -3295,7 +4378,8 @@ mod tests {
                 session_id: "sess_1".to_string(),
                 request_id: "req_confirm_1".to_string(),
                 action_type: AgentSessionActionType::ToolConfirmation,
-                confirmed: true,
+                decision: Some(app_server_protocol::AgentSessionApprovalDecision::AllowOnce),
+                confirmed: None,
                 response: Some("allow".to_string()),
                 user_data: Some(json!({ "reason": "approved" })),
                 metadata: Some(json!({ "source": "content-studio" })),
@@ -3316,7 +4400,7 @@ mod tests {
                 "sessionId": "sess_1",
                 "requestId": "req_confirm_1",
                 "actionType": "tool_confirmation",
-                "confirmed": true,
+                "decision": "allow_once",
                 "response": "allow",
                 "userData": {
                     "reason": "approved",
@@ -3385,18 +4469,16 @@ mod tests {
         let notification = JsonRpcNotification::new(
             METHOD_AGENT_SESSION_EVENT,
             Some(
-                serde_json::to_value(AgentSessionEventParams {
-                    event: AgentEvent {
-                        event_id: "evt_1".to_string(),
-                        sequence: 1,
-                        session_id: "sess_1".to_string(),
-                        thread_id: Some("thread_1".to_string()),
-                        turn_id: Some("turn_1".to_string()),
-                        event_type: "turn.started".to_string(),
-                        timestamp: "2026-06-04T00:00:00Z".to_string(),
-                        payload: json!({ "status": "running" }),
-                    },
-                })
+                serde_json::to_value(AgentSessionEventParams::from_event(AgentEvent {
+                    event_id: "evt_1".to_string(),
+                    sequence: 1,
+                    session_id: "sess_1".to_string(),
+                    thread_id: Some("thread_1".to_string()),
+                    turn_id: Some("turn_1".to_string()),
+                    event_type: "turn.started".to_string(),
+                    timestamp: "2026-06-04T00:00:00Z".to_string(),
+                    payload: json!({ "status": "running" }),
+                }))
                 .expect("params"),
             ),
         );
@@ -3404,6 +4486,52 @@ mod tests {
         let event = AppServerClient::event(JsonRpcMessage::Notification(notification.clone()));
 
         assert_eq!(event, ClientEvent::AgentSession(notification));
+    }
+
+    #[test]
+    fn event_decodes_canonical_thread_item_projection() {
+        let notification = JsonRpcNotification::new(
+            METHOD_AGENT_SESSION_EVENT,
+            Some(
+                serde_json::to_value(AgentSessionEventParams::from_event(AgentEvent {
+                    event_id: "evt_1".to_string(),
+                    sequence: 1,
+                    session_id: "sess_1".to_string(),
+                    thread_id: Some("thread_1".to_string()),
+                    turn_id: Some("turn_1".to_string()),
+                    event_type: "item.updated".to_string(),
+                    timestamp: "2026-06-04T00:00:00Z".to_string(),
+                    payload: json!({
+                        "item": {
+                            "sessionId": "sess_1",
+                            "threadId": "thread_1",
+                            "turnId": "turn_1",
+                            "itemId": "msg_1",
+                            "sequence": 1,
+                            "ordinal": 0,
+                            "createdAtMs": 100,
+                            "updatedAtMs": 120,
+                            "kind": "agentMessage",
+                            "status": "inProgress",
+                            "payload": {
+                                "type": "agentMessage",
+                                "text": "hello"
+                            }
+                        }
+                    }),
+                }))
+                .expect("params"),
+            ),
+        );
+
+        let event = AppServerClient::event(JsonRpcMessage::Notification(notification));
+
+        assert!(matches!(
+            event,
+            ClientEvent::CanonicalThread(
+                CanonicalThreadEventNotification::ItemUpdated(item)
+            ) if item.item_id.as_str() == "msg_1"
+        ));
     }
 
     #[test]
@@ -3440,7 +4568,7 @@ mod tests {
         assert!(methods.contains(&METHOD_EVIDENCE_EXPORT));
         assert!(methods.contains(&METHOD_AGENT_SESSION_TURN_START));
         assert!(methods.contains(&METHOD_WORKSPACE_LIST));
-        assert!(methods.contains(&METHOD_AGENT_APP_SHELL_PREPARE));
+        assert!(methods.contains(&METHOD_PLUGIN_SHELL_PREPARE));
         assert!(methods.contains(&METHOD_WORKSPACE_READ));
         assert!(methods.contains(&METHOD_WORKSPACE_BY_PATH_READ));
         assert!(methods.contains(&METHOD_WORKSPACE_ENSURE));
@@ -3449,13 +4577,24 @@ mod tests {
         assert!(methods.contains(&METHOD_WORKSPACE_PROJECTS_ROOT_READ));
         assert!(methods.contains(&METHOD_WORKSPACE_PROJECT_PATH_RESOLVE));
         assert!(methods.contains(&METHOD_WORKSPACE_ENSURE_READY));
+        assert!(methods.contains(&METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST));
+        assert!(methods.contains(&METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_LIST));
+        assert!(methods.contains(&METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CONSUME));
+        assert!(methods.contains(&METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_DISMISS));
+        assert!(methods.contains(&METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED));
+        assert!(methods.contains(&METHOD_BROWSER_SESSION_TARGET_LIST));
+        assert!(methods.contains(&METHOD_BROWSER_SESSION_OPEN));
+        assert!(methods.contains(&METHOD_BROWSER_SESSION_READ));
+        assert!(methods.contains(&METHOD_BROWSER_SESSION_CLOSE));
+        assert!(methods.contains(&METHOD_BROWSER_SESSION_EVENT_LIST));
+        assert!(methods.contains(&METHOD_BROWSER_SESSION_ACTION_EXECUTE));
         assert!(methods.contains(&METHOD_SKILL_LIST));
         assert!(methods.contains(&METHOD_SKILL_READ));
         assert!(methods.contains(&METHOD_SKILL_PACKAGE_LOCAL_INSPECT));
         assert!(methods.contains(&METHOD_SKILL_PACKAGE_LOCAL_INSTALL));
         assert!(methods.contains(&METHOD_SKILL_PACKAGE_EXPORT));
         assert!(methods.contains(&METHOD_WORKSPACE_SKILL_BINDINGS_LIST));
-        assert!(methods.contains(&METHOD_AGENT_APP_INSTALLED_LIST));
+        assert!(methods.contains(&METHOD_PLUGIN_INSTALLED_LIST));
         assert!(methods.contains(&METHOD_KNOWLEDGE_PACK_LIST));
         assert!(methods.contains(&METHOD_KNOWLEDGE_PACK_READ));
         assert!(methods.contains(&METHOD_AUTOMATION_SCHEDULER_CONFIG_READ));
@@ -3489,10 +4628,35 @@ mod tests {
         assert!(is_app_server_request_method(METHOD_FILE_SYSTEM_DELETE_FILE));
         assert!(is_app_server_request_method(METHOD_EVIDENCE_EXPORT));
         assert!(is_app_server_request_method(METHOD_WORKSPACE_LIST));
-        assert!(is_app_server_request_method(METHOD_SKILL_LIST));
         assert!(is_app_server_request_method(
-            METHOD_AGENT_APP_INSTALLED_LIST
+            METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST
         ));
+        assert!(is_app_server_request_method(
+            METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_LIST
+        ));
+        assert!(is_app_server_request_method(
+            METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CONSUME
+        ));
+        assert!(is_app_server_request_method(
+            METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_DISMISS
+        ));
+        assert!(!is_app_server_request_method(
+            METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED
+        ));
+        assert!(is_app_server_request_method(
+            METHOD_BROWSER_SESSION_TARGET_LIST
+        ));
+        assert!(is_app_server_request_method(METHOD_BROWSER_SESSION_OPEN));
+        assert!(is_app_server_request_method(METHOD_BROWSER_SESSION_READ));
+        assert!(is_app_server_request_method(METHOD_BROWSER_SESSION_CLOSE));
+        assert!(is_app_server_request_method(
+            METHOD_BROWSER_SESSION_EVENT_LIST
+        ));
+        assert!(is_app_server_request_method(
+            METHOD_BROWSER_SESSION_ACTION_EXECUTE
+        ));
+        assert!(is_app_server_request_method(METHOD_SKILL_LIST));
+        assert!(is_app_server_request_method(METHOD_PLUGIN_INSTALLED_LIST));
         assert!(is_app_server_request_method(METHOD_KNOWLEDGE_PACK_LIST));
         assert!(is_app_server_request_method(METHOD_KNOWLEDGE_PACK_READ));
         assert!(is_app_server_request_method(
@@ -3517,6 +4681,9 @@ mod tests {
         assert!(is_app_server_notification_method(METHOD_INITIALIZED));
         assert!(is_app_server_notification_method(
             METHOD_AGENT_SESSION_EVENT
+        ));
+        assert!(is_app_server_notification_method(
+            METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED
         ));
     }
 }

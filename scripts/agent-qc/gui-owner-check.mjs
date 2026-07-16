@@ -15,10 +15,10 @@ function parseArgs(argv) {
     check: false,
     format: "summary",
     help: false,
-    manifestPath: "docs/test/agent-qc-scenarios.manifest.json",
+    manifestPath: "internal/test/agent-qc-scenarios.manifest.json",
     maxActiveOwners: 0,
     outputPath: "",
-    statusDir: ".ember/qc",
+    statusDir: ".lime/qc",
     watchHistoryOutputPath: "",
   };
 
@@ -67,16 +67,16 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Agent QC GUI Owner Check
+Lime Agent QC GUI Owner Check
 
 用法:
   npm run agent-qc:gui-owner-check
   npm run agent-qc:gui-owner-check -- --check
-  node scripts/agent-qc/gui-owner-check.mjs --format json --output ./.ember/qc/gui-owner-current.json
+  node scripts/agent-qc/gui-owner-check.mjs --format json --output ./.lime/qc/gui-owner-current.json
 
 选项:
-  --manifest PATH            scenario manifest，默认 docs/test/agent-qc-scenarios.manifest.json
-  --status-dir PATH          qcloop status sidecar 目录，默认 .ember/qc
+  --manifest PATH            scenario manifest，默认 internal/test/agent-qc-scenarios.manifest.json
+  --status-dir PATH          qcloop status sidecar 目录，默认 .lime/qc
   --max-active-owners N      允许的 active GUI owner 数，默认 0
   --format FMT               summary | json
   --output PATH              写入文件；默认 stdout

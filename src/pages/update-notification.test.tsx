@@ -58,7 +58,7 @@ vi.mock("@/lib/api/appUpdate", () => ({
   startUpdateInstallSession: mockStartUpdateInstallSession,
 }));
 
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { UpdateNotificationPage } from "./update-notification";
 
 const mountedRoots: Array<{ root: Root; container: HTMLDivElement }> = [];
@@ -138,7 +138,7 @@ beforeEach(async () => {
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
   vi.clearAllMocks();
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
   mockGetUpdateInstallSession.mockResolvedValue(
     createInstallSession({
       sessionId: "idle",
@@ -168,7 +168,7 @@ afterEach(async () => {
   }
 
   window.history.pushState({}, "", "/");
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   vi.clearAllMocks();
 });
 
@@ -189,12 +189,12 @@ describe("UpdateNotificationPage", () => {
   });
 
   it("挂载期间应把独立更新窗口根背景标记为透明并在卸载后恢复", async () => {
-    delete document.documentElement.dataset.emberWindow;
+    delete document.documentElement.dataset.limeWindow;
     await renderUpdateNotification(
       "/update-notification?current=1.0.0&latest=1.2.0",
     );
 
-    expect(document.documentElement.dataset.emberWindow).toBe(
+    expect(document.documentElement.dataset.limeWindow).toBe(
       "update-notification",
     );
 
@@ -205,7 +205,7 @@ describe("UpdateNotificationPage", () => {
     });
     mounted!.container.remove();
 
-    expect(document.documentElement.dataset.emberWindow).toBeUndefined();
+    expect(document.documentElement.dataset.limeWindow).toBeUndefined();
   });
 
   it("应通过 common namespace 渲染英文更新提醒窗口文案", async () => {

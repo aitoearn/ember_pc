@@ -2,7 +2,7 @@ import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { BrowserProfileManager } from "./BrowserProfileManager";
 
 const {
@@ -43,7 +43,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   mockListBrowserProfiles.mockResolvedValue([
     {
       id: "profile-1",
@@ -53,8 +53,8 @@ beforeEach(async () => {
       site_scope: "seller.example.com",
       launch_url: "https://seller.example.com",
       transport_kind: "managed_cdp",
-      profile_dir: "/tmp/ember/chrome_profiles/shop_us",
-      managed_profile_dir: "/tmp/ember/chrome_profiles/shop_us",
+      profile_dir: "/tmp/lime/chrome_profiles/shop_us",
+      managed_profile_dir: "/tmp/lime/chrome_profiles/shop_us",
       created_at: "2026-03-15T00:00:00Z",
       updated_at: "2026-03-15T00:00:00Z",
       last_used_at: null,
@@ -75,7 +75,7 @@ beforeEach(async () => {
   });
   mockBrowserExecuteAction.mockResolvedValue({
     success: true,
-    backend: "ember_extension_bridge",
+    backend: "lime_extension_bridge",
     action: "navigate",
     request_id: "browser-1",
     attempts: [],
@@ -146,7 +146,7 @@ describe("BrowserProfileManager", () => {
   }, 10000);
 
   it("英文界面应使用 workspace namespace 资料管理文案", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const onMessage = vi.fn();
     const container = await renderManager({ onMessage });
 
@@ -200,7 +200,7 @@ describe("BrowserProfileManager", () => {
 
     expect(container.textContent).toContain("附着模式当前设备未就绪");
     expect(container.textContent).toContain(
-      "请先在当前 Chrome 安装并连接 Ember Browser Bridge",
+      "请先在当前 Chrome 安装并连接 Lime Browser Bridge",
     );
     expect(container.textContent).toContain("浏览器 Locale");
     expect(container.textContent).toContain("Accept-Language");
@@ -436,7 +436,7 @@ describe("BrowserProfileManager", () => {
     mockBrowserExecuteAction
       .mockResolvedValueOnce({
         success: true,
-        backend: "ember_extension_bridge",
+        backend: "lime_extension_bridge",
         action: "list_tabs",
         request_id: "browser-tabs-1",
         attempts: [],
@@ -463,7 +463,7 @@ describe("BrowserProfileManager", () => {
       })
       .mockResolvedValueOnce({
         success: true,
-        backend: "ember_extension_bridge",
+        backend: "lime_extension_bridge",
         action: "switch_tab",
         request_id: "browser-switch-1",
         attempts: [],
@@ -478,7 +478,7 @@ describe("BrowserProfileManager", () => {
       })
       .mockResolvedValueOnce({
         success: true,
-        backend: "ember_extension_bridge",
+        backend: "lime_extension_bridge",
         action: "list_tabs",
         request_id: "browser-tabs-2",
         attempts: [],
@@ -519,7 +519,7 @@ describe("BrowserProfileManager", () => {
 
     expect(mockBrowserExecuteAction).toHaveBeenNthCalledWith(1, {
       profile_key: "weibo_attach",
-      backend: "ember_extension_bridge",
+      backend: "lime_extension_bridge",
       action: "list_tabs",
       timeout_ms: 30000,
     });
@@ -537,7 +537,7 @@ describe("BrowserProfileManager", () => {
 
     expect(mockBrowserExecuteAction).toHaveBeenNthCalledWith(2, {
       profile_key: "weibo_attach",
-      backend: "ember_extension_bridge",
+      backend: "lime_extension_bridge",
       action: "switch_tab",
       args: {
         target: "202",
@@ -547,7 +547,7 @@ describe("BrowserProfileManager", () => {
     });
     expect(mockBrowserExecuteAction).toHaveBeenNthCalledWith(3, {
       profile_key: "weibo_attach",
-      backend: "ember_extension_bridge",
+      backend: "lime_extension_bridge",
       action: "list_tabs",
       timeout_ms: 30000,
     });
@@ -698,7 +698,7 @@ describe("BrowserProfileManager", () => {
     expect(mockLaunchBrowserSession).toHaveBeenCalled();
     expect(onMessage).toHaveBeenCalledWith({
       type: "error",
-      text: "启动资料失败: 没有检测到 profile_key=weibo_attach 的当前 Chrome 连接。请先在当前 Chrome 安装并连接 Ember Browser Bridge 扩展。",
+      text: "启动资料失败: 没有检测到 profile_key=weibo_attach 的当前 Chrome 连接。请先在当前 Chrome 安装并连接 Lime Browser Bridge 扩展。",
     });
   });
 
@@ -766,7 +766,7 @@ describe("BrowserProfileManager", () => {
     });
     expect(mockBrowserExecuteAction).toHaveBeenCalledWith({
       profile_key: "weibo_attach",
-      backend: "ember_extension_bridge",
+      backend: "lime_extension_bridge",
       action: "navigate",
       args: {
         url: "https://weibo.com",

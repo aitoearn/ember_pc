@@ -39,7 +39,7 @@ function printHelp() {
 
 Options:
   --invoke-url <url>             DevBridge invoke URL，默认 ${DEFAULTS.invokeUrl}
-  --provider <id>                API Key Provider id，例如 custom-xxx 或 ember-hub
+  --provider <id>                API Key Provider id，例如 custom-xxx 或 lime-hub
   --model <model>                模型 id
   --working-dir <dir>            E2E workspace；默认创建临时目录
   --pack-name <name>             pack name，默认 ${DEFAULTS.packName}
@@ -209,7 +209,7 @@ async function runProviderE2E(options) {
 
   const workingDir = options.workingDir
     ? path.resolve(options.workingDir)
-    : fs.mkdtempSync(path.join(os.tmpdir(), "ember-knowledge-provider-e2e-"));
+    : fs.mkdtempSync(path.join(os.tmpdir(), "lime-knowledge-provider-e2e-"));
   fs.mkdirSync(workingDir, { recursive: true });
 
   const packName = options.packName;
@@ -295,7 +295,7 @@ async function runProviderE2E(options) {
     docPath && fs.existsSync(docPath) ? fs.readFileSync(docPath, "utf8") : "";
   const indexPath = path.join(
     workingDir,
-    ".ember",
+    ".lime",
     "knowledge",
     "packs",
     packName,

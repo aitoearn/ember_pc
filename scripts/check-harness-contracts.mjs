@@ -142,13 +142,17 @@ function main() {
     "src/components/agent/chat/utils/harnessRequestMetadata.ts";
   const executionRuntimePath =
     "src/components/agent/chat/utils/sessionExecutionRuntime.ts";
-  // 旧 backend `ember-rs/src/commands/aster_agent_cmd/run_metadata/request_metadata.rs`
-  // 已随 `ember-rs/src/**` 整目录在 2026-06-10 删除；harness metadata 的 backend 事实源
+  const executionRuntimeProjectionPath =
+    "src/components/agent/chat/projection/sessionExecutionRuntimeProjection.ts";
+  // 旧 backend 已随 `ember-rs/src/**` 整目录在 2026-06-10 删除；harness metadata 的 backend 事实源
   // 现在落在 `ember-rs/crates/agent/src/session_execution_runtime.rs` 等 crate 模块，
   // 字段映射的写法不再是 `("frontKey","backKey")` 元组，本脚本只继续守住前端约束。
 
   const harnessMetadataSource = readSource(harnessMetadataPath);
   const executionRuntimeSource = readSource(executionRuntimePath);
+  const executionRuntimeProjectionSource = readSource(
+    executionRuntimeProjectionPath,
+  );
 
   const legacyKeysBlock = extractBalancedBlock(
     harnessMetadataSource,
@@ -165,14 +169,6 @@ function main() {
 
   const requiredMetadataKeys = [
     "preferences:",
-    "preferred_team_preset_id:",
-    "selected_team_id:",
-    "selected_team_source:",
-    "selected_team_label:",
-    "selected_team_description:",
-    "selected_team_summary:",
-    "selected_team_roles:",
-    "team_memory_shadow:",
     "browser_requirement:",
     "browser_requirement_reason:",
     "browser_launch_url:",
@@ -198,6 +194,24 @@ function main() {
     "turnTeamReason:",
     "turn_team_blueprint:",
     "turnTeamBlueprint:",
+    "selected_team_disabled:",
+    "selectedTeamDisabled:",
+    "preferred_team_preset_id:",
+    "preferredTeamPresetId:",
+    "selected_team_id:",
+    "selectedTeamId:",
+    "selected_team_source:",
+    "selectedTeamSource:",
+    "selected_team_label:",
+    "selectedTeamLabel:",
+    "selected_team_description:",
+    "selectedTeamDescription:",
+    "selected_team_summary:",
+    "selectedTeamSummary:",
+    "selected_team_roles:",
+    "selectedTeamRoles:",
+    "team_memory_shadow:",
+    "teamMemoryShadow:",
   ];
 
   const requiredLegacyCleanupKeys = [
@@ -210,13 +224,21 @@ function main() {
     "turn_team_decision",
     "turn_team_reason",
     "turn_team_blueprint",
+    "selected_team_disabled",
+    "preferred_team_preset_id",
+    "selected_team_id",
+    "selected_team_source",
+    "selected_team_label",
+    "selected_team_description",
+    "selected_team_summary",
+    "selected_team_roles",
+    "team_memory_shadow",
   ];
 
   const requiredRuntimeFields = [
     "session_id:",
     "execution_strategy:",
     "recent_preferences:",
-    "recent_team_selection:",
     "recent_content_id:",
   ];
 
@@ -262,9 +284,9 @@ function main() {
 
   requiredRuntimeFields.forEach((field) => {
     assertIncludes(
-      executionRuntimeSource,
+      executionRuntimeProjectionSource,
       field,
-      `[harness-contracts] execution runtime 缺少字段: ${field}`,
+      `[harness-contracts] execution runtime projection 缺少字段: ${field}`,
       failures,
     );
   });
@@ -275,22 +297,23 @@ function main() {
     "[harness-contracts] execution runtime 缺少 recent preferences 适配函数",
     failures,
   );
-  assertIncludes(
+  assertNotMatch(
     executionRuntimeSource,
-    "createTeamDefinitionFromExecutionRuntimeRecentTeamSelection",
-    "[harness-contracts] execution runtime 缺少 recent team 反序列化函数",
+    /RecentTeamSelection|createTeamDefinitionFromExecutionRuntime|createSessionRecentTeamSelection/u,
+    "[harness-contracts] execution runtime 仍保留 retired recent Team adapter",
     failures,
   );
-  assertIncludes(
-    executionRuntimeSource,
-    "createSessionRecentTeamSelectionFromTeamDefinition",
-    "[harness-contracts] execution runtime 缺少 recent team 序列化函数",
+  assertNotMatch(
+    executionRuntimeProjectionSource,
+    /recent_team_selection|recentTeamSelection/u,
+    "[harness-contracts] execution runtime projection 仍保留 retired recent Team 字段",
     failures,
   );
 
   console.log("[harness-contracts] 检查文件:");
   console.log(`- ${harnessMetadataPath}`);
   console.log(`- ${executionRuntimePath}`);
+  console.log(`- ${executionRuntimeProjectionPath}`);
 
   if (failures.length > 0) {
     console.error("\n[harness-contracts] 发现契约漂移：");

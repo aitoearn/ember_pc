@@ -7,13 +7,7 @@ import {
   resolveDevAppServerBinary,
   watchAppServerSources,
 } from "../lib/electron-dev-sidecar.mjs";
-import { ensureFastbotPython } from "../device-automation/ensure-fastbot-python.mjs";
 
-const fastbotPython = ensureFastbotPython();
-const devEnv = {
-  ...process.env,
-  DEVICE_AUTOMATION_PYTHON: fastbotPython,
-};
 const appServerBin = resolveDevAppServerBinary({ forceBuild: true });
 const electronLaunchPath = resolveElectronLaunchPath({ electronPath });
 const rendererDevServerUrl = "http://127.0.0.1:1420";
@@ -34,7 +28,7 @@ if (existingRenderer) {
   vite = spawn("npm", ["run", "dev:renderer", "--", "--force"], {
     env: {
       ...process.env,
-      EMBER_ELECTRON_RENDERER: "1",
+      LIME_ELECTRON_RENDERER: "1",
     },
     stdio: "inherit",
     shell: process.platform === "win32",
@@ -61,12 +55,10 @@ if (existingRenderer) {
   });
 }
 
-await waitForHttp(rendererDevServerUrl, 60_000);
-
-startElectron("initial");
+await startElectron("initial");
 
 const watcher =
-  process.env.EMBER_ELECTRON_APP_SERVER_WATCH === "0"
+  process.env.LIME_ELECTRON_APP_SERVER_WATCH === "0"
     ? null
     : watchAppServerSources({
         onChange: (event) => {
@@ -74,15 +66,24 @@ const watcher =
         },
       });
 
-function startElectron(reason) {
+async function startElectron(reason) {
+  await waitForHttp(rendererDevServerUrl, 60_000);
   console.log(`[electron-dev] starting Electron (${reason})`);
-  electron = spawn(electronLaunchPath, ["."], {
+  const electronArgs = ["."];
+  const remoteDebuggingPort = normalizeRemoteDebuggingPort(
+    process.env.LIME_ELECTRON_REMOTE_DEBUGGING_PORT,
+  );
+  if (remoteDebuggingPort) {
+    electronArgs.push(`--remote-debugging-port=${remoteDebuggingPort}`);
+  }
+  electron = spawn(electronLaunchPath, electronArgs, {
     env: {
-      ...devEnv,
+      ...process.env,
       ...(appServerBin ? { APP_SERVER_BIN: appServerBin } : {}),
       ...resolveDevAppServerBackendEnv({
-        env: devEnv,
+        env: process.env,
       }),
+      ...resolveElectronDevLaunchEnv(process.env),
       VITE_DEV_SERVER_URL: rendererDevServerUrl,
     },
     stdio: "inherit",
@@ -109,6 +110,38 @@ function startElectron(reason) {
     console.error(`[electron-dev] Electron exited (${detail})`);
     shutdown(typeof code === "number" ? code : 1);
   });
+}
+
+function normalizeRemoteDebuggingPort(value) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (!/^\d+$/.test(trimmed)) {
+    throw new Error(
+      "LIME_ELECTRON_REMOTE_DEBUGGING_PORT must be a numeric TCP port.",
+    );
+  }
+  const port = Number(trimmed);
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+    throw new Error(
+      "LIME_ELECTRON_REMOTE_DEBUGGING_PORT must be between 1 and 65535.",
+    );
+  }
+  return String(port);
+}
+
+function resolveElectronDevLaunchEnv(env) {
+  if (!env.ELECTRON_E2E_USER_DATA_DIR?.trim()) {
+    return {};
+  }
+
+  return {
+    LIME_ELECTRON_E2E: "1",
+    ...(env.LIME_ELECTRON_DEV_HTTP_BRIDGE?.trim()
+      ? {}
+      : { LIME_ELECTRON_DEV_HTTP_BRIDGE: "0" }),
+  };
 }
 
 function queueAppServerBuild(event) {
@@ -151,7 +184,7 @@ async function restartElectron(reason) {
   }
   const child = electron;
   if (!child) {
-    startElectron(reason);
+    await startElectron(reason);
     return;
   }
 
@@ -159,7 +192,7 @@ async function restartElectron(reason) {
   child.kill();
   await waitForExit(child, 5_000);
   restartingElectron = false;
-  startElectron(reason);
+  await startElectron(reason);
 }
 
 async function waitForExit(child, timeoutMs) {

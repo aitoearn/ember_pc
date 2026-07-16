@@ -20,7 +20,7 @@ import { I18nPatchProvider } from "./legacy-patch/I18nPatchProvider";
 import { StartupLoadingScreen } from "./StartupLoadingScreen";
 import { hasDesktopHostInvokeCapability } from "@/lib/desktop-runtime";
 import { hasNativeStartupScreen } from "@/lib/nativeStartupScreen";
-import { changeEmberLocale } from "./createI18n";
+import { changeLimeLocale } from "./createI18n";
 import { toLegacyPatchLanguage } from "./locales";
 
 const CONFIG_LOAD_TIMEOUT_MS = 2500;
@@ -80,7 +80,7 @@ export function withI18nPatch<P extends object>(
         }
 
         try {
-          await changeEmberLocale(nextConfig.language || "auto");
+          await changeLimeLocale(nextConfig.language || "auto");
         } catch (error) {
           console.warn("[i18n] Failed to apply key-based locale:", error);
         }

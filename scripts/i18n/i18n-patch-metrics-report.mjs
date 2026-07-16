@@ -9,7 +9,7 @@ import {
   renderI18nPatchMetricsTextReport,
 } from "../lib/i18n-patch-metrics-report-core.mjs";
 
-const DEFAULT_INPUT_PATH = ".ember/i18n/patch-metrics.json";
+const DEFAULT_INPUT_PATH = ".lime/i18n/patch-metrics.json";
 
 function parseNumberArg(value) {
   if (value === undefined) {
@@ -85,12 +85,12 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember i18n Patch Metrics Report
+Lime i18n Patch Metrics Report
 
 用法:
   npm run i18n:patch-report
   npm run i18n:patch-report:json
-  node scripts/i18n/i18n-patch-metrics-report.mjs --input .ember/i18n/patch-metrics.json --format json
+  node scripts/i18n/i18n-patch-metrics-report.mjs --input .lime/i18n/patch-metrics.json --format json
   node scripts/i18n/i18n-patch-metrics-report.mjs --check --max-matched-segments 0 --max-replaced-nodes 0
 
 输入:

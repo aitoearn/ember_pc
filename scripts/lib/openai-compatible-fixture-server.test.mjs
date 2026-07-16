@@ -43,19 +43,26 @@ describe("openai-compatible-fixture-server", () => {
       modelPreference: DEFAULT_FIXTURE_MODEL,
       source: "localhost-fixture",
       providerConfig: {
-        provider_id: "fixture-openai",
-        provider_name: "openai",
-        model_name: DEFAULT_FIXTURE_MODEL,
-        api_key: DEFAULT_FIXTURE_API_KEY,
-        base_url: fixture.baseUrl,
-        model_capabilities: {
-          vision: true,
-          tools: true,
-          streaming: true,
-          json_mode: true,
-          function_calling: true,
-          reasoning: false,
-          reasoning_effort: null,
+        providerId: "fixture-openai",
+        providerName: "openai",
+        modelName: DEFAULT_FIXTURE_MODEL,
+        apiKey: DEFAULT_FIXTURE_API_KEY,
+        baseUrl: fixture.baseUrl,
+        toolCallStrategy: "native",
+        modelCapabilities: {
+          capabilities: {
+            vision: true,
+            tools: true,
+            streaming: true,
+            jsonMode: true,
+            functionCalling: true,
+            reasoning: false,
+            reasoningEffort: null,
+          },
+          taskFamilies: ["chat"],
+          inputModalities: ["text"],
+          outputModalities: ["text"],
+          runtimeFeatures: ["streaming", "tool_calling"],
         },
       },
     });
@@ -181,7 +188,7 @@ describe("openai-compatible-fixture-server", () => {
           id: "call-read-fixture",
           name: "Read",
           arguments: {
-            path: ".ember/qc/code-runtime-fixture/src/greeting.ts",
+            path: ".lime/qc/code-runtime-fixture/src/greeting.ts",
           },
         },
         {
@@ -215,7 +222,7 @@ describe("openai-compatible-fixture-server", () => {
     expect(firstText).toContain('"tool_calls"');
     expect(firstText).toContain('"Read"');
     expect(firstText).toContain(
-      ".ember/qc/code-runtime-fixture/src/greeting.ts",
+      ".lime/qc/code-runtime-fixture/src/greeting.ts",
     );
 
     const second = await fetch(`${fixture.baseUrl}/v1/chat/completions`, {

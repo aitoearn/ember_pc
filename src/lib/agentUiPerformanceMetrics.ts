@@ -1,3 +1,12 @@
+import {
+  clearAgentUiPerformanceTraceHistory,
+  exportAgentUiPerformanceTraceHistory,
+  listAgentUiPerformanceTraceHistory,
+  saveAgentUiPerformanceTraceSnapshot,
+  type AgentUiPerformanceTraceHistoryExport,
+  type AgentUiPerformanceTraceHistoryRecord,
+} from "@/lib/agentUiPerformanceTraceHistory";
+
 export interface AgentUiPerformanceEntry {
   id: number;
   phase: string;
@@ -12,7 +21,14 @@ export interface AgentUiPerformanceEntry {
 export interface AgentUiPerformanceSessionSummary {
   sessionId: string;
   workspaceId?: string | null;
-  homeInputToPendingShellMs?: number;
+  inputbarTriggerToHomeSubmitMs?: number;
+  inputbarTriggerToPendingPreviewCommitMs?: number;
+  inputbarTriggerToPendingPreviewPaintMs?: number;
+  inputbarTriggerToSendDispatchMs?: number;
+  inputbarTriggerToSubmitAcceptedMs?: number;
+  inputbarTriggerToFirstTextDeltaMs?: number;
+  inputbarTriggerToFirstTextPaintMs?: number;
+  homeInputToPendingPreviewCommitMs?: number;
   homeInputToPendingPreviewPaintMs?: number;
   homeInputToSendDispatchMs?: number;
   homeInputToSendPlanReadyMs?: number;
@@ -26,13 +42,20 @@ export interface AgentUiPerformanceSessionSummary {
   homeInputToFirstTextDeltaMs?: number;
   homeInputToFirstTextRenderFlushMs?: number;
   homeInputToFirstTextPaintMs?: number;
+  streamRequestStartToFirstTextPaintMs?: number;
   sendDispatchToSubmitAcceptedMs?: number;
   streamSubmitDispatchedToAcceptedMs?: number;
   submitAcceptedToFirstEventMs?: number;
+  submitAcceptedToFirstTextPaintMs?: number;
   firstEventToFirstThinkingDeltaMs?: number;
   firstEventToFirstTextDeltaMs?: number;
+  firstEventToFirstTextPaintMs?: number;
   firstThinkingDeltaToFirstTextDeltaMs?: number;
   firstTextDeltaToFirstTextPaintMs?: number;
+  providerWaitMs?: number;
+  serverToRendererFirstTextDeltaMs?: number;
+  rendererApplyFirstTextDeltaMs?: number;
+  clientLocalOutputMs?: number;
   streamEnsureSessionDurationMs?: number;
   streamSubmitInvokeDurationMs?: number;
   homeInputMaterializeDurationMs?: number;
@@ -81,6 +104,21 @@ export interface AgentUiPerformanceApi {
   entries: () => AgentUiPerformanceEntry[];
   clear: () => void;
   summary: () => AgentUiPerformanceSnapshot;
+  clearHistory: () => void;
+  exportHistory: () => AgentUiPerformanceTraceHistoryExport;
+  history: () => AgentUiPerformanceTraceHistoryRecord[];
+  saveSnapshot: (label?: string) => AgentUiPerformanceTraceHistoryRecord | null;
+}
+
+export const AGENT_UI_PERFORMANCE_METRIC_RECORDED_EVENT =
+  "lime:agent-ui-performance-metric-recorded";
+
+export interface AgentUiPerformanceMetricRecordedDetail {
+  id: number;
+  phase: string;
+  sessionId?: string | null;
+  source?: string | null;
+  workspaceId?: string | null;
 }
 
 type MetricValue = string | number | boolean | null;
@@ -95,7 +133,7 @@ let longTaskObserver: PerformanceObserver | null = null;
 
 declare global {
   interface Window {
-    __EMBER_AGENTUI_PERF__?: AgentUiPerformanceApi;
+    __LIME_AGENTUI_PERF__?: AgentUiPerformanceApi;
   }
 }
 
@@ -185,6 +223,39 @@ function pushEntry(entry: AgentUiPerformanceEntry): void {
   }
 }
 
+function metricRecordedDetail(
+  entry: AgentUiPerformanceEntry,
+): AgentUiPerformanceMetricRecordedDetail {
+  return {
+    id: entry.id,
+    phase: entry.phase,
+    sessionId: entry.sessionId ?? null,
+    source: entry.source ?? null,
+    workspaceId: entry.workspaceId ?? null,
+  };
+}
+
+function notifyAgentUiPerformanceMetricRecorded(
+  entry: AgentUiPerformanceEntry,
+): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.dispatchEvent(
+      new CustomEvent<AgentUiPerformanceMetricRecordedDetail>(
+        AGENT_UI_PERFORMANCE_METRIC_RECORDED_EVENT,
+        {
+          detail: metricRecordedDetail(entry),
+        },
+      ),
+    );
+  } catch {
+    // 诊断事件不应影响主路径写入。
+  }
+}
+
 function firstEntry(
   sessionEntries: AgentUiPerformanceEntry[],
   phase: string,
@@ -213,6 +284,16 @@ function deltaMs(
     return undefined;
   }
   return Math.max(0, Math.round(end.at - start.at));
+}
+
+function addMs(
+  left: number | undefined,
+  right: number | undefined,
+): number | undefined {
+  if (left === undefined || right === undefined) {
+    return undefined;
+  }
+  return Math.max(0, Math.round(left + right));
 }
 
 function metricNumber(
@@ -271,6 +352,39 @@ function countMetricTrue(
   );
 }
 
+function metricRequestId(entry: AgentUiPerformanceEntry): string | null {
+  return normalizeString(entry.metrics.requestId);
+}
+
+function mergeSessionEntriesWithRequestEntries(
+  sessionEntries: AgentUiPerformanceEntry[],
+  entriesByRequestId: Map<string, AgentUiPerformanceEntry[]>,
+): AgentUiPerformanceEntry[] {
+  const requestIds = new Set<string>();
+  for (const entry of sessionEntries) {
+    const requestId = metricRequestId(entry);
+    if (requestId) {
+      requestIds.add(requestId);
+    }
+  }
+
+  if (requestIds.size === 0) {
+    return sessionEntries;
+  }
+
+  const merged = new Map<number, AgentUiPerformanceEntry>();
+  for (const entry of sessionEntries) {
+    merged.set(entry.id, entry);
+  }
+  for (const requestId of requestIds) {
+    for (const entry of entriesByRequestId.get(requestId) ?? []) {
+      merged.set(entry.id, entry);
+    }
+  }
+
+  return Array.from(merged.values()).sort((left, right) => left.id - right.id);
+}
+
 function installLongTaskObserver(): void {
   if (
     typeof window === "undefined" ||
@@ -320,7 +434,15 @@ function installLongTaskObserver(): void {
 
 export function summarizeAgentUiPerformanceMetrics(): AgentUiPerformanceSnapshot {
   const grouped = new Map<string, AgentUiPerformanceEntry[]>();
+  const entriesByRequestId = new Map<string, AgentUiPerformanceEntry[]>();
   for (const entry of entries) {
+    const requestId = metricRequestId(entry);
+    if (requestId) {
+      const requestEntries = entriesByRequestId.get(requestId) ?? [];
+      requestEntries.push(entry);
+      entriesByRequestId.set(requestId, requestEntries);
+    }
+
     const sessionId = entry.sessionId?.trim();
     if (!sessionId) {
       continue;
@@ -332,7 +454,11 @@ export function summarizeAgentUiPerformanceMetrics(): AgentUiPerformanceSnapshot
 
   const sessions: AgentUiPerformanceSessionSummary[] = Array.from(
     grouped.entries(),
-  ).map(([sessionId, sessionEntries]) => {
+  ).map(([sessionId, rawSessionEntries]) => {
+    const sessionEntries = mergeSessionEntriesWithRequestEntries(
+      rawSessionEntries,
+      entriesByRequestId,
+    );
     const click = firstEntry(sessionEntries, "sidebar.conversation.click");
     const switchStart = firstEntry(sessionEntries, "session.switch.start");
     const cachedSnapshot = firstEntry(
@@ -357,9 +483,9 @@ export function summarizeAgentUiPerformanceMetrics(): AgentUiPerformanceSnapshot
     );
     const switchSuccess = lastEntry(sessionEntries, "session.switch.success");
     const homeInputSubmit = firstEntry(sessionEntries, "homeInput.submit");
-    const homeInputPendingShell = firstEntry(
+    const homeInputPendingPreviewCommitted = firstEntry(
       sessionEntries,
-      "homeInput.pendingShellApplied",
+      "homeInput.pendingPreviewCommitted",
     );
     const homeInputPendingPreviewPaint = firstEntry(
       sessionEntries,
@@ -413,6 +539,11 @@ export function summarizeAgentUiPerformanceMetrics(): AgentUiPerformanceSnapshot
       sessionEntries,
       "agentStream.firstTextDelta",
     );
+    const streamProviderFirstTextDelta = sessionEntries.find(
+      (entry) =>
+        entry.phase === "agentStream.providerTrace" &&
+        entry.metrics.stage === "first_text_delta_received",
+    );
     const streamFirstTextRenderFlush = firstEntry(
       sessionEntries,
       "agentStream.firstTextRenderFlush",
@@ -432,23 +563,61 @@ export function summarizeAgentUiPerformanceMetrics(): AgentUiPerformanceSnapshot
     const messageListPaint = lastEntry(sessionEntries, "messageList.paint");
     const finalMessageList =
       messageListPaint ?? lastEntry(sessionEntries, "messageList.commit");
+    const inputbarTriggerToHomeSubmit = metricNumber(
+      homeInputSubmit,
+      "triggerToHomeSubmitMs",
+    );
+    const homeInputToPendingPreviewCommit = deltaMs(
+      homeInputSubmit,
+      homeInputPendingPreviewCommitted,
+    );
+    const homeInputToPendingPreviewPaint = deltaMs(
+      homeInputSubmit,
+      homeInputPendingPreviewPaint,
+    );
+    const homeInputToSendDispatch = deltaMs(
+      homeInputSubmit,
+      homeInputSendDispatch,
+    );
+    const homeInputToSubmitAccepted = deltaMs(
+      homeInputSubmit,
+      streamSubmitAccepted,
+    );
+    const homeInputToFirstTextDelta = deltaMs(
+      homeInputSubmit,
+      streamFirstTextDelta,
+    );
+    const homeInputToFirstTextPaint = deltaMs(
+      homeInputSubmit,
+      streamFirstTextPaint,
+    );
 
     return {
       sessionId,
       workspaceId:
         sessionEntries.find((entry) => entry.workspaceId)?.workspaceId ?? null,
-      homeInputToPendingShellMs: deltaMs(
-        homeInputSubmit,
-        homeInputPendingShell,
-      ),
-      homeInputToPendingPreviewPaintMs: deltaMs(
-        homeInputSubmit,
-        homeInputPendingPreviewPaint,
-      ),
-      homeInputToSendDispatchMs: deltaMs(
-        homeInputSubmit,
-        homeInputSendDispatch,
-      ),
+      inputbarTriggerToHomeSubmitMs: inputbarTriggerToHomeSubmit,
+      inputbarTriggerToPendingPreviewCommitMs:
+        metricNumber(homeInputPendingPreviewCommitted, "durationMs") ??
+        addMs(inputbarTriggerToHomeSubmit, homeInputToPendingPreviewCommit),
+      inputbarTriggerToPendingPreviewPaintMs:
+        metricNumber(homeInputPendingPreviewPaint, "durationMs") ??
+        addMs(inputbarTriggerToHomeSubmit, homeInputToPendingPreviewPaint),
+      inputbarTriggerToSendDispatchMs:
+        metricNumber(homeInputSendDispatch, "elapsedMs") ??
+        addMs(inputbarTriggerToHomeSubmit, homeInputToSendDispatch),
+      inputbarTriggerToSubmitAcceptedMs:
+        metricNumber(streamSubmitAccepted, "homeSubmittedDeltaMs") ??
+        addMs(inputbarTriggerToHomeSubmit, homeInputToSubmitAccepted),
+      inputbarTriggerToFirstTextDeltaMs:
+        metricNumber(streamFirstTextDelta, "homeSubmittedDeltaMs") ??
+        addMs(inputbarTriggerToHomeSubmit, homeInputToFirstTextDelta),
+      inputbarTriggerToFirstTextPaintMs:
+        metricNumber(streamFirstTextPaint, "homeSubmittedDeltaMs") ??
+        addMs(inputbarTriggerToHomeSubmit, homeInputToFirstTextPaint),
+      homeInputToPendingPreviewCommitMs: homeInputToPendingPreviewCommit,
+      homeInputToPendingPreviewPaintMs: homeInputToPendingPreviewPaint,
+      homeInputToSendDispatchMs: homeInputToSendDispatch,
       homeInputToSendPlanReadyMs: deltaMs(
         homeInputSubmit,
         homeInputSendPlanReady,
@@ -465,10 +634,7 @@ export function summarizeAgentUiPerformanceMetrics(): AgentUiPerformanceSnapshot
         homeInputSubmit,
         streamRequestStart,
       ),
-      homeInputToSubmitAcceptedMs: deltaMs(
-        homeInputSubmit,
-        streamSubmitAccepted,
-      ),
+      homeInputToSubmitAcceptedMs: homeInputToSubmitAccepted,
       homeInputToFirstEventMs: deltaMs(homeInputSubmit, streamFirstEvent),
       homeInputToFirstRuntimeStatusMs: deltaMs(
         homeInputSubmit,
@@ -478,16 +644,14 @@ export function summarizeAgentUiPerformanceMetrics(): AgentUiPerformanceSnapshot
         homeInputSubmit,
         streamFirstThinkingDelta,
       ),
-      homeInputToFirstTextDeltaMs: deltaMs(
-        homeInputSubmit,
-        streamFirstTextDelta,
-      ),
+      homeInputToFirstTextDeltaMs: homeInputToFirstTextDelta,
       homeInputToFirstTextRenderFlushMs: deltaMs(
         homeInputSubmit,
         streamFirstTextRenderFlush,
       ),
-      homeInputToFirstTextPaintMs: deltaMs(
-        homeInputSubmit,
+      homeInputToFirstTextPaintMs: homeInputToFirstTextPaint,
+      streamRequestStartToFirstTextPaintMs: deltaMs(
+        streamRequestStart,
         streamFirstTextPaint,
       ),
       sendDispatchToSubmitAcceptedMs: deltaMs(
@@ -502,6 +666,10 @@ export function summarizeAgentUiPerformanceMetrics(): AgentUiPerformanceSnapshot
         streamSubmitAccepted,
         streamFirstEvent,
       ),
+      submitAcceptedToFirstTextPaintMs: deltaMs(
+        streamSubmitAccepted,
+        streamFirstTextPaint,
+      ),
       firstEventToFirstThinkingDeltaMs: deltaMs(
         streamFirstEvent,
         streamFirstThinkingDelta,
@@ -510,6 +678,10 @@ export function summarizeAgentUiPerformanceMetrics(): AgentUiPerformanceSnapshot
         streamFirstEvent,
         streamFirstTextDelta,
       ),
+      firstEventToFirstTextPaintMs: deltaMs(
+        streamFirstEvent,
+        streamFirstTextPaint,
+      ),
       firstThinkingDeltaToFirstTextDeltaMs: deltaMs(
         streamFirstThinkingDelta,
         streamFirstTextDelta,
@@ -517,6 +689,21 @@ export function summarizeAgentUiPerformanceMetrics(): AgentUiPerformanceSnapshot
       firstTextDeltaToFirstTextPaintMs: deltaMs(
         streamFirstTextDelta,
         streamFirstTextPaint,
+      ),
+      providerWaitMs:
+        metricNumber(streamProviderFirstTextDelta ?? null, "providerWaitMs") ??
+        metricNumber(streamFirstTextDelta, "providerWaitMs"),
+      serverToRendererFirstTextDeltaMs: metricNumber(
+        streamFirstTextDelta,
+        "serverToRendererDeltaMs",
+      ),
+      rendererApplyFirstTextDeltaMs: metricNumber(
+        streamFirstTextDelta,
+        "rendererEventReceivedDeltaMs",
+      ),
+      clientLocalOutputMs: metricNumber(
+        streamFirstTextPaint,
+        "clientLocalOutputDeltaMs",
       ),
       streamEnsureSessionDurationMs: metricNumber(
         streamEnsureSessionDone,
@@ -664,7 +851,33 @@ export function recordAgentUiPerformanceMetric(
   nextEntryId += 1;
   pushEntry(entry);
   installAgentUiPerformanceApi();
+  notifyAgentUiPerformanceMetricRecorded(entry);
   return entry;
+}
+
+export function subscribeAgentUiPerformanceMetricRecorded(
+  listener: (detail: AgentUiPerformanceMetricRecordedDetail) => void,
+): () => void {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+
+  const handleEvent = (event: Event) => {
+    listener(
+      (event as CustomEvent<AgentUiPerformanceMetricRecordedDetail>).detail,
+    );
+  };
+
+  window.addEventListener(
+    AGENT_UI_PERFORMANCE_METRIC_RECORDED_EVENT,
+    handleEvent,
+  );
+  return () => {
+    window.removeEventListener(
+      AGENT_UI_PERFORMANCE_METRIC_RECORDED_EVENT,
+      handleEvent,
+    );
+  };
 }
 
 export function installAgentUiPerformanceApi(): AgentUiPerformanceApi | null {
@@ -677,9 +890,19 @@ export function installAgentUiPerformanceApi(): AgentUiPerformanceApi | null {
   const api: AgentUiPerformanceApi = {
     entries: getAgentUiPerformanceMetrics,
     clear: clearAgentUiPerformanceMetrics,
+    clearHistory: clearAgentUiPerformanceTraceHistory,
+    exportHistory: exportAgentUiPerformanceTraceHistory,
+    history: listAgentUiPerformanceTraceHistory,
+    saveSnapshot: (label?: string) =>
+      saveAgentUiPerformanceTraceSnapshot(
+        summarizeAgentUiPerformanceMetrics(),
+        {
+          label,
+        },
+      ),
     summary: summarizeAgentUiPerformanceMetrics,
   };
-  window.__EMBER_AGENTUI_PERF__ = api;
+  window.__LIME_AGENTUI_PERF__ = api;
   return api;
 }
 

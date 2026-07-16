@@ -4,6 +4,10 @@ import {
   type Config,
   type CrashReportingConfig,
 } from "@/lib/api/appConfig";
+import {
+  summarizeAgentUiPerformanceMetrics,
+  type AgentUiPerformanceSnapshot,
+} from "@/lib/agentUiPerformanceMetrics";
 import { loadNamespaceResource } from "@/i18n/loadNamespace";
 import { FALLBACK_LOCALE, normalizeLocale } from "@/i18n/locales";
 import { clearDiagnosticLogHistory, type LogEntry } from "@/lib/api/logs";
@@ -43,6 +47,10 @@ import {
   type WorkspaceRepairRecord,
 } from "@/lib/workspaceHealthTelemetry";
 import { hasDesktopHostInvokeCapability } from "@/lib/desktop-runtime";
+import {
+  buildAgentUiPerformanceDiagnosticSummary,
+  type AgentUiPerformanceDiagnosticSummary,
+} from "@/lib/crashDiagnosticAgentUiPerformance";
 
 export interface CrashDiagnosticPayload {
   generated_at: string;
@@ -63,6 +71,7 @@ export interface CrashDiagnosticPayload {
   log_storage_diagnostics?: LogStorageDiagnostics | null;
   windows_startup_diagnostics?: WindowsStartupDiagnostics | null;
   runtime_snapshot?: RuntimeDiagnosticSnapshot | null;
+  agent_ui_performance_summary?: AgentUiPerformanceDiagnosticSummary | null;
   workspace_repair_history?: WorkspaceRepairRecord[];
   general_workbench_document_state?: GeneralWorkbenchDocumentState | null;
   diagnostic_collection_notes?: string[];
@@ -106,7 +115,7 @@ export interface ApiKeyProviderDiagnosticSummary {
 export interface McpServerEntrySummary {
   name: string;
   is_running: boolean;
-  enabled_ember: boolean;
+  enabled_lime: boolean;
   enabled_claude: boolean;
   enabled_codex: boolean;
   enabled_gemini: boolean;
@@ -115,7 +124,7 @@ export interface McpServerEntrySummary {
 export interface McpDiagnosticSummary {
   total_servers: number;
   running_servers: number;
-  enabled_ember: number;
+  enabled_lime: number;
   enabled_claude: number;
   enabled_codex: number;
   enabled_gemini: number;
@@ -250,6 +259,7 @@ interface BuildCrashDiagnosticPayloadParams {
   logStorageDiagnostics?: LogStorageDiagnostics | null;
   windowsStartupDiagnostics?: WindowsStartupDiagnostics | null;
   runtimeSnapshot?: RuntimeDiagnosticSnapshot | null;
+  agentUiPerformanceSnapshot?: AgentUiPerformanceSnapshot | null;
 }
 
 function buildRuntimeConfigSummary(config: Config): RuntimeConfigSummary {
@@ -316,7 +326,7 @@ function buildMcpSummary(servers: McpServerInfo[]): McpDiagnosticSummary {
   const serverSummaries = servers.map((server) => ({
     name: server.name,
     is_running: server.is_running,
-    enabled_ember: server.enabled_ember,
+    enabled_lime: server.enabled_lime,
     enabled_claude: server.enabled_claude,
     enabled_codex: server.enabled_codex,
     enabled_gemini: server.enabled_gemini,
@@ -325,7 +335,7 @@ function buildMcpSummary(servers: McpServerInfo[]): McpDiagnosticSummary {
   return {
     total_servers: serverSummaries.length,
     running_servers: serverSummaries.filter((item) => item.is_running).length,
-    enabled_ember: serverSummaries.filter((item) => item.enabled_ember).length,
+    enabled_lime: serverSummaries.filter((item) => item.enabled_lime).length,
     enabled_claude: serverSummaries.filter((item) => item.enabled_claude)
       .length,
     enabled_codex: serverSummaries.filter((item) => item.enabled_codex).length,
@@ -579,6 +589,7 @@ export function buildCrashDiagnosticPayload(
     logStorageDiagnostics = null,
     windowsStartupDiagnostics = null,
     runtimeSnapshot = null,
+    agentUiPerformanceSnapshot = summarizeAgentUiPerformanceMetrics(),
   } = params;
 
   const frontendCrashBuffer = getFrontendCrashBuffer(maxCrashLogs);
@@ -621,6 +632,9 @@ export function buildCrashDiagnosticPayload(
     log_storage_diagnostics: logStorageDiagnostics,
     windows_startup_diagnostics: windowsStartupDiagnostics,
     runtime_snapshot: runtimeSnapshot,
+    agent_ui_performance_summary: buildAgentUiPerformanceDiagnosticSummary(
+      agentUiPerformanceSnapshot,
+    ),
     workspace_repair_history: getWorkspaceRepairHistory(maxWorkspaceRepairs),
     general_workbench_document_state: generalWorkbenchDocumentState,
     diagnostic_collection_notes: Array.from(
@@ -748,7 +762,7 @@ export function buildCrashDiagnosticClipboardText(
   const summary = buildDiagnosticSummary(payload);
   return translateCrashDiagnostic(
     "errors.crashDiagnostic.clipboardText.template",
-    `# Ember 故障诊断请求（可直接给 AI）
+    `# Lime 故障诊断请求（可直接给 AI）
 
 请你扮演资深全栈工程师，基于下方诊断数据定位问题并给出可落地修复方案。
 
@@ -1101,11 +1115,11 @@ export function getClipboardPermissionGuide(
       steps: [
         translateCrashDiagnostic(
           "errors.crashDiagnostic.clipboardGuide.macos.step1",
-          "先点击 Ember 窗口任意区域，再重试复制。",
+          "先点击 Lime 窗口任意区域，再重试复制。",
         ),
         translateCrashDiagnostic(
           "errors.crashDiagnostic.clipboardGuide.macos.step2",
-          "打开“系统设置 → 隐私与安全性 → 辅助功能”，确认 Ember 已启用。",
+          "打开“系统设置 → 隐私与安全性 → 辅助功能”，确认 Lime 已启用。",
         ),
         translateCrashDiagnostic(
           "errors.crashDiagnostic.clipboardGuide.macos.step3",
@@ -1127,7 +1141,7 @@ export function getClipboardPermissionGuide(
       steps: [
         translateCrashDiagnostic(
           "errors.crashDiagnostic.clipboardGuide.windows.step1",
-          "先点击 Ember 窗口任意区域，再重试复制。",
+          "先点击 Lime 窗口任意区域，再重试复制。",
         ),
         translateCrashDiagnostic(
           "errors.crashDiagnostic.clipboardGuide.windows.step2",
@@ -1152,7 +1166,7 @@ export function getClipboardPermissionGuide(
       steps: [
         translateCrashDiagnostic(
           "errors.crashDiagnostic.clipboardGuide.linux.step1",
-          "先点击 Ember 窗口任意区域，再重试复制。",
+          "先点击 Lime 窗口任意区域，再重试复制。",
         ),
         translateCrashDiagnostic(
           "errors.crashDiagnostic.clipboardGuide.linux.step2",
@@ -1175,7 +1189,7 @@ export function getClipboardPermissionGuide(
     steps: [
       translateCrashDiagnostic(
         "errors.crashDiagnostic.clipboardGuide.generic.step1",
-        "先点击 Ember 窗口任意区域，再重试复制。",
+        "先点击 Lime 窗口任意区域，再重试复制。",
       ),
       translateCrashDiagnostic(
         "errors.crashDiagnostic.clipboardGuide.generic.step2",
@@ -1224,7 +1238,7 @@ export function buildCrashDiagnosticFileName(
     sanitizeDiagnosticSceneTag(`v-${payload.app_version || "unknown"}`) ||
     "v-unknown";
   const timestamp = formatDiagnosticTimestamp(options.timestamp ?? Date.now());
-  return `ember-crash-${sceneTag}-${appVersionTag}-${timestamp}.json`;
+  return `lime-crash-${sceneTag}-${appVersionTag}-${timestamp}.json`;
 }
 
 export async function openCrashDiagnosticDownloadDirectory(): Promise<OpenDownloadDirectoryResult> {

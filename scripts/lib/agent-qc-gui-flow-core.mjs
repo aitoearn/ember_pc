@@ -127,7 +127,7 @@ function summarizeAgentQcGuiFlowManifest(flowManifest, validation) {
   }
 
   return {
-    title: flowManifest?.title || "Ember Agent QC GUI Flow Manifest",
+    title: flowManifest?.title || "Lime Agent QC GUI Flow Manifest",
     manifestVersion: flowManifest?.manifestVersion || "unknown",
     valid: validation.valid,
     issueCount: validation.issues.length,

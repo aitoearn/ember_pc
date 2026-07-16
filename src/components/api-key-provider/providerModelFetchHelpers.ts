@@ -1,4 +1,9 @@
 import type { ProviderWithKeysDisplay } from "@/lib/api/apiKeyProvider";
+import {
+  isFalImageProviderLike,
+  isLikelyFalImageModelId,
+  isResponsesImageGenerationModelId,
+} from "@/lib/imageGen/providerMatchers";
 import { dedupeModelIds } from "./providerConfigUtils";
 
 export type ProviderModelFetchStatusTone = "success" | "error" | "info";
@@ -16,9 +21,9 @@ export interface ProviderModelFetchStatusCopy {
 }
 
 export interface ProviderModelFetchProfile {
-  id: string;
-  type: string;
-  api_host: string;
+  id?: string | null;
+  type?: string | null;
+  api_host?: string | null;
 }
 
 export function extractApiModelIds(
@@ -32,25 +37,13 @@ export function extractApiModelIds(
 }
 
 export function isResponsesImageModel(modelId: string): boolean {
-  const normalized = modelId.trim().toLowerCase();
-  return normalized.includes("gpt-image") || normalized.includes("gpt-images");
+  return isResponsesImageGenerationModelId(modelId);
 }
 
 export function isFalProviderLike(
   provider: ProviderWithKeysDisplay | ProviderModelFetchProfile,
 ): boolean {
-  const providerId = provider.id.trim().toLowerCase();
-  const providerType = provider.type.trim().toLowerCase();
-  const apiHost = provider.api_host.trim().toLowerCase();
-
-  return (
-    providerType === "fal" ||
-    providerId === "fal" ||
-    providerId.startsWith("fal-") ||
-    providerId.includes("fal.ai") ||
-    apiHost.includes("fal.run") ||
-    apiHost.includes("queue.fal.run")
-  );
+  return isFalImageProviderLike(provider);
 }
 
 export function isFalModelFetchUnsupported(result: {
@@ -64,17 +57,7 @@ export function isFalModelFetchUnsupported(result: {
 }
 
 export function isLikelyFalImageModel(modelId: string): boolean {
-  const normalized = modelId.trim().toLowerCase();
-  if (!normalized) {
-    return false;
-  }
-
-  return (
-    normalized.startsWith("fal-ai/") ||
-    /(nano-banana|banana|flux|seedream|kontext|recraft|ideogram|sdxl|stable-diffusion|image)/.test(
-      normalized,
-    )
-  );
+  return isLikelyFalImageModelId(modelId);
 }
 
 export function isProviderApiKeyRequired(

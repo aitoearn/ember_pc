@@ -6,13 +6,11 @@ import type { SkillMarketplaceItem } from "@/lib/api/officialSkillMarketplace";
 import {
   buildInstalledLocalSkills,
   buildSkillStoreItems,
-  filterSkillsWorkspaceStoreServiceSkills,
   getVisibleBuiltinLocalSkills,
   getVisibleInstalledLocalSkills,
   getVisibleSkillStoreItems,
   getVisibleUserInstalledSkills,
   isMarketplaceSkillInstalledAsLocalSkill,
-  isSkillsWorkspaceStoreServiceSkill,
   matchesSkillsText,
   normalizeSkillsKeyword,
   splitFeaturedSkillStoreItems,
@@ -125,22 +123,22 @@ describe("SkillsWorkspacePageViewModel", () => {
       directory: "writer",
       name: "写作助手",
       metadata: {
-        ember_when_to_use: "处理公众号长文",
-        ember_argument_hint: "主题和受众",
+        lime_when_to_use: "处理公众号长文",
+        lime_argument_hint: "主题和受众",
       },
     });
     const alpha = createSkill({
       directory: "alpha",
       name: "Alpha",
       metadata: {
-        ember_when_to_use: "处理公众号短文",
+        lime_when_to_use: "处理公众号短文",
       },
     });
     const unrelated = createSkill({
       directory: "browser",
       name: "浏览器助手",
       metadata: {
-        ember_when_to_use: "网页自动化",
+        lime_when_to_use: "网页自动化",
       },
     });
 
@@ -163,7 +161,6 @@ describe("SkillsWorkspacePageViewModel", () => {
       createServiceSkill({
         id: `service-${index}`,
         title: `服务 Skill ${index}`,
-        category: "专项测试",
       }),
     );
 
@@ -232,10 +229,9 @@ describe("SkillsWorkspacePageViewModel", () => {
     });
     const serviceSkill = createServiceSkill({
       id: "service-content-plan",
-      title: "接口测试",
-      summary: "围绕 API 契约整理测试用例",
-      category: "专项测试",
-      outputHint: "接口用例 + 断言点",
+      title: "内容排期",
+      summary: "规划内容发布时间",
+      outputHint: "排期表",
       slotSchema: [
         {
           key: "account",
@@ -264,31 +260,6 @@ describe("SkillsWorkspacePageViewModel", () => {
 
     expect(visibleByAlias).toHaveLength(1);
     expect(visibleByCapability).toHaveLength(1);
-  });
-
-  it("技能广场 fallback 应过滤非测试类目 Skill", () => {
-    const testSkill = createServiceSkill({
-      id: "carousel-post-replication",
-      title: "兼容性测试",
-      category: "专项测试",
-    });
-    const knowledgeBuilder = createServiceSkill({
-      id: "personal-ip-knowledge-builder",
-      title: "个人 IP 知识库生成器",
-      category: "项目资料",
-    });
-
-    expect(isSkillsWorkspaceStoreServiceSkill(testSkill)).toBe(true);
-    expect(isSkillsWorkspaceStoreServiceSkill(knowledgeBuilder)).toBe(false);
-    expect(
-      filterSkillsWorkspaceStoreServiceSkills([testSkill, knowledgeBuilder]),
-    ).toEqual([testSkill]);
-    expect(
-      buildSkillStoreItems({
-        officialMarketplaceSkills: [],
-        workspaceServiceSkills: [testSkill, knowledgeBuilder],
-      }),
-    ).toHaveLength(1);
   });
 
   it("拆分精选商店项，并按来源区分内置与用户可管理已安装 Skill", () => {

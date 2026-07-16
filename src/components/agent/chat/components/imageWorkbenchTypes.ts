@@ -1,4 +1,6 @@
 import type {
+  ImageGenerationSoulMetadata,
+  ImageCommandRunSnapshot,
   ImageRuntimeContractSnapshot,
   ImageStoryboardSlot,
 } from "../types";
@@ -41,6 +43,8 @@ export interface ImageWorkbenchTaskView {
   createdAt: number;
   failureMessage?: string;
   runtimeContract?: ImageRuntimeContractSnapshot | null;
+  workflowRun?: ImageCommandRunSnapshot | null;
+  soulMetadata?: ImageGenerationSoulMetadata | null;
 }
 
 export interface ImageWorkbenchOutputView {
@@ -92,6 +96,7 @@ export interface ImageTaskViewerProps {
   onSaveSelectedToLibrary?: () => void;
   applySelectedOutputLabel?: string;
   onApplySelectedOutput?: () => void;
+  onRetryTask?: (taskId: string) => void;
   onSeedFollowUpCommand?: (command: string) => void;
   onClose?: () => void;
 }

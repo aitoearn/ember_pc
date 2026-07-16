@@ -21,7 +21,7 @@
 //! 当前已在 OpenAI 兼容 Provider 请求归一化阶段接入。
 //! 主要用于 DeepSeek R1/Reasoner 的 tool calls + thinking 场景。
 
-use ember_core::models::openai::ChatMessage;
+use lime_core::models::openai::ChatMessage;
 
 /// 模型类型，用于确定推理内容处理策略
 #[derive(Debug, Clone, PartialEq)]
@@ -138,7 +138,7 @@ impl ReasoningHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ember_core::models::openai::MessageContent;
+    use lime_core::models::openai::MessageContent;
 
     #[test]
     fn test_model_type_detection() {

@@ -3,8 +3,8 @@
 //! 管理语音输入配置、ASR 凭证与润色指令。
 //! 不依赖 Tauri，可被主 crate 以桥接方式复用。
 
-use ember_core::app_paths;
-use ember_core::config::{
+use lime_core::app_paths;
+use lime_core::config::{
     load_config, save_config, AsrCredentialEntry, AsrProviderType, BaiduConfig, OpenAIAsrConfig,
     SenseVoiceLocalConfig, VoiceInputConfig, VoiceInstruction, VoiceOutputMode, WhisperLocalConfig,
     WhisperModelSize, XunfeiConfig,
@@ -492,7 +492,7 @@ fn resolve_whisper_model_path(config: &WhisperLocalConfig) -> Result<PathBuf, St
     };
     let data_dir = dirs::data_dir().ok_or_else(|| "无法获取数据目录".to_string())?;
     Ok(data_dir
-        .join("ember")
+        .join("lime")
         .join("models")
         .join("whisper")
         .join(file_name))

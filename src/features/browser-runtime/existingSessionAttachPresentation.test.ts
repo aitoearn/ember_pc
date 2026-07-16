@@ -12,7 +12,7 @@ const PRESENTATION_COPY: ExistingSessionAttachPresentationCopy = {
     },
     waiting: {
       label: "Waiting for bridge",
-      description: "Connect the Ember Browser Bridge extension first.",
+      description: "Connect the Lime Browser Bridge extension first.",
     },
     reading: {
       label: "Reading page",
@@ -27,7 +27,7 @@ const PRESENTATION_COPY: ExistingSessionAttachPresentationCopy = {
     default:
       "Attach current Chrome can take over a live session when available.",
     checking: "Checking the current Chrome bridge connection...",
-    waiting: "Install and connect Ember Browser Bridge in the current browser.",
+    waiting: "Install and connect Lime Browser Bridge in the current browser.",
     reading: "Reading the current Chrome page summary...",
   },
   actions: {
@@ -43,11 +43,11 @@ const PRESENTATION_COPY: ExistingSessionAttachPresentationCopy = {
   hint: {
     embedded: {
       connected: "Attach mode is connected.",
-      waiting: "Connect Ember Browser Bridge first.",
+      waiting: "Connect Lime Browser Bridge first.",
     },
     live: {
       connected: "Attach mode can take over the live view when available.",
-      waiting: "Connect Ember Browser Bridge first.",
+      waiting: "Connect Lime Browser Bridge first.",
     },
   },
 };
@@ -84,10 +84,10 @@ describe("existingSessionAttachPresentation", () => {
     expect(presentation.statusInfo.label).toBe("Waiting for bridge");
     expect(presentation.placeholder).toContain("Install and connect");
     expect(presentation.embeddedControlHint).toContain(
-      "Connect Ember Browser Bridge first",
+      "Connect Lime Browser Bridge first",
     );
     expect(presentation.liveViewHint).toContain(
-      "Connect Ember Browser Bridge first",
+      "Connect Lime Browser Bridge first",
     );
   });
 

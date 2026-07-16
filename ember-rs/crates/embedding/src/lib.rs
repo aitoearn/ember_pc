@@ -20,9 +20,9 @@ use fastembed::{
 
 pub const DEFAULT_LOCAL_ONNX_EMBEDDING_MODEL: &str = "all-MiniLM-L6-v2";
 #[cfg(feature = "local-onnx")]
-const LOCAL_ONNX_CACHE_ENV: &str = "EMBER_LOCAL_ONNX_CACHE_DIR";
+const LOCAL_ONNX_CACHE_ENV: &str = "LIME_LOCAL_ONNX_CACHE_DIR";
 #[cfg(feature = "local-onnx")]
-const LOCAL_ONNX_HF_ENDPOINT_ENV: &str = "EMBER_LOCAL_ONNX_HF_ENDPOINT";
+const LOCAL_ONNX_HF_ENDPOINT_ENV: &str = "LIME_LOCAL_ONNX_HF_ENDPOINT";
 #[cfg(feature = "local-onnx")]
 const LOCAL_ONNX_MODEL_REPO: &str = "Qdrant/all-MiniLM-L6-v2-onnx";
 #[cfg(feature = "local-onnx")]
@@ -112,15 +112,41 @@ fn local_onnx_cache_dir() -> PathBuf {
     if let Ok(value) = std::env::var(LOCAL_ONNX_CACHE_ENV) {
         let trimmed = value.trim();
         if !trimmed.is_empty() {
-            return PathBuf::from(trimmed);
+            return normalize_local_onnx_cache_dir(PathBuf::from(trimmed));
         }
     }
 
-    dirs::cache_dir()
-        .unwrap_or_else(|| PathBuf::from(".ember"))
-        .join("ember")
+    local_onnx_default_cache_dir()
+}
+
+#[cfg(feature = "local-onnx")]
+fn local_onnx_default_cache_dir() -> PathBuf {
+    local_onnx_temp_root()
+        .join("lime")
         .join("models")
         .join("embedding")
+}
+
+#[cfg(feature = "local-onnx")]
+fn local_onnx_temp_root() -> PathBuf {
+    #[cfg(unix)]
+    {
+        let tmp = PathBuf::from("/tmp");
+        if tmp.is_dir() {
+            return tmp;
+        }
+    }
+
+    std::env::temp_dir()
+}
+
+#[cfg(feature = "local-onnx")]
+fn normalize_local_onnx_cache_dir(path: PathBuf) -> PathBuf {
+    if dirs::cache_dir().is_some_and(|cache_dir| path.starts_with(cache_dir)) {
+        return local_onnx_default_cache_dir();
+    }
+
+    path
 }
 
 #[cfg(feature = "local-onnx")]
@@ -336,7 +362,7 @@ pub async fn get_local_onnx_embedding(
     _text: &str,
     _model: Option<&str>,
 ) -> Result<Vec<f32>, String> {
-    Err("本地 ONNX 嵌入运行时未启用。请启用 ember-embedding/local-onnx 构建特性。".to_string())
+    Err("本地 ONNX 嵌入运行时未启用。请启用 lime-embedding/local-onnx 构建特性。".to_string())
 }
 
 /// 获取文本向量嵌入
@@ -354,7 +380,7 @@ pub async fn get_local_onnx_embedding(
 /// # 示例
 ///
 /// ```ignore
-/// use ember_embedding::get_embedding;
+/// use lime_embedding::get_embedding;
 ///
 /// # tokio::runtime::Runtime::new().unwrap().block_on(async {
 ///     let api_key = "sk-...";
@@ -536,16 +562,56 @@ pub async fn get_embeddings_batch(
 mod tests {
     use super::*;
 
+    #[cfg(feature = "local-onnx")]
+    struct EnvVarRestore {
+        key: &'static str,
+        original: Option<std::ffi::OsString>,
+    }
+
+    #[cfg(feature = "local-onnx")]
+    impl EnvVarRestore {
+        fn remove(key: &'static str) -> Self {
+            let original = std::env::var_os(key);
+            std::env::remove_var(key);
+            Self { key, original }
+        }
+
+        fn set(key: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
+            let original = std::env::var_os(key);
+            std::env::set_var(key, value);
+            Self { key, original }
+        }
+    }
+
+    #[cfg(feature = "local-onnx")]
+    impl Drop for EnvVarRestore {
+        fn drop(&mut self) {
+            if let Some(value) = &self.original {
+                std::env::set_var(self.key, value);
+            } else {
+                std::env::remove_var(self.key);
+            }
+        }
+    }
+
+    #[cfg(feature = "local-onnx")]
+    fn local_onnx_cache_env_lock() -> std::sync::MutexGuard<'static, ()> {
+        static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+        LOCK.get_or_init(|| std::sync::Mutex::new(()))
+            .lock()
+            .unwrap()
+    }
+
     fn real_api_test_enabled() -> bool {
-        std::env::var("EMBER_REAL_API_TEST").as_deref() == Ok("1")
+        std::env::var("LIME_REAL_API_TEST").as_deref() == Ok("1")
             || std::env::var("PROXYCAST_REAL_API_TEST").as_deref() == Ok("1")
     }
 
     #[tokio::test]
-    #[ignore = "真实联网测试：设置 EMBER_REAL_API_TEST=1 后执行"]
+    #[ignore = "真实联网测试：设置 LIME_REAL_API_TEST=1 后执行"]
     async fn test_get_embedding_mock() {
         if !real_api_test_enabled() {
-            println!("跳过测试：未设置 EMBER_REAL_API_TEST=1");
+            println!("跳过测试：未设置 LIME_REAL_API_TEST=1");
             return;
         }
 
@@ -576,8 +642,8 @@ mod tests {
             "https://api.openai.com/v1/embeddings"
         );
         assert_eq!(
-            build_embeddings_url(Some("https://hub.ember.ai/v1")),
-            "https://hub.ember.ai/v1/embeddings"
+            build_embeddings_url(Some("https://hub.lime.ai/v1")),
+            "https://hub.lime.ai/v1/embeddings"
         );
         assert_eq!(
             build_embeddings_url(Some("https://api.openai.com")),
@@ -618,9 +684,55 @@ mod tests {
 
     #[cfg(feature = "local-onnx")]
     #[test]
+    fn test_local_onnx_cache_dir_defaults_to_cleanable_temp_root() {
+        let _lock = local_onnx_cache_env_lock();
+        let _env = EnvVarRestore::remove(LOCAL_ONNX_CACHE_ENV);
+
+        let cache_dir = local_onnx_cache_dir();
+
+        #[cfg(unix)]
+        assert!(cache_dir.starts_with("/tmp"));
+        #[cfg(not(unix))]
+        assert!(cache_dir.starts_with(std::env::temp_dir()));
+        if let Some(system_cache_dir) = dirs::cache_dir() {
+            assert!(!cache_dir.starts_with(system_cache_dir));
+        }
+        assert_eq!(cache_dir, local_onnx_default_cache_dir());
+    }
+
+    #[cfg(feature = "local-onnx")]
+    #[test]
+    fn test_local_onnx_cache_dir_respects_non_cache_override() {
+        let _lock = local_onnx_cache_env_lock();
+        let override_dir = local_onnx_temp_root().join("custom-local-onnx-cache");
+        let _env = EnvVarRestore::set(LOCAL_ONNX_CACHE_ENV, &override_dir);
+
+        assert_eq!(local_onnx_cache_dir(), override_dir);
+    }
+
+    #[cfg(feature = "local-onnx")]
+    #[test]
+    fn test_local_onnx_cache_dir_rebases_system_cache_override() {
+        let Some(system_cache_dir) = dirs::cache_dir() else {
+            return;
+        };
+        let _lock = local_onnx_cache_env_lock();
+        let _env = EnvVarRestore::set(
+            LOCAL_ONNX_CACHE_ENV,
+            system_cache_dir.join("lime-embedding-test"),
+        );
+
+        let cache_dir = local_onnx_cache_dir();
+
+        assert_eq!(cache_dir, local_onnx_default_cache_dir());
+        assert!(!cache_dir.starts_with(system_cache_dir));
+    }
+
+    #[cfg(feature = "local-onnx")]
+    #[test]
     fn test_resolve_packaged_ort_dylib_path_from_exe() {
         let root = std::env::temp_dir().join(format!(
-            "ember-embedding-ort-path-{}-{}",
+            "lime-embedding-ort-path-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -635,9 +747,9 @@ mod tests {
         std::fs::create_dir_all(&exe_dir).unwrap();
 
         let exe_path = exe_dir.join(if cfg!(target_os = "windows") {
-            "Ember.exe"
+            "Lime.exe"
         } else {
-            "ember"
+            "lime"
         });
         let next_to_exe = exe_dir.join(ort_dylib_name());
         std::fs::write(&next_to_exe, []).unwrap();
@@ -665,10 +777,10 @@ mod tests {
 
     #[cfg(feature = "local-onnx")]
     #[tokio::test]
-    #[ignore = "真实模型下载和本地 ONNX 推理测试：设置 EMBER_REAL_API_TEST=1 后执行"]
+    #[ignore = "真实模型下载和本地 ONNX 推理测试：设置 LIME_REAL_API_TEST=1 后执行"]
     async fn test_get_local_onnx_embedding_real() {
         if !real_api_test_enabled() {
-            println!("跳过测试：未设置 EMBER_REAL_API_TEST=1");
+            println!("跳过测试：未设置 LIME_REAL_API_TEST=1");
             return;
         }
 

@@ -9,7 +9,7 @@ import {
 } from "./AgentThreadTimeline.testFixtures";
 
 describe("AgentThreadTimeline", () => {
-  it("已完成的单条 reasoning 只显示安全思考入口，不暴露内部正文预览", () => {
+  it("已完成的单条 reasoning 应保留来源摘要，不再按短语隐藏", () => {
     const container = renderTimeline([
       {
         ...createBaseItem("reasoning-safe-summary", 1),
@@ -19,15 +19,14 @@ describe("AgentThreadTimeline", () => {
       },
     ]);
 
-    expect(container.textContent).toContain("已完成思考");
-    expect(container.textContent).not.toContain("我们被要求先分析");
+    expect(container.textContent).toContain("我们被要求先分析");
     expect(
       container.querySelector(
         '[data-testid="agent-thread-block:1:process:details"]',
       ),
     ).toBeNull();
   });
-  it("已完成 reasoning 不应把模型自述型思考作为摘要露出", () => {
+  it("已完成 reasoning 不再用模型自述短语黑名单改写摘要", () => {
     const container = renderTimeline([
       {
         ...createBaseItem("reasoning-provider-summary", 1),
@@ -39,9 +38,8 @@ describe("AgentThreadTimeline", () => {
       },
     ]);
 
-    expect(container.textContent).toContain("已完成思考");
-    expect(container.textContent).not.toContain("用户问的是");
-    expect(container.textContent).not.toContain("我需要用");
+    expect(container.textContent).toContain("用户问的是");
+    expect(container.textContent).toContain("我需要用");
   });
   it("默认直接渲染内联时间线，不再显示旧摘要壳", () => {
     const items: AgentThreadItem[] = [
@@ -88,7 +86,8 @@ describe("AgentThreadTimeline", () => {
     ).toBeNull();
     expect(container.textContent).toContain("已完成页面检查");
     expect(container.textContent).toContain("打开了 https://mp.weixin.qq.com");
-    expect(container.textContent).toContain("请确认是否发布文章");
+    expect(container.textContent).toContain("browser_click");
+    expect(container.textContent).not.toContain("请确认是否发布文章");
   });
   it("file_artifact 命中多个 block 时应提供精确跳转按钮", async () => {
     const onOpenArtifactFromTimeline = vi.fn();
@@ -111,21 +110,120 @@ describe("AgentThreadTimeline", () => {
         timelineItemId: "artifact-1",
         filePath: "exports/x-article-export/google/index.md",
         blockId: "hero-1",
+        openMode: "artifact_review",
       }),
     );
   });
-  it("多个 file_artifact 应直接渲染卡片，不再重复显示产出摘要头", () => {
+  it("单个普通 file_artifact 应渲染为文件附件卡并打开真实内容", async () => {
+    const onOpenArtifactFromTimeline = vi.fn();
+    const container = renderTimeline(
+      [
+        createFileArtifactItem({
+          path: "internal/roadmap/db/README.md",
+          content: "# Lime DB\n\nAgent durable log owns runtime transcript",
+          metadata: {},
+        }),
+      ],
+      { onOpenArtifactFromTimeline },
+    );
+
+    expect(
+      container.querySelector('[data-testid="timeline-file-attachment-card"]'),
+    ).not.toBeNull();
+    expect(container.textContent).toContain("README.md");
+    expect(container.textContent).toContain("文档 · MD");
+    expect(container.textContent).toContain("打开文件");
+    expect(container.textContent).not.toContain("打开方式");
+    expect(
+      container.querySelector('[data-testid="timeline-file-artifact-card"]'),
+    ).toBeNull();
+
+    const openButton = Array.from(
+      container.querySelectorAll<HTMLButtonElement>("button"),
+    ).find((button) => button.textContent?.includes("打开文件"));
+
+    await act(async () => {
+      openButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(onOpenArtifactFromTimeline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        timelineItemId: "artifact-1",
+        filePath: "internal/roadmap/db/README.md",
+        content: "# Lime DB\n\nAgent durable log owns runtime transcript",
+        openMode: "file_preview",
+      }),
+    );
+  });
+  it("多个只读 file_artifact 不应聚合成文件变更框", () => {
     const container = renderTimeline([
       createFileArtifactItem({
-        path: "workspace/index.md",
-        content: "# Index\n\n主文档内容",
+        path: "skills/imagegen.md",
+        source: "file_read",
+        content: "# imagegen\n\nGenerate raster images.",
+        metadata: {
+          eventClass: "file.read",
+        },
       }),
       createFileArtifactItem({
         ...createBaseItem("artifact-2", 2),
-        path: "workspace/Agents.md",
-        content: "# Agents\n\n协作说明",
+        path: "skills/browser.md",
+        source: "file_read",
+        content: "# browser\n\nControl browser state.",
+        metadata: {
+          eventClass: "file.read",
+        },
       }),
     ]);
+
+    expect(
+      container.querySelector('[data-testid="timeline-file-artifact-group"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('[data-testid="file-changes-summary-card"]'),
+    ).toBeNull();
+    expect(
+      container.querySelectorAll(
+        '[data-testid="timeline-file-attachment-card"]',
+      ),
+    ).toHaveLength(2);
+    expect(container.textContent).not.toContain("已编辑 2 个文件");
+    expect(container.textContent).toContain("imagegen.md");
+    expect(container.textContent).toContain("browser.md");
+  });
+  it("多个带 file_change 的 file_artifact 应聚合成一个文件变更框", async () => {
+    const onOpenArtifactFromTimeline = vi.fn();
+    const container = renderTimeline(
+      [
+        createFileArtifactItem({
+          path: "workspace/index.md",
+          content: "# Index\n\n主文档内容",
+          metadata: {
+            file_change: {
+              path: "workspace/index.md",
+              kind: "update",
+              lines_added: 4,
+              lines_removed: 2,
+            },
+          },
+        }),
+        createFileArtifactItem({
+          ...createBaseItem("artifact-2", 2),
+          path: "workspace/Agents.md",
+          content: "# Agents\n\n协作说明",
+          metadata: {
+            file_change: {
+              path: "workspace/Agents.md",
+              kind: "add",
+              lines_added: 3,
+              lines_removed: 0,
+            },
+          },
+        }),
+      ],
+      { onOpenArtifactFromTimeline },
+    );
 
     expect(
       container.querySelector('[data-testid="agent-thread-block:1:artifact"]'),
@@ -136,10 +234,38 @@ describe("AgentThreadTimeline", () => {
       ),
     ).toBeNull();
     expect(
+      container.querySelector('[data-testid="timeline-file-artifact-group"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="file-changes-summary-card"]'),
+    ).not.toBeNull();
+    expect(container.textContent).toContain("已编辑 2 个文件");
+    expect(container.textContent).toContain("+7");
+    expect(container.textContent).toContain("-2");
+    expect(
       container.querySelectorAll('[data-testid="timeline-file-artifact-card"]'),
-    ).toHaveLength(2);
+    ).toHaveLength(0);
     expect(container.textContent).not.toContain("产出了 index.md");
     expect(container.textContent).not.toContain("产出了 Agents.md");
+
+    const rows = container.querySelectorAll<HTMLButtonElement>(
+      '[data-testid="file-changes-summary-file-row"]',
+    );
+    expect(rows).toHaveLength(2);
+
+    await act(async () => {
+      rows[0]?.click();
+      await Promise.resolve();
+    });
+
+    expect(onOpenArtifactFromTimeline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        timelineItemId: "artifact-1",
+        filePath: "workspace/index.md",
+        content: "# Index\n\n主文档内容",
+        openMode: "file_preview",
+      }),
+    );
   });
   it("时间线 Markdown 产物应透传保存到项目资料回调", () => {
     const onSaveFileArtifactAsKnowledge = vi.fn();
@@ -162,8 +288,15 @@ describe("AgentThreadTimeline", () => {
       },
     );
 
-    expect(container.textContent).toContain("Document 产物");
-    expect(container.textContent).toContain("可保存到项目资料");
+    expect(
+      container.querySelector('[data-testid="timeline-file-attachment-card"]'),
+    ).not.toBeNull();
+    expect(container.textContent).toContain(
+      "谢晶_营销文案包_KnowledgeV2_E2E.md",
+    );
+    expect(container.textContent).toContain("文档 · MD");
+    expect(container.textContent).toContain("打开文件");
+    expect(container.textContent).not.toContain("打开方式");
 
     const saveButton = Array.from(
       container.querySelectorAll<HTMLButtonElement>("button"),
@@ -182,11 +315,11 @@ describe("AgentThreadTimeline", () => {
       description: "谢晶营销文案包 v1.0",
     });
   });
-  it("不应把 .ember/tasks 下的内部任务快照 JSON 渲染到时间线里", () => {
+  it("不应把 .lime/tasks 下的内部任务快照 JSON 渲染到时间线里", () => {
     const container = renderTimeline([
       createFileArtifactItem({
         id: "artifact-hidden-task-json",
-        path: ".ember/tasks/image_generate/task-image-1.json",
+        path: ".lime/tasks/image_generate/task-image-1.json",
         content: '{"status":"running"}',
         metadata: {},
       }),
@@ -196,6 +329,57 @@ describe("AgentThreadTimeline", () => {
       container.querySelector('[data-testid="timeline-file-artifact-card"]'),
     ).toBeNull();
     expect(container.textContent).not.toContain("task-image-1.json");
+  });
+  it("未适配的历史运行记录不应在时间线摊开原始 JSON", () => {
+    const unsupportedItem = {
+      ...createBaseItem("unsupported-runtime-item", 1),
+      type: "runtime_protocol_diagnostic",
+      status: "completed",
+      metadata: {
+        request_metadata: {
+          query: "整理今天新闻",
+          diagnostics: { transport: "jsonrpc" },
+        },
+        raw_payload: {
+          jsonrpc: "2.0",
+          method: "agentSession/turn/start",
+        },
+      },
+    } as unknown as AgentThreadItem;
+
+    const container = renderTimeline([unsupportedItem]);
+
+    expect(container.textContent).toContain(
+      "记录了 runtime_protocol_diagnostic",
+    );
+    expect(container.textContent).toContain("已隐藏底层协议详情");
+    expect(container.textContent).not.toContain("request_metadata");
+    expect(container.textContent).not.toContain("raw_payload");
+    expect(container.textContent).not.toContain("jsonrpc");
+    expect(container.textContent).not.toContain("agentSession/turn/start");
+  });
+  it("应把专家 profile switch 渲染为当前 Thread 内的运行事实", () => {
+    const container = renderTimeline([
+      {
+        ...createBaseItem("expert-profile-switch-1", 2),
+        type: "expert_profile_switch",
+        previous_expert_id: "business-analyst",
+        next_expert_id: "copywriter",
+        metadata: {
+          harness: {
+            expert_role_switch: {
+              kind: "expert_profile_switch",
+              scope: "thread",
+            },
+          },
+        },
+      },
+    ]);
+
+    expect(container.textContent).toContain("专家已切换");
+    expect(container.textContent).toContain("business-analyst -> copywriter");
+    expect(container.textContent).not.toContain("暂未适配");
+    expect(container.textContent).not.toContain("expert_role_switch");
   });
   it("收到 timeline 聚焦请求时应自动展开并高亮目标项", () => {
     const container = renderTimeline(
@@ -234,7 +418,7 @@ describe("AgentThreadTimeline", () => {
         {
           ...createBaseItem("site-tool-1", 1),
           type: "tool_call",
-          tool_name: "ember_site_run",
+          tool_name: "lime_site_run",
           arguments: { adapter_name: "github/search" },
           output: "ok",
           metadata: {
@@ -261,7 +445,7 @@ describe("AgentThreadTimeline", () => {
         {
           ...createBaseItem("site-tool-1", 1),
           type: "tool_call",
-          tool_name: "ember_site_run",
+          tool_name: "lime_site_run",
           arguments: { adapter_name: "github/search" },
           output: "ok",
           metadata: {
@@ -336,11 +520,13 @@ describe("AgentThreadTimeline", () => {
     expect(container.textContent).not.toContain("已搜索 可用工具");
     expect(mockToolCallItem).not.toHaveBeenCalled();
   });
-  it("审批项与技术项都应直接落在消息流中", () => {
+  it("审批项与技术项都应保留在执行轨迹中，但 pending approval 不渲染提交面板", () => {
     const items: AgentThreadItem[] = [
       {
         ...createBaseItem("approval-1", 1),
         type: "approval_request",
+        status: "pending",
+        completed_at: undefined,
         request_id: "req-1",
         action_type: "tool_confirmation",
         prompt: "请确认是否继续",
@@ -363,7 +549,78 @@ describe("AgentThreadTimeline", () => {
 
     expect(approvalGroup).not.toBeNull();
     expect(otherGroup).not.toBeNull();
-    expect(container.textContent).toContain("请确认是否继续");
+    expect(
+      container.querySelector('[data-testid="decision-panel"]'),
+    ).toBeNull();
     expect(container.textContent).toContain("workspace_sync");
+  });
+
+  it("历史 approval 应渲染单行只读记录而不是提交面板", () => {
+    const items: AgentThreadItem[] = [
+      {
+        ...createBaseItem("approval-session", 1),
+        type: "approval_request",
+        status: "completed",
+        request_id: "req-session-approval",
+        action_type: "tool_confirmation",
+        prompt: "允许浏览器访问 example.com 吗？",
+        tool_name: "browser_control",
+        response: {
+          decision: "allow_for_session",
+          decision_scope: "session",
+          source: "approval_session_cache",
+          auto_resolved: true,
+        },
+      },
+    ];
+
+    const container = renderTimeline(items);
+
+    expect(
+      container.querySelector('[data-testid="timeline-approval-record"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="decision-panel"]'),
+    ).toBeNull();
+    const record = container.querySelector<HTMLElement>(
+      '[data-testid="timeline-approval-record"]',
+    );
+    expect(record?.textContent).toContain("browser_control");
+    expect(record?.textContent).toContain("本会话允许");
+    expect(record?.textContent).not.toContain(
+      "允许浏览器访问 example.com 吗？",
+    );
+    expect(record?.textContent).not.toContain("请求");
+    expect(record?.textContent).not.toContain("范围");
+    expect(record?.textContent).not.toContain("来源");
+    expect(record?.textContent).not.toContain("历史记录只读");
+  });
+
+  it("完全授权策略下不渲染历史 approval 记录", () => {
+    const items: AgentThreadItem[] = [
+      {
+        ...createBaseItem("approval-full-access", 1),
+        type: "approval_request",
+        status: "completed",
+        request_id: "req-full-access-approval",
+        action_type: "tool_confirmation",
+        prompt: "允许浏览器访问 example.com 吗？",
+        tool_name: "browser_control",
+        response: {
+          decision: "allow_for_session",
+          approval_policy: "never",
+          sandbox_policy: "danger-full-access",
+        },
+      },
+    ];
+
+    const container = renderTimeline(items);
+
+    expect(
+      container.querySelector('[data-testid="timeline-approval-record"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('[data-testid="decision-panel"]'),
+    ).toBeNull();
   });
 });

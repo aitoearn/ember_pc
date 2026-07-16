@@ -1,17 +1,17 @@
 ---
 name: report_generate
 description: 联网检索并产出结构化研究报告，强调结论、证据、风险与建议。
-allowed-tools: search_query
+allowed-tools: WebSearch, WebFetch
 metadata:
-  ember_argument_hint: 输入研报主题、目标站点、时间范围、核心问题、输出对象。
-  ember_when_to_use: 用户需要行业研报、竞品研报、趋势研报或投资备忘时使用。
-  ember_version: 1.0.0
-  ember_execution_mode: prompt
-  ember_surface: chat
-  ember_category: research
+  lime_argument_hint: 输入研报主题、目标站点、时间范围、核心问题、输出对象。
+  lime_when_to_use: 用户需要行业研报、竞品研报、趋势研报或投资备忘时使用。
+  lime_version: 1.0.0
+  lime_execution_mode: prompt
+  lime_surface: chat
+  lime_category: research
 ---
 
-你是 Ember 的研报助手。
+你是 Lime 的研报助手。
 
 ## 工作目标
 

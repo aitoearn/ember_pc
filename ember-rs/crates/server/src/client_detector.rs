@@ -1,13 +1,13 @@
 //! 客户端类型检测模块
 //!
-//! 已迁移到 ember-core crate，本文件仅做重新导出。
+//! 已迁移到 lime-core crate，本文件仅做重新导出。
 
-pub use ember_core::models::client_type::*;
+pub use lime_core::models::client_type::*;
 
 #[cfg(test)]
 mod property_tests {
     use super::*;
-    use ember_core::config::EndpointProvidersConfig;
+    use lime_core::config::EndpointProvidersConfig;
     use proptest::prelude::*;
 
     fn arb_client_type() -> impl Strategy<Value = ClientType> {

@@ -48,9 +48,6 @@ interface ChatNavbarProps {
   onCloseProject?: (projectId: string) => void;
   workspaceType?: string;
   deferWorkspaceListLoad?: boolean;
-  workspaceHintMessage?: string;
-  workspaceHintVisible?: boolean;
-  onDismissWorkspaceHint?: () => void;
   showHarnessToggle?: boolean;
   harnessPanelVisible?: boolean;
   onToggleHarnessPanel?: () => void;
@@ -69,43 +66,37 @@ interface ChatNavbarOpenedProject {
 }
 
 const toolbarGroupClassName =
-  "flex items-center rounded-[20px] border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface-subtle)] p-1.5 shadow-sm shadow-slate-950/5 backdrop-blur-sm";
+  "flex max-w-full flex-nowrap items-center overflow-hidden whitespace-nowrap rounded-[20px] border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface-subtle)] p-1.5 shadow-sm shadow-slate-950/5 backdrop-blur-sm";
 
 const toolbarDividerClassName =
-  "mx-1.5 h-6 w-px shrink-0 bg-[color:var(--ember-surface-border)]";
+  "mx-1.5 h-6 w-px shrink-0 bg-[color:var(--lime-surface-border)]";
 
 const toolbarEmbeddedButtonClassName =
-  "h-9 rounded-2xl border border-transparent px-3.5 text-xs shadow-none";
+  "h-9 shrink-0 whitespace-nowrap rounded-2xl border border-transparent px-3.5 text-xs shadow-none";
 
 const toolbarGhostIconButtonClassName =
-  "h-9 w-9 rounded-2xl text-[color:var(--ember-text-muted)] hover:bg-[color:var(--ember-surface-hover)] hover:text-[color:var(--ember-text)]";
+  "h-9 w-9 shrink-0 rounded-2xl text-[color:var(--lime-text-muted)] hover:bg-[color:var(--lime-surface-hover)] hover:text-[color:var(--lime-text)]";
 
 const toolbarTextButtonClassName =
-  "gap-1.5 text-[color:var(--ember-text)] hover:bg-[color:var(--ember-surface)] hover:text-[color:var(--ember-text-strong)]";
+  "gap-1.5 text-[color:var(--lime-text)] hover:bg-[color:var(--lime-surface)] hover:text-[color:var(--lime-text-strong)]";
 
 const taskCenterTopRailClassName =
-  "relative flex h-[42px] w-full items-end overflow-visible bg-[color:var(--ember-chrome-rail)] px-4 pt-1";
+  "relative flex h-[42px] w-full items-end overflow-visible bg-[color:var(--lime-chrome-rail)] px-4 pt-1";
 
 const taskCenterWorkspaceTabClassName =
-  "relative z-20 flex h-9 min-w-[148px] max-w-[224px] items-center rounded-t-[18px] rounded-b-none border border-b-0 border-[color:var(--ember-chrome-border)] bg-[color:var(--ember-chrome-tab-active-surface)] px-2 text-sm font-medium text-[color:var(--ember-chrome-text)] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:border-white/10 dark:bg-slate-900 dark:text-slate-300";
+  "relative z-20 flex h-9 min-w-[148px] max-w-[224px] items-center rounded-t-[18px] rounded-b-none border border-b-0 border-[color:var(--lime-chrome-border)] bg-[color:var(--lime-chrome-tab-active-surface)] px-2 text-sm font-medium text-[color:var(--lime-chrome-text)] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)] dark:border-white/10 dark:bg-slate-900 dark:text-slate-300";
 
 const taskCenterWorkspaceInactiveTabShellClassName =
-  "group relative z-10 ml-1 flex h-8 min-w-[108px] max-w-[184px] items-center rounded-t-[15px] border border-b-0 border-transparent bg-transparent text-[color:var(--ember-chrome-muted)] transition hover:bg-[color:var(--ember-chrome-tab-hover)] hover:text-[color:var(--ember-chrome-text)]";
+  "group relative z-10 ml-1 flex h-8 min-w-[108px] max-w-[184px] items-center rounded-t-[15px] border border-b-0 border-transparent bg-transparent text-[color:var(--lime-chrome-muted)] transition hover:bg-[color:var(--lime-chrome-tab-hover)] hover:text-[color:var(--lime-chrome-text)]";
 
 const taskCenterWorkspaceInactiveTabButtonClassName =
   "flex h-full min-w-0 flex-1 items-center gap-1.5 px-3 pb-0.5 text-left text-xs font-medium";
 
 const taskCenterWorkspaceTabCloseButtonClassName =
-  "mr-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[color:var(--ember-chrome-muted)] opacity-80 transition hover:bg-[color:var(--ember-chrome-tab-hover)] hover:text-[color:var(--ember-chrome-text)] focus-visible:opacity-100 group-hover:opacity-100";
+  "mr-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[color:var(--lime-chrome-muted)] opacity-80 transition hover:bg-[color:var(--lime-chrome-tab-hover)] hover:text-[color:var(--lime-chrome-text)] focus-visible:opacity-100 group-hover:opacity-100";
 
 const taskCenterWorkspaceTabCurveClassName =
   "pointer-events-none absolute bottom-0 h-[18px] w-[18px] bg-transparent";
-
-const taskCenterIconButtonClassName =
-  "h-7 w-7 rounded-[12px] border border-transparent bg-transparent text-[color:var(--ember-chrome-muted)] shadow-none transition-[background-color,color] hover:bg-[color:var(--ember-chrome-tab-hover)] hover:text-[color:var(--ember-chrome-text)]";
-
-const taskCenterPillButtonClassName =
-  "h-7 rounded-[12px] border border-transparent bg-transparent px-2 text-[11px] font-medium text-[color:var(--ember-chrome-text)] shadow-none transition-[background-color,color] hover:bg-[color:var(--ember-chrome-tab-hover)] hover:text-[color:var(--ember-text-strong)]";
 
 function normalizeProjectId(value?: string | null): string | null {
   const normalized = value?.trim();
@@ -125,10 +116,6 @@ function resolveProjectTooltip(project: ChatNavbarOpenedProject): string {
     source: project.rootPath?.trim() || project.name.trim() || project.id,
     fallback: project.id,
   });
-}
-
-function resolveProjectNameFromId(projectId: string): string {
-  return projectId.split(/[\\/]/).filter(Boolean).pop()?.trim() || projectId;
 }
 
 function buildOpenedProjectTabs(
@@ -166,9 +153,6 @@ export const ChatNavbar: React.FC<ChatNavbarProps> = ({
   onCloseProject,
   workspaceType,
   deferWorkspaceListLoad,
-  workspaceHintMessage,
-  workspaceHintVisible = false,
-  onDismissWorkspaceHint,
   showHarnessToggle = false,
   harnessPanelVisible = false,
   onToggleHarnessPanel,
@@ -210,7 +194,7 @@ export const ChatNavbar: React.FC<ChatNavbarProps> = ({
     toolbarGroupClassName,
     (isWorkspaceCompact || effectiveCollapseChrome) && "rounded-[18px] p-1",
     effectiveCollapseChrome &&
-      "border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface)] shadow-sm shadow-slate-950/5 backdrop-blur-0",
+      "border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface)] shadow-sm shadow-slate-950/5 backdrop-blur-0",
   );
   const dividerClassName = cn(
     toolbarDividerClassName,
@@ -263,15 +247,7 @@ export const ChatNavbar: React.FC<ChatNavbarProps> = ({
     const hasCurrentProject = openedProjectTabs.some(
       (project) => normalizeProjectId(project.id) === normalizedProjectId,
     );
-    return hasCurrentProject
-      ? openedProjectTabs
-      : [
-          ...openedProjectTabs,
-          {
-            id: normalizedProjectId,
-            name: resolveProjectNameFromId(normalizedProjectId),
-          },
-        ];
+    return hasCurrentProject ? openedProjectTabs : [{ id: "", name: "" }];
   }, [normalizedProjectId, openedProjectTabs]);
   const canCloseProjectTabs = Boolean(
     onCloseProject && orderedOpenedProjectTabs.length > 1,
@@ -354,7 +330,7 @@ export const ChatNavbar: React.FC<ChatNavbarProps> = ({
                       copy={inputbarCoreCopy.projectContext}
                       className="min-w-0 flex-1 flex-nowrap"
                       projectTriggerClassName={cn(
-                        "h-8 w-full max-w-none justify-start rounded-t-[16px] rounded-b-none bg-transparent px-2.5 pb-0.5 text-sm text-[color:var(--ember-chrome-text)] hover:bg-transparent hover:text-[color:var(--ember-chrome-text)] hover:shadow-none",
+                        "h-8 w-full max-w-none justify-start rounded-t-[16px] rounded-b-none bg-transparent px-2.5 pb-0.5 text-sm text-[color:var(--lime-chrome-text)] hover:bg-transparent hover:text-[color:var(--lime-chrome-text)] hover:shadow-none",
                         canCloseActiveProject
                           ? "max-w-[188px]"
                           : "max-w-[224px]",
@@ -413,37 +389,12 @@ export const ChatNavbar: React.FC<ChatNavbarProps> = ({
               );
             })}
             <div className="relative ml-2 flex h-9 items-center pb-1">
-              {workspaceHintVisible && workspaceHintMessage ? (
-                <div
-                  className="absolute bottom-full left-1/2 z-40 mb-2 flex w-max max-w-[220px] -translate-x-1/2 items-center gap-2 rounded-2xl border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface)] px-3 py-2 text-xs font-medium text-[color:var(--ember-text)] shadow-lg shadow-slate-950/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                  data-testid="task-center-workspace-hint"
-                  role="status"
-                >
-                  <span>{workspaceHintMessage}</span>
-                  <button
-                    type="button"
-                    className="rounded-full px-1 text-[color:var(--ember-text-muted)] transition hover:bg-[color:var(--ember-surface-hover)] hover:text-[color:var(--ember-text)] dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                    aria-label={navText(
-                      "agentChat.navbar.dismissWorkspaceHint",
-                      "关闭工作区提示",
-                    )}
-                    onClick={onDismissWorkspaceHint}
-                  >
-                    ×
-                  </button>
-                  <span
-                    aria-hidden="true"
-                    className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface)] dark:border-slate-700 dark:bg-slate-900"
-                  />
-                </div>
-              ) : null}
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 rounded-[14px] bg-transparent text-[color:var(--ember-chrome-muted)] shadow-none hover:bg-[color:var(--ember-chrome-tab-hover)] hover:text-[color:var(--ember-chrome-text)] dark:text-slate-300 dark:hover:text-white"
+                className="h-8 w-8 rounded-[14px] bg-transparent text-[color:var(--lime-chrome-muted)] shadow-none hover:bg-[color:var(--lime-chrome-tab-hover)] hover:text-[color:var(--lime-chrome-text)] dark:text-slate-300 dark:hover:text-white"
                 onClick={() => {
-                  onDismissWorkspaceHint?.();
                   setWorkspaceSelectorOpen((current) => !current);
                 }}
                 aria-label={
@@ -475,98 +426,7 @@ export const ChatNavbar: React.FC<ChatNavbarProps> = ({
               </Button>
             </div>
           </div>
-
-          <div className="ml-auto flex h-9 shrink-0 items-center gap-1 pb-1">
-            {showContextCompactionAction ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className={taskCenterIconButtonClassName}
-                onClick={onCompactContext}
-                disabled={contextCompactionRunning}
-                aria-label={
-                  contextCompactionRunning
-                    ? navText(
-                        "agentChat.navbar.compactContextRunning",
-                        "正在压缩上下文",
-                      )
-                    : navText("agentChat.navbar.compactContext", "压缩上下文")
-                }
-                title={
-                  contextCompactionRunning
-                    ? navText(
-                        "agentChat.navbar.compactContextRunning",
-                        "正在压缩上下文",
-                      )
-                    : navText("agentChat.navbar.compactContext", "压缩上下文")
-                }
-              >
-                <Box size={15} />
-              </Button>
-            ) : null}
-
-            {showHarnessToggle ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  taskCenterPillButtonClassName,
-                  "gap-1 px-2.5",
-                  harnessPanelVisible &&
-                    "bg-[color:var(--ember-chrome-tab-active-surface)] text-[color:var(--ember-text)]",
-                  harnessAttentionLevel === "warning" &&
-                    !harnessPanelVisible &&
-                    "bg-[color:var(--ember-warning-soft)] text-[color:var(--ember-warning)] hover:bg-[color:var(--ember-warning-soft)] hover:text-[color:var(--ember-warning)]",
-                )}
-                onClick={onToggleHarnessPanel}
-                aria-label={
-                  harnessPanelVisible
-                    ? navText(
-                        "agentChat.navbar.closeHarness",
-                        "关闭{{label}}",
-                        { label: harnessToggleLabel },
-                      )
-                    : navText("agentChat.navbar.openHarness", "打开{{label}}", {
-                        label: harnessToggleLabel,
-                      })
-                }
-                aria-expanded={harnessPanelVisible}
-                title={harnessToggleLabel}
-              >
-                <Sparkles size={12} />
-                <span>{harnessToggleLabel}</span>
-                {harnessPendingCount > 0 ? (
-                  <span className="rounded-full border border-[color:var(--ember-surface-border-strong)] bg-[color:var(--ember-surface)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-[color:var(--ember-brand-strong)]">
-                    {harnessPendingCount > 99 ? "99+" : harnessPendingCount}
-                  </span>
-                ) : null}
-                <ChevronDown
-                  className={cn(
-                    "h-3 w-3 transition-transform",
-                    harnessPanelVisible && "rotate-180",
-                  )}
-                />
-              </Button>
-            ) : null}
-
-            {onToggleSettings ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                className={taskCenterIconButtonClassName}
-                onClick={onToggleSettings}
-                aria-label={navText(
-                  "agentChat.navbar.openSettings",
-                  "打开设置",
-                )}
-                title={navText("agentChat.navbar.openSettings", "打开设置")}
-              >
-                <Settings size={16} />
-              </Button>
-            ) : null}
-          </div>
+          <div className="ml-auto h-9 shrink-0" aria-hidden="true" />
         </div>
       </Navbar>
     );
@@ -574,7 +434,10 @@ export const ChatNavbar: React.FC<ChatNavbarProps> = ({
 
   return (
     <Navbar $compact={isWorkspaceCompact} $collapsed={effectiveCollapseChrome}>
-      <div className="flex items-center gap-2">
+      <div
+        className="flex min-w-0 items-center gap-2 overflow-hidden"
+        data-testid="chat-navbar-leading-tools"
+      >
         {showNavigationTools ? (
           <div className={groupClassName}>
             {onBackHome && (
@@ -665,7 +528,7 @@ export const ChatNavbar: React.FC<ChatNavbarProps> = ({
             )}
           >
             <div className="flex min-w-0 flex-col gap-1">
-              <span className="inline-flex w-fit items-center rounded-full border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface-muted)] px-3 py-1 text-[11px] font-medium text-[color:var(--ember-text-muted)]">
+              <span className="inline-flex w-fit items-center rounded-full border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface-muted)] px-3 py-1 text-[11px] font-medium text-[color:var(--lime-text-muted)]">
                 {entryContextLabel}
               </span>
               {!isWorkspaceCompact && entryContextHint ? (
@@ -680,7 +543,10 @@ export const ChatNavbar: React.FC<ChatNavbarProps> = ({
 
       <div className="flex-1" />
 
-      <div className="flex items-center gap-2">
+      <div
+        className="flex min-w-0 shrink-0 flex-nowrap items-center gap-2 overflow-hidden whitespace-nowrap"
+        data-testid="chat-navbar-trailing-tools"
+      >
         {showProjectSelector ? (
           <div className={groupClassName}>
             <ProjectSelector
@@ -752,11 +618,22 @@ export const ChatNavbar: React.FC<ChatNavbarProps> = ({
                 )}
                 onClick={onCompactContext}
                 disabled={contextCompactionRunning}
-                aria-label={navText(
-                  "agentChat.navbar.compactContext",
-                  "压缩上下文",
-                )}
-                title={navText("agentChat.navbar.compactContext", "压缩上下文")}
+                aria-label={
+                  contextCompactionRunning
+                    ? navText(
+                        "agentChat.navbar.compactContextRunning",
+                        "正在压缩上下文",
+                      )
+                    : navText("agentChat.navbar.compactContext", "压缩上下文")
+                }
+                title={
+                  contextCompactionRunning
+                    ? navText(
+                        "agentChat.navbar.compactContextRunning",
+                        "正在压缩上下文",
+                      )
+                    : navText("agentChat.navbar.compactContext", "压缩上下文")
+                }
               >
                 <Box size={14} />
                 <span>
@@ -783,10 +660,10 @@ export const ChatNavbar: React.FC<ChatNavbarProps> = ({
                   embeddedButtonClassName,
                   toolbarTextButtonClassName,
                   harnessPanelVisible &&
-                    "bg-[color:var(--ember-surface-hover)] text-[color:var(--ember-text)]",
+                    "bg-[color:var(--lime-surface-hover)] text-[color:var(--lime-text)]",
                   harnessAttentionLevel === "warning" &&
                     !harnessPanelVisible &&
-                    "border-[color:var(--ember-warning-border)] bg-[color:var(--ember-warning-soft)] text-[color:var(--ember-warning)] hover:bg-[color:var(--ember-warning-soft)] hover:text-[color:var(--ember-warning)]",
+                    "border-[color:var(--lime-warning-border)] bg-[color:var(--lime-warning-soft)] text-[color:var(--lime-warning)] hover:bg-[color:var(--lime-warning-soft)] hover:text-[color:var(--lime-warning)]",
                 )}
                 onClick={onToggleHarnessPanel}
                 aria-label={
@@ -806,7 +683,7 @@ export const ChatNavbar: React.FC<ChatNavbarProps> = ({
                 <Sparkles size={14} />
                 <span>{harnessToggleLabel}</span>
                 {harnessPendingCount > 0 ? (
-                  <span className="rounded-full border border-[color:var(--ember-surface-border-strong)] bg-[color:var(--ember-surface)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-[color:var(--ember-brand-strong)] shadow-sm shadow-slate-950/10">
+                  <span className="rounded-full border border-[color:var(--lime-surface-border-strong)] bg-[color:var(--lime-surface)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-[color:var(--lime-brand-strong)] shadow-sm shadow-slate-950/10">
                     {harnessPendingCount > 99 ? "99+" : harnessPendingCount}
                   </span>
                 ) : null}

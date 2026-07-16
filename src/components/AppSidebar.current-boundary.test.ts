@@ -19,13 +19,50 @@ function sourceBetween(
   return source.slice(start, end);
 }
 
+const SIDEBAR_SESSION_DOMAIN_SOURCES = [
+  "src/components/AppSidebar.tsx",
+  "src/components/AppSidebar.conversations.test.tsx",
+  "src/components/AppSidebar.testFixtures.tsx",
+  "src/components/app-sidebar/AppSidebarConversationMenus.tsx",
+  "src/components/app-sidebar/AppSidebarConversationRow.test.tsx",
+  "src/components/app-sidebar/AppSidebarConversationRow.tsx",
+  "src/components/app-sidebar/AppSidebarConversationShelf.tsx",
+  "src/components/app-sidebar/AppSidebarProjectConversationGroups.tsx",
+  "src/components/app-sidebar/AppSidebarSearchDialog.tsx",
+  "src/components/app-sidebar/sidebarConversationGroups.test.ts",
+  "src/components/app-sidebar/sidebarConversationGroups.ts",
+  "src/components/app-sidebar/sidebarSessionFormatting.test.ts",
+  "src/components/app-sidebar/sidebarSessionFormatting.ts",
+  "src/components/app-sidebar/sidebarSessions.test.ts",
+  "src/components/app-sidebar/sidebarSessions.ts",
+  "src/components/app-sidebar/useAppSidebarConversationActions.ts",
+  "src/components/app-sidebar/useAppSidebarSessions.ts",
+  "src/components/settings-v2/general/archived-conversations/index.test.tsx",
+  "src/components/settings-v2/general/archived-conversations/index.tsx",
+] as const;
+
 describe("AppSidebar current App Server session boundary", () => {
+  it("侧栏会话域不得回绕 agentRuntime compat 根 barrel", () => {
+    for (const relativePath of SIDEBAR_SESSION_DOMAIN_SOURCES) {
+      const source = readSource(relativePath);
+
+      expect(source, relativePath).not.toContain(
+        'from "@/lib/api/agentRuntime"',
+      );
+      expect(source, relativePath).not.toContain(
+        'vi.mock("@/lib/api/agentRuntime"',
+      );
+    }
+  });
+
   it("侧栏归档 / 恢复入口只能经 agentRuntime session gateway 更新 session", () => {
-    const source = readSource("src/components/AppSidebar.tsx");
+    const source = readSource(
+      "src/components/app-sidebar/useAppSidebarConversationActions.ts",
+    );
     const archiveHandler = sourceBetween(
       source,
-      "const handleToggleSessionArchive = useCallback(",
-      "const handleDeleteConversation = useCallback(",
+      "const toggleSessionArchive = useCallback(",
+      "const deleteConversation = useCallback(",
     );
 
     expect(archiveHandler).toContain("await updateAgentRuntimeSession({");
@@ -58,16 +95,15 @@ describe("AppSidebar current App Server session boundary", () => {
       "appServerSessionClient.updateAgentRuntimeSession(request)",
     );
     expect(deleteFunction).toContain(
-      "return await updateAgentRuntimeSession({",
+      "appServerSessionClient.deleteAgentRuntimeSession(sessionId)",
     );
-    expect(deleteFunction).toContain("session_id: sessionId");
-    expect(deleteFunction).toContain("archived: true");
+    expect(deleteFunction).toContain('reason: "deleted"');
     expect(source).not.toContain('"agent_runtime_update_session"');
     expect(source).not.toContain('"agent_runtime_delete_session"');
     expect(source).not.toContain("invokeCommand(");
   });
 
-  it("App Server session gateway 必须通过 agentSession/list/read/update 事实源", () => {
+  it("App Server session gateway 必须通过 agentSession/list/read/update/delete 事实源", () => {
     const source = readSource(
       "src/lib/api/agentRuntime/appServerSessionClient.ts",
     );
@@ -90,9 +126,12 @@ describe("AppSidebar current App Server session boundary", () => {
     expect(listFunction).toContain("METHOD_AGENT_SESSION_LIST");
     expect(getFunction).toContain("appServerClient.readSession(");
     expect(updateFunction).toContain("appServerClient.updateSession(");
+    expect(updateFunction).toContain("appServerClient.deleteSession(");
+    expect(updateFunction).toContain("agentSession/delete did not confirm deletion");
     expect(source).not.toContain('"agent_runtime_list_sessions"');
     expect(source).not.toContain('"agent_runtime_get_session"');
     expect(source).not.toContain('"agent_runtime_update_session"');
+    expect(source).not.toContain('"agent_runtime_delete_session"');
     expect(source).not.toContain("safeInvoke");
     expect(source).not.toContain("invokeCommand");
   });

@@ -3,15 +3,15 @@ name: pdf_read
 description: 读取本地或工作区 PDF 内容，并输出结构化解读结果。
 allowed-tools: list_directory, read_file
 metadata:
-  ember_argument_hint: 输入 PDF 文件路径、关注重点与输出格式要求。
-  ember_when_to_use: 用户需要阅读本地 PDF、提炼结论、整理证据或快速理解文档时使用。
-  ember_version: 1.0.0
-  ember_execution_mode: prompt
-  ember_surface: chat
-  ember_category: research
+  lime_argument_hint: 输入 PDF 文件路径、关注重点与输出格式要求。
+  lime_when_to_use: 用户需要阅读本地 PDF、提炼结论、整理证据或快速理解文档时使用。
+  lime_version: 1.0.0
+  lime_execution_mode: prompt
+  lime_surface: chat
+  lime_category: research
 ---
 
-你是 Ember 的 PDF 解读助手。
+你是 Lime 的 PDF 解读助手。
 
 ## 工作目标
 

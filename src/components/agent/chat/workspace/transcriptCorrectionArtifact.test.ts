@@ -20,7 +20,7 @@ function createTranscriptionDocument(): ArtifactDocumentV1 {
         title: "转写时间轴（可逐段编辑校对）",
         columns: ["时间", "说话人", "内容"],
         rows: [
-          ["00:01 - 00:03", "主持人", "欢迎来到 Ember 访谈节目。"],
+          ["00:01 - 00:03", "主持人", "欢迎来到 Lime 访谈节目。"],
           ["00:04 - 00:07", "嘉宾", "这里是修订后的回答。"],
         ],
       },
@@ -29,7 +29,7 @@ function createTranscriptionDocument(): ArtifactDocumentV1 {
         type: "code_block",
         title: "转写文本（可编辑校对）",
         language: "text",
-        code: "欢迎来到 Ember 访谈节目。\n这里是修订后的回答。",
+        code: "欢迎来到 Lime 访谈节目。\n这里是修订后的回答。",
       },
     ],
     sources: [],
@@ -37,8 +37,8 @@ function createTranscriptionDocument(): ArtifactDocumentV1 {
       taskId: "task-transcription-1",
       taskType: "transcription_generate",
       modalityContractKey: "audio_transcription",
-      transcriptPath: ".ember/runtime/transcripts/task-transcription-1.txt",
-      transcriptText: "欢迎来到 Ember 访谈节目。\n这里是修订后的回答。",
+      transcriptPath: ".lime/runtime/transcripts/task-transcription-1.txt",
+      transcriptText: "欢迎来到 Lime 访谈节目。\n这里是修订后的回答。",
       transcriptSegments: [
         {
           id: "segment-1",
@@ -46,7 +46,7 @@ function createTranscriptionDocument(): ArtifactDocumentV1 {
           startMs: 1000,
           endMs: 3000,
           speaker: "主持人",
-          text: "欢迎来到 Ember 访谈节目。",
+          text: "欢迎来到 Lime 访谈节目。",
         },
         {
           id: "segment-2",
@@ -72,7 +72,7 @@ describe("transcriptCorrectionArtifact", () => {
         startMs: 1000,
         endMs: 3000,
         speaker: "主持人",
-        text: "欢迎来到 Ember 访谈节目。",
+        text: "欢迎来到 Lime 访谈节目。",
       },
       {
         id: "corrected-segment-2",
@@ -108,7 +108,7 @@ describe("transcriptCorrectionArtifact", () => {
       transcriptCorrectionSegmentCount: 2,
       transcriptCorrectionSpeakerCount: 2,
       transcriptCorrectionSourceTranscriptPath:
-        ".ember/runtime/transcripts/task-transcription-1.txt",
+        ".lime/runtime/transcripts/task-transcription-1.txt",
       transcriptCorrectionDiffSummary: {
         textChanged: false,
         originalTextLength: 26,

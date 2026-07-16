@@ -5,11 +5,11 @@ import type {
 } from "./cleanPlate";
 
 export const LAYERED_DESIGN_CLEAN_PLATE_WORKER_REQUEST =
-  "ember.layered_design.clean_plate.request" as const;
+  "lime.layered_design.clean_plate.request" as const;
 export const LAYERED_DESIGN_CLEAN_PLATE_WORKER_RESULT =
-  "ember.layered_design.clean_plate.result" as const;
+  "lime.layered_design.clean_plate.result" as const;
 export const LAYERED_DESIGN_CLEAN_PLATE_WORKER_ERROR =
-  "ember.layered_design.clean_plate.error" as const;
+  "lime.layered_design.clean_plate.error" as const;
 
 export interface LayeredDesignCleanPlateWorkerRequest {
   type: typeof LAYERED_DESIGN_CLEAN_PLATE_WORKER_REQUEST;

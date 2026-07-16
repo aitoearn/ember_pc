@@ -1,6 +1,6 @@
 # A2UI - Agent-to-User Interface
 
-结构化 UI 响应系统，对齐官方 React renderer 目录面，并兼容 Ember 当前业务链路中出现的简化表单、消息数组与 JSONL A2UI 消息。
+结构化 UI 响应系统，对齐官方 React renderer 目录面，并兼容 Lime 当前业务链路中出现的简化表单、消息数组与 JSONL A2UI 消息。
 
 ## 功能概述
 
@@ -109,7 +109,7 @@ AI 响应中使用 `\`\`\`a2ui` 代码块包裹 JSON：
 
 ## 相关项目
 
-- `aster-a2ui`: Rust 实现的 A2UI 协议库（位于 aster-rust 框架）
+- `agent-a2ui`: Rust 实现的 A2UI 协议库（位于 agent-rust 框架）
 
 ## 依赖关系
 

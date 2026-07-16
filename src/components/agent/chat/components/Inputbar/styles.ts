@@ -43,12 +43,12 @@ export const Container = styled.div`
 
 export const InputBarContainer = styled.div`
   position: relative;
-  border: 1px solid var(--ember-composer-border, rgba(110, 231, 183, 0.84));
+  border: 1px solid var(--lime-composer-border, rgba(110, 231, 183, 0.84));
   border-radius: 22px;
   padding: 10px 12px 10px 10px;
-  background: var(--ember-composer-surface);
+  background: var(--lime-composer-surface);
   box-shadow:
-    0 10px 28px var(--ember-shadow-color),
+    0 10px 28px var(--lime-shadow-color),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   transition:
     border-color 0.2s ease,
@@ -56,26 +56,26 @@ export const InputBarContainer = styled.div`
     background 0.2s ease;
 
   &:focus-within {
-    border-color: var(--ember-composer-border-focus, rgba(74, 222, 128, 0.7));
-    background: var(--ember-composer-surface-focus);
+    border-color: var(--lime-composer-border-focus, rgba(74, 222, 128, 0.7));
+    background: var(--lime-composer-surface-focus);
     box-shadow:
-      0 0 0 3px var(--ember-focus-ring, rgba(74, 222, 128, 0.24)),
-      0 14px 32px var(--ember-shadow-color),
+      0 0 0 3px var(--lime-focus-ring, rgba(74, 222, 128, 0.24)),
+      0 14px 32px var(--lime-shadow-color),
       inset 0 1px 0 rgba(255, 255, 255, 0.92);
   }
 
   &.file-dragging {
-    border: 2px dashed var(--ember-brand, #10b981);
-    background-color: var(--ember-brand-soft, #ecfdf5);
+    border: 2px dashed var(--lime-brand, #10b981);
+    background-color: var(--lime-brand-soft, #ecfdf5);
   }
 
   &.floating-composer {
     border-radius: 34px;
     padding: 20px 24px 18px 22px;
-    background: var(--ember-composer-surface-floating);
-    border-color: var(--ember-composer-border, rgba(110, 231, 183, 0.84));
+    background: var(--lime-composer-surface-floating);
+    border-color: var(--lime-composer-border, rgba(110, 231, 183, 0.84));
     box-shadow:
-      0 28px 56px -38px var(--ember-shadow-color),
+      0 28px 56px -38px var(--lime-shadow-color),
       inset 0 1px 0 rgba(255, 255, 255, 0.88);
   }
 
@@ -84,7 +84,7 @@ export const InputBarContainer = styled.div`
     border-bottom-left-radius: 0;
     border-bottom-color: transparent;
     box-shadow:
-      0 18px 42px -36px var(--ember-shadow-color),
+      0 18px 42px -36px var(--lime-shadow-color),
       inset 0 1px 0 rgba(255, 255, 255, 0.88);
   }
 
@@ -94,11 +94,11 @@ export const InputBarContainer = styled.div`
   }
 
   &.floating-composer:focus-within {
-    background: var(--ember-composer-surface-focus);
-    border-color: var(--ember-composer-border-focus, rgba(74, 222, 128, 0.7));
+    background: var(--lime-composer-surface-focus);
+    border-color: var(--lime-composer-border-focus, rgba(74, 222, 128, 0.7));
     box-shadow:
-      0 0 0 3px var(--ember-focus-ring, rgba(74, 222, 128, 0.24)),
-      0 28px 56px -34px var(--ember-shadow-color),
+      0 0 0 3px var(--lime-focus-ring, rgba(74, 222, 128, 0.24)),
+      0 28px 56px -34px var(--lime-shadow-color),
       inset 0 1px 0 rgba(255, 255, 255, 0.88);
   }
 
@@ -106,7 +106,7 @@ export const InputBarContainer = styled.div`
     border-bottom-color: transparent;
     box-shadow:
       0 0 0 3px rgba(74, 222, 128, 0.1),
-      0 22px 48px -38px var(--ember-shadow-color),
+      0 22px 48px -38px var(--lime-shadow-color),
       inset 0 1px 0 rgba(255, 255, 255, 0.88);
   }
 `;
@@ -130,27 +130,35 @@ export const InputColumn = styled.div`
   position: relative;
 `;
 
-export const DictationRecordingGlyph = styled.span`
+export const DictationRecordingDot = styled.span`
   display: inline-flex;
-  width: 16px;
-  height: 16px;
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: currentColor;
+`;
+
+export const DictationRecordingWaveform = styled.span`
+  display: inline-flex;
+  width: 34px;
+  height: 10px;
   flex: 0 0 auto;
   align-items: center;
-  justify-content: center;
+  opacity: 0.76;
 
   &::before {
-    content: "";
-    width: 3px;
-    height: 13px;
-    border-radius: 999px;
-    background: currentColor;
-    box-shadow:
-      -5px 3px 0 currentColor,
-      5px 3px 0 currentColor;
+    content: "••••••";
+    font-size: 13px;
+    line-height: 1;
+    letter-spacing: 1px;
   }
 `;
 
 export const DictationRecordingDuration = styled.span`
+  display: inline-flex;
+  width: 36px;
+  justify-content: flex-start;
   font-size: 13px;
   font-weight: 760;
   line-height: 1;
@@ -159,53 +167,13 @@ export const DictationRecordingDuration = styled.span`
   white-space: nowrap;
 `;
 
-export const InputSuggestionLayer = styled.div`
-  position: absolute;
-  top: 4px;
-  right: 0;
-  left: 0;
-  z-index: 0;
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 9px;
-  color: hsl(var(--muted-foreground) / 0.58);
-  font-size: 14px;
-  line-height: 1.5;
-  pointer-events: none;
-
-  &.floating-composer {
-    top: 4px;
-    font-size: 17px;
-    line-height: 1.78;
-  }
-
-  &.floating-composer.floating-collapsed {
-    top: 8px;
-    line-height: 1.35;
-  }
-`;
-
-export const InputSuggestionText = styled.span`
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-`;
-
-export const InputSuggestionKeycap = styled.span`
-  display: inline-flex;
-  min-height: 25px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.11);
-  padding: 0 0.62rem;
-  color: hsl(var(--muted-foreground) / 0.82);
-  font-size: 0.82em;
-  font-weight: 760;
-  letter-spacing: 0.01em;
+export const DictationLiveTranscript = styled.div`
+  margin-top: 4px;
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+  line-height: 1.45;
+  word-break: break-word;
+  opacity: 0.86;
 `;
 
 export const StyledTextarea = styled.textarea`
@@ -327,8 +295,8 @@ export const MetaSelectWrap = styled.label`
   min-height: 28px;
   padding: 0 12px 0 10px;
   border-radius: 999px;
-  border: 1px solid var(--ember-surface-border, rgba(226, 240, 226, 0.82));
-  background: var(--ember-surface, #ffffff);
+  border: 1px solid var(--lime-surface-border, rgba(226, 240, 226, 0.82));
+  background: var(--lime-surface, #ffffff);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
   color: hsl(var(--muted-foreground));
   transition:
@@ -352,10 +320,10 @@ export const MetaSelectWrap = styled.label`
   }
 
   &:focus-within {
-    border-color: var(--ember-surface-border-strong, #bbf7d0);
-    background: var(--ember-surface, #ffffff);
+    border-color: var(--lime-surface-border-strong, #bbf7d0);
+    background: var(--lime-surface, #ffffff);
     box-shadow:
-      0 0 0 3px var(--ember-focus-ring, rgba(74, 222, 128, 0.24)),
+      0 0 0 3px var(--lime-focus-ring, rgba(74, 222, 128, 0.24)),
       inset 0 1px 0 rgba(255, 255, 255, 0.92);
     color: hsl(var(--foreground));
   }
@@ -412,12 +380,12 @@ export const MetaToggleButton = styled.button<{
   border: 1px solid
     ${({ $checked }) =>
       $checked
-        ? "var(--ember-surface-border-strong, #bbf7d0)"
-        : "var(--ember-surface-border, rgba(226, 240, 226, 0.82))"};
+        ? "var(--lime-surface-border-strong, #bbf7d0)"
+        : "var(--lime-surface-border, rgba(226, 240, 226, 0.82))"};
   background: ${({ $checked }) =>
     $checked
-      ? "var(--ember-brand-soft, #ecfdf5)"
-      : "var(--ember-surface, #ffffff)"};
+      ? "var(--lime-brand-soft, #ecfdf5)"
+      : "var(--lime-surface, #ffffff)"};
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
   color: ${({ $checked }) =>
     $checked ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))"};
@@ -432,21 +400,21 @@ export const MetaToggleButton = styled.button<{
   &:hover {
     border-color: ${({ $checked }) =>
       $checked
-        ? "var(--ember-surface-border-strong, #bbf7d0)"
-        : "var(--ember-surface-border, rgba(226, 240, 226, 0.82))"};
+        ? "var(--lime-surface-border-strong, #bbf7d0)"
+        : "var(--lime-surface-border, rgba(226, 240, 226, 0.82))"};
     background: ${({ $checked }) =>
       $checked
-        ? "var(--ember-brand-soft, #ecfdf5)"
-        : "var(--ember-surface-hover, #f4fdf4)"};
+        ? "var(--lime-brand-soft, #ecfdf5)"
+        : "var(--lime-surface-hover, #f4fdf4)"};
     color: hsl(var(--foreground));
     transform: translateY(-1px);
   }
 
   &:focus-visible {
     outline: none;
-    border-color: var(--ember-surface-border-strong, #bbf7d0);
+    border-color: var(--lime-surface-border-strong, #bbf7d0);
     box-shadow:
-      0 0 0 3px var(--ember-focus-ring, rgba(74, 222, 128, 0.24)),
+      0 0 0 3px var(--lime-focus-ring, rgba(74, 222, 128, 0.24)),
       inset 0 1px 0 rgba(255, 255, 255, 0.92);
   }
 
@@ -469,12 +437,12 @@ export const MetaToggleCheck = styled.span<{
   border: 1px solid
     ${({ $checked }) =>
       $checked
-        ? "var(--ember-brand, #10b981)"
-        : "var(--ember-surface-border, rgba(226, 240, 226, 0.82))"};
+        ? "var(--lime-brand, #10b981)"
+        : "var(--lime-surface-border, rgba(226, 240, 226, 0.82))"};
   background: ${({ $checked }) =>
     $checked
-      ? "var(--ember-brand-soft, #ecfdf5)"
-      : "var(--ember-surface, #ffffff)"};
+      ? "var(--lime-brand-soft, #ecfdf5)"
+      : "var(--lime-surface, #ffffff)"};
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
   flex-shrink: 0;
 
@@ -637,10 +605,43 @@ export const ModeStatusLabel = styled.span`
   line-height: 1;
 `;
 
+export const PlanModeContext = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  max-width: min(360px, 100%);
+  min-width: 0;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(20, 184, 166, 0.24);
+  background: rgba(240, 253, 250, 0.9);
+  color: #0f766e;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+`;
+
+export const PlanModeContextSegment = styled.span`
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+export const PlanModeContextSeparator = styled.span`
+  color: rgba(15, 118, 110, 0.48);
+`;
+
 export const ActionButtonGroup = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
+  align-self: flex-end;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  padding-bottom: 2px;
 `;
 
 // --- InputbarTools Styles ---
@@ -672,9 +673,9 @@ export const ToolButton = styled.button`
   }
 
   &.active {
-    color: var(--ember-brand-strong, #166534);
-    border-color: var(--ember-surface-border-strong, #bbf7d0);
-    background: var(--ember-brand-soft, #ecfdf5);
+    color: var(--lime-brand-strong, #166534);
+    border-color: var(--lime-surface-border-strong, #bbf7d0);
+    background: var(--lime-brand-soft, #ecfdf5);
   }
 
   span {
@@ -708,7 +709,7 @@ export const InputIconButton = styled.button<{
           : "rgba(148, 163, 184, 0.28)"};
   background: ${({ $primary, $destructive }) =>
     $primary
-      ? "var(--ember-brand, #10b981)"
+      ? "var(--lime-brand, #10b981)"
       : $destructive
         ? "rgba(255, 226, 234, 0.92)"
         : "rgba(255, 255, 255, 0.9)"};
@@ -729,7 +730,7 @@ export const InputIconButton = styled.button<{
     transform: translateY(-1px);
     background: ${({ $primary, $destructive }) =>
       $primary
-        ? "var(--ember-brand-strong, #166534)"
+        ? "var(--lime-brand-strong, #166534)"
         : $destructive
           ? "rgba(255, 221, 229, 1)"
           : "rgba(255, 255, 255, 1)"};
@@ -742,32 +743,57 @@ export const InputIconButton = styled.button<{
   }
 
   &.is-active {
-    border-color: var(--ember-surface-border-strong, #bbf7d0);
-    background: var(--ember-brand-soft, #ecfdf5);
-    color: var(--ember-brand-strong, #166534);
+    border-color: var(--lime-surface-border-strong, #bbf7d0);
+    background: var(--lime-brand-soft, #ecfdf5);
+    color: var(--lime-brand-strong, #166534);
+  }
+
+  &.is-dictation {
+    border-color: rgba(16, 185, 129, 0.34);
+    background: rgba(236, 253, 245, 0.94);
+    color: var(--lime-brand-strong, #166534);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+  }
+
+  &.is-dictation:hover:not(:disabled) {
+    border-color: rgba(16, 185, 129, 0.48);
+    background: rgba(220, 252, 231, 0.98);
+    color: #14532d;
   }
 
   &.is-recording {
     gap: 6px;
-    width: auto;
-    min-width: 74px;
+    width: 128px;
+    min-width: 128px;
+    max-width: 128px;
     padding: 0 12px 0 11px;
-    border-color: rgba(239, 68, 68, 0.2);
-    background: #ef4444;
-    color: #ffffff;
-    box-shadow: 0 12px 26px -18px rgba(185, 28, 28, 0.64);
+    border-color: rgba(190, 18, 60, 0.2);
+    background: rgba(255, 241, 242, 0.96);
+    color: #be123c;
+    box-shadow:
+      0 12px 26px -20px rgba(190, 18, 60, 0.48),
+      inset 0 1px 0 rgba(255, 255, 255, 0.86);
+    transform: none;
   }
 
   &.is-recording:hover:not(:disabled) {
-    background: #dc2626;
-    color: #ffffff;
-    box-shadow: 0 14px 28px -18px rgba(153, 27, 27, 0.72);
+    border-color: rgba(190, 18, 60, 0.3);
+    background: rgba(255, 228, 230, 0.98);
+    color: #9f1239;
+    transform: none;
+    box-shadow:
+      0 14px 28px -20px rgba(190, 18, 60, 0.54),
+      inset 0 1px 0 rgba(255, 255, 255, 0.92);
   }
 
   &.is-processing {
-    border-color: var(--ember-surface-border-strong, #bbf7d0);
-    background: var(--ember-brand-soft, #ecfdf5);
-    color: var(--ember-brand-strong, #166534);
+    border-color: var(--lime-surface-border-strong, #bbf7d0);
+    background: var(--lime-brand-soft, #ecfdf5);
+    color: var(--lime-brand-strong, #166534);
+  }
+
+  &.is-processing svg {
+    animation: lime-inputbar-spin 0.9s linear infinite;
   }
 
   &:disabled {
@@ -775,6 +801,12 @@ export const InputIconButton = styled.button<{
     color: hsl(var(--muted-foreground));
     opacity: 0.5;
     transform: none;
+  }
+
+  @keyframes lime-inputbar-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 `;
 
@@ -786,6 +818,14 @@ export const SendButton = styled(InputIconButton).attrs({
   svg {
     width: 16px;
     height: 16px;
+  }
+
+  &:disabled {
+    border-color: rgba(148, 163, 184, 0.24);
+    background: rgba(226, 232, 240, 0.92);
+    color: #64748b;
+    opacity: 1;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
   }
 `;
 

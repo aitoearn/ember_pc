@@ -26,7 +26,7 @@ export function createDefaultLayeredDesignCleanPlateWorker(): Worker {
   }
 
   return new Worker(new URL("./cleanPlate.worker.ts", import.meta.url), {
-    name: "ember-layered-design-clean-plate",
+    name: "lime-layered-design-clean-plate",
     type: "module",
   });
 }

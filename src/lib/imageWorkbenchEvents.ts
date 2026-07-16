@@ -1,10 +1,9 @@
-const IMAGE_WORKBENCH_REQUEST_EVENT = "ember:image-workbench-request";
-const IMAGE_WORKBENCH_FOCUS_EVENT = "ember:image-workbench-focus";
-const IMAGE_WORKBENCH_TASK_ACTION_EVENT = "ember:image-workbench-task-action";
+const IMAGE_WORKBENCH_REQUEST_EVENT = "lime:image-workbench-request";
+const IMAGE_WORKBENCH_FOCUS_EVENT = "lime:image-workbench-focus";
+const IMAGE_WORKBENCH_TASK_ACTION_EVENT = "lime:image-workbench-task-action";
 
 type ImageWorkbenchExternalRequestSource = "workspace-right-rail";
 type ImageWorkbenchExternalRequestTarget = "generate" | "cover";
-type ImageWorkbenchExternalRequestModelPreset = "basic" | "jimeng" | "kling";
 
 export interface ImageWorkbenchExternalRequestDetail {
   requestId: string;
@@ -15,7 +14,6 @@ export interface ImageWorkbenchExternalRequestDetail {
   target: ImageWorkbenchExternalRequestTarget;
   aspectRatio?: string;
   count?: number;
-  modelPreset?: ImageWorkbenchExternalRequestModelPreset;
 }
 
 export interface ImageWorkbenchFocusDetail {

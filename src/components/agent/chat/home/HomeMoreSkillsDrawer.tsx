@@ -12,10 +12,10 @@ const Drawer = styled.div`
   flex-direction: column;
   gap: 0.9rem;
   border-radius: 26px;
-  border: 1px solid var(--ember-surface-border, rgba(226, 232, 240, 0.92));
-  background: var(--ember-surface, #fff);
+  border: 1px solid var(--lime-surface-border, rgba(226, 232, 240, 0.92));
+  background: var(--lime-surface, #fff);
   padding: 1rem;
-  box-shadow: 0 22px 54px -40px var(--ember-shadow-color, rgba(15, 23, 42, 0.28));
+  box-shadow: 0 22px 54px -40px var(--lime-shadow-color, rgba(15, 23, 42, 0.28));
 `;
 
 const Section = styled.section`
@@ -28,7 +28,7 @@ const Section = styled.section`
 const SectionTitle = styled.h3`
   margin: 0;
   padding: 0 0.35rem;
-  color: var(--ember-text, rgb(71 85 105));
+  color: var(--lime-text, rgb(71 85 105));
   font-size: 13px;
   font-weight: 750;
   line-height: 1.4;
@@ -52,8 +52,8 @@ const DrawerItem = styled.button`
   align-items: center;
   gap: 0.62rem;
   border-radius: 18px;
-  border: 1px solid var(--ember-surface-border, rgba(226, 232, 240, 0.92));
-  background: var(--ember-surface-soft, rgba(248, 250, 252, 0.98));
+  border: 1px solid var(--lime-surface-border, rgba(226, 232, 240, 0.92));
+  background: var(--lime-surface-soft, rgba(248, 250, 252, 0.98));
   padding: 0.45rem;
   text-align: left;
   transition:
@@ -62,8 +62,8 @@ const DrawerItem = styled.button`
     transform 160ms ease;
 
   &:hover {
-    border-color: var(--ember-surface-border-strong, rgba(203, 213, 225, 0.96));
-    background: var(--ember-surface, #fff);
+    border-color: var(--lime-surface-border-strong, rgba(203, 213, 225, 0.96));
+    background: var(--lime-surface, #fff);
     transform: translateY(-1px);
   }
 `;
@@ -92,7 +92,7 @@ const ItemText = styled.span`
 const ItemTitle = styled.span`
   display: block;
   overflow: hidden;
-  color: var(--ember-text-strong, rgb(15 23 42));
+  color: var(--lime-text-strong, rgb(15 23 42));
   font-size: 13px;
   font-weight: 780;
   line-height: 1.35;
@@ -104,7 +104,7 @@ const ItemSummary = styled.span`
   display: block;
   margin-top: 0.12rem;
   overflow: hidden;
-  color: var(--ember-text-muted, rgb(100 116 139));
+  color: var(--lime-text-muted, rgb(100 116 139));
   font-size: 11px;
   line-height: 1.45;
   text-overflow: ellipsis;

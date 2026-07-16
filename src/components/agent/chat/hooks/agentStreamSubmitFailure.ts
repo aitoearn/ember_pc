@@ -14,6 +14,7 @@ import type {
   StreamRequestState,
 } from "./agentStreamSubmissionLifecycle";
 import type { WorkspacePathMissingState } from "./agentChatShared";
+import type { SoulInteractionCopy } from "@/lib/soul/interactionCopy";
 
 interface StreamObserver {
   onError?: (message: string) => void;
@@ -36,8 +37,8 @@ interface HandleSubmitFailureOptions {
   setIsSending: Dispatch<SetStateAction<boolean>>;
   clearActiveStreamIfMatch: (eventName: string) => boolean;
   disposeListener: () => void;
-  removeQueuedTurnState: (queuedTurnIds: string[]) => void;
   markOptimisticFailure: (errorMessage: string) => void;
+  soulCopy?: SoulInteractionCopy;
 }
 
 export function handleAgentStreamSubmitFailure(
@@ -58,8 +59,8 @@ export function handleAgentStreamSubmitFailure(
     setIsSending,
     clearActiveStreamIfMatch,
     disposeListener,
-    removeQueuedTurnState,
     markOptimisticFailure,
+    soulCopy,
   } = options;
 
   if (requestState.requestLogId && !requestState.requestFinished) {
@@ -72,9 +73,9 @@ export function handleAgentStreamSubmitFailure(
     });
   }
 
-  console.error("[AsterChat] 发送失败:", error);
+  console.error("[AgentChat] 发送失败:", error);
   const errMsg = error instanceof Error ? error.message : String(error);
-  const failedRuntimeStatus = buildFailedAgentRuntimeStatus(errMsg);
+  const failedRuntimeStatus = buildFailedAgentRuntimeStatus(errMsg, soulCopy);
   observer?.onError?.(errMsg);
 
   if (errMsg.includes("429") || errMsg.toLowerCase().includes("rate limit")) {
@@ -91,16 +92,17 @@ export function handleAgentStreamSubmitFailure(
   }
 
   markOptimisticFailure(errMsg);
-  removeQueuedTurnState(
-    requestState.queuedTurnId ? [requestState.queuedTurnId] : [],
-  );
   setMessages((prev) =>
     prev.map((msg) =>
       msg.id === assistantMsgId
         ? {
             ...updateMessageArtifactsStatus(msg, "error"),
             isThinking: false,
-            content: buildFailedAgentMessageContent(errMsg, msg.content),
+            content: buildFailedAgentMessageContent(
+              errMsg,
+              msg.content,
+              soulCopy,
+            ),
             runtimeStatus: failedRuntimeStatus,
           }
         : msg,

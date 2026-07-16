@@ -5,11 +5,11 @@ import type {
 } from "./analyzer";
 
 export const LAYERED_DESIGN_TEXT_OCR_WORKER_REQUEST =
-  "ember.layered_design.text_ocr.request" as const;
+  "lime.layered_design.text_ocr.request" as const;
 export const LAYERED_DESIGN_TEXT_OCR_WORKER_RESULT =
-  "ember.layered_design.text_ocr.result" as const;
+  "lime.layered_design.text_ocr.result" as const;
 export const LAYERED_DESIGN_TEXT_OCR_WORKER_ERROR =
-  "ember.layered_design.text_ocr.error" as const;
+  "lime.layered_design.text_ocr.error" as const;
 
 export interface LayeredDesignTextOcrWorkerRequest {
   type: typeof LAYERED_DESIGN_TEXT_OCR_WORKER_REQUEST;

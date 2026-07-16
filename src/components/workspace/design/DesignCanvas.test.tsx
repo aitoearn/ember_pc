@@ -50,7 +50,7 @@ describe("DesignCanvas", () => {
       "已启用：http://127.0.0.1:52081/model-slot",
     );
     expect(
-      window.localStorage.getItem("ember.layeredDesign.analyzerEndpoint"),
+      window.localStorage.getItem("lime.layeredDesign.analyzerEndpoint"),
     ).toContain("http://127.0.0.1:52081/model-slot");
   });
 
@@ -490,7 +490,7 @@ describe("DesignCanvas", () => {
       });
 
     window.localStorage.setItem(
-      "ember.layeredDesign.analyzerEndpoint",
+      "lime.layeredDesign.analyzerEndpoint",
       JSON.stringify({
         enabled: true,
         endpointUrl: "http://127.0.0.1:52081/model-slot",

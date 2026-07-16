@@ -10,11 +10,11 @@ use app_server_protocol::ConnectPayload;
 use app_server_protocol::ConnectRelayApiKeySaveParams;
 use app_server_protocol::ConnectRelayApiKeySaveResponse;
 use app_server_protocol::OpenDeepLinkPayload;
-use ember_core::app_paths;
-use ember_core::connect as connect_core;
-use ember_core::database::dao::api_key_provider::ApiProviderType;
-use ember_core::database::DbConnection;
-use ember_services::api_key_provider_service::ApiKeyProviderService;
+use lime_core::app_paths;
+use lime_core::connect as connect_core;
+use lime_core::database::dao::api_key_provider::ApiProviderType;
+use lime_core::database::DbConnection;
+use lime_services::api_key_provider_service::ApiKeyProviderService;
 use std::path::PathBuf;
 
 pub(crate) async fn resolve_deep_link(

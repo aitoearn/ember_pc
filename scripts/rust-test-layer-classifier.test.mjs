@@ -19,13 +19,13 @@ function writeFile(relPath, content) {
 }
 
 function createFixtureRepo() {
-  tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ember-rust-layers-"));
+  tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "lime-rust-layers-"));
   writeFile(
     "ember-rs/Cargo.toml",
     `
 [workspace]
 members = ["crates/*"]
-exclude = ["crates/aster-rust"]
+exclude = ["crates/agent-rust"]
 `,
   );
   writeFile(
@@ -56,9 +56,9 @@ async fn provider_contract() {}
     "ember-rs/tests/real_web_search.rs",
     `
 #[tokio::test]
-#[ignore = "真实联网测试：设置 EMBER_REAL_API_TEST=1 后执行"]
+#[ignore = "真实联网测试：设置 LIME_REAL_API_TEST=1 后执行"]
 async fn real_web_search() {
-    let _ = std::env::var("EMBER_REAL_API_TEST");
+    let _ = std::env::var("LIME_REAL_API_TEST");
 }
 `,
   );
@@ -66,7 +66,7 @@ async fn real_web_search() {
     "ember-rs/crates/agent/Cargo.toml",
     `
 [package]
-name = "ember-agent"
+name = "lime-agent"
 version = "0.0.0"
 `,
   );
@@ -81,7 +81,7 @@ fn protocol_guard() {}
     "ember-rs/crates/services/Cargo.toml",
     `
 [package]
-name = "ember-services"
+name = "lime-services"
 version = "0.0.0"
 `,
   );
@@ -100,15 +100,15 @@ mod tests {
 `,
   );
   writeFile(
-    "ember-rs/crates/aster-rust/Cargo.toml",
+    "ember-rs/crates/agent-rust/Cargo.toml",
     `
 [package]
-name = "aster-rust"
+name = "agent-rust"
 version = "0.0.0"
 `,
   );
   writeFile(
-    "ember-rs/crates/aster-rust/tests/agent.rs",
+    "ember-rs/crates/agent-rust/tests/agent.rs",
     `
 #[test]
 fn excluded_agent_test() {}
@@ -162,20 +162,20 @@ describe("rust-test-layer-classifier", () => {
     });
     expect(byFile["ember-rs/crates/agent/tests/protocol.rs"]).toMatchObject({
       layer: "integration",
-      packageName: "ember-agent",
+      packageName: "lime-agent",
       cargoScope: "workspace",
     });
     expect(
       byFile["ember-rs/crates/services/src/skill_service.rs"],
     ).toMatchObject({
       layer: "unit",
-      packageName: "ember-services",
+      packageName: "lime-services",
       liveGated: true,
       testCount: 2,
       ignoredCount: 1,
       runnableByDefault: true,
     });
-    expect(byFile["ember-rs/crates/aster-rust/tests/agent.rs"]).toMatchObject({
+    expect(byFile["ember-rs/crates/agent-rust/tests/agent.rs"]).toMatchObject({
       layer: "integration",
       cargoScope: "excluded-subcrate",
       ignoredCount: 1,
@@ -202,10 +202,10 @@ describe("rust-test-layer-classifier", () => {
 describe("run-rust-layer 参数解析", () => {
   it("保留 Cargo package 参数和测试过滤器", () => {
     expect(
-      parseArgs(["unit", "-p", "ember-agent", "request_tool_policy"]),
+      parseArgs(["unit", "-p", "lime-agent", "request_tool_policy"]),
     ).toMatchObject({
       layer: "unit",
-      cargoArgs: ["-p", "ember-agent", "request_tool_policy"],
+      cargoArgs: ["-p", "lime-agent", "request_tool_policy"],
       testArgs: [],
     });
   });
@@ -238,7 +238,7 @@ describe("run-rust-layer 参数解析", () => {
 
     const agentFiles = filterEntriesForCargoArgs(entries, [
       "-p",
-      "ember-agent",
+      "lime-agent",
     ]).map((entry) => entry.file);
     expect(agentFiles).toEqual(["ember-rs/crates/agent/tests/protocol.rs"]);
   });

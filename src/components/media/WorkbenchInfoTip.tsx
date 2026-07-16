@@ -1,18 +1,13 @@
-import React from "react";
-import { CircleHelp } from "lucide-react";
-import styled, { css } from "styled-components";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { useId, useState, type ReactNode } from "react";
+import { Info } from "lucide-react";
+
+import { cn } from "@/lib/utils";
 
 type WorkbenchInfoTipTone = "slate" | "sky" | "mint";
 type WorkbenchInfoTipVariant = "icon" | "pill";
 
 interface WorkbenchInfoTipProps {
-  content: React.ReactNode;
+  content: ReactNode;
   ariaLabel: string;
   label?: string;
   tone?: WorkbenchInfoTipTone;
@@ -21,116 +16,83 @@ interface WorkbenchInfoTipProps {
   align?: "start" | "center" | "end";
 }
 
-const toneStyles: Record<WorkbenchInfoTipTone, ReturnType<typeof css>> = {
-  slate: css`
-    border: 1px solid var(--ember-surface-border, hsl(var(--border) / 0.9));
-    background: var(--ember-surface, hsl(var(--background) / 0.92));
-    color: var(--ember-text-muted, hsl(var(--muted-foreground)));
-  `,
-  sky: css`
-    border: 1px solid var(--ember-info-border, hsl(203 82% 88%));
-    background: var(--ember-info-soft, hsl(200 100% 97%));
-    color: var(--ember-info, hsl(211 58% 38%));
-  `,
-  mint: css`
-    border: 1px solid var(--ember-surface-border-strong, hsl(154 36% 82%));
-    background: var(--ember-brand-soft, hsl(154 48% 97%));
-    color: var(--ember-brand-strong, hsl(154 50% 28%));
-  `,
-};
+export function WorkbenchInfoTip(_props: WorkbenchInfoTipProps) {
+  const {
+    align = "center",
+    ariaLabel,
+    content,
+    label,
+    side = "top",
+    tone = "slate",
+    variant = "icon",
+  } = _props;
+  const tooltipId = useId();
+  const [visible, setVisible] = useState(false);
 
-const TipTriggerButton = styled.button<{
-  $tone: WorkbenchInfoTipTone;
-  $variant: WorkbenchInfoTipVariant;
-}>`
-  flex-shrink: 0;
-  border-radius: 999px;
-  outline: none;
-  cursor: help;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease;
-  ${({ $tone }) => toneStyles[$tone]};
-  ${({ $variant }) =>
-    $variant === "pill"
-      ? css`
-          height: 30px;
-          padding: 0 10px;
-          font-size: 12px;
-          font-weight: 700;
-        `
-      : css`
-          width: 28px;
-          height: 28px;
-          padding: 0;
-        `};
-
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 12px 24px var(--ember-shadow-color, hsl(215 30% 14% / 0.08));
-  }
-
-  &:focus-visible {
-    box-shadow: 0 0 0 4px var(--ember-focus-ring, hsl(211 100% 96%));
-  }
-`;
-
-const TipTriggerText = styled.span`
-  line-height: 1;
-`;
-
-const TipCard = styled.div`
-  max-width: min(320px, calc(100vw - 24px));
-  border-radius: 18px;
-  border: 1px solid var(--ember-surface-border, hsl(var(--border) / 0.9));
-  background: var(
-    --ember-card-subtle,
-    linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted) / 0.16))
-  );
-  padding: 10px 12px;
-  box-shadow: 0 18px 36px var(--ember-shadow-color, hsl(215 30% 14% / 0.14));
-  font-size: 12px;
-  line-height: 1.65;
-  color: var(--ember-text, hsl(var(--foreground)));
-  white-space: normal;
-`;
-
-export function WorkbenchInfoTip({
-  content,
-  ariaLabel,
-  label = "Tips",
-  tone = "slate",
-  variant = "icon",
-  side = "top",
-  align = "center",
-}: WorkbenchInfoTipProps) {
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <TipTriggerButton
-            type="button"
-            aria-label={ariaLabel}
-            title={ariaLabel}
-            $tone={tone}
-            $variant={variant}
-          >
-            <CircleHelp size={14} />
-            {variant === "pill" ? (
-              <TipTriggerText>{label}</TipTriggerText>
-            ) : null}
-          </TipTriggerButton>
-        </TooltipTrigger>
-        <TooltipContent side={side} align={align} className="whitespace-normal">
-          <TipCard>{content}</TipCard>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <span className="relative inline-flex shrink-0">
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        aria-describedby={visible ? tooltipId : undefined}
+        className={cn(
+          "inline-flex items-center justify-center border text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+          toneButtonClassName[tone],
+          variant === "pill"
+            ? "h-7 gap-1.5 rounded-full px-2.5"
+            : "h-6 w-6 rounded-full p-0",
+        )}
+        onBlur={() => setVisible(false)}
+        onFocus={() => setVisible(true)}
+        onMouseOut={() => setVisible(false)}
+        onMouseOver={() => setVisible(true)}
+      >
+        <Info className="h-3.5 w-3.5" aria-hidden="true" />
+        {variant === "pill" && label ? <span>{label}</span> : null}
+      </button>
+      {visible ? (
+        <span
+          id={tooltipId}
+          role="tooltip"
+          className={cn(
+            "absolute z-50 w-[min(280px,calc(100vw-32px))] rounded-lg border bg-white px-3 py-2 text-left text-xs leading-5 text-slate-600 shadow-lg shadow-slate-950/10",
+            tonePanelClassName[tone],
+            sideClassName[side],
+            alignClassName[align],
+          )}
+        >
+          {content}
+        </span>
+      ) : null}
+    </span>
   );
 }
+
+const toneButtonClassName: Record<WorkbenchInfoTipTone, string> = {
+  mint: "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 focus-visible:ring-emerald-300",
+  sky: "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 focus-visible:ring-sky-300",
+  slate:
+    "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 focus-visible:ring-slate-300",
+};
+
+const tonePanelClassName: Record<WorkbenchInfoTipTone, string> = {
+  mint: "border-emerald-100",
+  sky: "border-sky-100",
+  slate: "border-slate-200",
+};
+
+const sideClassName: Record<NonNullable<WorkbenchInfoTipProps["side"]>, string> = {
+  bottom: "left-1/2 top-full mt-2 -translate-x-1/2",
+  left: "right-full top-1/2 mr-2 -translate-y-1/2",
+  right: "left-full top-1/2 ml-2 -translate-y-1/2",
+  top: "bottom-full left-1/2 mb-2 -translate-x-1/2",
+};
+
+const alignClassName: Record<
+  NonNullable<WorkbenchInfoTipProps["align"]>,
+  string
+> = {
+  center: "",
+  end: "origin-top-right",
+  start: "origin-top-left",
+};

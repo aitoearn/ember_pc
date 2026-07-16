@@ -1,6 +1,6 @@
-import type { MediaTaskLookupRequest } from "@/lib/api/mediaTasks";
+import type { MediaTaskLookupRequest } from "@/lib/api/agentRuntime/mediaTaskTypes";
 
-export const IMAGE_TASKS_ROOT_RELATIVE_PATH = ".ember/tasks";
+export const IMAGE_TASKS_ROOT_RELATIVE_PATH = ".lime/tasks";
 
 function normalizePathSeparators(value: string): string {
   return value.replace(/\\/g, "/");

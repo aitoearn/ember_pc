@@ -6,7 +6,6 @@ import {
   resolveDocumentDirection,
   resolveLocaleOptionLabel,
   toLegacyPatchLanguage,
-  UI_LOCALE_OPTIONS,
 } from "../locales";
 
 describe("i18n locale registry", () => {
@@ -14,14 +13,12 @@ describe("i18n locale registry", () => {
     vi.unstubAllGlobals();
   });
 
-  it("应把旧语言值归一到当前受支持 locale", () => {
+  it("应把旧语言值归一到 BCP 47 locale", () => {
     expect(normalizeLocale("zh")).toBe("zh-CN");
     expect(normalizeLocale("en")).toBe("en-US");
-    expect(normalizeLocale("zh_Hant")).toBe("zh-CN");
-    expect(normalizeLocale("ja")).toBe("en-US");
-    expect(normalizeLocale("ko-KR")).toBe("en-US");
-    expect(normalizeLocale("ja-JP")).toBe("en-US");
-    expect(normalizeLocale("zh-TW")).toBe("zh-CN");
+    expect(normalizeLocale("zh_Hant")).toBe("zh-TW");
+    expect(normalizeLocale("ja")).toBe("ja-JP");
+    expect(normalizeLocale("ko-KR")).toBe("ko-KR");
   });
 
   it("应保留 auto 偏好但运行时解析到受支持 locale", () => {
@@ -34,15 +31,10 @@ describe("i18n locale registry", () => {
     expect(normalizeLocale("auto")).toBe("en-US");
   });
 
-  it("应把 locale 映射到 Patch 兼容层", () => {
+  it("应把非英文 locale 映射到中文 Patch 兼容层", () => {
     expect(toLegacyPatchLanguage("en-US")).toBe("en");
     expect(toLegacyPatchLanguage("zh-TW")).toBe("zh");
-    expect(toLegacyPatchLanguage("ja-JP")).toBe("en");
-  });
-
-  it("应只提供简体中文与 English 界面语言选项", () => {
-    const selectableIds = UI_LOCALE_OPTIONS.map((option) => option.id);
-    expect(selectableIds).toEqual(["auto", "zh-CN", "en-US"]);
+    expect(toLegacyPatchLanguage("ja-JP")).toBe("zh");
   });
 
   it("应提供语言选项显示名", () => {

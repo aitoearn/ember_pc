@@ -4,7 +4,7 @@ const RECONNECT_MAX_DELAY_MS = 30000;
 const PAGE_CAPTURE_RETRY_LIMIT = 3;
 const TAB_COMMAND_RETRY_LIMIT = 3;
 const TAB_COMMAND_RETRY_DELAY_MS = 250;
-const KEEPALIVE_ALARM_NAME = "emberBridgeKeepAlive";
+const KEEPALIVE_ALARM_NAME = "limeBridgeKeepAlive";
 const KEEPALIVE_PERIOD_MINUTES = 1;
 const DEBUGGER_PROTOCOL_VERSION = "1.3";
 const MAX_LOG_ENTRIES = 200;
@@ -73,18 +73,18 @@ function pushLog(dir, method, detail) {
 function logInfo(message, payload) {
   pushLog("sys", message, stringifyPayload(payload));
   if (payload === undefined) {
-    console.log(`[EmberBridge] ${message}`);
+    console.log(`[LimeBridge] ${message}`);
   } else {
-    console.log(`[EmberBridge] ${message}`, payload);
+    console.log(`[LimeBridge] ${message}`, payload);
   }
 }
 
 function logWarn(message, payload) {
   pushLog("warn", message, stringifyPayload(payload));
   if (payload === undefined) {
-    console.warn(`[EmberBridge] ${message}`);
+    console.warn(`[LimeBridge] ${message}`);
   } else {
-    console.warn(`[EmberBridge] ${message}`, payload);
+    console.warn(`[LimeBridge] ${message}`, payload);
   }
 }
 
@@ -128,7 +128,7 @@ function buildObserverUrl(settings) {
 
   const normalized = serverUrl.replace(/\/$/, "");
   const profileKey = encodeURIComponent(settings.profileKey || "default");
-  return `${normalized}/ember-chrome-observer/${encodeURIComponent(bridgeKey)}?profileKey=${profileKey}`;
+  return `${normalized}/lime-chrome-observer/${encodeURIComponent(bridgeKey)}?profileKey=${profileKey}`;
 }
 
 function buildControlUrl(settings) {
@@ -139,7 +139,7 @@ function buildControlUrl(settings) {
   }
 
   const normalized = serverUrl.replace(/\/$/, "");
-  return `${normalized}/ember-chrome-control/${encodeURIComponent(bridgeKey)}`;
+  return `${normalized}/lime-chrome-control/${encodeURIComponent(bridgeKey)}`;
 }
 
 function isCapturableUrl(url) {
@@ -655,7 +655,7 @@ async function handleObserverMessage(payload) {
     logInfo("收到桌面端主动断开指令");
     await disconnectObserver({
       disableAutoReconnect: true,
-      reason: payload?.message || "Ember 已主动断开当前扩展连接。",
+      reason: payload?.message || "Lime 已主动断开当前扩展连接。",
     });
     return;
   }
@@ -733,14 +733,14 @@ async function ensureDebuggerAttached(tabId) {
 
 async function sendDebuggerCommand(tabId, method, params = {}) {
   if (!(await ensureDebuggerAttached(tabId))) {
-    throw new Error("当前标签页未能附着 Ember CDP 会话，请确认插件已获取 debugger 权限。");
+    throw new Error("当前标签页未能附着 Lime CDP 会话，请确认插件已获取 debugger 权限。");
   }
   return await chrome.debugger.sendCommand({ tabId }, method, params);
 }
 
 async function acquireDebuggerSession(tabId) {
   if (!(await ensureDebuggerAttached(tabId))) {
-    throw new Error("当前标签页未能附着 Ember CDP 会话，请确认插件已获取 debugger 权限。");
+    throw new Error("当前标签页未能附着 Lime CDP 会话，请确认插件已获取 debugger 权限。");
   }
 
   const currentCount = debuggerSessionRefCounts.get(tabId) || 0;

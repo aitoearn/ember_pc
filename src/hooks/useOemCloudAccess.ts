@@ -79,7 +79,7 @@ import {
   clearSiteAdapterCatalogCache,
   syncSiteAdapterCatalogFromBootstrapPayload,
 } from "@/lib/siteAdapterCatalogBootstrap";
-import { resolveOemEmberHubProviderName } from "@/lib/oemEmberHubProvider";
+import { resolveOemLimeHubProviderName } from "@/lib/oemLimeHubProvider";
 
 type OemCloudLoginMode = "password" | "email_code";
 
@@ -1625,7 +1625,7 @@ export function useOemCloudAccess() {
   );
 
   const hubProviderName = useMemo(
-    () => resolveOemEmberHubProviderName(runtime),
+    () => resolveOemLimeHubProviderName(runtime),
     [runtime],
   );
 

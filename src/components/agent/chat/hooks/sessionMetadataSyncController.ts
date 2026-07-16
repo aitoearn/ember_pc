@@ -1,8 +1,9 @@
-import type { AsterExecutionStrategy } from "@/lib/api/agentRuntime";
+import type { AgentExecutionStrategy } from "@/lib/api/agentExecutionRuntime";
 import type { AgentSessionMetadataPatch } from "./agentRuntimeAdapter";
 import type { AgentAccessMode } from "./agentChatStorage";
 import type { SessionModelPreference } from "./agentChatShared";
 import { normalizeExecutionStrategy } from "./agentChatCoreUtils";
+import { normalizeChatSessionModelPreference } from "../utils/sessionExecutionRuntime";
 
 export type SessionAccessModeSource =
   | "execution_runtime"
@@ -22,7 +23,7 @@ export type SessionModelPreferenceSource =
 export interface SessionMetadataSyncPlan {
   accessMode: AgentAccessMode;
   accessModeSource: SessionAccessModeSource;
-  fallbackExecutionStrategy: AsterExecutionStrategy | null;
+  fallbackExecutionStrategy: AgentExecutionStrategy | null;
   fallbackProviderPreference: SessionModelPreference | null;
   hasPatch: boolean;
   modelPreferenceSource: SessionModelPreferenceSource | null;
@@ -34,13 +35,13 @@ export interface SessionMetadataSyncPlan {
 export interface SessionFinalizeLocalStatePlan {
   accessModeToApply: AgentAccessMode;
   accessModeToPersist: AgentAccessMode | null;
-  runtimeExecutionStrategyToMarkSynced: AsterExecutionStrategy | null;
+  runtimeExecutionStrategyToMarkSynced: AgentExecutionStrategy | null;
   switchSuccessMetricContext: Record<string, unknown>;
 }
 
 export interface SessionMetadataSyncSuccessApplyPlan {
-  executionStrategyToApplyToTopic: AsterExecutionStrategy | null;
-  executionStrategyToMarkSynced: AsterExecutionStrategy | null;
+  executionStrategyToApplyToTopic: AgentExecutionStrategy | null;
+  executionStrategyToMarkSynced: AgentExecutionStrategy | null;
   providerPreferenceToMarkSynced: SessionModelPreference | null;
 }
 
@@ -48,7 +49,7 @@ export interface SessionMetadataSyncInputPlan {
   runtimeAccessMode: AgentAccessMode | null;
   runtimePreference: SessionModelPreference | null;
   shadowAccessMode: AgentAccessMode | null;
-  shadowExecutionStrategyFallback: AsterExecutionStrategy | null;
+  shadowExecutionStrategyFallback: AgentExecutionStrategy | null;
   topicPreference: SessionModelPreference | null;
   workspaceDefaultAccessMode: AgentAccessMode;
 }
@@ -60,7 +61,7 @@ export interface SessionMetadataSyncRuntime {
   ) => Promise<void>;
   setSessionExecutionStrategy: (
     sessionId: string,
-    executionStrategy: AsterExecutionStrategy,
+    executionStrategy: AgentExecutionStrategy,
   ) => Promise<void>;
   setSessionProviderSelection: (
     sessionId: string,
@@ -74,9 +75,9 @@ export interface SessionMetadataSyncRuntime {
 }
 
 export function resolveSessionExecutionStrategySource(params: {
-  runtimeExecutionStrategy?: AsterExecutionStrategy | null;
-  topicExecutionStrategy?: AsterExecutionStrategy | null;
-  shadowExecutionStrategyFallback?: AsterExecutionStrategy | null;
+  runtimeExecutionStrategy?: AgentExecutionStrategy | null;
+  topicExecutionStrategy?: AgentExecutionStrategy | null;
+  shadowExecutionStrategyFallback?: AgentExecutionStrategy | null;
 }): SessionExecutionStrategySource {
   if (params.runtimeExecutionStrategy) {
     return "session_detail";
@@ -94,17 +95,23 @@ export function buildSessionMetadataSyncInputPlan(params: {
   runtimeAccessMode?: AgentAccessMode | null;
   runtimePreference?: SessionModelPreference | null;
   shadowAccessMode?: AgentAccessMode | null;
-  shadowExecutionStrategyFallback?: AsterExecutionStrategy | null;
+  shadowExecutionStrategyFallback?: AgentExecutionStrategy | null;
   storedPreference?: SessionModelPreference | null;
   workspaceDefaultAccessMode: AgentAccessMode;
 }): SessionMetadataSyncInputPlan {
+  const runtimePreference = normalizeChatSessionModelPreference(
+    params.runtimePreference,
+  );
+  const storedPreference = normalizeChatSessionModelPreference(
+    params.storedPreference,
+  );
   return {
     runtimeAccessMode: params.runtimeAccessMode ?? null,
-    runtimePreference: params.runtimePreference ?? null,
+    runtimePreference,
     shadowAccessMode: params.shadowAccessMode ?? null,
     shadowExecutionStrategyFallback:
       params.shadowExecutionStrategyFallback ?? null,
-    topicPreference: params.runtimePreference ?? params.storedPreference ?? null,
+    topicPreference: runtimePreference ?? storedPreference ?? null,
     workspaceDefaultAccessMode: params.workspaceDefaultAccessMode,
   };
 }
@@ -113,10 +120,16 @@ export function buildSessionMetadataSyncPlan(params: {
   runtimeAccessMode?: AgentAccessMode | null;
   runtimePreference?: SessionModelPreference | null;
   shadowAccessMode?: AgentAccessMode | null;
-  shadowExecutionStrategyFallback?: AsterExecutionStrategy | null;
+  shadowExecutionStrategyFallback?: AgentExecutionStrategy | null;
   topicPreference?: SessionModelPreference | null;
   workspaceDefaultAccessMode: AgentAccessMode;
 }): SessionMetadataSyncPlan {
+  const runtimePreference = normalizeChatSessionModelPreference(
+    params.runtimePreference,
+  );
+  const topicPreference = normalizeChatSessionModelPreference(
+    params.topicPreference,
+  );
   const patch: AgentSessionMetadataPatch = {};
   let accessMode: AgentAccessMode;
   let accessModeSource: SessionAccessModeSource;
@@ -137,9 +150,9 @@ export function buildSessionMetadataSyncPlan(params: {
     patch.accessMode = params.workspaceDefaultAccessMode;
   }
 
-  const providerPreferenceToApply = params.topicPreference ?? null;
+  const providerPreferenceToApply = topicPreference;
   const fallbackProviderPreference =
-    providerPreferenceToApply && !params.runtimePreference
+    providerPreferenceToApply && !runtimePreference
       ? providerPreferenceToApply
       : null;
   if (fallbackProviderPreference) {
@@ -165,7 +178,7 @@ export function buildSessionMetadataSyncPlan(params: {
       patch.model ||
       patch.executionStrategy,
     ),
-    modelPreferenceSource: params.runtimePreference
+    modelPreferenceSource: runtimePreference
       ? "execution_runtime"
       : providerPreferenceToApply
         ? "session_storage"
@@ -215,9 +228,9 @@ export function buildSessionFinalizeLocalStatePlan(params: {
     | "shouldPersistAccessMode"
   >;
   queuedTurnsCount: number;
-  runtimeExecutionStrategy?: AsterExecutionStrategy | null;
-  shadowExecutionStrategyFallback?: AsterExecutionStrategy | null;
-  topicExecutionStrategy?: AsterExecutionStrategy | null;
+  runtimeExecutionStrategy?: AgentExecutionStrategy | null;
+  shadowExecutionStrategyFallback?: AgentExecutionStrategy | null;
+  topicExecutionStrategy?: AgentExecutionStrategy | null;
   topicId: string;
   turnsCount: number;
   workspaceId?: string | null;
@@ -249,7 +262,7 @@ export function buildSessionFinalizeLocalStatePlan(params: {
 }
 
 export function buildSessionMetadataSyncSuccessApplyPlan(params: {
-  fallbackExecutionStrategy?: AsterExecutionStrategy | null;
+  fallbackExecutionStrategy?: AgentExecutionStrategy | null;
   fallbackProviderPreference?: SessionModelPreference | null;
 }): SessionMetadataSyncSuccessApplyPlan {
   return {
@@ -264,7 +277,7 @@ export function applyFallbackExecutionStrategyToTopics<
 >(
   topics: TTopic[],
   params: {
-    executionStrategyToApplyToTopic?: AsterExecutionStrategy | null;
+    executionStrategyToApplyToTopic?: AgentExecutionStrategy | null;
     topicId: string;
   },
 ): TTopic[] {
@@ -283,7 +296,7 @@ export function applyFallbackExecutionStrategyToTopics<
 }
 
 export async function executeSessionMetadataSync(params: {
-  fallbackExecutionStrategy: AsterExecutionStrategy | null;
+  fallbackExecutionStrategy: AgentExecutionStrategy | null;
   fallbackProviderPreference: SessionModelPreference | null;
   patch: AgentSessionMetadataPatch;
   runtime: SessionMetadataSyncRuntime;

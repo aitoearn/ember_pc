@@ -1,5 +1,5 @@
-import { Loader2, Wrench } from "lucide-react";
-import type { AgentRuntimeToolInventory } from "@/lib/api/agentRuntime";
+import { Loader2, PlugZap, Wrench } from "lucide-react";
+import type { AgentRuntimeToolInventory } from "@/lib/api/agentRuntime/toolInventoryTypes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { RuntimeToolAvailability } from "../utils/runtimeToolAvailability";
@@ -18,6 +18,10 @@ interface HarnessToolInventoryOverviewProps {
   runtimeToolVisibleTotal: number;
   runtimeToolTotal: number;
   onRefreshToolInventory?: () => void;
+  mcpPrepareCandidateCount: number;
+  mcpPrepareLoading: boolean;
+  mcpPrepareError: string | null;
+  onPrepareMcpTargets?: () => void | Promise<void>;
   toolInventorySourceStats: ToolInventorySourceStats;
   toolInventoryWarnings: AgentRuntimeToolInventory["warnings"];
   runtimeToolAvailability: RuntimeToolAvailability;
@@ -31,6 +35,10 @@ export function HarnessToolInventoryOverview({
   runtimeToolVisibleTotal,
   runtimeToolTotal,
   onRefreshToolInventory,
+  mcpPrepareCandidateCount,
+  mcpPrepareLoading,
+  mcpPrepareError,
+  onPrepareMcpTargets,
   toolInventorySourceStats,
   toolInventoryWarnings,
   runtimeToolAvailability,
@@ -82,26 +90,53 @@ export function HarnessToolInventoryOverview({
             </Badge>
           )}
         </div>
-        {onRefreshToolInventory ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="gap-2"
-            aria-label={agentText(
-              "agentChat.harness.generated.908fe49fe3",
-              "刷新工具库存",
-            )}
-            onClick={onRefreshToolInventory}
-          >
-            {toolInventoryLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Wrench className="h-4 w-4" />
-            )}
-            {agentText("agentChat.harness.generated.f79c583e24", "刷新库存")}
-          </Button>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {onPrepareMcpTargets ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-2"
+              aria-label={agentText(
+                "agentChat.harness.mcpPrepare.actionAria",
+                "准备插件 MCP 工具",
+              )}
+              disabled={
+                mcpPrepareLoading ||
+                toolInventoryLoading ||
+                mcpPrepareCandidateCount === 0
+              }
+              onClick={onPrepareMcpTargets}
+            >
+              {mcpPrepareLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <PlugZap className="h-4 w-4" />
+              )}
+              {agentText("agentChat.harness.mcpPrepare.action", "准备 MCP")}
+            </Button>
+          ) : null}
+          {onRefreshToolInventory ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-2"
+              aria-label={agentText(
+                "agentChat.harness.generated.908fe49fe3",
+                "刷新工具库存",
+              )}
+              onClick={onRefreshToolInventory}
+            >
+              {toolInventoryLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Wrench className="h-4 w-4" />
+              )}
+              {agentText("agentChat.harness.generated.f79c583e24", "刷新库存")}
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {toolInventoryLoading ? (
@@ -120,9 +155,15 @@ export function HarnessToolInventoryOverview({
         </div>
       ) : null}
 
+      {mcpPrepareError ? (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">
+          {mcpPrepareError}
+        </div>
+      ) : null}
+
       {toolInventory ? (
         <>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid min-w-0 gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr))]">
             <InventoryStatCard
               title={agentText(
                 "agentChat.harness.generated.c4740e4ca2",
@@ -142,10 +183,10 @@ export function HarnessToolInventoryOverview({
             <InventoryStatCard
               title={agentText(
                 "agentChat.harness.generated.1fd6a805da",
-                "Registry",
+                "Native Tools",
               )}
-              value={`${toolInventory.counts.registry_visible_total}`}
-              hint={`可见 / 总数 ${toolInventory.counts.registry_visible_total} / ${toolInventory.counts.registry_total}`}
+              value={`${toolInventory.counts.native_visible_total}`}
+              hint={`可见 / 总数 ${toolInventory.counts.native_visible_total} / ${toolInventory.counts.native_total}`}
             />
             <InventoryStatCard
               title={agentText(
@@ -162,7 +203,7 @@ export function HarnessToolInventoryOverview({
             />
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid min-w-0 gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr))]">
             {(
               [
                 ["default", "默认策略"],
@@ -266,13 +307,13 @@ function RuntimeToolCapabilitySummary({
         </Badge>
         <Badge
           variant={
-            runtimeToolAvailability.taskRuntime ? "secondary" : "outline"
+            runtimeToolAvailability.planRuntime ? "secondary" : "outline"
           }
-          data-testid="harness-runtime-tool-capability-task"
+          data-testid="harness-runtime-tool-capability-plan"
         >
-          {runtimeToolAvailability.taskRuntime
-            ? "Task current tools 已接通"
-            : `Task current tools 缺 ${runtimeToolAvailability.missingTaskTools.length} 项`}
+          {runtimeToolAvailability.planRuntime
+            ? "Plan current tool 已接通"
+            : `Plan current tool 缺 ${runtimeToolAvailability.missingPlanTools.length} 项`}
         </Badge>
       </div>
       {runtimeToolAvailability.known ? (
@@ -300,7 +341,7 @@ function RuntimeToolCapabilitySummary({
           <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/60 p-3 text-sm text-emerald-900">
             {agentText(
               "agentChat.harness.generated.ff5e6ffa0a",
-              "当前 runtime current surface 已覆盖 WebSearch、子任务、Subagents 协作与 Task 主链。",
+              "当前 runtime current surface 已覆盖 WebSearch、子任务、Subagents 协作与 Plan 主链。",
             )}
           </div>
         )

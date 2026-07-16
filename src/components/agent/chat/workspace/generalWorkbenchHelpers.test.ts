@@ -58,7 +58,7 @@ describe("generalWorkbenchHelpers", () => {
     );
   });
 
-  it("应为 ember media CLI bash 调用生成明确的媒体任务标题", () => {
+  it("应仅为 legacy Bash CLI transcript 恢复明确的媒体任务标题", () => {
     const messages: Message[] = [
       {
         id: "user-1",
@@ -78,7 +78,7 @@ describe("generalWorkbenchHelpers", () => {
             name: "Bash",
             arguments: JSON.stringify({
               command:
-                "ember media image generate --prompt '未来城市插图' --json",
+                "lime media image generate --prompt '未来城市插图' --json",
             }),
             status: "completed",
             startTime: new Date("2026-04-03T10:00:01.500Z"),

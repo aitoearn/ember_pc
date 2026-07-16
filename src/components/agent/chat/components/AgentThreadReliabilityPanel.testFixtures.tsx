@@ -16,11 +16,14 @@ import type {
   AgentRuntimeFileCheckpointListResult,
   AgentRuntimeFileCheckpointRestoreResult,
   AgentRuntimeThreadReadModel,
-} from "@/lib/api/agentRuntime";
-import type { TeamMemorySnapshot } from "@/lib/teamMemorySync";
+} from "@/lib/api/agentRuntime/sessionTypes";
 import type { HarnessSessionState } from "../utils/harnessState";
 import { conversationProjectionStore } from "../projection/conversationProjectionStore";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
+import type {
+  ExecutionPolicyFocusContext,
+  ProviderSettingsFocusContext,
+} from "@/types/page";
 
 const hoistedMocks = vi.hoisted(() => ({
   diffAgentRuntimeFileCheckpointMock: vi.fn(),
@@ -31,7 +34,6 @@ const hoistedMocks = vi.hoisted(() => ({
     success: vi.fn(),
     error: vi.fn(),
   },
-  mockPrefetchContextMemoryForTurn: vi.fn(),
 }));
 
 export const diffAgentRuntimeFileCheckpointMock =
@@ -43,16 +45,16 @@ export const listAgentRuntimeFileCheckpointsMock =
 export const restoreAgentRuntimeFileCheckpointMock =
   hoistedMocks.restoreAgentRuntimeFileCheckpointMock;
 export const mockToast = hoistedMocks.mockToast;
-export const mockPrefetchContextMemoryForTurn =
-  hoistedMocks.mockPrefetchContextMemoryForTurn;
 
 vi.mock("sonner", () => ({
   toast: hoistedMocks.mockToast,
 }));
 
-vi.mock("@/lib/api/agentRuntime", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/api/agentRuntime")>(
-    "@/lib/api/agentRuntime",
+vi.mock("@/lib/api/agentRuntime/threadClient", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/api/agentRuntime/threadClient")
+  >(
+    "@/lib/api/agentRuntime/threadClient",
   );
   return {
     ...actual,
@@ -66,10 +68,6 @@ vi.mock("@/lib/api/agentRuntime", async () => {
       hoistedMocks.restoreAgentRuntimeFileCheckpointMock,
   };
 });
-
-vi.mock("@/lib/api/memoryRuntime", () => ({
-  prefetchContextMemoryForTurn: hoistedMocks.mockPrefetchContextMemoryForTurn,
-}));
 
 interface MountedHarness {
   container: HTMLDivElement;
@@ -88,7 +86,7 @@ export function createFileCheckpointListResult(): AgentRuntimeFileCheckpointList
       {
         checkpoint_id: "artifact-document:req-2",
         turn_id: "turn-10",
-        path: ".ember/artifacts/thread-file/persistence-map.artifact.json",
+        path: ".lime/artifacts/thread-file/persistence-map.artifact.json",
         source: "artifact_document_service",
         updated_at: "2026-04-16T09:12:00Z",
         version_no: 8,
@@ -99,13 +97,13 @@ export function createFileCheckpointListResult(): AgentRuntimeFileCheckpointList
         status: "ready",
         preview_text: "补上 file checkpoint 对话框入口",
         snapshot_path:
-          ".ember/artifacts/thread-file/.versions/persistence-map.v8.json",
+          ".lime/artifacts/thread-file/.versions/persistence-map.v8.json",
         validation_issue_count: 1,
       },
       {
         checkpoint_id: "artifact-document:req-1",
         turn_id: "turn-9",
-        path: ".ember/artifacts/thread-file/replay.artifact.json",
+        path: ".lime/artifacts/thread-file/replay.artifact.json",
         source: "artifact_document_service",
         updated_at: "2026-04-16T08:58:00Z",
         version_no: 7,
@@ -116,7 +114,7 @@ export function createFileCheckpointListResult(): AgentRuntimeFileCheckpointList
         status: "ready",
         preview_text: "上一版 replay 导出",
         snapshot_path:
-          ".ember/artifacts/thread-file/.versions/replay-case.v7.json",
+          ".lime/artifacts/thread-file/.versions/replay-case.v7.json",
         validation_issue_count: 0,
       },
     ],
@@ -133,7 +131,7 @@ export function createFileCheckpointDetail(
       checkpoint: {
         checkpoint_id: "artifact-document:req-1",
         turn_id: "turn-9",
-        path: ".ember/artifacts/thread-file/replay.artifact.json",
+        path: ".lime/artifacts/thread-file/replay.artifact.json",
         source: "artifact_document_service",
         updated_at: "2026-04-16T08:58:00Z",
         version_no: 7,
@@ -144,12 +142,12 @@ export function createFileCheckpointDetail(
         status: "ready",
         preview_text: "上一版 replay 导出",
         snapshot_path:
-          ".ember/artifacts/thread-file/.versions/replay-case.v7.json",
+          ".lime/artifacts/thread-file/.versions/replay-case.v7.json",
         validation_issue_count: 0,
       },
-      live_path: ".ember/artifacts/thread-file/replay.artifact.json",
+      live_path: ".lime/artifacts/thread-file/replay.artifact.json",
       snapshot_path:
-        ".ember/artifacts/thread-file/.versions/replay-case.v7.json",
+        ".lime/artifacts/thread-file/.versions/replay-case.v7.json",
       checkpoint_document: {
         title: "Replay case",
         body: "上一版导出仍使用旧摘要文案",
@@ -173,7 +171,7 @@ export function createFileCheckpointDetail(
     checkpoint: {
       checkpoint_id: "artifact-document:req-2",
       turn_id: "turn-10",
-      path: ".ember/artifacts/thread-file/persistence-map.artifact.json",
+      path: ".lime/artifacts/thread-file/persistence-map.artifact.json",
       source: "artifact_document_service",
       updated_at: "2026-04-16T09:12:00Z",
       version_no: 8,
@@ -184,12 +182,12 @@ export function createFileCheckpointDetail(
       status: "ready",
       preview_text: "补上 file checkpoint 对话框入口",
       snapshot_path:
-        ".ember/artifacts/thread-file/.versions/persistence-map.v8.json",
+        ".lime/artifacts/thread-file/.versions/persistence-map.v8.json",
       validation_issue_count: 1,
     },
-    live_path: ".ember/artifacts/thread-file/persistence-map.artifact.json",
+    live_path: ".lime/artifacts/thread-file/persistence-map.artifact.json",
     snapshot_path:
-      ".ember/artifacts/thread-file/.versions/persistence-map.v8.json",
+      ".lime/artifacts/thread-file/.versions/persistence-map.v8.json",
     checkpoint_document: {
       title: "持久化 current map",
       summary: "已在可靠性面板接入 file checkpoint detail/diff 对话框",
@@ -253,11 +251,11 @@ export function createFileCheckpointRestoreResult(): AgentRuntimeFileCheckpointR
     thread_id: "thread-file-1",
     checkpoint: createFileCheckpointDetail("artifact-document:req-2")
       .checkpoint,
-    live_path: ".ember/artifacts/thread-file/persistence-map.artifact.json",
+    live_path: ".lime/artifacts/thread-file/persistence-map.artifact.json",
     snapshot_path:
-      ".ember/artifacts/thread-file/.versions/persistence-map.v8.json",
+      ".lime/artifacts/thread-file/.versions/persistence-map.v8.json",
     backup_path:
-      ".ember/file-checkpoint-backups/20260416T091200Z/.ember/artifacts/thread-file/persistence-map.artifact.json",
+      ".lime/file-checkpoint-backups/20260416T091200Z/.lime/artifacts/thread-file/persistence-map.artifact.json",
     restored_at: "2026-04-16T09:13:00Z",
   };
 }
@@ -274,7 +272,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 
   originalClipboard = navigator.clipboard;
   Object.defineProperty(navigator, "clipboard", {
@@ -284,15 +282,6 @@ beforeEach(async () => {
     },
   });
   window.localStorage.clear();
-  mockPrefetchContextMemoryForTurn.mockResolvedValue({
-    session_id: "session-default",
-    rules_source_paths: [],
-    working_memory_excerpt: null,
-    durable_memories: [],
-    team_memory_entries: [],
-    latest_compaction: null,
-    prompt: null,
-  });
   listAgentRuntimeFileCheckpointsMock.mockResolvedValue(
     createFileCheckpointListResult(),
   );
@@ -339,10 +328,12 @@ export function renderPanel(props?: {
   onReplayPendingRequest?: (requestId: string) => boolean | Promise<boolean>;
   onLocatePendingRequest?: (requestId: string) => void;
   onPromoteQueuedTurn?: (queuedTurnId: string) => boolean | Promise<boolean>;
-  onOpenMemoryWorkbench?: () => void;
+  onManageProviders?: (context?: ProviderSettingsFocusContext) => void;
+  onOpenExecutionPolicySettings?: (
+    context?: ExecutionPolicyFocusContext,
+  ) => void;
   harnessState?: HarnessSessionState | null;
   messages?: Message[];
-  teamMemorySnapshot?: TeamMemorySnapshot | null;
   diagnosticRuntimeContext?: {
     sessionId?: string | null;
     workspaceId?: string | null;
@@ -351,7 +342,6 @@ export function renderPanel(props?: {
     model?: string | null;
     executionStrategy?: string | null;
     activeTheme?: string | null;
-    selectedTeamLabel?: string | null;
   } | null;
 }) {
   const container = document.createElement("div");
@@ -373,10 +363,10 @@ export function renderPanel(props?: {
         onReplayPendingRequest={props?.onReplayPendingRequest}
         onLocatePendingRequest={props?.onLocatePendingRequest}
         onPromoteQueuedTurn={props?.onPromoteQueuedTurn}
-        onOpenMemoryWorkbench={props?.onOpenMemoryWorkbench}
+        onManageProviders={props?.onManageProviders}
+        onOpenExecutionPolicySettings={props?.onOpenExecutionPolicySettings}
         harnessState={props?.harnessState}
         messages={props?.messages}
-        teamMemorySnapshot={props?.teamMemorySnapshot}
         diagnosticRuntimeContext={props?.diagnosticRuntimeContext}
       />,
     );

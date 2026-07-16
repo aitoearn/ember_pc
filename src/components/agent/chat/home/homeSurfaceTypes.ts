@@ -86,10 +86,11 @@ export interface HomeProjectConversationGroup {
   conversations: HomeProjectConversationItem[];
 }
 
-export interface HomeInputSuggestion {
-  id: string;
-  label: string;
-  prompt: string;
-  order: number;
-  testId?: string;
+export type HomeRecoverySessionStatus = "running" | "queued" | "waiting";
+
+export interface HomeRecoverySession {
+  sessionId: string;
+  title: string;
+  summary?: string;
+  status: HomeRecoverySessionStatus;
 }

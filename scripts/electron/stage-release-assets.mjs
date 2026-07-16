@@ -12,14 +12,6 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { PRODUCT_DISPLAY_NAME } from "./productIdentity.mjs";
-
-const HOST_TO_TARGET = {
-  "darwin:arm64": "aarch64-apple-darwin",
-  "darwin:x64": "x86_64-apple-darwin",
-  "win32:x64": "x86_64-pc-windows-msvc",
-};
-
 const TARGETS = {
   "aarch64-apple-darwin": {
     archLabel: "aarch64",
@@ -74,29 +66,6 @@ function normalizeVersion(value) {
   return version;
 }
 
-function resolveDefaultTargetTriple() {
-  const hostKey = `${process.platform}:${process.arch}`;
-  const targetTriple = HOST_TO_TARGET[hostKey];
-  if (!targetTriple) {
-    throw new Error(
-      `无法从当前主机推断 target triple（${hostKey}），请显式传入 --target-triple`,
-    );
-  }
-  return targetTriple;
-}
-
-function resolveDefaultVersion() {
-  const packageJsonPath = path.resolve("package.json");
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-  const version = String(packageJson.version || "").trim();
-  if (!version) {
-    throw new Error(
-      "version is required：请传入 --version，或设置 RELEASE_TAG / GITHUB_REF_NAME",
-    );
-  }
-  return version;
-}
-
 function walkFiles(root) {
   const result = [];
   const stack = [root];
@@ -140,12 +109,6 @@ function scoreByNameAndPath(filePath, spec, extensions) {
   }
   if (basename.includes(spec.forgeArchLabel)) {
     score += 3;
-  }
-  if (basename.includes(PRODUCT_DISPLAY_NAME.toLowerCase())) {
-    score += 5;
-  }
-  if (basename.startsWith("ember")) {
-    score -= 4;
   }
   if (normalizedPath.includes(`-${spec.forgeArchLabel}`)) {
     score += 2;
@@ -322,18 +285,12 @@ function stageElectronReleaseAssets({
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const targetTriple =
-    args["target-triple"] || resolveDefaultTargetTriple();
-  const version =
-    args.version ||
-    process.env.RELEASE_TAG ||
-    process.env.GITHUB_REF_NAME ||
-    resolveDefaultVersion();
   const copied = stageElectronReleaseAssets({
     forgeDir: args["forge-dir"],
-    outDir: args["out-dir"] || path.join("release-assets", targetTriple),
-    targetTriple,
-    version,
+    outDir: args["out-dir"],
+    targetTriple: args["target-triple"],
+    version:
+      args.version || process.env.RELEASE_TAG || process.env.GITHUB_REF_NAME,
   });
   console.log("Staged Electron release assets:");
   for (const item of copied) {

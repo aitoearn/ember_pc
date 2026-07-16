@@ -6,7 +6,7 @@ describe("agentStreamToolCompletionSignalController", () => {
     expect(
       hasMeaningfulAgentStreamToolCompletionSignal({
         toolId: "site-tool",
-        toolName: "ember_site_run",
+        toolName: "lime_site_run",
         normalizedResult: {
           metadata: {
             saved_project_id: "project-a",
@@ -20,12 +20,29 @@ describe("agentStreamToolCompletionSignalController", () => {
     expect(
       hasMeaningfulAgentStreamToolCompletionSignal({
         toolId: "image-tool",
-        toolName: "ember_create_image_generation_task",
+        toolName: "lime_create_image_generation_task",
         normalizedResult: {
           metadata: {
             task_id: "task-a",
             task_type: "image_generate",
             status: "running",
+          },
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it("应把 structuredContent 图片任务结果视为有意义完成信号", () => {
+    expect(
+      hasMeaningfulAgentStreamToolCompletionSignal({
+        toolId: "image-tool-structured",
+        toolName: "lime_create_image_generation_task",
+        normalizedResult: {
+          metadata: undefined,
+          structuredContent: {
+            task_id: "task-structured-image-1",
+            task_type: "image_generate",
+            status: "pending_submit",
           },
         },
       }),

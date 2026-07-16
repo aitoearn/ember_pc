@@ -14,10 +14,10 @@ function parseArgs(argv) {
     check: false,
     format: "markdown",
     help: false,
-    manifestPath: "docs/test/agent-qc-scenarios.manifest.json",
+    manifestPath: "internal/test/agent-qc-scenarios.manifest.json",
     outputPath: "",
     payloadPath: "",
-    processOwnerPath: ".ember/qc/gui-process-owner-current.json",
+    processOwnerPath: ".lime/qc/gui-process-owner-current.json",
     requireOwnerClear: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -64,16 +64,16 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Agent QC Payload Coverage
+Lime Agent QC Payload Coverage
 
 用法:
-  npm run agent-qc:payload-coverage -- --payload ./.ember/qc/qcloop-p0.json
-  node scripts/agent-qc/payload-coverage.mjs --payload ./.ember/qc/qcloop-p0.json --format json --check
+  npm run agent-qc:payload-coverage -- --payload ./.lime/qc/qcloop-p0.json
+  node scripts/agent-qc/payload-coverage.mjs --payload ./.lime/qc/qcloop-p0.json --format json --check
 
 选项:
-  --manifest PATH          Agent QC scenario manifest，默认 docs/test/agent-qc-scenarios.manifest.json
+  --manifest PATH          Agent QC scenario manifest，默认 internal/test/agent-qc-scenarios.manifest.json
   --payload PATH           qcloop job payload JSON
-  --process-owner PATH     raw process owner JSON，默认 .ember/qc/gui-process-owner-current.json
+  --process-owner PATH     raw process owner JSON，默认 .lime/qc/gui-process-owner-current.json
   --output PATH            写入文件；默认 stdout
   --format FMT             markdown | json，默认 markdown
   --require-owner-clear    --check 时要求 owner gate 也为 ready

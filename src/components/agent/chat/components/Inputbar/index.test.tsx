@@ -3,9 +3,9 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Inputbar } from "./index";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { toast } from "sonner";
-import type { Character } from "@/lib/api/memory";
+import type { Character } from "@/lib/api/projectMemory";
 import type { Skill } from "@/lib/api/skills";
 import type { ServiceSkillHomeItem } from "@/components/agent/chat/service-skills/types";
 import type {
@@ -19,6 +19,16 @@ import {
   resolveCuratedTaskTemplateLaunchPrefill,
 } from "../../utils/curatedTaskTemplates";
 import type { InputbarSendPayload } from "./inputbarSendPayload";
+import type { BaseComposerSendMetadata } from "@/components/input-kit";
+import type {
+  InputbarPluginCapability,
+  InputbarPluginSelectionOptions,
+  InputbarPluginSkillCapability,
+} from "./pluginInputCapability";
+
+const { setAgentRuntimeObjectiveMock } = vi.hoisted(() => ({
+  setAgentRuntimeObjectiveMock: vi.fn(),
+}));
 
 const mockCharacterMention = vi.fn<
   (props: {
@@ -28,6 +38,11 @@ const mockCharacterMention = vi.fn<
     onSelectInputCapability?: (
       capability: InputCapabilitySelection,
       options?: { replayText?: string },
+    ) => void;
+    onSelectPlugin?: (
+      plugin: InputbarPluginCapability,
+      skill?: InputbarPluginSkillCapability,
+      options?: InputbarPluginSelectionOptions,
     ) => void;
     onSelectServiceSkill?: (skill: ServiceSkillHomeItem) => void;
     defaultCuratedTaskReferenceMemoryIds?: string[];
@@ -42,7 +57,7 @@ const mockCharacterMention = vi.fn<
     inputCompletionEnabled?: boolean;
   }) => React.ReactNode
 >();
-type MockInputbarPlusPanelId = "knowledge" | "skills";
+type MockInputbarPlusPanelId = "knowledge" | "plugins" | "skills";
 
 interface MockInputbarPlusMenuConfig {
   labels: {
@@ -52,23 +67,39 @@ interface MockInputbarPlusMenuConfig {
     planMode: string;
     subagent: string;
     objective: string;
+    plugins: string;
     skills: string;
   };
   taskEnabled: boolean;
   knowledgeOpenRequestKey?: number;
   subagentEnabled?: boolean;
+  pluginsActive?: boolean;
   knowledgePanel?: React.ReactNode;
+  pluginsPanel?: React.ReactNode;
   skillsPanel?: React.ReactNode;
   onAddFiles: () => void;
   onToggleTask: () => void;
   onToggleObjective: () => void;
   onToggleSubagent?: () => void;
+  onPanelOpen?: (panelId: MockInputbarPlusPanelId) => void;
 }
 
 interface MockInputbarCoreProps {
+  text?: string;
+  setText?: (value: string) => void;
   onToolClick?: (tool: string) => void;
   activeTools?: Record<string, boolean>;
-  onSend?: () => void;
+  onSend?: (metadata?: BaseComposerSendMetadata) => void;
+  pendingImages?: Array<{
+    data: string;
+    mediaType: string;
+  }>;
+  pathReferences?: Array<{
+    id: string;
+    path: string;
+    name: string;
+    isDir: boolean;
+  }>;
   leftExtra?: React.ReactNode;
   trailingMeta?: React.ReactNode;
   topExtra?: React.ReactNode;
@@ -95,12 +126,15 @@ function MockInputbarCoreView(props: MockInputbarCoreProps) {
   const activePlusPanel =
     activePanel === "knowledge"
       ? props.plusMenu?.knowledgePanel
-      : activePanel === "skills"
-        ? props.plusMenu?.skillsPanel
-        : null;
+      : activePanel === "plugins"
+        ? props.plusMenu?.pluginsPanel
+        : activePanel === "skills"
+          ? props.plusMenu?.skillsPanel
+          : null;
 
   return (
     <div data-testid="inputbar-core">
+      <div data-testid="top-extra">{props.topExtra}</div>
       {props.showMetaTools ? (
         <>
           <button
@@ -137,7 +171,10 @@ function MockInputbarCoreView(props: MockInputbarCoreProps) {
               type="button"
               data-testid="inputbar-plus-knowledge"
               disabled={!props.plusMenu.knowledgePanel}
-              onClick={() => setActivePanel("knowledge")}
+              onClick={() => {
+                props.plusMenu?.onPanelOpen?.("knowledge");
+                setActivePanel("knowledge");
+              }}
             >
               {props.plusMenu.labels.attachKnowledge}
             </button>
@@ -168,9 +205,24 @@ function MockInputbarCoreView(props: MockInputbarCoreProps) {
             </button>
             <button
               type="button"
+              data-testid="inputbar-plus-plugins"
+              disabled={!props.plusMenu.pluginsPanel}
+              onClick={() => {
+                props.plusMenu?.onPanelOpen?.("plugins");
+                setActivePanel("plugins");
+              }}
+            >
+              {props.plusMenu.labels.plugins}
+              {props.plusMenu.pluginsActive ? " on" : " off"}
+            </button>
+            <button
+              type="button"
               data-testid="inputbar-plus-skills"
               disabled={!props.plusMenu.skillsPanel}
-              onClick={() => setActivePanel("skills")}
+              onClick={() => {
+                props.plusMenu?.onPanelOpen?.("skills");
+                setActivePanel("skills");
+              }}
             >
               {props.plusMenu.labels.skills}
             </button>
@@ -185,13 +237,17 @@ function MockInputbarCoreView(props: MockInputbarCoreProps) {
       <button
         type="button"
         data-testid="send-btn"
-        onClick={() => props.onSend?.()}
+        onClick={() =>
+          props.onSend?.({
+            triggeredAt: Date.now(),
+            triggerSource: "button",
+          })
+        }
       >
         发送
       </button>
       <div data-testid="left-extra">{props.leftExtra}</div>
       <div data-testid="trailing-meta">{props.trailingMeta}</div>
-      <div data-testid="top-extra">{props.topExtra}</div>
     </div>
   );
 }
@@ -199,6 +255,21 @@ function MockInputbarCoreView(props: MockInputbarCoreProps) {
 vi.mock("./components/InputbarCore", () => ({
   InputbarCore: (props: MockInputbarCoreProps) => (
     <MockInputbarCoreView {...props} />
+  ),
+}));
+
+vi.mock("./components/InputbarObjectiveInlinePanel", () => ({
+  InputbarObjectiveInlinePanel: (props: {
+    sessionId: string;
+    workspaceId?: string | null;
+    runtimeBusy?: boolean;
+  }) => (
+    <div
+      data-testid="inputbar-objective-inline-panel"
+      data-session-id={props.sessionId}
+      data-workspace-id={props.workspaceId ?? ""}
+      data-runtime-busy={String(Boolean(props.runtimeBusy))}
+    />
   ),
 }));
 
@@ -210,6 +281,11 @@ vi.mock("../../skill-selection/CharacterMention", () => ({
     onSelectInputCapability?: (
       capability: InputCapabilitySelection,
       options?: { replayText?: string },
+    ) => void;
+    onSelectPlugin?: (
+      plugin: InputbarPluginCapability,
+      skill?: InputbarPluginSkillCapability,
+      options?: InputbarPluginSelectionOptions,
     ) => void;
     onSelectServiceSkill?: (skill: ServiceSkillHomeItem) => void;
     defaultCuratedTaskReferenceMemoryIds?: string[];
@@ -226,10 +302,6 @@ vi.mock("../../skill-selection/CharacterMention", () => ({
     mockCharacterMention(props);
     return <div data-testid="character-mention-stub" />;
   },
-}));
-
-vi.mock("../TaskFiles", () => ({
-  TaskFileList: () => <div data-testid="task-file-list" />,
 }));
 
 vi.mock("../../skill-selection/SkillBadge", () => ({
@@ -592,6 +664,10 @@ vi.mock("sonner", () => ({
   },
 }));
 
+vi.mock("@/lib/api/agentRuntime/objectiveClient", () => ({
+  setAgentRuntimeObjective: setAgentRuntimeObjectiveMock,
+}));
+
 const mountedRoots: Array<{ root: Root; container: HTMLDivElement }> = [];
 
 beforeEach(async () => {
@@ -601,7 +677,7 @@ beforeEach(async () => {
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
   window.localStorage.clear();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 afterEach(() => {
@@ -657,11 +733,17 @@ function expectInputbarSend(
     "images" | "textOverride" | "sendOptions"
   > = {},
 ) {
-  expect(onSend).toHaveBeenCalledWith({
-    images: payload.images,
-    textOverride: payload.textOverride,
-    sendOptions: payload.sendOptions,
-  });
+  const actual = onSend.mock.calls.at(-1)?.[0] as
+    | InputbarSendPayload
+    | undefined;
+  expect(actual).toBeTruthy();
+  expect(actual?.images).toEqual(payload.images);
+  expect(actual?.textOverride).toEqual(payload.textOverride);
+  if (payload.sendOptions) {
+    expect(actual?.sendOptions).toMatchObject(payload.sendOptions);
+    return;
+  }
+  expect(actual?.sendOptions).toBe(payload.sendOptions);
 }
 
 function expandAdvancedControls(container: HTMLDivElement) {
@@ -680,7 +762,7 @@ function expandAdvancedControls(container: HTMLDivElement) {
 
 function openPlusMenuPanel(
   container: HTMLDivElement,
-  panel: "knowledge" | "skills",
+  panel: "knowledge" | "plugins" | "skills",
 ) {
   expandAdvancedControls(container);
   const trigger = document.body.querySelector(
@@ -701,6 +783,10 @@ function openPlusMenuPanel(
 
 function openKnowledgePanel(container: HTMLDivElement) {
   return openPlusMenuPanel(container, "knowledge");
+}
+
+function openPluginsPanel(container: HTMLDivElement) {
+  return openPlusMenuPanel(container, "plugins");
 }
 
 function openSkillsPanel(container: HTMLDivElement) {
@@ -751,6 +837,250 @@ function dispatchInputbarDrop(
 }
 
 describe("Inputbar", () => {
+  it("收到中断恢复请求时即使仍在 loading 也应回填文本、图片、路径和技能 chip", async () => {
+    const onInputRestoreRequestHandled = vi.fn();
+    const pathReference = {
+      id: "file:/tmp/report.md",
+      path: "/tmp/report.md",
+      name: "report.md",
+      isDir: false,
+      source: "file_manager" as const,
+    };
+    const skill: Skill = {
+      key: "local:draft",
+      name: "起草",
+      description: "恢复输入用技能",
+      directory: "draft",
+      installed: true,
+      sourceKind: "other",
+    };
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    mountedRoots.push({ root, container });
+
+    function RestoreHarness() {
+      const [input, setInput] = React.useState("");
+      const [pathReferences, setPathReferences] = React.useState<
+        (typeof pathReference)[]
+      >([]);
+      const [restoreRequest, setRestoreRequest] = React.useState<
+        React.ComponentProps<typeof Inputbar>["inputRestoreRequest"]
+      >({
+        requestId: "restore-1",
+        reason: "output_free_interrupted_turn",
+        draft: {
+          text: "继续生成提纲",
+          images: [
+            {
+              data: "image-data",
+              mediaType: "image/png",
+            },
+          ],
+          pathReferences: [pathReference],
+          inputCapabilityRoute: {
+            kind: "installed_skill",
+            skillKey: "draft",
+            skillName: "起草",
+          },
+        },
+      });
+
+      return (
+        <Inputbar
+          input={input}
+          setInput={setInput}
+          onSend={vi.fn()}
+          isLoading={true}
+          characters={[]}
+          skills={[skill]}
+          pathReferences={pathReferences}
+          onClearPathReferences={() => setPathReferences([])}
+          onAddPathReferences={(references) =>
+            setPathReferences(references as (typeof pathReference)[])
+          }
+          inputRestoreRequest={restoreRequest}
+          onInputRestoreRequestHandled={(requestId) => {
+            onInputRestoreRequestHandled(requestId);
+            setRestoreRequest(null);
+          }}
+        />
+      );
+    }
+
+    await act(async () => {
+      root.render(<RestoreHarness />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+      await Promise.resolve();
+    });
+
+    const latestCoreProps =
+      mockInputbarCore.mock.calls[mockInputbarCore.mock.calls.length - 1]?.[0];
+    expect(latestCoreProps?.text).toBe("继续生成提纲");
+    expect(latestCoreProps?.pathReferences).toEqual([pathReference]);
+    expect(latestCoreProps?.pendingImages).toEqual([
+      {
+        data: "image-data",
+        mediaType: "image/png",
+      },
+    ]);
+    expect(container.querySelector('[data-testid="skill-badge"]')).toBeTruthy();
+    expect(onInputRestoreRequestHandled).toHaveBeenCalledWith("restore-1");
+  });
+
+  it("发送 Promise 未结束时收到恢复请求，不应让旧发送清理刚恢复的富输入", async () => {
+    const onInputRestoreRequestHandled = vi.fn();
+    const pathReference = {
+      id: "file:/tmp/report.md",
+      path: "/tmp/report.md",
+      name: "report.md",
+      isDir: false,
+      source: "file_manager" as const,
+    };
+    const skill: Skill = {
+      key: "local:draft",
+      name: "起草",
+      description: "恢复输入用技能",
+      directory: "draft",
+      installed: true,
+      sourceKind: "other",
+    };
+    let resolveSend: ((value: boolean) => void) | null = null;
+    let triggerRestore: (() => void) | null = null;
+    const onSend = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveSend = resolve;
+        }),
+    );
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    mountedRoots.push({ root, container });
+
+    function RestoreDuringSendHarness() {
+      const [input, setInput] = React.useState("请结合现有资料生成提纲");
+      const [pathReferences, setPathReferences] = React.useState<
+        (typeof pathReference)[]
+      >([]);
+      const [restoreRequest, setRestoreRequest] =
+        React.useState<
+          React.ComponentProps<typeof Inputbar>["inputRestoreRequest"]
+        >(null);
+
+      triggerRestore = () =>
+        setRestoreRequest({
+          requestId: "restore-during-send",
+          reason: "output_free_interrupted_turn",
+          draft: {
+            text: "继续生成提纲",
+            images: [
+              {
+                data: "image-data",
+                mediaType: "image/png",
+              },
+            ],
+            pathReferences: [pathReference],
+            inputCapabilityRoute: {
+              kind: "installed_skill",
+              skillKey: "draft",
+              skillName: "起草",
+            },
+          },
+        });
+
+      return (
+        <Inputbar
+          input={input}
+          setInput={setInput}
+          onSend={onSend}
+          isLoading={false}
+          characters={[]}
+          skills={[skill]}
+          pathReferences={pathReferences}
+          onClearPathReferences={() => setPathReferences([])}
+          onAddPathReferences={(references) =>
+            setPathReferences(references as (typeof pathReference)[])
+          }
+          initialInputCapability={{
+            requestKey: 1,
+            capabilityRoute: {
+              kind: "installed_skill",
+              skillKey: "draft",
+              skillName: "起草",
+            },
+          }}
+          inputRestoreRequest={restoreRequest}
+          onInputRestoreRequestHandled={(requestId) => {
+            onInputRestoreRequestHandled(requestId);
+            setRestoreRequest(null);
+          }}
+        />
+      );
+    }
+
+    await act(async () => {
+      root.render(<RestoreDuringSendHarness />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const firstCoreProps =
+      mockInputbarCore.mock.calls[mockInputbarCore.mock.calls.length - 1]?.[0];
+    let sendPromise: Promise<unknown> | undefined;
+    await act(async () => {
+      sendPromise = Promise.resolve(firstCoreProps?.onSend?.());
+      await Promise.resolve();
+    });
+    expect(onSend).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      triggerRestore?.();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+      await Promise.resolve();
+    });
+
+    let latestCoreProps =
+      mockInputbarCore.mock.calls[mockInputbarCore.mock.calls.length - 1]?.[0];
+    expect(latestCoreProps?.text).toBe("继续生成提纲");
+    expect(latestCoreProps?.pathReferences).toEqual([pathReference]);
+    expect(latestCoreProps?.pendingImages).toEqual([
+      {
+        data: "image-data",
+        mediaType: "image/png",
+      },
+    ]);
+    expect(container.querySelector('[data-testid="skill-badge"]')).toBeTruthy();
+
+    await act(async () => {
+      resolveSend?.(true);
+      await sendPromise;
+      await Promise.resolve();
+    });
+
+    latestCoreProps =
+      mockInputbarCore.mock.calls[mockInputbarCore.mock.calls.length - 1]?.[0];
+    expect(latestCoreProps?.text).toBe("继续生成提纲");
+    expect(latestCoreProps?.pathReferences).toEqual([pathReference]);
+    expect(latestCoreProps?.pendingImages).toEqual([
+      {
+        data: "image-data",
+        mediaType: "image/png",
+      },
+    ]);
+    expect(container.querySelector('[data-testid="skill-badge"]')).toBeTruthy();
+    expect(onInputRestoreRequestHandled).toHaveBeenCalledWith(
+      "restore-during-send",
+    );
+  });
+
   it("即使角色和技能为空，也应挂载 CharacterMention", async () => {
     const { container } = renderInputbar();
     await act(async () => {
@@ -862,6 +1192,7 @@ describe("Inputbar", () => {
 
   it("@资料兼容入口应打开资料中枢而不是直接启用资料或创建新的 Agent", async () => {
     const onToggleKnowledgePack = vi.fn();
+    const onKnowledgePacksNeeded = vi.fn();
     renderInputbar({
       knowledgePackSelection: {
         enabled: false,
@@ -870,6 +1201,7 @@ describe("Inputbar", () => {
         label: "品牌资料",
         status: "ready",
       },
+      onKnowledgePacksNeeded,
       onToggleKnowledgePack,
     });
 
@@ -899,6 +1231,7 @@ describe("Inputbar", () => {
     });
 
     expect(onToggleKnowledgePack).not.toHaveBeenCalled();
+    expect(onKnowledgePacksNeeded).toHaveBeenCalledTimes(1);
     expect(
       document.body.querySelector('[data-testid="inputbar-knowledge-hub"]')
         ?.textContent,
@@ -952,6 +1285,7 @@ describe("Inputbar", () => {
 
   it("初始路由带 @资料 时应兼容打开资料中枢而不是渲染命令 badge", async () => {
     const onToggleKnowledgePack = vi.fn();
+    const onKnowledgePacksNeeded = vi.fn();
     const { container } = renderInputbar({
       knowledgePackSelection: {
         enabled: false,
@@ -960,6 +1294,7 @@ describe("Inputbar", () => {
         label: "品牌资料",
         status: "ready",
       },
+      onKnowledgePacksNeeded,
       onToggleKnowledgePack,
       initialInputCapability: {
         capabilityRoute: {
@@ -984,6 +1319,7 @@ describe("Inputbar", () => {
         ?.textContent,
     ).toContain("使用这份资料");
     expect(onToggleKnowledgePack).not.toHaveBeenCalled();
+    expect(onKnowledgePacksNeeded).toHaveBeenCalledTimes(1);
   });
 
   it("先选内建命令再选技能时，应以后一次 capability 为准发送", async () => {
@@ -1054,6 +1390,7 @@ describe("Inputbar", () => {
 
     expect(onSend).toHaveBeenCalledTimes(1);
     expectInputbarSend(onSend, {
+      textOverride: "整理最近发布计划",
       sendOptions: {
         capabilityRoute: {
           kind: "installed_skill",
@@ -1067,10 +1404,12 @@ describe("Inputbar", () => {
 
   it("加号菜单开启 plan 和 goal 后发送应下传 mode metadata", async () => {
     const onSend = vi.fn();
+    setAgentRuntimeObjectiveMock.mockResolvedValue(null);
     renderInputbar({
       input: "继续执行当前任务",
       onSend,
       activeTheme: "general",
+      projectId: "project-inputbar-plan-goal",
       sessionId: "thread-inputbar-plan-goal",
     });
 
@@ -1099,7 +1438,14 @@ describe("Inputbar", () => {
       await Promise.resolve();
     });
 
+    expect(setAgentRuntimeObjectiveMock).toHaveBeenCalledWith({
+      sessionId: "thread-inputbar-plan-goal",
+      workspaceId: "project-inputbar-plan-goal",
+      objectiveText: "继续执行当前任务",
+      successCriteria: [],
+    });
     expectInputbarSend(onSend, {
+      textOverride: "继续执行当前任务",
       sendOptions: {
         displayContent: "继续执行当前任务",
         requestMetadata: {
@@ -1122,7 +1468,7 @@ describe("Inputbar", () => {
               status: "active",
               set: {
                 threadId: "thread-inputbar-plan-goal",
-                objective: null,
+                objective: "继续执行当前任务",
                 status: "active",
                 tokenBudget: null,
               },
@@ -1133,10 +1479,14 @@ describe("Inputbar", () => {
               status: "active",
               set: {
                 threadId: "thread-inputbar-plan-goal",
-                objective: null,
+                objective: "继续执行当前任务",
                 status: "active",
                 tokenBudget: null,
               },
+            },
+            managed_objective: {
+              objective_text: "继续执行当前任务",
+              source: "inputbar",
             },
           },
         },
@@ -1146,6 +1496,55 @@ describe("Inputbar", () => {
         },
       },
     });
+  });
+
+  it("开启 Goal 时应在输入区上方显示可编辑的追求目标面板", async () => {
+    const { container } = renderInputbar({
+      activeTheme: "general",
+      projectId: "project-goal",
+      sessionId: "thread-inputbar-goal-panel",
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(
+      container.querySelector(
+        '[data-testid="inputbar-objective-inline-panel"]',
+      ),
+    ).toBeNull();
+
+    await act(async () => {
+      container
+        .querySelector('[data-testid="inputbar-plus-objective"]')
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    const objectivePanel = container.querySelector(
+      '[data-testid="inputbar-objective-inline-panel"]',
+    );
+    expect(objectivePanel).toBeTruthy();
+    expect(objectivePanel?.getAttribute("data-session-id")).toBe(
+      "thread-inputbar-goal-panel",
+    );
+    expect(objectivePanel?.getAttribute("data-workspace-id")).toBe(
+      "project-goal",
+    );
+
+    await act(async () => {
+      container
+        .querySelector('[data-testid="inputbar-objective-status"]')
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(
+      container.querySelector(
+        '[data-testid="inputbar-objective-inline-panel"]',
+      ),
+    ).toBeNull();
   });
 
   it("Plan 和 Goal 开启后应在左侧显示可单独关闭的状态标签，模型放在右侧", async () => {
@@ -1326,6 +1725,7 @@ describe("Inputbar", () => {
     });
 
     expectInputbarSend(onSend, {
+      textOverride: "整理最近发布计划",
       sendOptions: {
         capabilityRoute: {
           kind: "installed_skill",
@@ -1415,7 +1815,7 @@ describe("Inputbar", () => {
   });
 
   it("无法读取系统文件路径时应按 en-US 资源提示", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const onAddPathReferences = vi.fn();
     const { container } = renderInputbar({
       onAddPathReferences,
@@ -1467,7 +1867,7 @@ describe("Inputbar", () => {
   });
 
   it("通用输入区 chrome 文案应跟随 en-US 资源", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const { container } = renderInputbar({
       providerType: "openai",
       setProviderType: vi.fn(),
@@ -1545,6 +1945,7 @@ describe("Inputbar", () => {
 
     expect(onSend).toHaveBeenCalledTimes(1);
     expectInputbarSend(onSend, {
+      textOverride: "整理最近发布计划",
       sendOptions: {
         capabilityRoute: {
           kind: "installed_skill",
@@ -1632,6 +2033,8 @@ describe("Inputbar", () => {
     });
 
     expectInputbarSend(onSend, {
+      textOverride:
+        "请先帮我起草一版内容首稿：明确目标受众、标题方向、正文结构、核心观点和可继续扩写的角度，并给我一版适合继续打磨的正文。",
       sendOptions: expect.objectContaining({
         capabilityRoute: {
           kind: "curated_task",
@@ -1911,6 +2314,7 @@ describe("Inputbar", () => {
     });
 
     expectInputbarSend(onSend, {
+      textOverride: initialPrompt,
       sendOptions: expect.objectContaining({
         capabilityRoute: {
           kind: "curated_task",
@@ -2106,6 +2510,7 @@ describe("Inputbar", () => {
     });
 
     expectInputbarSend(onSend, {
+      textOverride: expectedPrompt,
       sendOptions: expect.objectContaining({
         capabilityRoute: expect.objectContaining({
           kind: "curated_task",
@@ -2119,7 +2524,7 @@ describe("Inputbar", () => {
   });
 
   it("输入条编辑态 launcher 按最近判断切模板时，应保留参考选择并显示 en-US 提示", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const initialLaunchInputValues = {
       theme_target: "AI 内容创作",
       platform_region: "X 与 TikTok 北美区",
@@ -2320,6 +2725,7 @@ describe("Inputbar", () => {
     });
 
     expectInputbarSend(onSend, {
+      textOverride: "请先给我做一版每日趋势摘要",
       sendOptions: expect.objectContaining({
         capabilityRoute: expect.objectContaining({
           kind: "curated_task",
@@ -2471,6 +2877,7 @@ describe("Inputbar", () => {
     });
 
     expectInputbarSend(onSend, {
+      textOverride: editedPrompt,
       sendOptions: expect.objectContaining({
         capabilityRoute: {
           kind: "curated_task",
@@ -2537,6 +2944,7 @@ describe("Inputbar", () => {
 
     expect(onSend).toHaveBeenCalledTimes(1);
     expectInputbarSend(onSend, {
+      textOverride: "整理最近发布计划",
       sendOptions: {
         capabilityRoute: {
           kind: "builtin_command",
@@ -2596,6 +3004,7 @@ describe("Inputbar", () => {
 
     expect(onSend).toHaveBeenCalledTimes(1);
     expectInputbarSend(onSend, {
+      textOverride: "帮我做一版新品活动启动方案",
       sendOptions: {
         capabilityRoute: {
           kind: "runtime_scene",
@@ -2672,6 +3081,7 @@ describe("Inputbar", () => {
 
     expect(onSend).toHaveBeenCalledTimes(1);
     expectInputbarSend(onSend, {
+      textOverride: "帮我做一版新品活动启动方案",
       sendOptions: {
         capabilityRoute: {
           kind: "runtime_scene",
@@ -2750,56 +3160,13 @@ describe("Inputbar", () => {
     });
 
     expect(onSend).toHaveBeenCalledTimes(1);
-    expectInputbarSend(onSend);
-  });
-
-  it("应把任务文件与额外浮层控件放进同一条输入栏 overlay row", async () => {
-    const { container } = renderInputbar({
-      taskFiles: [
-        {
-          id: "file-1",
-          name: "notes.md",
-          type: "document",
-          version: 1,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        },
-      ],
-      overlayAccessory: (
-        <button type="button" data-testid="team-inline-toggle">
-          查看任务进展 · 2
-        </button>
-      ),
+    expectInputbarSend(onSend, {
+      textOverride: "整理最近发布计划",
     });
-
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    const row = container.querySelector<HTMLElement>(
-      '[data-testid="inputbar-secondary-controls"]',
-    );
-    expect(row).toBeTruthy();
-    expect(getComputedStyle(row as HTMLElement).position).toBe("absolute");
-    expect(getComputedStyle(row as HTMLElement).pointerEvents).toBe("none");
-    expect(getComputedStyle(row as HTMLElement).zIndex).toBe("80");
-    expect(
-      row?.querySelector('[data-testid="task-files-panel-area"]'),
-    ).toBeTruthy();
-    expect(
-      row?.querySelector('[data-testid="team-inline-toggle"]'),
-    ).toBeTruthy();
-
-    const fileInput = container.querySelector(
-      'input[type="file"][accept="image/*"]',
-    ) as HTMLInputElement | null;
-    expect(fileInput).toBeTruthy();
-    expect(fileInput?.multiple).toBe(true);
   });
 
   it("没有任务文件和额外控件时不应渲染 overlay row", async () => {
     const { container } = renderInputbar({
-      taskFiles: [],
       overlayAccessory: null,
     });
 
@@ -2861,6 +3228,435 @@ describe("Inputbar", () => {
     expect(
       document.body.querySelector('[data-testid="skill-selector-inline"]'),
     ).toBeTruthy();
+  });
+
+  it("加号菜单选择插件时应写回显式触发前缀并显示插件标记", async () => {
+    const setInput = vi.fn();
+    const { container, rerender } = renderInputbar({
+      input: "整理今天的选题",
+      setInput,
+      pluginSuggestions: [
+        {
+          pluginId: "content-workbench",
+          displayName: "内容工厂",
+          description: "整理内容生产资料",
+        },
+      ],
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const pluginsPanel = openPluginsPanel(container);
+    expect(pluginsPanel.textContent).toContain("选择插件");
+    const option = pluginsPanel.querySelector(
+      '[data-testid="inputbar-plugin-option"]',
+    ) as HTMLButtonElement | null;
+    expect(option).toBeTruthy();
+
+    await act(async () => {
+      option?.click();
+      await Promise.resolve();
+    });
+
+    expect(setInput).toHaveBeenCalledWith("@内容工厂 整理今天的选题");
+
+    rerender({
+      input: "@内容工厂 整理今天的选题",
+      setInput,
+      pluginSuggestions: [
+        {
+          pluginId: "content-workbench",
+          displayName: "内容工厂",
+          description: "整理内容生产资料",
+        },
+      ],
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(
+      container.querySelector('[data-testid="inputbar-plugin-badge"]'),
+    ).toBeTruthy();
+  });
+
+  it("加号菜单选择内容工厂写文章入口时应写回 @写文章", async () => {
+    const setInput = vi.fn();
+    const { container } = renderInputbar({
+      input: "写一篇关于登山的文章",
+      setInput,
+      pluginSuggestions: [
+        {
+          pluginId: "content-factory-app",
+          displayName: "写文章",
+          trigger: "@写文章",
+          description: "@写文章 · 启动内容工厂文章工作流",
+        },
+      ],
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const pluginsPanel = openPluginsPanel(container);
+    const option = pluginsPanel.querySelector(
+      '[data-testid="inputbar-plugin-option"]',
+    ) as HTMLButtonElement | null;
+
+    await act(async () => {
+      option?.click();
+      await Promise.resolve();
+    });
+
+    expect(setInput).toHaveBeenCalledWith("@写文章 写一篇关于登山的文章");
+  });
+
+  it("mention 面板选择插件时应保留插件标记但不重复写回触发词", async () => {
+    const setInput = vi.fn();
+    const plugin: InputbarPluginCapability = {
+      pluginId: "content-factory-app",
+      displayName: "写文章",
+      trigger: "@写文章",
+      description: "生成文章草稿",
+    };
+    const { container, rerender } = renderInputbar({
+      input: "@写文章",
+      setInput,
+      pluginSuggestions: [plugin],
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const mentionProps = mockCharacterMention.mock.calls.at(-1)?.[0];
+    expect(mentionProps?.onSelectPlugin).toBeTruthy();
+
+    await act(async () => {
+      mentionProps?.onSelectPlugin?.(plugin, undefined, {
+        inputOverride: "",
+        preserveInputOverride: true,
+      });
+      await Promise.resolve();
+    });
+
+    expect(setInput).toHaveBeenCalledWith("");
+
+    rerender({
+      input: "",
+      setInput,
+      pluginSuggestions: [plugin],
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(
+      container.querySelector('[data-testid="inputbar-plugin-badge"]')
+        ?.textContent,
+    ).toContain("写文章");
+    expect(setInput).not.toHaveBeenCalledWith("@写文章");
+  });
+
+  it("加号菜单选择插件技能时应写回 @插件:技能 前缀", async () => {
+    const setInput = vi.fn();
+    const { container, rerender } = renderInputbar({
+      input: "整理今天的选题",
+      setInput,
+      pluginSuggestions: [
+        {
+          pluginId: "content-workbench",
+          displayName: "内容工厂",
+          description: "整理内容生产资料",
+          skills: [
+            {
+              skillId: "article-writer",
+              title: "文章写作",
+              description: "生成文章草稿",
+            },
+          ],
+        },
+      ],
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const pluginsPanel = openPluginsPanel(container);
+    expect(pluginsPanel.textContent).toContain("文章写作");
+    const skillOption = pluginsPanel.querySelector(
+      '[data-testid="inputbar-plugin-skill-option"]',
+    ) as HTMLButtonElement | null;
+    expect(skillOption).toBeTruthy();
+
+    await act(async () => {
+      skillOption?.click();
+      await Promise.resolve();
+    });
+
+    expect(setInput).toHaveBeenCalledWith("@内容工厂:文章写作 整理今天的选题");
+
+    rerender({
+      input: "@内容工厂:文章写作 整理今天的选题",
+      setInput,
+      pluginSuggestions: [
+        {
+          pluginId: "content-workbench",
+          displayName: "内容工厂",
+          description: "整理内容生产资料",
+          skills: [
+            {
+              skillId: "article-writer",
+              title: "文章写作",
+              description: "生成文章草稿",
+            },
+          ],
+        },
+      ],
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(
+      container.querySelector('[data-testid="inputbar-plugin-badge"]')
+        ?.textContent,
+    ).toContain("内容工厂:文章写作");
+  });
+
+  it("插件技能同一 skillId 的多个 alias 不应触发重复 key 警告", async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    try {
+      const { container } = renderInputbar({
+        pluginSuggestions: [
+          {
+            pluginId: "content-factory-app",
+            displayName: "写文章",
+            trigger: "@写文章",
+            description: "@写文章 · 启动内容工厂文章工作流",
+            skills: [
+              {
+                skillId: "content_article_generate",
+                title: "@写文章",
+                trigger: "@写文章",
+              },
+              {
+                skillId: "content_article_generate",
+                title: "@写作",
+                trigger: "@写作",
+              },
+            ],
+          },
+        ],
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      const pluginsPanel = openPluginsPanel(container);
+
+      expect(
+        pluginsPanel.querySelectorAll(
+          '[data-testid="inputbar-plugin-skill-option"]',
+        ),
+      ).toHaveLength(2);
+      expect(pluginsPanel.textContent).toContain("@写文章");
+      expect(pluginsPanel.textContent).toContain("@写作");
+      expect(
+        consoleErrorSpy.mock.calls.some((call) =>
+          call
+            .map((item) => String(item))
+            .join(" ")
+            .includes("Encountered two children with the same key"),
+        ),
+      ).toBe(false);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("用户手动删除插件技能前缀时不应自动恢复前缀", async () => {
+    const setInput = vi.fn();
+    const { container, rerender } = renderInputbar({
+      input: "整理今天的选题",
+      setInput,
+      pluginSuggestions: [
+        {
+          pluginId: "content-workbench",
+          displayName: "内容工厂",
+          description: "整理内容生产资料",
+          skills: [
+            {
+              skillId: "article-writer",
+              title: "文章写作",
+              description: "生成文章草稿",
+            },
+          ],
+        },
+      ],
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const pluginsPanel = openPluginsPanel(container);
+    const skillOption = pluginsPanel.querySelector(
+      '[data-testid="inputbar-plugin-skill-option"]',
+    ) as HTMLButtonElement | null;
+    expect(skillOption).toBeTruthy();
+
+    await act(async () => {
+      skillOption?.click();
+      await Promise.resolve();
+    });
+
+    expect(setInput).toHaveBeenCalledWith("@内容工厂:文章写作 整理今天的选题");
+
+    rerender({
+      input: "@内容工厂:文章写作 整理今天的选题",
+      setInput,
+      pluginSuggestions: [
+        {
+          pluginId: "content-workbench",
+          displayName: "内容工厂",
+          description: "整理内容生产资料",
+          skills: [
+            {
+              skillId: "article-writer",
+              title: "文章写作",
+              description: "生成文章草稿",
+            },
+          ],
+        },
+      ],
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(
+      container.querySelector('[data-testid="inputbar-plugin-badge"]'),
+    ).toBeTruthy();
+    setInput.mockClear();
+
+    rerender({
+      input: "@内容工厂:Ar",
+      setInput,
+      pluginSuggestions: [
+        {
+          pluginId: "content-workbench",
+          displayName: "内容工厂",
+          description: "整理内容生产资料",
+          skills: [
+            {
+              skillId: "article-writer",
+              title: "文章写作",
+              description: "生成文章草稿",
+            },
+          ],
+        },
+      ],
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(setInput).not.toHaveBeenCalled();
+    expect(
+      container.querySelector('[data-testid="inputbar-plugin-badge"]'),
+    ).toBeNull();
+  });
+
+  it("没有插件候选时加号菜单仍应显示插件入口和空态", async () => {
+    const { container } = renderInputbar();
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const pluginsPanel = openPluginsPanel(container);
+    expect(pluginsPanel.textContent).toContain("当前没有可选插件");
+  });
+
+  it("插件候选加载中时加号菜单不应提前显示空态", async () => {
+    const { container } = renderInputbar({
+      pluginSuggestionsLoading: true,
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const pluginsPanel = openPluginsPanel(container);
+    expect(pluginsPanel.textContent).toContain("正在读取已安装插件");
+    expect(pluginsPanel.textContent).not.toContain("当前没有可选插件");
+  });
+
+  it("插件候选名称为空时应回退显示插件 id", async () => {
+    const { container } = renderInputbar({
+      pluginSuggestions: [
+        {
+          pluginId: "content-workbench",
+          displayName: " ",
+          description: "整理内容生产资料",
+        },
+      ],
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const pluginsPanel = openPluginsPanel(container);
+    expect(pluginsPanel.textContent).toContain("content-workbench");
+  });
+
+  it("加号菜单中的阻断插件应禁用且不写回输入", async () => {
+    const setInput = vi.fn();
+    const { container } = renderInputbar({
+      input: "继续生成",
+      setInput,
+      pluginSuggestions: [
+        {
+          pluginId: "blocked-workbench",
+          displayName: "受限工作台",
+          disabled: true,
+          blockerCodes: ["PLUGIN_DISABLED"],
+        },
+      ],
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const pluginsPanel = openPluginsPanel(container);
+    const option = pluginsPanel.querySelector(
+      '[data-testid="inputbar-plugin-option"]',
+    ) as HTMLButtonElement | null;
+    expect(option).toBeTruthy();
+    expect(option?.disabled).toBe(true);
+
+    await act(async () => {
+      option?.click();
+      await Promise.resolve();
+    });
+
+    expect(setInput).not.toHaveBeenCalled();
   });
 
   it("存在 executionRuntime 时底栏也应直接显示模型切换器", async () => {
@@ -2935,7 +3731,7 @@ describe("Inputbar", () => {
   });
 
   it("高级设置 en-US 也不再渲染编程执行前置开关", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const { container } = renderInputbar({
       accessMode: "current",
       setAccessMode: vi.fn(),
@@ -2993,7 +3789,7 @@ describe("Inputbar", () => {
   });
 
   it("en-US 下也不再渲染联网搜索前置开关", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const onToolStatesChange = vi.fn();
     const { container } = renderInputbar({
       input: "please search the web",
@@ -3035,7 +3831,9 @@ describe("Inputbar", () => {
       await Promise.resolve();
     });
 
-    expectInputbarSend(onSend);
+    expectInputbarSend(onSend, {
+      textOverride: "请联网检查这个依赖变更并修复编译错误",
+    });
   });
 
   it("通用聊天态复杂任务不再主动显示 Subagents 建议", async () => {
@@ -3068,7 +3866,7 @@ describe("Inputbar", () => {
       knowledgePackSelection: {
         enabled: true,
         packName: "brand-product-demo",
-        workingDir: "/tmp/ember-project",
+        workingDir: "/tmp/lime-project",
         label: "品牌产品资料",
         status: "ready",
       },
@@ -3089,11 +3887,12 @@ describe("Inputbar", () => {
     });
 
     expectInputbarSend(onSend, {
+      textOverride: "基于项目资料写一段介绍",
       sendOptions: expect.objectContaining({
         requestMetadata: {
           knowledge_pack: {
             pack_name: "brand-product-demo",
-            working_dir: "/tmp/ember-project",
+            working_dir: "/tmp/lime-project",
             source: "inputbar",
           },
         },
@@ -3109,7 +3908,7 @@ describe("Inputbar", () => {
       knowledgePackSelection: {
         enabled: true,
         packName: "content-calendar",
-        workingDir: "/tmp/ember-project",
+        workingDir: "/tmp/lime-project",
         label: "内容运营资料",
         status: "ready",
         companionPacks: [
@@ -3136,11 +3935,12 @@ describe("Inputbar", () => {
     });
 
     expectInputbarSend(onSend, {
+      textOverride: "基于运营资料写一段社群预热文案",
       sendOptions: expect.objectContaining({
-        requestMetadata: {
+        requestMetadata: expect.objectContaining({
           knowledge_pack: {
             pack_name: "content-calendar",
-            working_dir: "/tmp/ember-project",
+            working_dir: "/tmp/lime-project",
             source: "inputbar",
             packs: [
               {
@@ -3149,7 +3949,18 @@ describe("Inputbar", () => {
               },
             ],
           },
-        },
+          persona_context: expect.objectContaining({
+            source: "knowledge_pack",
+            scope: "style_context_only",
+            packs: [
+              {
+                name: "founder-persona",
+                activation: "implicit",
+                role: "companion",
+              },
+            ],
+          }),
+        }),
       }),
     });
   });
@@ -3163,7 +3974,7 @@ describe("Inputbar", () => {
       knowledgePackSelection: {
         enabled: true,
         packName: "content-calendar",
-        workingDir: "/tmp/ember-project",
+        workingDir: "/tmp/lime-project",
         label: "内容运营资料",
         status: "ready",
         companionPacks: [
@@ -3226,7 +4037,7 @@ describe("Inputbar", () => {
       knowledgePackSelection: {
         enabled: true,
         packName: "content-calendar",
-        workingDir: "/tmp/ember-project",
+        workingDir: "/tmp/lime-project",
         label: "内容运营资料",
         status: "ready",
         companionPacks: [
@@ -3255,11 +4066,12 @@ describe("Inputbar", () => {
     });
 
     expectInputbarSend(onSend, {
+      textOverride: "基于运营资料生成本周计划",
       sendOptions: expect.objectContaining({
-        requestMetadata: {
+        requestMetadata: expect.objectContaining({
           knowledge_pack: {
             pack_name: "content-calendar",
-            working_dir: "/tmp/ember-project",
+            working_dir: "/tmp/lime-project",
             source: "inputbar",
             packs: [
               {
@@ -3272,7 +4084,16 @@ describe("Inputbar", () => {
               },
             ],
           },
-        },
+          persona_context: expect.objectContaining({
+            packs: [
+              {
+                name: "founder-persona",
+                activation: "implicit",
+                role: "companion",
+              },
+            ],
+          }),
+        }),
       }),
     });
   });
@@ -3282,7 +4103,7 @@ describe("Inputbar", () => {
       knowledgePackSelection: {
         enabled: false,
         packName: "brand-product-demo",
-        workingDir: "/tmp/ember-project",
+        workingDir: "/tmp/lime-project",
         label: "品牌产品资料",
         status: "ready",
       },
@@ -3298,14 +4119,67 @@ describe("Inputbar", () => {
     expect(container.textContent).not.toContain("知识包");
   });
 
+  it("启用资料应在输入区直接显示当前资料和协同数量", async () => {
+    const { container } = renderInputbar({
+      knowledgePackSelection: {
+        enabled: true,
+        packName: "content-calendar",
+        workingDir: "/tmp/lime-project",
+        label: "内容运营资料",
+        status: "ready",
+        companionPacks: [
+          {
+            name: "founder-persona",
+            activation: "explicit",
+          },
+          {
+            name: "campaign-plan",
+            activation: "explicit",
+          },
+        ],
+      },
+      knowledgePackOptions: [
+        {
+          packName: "content-calendar",
+          label: "内容运营资料",
+          status: "ready",
+          runtimeMode: "data",
+        },
+        {
+          packName: "founder-persona",
+          label: "写作口吻资料",
+          status: "ready",
+          runtimeMode: "persona",
+        },
+        {
+          packName: "campaign-plan",
+          label: "活动资料",
+          status: "ready",
+          runtimeMode: "data",
+        },
+      ],
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const visibleToggle = container.querySelector(
+      '[data-testid="top-extra"] [data-testid="inputbar-knowledge-pack-toggle"]',
+    ) as HTMLButtonElement | null;
+    expect(visibleToggle).toBeTruthy();
+    expect(visibleToggle?.textContent).toContain("资料：内容运营资料 +2");
+    expect(visibleToggle?.getAttribute("title")).toContain("内容运营资料");
+  });
+
   it("项目资料控件应在英文界面读取 agent namespace 文案", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
 
     const { container } = renderInputbar({
       knowledgePackSelection: {
         enabled: true,
         packName: "brand-product-demo",
-        workingDir: "/tmp/ember-project",
+        workingDir: "/tmp/lime-project",
         label: "Brand knowledge",
         status: "ready",
         companionPacks: [
@@ -3370,14 +4244,16 @@ describe("Inputbar", () => {
 
   it("资料中枢应在加号菜单中作为独立二级浮层展示", async () => {
     const onToggleKnowledgePack = vi.fn();
+    const onKnowledgePacksNeeded = vi.fn();
     const { container } = renderInputbar({
       knowledgePackSelection: {
         enabled: false,
         packName: "brand-product-demo",
-        workingDir: "/tmp/ember-project",
+        workingDir: "/tmp/lime-project",
         label: "品牌产品资料",
         status: "ready",
       },
+      onKnowledgePacksNeeded,
       onToggleKnowledgePack,
     });
 
@@ -3386,6 +4262,7 @@ describe("Inputbar", () => {
     });
 
     const knowledgePanel = openKnowledgePanel(container);
+    expect(onKnowledgePacksNeeded).toHaveBeenCalledTimes(1);
     expect(knowledgePanel).toBeTruthy();
     expect(
       knowledgePanel.querySelector('[data-testid="inputbar-knowledge-hub"]'),
@@ -3403,7 +4280,7 @@ describe("Inputbar", () => {
       knowledgePackSelection: {
         enabled: true,
         packName: "draft-without-source",
-        workingDir: "/tmp/ember-project",
+        workingDir: "/tmp/lime-project",
         label: "待确认资料",
         status: "needs-review",
       },
@@ -3487,7 +4364,7 @@ describe("Inputbar", () => {
       knowledgePackSelection: {
         enabled: false,
         packName: "brand-product-demo",
-        workingDir: "/tmp/ember-project",
+        workingDir: "/tmp/lime-project",
         label: "品牌产品资料",
         status: "ready",
       },
@@ -3532,7 +4409,7 @@ describe("Inputbar", () => {
       knowledgePackSelection: {
         enabled: true,
         packName: "org-knowhow-demo",
-        workingDir: "/tmp/ember-project",
+        workingDir: "/tmp/lime-project",
         label: "组织经验资料",
         status: "ready",
       },
@@ -3551,11 +4428,12 @@ describe("Inputbar", () => {
     });
 
     expectInputbarSend(onSend, {
+      textOverride: "基于选中的项目资料写介绍",
       sendOptions: expect.objectContaining({
         requestMetadata: {
           knowledge_pack: {
             pack_name: "org-knowhow-demo",
-            working_dir: "/tmp/ember-project",
+            working_dir: "/tmp/lime-project",
             source: "inputbar",
           },
         },
@@ -3569,7 +4447,7 @@ describe("Inputbar", () => {
       knowledgePackSelection: {
         enabled: false,
         packName: "brand-product-demo",
-        workingDir: "/tmp/ember-project",
+        workingDir: "/tmp/lime-project",
         label: "品牌产品资料",
         status: "ready",
       },
@@ -3600,7 +4478,7 @@ describe("Inputbar", () => {
       knowledgePackSelection: {
         enabled: true,
         packName: "brand-product-demo",
-        workingDir: "/tmp/ember-project",
+        workingDir: "/tmp/lime-project",
         label: "品牌产品资料",
         status: "ready",
       },
@@ -3684,8 +4562,7 @@ describe("Inputbar", () => {
     expect(
       enabledContainer.querySelector(
         '[data-testid="inputbar-plus-subagent-mode"]',
-      )
-        ?.textContent,
+      )?.textContent,
     ).toContain("on");
   });
 
@@ -3813,7 +4690,9 @@ describe("Inputbar", () => {
       await Promise.resolve();
     });
 
-    expectInputbarSend(onSend);
+    expectInputbarSend(onSend, {
+      textOverride: "写一篇春季上新种草文案",
+    });
   });
 
   it("社媒主题输入 slash 命令时不应重复注入默认 skill", async () => {
@@ -3839,7 +4718,9 @@ describe("Inputbar", () => {
       await Promise.resolve();
     });
 
-    expectInputbarSend(onSend);
+    expectInputbarSend(onSend, {
+      textOverride: "/custom_skill 写一篇品牌故事",
+    });
   });
 
   it("工作区工作流模式应使用 attach-only 浮动输入配置", async () => {
@@ -3909,7 +4790,7 @@ describe("Inputbar", () => {
   });
 
   it("工作区输入提示应跟随 en-US 资源", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const { rerender } = renderInputbar({
       variant: "workspace",
       providerType: "openai",
@@ -4066,7 +4947,7 @@ describe("Inputbar", () => {
   });
 
   it("工作区工作流面板 chrome 文案应跟随 en-US 资源", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const onStop = vi.fn();
     const { container } = renderInputbar({
       variant: "workspace",

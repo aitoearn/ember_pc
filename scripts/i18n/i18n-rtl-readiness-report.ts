@@ -374,7 +374,7 @@ export function analyzeI18nRtlReadinessReport(
   return {
     foundation,
     repoRoot,
-    schemaVersion: "ember.i18n.rtlReadinessReport.v1",
+    schemaVersion: "lime.i18n.rtlReadinessReport.v1",
     smokeCoverage,
     surfaces,
     summary: {
@@ -436,7 +436,7 @@ export function formatI18nRtlReadinessReport(
 function printHelp(): void {
   console.log(`Usage: tsx scripts/i18n/i18n-rtl-readiness-report.ts [options]
 
-只读盘点 Ember 当前 RTL readiness 的方向基础、主路径布局敏感面与缺失证据。
+只读盘点 Lime 当前 RTL readiness 的方向基础、主路径布局敏感面与缺失证据。
 
 Options:
   --format json|text   输出格式，默认 text

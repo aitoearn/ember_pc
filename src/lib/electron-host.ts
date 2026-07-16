@@ -1,5 +1,3 @@
-import type { ScrcpyNodeBridgeApi } from "@/features/device-automation/scrcpy/scrcpyNodeTypes";
-
 export type ElectronHostEvent<T = unknown> = {
   event: string;
   payload: T;
@@ -54,8 +52,6 @@ export interface ElectronHostDeepLinkBridge {
   getCurrent(): Promise<string[] | null>;
 }
 
-export type ElectronHostScrcpyNodeBridge = ScrcpyNodeBridgeApi;
-
 export interface ElectronHostBridge {
   invoke: ElectronHostInvoke;
   devBridgeFallback?: boolean;
@@ -76,13 +72,11 @@ export interface ElectronHostBridge {
   globalShortcut?: ElectronHostShortcutBridge;
   window?: ElectronHostWindowBridge;
   deepLink?: ElectronHostDeepLinkBridge;
-  /** 对齐 aya：renderer 内 node.createServer 监听 scrcpy TCP 回连。 */
-  scrcpyNode?: ElectronHostScrcpyNodeBridge;
 }
 
 declare global {
   interface Window {
-    __EMBER_ELECTRON__?: boolean;
+    __LIME_ELECTRON__?: boolean;
     electronAPI?: ElectronHostBridge;
   }
 }

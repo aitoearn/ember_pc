@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
   listDirectory,
   readFilePreview,
@@ -11,8 +11,8 @@ import {
 import {
   getMediaTaskArtifact,
   listMediaTaskArtifacts,
-  type MediaTaskArtifactOutput,
 } from "@/lib/api/mediaTasks";
+import type { MediaTaskArtifactOutput } from "@/lib/api/agentRuntime/mediaTaskTypes";
 import { safeListen } from "@/lib/dev-bridge";
 import {
   hasDesktopHostInvokeCapability,
@@ -23,7 +23,11 @@ import {
   createInitialSessionImageWorkbenchState,
   type SessionImageWorkbenchState,
 } from "./imageWorkbenchHelpers";
-import { useWorkspaceImageTaskPreviewRuntime } from "./useWorkspaceImageTaskPreviewRuntime";
+import {
+  shouldEnableWorkspaceImageTaskPreviewRuntime,
+  useWorkspaceImageTaskPreviewRuntime,
+} from "./useWorkspaceImageTaskPreviewRuntime";
+import { buildImageWorkbenchCaption } from "../utils/imageWorkbenchPresentation";
 import type { DirectoryListing } from "@/lib/api/fileBrowser";
 import { createInitialDocumentState } from "@/components/workspace/canvas/canvasUtils";
 
@@ -69,10 +73,10 @@ const EMPTY_MODALITY_RUNTIME_CONTRACT_INDEX = {
   contract_keys: [],
   execution_profile_keys: [],
   executor_adapter_keys: [],
-  embercore_policy_refs: [],
-  embercore_policy_snapshot_count: 0,
-  embercore_policy_snapshot_statuses: [],
-  embercore_policy_decisions: [],
+  limecore_policy_refs: [],
+  limecore_policy_snapshot_count: 0,
+  limecore_policy_snapshot_statuses: [],
+  limecore_policy_decisions: [],
   blocked_count: 0,
   routing_outcomes: [],
   model_registry_assessment_count: 0,
@@ -138,10 +142,10 @@ function createArtifactOutput(
     task_family: "image",
     status: "completed",
     normalized_status: "succeeded",
-    path: `.ember/tasks/${overrides.task_type}/${overrides.task_id}.json`,
-    absolute_path: `/workspace/project-image-1/.ember/tasks/${overrides.task_type}/${overrides.task_id}.json`,
-    artifact_path: `.ember/tasks/${overrides.task_type}/${overrides.task_id}.json`,
-    absolute_artifact_path: `/workspace/project-image-1/.ember/tasks/${overrides.task_type}/${overrides.task_id}.json`,
+    path: `.lime/tasks/${overrides.task_type}/${overrides.task_id}.json`,
+    absolute_path: `/workspace/project-image-1/.lime/tasks/${overrides.task_type}/${overrides.task_id}.json`,
+    artifact_path: `.lime/tasks/${overrides.task_type}/${overrides.task_id}.json`,
+    absolute_artifact_path: `/workspace/project-image-1/.lime/tasks/${overrides.task_type}/${overrides.task_id}.json`,
     reused_existing: false,
     ...overrides,
   };
@@ -161,6 +165,9 @@ function renderHook(
   const container = document.createElement("div");
   document.body.appendChild(container);
   const root = createRoot(container);
+  let setMessagesForTest: React.Dispatch<
+    React.SetStateAction<Message[]>
+  > | null = null;
   let latestValue: {
     messages: Message[];
     imageWorkbenchState: SessionImageWorkbenchState;
@@ -180,6 +187,7 @@ function renderHook(
     const [messages, setMessages] = useState<Message[]>(
       () => options?.initialMessages || [],
     );
+    setMessagesForTest = setMessages;
     const [canvasState, setCanvasState] = useState(currentProps.canvasState);
     const [imageWorkbenchState, setImageWorkbenchState] =
       useState<SessionImageWorkbenchState>(
@@ -230,6 +238,16 @@ function renderHook(
 
   return {
     render,
+    setMessages: async (nextMessages: React.SetStateAction<Message[]>) => {
+      if (!setMessagesForTest) {
+        throw new Error("hook 尚未初始化");
+      }
+      await act(async () => {
+        setMessagesForTest?.(nextMessages);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+    },
     getValue: () => {
       if (!latestValue) {
         throw new Error("hook 尚未初始化");
@@ -260,7 +278,11 @@ function expectSingleImageAssistantMessage(
 ) {
   const assistantMessages = getImageAssistantMessages(messages);
   expect(assistantMessages).toHaveLength(1);
-  expect(assistantMessages[0]).toMatchObject(expected);
+  const { content, ...expectedWithoutContent } = expected;
+  expect(assistantMessages[0]).toMatchObject(expectedWithoutContent);
+  if (typeof content === "string" && content.trim()) {
+    expect(assistantMessages[0]?.content).toBe(content);
+  }
 }
 
 function expectImageUserMessage(
@@ -277,7 +299,7 @@ function expectImageUserMessage(
 
 describe("useWorkspaceImageTaskPreviewRuntime", () => {
   beforeEach(async () => {
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
     (
       globalThis as typeof globalThis & {
         IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -296,7 +318,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     );
     vi.mocked(listDirectory).mockResolvedValue(
       createDirectoryListingResult(
-        "/workspace/project-image-1/.ember/tasks",
+        "/workspace/project-image-1/.lime/tasks",
         [],
       ),
     );
@@ -315,6 +337,116 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     }
     vi.useRealTimers();
     vi.resetAllMocks();
+  });
+
+  it("延迟入口无图片信号时不注册任务监听或恢复扫描", async () => {
+    const { render, getValue } = renderHook(
+      {
+        enabled: shouldEnableWorkspaceImageTaskPreviewRuntime({
+          shouldDeferWorkspaceAuxiliaryLoads: true,
+          restoreFromWorkspace: true,
+          messages: [],
+          imageWorkbenchState: createInitialSessionImageWorkbenchState(),
+          canvasState: null,
+        }),
+      },
+      {
+        initialMessages: [],
+      },
+    );
+
+    await render();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(safeListen).not.toHaveBeenCalled();
+    expect(listMediaTaskArtifacts).not.toHaveBeenCalled();
+    expect(listDirectory).not.toHaveBeenCalled();
+    expect(readFilePreview).not.toHaveBeenCalled();
+    expect(getValue().messages).toEqual([]);
+  });
+
+  it("延迟入口已有图片任务信号时仍启用任务监听", async () => {
+    const initialMessages: Message[] = [
+      {
+        id: "assistant-image-existing-1",
+        role: "assistant",
+        content: "图片任务进行中。",
+        timestamp: new Date("2026-05-14T08:00:01.000Z"),
+        imageWorkbenchPreview: {
+          taskId: "task-image-existing-1",
+          prompt: "青柠叶片插画",
+          mode: "generate",
+          status: "running",
+          projectId: DEFAULT_PROJECT_ID,
+          contentId: DEFAULT_CONTENT_ID,
+          imageCount: 0,
+          expectedImageCount: 1,
+          taskFilePath: ".lime/tasks/image_generate/task-image-existing-1.json",
+        },
+      },
+    ];
+
+    const { render } = renderHook(
+      {
+        enabled: shouldEnableWorkspaceImageTaskPreviewRuntime({
+          shouldDeferWorkspaceAuxiliaryLoads: true,
+          restoreFromWorkspace: true,
+          messages: initialMessages,
+          imageWorkbenchState: createInitialSessionImageWorkbenchState(),
+          canvasState: null,
+        }),
+      },
+      {
+        initialMessages,
+      },
+    );
+
+    await render();
+
+    expect(safeListen).toHaveBeenCalledWith(
+      "lime://creation_task_submitted",
+      expect.any(Function),
+    );
+  });
+
+  it("延迟入口已有图片运行时合同时仍启用任务监听", async () => {
+    const initialMessages: Message[] = [
+      {
+        id: "assistant-image-contract-1",
+        role: "assistant",
+        content: "",
+        timestamp: new Date("2026-05-14T08:00:01.000Z"),
+        imageRuntimeContract: {
+          contractKey: "image_generation",
+          routingOutcome: "accepted",
+        },
+      },
+    ];
+
+    const { render } = renderHook(
+      {
+        enabled: shouldEnableWorkspaceImageTaskPreviewRuntime({
+          shouldDeferWorkspaceAuxiliaryLoads: true,
+          restoreFromWorkspace: true,
+          messages: initialMessages,
+          imageWorkbenchState: createInitialSessionImageWorkbenchState(),
+          canvasState: null,
+        }),
+      },
+      {
+        initialMessages,
+      },
+    );
+
+    await render();
+
+    expect(safeListen).toHaveBeenCalledWith(
+      "lime://creation_task_submitted",
+      expect.any(Function),
+    );
   });
 
   it("图片工作台状态引用变化但内容无变化时，不应触发空消息更新", async () => {
@@ -355,14 +487,14 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
                 type: "code",
                 title: "greeting.ts",
                 content:
-                  "export function greeting() returns Hello Ember Workbench.",
+                  "export function greeting() { return 'Hello Lime Workbench'; }",
                 status: "complete",
                 createdAt: 1780817237000,
                 updatedAt: 1780817237000,
                 position: { start: 0, end: 52 },
                 meta: {
                   filePath:
-                    ".ember/qc/code-artifact-workbench-electron-fixture/src/greeting.ts",
+                    ".lime/qc/code-artifact-workbench-electron-fixture/src/greeting.ts",
                 },
               },
             ],
@@ -463,7 +595,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     expect(getValue().imageWorkbenchState.tasks).toHaveLength(1);
   });
 
-  it("真实图片任务回流时，应合并发送前草稿轻卡而不是显示两张生成卡", async () => {
+  it("真实图片任务回流时，应丢弃发送前草稿轻卡并只显示真实任务卡", async () => {
     let listener: CreationTaskListener | null = null;
     vi.mocked(safeListen).mockImplementationOnce(async (_event, handler) => {
       listener = handler;
@@ -516,10 +648,10 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           task_family: "image",
           status: "pending_submit",
           prompt:
-            "A fresh clean flat illustration of ember leaves and small limes",
+            "A fresh clean flat illustration of lime leaves and small limes",
           raw_text:
             "@配图 E2E 主链验证，请生成一张青柠叶片和小青柠的清爽插画，扁平插画风格",
-          path: ".ember/tasks/image_generate/task-image-real-1.json",
+          path: ".lime/tasks/image_generate/task-image-real-1.json",
           turn_id: "turn-image-1",
           model: "gpt-images-2",
           count: 1,
@@ -546,13 +678,13 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
   it("应先插入运行中占位卡，再根据 task file 回填图片与工作台状态", async () => {
     let listener: CreationTaskListener | null = null;
     vi.mocked(safeListen).mockImplementationOnce(async (event, handler) => {
-      expect(event).toBe("ember://creation_task_submitted");
+      expect(event).toBe("lime://creation_task_submitted");
       listener = handler;
       return vi.fn();
     });
 
     const taskPath =
-      "/workspace/project-image-1/.ember/tasks/image/image_generate/task-image-1.json";
+      "/workspace/project-image-1/.lime/tasks/image/image_generate/task-image-1.json";
     const firstPreview = createDeferred<FilePreview>();
     vi.mocked(readFilePreview).mockImplementationOnce(
       () => firstPreview.promise,
@@ -574,7 +706,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
             size: "1024x1024",
           },
           result: {
-            images: [{ url: "https://example.com/generated-ember.png" }],
+            images: [{ url: "https://example.com/generated-lime.png" }],
           },
           attempts: [
             {
@@ -582,7 +714,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
               provider: "fal",
               model: "flux-pro",
               result_snapshot: {
-                images: [{ url: "https://example.com/generated-ember.png" }],
+                images: [{ url: "https://example.com/generated-lime.png" }],
               },
             },
           ],
@@ -600,7 +732,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           task_type: "image_generate",
           task_family: "image",
           status: "pending_submit",
-          path: ".ember/tasks/image/image_generate/task-image-1.json",
+          path: ".lime/tasks/image/image_generate/task-image-1.json",
         }),
       });
       await Promise.resolve();
@@ -610,7 +742,6 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     expect(getValue().messages).toEqual([
       expect.objectContaining({
         id: "image-workbench:task-image-1:assistant",
-        content: "",
         toolCalls: undefined,
         contentParts: undefined,
         runtimeStatus: undefined,
@@ -705,10 +836,14 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
         taskId: "task-image-1",
         status: "complete",
         prompt: "未来感实验室里的青柠主视觉",
-        imageUrl: "https://example.com/generated-ember.png",
+        imageUrl: "https://example.com/generated-lime.png",
         imageCount: 1,
         size: "1024x1024",
-        caption: null,
+        caption: buildImageWorkbenchCaption({
+          prompt: "未来感实验室里的青柠主视觉",
+          status: "complete",
+          imageCount: 1,
+        }),
       }),
     });
     expect(getValue().imageWorkbenchState.tasks).toEqual([
@@ -722,7 +857,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       expect.objectContaining({
         id: "task-image-1:output:1",
         taskId: "task-image-1",
-        url: "https://example.com/generated-ember.png",
+        url: "https://example.com/generated-lime.png",
         prompt: "未来感实验室里的青柠主视觉",
         providerName: "fal",
         modelName: "flux-pro",
@@ -741,7 +876,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     const taskId = "task-image-large-preview-1";
     const dataUrl = `data:image/png;base64,${"A".repeat(4096)}`;
     vi.mocked(readFilePreview).mockResolvedValueOnce({
-      path: `/workspace/project-image-1/.ember/tasks/image_generate/${taskId}.json`,
+      path: `/workspace/project-image-1/.lime/tasks/image_generate/${taskId}.json`,
       content:
         '{"task_id":"task-image-large-preview-1","result":{"images":[{"url":"data:image/png;base64,AAAA',
       isBinary: false,
@@ -793,7 +928,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           task_type: "image_generate",
           task_family: "image",
           status: "completed",
-          path: `.ember/tasks/image_generate/${taskId}.json`,
+          path: `.lime/tasks/image_generate/${taskId}.json`,
         }),
       });
       await Promise.resolve();
@@ -802,7 +937,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
 
     expect(getMediaTaskArtifact).toHaveBeenCalledWith({
       projectRootPath: DEFAULT_PROJECT_ROOT_PATH,
-      taskRef: `/workspace/project-image-1/.ember/tasks/image_generate/${taskId}.json`,
+      taskRef: `/workspace/project-image-1/.lime/tasks/image_generate/${taskId}.json`,
     });
     expectImageUserMessage(getValue().messages, {
       content: "高保真青柠品牌主视觉",
@@ -832,7 +967,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     });
 
     const taskId = "task-image-prefer-artifact-api-1";
-    const taskPath = `/workspace/project-image-1/.ember/tasks/image_generate/${taskId}.json`;
+    const taskPath = `/workspace/project-image-1/.lime/tasks/image_generate/${taskId}.json`;
     vi.mocked(readFilePreview).mockResolvedValueOnce(
       createFilePreviewResult(
         taskPath,
@@ -902,7 +1037,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           task_type: "image_generate",
           task_family: "image",
           status: "queued",
-          path: `.ember/tasks/image_generate/${taskId}.json`,
+          path: `.lime/tasks/image_generate/${taskId}.json`,
         }),
       });
       await Promise.resolve();
@@ -928,16 +1063,93 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     });
   });
 
+  it("task runtimeContract.model 更新时应覆盖旧 preview.modelName", async () => {
+    const taskId = "task-image-model-override-1";
+    const { render, getValue } = renderHook(
+      {},
+      {
+        initialMessages: [
+          {
+            id: `image-workbench:${taskId}:assistant`,
+            role: "assistant",
+            content: "图片任务已提交，正在同步任务状态。",
+            timestamp: new Date("2026-04-04T10:10:00Z"),
+            imageWorkbenchPreview: {
+              taskId,
+              prompt: "最新模型青柠主视觉",
+              status: "running",
+              phase: "queued",
+              modelName: "fal-ai/nano-banana-pro",
+            },
+          },
+        ],
+        initialImageWorkbenchState: {
+          ...createInitialSessionImageWorkbenchState(),
+          tasks: [
+            {
+              sessionId: DEFAULT_SESSION_ID,
+              id: taskId,
+              mode: "generate",
+              status: "complete",
+              prompt: "最新模型青柠主视觉",
+              rawText: "@配图 最新模型青柠主视觉",
+              expectedCount: 1,
+              outputIds: ["output-model-override-1"],
+              createdAt: Date.parse("2026-04-04T10:10:00Z"),
+              hookImageIds: ["hook-model-override-1"],
+              applyTarget: null,
+              runtimeContract: {
+                model: "fal-ai/nano-banana-pro-v2",
+              },
+            },
+          ],
+          outputs: [
+            {
+              id: "output-model-override-1",
+              hookImageId: "hook-model-override-1",
+              refId: "img-model-override-1",
+              taskId,
+              url: "https://example.com/model-override.png",
+              prompt: "最新模型青柠主视觉",
+              createdAt: Date.parse("2026-04-04T10:10:00Z"),
+              applyTarget: null,
+            },
+          ],
+        },
+      },
+    );
+
+    await render();
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expectSingleImageAssistantMessage(getValue().messages, {
+      id: `image-workbench:${taskId}:assistant`,
+      content: "",
+      toolCalls: undefined,
+      contentParts: undefined,
+      runtimeStatus: undefined,
+      imageWorkbenchPreview: expect.objectContaining({
+        taskId,
+        status: "complete",
+        modelName: "fal-ai/nano-banana-pro-v2",
+      }),
+    });
+  });
+
   it("已存在同 taskId 的 skill 消息时，应把 task 预览合并回原消息而不是再插一条伪造消息", async () => {
     let listener: CreationTaskListener | null = null;
     vi.mocked(safeListen).mockImplementationOnce(async (event, handler) => {
-      expect(event).toBe("ember://creation_task_submitted");
+      expect(event).toBe("lime://creation_task_submitted");
       listener = handler;
       return vi.fn();
     });
 
     const taskPath =
-      "/workspace/project-image-1/.ember/tasks/image_generate/task-image-skill-1.json";
+      "/workspace/project-image-1/.lime/tasks/image_generate/task-image-skill-1.json";
     vi.mocked(readFilePreview).mockResolvedValue(
       createFilePreviewResult(
         taskPath,
@@ -952,6 +1164,17 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
             prompt: "[img:春日咖啡馆插画]",
             count: 2,
             size: "1024x1024",
+            provider_id: "openai",
+            model: "gpt-image-2",
+            executor_mode: "responses_image_generation",
+            usage: "document-inline",
+            slot_id: "document-image-slot-skill-1",
+            anchor_section_title: "咖啡馆",
+            anchor_text: "春日咖啡馆配图",
+            runtime_contract: {
+              contract_key: "image_generation",
+              routing_slot: "image_generation_model",
+            },
           },
           result: {
             images: [{ url: "https://example.com/skill-preview.png" }],
@@ -972,10 +1195,24 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
             toolCalls: [
               {
                 id: "tool-image-1",
-                name: "Bash",
+                name: "lime_create_image_generation_task",
                 arguments: JSON.stringify({
-                  command:
-                    "ember media image generate --prompt '春日咖啡馆插画' --json",
+                  prompt: "春日咖啡馆插画",
+                  count: 2,
+                  size: "1024x1024",
+                  provider_id: "openai",
+                  model: "gpt-image-2",
+                  executor_mode: "responses_image_generation",
+                  usage: "document-inline",
+                  slot_id: "document-image-slot-skill-1",
+                  anchor_section_title: "咖啡馆",
+                  anchor_text: "春日咖啡馆配图",
+                  modality_contract_key: "image_generation",
+                  routing_slot: "image_generation_model",
+                  runtime_contract: {
+                    contract_key: "image_generation",
+                    routing_slot: "image_generation_model",
+                  },
                 }),
                 status: "completed",
                 result: {
@@ -986,6 +1223,9 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
                     task_type: "image_generate",
                     task_family: "image",
                     status: "pending_submit",
+                    path: ".lime/tasks/image_generate/task-image-skill-1.json",
+                    artifact_path:
+                      ".lime/tasks/image_generate/task-image-skill-1.json",
                   },
                 },
                 startTime: new Date("2026-04-04T10:00:00Z"),
@@ -1011,7 +1251,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           task_type: "image_generate",
           task_family: "image",
           status: "pending_submit",
-          path: ".ember/tasks/image_generate/task-image-skill-1.json",
+          path: ".lime/tasks/image_generate/task-image-skill-1.json",
         }),
       });
       await Promise.resolve();
@@ -1027,14 +1267,24 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       toolCalls: [
         expect.objectContaining({
           id: "tool-image-1",
-          name: "Bash",
+          name: "lime_create_image_generation_task",
         }),
       ],
       imageWorkbenchPreview: expect.objectContaining({
         taskId: "task-image-skill-1",
         status: "complete",
         imageUrl: "https://example.com/skill-preview.png",
-        caption: null,
+        caption: buildImageWorkbenchCaption({
+          prompt: "春日咖啡馆插画",
+          status: "complete",
+          imageCount: 1,
+        }),
+        providerName: "openai",
+        modelName: "gpt-image-2",
+        runtimeContract: expect.objectContaining({
+          contractKey: "image_generation",
+          routingSlot: "image_generation_model",
+        }),
       }),
     });
   });
@@ -1042,14 +1292,14 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
   it("收到带 turn_id 的图片任务事件时，应合并到同一 assistant 回合并清理旧占位卡", async () => {
     let listener: CreationTaskListener | null = null;
     vi.mocked(safeListen).mockImplementationOnce(async (event, handler) => {
-      expect(event).toBe("ember://creation_task_submitted");
+      expect(event).toBe("lime://creation_task_submitted");
       listener = handler;
       return vi.fn();
     });
 
     const taskId = "task-image-live-turn-1";
     const taskPath =
-      "/workspace/project-image-1/.ember/tasks/image_generate/task-image-live-turn-1.json";
+      "/workspace/project-image-1/.lime/tasks/image_generate/task-image-live-turn-1.json";
     const firstPreview = createDeferred<FilePreview>();
     vi.mocked(readFilePreview).mockImplementationOnce(
       () => firstPreview.promise,
@@ -1092,7 +1342,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           task_type: "image_generate",
           task_family: "image",
           status: "pending_submit",
-          path: `.ember/tasks/image_generate/${taskId}.json`,
+          path: `.lime/tasks/image_generate/${taskId}.json`,
           prompt: "青柠插画",
           thread_id: "thread-image-live-1",
           turn_id: "turn-image-live-1",
@@ -1207,7 +1457,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           task_type: "image_generate",
           task_family: "image",
           status: "pending_submit",
-          path: `.ember/tasks/image_generate/${taskId}.json`,
+          path: `.lime/tasks/image_generate/${taskId}.json`,
           prompt: "三国主要人物群像海报",
           thread_id: "thread-image-live-verbose-1",
           turn_id: "turn-image-live-verbose-1",
@@ -1282,7 +1532,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           task_type: "image_generate",
           task_family: "image",
           status: "pending_submit",
-          path: `.ember/tasks/image_generate/${taskId}.json`,
+          path: `.lime/tasks/image_generate/${taskId}.json`,
           prompt: expandedPrompt,
           raw_text:
             "@Nanobanana Pro 生成一张广州塔，从花城汇看过去的春天的照片",
@@ -1328,7 +1578,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     });
 
     const taskPath =
-      "/workspace/project-image-1/.ember/tasks/image_generate/task-image-status-only-1.json";
+      "/workspace/project-image-1/.lime/tasks/image_generate/task-image-status-only-1.json";
     vi.mocked(readFilePreview).mockResolvedValue(
       createFilePreviewResult(
         taskPath,
@@ -1392,7 +1642,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           task_type: "image_generate",
           task_family: "image",
           status: "pending_submit",
-          path: ".ember/tasks/image_generate/task-image-status-only-1.json",
+          path: ".lime/tasks/image_generate/task-image-status-only-1.json",
         }),
       });
       await Promise.resolve();
@@ -1415,7 +1665,11 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
         phase: "succeeded",
         statusMessage: null,
         imageUrl: "https://example.com/three-kingdoms-collage.png",
-        caption: null,
+        caption: buildImageWorkbenchCaption({
+          prompt: "三国主要人物聚合图",
+          status: "complete",
+          imageCount: 1,
+        }),
       }),
     });
   });
@@ -1428,7 +1682,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     });
 
     const taskId = "task-image-duplicate-collapse-1";
-    const taskPath = `/workspace/project-image-1/.ember/tasks/image_generate/${taskId}.json`;
+    const taskPath = `/workspace/project-image-1/.lime/tasks/image_generate/${taskId}.json`;
     vi.mocked(readFilePreview).mockResolvedValue(
       createFilePreviewResult(
         taskPath,
@@ -1489,7 +1743,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           task_type: "image_generate",
           task_family: "image",
           status: "pending_submit",
-          path: `.ember/tasks/image_generate/${taskId}.json`,
+          path: `.lime/tasks/image_generate/${taskId}.json`,
         }),
       });
       await Promise.resolve();
@@ -1512,8 +1766,8 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
 
   it("同 task file 但 taskId 漂移的 mock 图片任务卡也应折叠成一条", async () => {
     const taskFilePath =
-      "/workspace/project-image-1/.ember/tasks/image_generate/task-image-mock-1.json";
-    const artifactPath = ".ember/tasks/image_generate/task-image-mock-1.json";
+      "/workspace/project-image-1/.lime/tasks/image_generate/task-image-mock-1.json";
+    const artifactPath = ".lime/tasks/image_generate/task-image-mock-1.json";
 
     const duplicatedMessages: Message[] = [
       {
@@ -1545,7 +1799,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
         isThinking: true,
         imageWorkbenchPreview: {
           taskId:
-            "workspace-project-image-1--ember-tasks-image_generate-task-image-mock-1-json",
+            "workspace-project-image-1--lime-tasks-image_generate-task-image-mock-1-json",
           prompt: "mock image task",
           status: "running",
           taskFilePath,
@@ -1575,7 +1829,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       id: "assistant-image-path-duplicate-1",
       imageWorkbenchPreview: expect.objectContaining({
         taskId:
-          "workspace-project-image-1--ember-tasks-image_generate-task-image-mock-1-json",
+          "workspace-project-image-1--lime-tasks-image_generate-task-image-mock-1-json",
         taskFilePath,
         artifactPath,
         expectedImageCount: 9,
@@ -1592,7 +1846,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
 
     vi.mocked(readFilePreview).mockResolvedValueOnce(
       createFilePreviewResult(
-        "/workspace/project-image-1/.ember/tasks/image_generate/task-image-failed-1.json",
+        "/workspace/project-image-1/.lime/tasks/image_generate/task-image-failed-1.json",
         withDefaultTaskContext({
           task_id: "task-image-failed-1",
           task_type: "image_generate",
@@ -1634,7 +1888,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           task_type: "image_generate",
           task_family: "image",
           status: "failed",
-          path: ".ember/tasks/image_generate/task-image-failed-1.json",
+          path: ".lime/tasks/image_generate/task-image-failed-1.json",
         }),
       });
       await Promise.resolve();
@@ -1671,7 +1925,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     });
 
     const taskPath =
-      "/workspace/project-image-1/.ember/tasks/image_generate/task-image-edit-source-1.json";
+      "/workspace/project-image-1/.lime/tasks/image_generate/task-image-edit-source-1.json";
     vi.mocked(readFilePreview).mockResolvedValueOnce(
       createFilePreviewResult(
         taskPath,
@@ -1699,7 +1953,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
             },
           },
           result: {
-            images: [{ url: "https://example.com/edited-ember.png" }],
+            images: [{ url: "https://example.com/edited-lime.png" }],
           },
           attempts: [
             {
@@ -1707,7 +1961,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
               provider: "fal",
               model: "flux-kontext-max",
               result_snapshot: {
-                images: [{ url: "https://example.com/edited-ember.png" }],
+                images: [{ url: "https://example.com/edited-lime.png" }],
               },
             },
           ],
@@ -1726,7 +1980,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           task_family: "image",
           status: "completed",
           mode: "edit",
-          path: ".ember/tasks/image_generate/task-image-edit-source-1.json",
+          path: ".lime/tasks/image_generate/task-image-edit-source-1.json",
         }),
       });
       await Promise.resolve();
@@ -1746,8 +2000,12 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           taskId: "task-image-edit-source-1",
           mode: "edit",
           status: "complete",
-          imageUrl: "https://example.com/edited-ember.png",
-          caption: null,
+          imageUrl: "https://example.com/edited-lime.png",
+          caption: buildImageWorkbenchCaption({
+            prompt: "把主视觉里的青柠改成玻璃质感",
+            status: "complete",
+            imageCount: 1,
+          }),
           sourceImageUrl: "https://example.com/source-summary.png",
           sourceImagePrompt: "原始青柠主视觉",
           sourceImageRef: "img-source-1",
@@ -1773,7 +2031,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       expect.objectContaining({
         id: "task-image-edit-source-1:output:1",
         taskId: "task-image-edit-source-1",
-        url: "https://example.com/edited-ember.png",
+        url: "https://example.com/edited-lime.png",
         parentOutputId: "output-source-1",
       }),
     ]);
@@ -1784,7 +2042,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     vi.mocked(listMediaTaskArtifacts).mockResolvedValueOnce({
       success: true,
       workspace_root: DEFAULT_PROJECT_ROOT_PATH,
-      artifact_root: `${DEFAULT_PROJECT_ROOT_PATH}/.ember/tasks`,
+      artifact_root: `${DEFAULT_PROJECT_ROOT_PATH}/.lime/tasks`,
       filters: {
         task_family: "image",
         limit: 32,
@@ -1808,7 +2066,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
               size: "1024x1024",
             },
             result: {
-              images: [{ url: "https://example.com/restored-api-ember.png" }],
+              images: [{ url: "https://example.com/restored-api-lime.png" }],
             },
           }),
         }),
@@ -1848,7 +2106,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
         id: `image-workbench:${taskId}:assistant`,
         imageWorkbenchPreview: expect.objectContaining({
           taskId,
-          imageUrl: "https://example.com/restored-api-ember.png",
+          imageUrl: "https://example.com/restored-api-lime.png",
           prompt: "通过 API 恢复的青柠主视觉",
         }),
       });
@@ -1861,6 +2119,541 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     });
     expect(listDirectory).not.toHaveBeenCalled();
     expect(readFilePreview).not.toHaveBeenCalled();
+  });
+
+  it("文章正文有 inline 占位时，应通过媒体任务接口恢复图片任务", async () => {
+    const taskId = "task-image-article-inline-api";
+    vi.mocked(listMediaTaskArtifacts).mockResolvedValueOnce({
+      success: true,
+      workspace_root: DEFAULT_PROJECT_ROOT_PATH,
+      artifact_root: `${DEFAULT_PROJECT_ROOT_PATH}/.lime/tasks`,
+      filters: {
+        task_family: "image",
+        limit: 32,
+      },
+      total: 1,
+      modality_runtime_contracts: EMPTY_MODALITY_RUNTIME_CONTRACT_INDEX,
+      tasks: [
+        createArtifactOutput({
+          task_id: taskId,
+          task_type: "image_generate",
+          record: withDefaultTaskContext({
+            task_id: taskId,
+            task_type: "image_generate",
+            task_family: "image",
+            status: "completed",
+            normalized_status: "succeeded",
+            created_at: "2026-04-04T10:00:00Z",
+            payload: {
+              usage: "document-inline",
+              prompt: "[img:文章内联配图]",
+              count: 1,
+              size: "1024x1024",
+            },
+            relationships: {
+              slot_id: "article-inline-slot",
+            },
+            result: {
+              images: [
+                {
+                  url: "https://example.com/article-inline-restored.png",
+                  slotId: "article-inline-slot",
+                },
+              ],
+            },
+          }),
+        }),
+      ],
+    });
+
+    const { render, getValue } = renderHook({
+      documentMarkdowns: [
+        "# 标题\n\n![文章内联配图](pending-image-task://legacy-inline?status=running)\n<!-- lime:image-task-slot:article-inline-slot -->",
+      ],
+    });
+    await render();
+
+    await vi.waitFor(() => {
+      expect(listMediaTaskArtifacts).toHaveBeenCalledWith({
+        projectRootPath: DEFAULT_PROJECT_ROOT_PATH,
+        taskFamily: "image",
+        limit: 32,
+      });
+    });
+    await vi.waitFor(() => {
+      expect(getValue().imageWorkbenchState.outputs).toEqual([
+        expect.objectContaining({
+          taskId,
+          url: "https://example.com/article-inline-restored.png",
+          slotId: "article-inline-slot",
+        }),
+      ]);
+    });
+    expect(listDirectory).not.toHaveBeenCalled();
+    expect(readFilePreview).not.toHaveBeenCalled();
+  });
+
+  it("文章 inline 占位未被替换时，缺少 document applyTarget 的本地缓存不应阻止 task catalog 恢复", async () => {
+    const taskId = "task-image-article-inline-cache";
+    vi.mocked(listMediaTaskArtifacts).mockResolvedValueOnce({
+      success: true,
+      workspace_root: DEFAULT_PROJECT_ROOT_PATH,
+      artifact_root: `${DEFAULT_PROJECT_ROOT_PATH}/.lime/tasks`,
+      filters: {
+        task_family: "image",
+        limit: 32,
+      },
+      total: 1,
+      modality_runtime_contracts: EMPTY_MODALITY_RUNTIME_CONTRACT_INDEX,
+      tasks: [
+        createArtifactOutput({
+          task_id: taskId,
+          task_type: "image_generate",
+          record: withDefaultTaskContext({
+            task_id: taskId,
+            task_type: "image_generate",
+            task_family: "image",
+            status: "completed",
+            normalized_status: "succeeded",
+            created_at: "2026-04-04T10:00:00Z",
+            payload: {
+              usage: "document-inline",
+              prompt: "[img:缓存恢复文章内联配图]",
+              count: 1,
+              size: "1024x1024",
+            },
+            relationships: {
+              slot_id: "article-inline-cache-slot",
+            },
+            result: {
+              images: [
+                {
+                  url: "https://example.com/article-inline-cache-restored.png",
+                  slotId: "article-inline-cache-slot",
+                },
+              ],
+            },
+          }),
+        }),
+      ],
+    });
+
+    const { render, getValue } = renderHook(
+      {
+        documentMarkdowns: [
+          "# 标题\n\n![缓存恢复文章内联配图](pending-image-task://legacy-inline-cache?status=running)\n<!-- lime:image-task-slot:article-inline-cache-slot -->",
+        ],
+      },
+      {
+        initialMessages: [
+          {
+            id: `image-workbench:${taskId}:assistant`,
+            role: "assistant",
+            content: "图片任务已完成。",
+            timestamp: new Date("2026-04-04T10:00:00Z"),
+            imageWorkbenchPreview: {
+              taskId,
+              prompt: "缓存恢复文章内联配图",
+              status: "complete",
+              imageUrl: "https://example.com/stale-cache-image.png",
+              projectId: DEFAULT_PROJECT_ID,
+              contentId: DEFAULT_CONTENT_ID,
+              imageCount: 1,
+              expectedImageCount: 1,
+            },
+          },
+        ],
+        initialImageWorkbenchState: {
+          ...createInitialSessionImageWorkbenchState(),
+          tasks: [
+            {
+              sessionId: DEFAULT_SESSION_ID,
+              id: taskId,
+              mode: "generate",
+              status: "complete",
+              prompt: "缓存恢复文章内联配图",
+              rawText: "@配图 缓存恢复文章内联配图",
+              expectedCount: 1,
+              outputIds: ["output-cache-stale"],
+              createdAt: Date.now(),
+              hookImageIds: [],
+              applyTarget: null,
+            },
+          ],
+          outputs: [
+            {
+              id: "output-cache-stale",
+              taskId,
+              refId: "output-cache-stale",
+              hookImageId: "hook-output-cache-stale",
+              url: "https://example.com/stale-cache-image.png",
+              prompt: "缓存恢复文章内联配图",
+              createdAt: Date.now(),
+              applyTarget: null,
+            },
+          ],
+        },
+      },
+    );
+    await render();
+
+    await vi.waitFor(() => {
+      expect(listMediaTaskArtifacts).toHaveBeenCalledWith({
+        projectRootPath: DEFAULT_PROJECT_ROOT_PATH,
+        taskFamily: "image",
+        limit: 32,
+      });
+    });
+    await vi.waitFor(() => {
+      expect(getValue().imageWorkbenchState.tasks).toEqual([
+        expect.objectContaining({
+          id: taskId,
+          applyTarget: expect.objectContaining({
+            kind: "canvas-insert",
+            canvasType: "document",
+            slotId: "article-inline-cache-slot",
+          }),
+        }),
+      ]);
+      expect(getValue().imageWorkbenchState.outputs).toEqual([
+        expect.objectContaining({
+          taskId,
+          url: "https://example.com/article-inline-cache-restored.png",
+          slotId: "article-inline-cache-slot",
+        }),
+      ]);
+    });
+  });
+
+  it("文章 inline 缓存任务已有 document applyTarget 时，即使恢复 markdown 暂缺也应继续恢复 task catalog", async () => {
+    const taskId = "task-image-article-inline-cache-target";
+    vi.mocked(listMediaTaskArtifacts).mockResolvedValueOnce({
+      success: true,
+      workspace_root: DEFAULT_PROJECT_ROOT_PATH,
+      artifact_root: `${DEFAULT_PROJECT_ROOT_PATH}/.lime/tasks`,
+      filters: {
+        task_family: "image",
+        limit: 32,
+      },
+      total: 1,
+      modality_runtime_contracts: EMPTY_MODALITY_RUNTIME_CONTRACT_INDEX,
+      tasks: [
+        createArtifactOutput({
+          task_id: taskId,
+          task_type: "image_generate",
+          record: withDefaultTaskContext({
+            task_id: taskId,
+            task_type: "image_generate",
+            task_family: "image",
+            status: "completed",
+            normalized_status: "succeeded",
+            created_at: "2026-04-04T10:00:00Z",
+            payload: {
+              usage: "document-inline",
+              prompt: "[img:缓存命中但正文待替换配图]",
+              count: 1,
+              size: "1024x1024",
+            },
+            relationships: {
+              slot_id: "article-inline-cache-target-slot",
+            },
+            result: {
+              images: [
+                {
+                  url: "https://example.com/article-inline-cache-target-restored.png",
+                  slotId: "article-inline-cache-target-slot",
+                },
+              ],
+            },
+          }),
+        }),
+      ],
+    });
+
+    const { render, getValue } = renderHook(
+      {},
+      {
+        initialMessages: [
+          {
+            id: `image-workbench:${taskId}:assistant`,
+            role: "assistant",
+            content: "图片任务已完成。",
+            timestamp: new Date("2026-04-04T10:00:00Z"),
+            artifacts: [
+              {
+                id: "article-preview-inline-cache-target",
+                type: "document",
+                title: "Inline 配图恢复验证",
+                content:
+                  "# 标题\n\n![缓存命中但正文待替换配图](pending-image-task://legacy-inline-cache-target?status=running)\n<!-- lime:image-task-slot:article-inline-cache-target-slot -->",
+                status: "complete",
+                meta: {
+                  openedFrom: "right_surface_article_workspace",
+                },
+                position: { start: 0, end: 120 },
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            ],
+            imageWorkbenchPreview: {
+              taskId,
+              prompt: "缓存命中但正文待替换配图",
+              status: "complete",
+              imageUrl: "https://example.com/stale-cache-target-image.png",
+              projectId: DEFAULT_PROJECT_ID,
+              contentId: DEFAULT_CONTENT_ID,
+              imageCount: 1,
+              expectedImageCount: 1,
+            },
+          },
+        ],
+        initialImageWorkbenchState: {
+          ...createInitialSessionImageWorkbenchState(),
+          tasks: [
+            {
+              sessionId: DEFAULT_SESSION_ID,
+              id: taskId,
+              mode: "generate",
+              status: "complete",
+              prompt: "缓存命中但正文待替换配图",
+              rawText: "@配图 缓存命中但正文待替换配图",
+              expectedCount: 1,
+              outputIds: ["output-cache-target-stale"],
+              createdAt: Date.now(),
+              hookImageIds: [],
+              applyTarget: {
+                kind: "canvas-insert",
+                canvasType: "document",
+                slotId: "article-inline-cache-target-slot",
+                actionLabel: "插入文稿",
+                dispatchLabel: "正在插入图片",
+              },
+            },
+          ],
+          outputs: [
+            {
+              id: "output-cache-target-stale",
+              taskId,
+              refId: "output-cache-target-stale",
+              hookImageId: "hook-output-cache-target-stale",
+              url: "https://example.com/stale-cache-target-image.png",
+              prompt: "缓存命中但正文待替换配图",
+              createdAt: Date.now(),
+              applyTarget: null,
+            },
+          ],
+        },
+      },
+    );
+    await render();
+
+    await vi.waitFor(() => {
+      expect(listMediaTaskArtifacts).toHaveBeenCalledWith({
+        projectRootPath: DEFAULT_PROJECT_ROOT_PATH,
+        taskFamily: "image",
+        limit: 32,
+      });
+    });
+    await vi.waitFor(() => {
+      expect(getValue().imageWorkbenchState.outputs).toEqual([
+        expect.objectContaining({
+          taskId,
+          url: "https://example.com/article-inline-cache-target-restored.png",
+          slotId: "article-inline-cache-target-slot",
+        }),
+      ]);
+      const articleArtifact = getValue()
+        .messages.flatMap((message) => message.artifacts ?? [])
+        .find(
+          (artifact) => artifact.id === "article-preview-inline-cache-target",
+        );
+      expect(articleArtifact?.content).toContain(
+        "https://example.com/article-inline-cache-target-restored.png",
+      );
+      expect(articleArtifact?.content).not.toContain("pending-image-task://");
+    });
+  });
+
+  it("消息 seed 延迟出现且 taskId 与 task file 不一致时，应继续按 slot_id 恢复真实结果", async () => {
+    const staleTaskId = "content-factory-inline-image-task";
+    const restoredTaskId = "restored-inline-image-task-uuid";
+    const slotId = "article-inline-cache-target-slot";
+    const pendingMarkdown = [
+      "# 标题",
+      "",
+      "![缓存命中但正文待替换配图](pending-image-task://content-factory-inline-image-task?status=running)",
+      `<!-- lime:image-task-slot:${slotId} -->`,
+    ].join("\n");
+
+    vi.mocked(listMediaTaskArtifacts)
+      .mockResolvedValueOnce({
+        success: true,
+        workspace_root: DEFAULT_PROJECT_ROOT_PATH,
+        artifact_root: `${DEFAULT_PROJECT_ROOT_PATH}/.lime/tasks`,
+        filters: {
+          task_family: "image",
+          limit: 32,
+        },
+        total: 0,
+        modality_runtime_contracts: EMPTY_MODALITY_RUNTIME_CONTRACT_INDEX,
+        tasks: [],
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        workspace_root: DEFAULT_PROJECT_ROOT_PATH,
+        artifact_root: `${DEFAULT_PROJECT_ROOT_PATH}/.lime/tasks`,
+        filters: {
+          task_family: "image",
+          limit: 32,
+        },
+        total: 1,
+        modality_runtime_contracts: EMPTY_MODALITY_RUNTIME_CONTRACT_INDEX,
+        tasks: [
+          createArtifactOutput({
+            task_id: restoredTaskId,
+            task_type: "image_generate",
+            record: withDefaultTaskContext({
+              task_id: restoredTaskId,
+              task_type: "image_generate",
+              task_family: "image",
+              status: "completed",
+              normalized_status: "succeeded",
+              created_at: "2026-04-04T10:00:00Z",
+              payload: {
+                usage: "document-inline",
+                prompt: "[img:缓存命中但正文待替换配图]",
+                count: 1,
+                size: "1024x1024",
+              },
+              relationships: {
+                slot_id: slotId,
+              },
+              result: {
+                images: [
+                  {
+                    url: "https://example.com/article-inline-cache-target-restored.png",
+                    slotId,
+                  },
+                ],
+              },
+            }),
+          }),
+        ],
+      });
+
+    const { render, setMessages, getValue } = renderHook(
+      {},
+      {
+        initialMessages: [],
+        initialImageWorkbenchState: {
+          ...createInitialSessionImageWorkbenchState(),
+          tasks: [
+            {
+              sessionId: DEFAULT_SESSION_ID,
+              id: staleTaskId,
+              mode: "generate",
+              status: "complete",
+              prompt: "缓存命中但正文待替换配图",
+              rawText: "@配图 缓存命中但正文待替换配图",
+              expectedCount: 1,
+              outputIds: ["output-cache-target-stale"],
+              createdAt: Date.now(),
+              hookImageIds: [],
+              applyTarget: {
+                kind: "canvas-insert",
+                canvasType: "document",
+                slotId,
+                actionLabel: "插入文稿",
+                dispatchLabel: "正在插入图片",
+              },
+            },
+          ],
+          outputs: [
+            {
+              id: "output-cache-target-stale",
+              taskId: staleTaskId,
+              refId: "output-cache-target-stale",
+              hookImageId: "hook-output-cache-target-stale",
+              url: "https://example.com/stale-cache-target-image.png",
+              prompt: "缓存命中但正文待替换配图",
+              createdAt: Date.now(),
+              applyTarget: null,
+            },
+          ],
+        },
+      },
+    );
+    await render();
+
+    await vi.waitFor(() => {
+      expect(listMediaTaskArtifacts).toHaveBeenCalled();
+    });
+
+    await setMessages([
+      {
+        id: `image-workbench:${staleTaskId}:assistant`,
+        role: "assistant",
+        content: "图片任务已完成。",
+        timestamp: new Date("2026-04-04T10:00:00Z"),
+        artifacts: [
+          {
+            id: "article-preview-inline-cache-target",
+            type: "document",
+            title: "Inline 配图恢复验证",
+            content: pendingMarkdown,
+            status: "complete",
+            meta: {
+              openedFrom: "right_surface_article_workspace",
+            },
+            position: { start: 0, end: pendingMarkdown.length },
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        ],
+        imageWorkbenchPreview: {
+          taskId: staleTaskId,
+          prompt: "缓存命中但正文待替换配图",
+          status: "complete",
+          imageUrl: "https://example.com/stale-cache-target-image.png",
+          projectId: DEFAULT_PROJECT_ID,
+          contentId: DEFAULT_CONTENT_ID,
+          imageCount: 1,
+          expectedImageCount: 1,
+        },
+      },
+    ]);
+    await render({
+      documentMarkdowns: [pendingMarkdown],
+    });
+
+    await vi.waitFor(() => {
+      expect(listMediaTaskArtifacts).toHaveBeenCalledWith({
+        projectRootPath: DEFAULT_PROJECT_ROOT_PATH,
+        taskFamily: "image",
+        limit: 32,
+      });
+      expect(getValue().imageWorkbenchState.outputs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            taskId: restoredTaskId,
+            url: "https://example.com/article-inline-cache-target-restored.png",
+            slotId,
+          }),
+        ]),
+      );
+      const articleArtifact = getValue()
+        .messages.flatMap((message) => message.artifacts ?? [])
+        .find(
+          (artifact) => artifact.id === "article-preview-inline-cache-target",
+        );
+      expect(articleArtifact?.content).toContain(
+        "https://example.com/article-inline-cache-target-restored.png",
+      );
+      expect(articleArtifact?.content).not.toContain("pending-image-task://");
+      expect(articleArtifact?.content).not.toContain(
+        "https://example.com/stale-cache-target-image.png",
+      );
+    });
   });
 
   it("历史消息已带 taskId 时，应直接按 taskId 走媒体任务接口恢复图片结果", async () => {
@@ -1935,7 +2728,87 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     });
   });
 
-  it("发送中的草稿图片轻卡不应按真实 taskId 查询 artifact", async () => {
+  it("历史消息首次缺少 projectRootPath 时不应永久跳过后续恢复", async () => {
+    const taskId = "task-image-history-retry-root-1";
+    vi.mocked(hasDesktopHostInvokeCapability).mockReturnValue(false);
+    vi.mocked(hasDesktopHostRuntimeMarkers).mockReturnValue(false);
+    vi.mocked(getMediaTaskArtifact).mockResolvedValue(
+      createArtifactOutput({
+        task_id: taskId,
+        task_type: "image_generate",
+        record: withDefaultTaskContext({
+          task_id: taskId,
+          task_type: "image_generate",
+          task_family: "image",
+          status: "completed",
+          normalized_status: "succeeded",
+          created_at: "2026-04-04T12:30:00Z",
+          payload: {
+            prompt: "[img:补齐 root 后恢复的广州夏日照片]",
+            count: 1,
+            size: "1024x1024",
+          },
+          result: {
+            images: [
+              {
+                url: "https://example.com/history-retry-root.png",
+              },
+            ],
+          },
+        }),
+      }),
+    );
+
+    const { render, getValue } = renderHook(
+      {
+        projectRootPath: null,
+      },
+      {
+        initialMessages: [
+          {
+            id: `image-workbench:${taskId}:assistant`,
+            role: "assistant",
+            content: "图片任务已提交，正在同步任务状态。",
+            timestamp: new Date("2026-04-04T12:30:00Z"),
+            imageWorkbenchPreview: {
+              taskId,
+              prompt: "补齐 root 后恢复的广州夏日照片",
+              status: "running",
+              phase: "queued",
+            },
+          },
+        ],
+      },
+    );
+    await render();
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getMediaTaskArtifact).not.toHaveBeenCalled();
+
+    await render({ projectRootPath: DEFAULT_PROJECT_ROOT_PATH });
+
+    await vi.waitFor(() => {
+      expect(getMediaTaskArtifact).toHaveBeenCalledWith({
+        projectRootPath: DEFAULT_PROJECT_ROOT_PATH,
+        taskRef: taskId,
+      });
+      expectSingleImageAssistantMessage(getValue().messages, {
+        id: `image-workbench:${taskId}:assistant`,
+        imageWorkbenchPreview: expect.objectContaining({
+          taskId,
+          status: "complete",
+          imageUrl: "https://example.com/history-retry-root.png",
+          prompt: "补齐 root 后恢复的广州夏日照片",
+        }),
+      });
+    });
+  });
+
+  it("发送中的草稿图片轻卡不应按真实 taskId 查询 artifact，也不应保留为图片任务卡", async () => {
     vi.mocked(hasDesktopHostInvokeCapability).mockReturnValue(false);
     vi.mocked(hasDesktopHostRuntimeMarkers).mockReturnValue(false);
 
@@ -1970,12 +2843,10 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     expect(getMediaTaskArtifact).not.toHaveBeenCalled();
     expect(listMediaTaskArtifacts).not.toHaveBeenCalled();
     expect(getValue().messages).toHaveLength(1);
-    expect(getValue().messages[0]?.imageWorkbenchPreview?.taskId).toBe(
-      "draft-image-local-only",
-    );
+    expect(getValue().messages[0]?.imageWorkbenchPreview).toBeUndefined();
   });
 
-  it("图片 skill 启动失败时应把草稿轻卡收敛为失败态并隐藏桥接原始错误", async () => {
+  it("图片 skill 启动失败时不应把草稿轻卡伪装成图片任务失败卡", async () => {
     const { render, getValue } = renderHook(
       {},
       {
@@ -2023,19 +2894,53 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
         text: "先确认这是正文配图，再调用图片生成能力。",
       },
     ]);
-    expect(message?.isThinking).toBe(false);
-    expect(message?.runtimeStatus).toBeUndefined();
-    expect(message?.imageWorkbenchPreview).toEqual(
-      expect.objectContaining({
-        taskId: "draft-image-failed",
-        status: "failed",
-        phase: "failed",
-        caption: "这次没有生成成功",
-        retryable: true,
-      }),
-    );
+    expect(message?.imageWorkbenchPreview).toBeUndefined();
     expect(JSON.stringify(message)).not.toContain("execute_skill");
     expect(JSON.stringify(message)).not.toContain("DevBridge");
+  });
+
+  it("Agent turn 失败且没有真实 task 时，不应显示图片生成中卡片", async () => {
+    vi.mocked(hasDesktopHostInvokeCapability).mockReturnValue(false);
+    vi.mocked(hasDesktopHostRuntimeMarkers).mockReturnValue(false);
+
+    const { render, getValue } = renderHook(
+      {},
+      {
+        initialMessages: [
+          {
+            id: "user-image-failed-turn",
+            role: "user",
+            content: "@配图 参考图生成一张小红书封面，保留醒目的标题层级",
+            timestamp: new Date("2026-04-04T12:00:00Z"),
+          },
+          {
+            id: "assistant-image-failed-turn",
+            role: "assistant",
+            content:
+              "Agent provider execution failed: Request failed: Bad request (400): reasoning_effort unknown variant minimal",
+            timestamp: new Date("2026-04-04T12:00:01Z"),
+            isThinking: false,
+            runtimeStatus: {
+              phase: "failed",
+              title: "运行失败",
+              detail:
+                "Agent provider execution failed: Request failed: Bad request (400)",
+            },
+          },
+        ],
+      },
+    );
+    await render();
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(getMediaTaskArtifact).not.toHaveBeenCalled();
+    expect(listMediaTaskArtifacts).not.toHaveBeenCalled();
+    expect(getImageAssistantMessages(getValue().messages)).toEqual([]);
+    expect(getValue().messages[1]?.runtimeStatus?.phase).toBe("failed");
   });
 
   it("应从 task artifact 恢复多模态合同路由阻止状态", async () => {
@@ -2067,7 +2972,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
             runtime_contract: {
               contract_key: "image_generation",
               routing_slot: "image_task",
-              embercore_policy_snapshot: {
+              limecore_policy_snapshot: {
                 status: "local_defaults_evaluated",
                 decision: "allow",
                 decision_source: "local_default_policy",
@@ -2164,23 +3069,23 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           failureCode: "image_generation_model_capability_gap",
           modelCapabilityAssessmentSource: "model_registry",
           modelSupportsImageGeneration: false,
-          embercorePolicySnapshotStatus: "local_defaults_evaluated",
-          embercorePolicyDecision: "allow",
-          embercorePolicyDecisionSource: "local_default_policy",
-          embercorePolicyEvaluationStatus: "input_gap",
-          embercorePolicyEvaluationDecision: "ask",
-          embercorePolicyEvaluationDecisionSource: "policy_input_evaluator",
-          embercorePolicyEvaluationPendingRefs: [
+          limecorePolicySnapshotStatus: "local_defaults_evaluated",
+          limecorePolicyDecision: "allow",
+          limecorePolicyDecisionSource: "local_default_policy",
+          limecorePolicyEvaluationStatus: "input_gap",
+          limecorePolicyEvaluationDecision: "ask",
+          limecorePolicyEvaluationDecisionSource: "policy_input_evaluator",
+          limecorePolicyEvaluationPendingRefs: [
             "model_catalog",
             "provider_offer",
             "tenant_feature_flags",
           ],
-          embercorePolicyMissingInputs: [
+          limecorePolicyMissingInputs: [
             "model_catalog",
             "provider_offer",
             "tenant_feature_flags",
           ],
-          embercorePolicyPendingHitRefs: [
+          limecorePolicyPendingHitRefs: [
             "model_catalog",
             "provider_offer",
             "tenant_feature_flags",
@@ -2199,9 +3104,9 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           routingOutcome: "blocked",
           failureCode: "image_generation_model_capability_gap",
           modelCapabilityAssessmentSource: "model_registry",
-          embercorePolicyEvaluationStatus: "input_gap",
-          embercorePolicyEvaluationDecision: "ask",
-          embercorePolicyEvaluationPendingRefs: [
+          limecorePolicyEvaluationStatus: "input_gap",
+          limecorePolicyEvaluationDecision: "ask",
+          limecorePolicyEvaluationPendingRefs: [
             "model_catalog",
             "provider_offer",
             "tenant_feature_flags",
@@ -2288,9 +3193,9 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
   it("历史消息带绝对 task file 时，应优先按 task file 恢复跨根目录图片结果", async () => {
     const taskId = "task-image-history-absolute-1";
     const taskFilePath =
-      "/Users/youmin/.ember/tasks/image_generate/task-image-history-absolute-1.json";
+      "/Users/youmin/.lime/tasks/image_generate/task-image-history-absolute-1.json";
     const artifactPath =
-      ".ember/tasks/image_generate/task-image-history-absolute-1.json";
+      ".lime/tasks/image_generate/task-image-history-absolute-1.json";
     vi.mocked(hasDesktopHostInvokeCapability).mockReturnValue(false);
     vi.mocked(hasDesktopHostRuntimeMarkers).mockReturnValue(false);
     vi.mocked(getMediaTaskArtifact).mockResolvedValueOnce(
@@ -2369,12 +3274,12 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
   it("收到工作区外绝对 task file 事件时，应继续按绝对路径轮询 artifact API", async () => {
     const taskId = "task-image-external-live-1";
     const taskFilePath =
-      "/Users/youmin/.ember/tasks/image_generate/task-image-external-live-1.json";
+      "/Users/youmin/.lime/tasks/image_generate/task-image-external-live-1.json";
     const artifactPath =
-      ".ember/tasks/image_generate/task-image-external-live-1.json";
+      ".lime/tasks/image_generate/task-image-external-live-1.json";
     let listener: CreationTaskListener | null = null;
     vi.mocked(safeListen).mockImplementationOnce(async (event, handler) => {
-      expect(event).toBe("ember://creation_task_submitted");
+      expect(event).toBe("lime://creation_task_submitted");
       listener = handler;
       return vi.fn();
     });
@@ -2476,7 +3381,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     vi.mocked(listMediaTaskArtifacts).mockResolvedValueOnce({
       success: true,
       workspace_root: DEFAULT_PROJECT_ROOT_PATH,
-      artifact_root: `${DEFAULT_PROJECT_ROOT_PATH}/.ember/tasks`,
+      artifact_root: `${DEFAULT_PROJECT_ROOT_PATH}/.lime/tasks`,
       filters: {
         task_family: "image",
         limit: 8,
@@ -2592,7 +3497,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     vi.mocked(listMediaTaskArtifacts).mockResolvedValueOnce({
       success: true,
       workspace_root: DEFAULT_PROJECT_ROOT_PATH,
-      artifact_root: `${DEFAULT_PROJECT_ROOT_PATH}/.ember/tasks`,
+      artifact_root: `${DEFAULT_PROJECT_ROOT_PATH}/.lime/tasks`,
       filters: {
         task_family: "image",
         limit: 8,
@@ -2619,7 +3524,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
             result: {
               images: [
                 {
-                  url: "https://example.com/browser-template-recover-ember.png",
+                  url: "https://example.com/browser-template-recover-lime.png",
                 },
               ],
             },
@@ -2665,13 +3570,16 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
         }),
         expect.objectContaining({
           id: "assistant-image-browser-template-recover-1",
-          content: "",
           imageWorkbenchPreview: expect.objectContaining({
             taskId: "task-image-browser-template-recover-1",
             status: "complete",
-            imageUrl: "https://example.com/browser-template-recover-ember.png",
+            imageUrl: "https://example.com/browser-template-recover-lime.png",
             prompt: "一颗鲜嫩的青柠，水彩插画风格",
-            caption: null,
+            caption: buildImageWorkbenchCaption({
+              prompt: "一颗鲜嫩的青柠，水彩插画风格",
+              status: "complete",
+              imageCount: 1,
+            }),
           }),
         }),
       ]);
@@ -2989,7 +3897,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           task_type: "image_generate",
           task_family: "image",
           status: "pending_submit",
-          path: `.ember/tasks/image_generate/${taskId}.json`,
+          path: `.lime/tasks/image_generate/${taskId}.json`,
           prompt: "已缓存的三国群像",
         }),
       });
@@ -3005,7 +3913,6 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       }),
       expect.objectContaining({
         id: `image-workbench:${taskId}:assistant`,
-        content: "",
         isThinking: false,
         runtimeStatus: undefined,
         toolCalls: undefined,
@@ -3113,10 +4020,10 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
   it("存在文稿图片占位时，应从 task file 恢复最近的图片任务", async () => {
     vi.mocked(listDirectory)
       .mockResolvedValueOnce(
-        createDirectoryListingResult("/workspace/project-image-1/.ember/tasks", [
+        createDirectoryListingResult("/workspace/project-image-1/.lime/tasks", [
           {
             name: "image_generate",
-            path: "/workspace/project-image-1/.ember/tasks/image_generate",
+            path: "/workspace/project-image-1/.lime/tasks/image_generate",
             isDir: true,
             size: 0,
             modifiedAt: Date.now(),
@@ -3125,11 +4032,11 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       )
       .mockResolvedValueOnce(
         createDirectoryListingResult(
-          "/workspace/project-image-1/.ember/tasks/image_generate",
+          "/workspace/project-image-1/.lime/tasks/image_generate",
           [
             {
               name: "task-image-restored.json",
-              path: "/workspace/project-image-1/.ember/tasks/image_generate/task-image-restored.json",
+              path: "/workspace/project-image-1/.lime/tasks/image_generate/task-image-restored.json",
               isDir: false,
               size: 512,
               modifiedAt: Date.now(),
@@ -3139,7 +4046,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       );
     vi.mocked(readFilePreview).mockResolvedValueOnce(
       createFilePreviewResult(
-        "/workspace/project-image-1/.ember/tasks/image_generate/task-image-restored.json",
+        "/workspace/project-image-1/.lime/tasks/image_generate/task-image-restored.json",
         withDefaultTaskContext({
           task_id: "task-image-restored",
           task_type: "image_generate",
@@ -3153,7 +4060,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
             size: "1024x1024",
           },
           result: {
-            images: [{ url: "https://example.com/restored-ember.png" }],
+            images: [{ url: "https://example.com/restored-lime.png" }],
           },
           attempts: [
             {
@@ -3161,7 +4068,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
               provider: "fal",
               model: "flux-pro",
               result_snapshot: {
-                images: [{ url: "https://example.com/restored-ember.png" }],
+                images: [{ url: "https://example.com/restored-lime.png" }],
               },
             },
           ],
@@ -3182,10 +4089,10 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     });
 
     expect(listDirectory).toHaveBeenCalledWith(
-      "/workspace/project-image-1/.ember/tasks",
+      "/workspace/project-image-1/.lime/tasks",
     );
     expect(readFilePreview).toHaveBeenCalledWith(
-      "/workspace/project-image-1/.ember/tasks/image_generate/task-image-restored.json",
+      "/workspace/project-image-1/.lime/tasks/image_generate/task-image-restored.json",
       256 * 1024,
     );
     expectImageUserMessage(getValue().messages, {
@@ -3200,7 +4107,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       imageWorkbenchPreview: expect.objectContaining({
         taskId: "task-image-restored",
         status: "complete",
-        imageUrl: "https://example.com/restored-ember.png",
+        imageUrl: "https://example.com/restored-lime.png",
       }),
     });
     expect(getValue().imageWorkbenchState.tasks).toEqual([
@@ -3215,10 +4122,10 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     vi.setSystemTime(new Date("2026-04-27T00:00:00Z"));
     vi.mocked(listDirectory)
       .mockResolvedValueOnce(
-        createDirectoryListingResult("/workspace/project-image-1/.ember/tasks", [
+        createDirectoryListingResult("/workspace/project-image-1/.lime/tasks", [
           {
             name: "image_generate",
-            path: "/workspace/project-image-1/.ember/tasks/image_generate",
+            path: "/workspace/project-image-1/.lime/tasks/image_generate",
             isDir: true,
             size: 0,
             modifiedAt: Date.now(),
@@ -3227,11 +4134,11 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       )
       .mockResolvedValueOnce(
         createDirectoryListingResult(
-          "/workspace/project-image-1/.ember/tasks/image_generate",
+          "/workspace/project-image-1/.lime/tasks/image_generate",
           [
             {
               name: "task-image-stale-pending.json",
-              path: "/workspace/project-image-1/.ember/tasks/image_generate/task-image-stale-pending.json",
+              path: "/workspace/project-image-1/.lime/tasks/image_generate/task-image-stale-pending.json",
               isDir: false,
               size: 512,
               modifiedAt: Date.now(),
@@ -3241,7 +4148,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       );
     vi.mocked(readFilePreview).mockResolvedValueOnce(
       createFilePreviewResult(
-        "/workspace/project-image-1/.ember/tasks/image_generate/task-image-stale-pending.json",
+        "/workspace/project-image-1/.lime/tasks/image_generate/task-image-stale-pending.json",
         withDefaultTaskContext({
           task_id: "task-image-stale-pending",
           task_type: "image_generate",
@@ -3270,10 +4177,10 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     });
 
     expect(listDirectory).toHaveBeenCalledWith(
-      "/workspace/project-image-1/.ember/tasks",
+      "/workspace/project-image-1/.lime/tasks",
     );
     expect(readFilePreview).toHaveBeenCalledWith(
-      "/workspace/project-image-1/.ember/tasks/image_generate/task-image-stale-pending.json",
+      "/workspace/project-image-1/.lime/tasks/image_generate/task-image-stale-pending.json",
       256 * 1024,
     );
     expect(getValue().messages).toEqual([]);
@@ -3291,10 +4198,10 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
   it("空白新任务首页应允许关闭 task file 自动恢复", async () => {
     vi.mocked(listDirectory)
       .mockResolvedValueOnce(
-        createDirectoryListingResult("/workspace/project-image-1/.ember/tasks", [
+        createDirectoryListingResult("/workspace/project-image-1/.lime/tasks", [
           {
             name: "image_generate",
-            path: "/workspace/project-image-1/.ember/tasks/image_generate",
+            path: "/workspace/project-image-1/.lime/tasks/image_generate",
             isDir: true,
             size: 0,
             modifiedAt: Date.now(),
@@ -3303,11 +4210,11 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       )
       .mockResolvedValueOnce(
         createDirectoryListingResult(
-          "/workspace/project-image-1/.ember/tasks/image_generate",
+          "/workspace/project-image-1/.lime/tasks/image_generate",
           [
             {
               name: "task-image-restored.json",
-              path: "/workspace/project-image-1/.ember/tasks/image_generate/task-image-restored.json",
+              path: "/workspace/project-image-1/.lime/tasks/image_generate/task-image-restored.json",
               isDir: false,
               size: 512,
               modifiedAt: Date.now(),
@@ -3335,10 +4242,10 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
   it("存在本地图片 session 作用域时不应只凭 projectId 恢复旧任务", async () => {
     vi.mocked(listDirectory)
       .mockResolvedValueOnce(
-        createDirectoryListingResult("/workspace/project-image-1/.ember/tasks", [
+        createDirectoryListingResult("/workspace/project-image-1/.lime/tasks", [
           {
             name: "image_generate",
-            path: "/workspace/project-image-1/.ember/tasks/image_generate",
+            path: "/workspace/project-image-1/.lime/tasks/image_generate",
             isDir: true,
             size: 0,
             modifiedAt: Date.now(),
@@ -3347,11 +4254,11 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       )
       .mockResolvedValueOnce(
         createDirectoryListingResult(
-          "/workspace/project-image-1/.ember/tasks/image_generate",
+          "/workspace/project-image-1/.lime/tasks/image_generate",
           [
             {
               name: "task-image-project-only.json",
-              path: "/workspace/project-image-1/.ember/tasks/image_generate/task-image-project-only.json",
+              path: "/workspace/project-image-1/.lime/tasks/image_generate/task-image-project-only.json",
               isDir: false,
               size: 512,
               modifiedAt: Date.now(),
@@ -3361,7 +4268,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       );
     vi.mocked(readFilePreview).mockResolvedValueOnce(
       createFilePreviewResult(
-        "/workspace/project-image-1/.ember/tasks/image_generate/task-image-project-only.json",
+        "/workspace/project-image-1/.lime/tasks/image_generate/task-image-project-only.json",
         {
           task_id: "task-image-project-only",
           task_type: "image_generate",
@@ -3415,7 +4322,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           status: "pending_submit",
           session_id: "local-image-session-new-task-2",
           project_id: "project-image-1",
-          path: ".ember/tasks/image/task-image-other-local-session.json",
+          path: ".lime/tasks/image/task-image-other-local-session.json",
         },
       });
       await Promise.resolve();
@@ -3428,10 +4335,10 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
   it("恢复文稿 inline 图片任务时应优先使用 relationships.slot_id 原位替换", async () => {
     vi.mocked(listDirectory)
       .mockResolvedValueOnce(
-        createDirectoryListingResult("/workspace/project-image-1/.ember/tasks", [
+        createDirectoryListingResult("/workspace/project-image-1/.lime/tasks", [
           {
             name: "image_generate",
-            path: "/workspace/project-image-1/.ember/tasks/image_generate",
+            path: "/workspace/project-image-1/.lime/tasks/image_generate",
             isDir: true,
             size: 0,
             modifiedAt: Date.now(),
@@ -3440,11 +4347,11 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       )
       .mockResolvedValueOnce(
         createDirectoryListingResult(
-          "/workspace/project-image-1/.ember/tasks/image_generate",
+          "/workspace/project-image-1/.lime/tasks/image_generate",
           [
             {
               name: "task-image-inline-restored.json",
-              path: "/workspace/project-image-1/.ember/tasks/image_generate/task-image-inline-restored.json",
+              path: "/workspace/project-image-1/.lime/tasks/image_generate/task-image-inline-restored.json",
               isDir: false,
               size: 512,
               modifiedAt: Date.now(),
@@ -3454,7 +4361,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       );
     vi.mocked(readFilePreview).mockResolvedValueOnce(
       createFilePreviewResult(
-        "/workspace/project-image-1/.ember/tasks/image_generate/task-image-inline-restored.json",
+        "/workspace/project-image-1/.lime/tasks/image_generate/task-image-inline-restored.json",
         {
           task_id: "task-image-inline-restored",
           task_type: "image_generate",
@@ -3475,14 +4382,14 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
             content_id: "content-image-1",
           },
           result: {
-            images: [{ url: "https://example.com/restored-inline-ember.png" }],
+            images: [{ url: "https://example.com/restored-inline-lime.png" }],
           },
           attempts: [
             {
               attempt_id: "attempt-inline-restored-1",
               result_snapshot: {
                 images: [
-                  { url: "https://example.com/restored-inline-ember.png" },
+                  { url: "https://example.com/restored-inline-lime.png" },
                 ],
               },
             },
@@ -3493,7 +4400,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
 
     const { render, getValue } = renderHook({
       canvasState: createInitialDocumentState(
-        "# 标题\n\n![恢复正文配图](pending-image-task://legacy-inline-task?status=running&prompt=%E6%81%A2%E5%A4%8D%E6%AD%A3%E6%96%87%E9%85%8D%E5%9B%BE)\n<!-- ember:image-task-slot:document-slot-inline-restored -->\n",
+        "# 标题\n\n![恢复正文配图](pending-image-task://legacy-inline-task?status=running&prompt=%E6%81%A2%E5%A4%8D%E6%AD%A3%E6%96%87%E9%85%8D%E5%9B%BE)\n<!-- lime:image-task-slot:document-slot-inline-restored -->\n",
       ),
     });
     await render();
@@ -3505,7 +4412,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
 
     expect(getValue().canvasState?.type).toBe("document");
     expect(getDocumentCanvasContent(getValue().canvasState)).toContain(
-      "https://example.com/restored-inline-ember.png",
+      "https://example.com/restored-inline-lime.png",
     );
     expect(getDocumentCanvasContent(getValue().canvasState)).not.toContain(
       "pending-image-task://",
@@ -3515,10 +4422,10 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
   it("恢复文稿 inline 图片任务时，在缺少占位 marker 的情况下应按 anchor_section_title 插入到目标小节", async () => {
     vi.mocked(listDirectory)
       .mockResolvedValueOnce(
-        createDirectoryListingResult("/workspace/project-image-1/.ember/tasks", [
+        createDirectoryListingResult("/workspace/project-image-1/.lime/tasks", [
           {
             name: "image_generate",
-            path: "/workspace/project-image-1/.ember/tasks/image_generate",
+            path: "/workspace/project-image-1/.lime/tasks/image_generate",
             isDir: true,
             size: 0,
             modifiedAt: Date.now(),
@@ -3527,11 +4434,11 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       )
       .mockResolvedValueOnce(
         createDirectoryListingResult(
-          "/workspace/project-image-1/.ember/tasks/image_generate",
+          "/workspace/project-image-1/.lime/tasks/image_generate",
           [
             {
               name: "task-image-inline-section.json",
-              path: "/workspace/project-image-1/.ember/tasks/image_generate/task-image-inline-section.json",
+              path: "/workspace/project-image-1/.lime/tasks/image_generate/task-image-inline-section.json",
               isDir: false,
               size: 512,
               modifiedAt: Date.now(),
@@ -3541,7 +4448,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       );
     vi.mocked(readFilePreview).mockResolvedValueOnce(
       createFilePreviewResult(
-        "/workspace/project-image-1/.ember/tasks/image_generate/task-image-inline-section.json",
+        "/workspace/project-image-1/.lime/tasks/image_generate/task-image-inline-section.json",
         {
           task_id: "task-image-inline-section",
           task_type: "image_generate",
@@ -3657,14 +4564,14 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
   it("应将 cancelled task file 映射为独立取消状态，而不是失败状态", async () => {
     let listener: CreationTaskListener | null = null;
     vi.mocked(safeListen).mockImplementationOnce(async (event, handler) => {
-      expect(event).toBe("ember://creation_task_submitted");
+      expect(event).toBe("lime://creation_task_submitted");
       listener = handler;
       return vi.fn();
     });
 
     vi.mocked(readFilePreview).mockResolvedValueOnce(
       createFilePreviewResult(
-        "/workspace/project-image-1/.ember/tasks/image_generate/task-image-cancelled-1.json",
+        "/workspace/project-image-1/.lime/tasks/image_generate/task-image-cancelled-1.json",
         withDefaultTaskContext({
           task_id: "task-image-cancelled-1",
           task_type: "image_generate",
@@ -3691,7 +4598,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           task_type: "image_generate",
           task_family: "image",
           status: "cancelled",
-          path: ".ember/tasks/image_generate/task-image-cancelled-1.json",
+          path: ".lime/tasks/image_generate/task-image-cancelled-1.json",
         }),
       });
       await Promise.resolve();
@@ -3699,7 +4606,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
 
     await vi.waitFor(() => {
       expect(readFilePreview).toHaveBeenCalledWith(
-        "/workspace/project-image-1/.ember/tasks/image_generate/task-image-cancelled-1.json",
+        "/workspace/project-image-1/.lime/tasks/image_generate/task-image-cancelled-1.json",
         256 * 1024,
       );
     });
@@ -3735,17 +4642,17 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
   it("取消后的同 prompt 新任务到达时，应追加新任务而不是复用旧取消卡", async () => {
     let listener: CreationTaskListener | null = null;
     vi.mocked(safeListen).mockImplementationOnce(async (event, handler) => {
-      expect(event).toBe("ember://creation_task_submitted");
+      expect(event).toBe("lime://creation_task_submitted");
       listener = handler;
       return vi.fn();
     });
 
     vi.mocked(listDirectory)
       .mockResolvedValueOnce(
-        createDirectoryListingResult("/workspace/project-image-1/.ember/tasks", [
+        createDirectoryListingResult("/workspace/project-image-1/.lime/tasks", [
           {
             name: "image_generate",
-            path: "/workspace/project-image-1/.ember/tasks/image_generate",
+            path: "/workspace/project-image-1/.lime/tasks/image_generate",
             isDir: true,
             size: 0,
             modifiedAt: Date.now(),
@@ -3754,11 +4661,11 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       )
       .mockResolvedValueOnce(
         createDirectoryListingResult(
-          "/workspace/project-image-1/.ember/tasks/image_generate",
+          "/workspace/project-image-1/.lime/tasks/image_generate",
           [
             {
               name: "task-image-cancelled-1.json",
-              path: "/workspace/project-image-1/.ember/tasks/image_generate/task-image-cancelled-1.json",
+              path: "/workspace/project-image-1/.lime/tasks/image_generate/task-image-cancelled-1.json",
               isDir: false,
               size: 512,
               modifiedAt: Date.now(),
@@ -3769,7 +4676,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     vi.mocked(readFilePreview)
       .mockResolvedValueOnce(
         createFilePreviewResult(
-          "/workspace/project-image-1/.ember/tasks/image_generate/task-image-cancelled-1.json",
+          "/workspace/project-image-1/.lime/tasks/image_generate/task-image-cancelled-1.json",
           withDefaultTaskContext({
             task_id: "task-image-cancelled-1",
             task_type: "image_generate",
@@ -3787,7 +4694,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       )
       .mockResolvedValueOnce(
         createFilePreviewResult(
-          "/workspace/project-image-1/.ember/tasks/image_generate/task-image-new-1.json",
+          "/workspace/project-image-1/.lime/tasks/image_generate/task-image-new-1.json",
           withDefaultTaskContext({
             task_id: "task-image-new-1",
             task_type: "image_generate",
@@ -3836,7 +4743,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           task_type: "image_generate",
           task_family: "image",
           status: "pending_submit",
-          path: ".ember/tasks/image_generate/task-image-new-1.json",
+          path: ".lime/tasks/image_generate/task-image-new-1.json",
           prompt: "青柠实验室主视觉",
           count: 1,
           size: "1024x1024",
@@ -3852,7 +4759,6 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     expect(getImageAssistantMessages(getValue().messages)).toEqual([
       expect.objectContaining({
         id: "image-workbench:task-image-cancelled-1:assistant",
-        content: "",
         imageWorkbenchPreview: expect.objectContaining({
           taskId: "task-image-cancelled-1",
           status: "cancelled",
@@ -3860,7 +4766,6 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       }),
       expect.objectContaining({
         id: "image-workbench:task-image-new-1:assistant",
-        content: "",
         toolCalls: undefined,
         contentParts: undefined,
         runtimeStatus: undefined,
@@ -3891,7 +4796,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     });
 
     const taskPath =
-      "/workspace/project-image-1/.ember/tasks/image/image_generate/task-image-inline-1.json";
+      "/workspace/project-image-1/.lime/tasks/image/image_generate/task-image-inline-1.json";
     const firstPreview = createDeferred<FilePreview>();
     vi.mocked(readFilePreview).mockImplementationOnce(
       () => firstPreview.promise,
@@ -3918,14 +4823,14 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
             slot_id: "document-slot-inline-1",
           },
           result: {
-            images: [{ url: "https://example.com/generated-inline-ember.png" }],
+            images: [{ url: "https://example.com/generated-inline-lime.png" }],
           },
           attempts: [
             {
               attempt_id: "attempt-inline-1",
               result_snapshot: {
                 images: [
-                  { url: "https://example.com/generated-inline-ember.png" },
+                  { url: "https://example.com/generated-inline-lime.png" },
                 ],
               },
             },
@@ -3957,7 +4862,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
           task_type: "image_generate",
           task_family: "image",
           status: "pending_submit",
-          path: ".ember/tasks/image/image_generate/task-image-inline-1.json",
+          path: ".lime/tasks/image/image_generate/task-image-inline-1.json",
           prompt: "为正文补一张未来感实验室插图",
           slot_id: "document-slot-inline-1",
           anchor_section_title: "核心观点",
@@ -3972,7 +4877,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
       "pending-image-task://",
     );
     expect(getDocumentCanvasContent(getValue().canvasState)).toContain(
-      "ember:image-task-slot:document-slot-inline-1",
+      "lime:image-task-slot:document-slot-inline-1",
     );
     const pendingContent = getDocumentCanvasContent(getValue().canvasState);
     const placeholderIndex = pendingContent.indexOf("pending-image-task://");
@@ -4007,7 +4912,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
             },
             result: {
               images: [
-                { url: "https://example.com/generated-inline-ember.png" },
+                { url: "https://example.com/generated-inline-lime.png" },
               ],
             },
             attempts: [
@@ -4015,7 +4920,7 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
                 attempt_id: "attempt-inline-1",
                 result_snapshot: {
                   images: [
-                    { url: "https://example.com/generated-inline-ember.png" },
+                    { url: "https://example.com/generated-inline-lime.png" },
                   ],
                 },
               },
@@ -4028,11 +4933,11 @@ describe("useWorkspaceImageTaskPreviewRuntime", () => {
     });
 
     expect(getDocumentCanvasContent(getValue().canvasState)).toContain(
-      "https://example.com/generated-inline-ember.png",
+      "https://example.com/generated-inline-lime.png",
     );
     const finalContent = getDocumentCanvasContent(getValue().canvasState);
     const imageIndex = finalContent.indexOf(
-      "https://example.com/generated-inline-ember.png",
+      "https://example.com/generated-inline-lime.png",
     );
     expect(imageIndex).toBeGreaterThan(
       finalContent.indexOf("这里是被选中的核心观点段落。"),

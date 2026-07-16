@@ -13,6 +13,9 @@ import { BuiltinCommandBadge } from "./Inputbar/components/BuiltinCommandBadge";
 import { InputbarAccessModeSelect } from "./Inputbar/components/InputbarAccessModeSelect";
 import { InputbarCore } from "./Inputbar/components/InputbarCore";
 import { InputbarModeStatusChip } from "./Inputbar/components/InputbarModeStatusChip";
+import { InputbarObjectiveInlinePanel } from "./Inputbar/components/InputbarObjectiveInlinePanel";
+import { InputbarPluginBadge } from "./Inputbar/components/InputbarPluginBadge";
+import { InputbarPluginSelector } from "./Inputbar/components/InputbarPluginSelector";
 import {
   InputbarProjectContextBar,
   type InputbarOpenedProject,
@@ -25,14 +28,13 @@ import { SkillBadge } from "../skill-selection/SkillBadge";
 import { SkillSelector } from "../skill-selection/SkillSelector";
 import { CREATION_MODE_CONFIG } from "./constants";
 import type { CreationMode } from "./types";
-import type { Character } from "@/lib/api/memory";
+import type { Character } from "@/lib/api/projectMemory";
 import type { MessageImage, MessagePathReference } from "../types";
 import {
   EMPTY_STATE_PASSIVE_BADGE_CLASSNAME,
   EMPTY_STATE_SELECT_TRIGGER_CLASSNAME,
 } from "./emptyStateSurfaceTokens";
 import {
-  buildEmptyStateInputSuggestionState,
   resolveEmptyStateActiveCapability,
 } from "./EmptyStateComposerPanelViewModel";
 import { MetaIconButton } from "./Inputbar/styles";
@@ -49,13 +51,23 @@ import type {
 import type { CuratedTaskTemplateItem } from "../utils/curatedTaskTemplates";
 import type { CuratedTaskReferenceEntry } from "../utils/curatedTaskReferenceSelection";
 import type { CreationReplaySurfaceModel } from "../utils/creationReplaySurface";
-import type { HomeInputSuggestion } from "../home/homeSurfaceTypes";
 import type {
   InputbarKnowledgePackOption,
   InputbarKnowledgePackSelection,
 } from "./Inputbar/types";
+import {
+  applyInputbarPluginSelection,
+  removeInputbarPluginSelection,
+  resolveInputbarPluginDisplayName,
+  resolveInputbarPluginSubmissionText,
+  type InputbarPluginCapability,
+  type InputbarPluginSelection,
+  type InputbarPluginSelectionOptions,
+  type InputbarPluginSkillCapability,
+} from "./Inputbar/pluginInputCapability";
 import type { InputbarCoreCopy } from "./Inputbar/components/inputbarCoreCopy";
 import type { ModelReasoningEffortLevel } from "@/lib/types/modelRegistry";
+import type { BaseComposerSendMetadata } from "@/components/input-kit";
 
 const ConnectedComposerShell = styled.div`
   width: 100%;
@@ -71,7 +83,7 @@ const ConnectedComposerShell = styled.div`
       rgba(255, 255, 255, 0.7) 100%
     );
     box-shadow:
-      0 14px 36px -40px var(--ember-shadow-color),
+      0 14px 36px -40px var(--lime-shadow-color),
       inset 0 -1px 0 rgba(74, 222, 128, 0.1);
   }
 `;
@@ -86,7 +98,10 @@ interface EmptyStateComposerPanelProps {
       planEnabled?: boolean;
       subagentEnabled?: boolean;
     },
-  ) => void;
+    triggerMetadata?: BaseComposerSendMetadata,
+  ) => void | boolean | Promise<boolean>;
+  onStop?: () => void;
+  sendOnPointerDown?: boolean;
   isLoading?: boolean;
   disabled?: boolean;
   activeTheme: string;
@@ -126,6 +141,10 @@ interface EmptyStateComposerPanelProps {
   onManageKnowledgePacks?: () => void;
   copy: HomeSurfaceComposerCopy;
   inputbarCopy: InputbarCoreCopy;
+  pluginSuggestions?: readonly InputbarPluginCapability[];
+  pluginSuggestionsError?: string | null;
+  pluginSuggestionsLoading?: boolean;
+  onPluginSuggestionsNeeded?: () => void;
   showCreationModeSelector: boolean;
   creationMode: CreationMode;
   onCreationModeChange?: (mode: CreationMode) => void;
@@ -146,7 +165,6 @@ interface EmptyStateComposerPanelProps {
   onRemovePathReference?: (id: string) => void;
   fileManagerOpen?: boolean;
   onToggleFileManager?: () => void;
-  inputSuggestions?: HomeInputSuggestion[];
   guideHelpActive?: boolean;
   guideHelpLabel?: string;
   onClearGuideHelp?: () => void;
@@ -202,7 +220,7 @@ function GuideHelpToolbarBadge({
       onClick={onClear}
     >
       <Lightbulb className="h-3.5 w-3.5" strokeWidth={1.9} />
-      <span className="truncate">{label.replace(/^Ember\s+/, "")}</span>
+      <span className="truncate">{label.replace(/^Lime\s+/, "")}</span>
       <X className="h-3.5 w-3.5 opacity-70" aria-hidden />
     </button>
   );
@@ -212,6 +230,7 @@ export function EmptyStateComposerPanel({
   input,
   placeholder,
   onSend,
+  onStop,
   isLoading = false,
   disabled = false,
   activeTheme,
@@ -251,6 +270,10 @@ export function EmptyStateComposerPanel({
   onManageKnowledgePacks,
   copy,
   inputbarCopy,
+  pluginSuggestions = [],
+  pluginSuggestionsError = null,
+  pluginSuggestionsLoading = false,
+  onPluginSuggestionsNeeded,
   showCreationModeSelector,
   creationMode,
   onCreationModeChange,
@@ -271,12 +294,14 @@ export function EmptyStateComposerPanel({
   onRemovePathReference,
   fileManagerOpen = false,
   onToggleFileManager,
-  inputSuggestions = [],
   guideHelpActive = false,
   guideHelpLabel,
   onClearGuideHelp,
 }: EmptyStateComposerPanelProps) {
   const [draftInput, setDraftInput] = useState(input);
+  const [activePluginSelection, setActivePluginSelection] =
+    useState<InputbarPluginSelection | null>(null);
+  const pluginSelectionInputSyncedRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [localObjectiveEnabled, setLocalObjectiveEnabled] = useState(false);
@@ -299,67 +324,58 @@ export function EmptyStateComposerPanel({
     setDraftInput(input);
   }, [input]);
 
-  const handleSendDraft = () => {
-    const submittedInput = draftInput;
+  useEffect(() => {
+    if (!activePluginSelection) {
+      pluginSelectionInputSyncedRef.current = false;
+      return;
+    }
+
+    if (activePluginSelection.preserveInput) {
+      pluginSelectionInputSyncedRef.current = false;
+      return;
+    }
+
+    const inputText = draftInput.trimStart();
+    const trigger = activePluginSelection.trigger.trim();
+    if (inputText === trigger || inputText.startsWith(`${trigger} `)) {
+      pluginSelectionInputSyncedRef.current = true;
+      return;
+    }
+
+    if (!pluginSelectionInputSyncedRef.current) {
+      return;
+    }
+
+    pluginSelectionInputSyncedRef.current = false;
+    setActivePluginSelection(null);
+  }, [activePluginSelection, draftInput]);
+
+  const handleSendDraft = (triggerMetadata?: BaseComposerSendMetadata) => {
+    const submittedInput = resolveInputbarPluginSubmissionText({
+      input: draftInput,
+      selection: activePluginSelection,
+    });
+    const result = onSend(
+      submittedInput,
+      {
+        goalEnabled: objectiveEnabled,
+        planEnabled: taskEnabled,
+        subagentEnabled,
+      },
+      triggerMetadata,
+    );
+    if (result === false) {
+      return;
+    }
+    if (result && typeof result === "object" && "then" in result) {
+      void result.then((accepted) => {
+        if (accepted !== false) {
+          setDraftInput("");
+        }
+      });
+      return;
+    }
     setDraftInput("");
-    onSend(submittedInput, {
-      goalEnabled: objectiveEnabled,
-      planEnabled: taskEnabled,
-      subagentEnabled,
-    });
-  };
-
-  const [inputSuggestionIndex, setInputSuggestionIndex] = useState(0);
-  const {
-    sortedInputSuggestions,
-    shouldShowInputSuggestion,
-    activeInputSuggestion,
-  } = buildEmptyStateInputSuggestionState({
-    inputSuggestions,
-    isLoading,
-    disabled,
-    draftInput,
-    pendingImageCount: pendingImages.length,
-    guideHelpActive,
-    activeCapability: activeCapabilityState,
-    creationReplaySurface,
-    inputSuggestionIndex,
-  });
-
-  useEffect(() => {
-    if (inputSuggestionIndex < sortedInputSuggestions.length) {
-      return;
-    }
-    setInputSuggestionIndex(0);
-  }, [inputSuggestionIndex, sortedInputSuggestions.length]);
-
-  useEffect(() => {
-    if (!shouldShowInputSuggestion || sortedInputSuggestions.length <= 1) {
-      return;
-    }
-
-    const timer = window.setInterval(() => {
-      setInputSuggestionIndex(
-        (current) => (current + 1) % sortedInputSuggestions.length,
-      );
-    }, 3500);
-
-    return () => window.clearInterval(timer);
-  }, [shouldShowInputSuggestion, sortedInputSuggestions.length]);
-
-  const handleAcceptInputSuggestion = (suggestion: {
-    label: string;
-    prompt: string;
-    testId?: string;
-  }) => {
-    setDraftInput(suggestion.prompt);
-    window.requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-      textareaRef.current?.setSelectionRange(
-        suggestion.prompt.length,
-        suggestion.prompt.length,
-      );
-    });
   };
 
   const handleToggleSubagentMode = () => {
@@ -377,6 +393,49 @@ export function EmptyStateComposerPanel({
       return;
     }
     setLocalObjectiveEnabled(nextObjectiveEnabled);
+  };
+
+  const handleSelectPlugin = (
+    plugin: InputbarPluginCapability,
+    skill?: InputbarPluginSkillCapability,
+    options?: InputbarPluginSelectionOptions,
+  ) => {
+    const blocked =
+      plugin.disabled ||
+      (plugin.blockerCodes?.length ?? 0) > 0 ||
+      skill?.disabled ||
+      (skill?.blockerCodes?.length ?? 0) > 0;
+    if (blocked) {
+      return;
+    }
+    const selection = applyInputbarPluginSelection({
+      input: options?.inputOverride ?? draftInput,
+      plugin,
+      skill,
+      preserveInput: options?.preserveInputOverride === true,
+    });
+    pluginSelectionInputSyncedRef.current = false;
+    setDraftInput(selection.text);
+    setActivePluginSelection(selection);
+    window.requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(
+        selection.text.length,
+        selection.text.length,
+      );
+    });
+  };
+
+  const handleClearPluginSelection = () => {
+    if (!activePluginSelection) {
+      return;
+    }
+    const nextInput = removeInputbarPluginSelection({
+      input: draftInput,
+      selection: activePluginSelection,
+    });
+    setDraftInput(nextInput);
+    setActivePluginSelection(null);
   };
 
   const handleToolAction = (tool: string) => {
@@ -399,20 +458,42 @@ export function EmptyStateComposerPanel({
   };
 
   const effectiveGuideHelpLabel = guideHelpLabel ?? copy.guideHelpDefaultLabel;
+  const objectiveInlinePanel =
+    objectiveEnabled && sessionId ? (
+      <InputbarObjectiveInlinePanel
+        sessionId={sessionId}
+        workspaceId={projectId}
+        runtimeBusy={isLoading}
+      />
+    ) : null;
   const topExtra =
     guideHelpActive ||
+    activePluginSelection ||
     activeBuiltinCommand ||
     activeRuntimeScene ||
     activeCuratedTask ||
     activeSkill ||
-    creationReplaySurface ? (
+    creationReplaySurface ||
+    objectiveInlinePanel ? (
       <>
+        {objectiveInlinePanel}
+
         {guideHelpActive ? (
           <GuideHelpBadge
             label={effectiveGuideHelpLabel}
             closeLabel={copy.guideHelpCloseWithLabel(effectiveGuideHelpLabel)}
             closeTitle={copy.guideHelpClose}
             onClear={onClearGuideHelp ?? (() => undefined)}
+          />
+        ) : null}
+
+        {activePluginSelection ? (
+          <InputbarPluginBadge
+            selection={activePluginSelection}
+            removeLabel={copy.pluginChip.remove(
+              resolveInputbarPluginDisplayName(activePluginSelection.plugin),
+            )}
+            onClear={handleClearPluginSelection}
           />
         ) : null}
 
@@ -456,7 +537,7 @@ export function EmptyStateComposerPanel({
             className={`${EMPTY_STATE_PASSIVE_BADGE_CLASSNAME} max-w-[320px] justify-start gap-1.5`}
             title={`${creationReplaySurface.eyebrow} · ${creationReplaySurface.title} · ${creationReplaySurface.summary}`}
           >
-            <span className="shrink-0 text-[color:var(--ember-brand-strong)]">
+            <span className="shrink-0 text-[color:var(--lime-brand-strong)]">
               {creationReplaySurface.badgeLabel}
             </span>
             <span className="truncate">{creationReplaySurface.title}</span>
@@ -485,6 +566,22 @@ export function EmptyStateComposerPanel({
   const plusMenuSkillsPanel = isGeneralTheme ? (
     <SkillSelector {...skillSelectorProps} renderMode="inline" />
   ) : undefined;
+  const plusMenuPluginsPanel = (
+    <InputbarPluginSelector
+      plugins={pluginSuggestions}
+      labels={{
+        empty: copy.pluginChip.empty,
+        error: copy.pluginChip.error,
+        loading: copy.pluginChip.loading,
+        skillPrefix: copy.pluginChip.skillPrefix,
+        title: copy.pluginChip.selectorTitle,
+        unavailable: copy.pluginChip.unavailable,
+      }}
+      loading={pluginSuggestionsLoading}
+      error={pluginSuggestionsError}
+      onSelectPlugin={handleSelectPlugin}
+    />
+  );
   const plusMenuLabels = copy.plusMenu;
   const planModeStatusLabel = plusMenuLabels.planMode
     .replace(/模式$/, "")
@@ -500,9 +597,16 @@ export function EmptyStateComposerPanel({
     subagentEnabled,
     knowledgeActive: Boolean(knowledgePackSelection?.enabled),
     objectiveActive: objectiveEnabled,
+    pluginsActive: Boolean(activePluginSelection),
     skillsActive: Boolean(skillSelection.activeSkill),
     knowledgePanel: plusMenuKnowledgePanel,
+    pluginsPanel: plusMenuPluginsPanel,
     skillsPanel: plusMenuSkillsPanel,
+    onPanelOpen: (panelId: "knowledge" | "plugins" | "skills") => {
+      if (panelId === "plugins") {
+        onPluginSuggestionsNeeded?.();
+      }
+    },
     onAddFiles: () => handleToolAction("attach"),
     onToggleTask: () => handleToolAction("task_mode"),
     onToggleObjective: () => handleToolAction("objective_mode"),
@@ -607,7 +711,7 @@ export function EmptyStateComposerPanel({
   const projectContextBar = (
     <div
       data-testid="inputbar-context-bar-slot"
-      className="-mt-px flex min-h-11 w-full items-center rounded-b-[26px] border border-t-0 border-emerald-200/35 bg-gradient-to-b from-emerald-50/20 via-white/55 to-white/65 px-5 py-2 shadow-[0_14px_36px_-42px_rgba(15,23,42,0.28)]"
+      className="-mt-px flex min-h-11 w-full items-center rounded-b-[34px] border border-t-0 border-[color:var(--lime-composer-border,rgba(110,231,183,0.84))] bg-gradient-to-b from-white/35 via-white/50 to-white/60 px-5 py-2 shadow-none"
     >
       <InputbarProjectContextBar
         projectId={projectId}
@@ -628,6 +732,9 @@ export function EmptyStateComposerPanel({
         value={draftInput}
         onChange={setDraftInput}
         onSelectInputCapability={onSelectInputCapability}
+        pluginSuggestions={pluginSuggestions}
+        onPluginSuggestionsNeeded={onPluginSuggestionsNeeded}
+        onSelectPlugin={handleSelectPlugin}
         projectId={projectId}
         defaultCuratedTaskReferenceMemoryIds={
           activeCapability?.kind === "curated_task"
@@ -659,6 +766,7 @@ export function EmptyStateComposerPanel({
           text={draftInput}
           setText={setDraftInput}
           onSend={handleSendDraft}
+          onStop={onStop}
           isLoading={isLoading}
           disabled={disabled}
           onToolClick={handleToolAction}
@@ -683,6 +791,7 @@ export function EmptyStateComposerPanel({
           visualVariant="floating"
           connectedContextBar
           deferSendOnEnter
+          sendOnPointerDown
           topExtra={topExtra}
           leftExtra={leftExtra}
           trailingMeta={trailingMeta}
@@ -690,9 +799,8 @@ export function EmptyStateComposerPanel({
           onImportPathReferenceAsKnowledge={onImportPathReferenceAsKnowledge}
           onRemovePathReference={onRemovePathReference}
           showMetaTools={false}
+          showTextareaExpandButton={false}
           plusMenu={plusMenu}
-          inputSuggestion={activeInputSuggestion}
-          onAcceptInputSuggestion={handleAcceptInputSuggestion}
         />
         {projectContextBar}
       </ConnectedComposerShell>

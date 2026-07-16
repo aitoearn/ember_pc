@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createAppServerClient } from "@/lib/api/appServer";
 import {
   executionRunGet,
   executionRunListGeneralWorkbenchHistory,
@@ -8,6 +9,7 @@ import {
 } from "@/lib/api/executionRun";
 import { extractArtifactProtocolPathsFromRecord } from "@/lib/artifact-protocol";
 import {
+  resolveExecutableSkillId,
   skillExecutionApi,
   type SkillDetailInfo,
 } from "@/lib/api/skill-execution";
@@ -25,9 +27,26 @@ import {
   resolveGeneralWorkbenchRecentTerminals,
   resolveGeneralWorkbenchSkillSourceRef,
 } from "./generalWorkbenchHelpers";
+import {
+  mapWorkspaceWorkflowStatusToAgentRunStatus,
+  readWorkspaceWorkflowRunsFromUnknown,
+  selectWorkspaceWorkflowRunById,
+  workflowRunToAgentRun,
+  type WorkspaceWorkflowRun,
+  type WorkspaceWorkflowStep,
+} from "./workspaceWorkflowReadModel";
+import {
+  buildWorkspaceWorkflowControlItems,
+  buildWorkspaceWorkflowCancelParams,
+  buildWorkspaceWorkflowRespondParams,
+  buildWorkspaceWorkflowRetryParams,
+  type WorkspaceWorkflowControlItem,
+} from "./workspaceWorkflowControls";
+import type { StepStatus } from "@/lib/workspace/workbenchContract";
 
 interface UseWorkspaceGeneralWorkbenchSidebarRuntimeParams {
   isThemeWorkbench: boolean;
+  sidebarVisible: boolean;
   sessionId?: string | null;
   messages: Message[];
   isSending: boolean;
@@ -38,6 +57,7 @@ interface UseWorkspaceGeneralWorkbenchSidebarRuntimeParams {
 
 export function useWorkspaceGeneralWorkbenchSidebarRuntime({
   isThemeWorkbench,
+  sidebarVisible,
   sessionId,
   messages,
   isSending,
@@ -69,12 +89,49 @@ export function useWorkspaceGeneralWorkbenchSidebarRuntime({
     generalWorkbenchRunDetailLoading,
     setGeneralWorkbenchRunDetailLoading,
   ] = useState(false);
+  const [generalWorkbenchWorkflowRuns, setGeneralWorkbenchWorkflowRuns] =
+    useState<WorkspaceWorkflowRun[]>([]);
+  const [
+    generalWorkbenchWorkflowControlPendingItemId,
+    setGeneralWorkbenchWorkflowControlPendingItemId,
+  ] = useState<string | null>(null);
   const generalWorkbenchHistoryLoadingRef = useRef(false);
+
+  useEffect(() => {
+    if (!isThemeWorkbench || !sidebarVisible || !sessionId) {
+      setGeneralWorkbenchWorkflowRuns([]);
+      return;
+    }
+
+    let disposed = false;
+    createAppServerClient()
+      .readWorkflow({ sessionId })
+      .then((response) => {
+        if (disposed) {
+          return;
+        }
+        setGeneralWorkbenchWorkflowRuns(
+          readWorkspaceWorkflowRunsFromUnknown(response.result),
+        );
+      })
+      .catch((error) => {
+        if (disposed) {
+          return;
+        }
+        setGeneralWorkbenchWorkflowRuns([]);
+        console.warn("[AgentChatPage] 加载 Workflow Read Model 失败:", error);
+      });
+
+    return () => {
+      disposed = true;
+    };
+  }, [isThemeWorkbench, sessionId, sidebarVisible]);
 
   const loadGeneralWorkbenchHistory = useCallback(
     async (offset: number, replace: boolean) => {
       if (
         !isThemeWorkbench ||
+        !sidebarVisible ||
         !sessionId ||
         generalWorkbenchHistoryLoadingRef.current
       ) {
@@ -108,11 +165,11 @@ export function useWorkspaceGeneralWorkbenchSidebarRuntime({
         setGeneralWorkbenchHistoryLoading(false);
       }
     },
-    [historyPageSize, isThemeWorkbench, sessionId],
+    [historyPageSize, isThemeWorkbench, sessionId, sidebarVisible],
   );
 
   useEffect(() => {
-    if (!isThemeWorkbench || !sessionId) {
+    if (!isThemeWorkbench || !sidebarVisible || !sessionId) {
       generalWorkbenchHistoryLoadingRef.current = false;
       setGeneralWorkbenchHistoryTerminals([]);
       setGeneralWorkbenchHistoryHasMore(false);
@@ -122,7 +179,12 @@ export function useWorkspaceGeneralWorkbenchSidebarRuntime({
     }
 
     void loadGeneralWorkbenchHistory(0, true);
-  }, [isThemeWorkbench, loadGeneralWorkbenchHistory, sessionId]);
+  }, [
+    isThemeWorkbench,
+    loadGeneralWorkbenchHistory,
+    sessionId,
+    sidebarVisible,
+  ]);
 
   const generalWorkbenchRequiredSkillNames = useMemo(() => {
     if (!isThemeWorkbench) {
@@ -161,7 +223,7 @@ export function useWorkspaceGeneralWorkbenchSidebarRuntime({
   ]);
 
   useEffect(() => {
-    if (!isThemeWorkbench) {
+    if (!isThemeWorkbench || !sidebarVisible) {
       setGeneralWorkbenchSkillDetailMap((previous) =>
         Object.keys(previous).length === 0 ? previous : {},
       );
@@ -176,55 +238,87 @@ export function useWorkspaceGeneralWorkbenchSidebarRuntime({
     }
 
     let disposed = false;
-    Promise.all(
-      missingSkillNames.map(async (skillName) => {
-        try {
-          const detail = await skillExecutionApi.getSkillDetail(skillName);
-          return [skillName, detail] as const;
-        } catch (error) {
-          console.warn(
-            "[AgentChatPage] 加载 Skill 详情失败:",
-            skillName,
-            error,
-          );
-          return [skillName, null] as const;
+    void skillExecutionApi
+      .listExecutableSkills()
+      .then((skills) =>
+        Promise.all(
+          missingSkillNames.map(async (skillReference) => {
+            const skillId = resolveExecutableSkillId(skills, skillReference);
+            if (!skillId) {
+              console.warn(
+                "[AgentChatPage] 无法唯一解析 Skill 引用:",
+                skillReference,
+              );
+              return [skillReference, null] as const;
+            }
+            try {
+              const detail = await skillExecutionApi.getSkillDetail(skillId);
+              return [skillReference, detail] as const;
+            } catch (error) {
+              console.warn(
+                "[AgentChatPage] 加载 Skill 详情失败:",
+                skillId,
+                error,
+              );
+              return [skillReference, null] as const;
+            }
+          }),
+        ),
+      )
+      .catch((error) => {
+        console.warn("[AgentChatPage] 加载 Skill catalog 失败:", error);
+        return missingSkillNames.map(
+          (skillReference) => [skillReference, null] as const,
+        );
+      })
+      .then((entries) => {
+        if (disposed) {
+          return;
         }
-      }),
-    ).then((entries) => {
-      if (disposed) {
-        return;
-      }
-      setGeneralWorkbenchSkillDetailMap((previous) => {
-        const next = { ...previous };
-        entries.forEach(([skillName, detail]) => {
-          next[skillName] = detail;
+        setGeneralWorkbenchSkillDetailMap((previous) => {
+          const next = { ...previous };
+          entries.forEach(([skillReference, detail]) => {
+            next[skillReference] = detail;
+          });
+          return next;
         });
-        return next;
       });
-    });
 
     return () => {
       disposed = true;
     };
   }, [
     isThemeWorkbench,
+    sidebarVisible,
     generalWorkbenchRequiredSkillNames,
     generalWorkbenchSkillDetailMap,
   ]);
 
+  const generalWorkbenchReadModelWorkflowSteps = useMemo(
+    () => buildWorkflowStepsFromReadModel(generalWorkbenchWorkflowRuns),
+    [generalWorkbenchWorkflowRuns],
+  );
+  const generalWorkbenchWorkflowControlItems = useMemo(
+    () => buildWorkspaceWorkflowControlItems(generalWorkbenchWorkflowRuns),
+    [generalWorkbenchWorkflowRuns],
+  );
+
   const generalWorkbenchWorkflowSteps = useMemo(
     () =>
-      buildGeneralWorkbenchWorkflowSteps(
-        messages,
-        themeWorkbenchBackendRunState,
-        isSending,
-        generalWorkbenchSkillDetailMap,
-      ),
+      generalWorkbenchReadModelWorkflowSteps.length > 0
+        ? generalWorkbenchReadModelWorkflowSteps
+        : buildGeneralWorkbenchWorkflowSteps(
+            messages,
+            themeWorkbenchBackendRunState,
+            isSending,
+            generalWorkbenchSkillDetailMap,
+          ),
     [
       isSending,
       messages,
       themeWorkbenchBackendRunState,
       generalWorkbenchSkillDetailMap,
+      generalWorkbenchReadModelWorkflowSteps,
     ],
   );
 
@@ -329,6 +423,16 @@ export function useWorkspaceGeneralWorkbenchSidebarRuntime({
     generalWorkbenchMergedTerminals,
   ]);
 
+  const generalWorkbenchWorkflowActivityLogs = useMemo<SidebarActivityLog[]>(
+    () =>
+      isThemeWorkbench
+        ? generalWorkbenchWorkflowRuns.map((run) =>
+            workflowRunToActivityLog(run, sessionId),
+          )
+        : [],
+    [generalWorkbenchWorkflowRuns, isThemeWorkbench, sessionId],
+  );
+
   const handleLoadMoreGeneralWorkbenchHistory = useCallback(() => {
     const nextOffset =
       generalWorkbenchHistoryNextOffset ??
@@ -371,10 +475,15 @@ export function useWorkspaceGeneralWorkbenchSidebarRuntime({
       return log;
     });
 
-    return [...generalWorkbenchBackendActivityLogs, ...enrichedContextLogs];
+    return [
+      ...generalWorkbenchWorkflowActivityLogs,
+      ...generalWorkbenchBackendActivityLogs,
+      ...enrichedContextLogs,
+    ];
   }, [
     contextActivityLogs,
     isThemeWorkbench,
+    generalWorkbenchWorkflowActivityLogs,
     generalWorkbenchBackendActivityLogs,
     generalWorkbenchExecutionRunMap,
   ]);
@@ -387,6 +496,51 @@ export function useWorkspaceGeneralWorkbenchSidebarRuntime({
     setSelectedGeneralWorkbenchRunId(normalizedRunId);
   }, []);
 
+  const handleTriggerGeneralWorkbenchWorkflowControl = useCallback(
+    async (item: WorkspaceWorkflowControlItem) => {
+      if (!isThemeWorkbench || !sessionId) {
+        return;
+      }
+      setGeneralWorkbenchWorkflowControlPendingItemId(item.id);
+      const client = createAppServerClient();
+      try {
+        const response =
+          item.kind === "cancel"
+            ? await client.cancelWorkflow(
+                buildWorkspaceWorkflowCancelParams(item, sessionId),
+              )
+            : item.kind === "retry"
+              ? await client.retryWorkflow(
+                  buildWorkspaceWorkflowRetryParams(item, sessionId),
+                )
+              : await client.respondWorkflow(
+                  buildWorkspaceWorkflowRespondParams(item, sessionId),
+                );
+        const nextRuns = readWorkspaceWorkflowRunsFromUnknown(response.result);
+        setGeneralWorkbenchWorkflowRuns(nextRuns);
+        const selectedRunId = selectedGeneralWorkbenchRunId?.trim();
+        if (selectedRunId) {
+          const selectedRun = selectWorkspaceWorkflowRunById(
+            nextRuns,
+            selectedRunId,
+          );
+          if (selectedRun) {
+            setSelectedGeneralWorkbenchRunDetail(
+              workflowRunToAgentRun(selectedRun, sessionId),
+            );
+          }
+        }
+      } catch (error) {
+        console.warn("[AgentChatPage] Workflow 控制动作失败:", error);
+      } finally {
+        setGeneralWorkbenchWorkflowControlPendingItemId((current) =>
+          current === item.id ? null : current,
+        );
+      }
+    },
+    [isThemeWorkbench, selectedGeneralWorkbenchRunId, sessionId],
+  );
+
   useEffect(() => {
     if (!isThemeWorkbench || !selectedGeneralWorkbenchRunId) {
       setGeneralWorkbenchRunDetailLoading(false);
@@ -396,6 +550,22 @@ export function useWorkspaceGeneralWorkbenchSidebarRuntime({
 
     let cancelled = false;
     setGeneralWorkbenchRunDetailLoading(true);
+    const workflowRun =
+      selectWorkspaceWorkflowRunById(
+        generalWorkbenchWorkflowRuns,
+        selectedGeneralWorkbenchRunId,
+      ) ??
+      (selectedGeneralWorkbenchRunId === sessionId
+        ? (generalWorkbenchWorkflowRuns[0] ?? null)
+        : null);
+    if (workflowRun) {
+      setSelectedGeneralWorkbenchRunDetail(
+        workflowRunToAgentRun(workflowRun, sessionId),
+      );
+      setGeneralWorkbenchRunDetailLoading(false);
+      return;
+    }
+
     executionRunGet(selectedGeneralWorkbenchRunId)
       .then((detail) => {
         if (!cancelled) {
@@ -418,7 +588,12 @@ export function useWorkspaceGeneralWorkbenchSidebarRuntime({
     return () => {
       cancelled = true;
     };
-  }, [isThemeWorkbench, selectedGeneralWorkbenchRunId]);
+  }, [
+    generalWorkbenchWorkflowRuns,
+    isThemeWorkbench,
+    selectedGeneralWorkbenchRunId,
+    sessionId,
+  ]);
 
   return {
     handleLoadMoreGeneralWorkbenchHistory,
@@ -429,6 +604,103 @@ export function useWorkspaceGeneralWorkbenchSidebarRuntime({
     generalWorkbenchHistoryLoading,
     generalWorkbenchRunDetailLoading,
     generalWorkbenchSkillDetailMap,
+    generalWorkbenchWorkflowControlItems,
+    generalWorkbenchWorkflowControlPendingItemId,
     generalWorkbenchWorkflowSteps,
+    handleTriggerGeneralWorkbenchWorkflowControl,
   };
+}
+
+function buildWorkflowStepsFromReadModel(
+  workflowRuns: readonly WorkspaceWorkflowRun[],
+): Array<{ id: string; title: string; status: StepStatus }> {
+  const run = workflowRuns[0];
+  if (!run || run.steps.length === 0) {
+    return [];
+  }
+  return run.steps.map((step) => ({
+    id: `${run.workflowRunId}-${step.id}`,
+    title: step.title,
+    status: mapWorkflowStepStatus(step),
+  }));
+}
+
+function mapWorkflowStepStatus(step: WorkspaceWorkflowStep): StepStatus {
+  const normalized = step.status?.trim().toLowerCase();
+  if (
+    normalized === "completed" ||
+    normalized === "complete" ||
+    normalized === "success" ||
+    normalized === "succeeded"
+  ) {
+    return "completed";
+  }
+  if (
+    normalized === "failed" ||
+    normalized === "failure" ||
+    normalized === "error"
+  ) {
+    return "error";
+  }
+  if (normalized === "skipped" || normalized === "canceled") {
+    return "skipped";
+  }
+  if (
+    normalized === "running" ||
+    normalized === "retrying" ||
+    normalized === "waiting" ||
+    normalized === "waitingaction"
+  ) {
+    return "active";
+  }
+  return "pending";
+}
+
+function workflowRunToActivityLog(
+  run: WorkspaceWorkflowRun,
+  fallbackSessionId?: string | null,
+): SidebarActivityLog {
+  const status = mapWorkspaceWorkflowStatusToAgentRunStatus(run.status);
+  const failedStep = run.steps.find(
+    (step) => mapWorkflowStepStatus(step) === "error",
+  );
+  return {
+    id: `workflow-run-${run.workflowRunId}`,
+    name:
+      run.workflowTitle ?? run.workflowKey ?? failedStep?.title ?? "Workflow",
+    status:
+      status === "error"
+        ? "failed"
+        : status === "success" || status === "canceled"
+          ? "completed"
+          : "running",
+    timeLabel: formatGeneralWorkbenchRunTimeLabel(
+      run.updatedAt ?? run.startedAt,
+    ),
+    durationLabel: formatGeneralWorkbenchRunDurationLabel(
+      run.startedAt,
+      run.finishedAt ?? run.completedAt ?? run.failedAt,
+    ),
+    runId: run.workflowRunId,
+    executionId: run.turnId ?? undefined,
+    sessionId: run.sessionId ?? fallbackSessionId ?? undefined,
+    artifactPaths: collectWorkflowArtifactRefs(run),
+    inputSummary: run.taskKind ?? undefined,
+    outputSummary: failedStep?.progressMessage ?? undefined,
+    source: "workflow",
+    sourceRef: run.workflowKey ?? undefined,
+  };
+}
+
+function collectWorkflowArtifactRefs(run: WorkspaceWorkflowRun): string[] {
+  const refs = new Set<string>();
+  for (const ref of run.artifactRefs) {
+    refs.add(ref);
+  }
+  for (const step of run.steps) {
+    for (const ref of step.artifactRefs) {
+      refs.add(ref);
+    }
+  }
+  return Array.from(refs);
 }

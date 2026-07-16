@@ -12,7 +12,7 @@ const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 
 function printHelp() {
   console.log(`
-Ember GUI 冒烟入口
+Lime GUI 冒烟入口
 
 用途:
   验证 Electron Desktop Host current GUI smoke。

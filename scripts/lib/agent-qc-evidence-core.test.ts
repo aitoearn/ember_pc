@@ -20,7 +20,7 @@ function evidenceSummary(overrides = {}) {
       {
         command: "npm run test:contracts",
         exit_code: 0,
-        stdout_artifact: ".ember/qc/test-contracts.stdout.txt",
+        stdout_artifact: ".lime/qc/test-contracts.stdout.txt",
       },
     ],
     evidence_required: [
@@ -28,7 +28,7 @@ function evidenceSummary(overrides = {}) {
         name: "contract command log",
         status: "pass",
         evidence: "test:contracts passed",
-        artifact_path: ".ember/qc/test-contracts.stdout.txt",
+        artifact_path: ".lime/qc/test-contracts.stdout.txt",
       },
     ],
     evidence_layers_covered: ["deterministic-smoke"],
@@ -41,7 +41,7 @@ function evidenceSummary(overrides = {}) {
     ],
     artifacts: [
       {
-        path: ".ember/qc/contract-summary.json",
+        path: ".lime/qc/contract-summary.json",
         kind: "deterministic-smoke",
         redacted: true,
       },
@@ -159,8 +159,8 @@ describe("agent-qc-evidence-core", () => {
     expect(
       parseScenarioId('{"name":"agent-ui-performance-summary-ttft-fields"}'),
     ).toBe("agent-ui-performance-summary-ttft-fields");
-    expect(parseScenarioId('{"entry":"ember-agent-runtime-client-check"}')).toBe(
-      "ember-agent-runtime-client-check",
+    expect(parseScenarioId('{"entry":"lime-agent-runtime-client-check"}')).toBe(
+      "lime-agent-runtime-client-check",
     );
   });
 
@@ -188,7 +188,7 @@ describe("agent-qc-evidence-core", () => {
       options: {
         generatedAt: "2026-05-10T00:00:00.000Z",
         ref: "test-ref",
-        changedFiles: ["docs/tests/agent-ops-qc.md"],
+        changedFiles: ["internal/tests/agent-ops-qc.md"],
       },
     });
 
@@ -198,7 +198,7 @@ describe("agent-qc-evidence-core", () => {
       "qcloop:attempt:attempt-1",
     );
     expect(pack.scenarioResults[0].evidenceRefs).toContain(
-      ".ember/qc/contract-summary.json",
+      ".lime/qc/contract-summary.json",
     );
     expect(pack.scenarioResults[0].evidenceRefs).toContain(
       "release-scope:source-tree-startup-smoke",

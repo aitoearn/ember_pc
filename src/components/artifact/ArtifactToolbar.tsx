@@ -26,7 +26,10 @@ import { resolveArtifactProtocolFilePath } from "@/lib/artifact-protocol";
 import {
   isAbsoluteLocalFilePath,
   openHtmlPreviewWindow,
+  openPathWithDefaultApp,
 } from "@/lib/api/fileSystem";
+import { openExternalUrlWithSystemBrowser } from "@/lib/api/externalUrl";
+import { resolveHttpExternalHref } from "@/lib/markdown/externalLinks";
 import { hasDesktopHostInvokeCapability } from "@/lib/desktop-runtime";
 import type { Artifact } from "@/lib/artifact/types";
 import { resolveArtifactWritePhase } from "@/components/agent/chat/utils/messageArtifacts";
@@ -248,22 +251,51 @@ function readStringMeta(meta: Artifact["meta"], key: string): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function readBooleanCapability(meta: Artifact["meta"], key: string): boolean {
+  const capabilities = meta.capabilities;
+  if (
+    !capabilities ||
+    typeof capabilities !== "object" ||
+    Array.isArray(capabilities)
+  ) {
+    return false;
+  }
+  return (capabilities as Record<string, unknown>)[key] === true;
+}
+
+function resolvePreviewArtifactRenderMode(artifact: Artifact): string | null {
+  return readStringMeta(artifact.meta, "renderMode");
+}
+
 function supportsLocalPreviewWindow(artifact: Artifact): boolean {
   const language = artifact.meta.language?.toLowerCase() || "";
   return (
+    resolvePreviewArtifactRenderMode(artifact) === "external_window" ||
+    readBooleanCapability(artifact.meta, "externalWindow") ||
     artifact.type === "html" ||
     artifact.type === "svg" ||
     (artifact.type === "code" && PREVIEWABLE_LANGUAGES.includes(language))
   );
 }
 
-function resolveArtifactLocalPreviewWindowPath(
-  artifact: Artifact,
-): string | null {
-  if (!supportsLocalPreviewWindow(artifact)) {
+function shouldOpenWithSystemApp(artifact: Artifact): boolean {
+  return resolvePreviewArtifactRenderMode(artifact) === "system_open";
+}
+
+function resolvePreviewArtifactExternalUrl(artifact: Artifact): string | null {
+  if (readStringMeta(artifact.meta, "source") !== "url") {
     return null;
   }
 
+  return (
+    resolveHttpExternalHref(readStringMeta(artifact.meta, "sourceRef")) ||
+    resolveHttpExternalHref(readStringMeta(artifact.meta, "sourcePath")) ||
+    resolveHttpExternalHref(readStringMeta(artifact.meta, "url")) ||
+    resolveHttpExternalHref(artifact.content.trim())
+  );
+}
+
+function resolveArtifactLocalSourcePath(artifact: Artifact): string | null {
   const candidatePaths = [
     readStringMeta(artifact.meta, "filePath"),
     readStringMeta(artifact.meta, "file_path"),
@@ -286,6 +318,16 @@ function resolveArtifactLocalPreviewWindowPath(
   }
 
   return null;
+}
+
+function resolveArtifactLocalPreviewWindowPath(
+  artifact: Artifact,
+): string | null {
+  if (!supportsLocalPreviewWindow(artifact)) {
+    return null;
+  }
+
+  return resolveArtifactLocalSourcePath(artifact);
 }
 
 /**
@@ -467,6 +509,20 @@ export const ArtifactToolbar: React.FC<ArtifactToolbarProps> = memo(
      * @requirements 13.4
      */
     const handleOpenInWindow = useCallback(async () => {
+      const externalUrl = resolvePreviewArtifactExternalUrl(artifact);
+      if (externalUrl) {
+        await openExternalUrlWithSystemBrowser(externalUrl);
+        return;
+      }
+
+      if (shouldOpenWithSystemApp(artifact)) {
+        const sourcePath = resolveArtifactLocalSourcePath(artifact);
+        if (sourcePath) {
+          await openPathWithDefaultApp(sourcePath);
+          return;
+        }
+      }
+
       const localPreviewPath = resolveArtifactLocalPreviewWindowPath(artifact);
       if (localPreviewPath) {
         const opened = await openHtmlPreviewWindow(localPreviewPath, {

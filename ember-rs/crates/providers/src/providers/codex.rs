@@ -5,7 +5,7 @@
 
 #![allow(dead_code)]
 
-use ember_core::api_host_utils::is_openai_responses_endpoint;
+use lime_core::api_host_utils::is_openai_responses_endpoint;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -228,8 +228,8 @@ fn resolve_codex_instructions(
         return Some(system_instructions.join("\n\n"));
     }
 
-    ember_core::env_compat::var_nonempty(&[
-        "EMBER_CODEX_DEFAULT_INSTRUCTIONS",
+    lime_core::env_compat::var_nonempty(&[
+        "LIME_CODEX_DEFAULT_INSTRUCTIONS",
         "PROXYCAST_CODEX_DEFAULT_INSTRUCTIONS",
     ])
 }

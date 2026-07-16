@@ -139,7 +139,7 @@ describe("ToolCallDisplay tool search and actions", () => {
       toolCalls: [
         {
           id: "tool-browser-1",
-          name: "mcp__ember-browser__browser_navigate",
+          name: "mcp__lime-browser__browser_navigate",
           arguments: JSON.stringify({ url: "https://example.com/docs" }),
           status: "completed",
           result: { success: true, output: "ok" },
@@ -165,7 +165,7 @@ describe("ToolCallDisplay tool search and actions", () => {
         {
           id: "tool-skill-1",
           name: "load_skill",
-          arguments: JSON.stringify({ name: "ember-governance" }),
+          arguments: JSON.stringify({ name: "lime-governance" }),
           status: "completed",
           result: { success: true, output: "loaded" },
           startTime: new Date("2026-03-20T12:20:05.000Z"),
@@ -182,19 +182,10 @@ describe("ToolCallDisplay tool search and actions", () => {
         },
         {
           id: "tool-input-1",
-          name: "AskUserQuestion",
+          name: "request_user_input",
           arguments: JSON.stringify({ question: "需要继续吗？" }),
           status: "running",
           startTime: new Date("2026-03-20T12:20:09.000Z"),
-        },
-        {
-          id: "tool-send-user-message-1",
-          name: "SendUserMessage",
-          arguments: JSON.stringify({ message: "修复已完成" }),
-          status: "completed",
-          result: { success: true, output: "Message delivered to user." },
-          startTime: new Date("2026-03-20T12:20:09.500Z"),
-          endTime: new Date("2026-03-20T12:20:09.900Z"),
         },
         {
           id: "tool-list-peers-1",
@@ -250,16 +241,14 @@ describe("ToolCallDisplay tool search and actions", () => {
     expect(container.textContent).toContain("已打开 https://example.com/docs");
     expect(container.textContent).toContain("子任务处理中 修复登录页");
     expect(container.textContent).toContain("已查看结果 video-task-1");
-    expect(container.textContent).toContain("已加载技能 ember-governance");
+    expect(container.textContent).toContain("已加载技能 lime-governance");
     expect(container.textContent).toContain("已找到 src/**/*.tsx");
     expect(container.textContent).toContain("等待输入 需要继续吗？");
-    expect(container.textContent).toContain("已发送");
-    expect(container.textContent).toContain("修复已完成");
     expect(container.textContent).toContain("已查看 当前子代理组");
     expect(container.textContent).toContain("已创建 当前子代理组");
     expect(container.textContent).toContain("已删除 当前子代理组");
-    expect(container.textContent).toContain("已处理 remote-1");
-    expect(container.textContent).toContain("已删除 cron-job-1");
+    expect(container.textContent).toContain("RemoteTrigger");
+    expect(container.textContent).toContain("CronDelete");
   });
 
   it("历史 gated runtime 工具即使当前未注册也应展示可读过程", () => {
@@ -300,22 +289,6 @@ describe("ToolCallDisplay tool search and actions", () => {
           endTime: new Date("2026-03-20T12:30:05.000Z"),
         },
         {
-          id: "tool-lsp-history-1",
-          name: "LSPTool",
-          arguments: JSON.stringify({
-            operation: "definition",
-            path: "src/main.ts",
-          }),
-          status: "failed",
-          result: {
-            success: false,
-            error: "-32603: -32002: LSP server is not available",
-            output: "",
-          },
-          startTime: new Date("2026-03-20T12:30:06.000Z"),
-          endTime: new Date("2026-03-20T12:30:07.000Z"),
-        },
-        {
           id: "tool-worktree-history-1",
           name: "EnterWorktreeTool",
           arguments: JSON.stringify({}),
@@ -336,10 +309,9 @@ describe("ToolCallDisplay tool search and actions", () => {
       ],
     });
 
-    expect(container.textContent).toContain("已调整配置");
-    expect(container.textContent).toContain("已创建 daily-summary");
-    expect(container.textContent).toContain("处理失败 remote-news");
-    expect(container.textContent).toContain("查看失败 main.ts");
+    expect(container.textContent).toContain("ConfigTool");
+    expect(container.textContent).toContain("CronCreateTool");
+    expect(container.textContent).toContain("Remote Trigger Tool");
     expect(container.textContent).toContain("已完成 2 个步骤");
     expect(container.textContent).toContain("EnterWorktreeTool");
     expect(container.textContent).toContain("ExitWorktreeTool");

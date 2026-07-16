@@ -219,3 +219,36 @@ pub struct VoiceModelTestTranscribeFileResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
 }
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct VoiceTranscriptionTranscribeAudioParams {
+    pub audio_base64: String,
+    pub mime_type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credential_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct VoiceTranscriptionTranscribeAudioResponse {
+    pub text: String,
+    pub duration_secs: f32,
+    pub sample_rate: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    pub provider: VoiceAsrProviderType,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct VoiceTranscriptionPolishTextParams {
+    pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instruction_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct VoiceTranscriptionPolishTextResponse {
+    pub text: String,
+    pub instruction_name: String,
+    #[serde(default)]
+    pub polished: bool,
+}

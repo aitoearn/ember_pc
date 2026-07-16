@@ -6,6 +6,8 @@ import {
   APP_SERVER_METHOD_AGENT_SESSION_REVIEW_DECISION_SAVE,
   APP_SERVER_METHOD_AGENT_SESSION_REVIEW_DECISION_TEMPLATE_EXPORT,
 } from "@/lib/api/appServer";
+import { getLimeI18n } from "@/i18n/createI18n";
+import { normalizeLocale } from "@/i18n/locales";
 import { projectAppServerEvidenceExportToRuntimeEvidencePack } from "./appServerEvidenceExportProjection";
 import {
   normalizeAnalysisHandoff,
@@ -13,7 +15,6 @@ import {
   normalizeReplayCase,
   normalizeReviewDecisionTemplate,
 } from "./normalizers";
-import type { AgentRuntimeCommandInvoke } from "./transport";
 import type {
   AgentRuntimeAnalysisHandoff,
   AgentRuntimeAnalysisArtifact,
@@ -25,7 +26,7 @@ import type {
   AgentRuntimeReviewDecisionArtifact,
   AgentRuntimeReviewDecisionTemplate,
   AgentRuntimeSaveReviewDecisionRequest,
-} from "./types";
+} from "./evidenceTypes";
 
 export type AgentRuntimeEvidenceExportAppServerClient = Pick<
   AppServerClient,
@@ -38,8 +39,11 @@ export type AgentRuntimeEvidenceExportAppServerClient = Pick<
 >;
 
 export interface AgentRuntimeExportClientDeps {
-  invokeCommand?: AgentRuntimeCommandInvoke;
   appServerClient?: AgentRuntimeEvidenceExportAppServerClient;
+}
+
+export interface AgentRuntimeExportOptions {
+  locale?: string | null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -81,7 +85,9 @@ function hasRequiredFiniteNumber(
 }
 
 function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
 }
 
 function isArtifact(
@@ -106,8 +112,14 @@ function isArtifact(
   );
 }
 
-function isArtifactList(value: unknown, allowedKinds: readonly string[]): boolean {
-  return Array.isArray(value) && value.every((item) => isArtifact(item, allowedKinds));
+function isArtifactList(
+  value: unknown,
+  allowedKinds: readonly string[],
+): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => isArtifact(item, allowedKinds))
+  );
 }
 
 function hasRuntimeExportBaseFields(
@@ -135,6 +147,44 @@ function hasRuntimeExportBaseFields(
   );
 }
 
+function readRequiredString(
+  record: Record<string, unknown>,
+  camelKey: string,
+  snakeKey?: string,
+): string {
+  const value = readField(record, camelKey, snakeKey);
+  return typeof value === "string" ? value : "";
+}
+
+function assertRuntimeExportSessionCorrelation(
+  command: string,
+  value: Record<string, unknown>,
+  expectedSessionId: string,
+  rootFields: ReadonlyArray<readonly [string, string]>,
+): void {
+  const actualSessionId = readRequiredString(value, "sessionId", "session_id");
+  if (actualSessionId !== expectedSessionId) {
+    throw new Error(`${command} returned export for a different session`);
+  }
+
+  const sessionPathToken = `.lime/harness/sessions/${expectedSessionId}`;
+  for (const [camelKey, snakeKey] of rootFields) {
+    const root = readRequiredString(value, camelKey, snakeKey)
+      .replace(/\\/g, "/")
+      .replace(/\/+$/u, "");
+    if (
+      root !== sessionPathToken &&
+      !root.endsWith(`/${sessionPathToken}`) &&
+      !root.startsWith(`${sessionPathToken}/`) &&
+      !root.includes(`/${sessionPathToken}/`)
+    ) {
+      throw new Error(
+        `${command} did not return ${camelKey} under the requested session`,
+      );
+    }
+  }
+}
+
 function isHandoffBundle(value: unknown): boolean {
   return (
     hasRuntimeExportBaseFields(value, [
@@ -151,7 +201,12 @@ function isHandoffBundle(value: unknown): boolean {
     hasRequiredFiniteNumber(value, "todoPending", "todo_pending") &&
     hasRequiredFiniteNumber(value, "todoInProgress", "todo_in_progress") &&
     hasRequiredFiniteNumber(value, "todoCompleted", "todo_completed") &&
-    isArtifactList(value.artifacts, ["plan", "progress", "handoff", "review_summary"])
+    isArtifactList(value.artifacts, [
+      "plan",
+      "progress",
+      "handoff",
+      "review_summary",
+    ])
   );
 }
 
@@ -202,7 +257,12 @@ function isReplayCase(value: unknown): boolean {
       "recentArtifactCount",
       "recent_artifact_count",
     ) &&
-    isArtifactList(value.artifacts, ["input", "expected", "grader", "evidence_links"])
+    isArtifactList(value.artifacts, [
+      "input",
+      "expected",
+      "grader",
+      "evidence_links",
+    ])
   );
 }
 
@@ -270,11 +330,16 @@ function assertRuntimeExportResult(
   }
 }
 
+function resolveExportLocale(options?: AgentRuntimeExportOptions): string {
+  return normalizeLocale(options?.locale ?? getLimeI18n().language);
+}
+
 export function createExportClient({
   appServerClient = new AppServerClient(),
 }: AgentRuntimeExportClientDeps = {}) {
   async function exportAgentRuntimeHandoffBundle(
     sessionId: string,
+    options?: AgentRuntimeExportOptions,
   ): Promise<AgentRuntimeHandoffBundle> {
     const normalizedSessionId = sessionId.trim();
     if (!normalizedSessionId) {
@@ -285,6 +350,7 @@ export function createExportClient({
 
     const response = await appServerClient.exportHandoffBundle({
       sessionId: normalizedSessionId,
+      locale: resolveExportLocale(options),
     });
     const result = response.result;
     assertRuntimeExportResult(
@@ -293,11 +359,21 @@ export function createExportClient({
       isHandoffBundle,
       "runtime handoff bundle",
     );
+    assertRuntimeExportSessionCorrelation(
+      APP_SERVER_METHOD_AGENT_SESSION_HANDOFF_BUNDLE_EXPORT,
+      result,
+      normalizedSessionId,
+      [
+        ["bundleRelativeRoot", "bundle_relative_root"],
+        ["bundleAbsoluteRoot", "bundle_absolute_root"],
+      ],
+    );
     return normalizeHandoffBundle(result);
   }
 
   async function exportAgentRuntimeAnalysisHandoff(
     sessionId: string,
+    options?: AgentRuntimeExportOptions,
   ): Promise<AgentRuntimeAnalysisHandoff> {
     const normalizedSessionId = sessionId.trim();
     if (!normalizedSessionId) {
@@ -307,6 +383,7 @@ export function createExportClient({
     }
     const response = await appServerClient.exportAnalysisHandoff({
       sessionId: normalizedSessionId,
+      locale: resolveExportLocale(options),
     });
     const result = response.result;
     assertRuntimeExportResult(
@@ -315,11 +392,24 @@ export function createExportClient({
       isAnalysisHandoff,
       "runtime analysis handoff",
     );
+    assertRuntimeExportSessionCorrelation(
+      APP_SERVER_METHOD_AGENT_SESSION_ANALYSIS_HANDOFF_EXPORT,
+      result,
+      normalizedSessionId,
+      [
+        ["analysisRelativeRoot", "analysis_relative_root"],
+        ["analysisAbsoluteRoot", "analysis_absolute_root"],
+        ["handoffBundleRelativeRoot", "handoff_bundle_relative_root"],
+        ["evidencePackRelativeRoot", "evidence_pack_relative_root"],
+        ["replayCaseRelativeRoot", "replay_case_relative_root"],
+      ],
+    );
     return normalizeAnalysisHandoff(result);
   }
 
   async function exportAgentRuntimeReviewDecisionTemplate(
     sessionId: string,
+    options?: AgentRuntimeExportOptions,
   ): Promise<AgentRuntimeReviewDecisionTemplate> {
     const normalizedSessionId = sessionId.trim();
     if (!normalizedSessionId) {
@@ -329,6 +419,7 @@ export function createExportClient({
     }
     const response = await appServerClient.exportReviewDecisionTemplate({
       sessionId: normalizedSessionId,
+      locale: resolveExportLocale(options),
     });
     const result = response.result;
     assertRuntimeExportResult(
@@ -336,6 +427,20 @@ export function createExportClient({
       result,
       isReviewDecisionTemplate,
       "runtime review decision template",
+    );
+    assertRuntimeExportSessionCorrelation(
+      APP_SERVER_METHOD_AGENT_SESSION_REVIEW_DECISION_TEMPLATE_EXPORT,
+      result,
+      normalizedSessionId,
+      [
+        ["reviewRelativeRoot", "review_relative_root"],
+        ["reviewAbsoluteRoot", "review_absolute_root"],
+        ["analysisRelativeRoot", "analysis_relative_root"],
+        ["analysisAbsoluteRoot", "analysis_absolute_root"],
+        ["handoffBundleRelativeRoot", "handoff_bundle_relative_root"],
+        ["evidencePackRelativeRoot", "evidence_pack_relative_root"],
+        ["replayCaseRelativeRoot", "replay_case_relative_root"],
+      ],
     );
     return normalizeReviewDecisionTemplate(result);
   }
@@ -360,6 +465,7 @@ export function createExportClient({
       followupActions: request.followup_actions,
       regressionRequirements: request.regression_requirements,
       notes: request.notes,
+      locale: resolveExportLocale({ locale: request.locale }),
     });
     const result = response.result;
     assertRuntimeExportResult(
@@ -367,6 +473,20 @@ export function createExportClient({
       result,
       isReviewDecisionTemplate,
       "runtime review decision template",
+    );
+    assertRuntimeExportSessionCorrelation(
+      APP_SERVER_METHOD_AGENT_SESSION_REVIEW_DECISION_SAVE,
+      result,
+      normalizedSessionId,
+      [
+        ["reviewRelativeRoot", "review_relative_root"],
+        ["reviewAbsoluteRoot", "review_absolute_root"],
+        ["analysisRelativeRoot", "analysis_relative_root"],
+        ["analysisAbsoluteRoot", "analysis_absolute_root"],
+        ["handoffBundleRelativeRoot", "handoff_bundle_relative_root"],
+        ["evidencePackRelativeRoot", "evidence_pack_relative_root"],
+        ["replayCaseRelativeRoot", "replay_case_relative_root"],
+      ],
     );
     return normalizeReviewDecisionTemplate(result);
   }
@@ -390,15 +510,15 @@ export function createExportClient({
 
   async function exportAgentRuntimeReplayCase(
     sessionId: string,
+    options?: AgentRuntimeExportOptions,
   ): Promise<AgentRuntimeReplayCase> {
     const normalizedSessionId = sessionId.trim();
     if (!normalizedSessionId) {
-      throw new Error(
-        "sessionId is required to export App Server replay case",
-      );
+      throw new Error("sessionId is required to export App Server replay case");
     }
     const response = await appServerClient.exportReplayCase({
       sessionId: normalizedSessionId,
+      locale: resolveExportLocale(options),
     });
     const result = response.result;
     assertRuntimeExportResult(
@@ -406,6 +526,17 @@ export function createExportClient({
       result,
       isReplayCase,
       "runtime replay case",
+    );
+    assertRuntimeExportSessionCorrelation(
+      APP_SERVER_METHOD_AGENT_SESSION_REPLAY_CASE_EXPORT,
+      result,
+      normalizedSessionId,
+      [
+        ["replayRelativeRoot", "replay_relative_root"],
+        ["replayAbsoluteRoot", "replay_absolute_root"],
+        ["handoffBundleRelativeRoot", "handoff_bundle_relative_root"],
+        ["evidencePackRelativeRoot", "evidence_pack_relative_root"],
+      ],
     );
     return normalizeReplayCase(result);
   }

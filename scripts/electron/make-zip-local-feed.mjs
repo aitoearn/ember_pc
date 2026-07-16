@@ -8,8 +8,6 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { macPackageDirName } from "./productIdentity.mjs";
-
 function parseArgs(argv) {
   const args = {};
   for (let index = 0; index < argv.length; index += 1) {
@@ -84,7 +82,7 @@ function defaultPackageRoot(cwd = process.cwd()) {
 }
 
 function packageDirNameForDarwinArch(arch) {
-  return macPackageDirName(arch);
+  return `Lime-darwin-${arch}`;
 }
 
 function prepareIsolatedPackageDir({ arch, cwd, outDir, packageRoot }) {
@@ -209,7 +207,7 @@ async function makeZipWithLocalFeed({
   const resolvedOutDir = path.resolve(cwd, outDir);
   const resolvedPackageRoot = path.resolve(cwd, packageRoot);
   const feedLabel = feedLabelForDarwinArch(normalizedArch);
-  const feedPath = `/ember/stable/${feedLabel}`;
+  const feedPath = `/lime/stable/${feedLabel}`;
   const releasesManifest = readReleasesManifest(existingReleases);
   const packageVersion = JSON.parse(
     fs.readFileSync(path.join(cwd, "package.json"), "utf8"),
@@ -245,8 +243,8 @@ async function makeZipWithLocalFeed({
         cwd,
         env: {
           ...process.env,
-          EMBER_ELECTRON_FORGE_OUT_DIR: resolvedOutDir,
-          EMBER_ELECTRON_UPDATES_URL: feedUrl,
+          LIME_ELECTRON_FORGE_OUT_DIR: resolvedOutDir,
+          LIME_ELECTRON_UPDATES_URL: feedUrl,
           TMPDIR: process.env.TMPDIR || os.tmpdir(),
         },
         stdio,

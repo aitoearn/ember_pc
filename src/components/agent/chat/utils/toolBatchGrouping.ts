@@ -8,32 +8,50 @@ import {
   resolveToolFilePath,
   type ToolCallArgumentValue,
 } from "./toolDisplayInfo";
-import { resolveSearchResultPreviewItemsFromText } from "./searchResultPreview";
+import {
+  formatSearchSourceLabelFromUrl,
+  resolveSearchResultPreviewItemsFromText,
+} from "./searchResultPreview";
 import {
   isUnifiedWebFetchToolName,
   isUnifiedWebSearchToolName,
 } from "./toolNameFamily";
+import { resolveToolSoulMetadataFromEntries } from "./toolSoulLifecycleMetadata";
+import {
+  resolveToolProcessFactsOperationKind,
+  resolveToolProcessFactsSubject,
+} from "./toolProcessSummaryMetadata";
+import {
+  resolveBrowserCountLabel,
+  resolveBrowserFallbackLine,
+  resolveBrowserLatestHintLine,
+  resolveBrowserRawDetailLabel,
+  resolveBrowserTitle,
+  resolveExplorationCountLabel,
+  resolveExplorationDetailLine,
+  resolveExplorationLatestHintLine,
+  resolveExplorationRawDetailLabel,
+  resolveExplorationTitle,
+  resolveWebSearchCountLabel,
+  resolveWebSearchFallbackLine,
+  resolveWebSearchLatestHintLine,
+  resolveWebSearchRawDetailLabel,
+  resolveWebSearchTitle,
+} from "./toolBatchGroupingCopy";
+import type {
+  ToolBatchSummaryDescriptor,
+  ToolBatchSummarySection,
+  ToolLikeDescriptor,
+  ToolLikeStatus,
+  ToolOperationKind,
+} from "./toolBatchGroupingTypes";
 
-export type ToolBatchKind = "exploration" | "browser" | "web_search";
-
-export interface ToolBatchSummaryDescriptor {
-  kind: ToolBatchKind;
-  title: string;
-  supportingLines: string[];
-  countLabel: string;
-  rawDetailLabel: string;
-}
-
-type ToolOperationKind =
-  | "read"
-  | "search"
-  | "web_search"
-  | "web_fetch"
-  | "list"
-  | "browser"
-  | "mutation"
-  | "absorbed"
-  | "other";
+export type {
+  ToolBatchKind,
+  ToolBatchSummaryDescriptor,
+  ToolBatchSummarySection,
+  ToolBatchSummarySectionKind,
+} from "./toolBatchGroupingTypes";
 
 interface ToolBatchAccumulator {
   readCount: number;
@@ -47,21 +65,13 @@ interface ToolBatchAccumulator {
   significantCount: number;
   absorbedCount: number;
   otherCount: number;
+  hasRunning: boolean;
   latestHint: string | null;
   latestWebSearchHint: string | null;
   webSearchHints: string[];
   webFetchHints: string[];
   searchHints: string[];
   browserHints: string[];
-}
-
-interface ToolLikeDescriptor {
-  toolName: string;
-  argumentsValue?: string | Record<string, ToolCallArgumentValue>;
-  command?: string | null;
-  query?: string | null;
-  output?: string | null;
-  status?: ToolCallState["status"] | AgentThreadItem["status"] | null;
 }
 
 type ThreadProcessBatchItem = Extract<
@@ -83,6 +93,19 @@ function shorten(
   return `${normalized.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
+function formatShortSourceHint(
+  value: string | null | undefined,
+): string | null {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return null;
+  }
+  if (/^https?:\/\//i.test(normalized)) {
+    return shorten(formatSearchSourceLabelFromUrl(normalized), 56);
+  }
+  return shorten(normalized, 56);
+}
+
 function asRecord(value: unknown): Record<string, ToolCallArgumentValue> {
   if (!value) {
     return {};
@@ -101,6 +124,27 @@ function asRecord(value: unknown): Record<string, ToolCallArgumentValue> {
   }
 
   return {};
+}
+
+function normalizeMetadataRecord(
+  value: unknown,
+): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function mergeMetadata(base: unknown, override: unknown): unknown {
+  const baseRecord = normalizeMetadataRecord(base);
+  const overrideRecord = normalizeMetadataRecord(override);
+  if (baseRecord && overrideRecord) {
+    return {
+      ...baseRecord,
+      ...overrideRecord,
+    };
+  }
+  return overrideRecord ?? baseRecord ?? override ?? base;
 }
 
 function isThreadProcessBatchItem(
@@ -124,6 +168,61 @@ function readString(
     }
   }
   return null;
+}
+
+function readFirstString(
+  record: Record<string, unknown>,
+  keys: string[],
+): string | null {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+    if (Array.isArray(value)) {
+      const first = value.find(
+        (item) => typeof item === "string" && item.trim(),
+      );
+      if (typeof first === "string") {
+        return first.trim();
+      }
+    }
+  }
+  return null;
+}
+
+function nestedRecord(
+  record: Record<string, ToolCallArgumentValue>,
+  key: string,
+): Record<string, ToolCallArgumentValue> | null {
+  const value = record[key];
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, ToolCallArgumentValue>;
+}
+
+function resolveWebSearchActionDetail(
+  args: Record<string, ToolCallArgumentValue>,
+): string | null {
+  const action = nestedRecord(args, "action");
+  const actionQuery = action
+    ? readFirstString(action, ["query", "url", "pattern", "queries"])
+    : null;
+  const directQuery = readFirstString(args, [
+    "query",
+    "q",
+    "pattern",
+    "search",
+    "url",
+    "href",
+    "queries",
+  ]);
+  return actionQuery || directQuery;
+}
+
+function isRunningToolLikeStatus(status?: ToolLikeStatus): boolean {
+  return status === "running" || status === "in_progress";
 }
 
 function pushUniqueHint(target: string[], hint: string | null): void {
@@ -173,6 +272,13 @@ function resolveBashLikeKind(command: string): ToolOperationKind {
 function resolveToolOperationKind(
   descriptor: ToolLikeDescriptor,
 ): ToolOperationKind {
+  const factsOperationKind = resolveToolProcessFactsOperationKind(
+    descriptor.metadata,
+  );
+  if (factsOperationKind) {
+    return factsOperationKind;
+  }
+
   const normalizedName = normalizeToolNameKey(descriptor.toolName);
   const args = asRecord(descriptor.argumentsValue);
   const mcpOperationKind = classifyMcpToolOperationKind(descriptor.toolName);
@@ -259,9 +365,16 @@ function resolveLatestHint(
   operationKind: ToolOperationKind,
 ): string | null {
   const args = asRecord(descriptor.argumentsValue);
+  const factsSubject = resolveToolProcessFactsSubject(descriptor.metadata);
   if (operationKind === "search" || operationKind === "web_search") {
+    const webSearchDetail =
+      operationKind === "web_search"
+        ? resolveWebSearchActionDetail(args)
+        : null;
     return shorten(
       descriptor.query ||
+        factsSubject ||
+        webSearchDetail ||
         readString(args, [
           "query",
           "q",
@@ -278,10 +391,10 @@ function resolveLatestHint(
   }
 
   if (operationKind === "web_fetch") {
-    return shorten(
+    return formatShortSourceHint(
       descriptor.query ||
+        factsSubject ||
         readString(args, ["query", "q", "pattern", "search", "url", "href"]),
-      56,
     );
   }
 
@@ -291,37 +404,41 @@ function resolveLatestHint(
       return shorten(fileNameFromPath(filePath), 48);
     }
     return shorten(
-      readString(args, [
-        "path",
-        "file_path",
-        "directory",
-        "query",
-        "q",
-        "libraryId",
-        "library_id",
-        "libraryName",
-        "library_name",
-      ]),
+      factsSubject ||
+        readString(args, [
+          "path",
+          "file_path",
+          "directory",
+          "query",
+          "q",
+          "libraryId",
+          "library_id",
+          "libraryName",
+          "library_name",
+        ]),
       48,
     );
   }
 
   if (operationKind === "browser") {
     return shorten(
-      readString(args, [
-        "url",
-        "pageUrl",
-        "page_url",
-        "selector",
-        "target",
-        "label",
-      ]),
+      factsSubject ||
+        readString(args, [
+          "url",
+          "pageUrl",
+          "page_url",
+          "selector",
+          "target",
+          "label",
+        ]),
       56,
     );
   }
 
   const command =
-    descriptor.command || readString(args, ["command", "cmd", "script"]);
+    descriptor.command ||
+    factsSubject ||
+    readString(args, ["command", "cmd", "script"]);
   return shorten(command, 56);
 }
 
@@ -338,6 +455,7 @@ function accumulateBatch(entries: ToolLikeDescriptor[]): ToolBatchAccumulator {
     significantCount: 0,
     absorbedCount: 0,
     otherCount: 0,
+    hasRunning: false,
     latestHint: null,
     latestWebSearchHint: null,
     webSearchHints: [],
@@ -347,6 +465,9 @@ function accumulateBatch(entries: ToolLikeDescriptor[]): ToolBatchAccumulator {
   };
 
   for (const entry of entries) {
+    if (isRunningToolLikeStatus(entry.status)) {
+      accumulator.hasRunning = true;
+    }
     const operationKind = resolveToolOperationKind(entry);
     switch (operationKind) {
       case "read":
@@ -420,6 +541,7 @@ function accumulateBatch(entries: ToolLikeDescriptor[]): ToolBatchAccumulator {
 
 function buildWebSearchDescriptor(
   accumulator: ToolBatchAccumulator,
+  entries: ToolLikeDescriptor[],
 ): ToolBatchSummaryDescriptor | null {
   const {
     readCount,
@@ -439,13 +561,18 @@ function buildWebSearchDescriptor(
     mutationCount === 0 &&
     otherCount === 0 &&
     significantCount === webSearchCount + accumulator.webFetchCount;
-  if (
-    webSearchCount < 1 ||
-    accumulator.webSearchFailedCount >= webSearchCount ||
-    !hasOnlyWebSearchCompanions
-  ) {
+  if (webSearchCount < 1 || !hasOnlyWebSearchCompanions) {
     return null;
   }
+
+  const webFetchCount = accumulator.webFetchCount;
+  const hasRunningWebRetrieval = entries.some((entry) => {
+    const operationKind = resolveToolOperationKind(entry);
+    return (
+      (operationKind === "web_search" || operationKind === "web_fetch") &&
+      isRunningToolLikeStatus(entry.status)
+    );
+  });
 
   const supportingLines =
     accumulator.webSearchHints.length > 0 ||
@@ -454,27 +581,63 @@ function buildWebSearchDescriptor(
           0,
           7,
         )
-      : [`搜索网页 ${webSearchCount} 次`];
+      : [
+          resolveWebSearchFallbackLine({
+            webFetchCount,
+            webSearchCount,
+          }),
+        ];
+  const supportingSections: ToolBatchSummarySection[] = [];
+  if (accumulator.webSearchHints.length > 0) {
+    supportingSections.push({
+      kind: "web_search_sources",
+      lines: accumulator.webSearchHints.slice(0, 5),
+    });
+  }
+  if (accumulator.webFetchHints.length > 0) {
+    supportingSections.push({
+      kind: "web_fetch_pages",
+      lines: accumulator.webFetchHints.slice(0, 5),
+    });
+  }
   if (
     accumulator.latestWebSearchHint &&
     !supportingLines.some((line) =>
       line.includes(accumulator.latestWebSearchHint || ""),
     )
   ) {
-    supportingLines.push(`最新线索：${accumulator.latestWebSearchHint}`);
+    supportingLines.push(
+      resolveWebSearchLatestHintLine(accumulator.latestWebSearchHint),
+    );
   }
 
   return {
     kind: "web_search",
-    title: `已搜索网页 ${webSearchCount} 次`,
+    title: resolveWebSearchTitle({
+      hasRunning: hasRunningWebRetrieval,
+      latestWebSearchHint: accumulator.latestWebSearchHint,
+      webFetchCount,
+      webSearchCount,
+    }),
     supportingLines,
-    countLabel: `${webSearchCount} 次`,
-    rawDetailLabel: "展开查看搜索来源",
+    supportingSections:
+      supportingSections.length > 1 ? supportingSections : undefined,
+    countLabel: resolveWebSearchCountLabel({
+      webFetchCount,
+      webSearchCount,
+    }),
+    rawDetailLabel: resolveWebSearchRawDetailLabel({
+      hasRunning: hasRunningWebRetrieval,
+      webFetchCount,
+    }),
+    hasRunning: hasRunningWebRetrieval,
+    ...resolveToolSoulMetadataFromEntries(entries),
   };
 }
 
 function buildExplorationDescriptor(
   accumulator: ToolBatchAccumulator,
+  entries: ToolLikeDescriptor[],
 ): ToolBatchSummaryDescriptor | null {
   const {
     readCount,
@@ -494,54 +657,41 @@ function buildExplorationDescriptor(
     return null;
   }
 
-  const title =
-    readCount > 0 && searchCount > 0
-      ? "已探索项目"
-      : readCount > 0
-        ? "已查看关键文件"
-        : searchCount > 0
-          ? "已搜索关键线索"
-          : "已查看目录结构";
-
-  const detailParts: string[] = [];
-  if (readCount > 0) {
-    detailParts.push(`查看了 ${readCount} 个文件`);
-  }
-  if (searchCount > 0) {
-    detailParts.push(`搜索 ${searchCount} 次`);
-  }
-  if (listCount > 0) {
-    detailParts.push(`列了 ${listCount} 个目录`);
-  }
-
-  const countParts: string[] = [];
-  if (readCount > 0) {
-    countParts.push(`读 ${readCount}`);
-  }
-  if (searchCount > 0) {
-    countParts.push(`搜 ${searchCount}`);
-  }
-  if (listCount > 0) {
-    countParts.push(`列 ${listCount}`);
-  }
-
-  const supportingLines =
-    detailParts.length > 0 ? [detailParts.join("，")] : [];
+  const detailLine = resolveExplorationDetailLine({
+    listCount,
+    readCount,
+    searchCount,
+  });
+  const supportingLines = detailLine ? [detailLine] : [];
   if (accumulator.latestHint) {
-    supportingLines.push(`最新线索：${accumulator.latestHint}`);
+    supportingLines.push(
+      resolveExplorationLatestHintLine(accumulator.latestHint),
+    );
   }
 
   return {
     kind: "exploration",
-    title,
+    title: resolveExplorationTitle({
+      readCount,
+      searchCount,
+    }),
     supportingLines,
-    countLabel: countParts.join(" / ") || `${significantCount} 步`,
-    rawDetailLabel: "展开查看探索明细",
+    countLabel: resolveExplorationCountLabel({
+      latestHint: accumulator.latestHint,
+      listCount,
+      readCount,
+      searchCount,
+      significantCount,
+    }),
+    rawDetailLabel: resolveExplorationRawDetailLabel(),
+    hasRunning: accumulator.hasRunning,
+    ...resolveToolSoulMetadataFromEntries(entries),
   };
 }
 
 function buildBrowserDescriptor(
   accumulator: ToolBatchAccumulator,
+  entries: ToolLikeDescriptor[],
 ): ToolBatchSummaryDescriptor | null {
   if (
     accumulator.browserCount < 2 ||
@@ -558,35 +708,47 @@ function buildBrowserDescriptor(
   const supportingLines =
     accumulator.browserHints.length > 0
       ? accumulator.browserHints.slice(0, 4)
-      : [`检查了 ${accumulator.browserCount} 个页面步骤`];
+      : [
+          resolveBrowserFallbackLine({
+            browserCount: accumulator.browserCount,
+          }),
+        ];
   if (
     accumulator.latestHint &&
     !supportingLines.some((line) => line.includes(accumulator.latestHint || ""))
   ) {
-    supportingLines.push(`最近目标：${accumulator.latestHint}`);
+    supportingLines.push(resolveBrowserLatestHintLine(accumulator.latestHint));
   }
 
   return {
     kind: "browser",
-    title: "已检查页面",
+    title: resolveBrowserTitle(),
     supportingLines,
-    countLabel: `${accumulator.browserCount} 步`,
-    rawDetailLabel: "展开查看页面操作明细",
+    countLabel: resolveBrowserCountLabel({
+      browserCount: accumulator.browserCount,
+    }),
+    rawDetailLabel: resolveBrowserRawDetailLabel(),
+    hasRunning: accumulator.hasRunning,
+    ...resolveToolSoulMetadataFromEntries(entries),
   };
 }
 
 function buildDescriptorFromEntries(
   entries: ToolLikeDescriptor[],
 ): ToolBatchSummaryDescriptor | null {
-  if (entries.length < 2) {
+  if (entries.length < 1) {
     return null;
   }
 
   const accumulator = accumulateBatch(entries);
+  const webSearchDescriptor = buildWebSearchDescriptor(accumulator, entries);
+  if (webSearchDescriptor || entries.length < 2) {
+    return webSearchDescriptor;
+  }
+
   return (
-    buildWebSearchDescriptor(accumulator) ||
-    buildExplorationDescriptor(accumulator) ||
-    buildBrowserDescriptor(accumulator)
+    buildExplorationDescriptor(accumulator, entries) ||
+    buildBrowserDescriptor(accumulator, entries)
   );
 }
 
@@ -597,17 +759,22 @@ export function summarizeStreamingToolBatch(
     toolCalls.map((toolCall) => ({
       toolName: toolCall.name,
       argumentsValue: toolCall.arguments,
+      metadata: mergeMetadata(toolCall.result?.metadata, toolCall.metadata),
       output: toolCall.result?.output || toolCall.result?.error || null,
       status: toolCall.status,
     })),
   );
 }
 
+function readThreadItemMetadata(item: AgentThreadItem): unknown {
+  return "metadata" in item ? item.metadata : undefined;
+}
+
 export function summarizeThreadProcessBatch(
   items: AgentThreadItem[],
 ): ToolBatchSummaryDescriptor | null {
   const processItems = items.filter(isThreadProcessBatchItem);
-  if (processItems.length < 2 || processItems.length !== items.length) {
+  if (processItems.length < 1 || processItems.length !== items.length) {
     return null;
   }
 
@@ -621,6 +788,7 @@ export function summarizeThreadProcessBatch(
         toolName: "exec_command",
         command: item.command,
         argumentsValue,
+        metadata: readThreadItemMetadata(item),
       };
     }
 
@@ -632,6 +800,7 @@ export function summarizeThreadProcessBatch(
       return {
         toolName: "web_search",
         query: item.query || item.action || null,
+        metadata: readThreadItemMetadata(item),
         output: item.output || null,
         argumentsValue,
         status: item.status,
@@ -646,6 +815,7 @@ export function summarizeThreadProcessBatch(
           : item.arguments === undefined
             ? undefined
             : String(item.arguments),
+      metadata: item.metadata,
       output:
         typeof item.output === "string"
           ? item.output

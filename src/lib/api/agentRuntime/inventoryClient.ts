@@ -1,16 +1,14 @@
 import { AppServerClient } from "@/lib/api/appServer";
-import { METHOD_WORKSPACE_SKILL_BINDINGS_LIST } from "../../../../packages/app-server-client/src/protocol";
-import { AGENT_RUNTIME_COMMANDS } from "./commandManifest.generated";
 import {
-  invokeAgentRuntimeCommand,
-  type AgentRuntimeCommandInvoke,
-} from "./transport";
+  METHOD_AGENT_SESSION_TOOL_INVENTORY_READ,
+  METHOD_WORKSPACE_SKILL_BINDINGS_LIST,
+} from "../../../../packages/app-server-client/src/protocol";
 import type {
   AgentRuntimeListWorkspaceSkillBindingsRequest,
   AgentRuntimeToolInventory,
   AgentRuntimeToolInventoryRequest,
   AgentRuntimeWorkspaceSkillBindings,
-} from "./types";
+} from "./toolInventoryTypes";
 
 export type AgentRuntimeWorkspaceSkillBindingsAppServerClient = Pick<
   AppServerClient,
@@ -21,8 +19,11 @@ type AppServerWorkspaceSkillBindingsListResponse = {
   bindings: AgentRuntimeWorkspaceSkillBindings;
 };
 
+type AppServerToolInventoryReadResponse = {
+  inventory: unknown;
+};
+
 export interface AgentRuntimeInventoryClientDeps {
-  invokeCommand?: AgentRuntimeCommandInvoke;
   appServerClient?: AgentRuntimeWorkspaceSkillBindingsAppServerClient;
 }
 
@@ -31,7 +32,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
 }
 
 function isOptionalString(value: unknown): value is string | undefined {
@@ -42,12 +45,15 @@ function isOptionalBoolean(value: unknown): value is boolean | undefined {
   return value === undefined || typeof value === "boolean";
 }
 
-function isOptionalFiniteNumber(
+function isOptionalNullableString(
   value: unknown,
-): value is number | undefined {
+): value is string | null | undefined {
+  return value === undefined || value === null || typeof value === "string";
+}
+
+function isOptionalFiniteNumber(value: unknown): value is number | undefined {
   return (
-    value === undefined ||
-    (typeof value === "number" && Number.isFinite(value))
+    value === undefined || (typeof value === "number" && Number.isFinite(value))
   );
 }
 
@@ -80,9 +86,9 @@ const REQUIRED_TOOL_INVENTORY_COUNT_FIELDS = [
   "catalog_compat_total",
   "catalog_deprecated_total",
   "default_allowed_total",
-  "registry_total",
-  "registry_visible_total",
-  "registry_catalog_unmapped_total",
+  "native_total",
+  "native_visible_total",
+  "native_catalog_unmapped_total",
   "extension_surface_total",
   "extension_mcp_bridge_total",
   "extension_runtime_total",
@@ -123,7 +129,7 @@ function isCatalogToolEntry(value: unknown): boolean {
   );
 }
 
-function isRegistryToolEntry(value: unknown): boolean {
+function isNativeToolEntry(value: unknown): boolean {
   return (
     isRecord(value) &&
     typeof value.name === "string" &&
@@ -144,6 +150,7 @@ function isRegistryToolEntry(value: unknown): boolean {
     isStringArray(value.allowed_callers) &&
     isStringArray(value.tags) &&
     hasFiniteNumberField(value, "input_examples_count") &&
+    typeof value.has_output_schema === "boolean" &&
     typeof value.caller_allowed === "boolean" &&
     typeof value.visible_in_context === "boolean"
   );
@@ -197,6 +204,7 @@ function isRuntimeToolEntry(value: unknown): boolean {
     isStringArray(value.allowed_callers) &&
     isStringArray(value.tags) &&
     hasFiniteNumberField(value, "input_examples_count") &&
+    typeof value.has_output_schema === "boolean" &&
     typeof value.caller_allowed === "boolean" &&
     typeof value.visible_in_context === "boolean"
   );
@@ -213,8 +221,45 @@ function isMcpToolEntry(value: unknown): boolean {
     isStringArray(value.allowed_callers) &&
     isStringArray(value.tags) &&
     hasFiniteNumberField(value, "input_examples_count") &&
+    typeof value.has_output_schema === "boolean" &&
     typeof value.caller_allowed === "boolean" &&
     typeof value.visible_in_context === "boolean"
+  );
+}
+
+function isMcpCandidateRequest(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.method === "string" &&
+    (value.params === undefined || isRecord(value.params)) &&
+    isOptionalString(value.reason) &&
+    isOptionalString(value.status)
+  );
+}
+
+function isNullableMcpCandidateRequest(value: unknown): boolean {
+  return value === null || isMcpCandidateRequest(value);
+}
+
+function isPluginMcpTarget(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.pluginId === "string" &&
+    typeof value.serverId === "string" &&
+    typeof value.toolKey === "string" &&
+    typeof value.provider === "string" &&
+    typeof value.required === "boolean" &&
+    typeof value.caller === "string" &&
+    typeof value.expectedToolName === "string" &&
+    typeof value.runtimeStatus === "string" &&
+    typeof value.prepareStatus === "string" &&
+    typeof value.serverAvailable === "boolean" &&
+    typeof value.serverRunning === "boolean" &&
+    typeof value.toolAvailable === "boolean" &&
+    isOptionalNullableString(value.resolvedToolName) &&
+    isRecord(value.toolListRequest) &&
+    isNullableMcpCandidateRequest(value.callProofRequest) &&
+    isArrayOf(value.prepareRequests, isMcpCandidateRequest)
   );
 }
 
@@ -237,30 +282,33 @@ function assertToolInventoryShape(
     !isStringArray(value.default_allowed_tools) ||
     !isToolInventoryCounts(value.counts) ||
     !isArrayOf(value.catalog_tools, isCatalogToolEntry) ||
-    !isArrayOf(value.registry_tools, isRegistryToolEntry) ||
+    !isArrayOf(value.native_tools, isNativeToolEntry) ||
     (value.runtime_tools !== undefined &&
       !isArrayOf(value.runtime_tools, isRuntimeToolEntry)) ||
     !isArrayOf(value.extension_surfaces, isExtensionSurfaceEntry) ||
     !isArrayOf(value.extension_tools, isExtensionToolEntry) ||
-    !isArrayOf(value.mcp_tools, isMcpToolEntry)
+    !isArrayOf(value.mcp_tools, isMcpToolEntry) ||
+    (value.plugin_mcp_targets !== undefined &&
+      !isArrayOf(value.plugin_mcp_targets, isPluginMcpTarget))
   ) {
     throw new Error(
-      "agent_runtime_get_tool_inventory did not return tool inventory",
+      "App Server agentSession/toolInventory/read did not return tool inventory",
     );
   }
 }
 
 export function createInventoryClient({
   appServerClient = new AppServerClient(),
-  invokeCommand = invokeAgentRuntimeCommand,
 }: AgentRuntimeInventoryClientDeps = {}) {
   async function getAgentRuntimeToolInventory(
     request: AgentRuntimeToolInventoryRequest = {},
   ): Promise<AgentRuntimeToolInventory> {
-    const result = await invokeCommand<AgentRuntimeToolInventory>(
-      AGENT_RUNTIME_COMMANDS.getToolInventory,
-      { request },
-    );
+    const response =
+      await appServerClient.request<AppServerToolInventoryReadResponse>(
+        METHOD_AGENT_SESSION_TOOL_INVENTORY_READ,
+        toolInventoryParamsFromRequest(request),
+      );
+    const result = response.result.inventory;
     assertToolInventoryShape(result);
     return result;
   }
@@ -310,5 +358,20 @@ function workspaceSkillBindingsListParamsFromRequest(
     ...(request.browserAssist === undefined
       ? {}
       : { browserAssist: request.browserAssist }),
+  };
+}
+
+function toolInventoryParamsFromRequest(
+  request: AgentRuntimeToolInventoryRequest,
+) {
+  return {
+    ...(request.caller ? { caller: request.caller } : {}),
+    ...(request.workbench === undefined
+      ? {}
+      : { workbench: request.workbench }),
+    ...(request.browserAssist === undefined
+      ? {}
+      : { browserAssist: request.browserAssist }),
+    ...(request.metadata === undefined ? {} : { metadata: request.metadata }),
   };
 }

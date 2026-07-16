@@ -110,8 +110,8 @@ describe("EmptyStateComposerPanel", () => {
     const container = renderPanel({
       pathReferences: [
         {
-          id: "dir:/Users/ember/Downloads",
-          path: "/Users/ember/Downloads",
+          id: "dir:/Users/lime/Downloads",
+          path: "/Users/lime/Downloads",
           name: "Downloads",
           isDir: true,
           size: null,
@@ -126,7 +126,7 @@ describe("EmptyStateComposerPanel", () => {
       container.querySelector('[data-testid="inputbar-path-reference-chip"]')
         ?.textContent,
     ).toContain("Downloads");
-    expect(container.textContent).not.toContain("/Users/ember/Downloads");
+    expect(container.textContent).not.toContain("/Users/lime/Downloads");
 
     const removeButton = container.querySelector(
       'button[aria-label="移除路径 Downloads"]',
@@ -137,15 +137,15 @@ describe("EmptyStateComposerPanel", () => {
     });
 
     expect(onRemovePathReference).toHaveBeenCalledWith(
-      "dir:/Users/ember/Downloads",
+      "dir:/Users/lime/Downloads",
     );
   });
 
   it("首页空态输入区的文本文件 chip 应支持设为项目资料", () => {
     const onImportPathReferenceAsKnowledge = vi.fn();
     const reference = {
-      id: "file:/Users/ember/brief.md",
-      path: "/Users/ember/brief.md",
+      id: "file:/Users/lime/brief.md",
+      path: "/Users/lime/brief.md",
       name: "brief.md",
       isDir: false,
       size: 128,
@@ -159,7 +159,7 @@ describe("EmptyStateComposerPanel", () => {
 
     expect(container.textContent).toContain("brief.md");
     expect(container.textContent).toContain("本地文件");
-    expect(container.textContent).not.toContain("/Users/ember/brief.md");
+    expect(container.textContent).not.toContain("/Users/lime/brief.md");
 
     const importButton = container.querySelector(
       'button[aria-label="设为项目资料 brief.md"]',

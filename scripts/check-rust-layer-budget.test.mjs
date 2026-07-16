@@ -16,9 +16,9 @@ function buildReport({ e2eEntries = [] } = {}) {
     entries: [
       ...e2eEntries,
       {
-        file: "ember-rs/tests/real_web_search.rs",
+        file: "ember-rs/crates/agent/tests/real_web_search.rs",
         layer: "e2e",
-        packageName: "ember",
+        packageName: "lime-agent",
         liveGated: true,
         runnableByDefault: false,
       },
@@ -52,7 +52,7 @@ describe("check-rust-layer-budget", () => {
         {
           file: "ember-rs/src/services/skill_cmd.rs",
           layer: "unit",
-          packageName: "ember",
+          packageName: "lime",
           cargoScope: "workspace",
           testCount: 3,
           ignoredCount: 1,
@@ -73,9 +73,9 @@ describe("check-rust-layer-budget", () => {
       buildReport({
         e2eEntries: [
           {
-            file: "ember-rs/tests/live_provider.rs",
+            file: "ember-rs/crates/agent/tests/live_provider.rs",
             layer: "e2e",
-            packageName: "ember",
+            packageName: "lime-agent",
             cargoScope: "workspace",
             testCount: 2,
             ignoredCount: 1,
@@ -90,7 +90,7 @@ describe("check-rust-layer-budget", () => {
       e2eOverBudgetBy: 1,
     });
     expect(renderBudgetResultText(result)).toContain(
-      "- ember-rs/tests/live_provider.rs (ember, runnable tests=1)",
+      "- ember-rs/crates/agent/tests/live_provider.rs (lime-agent, runnable tests=1)",
     );
   });
 });

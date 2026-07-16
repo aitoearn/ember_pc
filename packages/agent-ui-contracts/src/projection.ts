@@ -8,6 +8,10 @@ import type {
   AgentRuntimeReadModel,
 } from "./runtime";
 import type { ProcessTimeline } from "./timeline";
+import type {
+  AgentUiMcpSurfaceModel,
+  AgentUiToolSurfaceModel,
+} from "./tools";
 
 export type AgentUiHydrationStatus =
   | "idle"
@@ -24,6 +28,7 @@ export interface AgentUiRuntimeStatusView {
     | "waiting"
     | "blocked"
     | "completed"
+    | "canceled"
     | "failed"
     | "stale";
   activeTurnId?: string;
@@ -78,6 +83,17 @@ export interface AgentUiSubagentIsolationView {
   canDelegate?: boolean;
 }
 
+export interface AgentUiCollaborationFactsView {
+  collaborationFacts?: Record<string, unknown>;
+  collaborationSurface?: string;
+  collaborationPhase?: string;
+  styleLevel?: string;
+  riskLevel?: string;
+  toneVariant?: string;
+  profileId?: string;
+  packId?: string;
+}
+
 export interface AgentUiSubagentThreadView {
   threadId: string;
   subagentId: string;
@@ -98,6 +114,7 @@ export interface AgentUiSubagentThreadView {
   evidenceRefs: string[];
   sourceEventIds: string[];
   isolation?: AgentUiSubagentIsolationView;
+  collaboration?: AgentUiCollaborationFactsView;
 }
 
 export interface AgentUiSubagentDelegationView {
@@ -111,6 +128,7 @@ export interface AgentUiSubagentDelegationView {
   promptPreview?: string;
   createdAt?: string;
   completedAt?: string;
+  collaboration?: AgentUiCollaborationFactsView;
 }
 
 export interface AgentUiSubagentActivityView {
@@ -130,6 +148,7 @@ export interface AgentUiSubagentActivityView {
   status: AgentRuntimeExecutionEventStatus;
   title: string;
   createdAt?: string;
+  collaboration?: AgentUiCollaborationFactsView;
 }
 
 export interface AgentUiSubagentsModel {
@@ -150,6 +169,8 @@ export interface AgentUiProjectionState<
   timeline: ProcessTimeline;
   graph: ExecutionGraph;
   tools: AgentRuntimeEventProjection<TEvent>[];
+  toolCalls: AgentUiToolSurfaceModel;
+  mcp: AgentUiMcpSurfaceModel;
   actions: AgentRuntimeEventProjection<TEvent>[];
   artifacts: AgentUiArtifactRefView[];
   evidence: AgentUiEvidenceRefView[];

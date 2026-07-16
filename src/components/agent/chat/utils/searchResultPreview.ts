@@ -6,13 +6,22 @@ export interface SearchResultPreviewItem {
   url: string;
   hostname: string;
   snippet?: string;
+  snapshotContent?: string;
+  snapshotTitle?: string;
+  snapshotSource?: "web_fetch";
 }
 
 const URL_PATTERN_SOURCE = String.raw`\bhttps?:\/\/[^\s<>"'\`]+`;
 const URL_TRAILING_PUNCTUATION = /[),.;!?]+$/;
 const SEARCH_MARKDOWN_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+const YAHOO_SEARCH_NAVIGATION_TITLES = new Set([
+  "help",
+  "sign in",
+  "yahoo scout",
+]);
 
 export const SEARCH_RESULT_LIST_LIMIT = 10;
+const DEFAULT_SOURCE_PATH_MAX_LENGTH = 34;
 
 function createUrlPattern(): RegExp {
   return new RegExp(URL_PATTERN_SOURCE, "gi");
@@ -30,12 +39,56 @@ function isSearchEngineHostname(hostname: string): boolean {
   );
 }
 
+function isYahooSearchNavigationNoise(item: SearchResultPreviewItem): boolean {
+  const hostname = item.hostname.trim().toLowerCase();
+  const title = item.title.trim().toLowerCase();
+  if (
+    !(
+      hostname === "search.yahoo.com" ||
+      hostname === "login.yahoo.com" ||
+      hostname === "scout.yahoo.com" ||
+      hostname === "help.yahoo.com"
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    hostname === "search.yahoo.com" ||
+    hostname === "login.yahoo.com" ||
+    hostname === "help.yahoo.com" ||
+    hostname === "scout.yahoo.com"
+  ) {
+    return true;
+  }
+
+  if (YAHOO_SEARCH_NAVIGATION_TITLES.has(title)) {
+    return true;
+  }
+
+  try {
+    const parsed = new URL(item.url);
+    return (
+      parsed.searchParams.has("p") ||
+      parsed.pathname.includes("/search") ||
+      parsed.pathname.includes("/chat") ||
+      parsed.pathname.includes("/kb/search")
+    );
+  } catch {
+    return false;
+  }
+}
+
 function isSearchEngineNavigationNoise(item: SearchResultPreviewItem): boolean {
   const normalizedTitle = item.title.trim();
   const normalizedSnippet = item.snippet?.trim() || "";
   const text = `${normalizedTitle} ${normalizedSnippet}`;
 
   if (isSearchEngineHostname(item.hostname)) {
+    return true;
+  }
+
+  if (isYahooSearchNavigationNoise(item)) {
     return true;
   }
 
@@ -194,6 +247,42 @@ function normalizeStructuredUrlCandidate(rawUrl: string): string | null {
   return normalized;
 }
 
+export function formatSearchSourceLabelFromUrl(
+  url: string,
+  options?: {
+    hostname?: string;
+    maxPathLength?: number;
+  },
+): string {
+  try {
+    const parsed = new URL(url);
+    const hostname =
+      options?.hostname?.trim() || parsed.hostname.replace(/^www\./, "");
+    const pathname = parsed.pathname.replace(/\/$/, "");
+    if (!pathname || pathname === "/") {
+      return hostname;
+    }
+
+    const maxPathLength =
+      options?.maxPathLength ?? DEFAULT_SOURCE_PATH_MAX_LENGTH;
+    const shortPath =
+      pathname.length > maxPathLength
+        ? `${pathname.slice(0, maxPathLength - 1).trimEnd()}…`
+        : pathname;
+    return `${hostname}${shortPath}`;
+  } catch {
+    return options?.hostname?.trim() || url;
+  }
+}
+
+export function formatSearchResultSourceLabel(
+  item: Pick<SearchResultPreviewItem, "hostname" | "url">,
+): string {
+  return formatSearchSourceLabelFromUrl(item.url, {
+    hostname: item.hostname,
+  });
+}
+
 function findFirstUrl(
   ...values: Array<string | undefined>
 ): string | undefined {
@@ -216,6 +305,71 @@ function normalizeSearchText(value: string): string {
     .replace(/^[\s>*•·\-–—\d().:：\]]+/, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function readJsonishFieldLine(
+  value: string,
+): { key: string; rawValue: string } | null {
+  const normalized = value.trim().replace(/,$/, "").trim();
+  const match = normalized.match(/^["']?([A-Za-z_][\w-]*)["']?\s*:\s*(.*)$/);
+  if (!match) {
+    return null;
+  }
+  return {
+    key: match[1]?.toLowerCase() || "",
+    rawValue: match[2]?.trim() || "",
+  };
+}
+
+function normalizeJsonishFieldValue(rawValue: string): string {
+  const normalized = rawValue.trim().replace(/,$/, "").trim();
+  if (!normalized || normalized === "null" || normalized === "undefined") {
+    return "";
+  }
+
+  if (
+    (normalized.startsWith('"') && normalized.endsWith('"')) ||
+    (normalized.startsWith("'") && normalized.endsWith("'"))
+  ) {
+    const jsonCompatible =
+      normalized.startsWith("'") && normalized.endsWith("'")
+        ? `"${normalized.slice(1, -1).replace(/"/g, '\\"')}"`
+        : normalized;
+    try {
+      const parsed = JSON.parse(jsonCompatible) as unknown;
+      return typeof parsed === "string" ? parsed : "";
+    } catch {
+      return normalized.slice(1, -1);
+    }
+  }
+
+  return normalized;
+}
+
+function normalizeSearchTitleCandidate(value: string): string {
+  const field = readJsonishFieldLine(value);
+  if (field) {
+    if (
+      [
+        "title",
+        "name",
+        "headline",
+        "label",
+        "summary",
+        "snippet",
+        "description",
+      ].includes(field.key)
+    ) {
+      return normalizeSearchText(normalizeJsonishFieldValue(field.rawValue));
+    }
+    return "";
+  }
+
+  const normalized = normalizeSearchText(value);
+  if (!normalized || /^[{}[\],]+$/.test(normalized)) {
+    return "";
+  }
+  return normalized;
 }
 
 export function getHostnameFromUrl(url: string): string {
@@ -380,9 +534,9 @@ function parseSearchResultText(rawText: string): SearchResultPreviewItem[] {
       continue;
     }
 
-    let title = normalizeSearchText(currentLine.replace(url, ""));
+    let title = normalizeSearchTitleCandidate(currentLine.replace(url, ""));
     if (!title && index > 0) {
-      const previousLine = normalizeSearchText(lines[index - 1] || "");
+      const previousLine = normalizeSearchTitleCandidate(lines[index - 1] || "");
       if (previousLine && !findFirstUrl(previousLine)) {
         title = previousLine;
       }
@@ -390,7 +544,7 @@ function parseSearchResultText(rawText: string): SearchResultPreviewItem[] {
 
     const snippetLines: string[] = [];
     for (let nextIndex = index + 1; nextIndex < lines.length; nextIndex += 1) {
-      const nextLine = normalizeSearchText(lines[nextIndex] || "");
+      const nextLine = normalizeSearchTitleCandidate(lines[nextIndex] || "");
       if (!nextLine || findFirstUrl(nextLine)) {
         break;
       }

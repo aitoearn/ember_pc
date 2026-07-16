@@ -67,16 +67,16 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Chrome Bridge E2E 联调脚本
+Lime Chrome Bridge E2E 联调脚本
 
 用法:
-  node scripts/chrome-bridge-e2e.mjs --key <ember_api_key> [选项]
+  node scripts/chrome-bridge-e2e.mjs --key <lime_api_key> [选项]
 
 选项:
   --server <ws_url>       服务地址，默认 ws://127.0.0.1:8787
   --health-url <url>      DevBridge 健康检查地址，默认 http://127.0.0.1:3030/health
   --invoke-url <url>      DevBridge invoke 地址，默认 http://127.0.0.1:3030/invoke
-  --key <api_key>         Ember API Key（必填）
+  --key <api_key>         Lime API Key（必填）
   --profile <profile_key> profileKey，默认 default
   --timeout-ms <ms>       单步超时毫秒，默认 15000
   --interval-ms <ms>      状态轮询间隔毫秒，默认 1000
@@ -352,8 +352,8 @@ async function main() {
   const server = normalizeServer(args.server);
   const key = encodeURIComponent(args.key);
   const profile = String(args.profile || "default").trim() || "default";
-  let observerBaseUrl = `${server}/ember-chrome-observer/${key}`;
-  let controlUrl = `${server}/ember-chrome-control/${key}`;
+  let observerBaseUrl = `${server}/lime-chrome-observer/${key}`;
+  let controlUrl = `${server}/lime-chrome-control/${key}`;
   let baselineStatus = null;
   if (args.verifyForceDisconnect) {
     console.log("[E2E] invoke  :", args.invokeUrl);

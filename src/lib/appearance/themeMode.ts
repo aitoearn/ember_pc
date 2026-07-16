@@ -1,23 +1,23 @@
-import { applyEmberColorScheme, loadEmberColorSchemeId } from "./colorSchemes";
+import { applyLimeColorScheme, loadLimeColorSchemeId } from "./colorSchemes";
 
-export const EMBER_THEME_STORAGE_KEY = "theme";
-export const EMBER_THEME_CHANGED_EVENT = "ember-theme-changed";
+export const LIME_THEME_STORAGE_KEY = "theme";
+export const LIME_THEME_CHANGED_EVENT = "lime-theme-changed";
 
-export type EmberThemeMode = "light" | "dark" | "system";
-export type EmberEffectiveThemeMode = "light" | "dark";
+export type LimeThemeMode = "light" | "dark" | "system";
+export type LimeEffectiveThemeMode = "light" | "dark";
 
-export interface EmberThemeModeOption {
-  id: EmberThemeMode;
+export interface LimeThemeModeOption {
+  id: LimeThemeMode;
   label: string;
   description: string;
 }
 
-export interface EmberThemeChangedEventDetail {
-  themeMode: EmberThemeMode;
-  effectiveThemeMode: EmberEffectiveThemeMode;
+export interface LimeThemeChangedEventDetail {
+  themeMode: LimeThemeMode;
+  effectiveThemeMode: LimeEffectiveThemeMode;
 }
 
-export const EMBER_THEME_MODE_OPTIONS: readonly EmberThemeModeOption[] = [
+export const LIME_THEME_MODE_OPTIONS: readonly LimeThemeModeOption[] = [
   {
     id: "light",
     label: "浅色",
@@ -35,18 +35,18 @@ export const EMBER_THEME_MODE_OPTIONS: readonly EmberThemeModeOption[] = [
   },
 ];
 
-const themeModes = new Set<EmberThemeMode>(["light", "dark", "system"]);
+const themeModes = new Set<LimeThemeMode>(["light", "dark", "system"]);
 let systemThemeCleanup: (() => void) | null = null;
 
-export function resolveEmberThemeMode(
+export function resolveLimeThemeMode(
   value: string | null | undefined,
-): EmberThemeMode {
-  return themeModes.has(value as EmberThemeMode)
-    ? (value as EmberThemeMode)
+): LimeThemeMode {
+  return themeModes.has(value as LimeThemeMode)
+    ? (value as LimeThemeMode)
     : "system";
 }
 
-export function getSystemEmberThemeMode(): EmberEffectiveThemeMode {
+export function getSystemLimeThemeMode(): LimeEffectiveThemeMode {
   if (typeof window === "undefined" || !window.matchMedia) {
     return "light";
   }
@@ -56,55 +56,55 @@ export function getSystemEmberThemeMode(): EmberEffectiveThemeMode {
     : "light";
 }
 
-export function getEffectiveEmberThemeMode(
-  themeMode: EmberThemeMode,
-): EmberEffectiveThemeMode {
-  return themeMode === "system" ? getSystemEmberThemeMode() : themeMode;
+export function getEffectiveLimeThemeMode(
+  themeMode: LimeThemeMode,
+): LimeEffectiveThemeMode {
+  return themeMode === "system" ? getSystemLimeThemeMode() : themeMode;
 }
 
-export function loadEmberThemeMode(): EmberThemeMode {
+export function loadLimeThemeMode(): LimeThemeMode {
   if (typeof window === "undefined") {
     return "system";
   }
 
-  return resolveEmberThemeMode(
-    window.localStorage.getItem(EMBER_THEME_STORAGE_KEY),
+  return resolveLimeThemeMode(
+    window.localStorage.getItem(LIME_THEME_STORAGE_KEY),
   );
 }
 
-export function applyEmberThemeMode(themeMode: string): EmberEffectiveThemeMode {
-  const resolvedThemeMode = resolveEmberThemeMode(themeMode);
-  const effectiveThemeMode = getEffectiveEmberThemeMode(resolvedThemeMode);
+export function applyLimeThemeMode(themeMode: string): LimeEffectiveThemeMode {
+  const resolvedThemeMode = resolveLimeThemeMode(themeMode);
+  const effectiveThemeMode = getEffectiveLimeThemeMode(resolvedThemeMode);
 
   if (typeof document !== "undefined") {
     document.documentElement.classList.toggle(
       "dark",
       effectiveThemeMode === "dark",
     );
-    document.documentElement.dataset.emberTheme = resolvedThemeMode;
-    document.documentElement.dataset.emberThemeEffective = effectiveThemeMode;
-    applyEmberColorScheme(loadEmberColorSchemeId(), { effectiveThemeMode });
+    document.documentElement.dataset.limeTheme = resolvedThemeMode;
+    document.documentElement.dataset.limeThemeEffective = effectiveThemeMode;
+    applyLimeColorScheme(loadLimeColorSchemeId(), { effectiveThemeMode });
   }
 
   return effectiveThemeMode;
 }
 
-function dispatchEmberThemeChanged(
-  themeMode: EmberThemeMode,
-  effectiveThemeMode: EmberEffectiveThemeMode,
+function dispatchLimeThemeChanged(
+  themeMode: LimeThemeMode,
+  effectiveThemeMode: LimeEffectiveThemeMode,
 ) {
   if (typeof window === "undefined") {
     return;
   }
 
-  const detail: EmberThemeChangedEventDetail = {
+  const detail: LimeThemeChangedEventDetail = {
     themeMode,
     effectiveThemeMode,
   };
-  window.dispatchEvent(new CustomEvent(EMBER_THEME_CHANGED_EVENT, { detail }));
+  window.dispatchEvent(new CustomEvent(LIME_THEME_CHANGED_EVENT, { detail }));
 }
 
-export function bindEmberSystemThemeModeListener(): () => void {
+export function bindLimeSystemThemeModeListener(): () => void {
   if (typeof window === "undefined" || !window.matchMedia) {
     return () => undefined;
   }
@@ -115,12 +115,12 @@ export function bindEmberSystemThemeModeListener(): () => void {
 
   const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
   const handleSystemThemeChanged = () => {
-    if (loadEmberThemeMode() !== "system") {
+    if (loadLimeThemeMode() !== "system") {
       return;
     }
 
-    const effectiveThemeMode = applyEmberThemeMode("system");
-    dispatchEmberThemeChanged("system", effectiveThemeMode);
+    const effectiveThemeMode = applyLimeThemeMode("system");
+    dispatchLimeThemeChanged("system", effectiveThemeMode);
   };
 
   if (mediaQuery.addEventListener) {
@@ -141,19 +141,19 @@ export function bindEmberSystemThemeModeListener(): () => void {
   return systemThemeCleanup;
 }
 
-export function initializeEmberThemeMode(): EmberEffectiveThemeMode {
-  const effectiveThemeMode = applyEmberThemeMode(loadEmberThemeMode());
-  bindEmberSystemThemeModeListener();
+export function initializeLimeThemeMode(): LimeEffectiveThemeMode {
+  const effectiveThemeMode = applyLimeThemeMode(loadLimeThemeMode());
+  bindLimeSystemThemeModeListener();
   return effectiveThemeMode;
 }
 
-export function persistEmberThemeMode(themeMode: string): EmberThemeMode {
-  const resolvedThemeMode = resolveEmberThemeMode(themeMode);
-  const effectiveThemeMode = applyEmberThemeMode(resolvedThemeMode);
+export function persistLimeThemeMode(themeMode: string): LimeThemeMode {
+  const resolvedThemeMode = resolveLimeThemeMode(themeMode);
+  const effectiveThemeMode = applyLimeThemeMode(resolvedThemeMode);
 
   if (typeof window !== "undefined") {
-    window.localStorage.setItem(EMBER_THEME_STORAGE_KEY, resolvedThemeMode);
-    dispatchEmberThemeChanged(resolvedThemeMode, effectiveThemeMode);
+    window.localStorage.setItem(LIME_THEME_STORAGE_KEY, resolvedThemeMode);
+    dispatchLimeThemeChanged(resolvedThemeMode, effectiveThemeMode);
   }
 
   return resolvedThemeMode;

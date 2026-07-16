@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getModelCapabilitySummary,
   getModelOutputModalities,
   getModelTaskFamilies,
   inferModelCapabilities,
@@ -40,6 +41,25 @@ describe("inferModelCapabilities", () => {
       json_mode: true,
       function_calling: true,
     });
+  });
+
+  it("应将 GPT-5 系列识别为支持思考的模型", () => {
+    expect(
+      inferModelCapabilities({
+        modelId: "gpt-5.4-mini",
+        providerId: "lime",
+        capabilities: { reasoning: false },
+      }),
+    ).toMatchObject({
+      reasoning: true,
+    });
+    expect(
+      inferModelTaskFamilies({
+        modelId: "gpt-5.4-mini",
+        providerId: "lime",
+        capabilities: { reasoning: false },
+      }),
+    ).toContain("reasoning");
   });
 
   it("应将 gpt-images-2 识别为图片生成模型而非视觉理解模型", () => {
@@ -118,6 +138,25 @@ describe("inferModelCapabilities", () => {
     });
   });
 
+  it("image-input 命名的聊天模型不应被统一图片 matcher 误判为生图模型", () => {
+    expect(
+      inferModelTaskFamilies({
+        modelId: "provider-image-input-chat",
+        providerId: "custom-provider",
+        explicitInputModalities: ["text", "image"],
+        explicitOutputModalities: ["text"],
+      }),
+    ).toEqual(expect.arrayContaining(["chat", "vision_understanding"]));
+    expect(
+      inferModelTaskFamilies({
+        modelId: "provider-image-input-chat",
+        providerId: "custom-provider",
+        explicitInputModalities: ["text", "image"],
+        explicitOutputModalities: ["text"],
+      }),
+    ).not.toContain("image_generation");
+  });
+
   it("显式 chat 任务族不应遮蔽图片输入和已知视觉模型信号", () => {
     expect(
       inferModelTaskFamilies({
@@ -185,5 +224,119 @@ describe("inferModelCapabilities", () => {
         canonicalModelId: "grok-4.3",
       }),
     ).toMatchObject({ vision: true });
+  });
+
+  it("应输出统一模型能力摘要，覆盖 tools / reasoning / cache / media / limit", () => {
+    const summary = getModelCapabilitySummary({
+      id: "gpt-5.4-thinking",
+      display_name: "GPT 5.4 Thinking",
+      provider_id: "openai",
+      provider_name: "OpenAI",
+      family: "gpt-5",
+      tier: "max",
+      capabilities: {
+        vision: true,
+        tools: true,
+        streaming: true,
+        json_mode: true,
+        function_calling: true,
+        reasoning: true,
+      },
+      task_families: ["chat", "reasoning", "vision_understanding"],
+      input_modalities: ["text", "image"],
+      output_modalities: ["text"],
+      runtime_features: [
+        "streaming",
+        "tool_calling",
+        "reasoning",
+        "prompt_cache",
+      ],
+      deployment_source: "user_cloud",
+      management_plane: "local_settings",
+      canonical_model_id: "openai/gpt-5.4-thinking",
+      provider_model_id: "gpt-5.4-thinking",
+      alias_source: null,
+      pricing: null,
+      limits: {
+        context_length: 200_000,
+        max_output_tokens: 16_384,
+        requests_per_minute: null,
+        tokens_per_minute: null,
+      },
+      status: "active",
+      release_date: null,
+      is_latest: true,
+      description: null,
+      source: "embedded",
+      created_at: 0,
+      updated_at: 0,
+    });
+
+    expect(summary).toMatchObject({
+      supports_tools: true,
+      supports_reasoning: true,
+      supports_prompt_cache: true,
+      supports_media_input: true,
+      supports_media_output: false,
+      context_length: 200_000,
+      max_output_tokens: 16_384,
+    });
+    expect(summary.task_families).toEqual(
+      expect.arrayContaining(["chat", "reasoning", "vision_understanding"]),
+    );
+    expect(summary.input_modalities).toEqual(["text", "image"]);
+    expect(summary.runtime_features).toContain("prompt_cache");
+  });
+
+  it("统一能力摘要应区分图片输出模型和视觉输入模型", () => {
+    const summary = getModelCapabilitySummary({
+      id: "gpt-image-1",
+      display_name: "GPT Image 1",
+      provider_id: "openai",
+      provider_name: "OpenAI",
+      family: null,
+      tier: "pro",
+      capabilities: {
+        vision: false,
+        tools: false,
+        streaming: true,
+        json_mode: false,
+        function_calling: false,
+        reasoning: false,
+      },
+      task_families: ["image_generation"],
+      input_modalities: ["text"],
+      output_modalities: ["image"],
+      runtime_features: ["images_api"],
+      deployment_source: "user_cloud",
+      management_plane: "local_settings",
+      canonical_model_id: "openai/gpt-image-1",
+      provider_model_id: "gpt-image-1",
+      alias_source: null,
+      pricing: null,
+      limits: {
+        context_length: null,
+        max_output_tokens: null,
+        requests_per_minute: null,
+        tokens_per_minute: null,
+      },
+      status: "active",
+      release_date: null,
+      is_latest: true,
+      description: "OpenAI image generation model",
+      source: "embedded",
+      created_at: 0,
+      updated_at: 0,
+    });
+
+    expect(summary).toMatchObject({
+      supports_tools: false,
+      supports_reasoning: false,
+      supports_prompt_cache: false,
+      supports_media_input: false,
+      supports_media_output: true,
+    });
+    expect(summary.task_families).toEqual(["image_generation"]);
+    expect(summary.output_modalities).toEqual(["image"]);
   });
 });

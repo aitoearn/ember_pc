@@ -11,13 +11,13 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 const ENV_TOOLCALL_V2_ENABLED: &[&str] =
-    &["EMBER_TOOLCALL_V2_ENABLED", "PROXYCAST_TOOLCALL_V2_ENABLED"];
+    &["LIME_TOOLCALL_V2_ENABLED", "PROXYCAST_TOOLCALL_V2_ENABLED"];
 const ENV_TOOLCALL_V2_DYNAMIC_FILTERING: &[&str] = &[
-    "EMBER_TOOLCALL_V2_DYNAMIC_FILTERING",
+    "LIME_TOOLCALL_V2_DYNAMIC_FILTERING",
     "PROXYCAST_TOOLCALL_V2_DYNAMIC_FILTERING",
 ];
 const ENV_TOOLCALL_V2_NATIVE_INPUT_EXAMPLES: &[&str] = &[
-    "EMBER_TOOLCALL_V2_NATIVE_INPUT_EXAMPLES",
+    "LIME_TOOLCALL_V2_NATIVE_INPUT_EXAMPLES",
     "PROXYCAST_TOOLCALL_V2_NATIVE_INPUT_EXAMPLES",
 ];
 
@@ -88,8 +88,8 @@ pub fn tool_calling_native_input_examples_enabled() -> bool {
 
 fn metadata_extension(schema: &Value) -> &Value {
     schema
-        .get("x-ember")
-        .or_else(|| schema.get("x_ember"))
+        .get("x-lime")
+        .or_else(|| schema.get("x_lime"))
         .unwrap_or(schema)
 }
 
@@ -200,38 +200,6 @@ static TOOL_DISCOVERY_PROFILES: &[ToolDiscoveryProfile] = &[
         ],
     },
     ToolDiscoveryProfile {
-        canonical_name: "Write",
-        aliases: &[
-            "WriteTool",
-            "FileWriteTool",
-            "write_file",
-            "write file",
-            "create_file",
-            "create file",
-            "mcp__system__write_file",
-        ],
-        intent_terms: &["save file", "new file", "创建文件", "写入文件", "保存文件"],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "Edit",
-        aliases: &[
-            "EditTool",
-            "FileEditTool",
-            "edit_file",
-            "edit file",
-            "developer__text_editor",
-            "mcp__system__edit_file",
-        ],
-        intent_terms: &[
-            "modify file",
-            "patch file",
-            "update file",
-            "修改文件",
-            "编辑文件",
-            "补丁",
-        ],
-    },
-    ToolDiscoveryProfile {
         canonical_name: "Glob",
         aliases: &["GlobTool", "find_files", "find files", "mcp__system__glob"],
         intent_terms: &[
@@ -335,25 +303,8 @@ static TOOL_DISCOVERY_PROFILES: &[ToolDiscoveryProfile] = &[
         ],
     },
     ToolDiscoveryProfile {
-        canonical_name: "Agent",
-        aliases: &["AgentTool", "Task"],
-        intent_terms: &[
-            "subagent",
-            "delegate",
-            "parallel agent",
-            "子代理",
-            "委派",
-            "并行任务",
-        ],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "SendMessage",
-        aliases: &["SendMessageTool"],
-        intent_terms: &["send message", "team message", "发消息", "团队消息"],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "AskUserQuestion",
-        aliases: &["AskUserQuestionTool", "request_user_input"],
+        canonical_name: "request_user_input",
+        aliases: &["RequestUserInputTool"],
         intent_terms: &["ask user", "user input", "clarify", "询问用户", "补充信息"],
     },
     ToolDiscoveryProfile {
@@ -384,75 +335,6 @@ static TOOL_DISCOVERY_PROFILES: &[ToolDiscoveryProfile] = &[
         intent_terms: &["run skill", "service skill", "执行技能", "技能"],
     },
     ToolDiscoveryProfile {
-        canonical_name: "TaskCreate",
-        aliases: &["TaskCreateTool"],
-        intent_terms: &["create task", "new task", "task board", "创建任务"],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "TaskList",
-        aliases: &["TaskListTool"],
-        intent_terms: &["list tasks", "task list", "todo list", "任务列表"],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "TaskGet",
-        aliases: &["TaskGetTool"],
-        intent_terms: &["get task", "task details", "read task", "任务详情"],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "TaskUpdate",
-        aliases: &["TaskUpdateTool"],
-        intent_terms: &[
-            "update task",
-            "complete task",
-            "mark task",
-            "任务状态",
-            "完成任务",
-        ],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "TaskOutput",
-        aliases: &["TaskOutputTool", "AgentOutputTool", "BashOutputTool"],
-        intent_terms: &[
-            "agent output",
-            "bash output",
-            "task output",
-            "task logs",
-            "任务输出",
-        ],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "TaskStop",
-        aliases: &["TaskStopTool", "KillShell"],
-        intent_terms: &[
-            "kill shell",
-            "stop task",
-            "cancel task",
-            "terminate task",
-            "停止任务",
-        ],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "TeamCreate",
-        aliases: &["TeamCreateTool"],
-        intent_terms: &["create team", "create swarm", "swarm team", "创建团队"],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "TeamDelete",
-        aliases: &["TeamDeleteTool"],
-        intent_terms: &["delete team", "cleanup team", "disband swarm", "解散团队"],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "ListPeers",
-        aliases: &["ListPeersTool"],
-        intent_terms: &[
-            "list peers",
-            "peer discovery",
-            "swarm peers",
-            "message peers",
-            "成员列表",
-        ],
-    },
-    ToolDiscoveryProfile {
         canonical_name: "ListMcpResourcesTool",
         aliases: &["ListMcpResources"],
         intent_terms: &["list mcp resources", "mcp resources", "列出 mcp 资源"],
@@ -474,70 +356,9 @@ static TOOL_DISCOVERY_PROFILES: &[ToolDiscoveryProfile] = &[
         ],
     },
     ToolDiscoveryProfile {
-        canonical_name: "LSP",
-        aliases: &["LSPTool"],
-        intent_terms: &[
-            "language server",
-            "symbol",
-            "diagnostics",
-            "代码符号",
-            "诊断",
-        ],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "NotebookEdit",
-        aliases: &["NotebookEditTool"],
-        intent_terms: &["notebook edit", "jupyter", "编辑 notebook"],
-    },
-    ToolDiscoveryProfile {
         canonical_name: "PowerShell",
         aliases: &["PowerShellTool"],
         intent_terms: &["powershell", "windows shell", "windows 命令"],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "RemoteTrigger",
-        aliases: &["RemoteTriggerTool"],
-        intent_terms: &["remote trigger", "trigger remote", "远程触发"],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "Sleep",
-        aliases: &["SleepTool"],
-        intent_terms: &["sleep", "wait", "delay", "等待"],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "CronCreate",
-        aliases: &["ScheduleCronTool", "CronCreateTool"],
-        intent_terms: &["create cron", "schedule", "定时任务"],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "CronList",
-        aliases: &["CronListTool"],
-        intent_terms: &["list cron", "list schedule", "查看定时任务"],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "CronDelete",
-        aliases: &["CronDeleteTool"],
-        intent_terms: &["delete cron", "cancel schedule", "删除定时任务"],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "EnterPlanMode",
-        aliases: &["EnterPlanModeTool"],
-        intent_terms: &["plan mode", "enter plan", "进入计划模式"],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "ExitPlanMode",
-        aliases: &["ExitPlanModeTool"],
-        intent_terms: &["exit plan", "leave plan mode", "退出计划模式"],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "EnterWorktree",
-        aliases: &["EnterWorktreeTool"],
-        intent_terms: &["enter worktree", "worktree", "进入工作树"],
-    },
-    ToolDiscoveryProfile {
-        canonical_name: "ExitWorktree",
-        aliases: &["ExitWorktreeTool"],
-        intent_terms: &["exit worktree", "leave worktree", "退出工作树"],
     },
 ];
 
@@ -915,8 +736,8 @@ pub fn score_tool_match(name: &str, description: &str, tags: &[String], query: &
 
 fn schema_read_examples(schema: &Value) -> Vec<Value> {
     let extension = schema
-        .get("x-ember")
-        .or_else(|| schema.get("x_ember"))
+        .get("x-lime")
+        .or_else(|| schema.get("x_lime"))
         .unwrap_or(schema);
 
     extension
@@ -1117,7 +938,7 @@ mod tests {
     fn test_resolve_tool_input_examples_prefers_configured_examples() {
         let schema = serde_json::json!({
             "type": "object",
-            "x-ember": {
+            "x-lime": {
                 "input_examples": [{"query": "rust async"}]
             }
         });
@@ -1156,7 +977,7 @@ mod tests {
     #[test]
     fn test_extract_tool_surface_metadata_reads_extension_fields() {
         let schema = serde_json::json!({
-            "x-ember": {
+            "x-lime": {
                 "deferred_loading": true,
                 "always_visible": false,
                 "allowed_callers": ["assistant", "code_execution"],
@@ -1281,17 +1102,13 @@ mod tests {
             ("Read", "Read file contents", "read_file"),
             ("Bash", "Run shell commands", "run command"),
             ("Bash", "Run shell commands", "shell"),
-            (
-                "TaskOutput",
-                "Read output from a background task",
-                "task logs",
-            ),
+            ("ToolSearch", "Search available tools", "find tool"),
             (
                 "StructuredOutput",
                 "Return the final JSON answer",
                 "structured final output",
             ),
-            ("AskUserQuestion", "Ask the user for input", "ask user"),
+            ("request_user_input", "Ask the user for input", "ask user"),
         ];
 
         for (name, description, query) in cases {
@@ -1330,6 +1147,80 @@ mod tests {
             "browser_click"
         ));
         assert!(tool_search_exact_match("Bash", "system"));
+    }
+
+    #[test]
+    fn test_file_mutation_discovery_profiles_stay_deleted() {
+        for deleted_name in [
+            "Write",
+            "WriteTool",
+            "FileWriteTool",
+            "write_file",
+            "create_file",
+            "mcp__system__write_file",
+            "Edit",
+            "EditTool",
+            "FileEditTool",
+            "edit_file",
+            "developer__text_editor",
+            "mcp__system__edit_file",
+        ] {
+            assert!(
+                canonical_tool_discovery_name(deleted_name).is_none(),
+                "Agent Write/Edit alias must not be discoverable: {deleted_name}"
+            );
+            assert!(
+                !tool_search_exact_match("apply_patch", deleted_name),
+                "Agent Write/Edit alias must not collapse into apply_patch: {deleted_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_agent_task_discovery_profiles_stay_deleted() {
+        for deleted_name in [
+            "TaskCreate",
+            "TaskCreateTool",
+            "TaskList",
+            "TaskListTool",
+            "TaskGet",
+            "TaskGetTool",
+            "TaskUpdate",
+            "TaskUpdateTool",
+            "TaskOutput",
+            "TaskOutputTool",
+            "AgentOutputTool",
+            "BashOutputTool",
+            "TaskStop",
+            "TaskStopTool",
+            "KillShell",
+        ] {
+            assert!(
+                canonical_tool_discovery_name(deleted_name).is_none(),
+                "Agent Task* alias must not be discoverable: {deleted_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_retired_team_tool_discovery_profiles_stay_deleted() {
+        for deleted_name in [
+            "Agent",
+            "AgentTool",
+            "SendMessage",
+            "SendMessageTool",
+            "TeamCreate",
+            "TeamCreateTool",
+            "TeamDelete",
+            "TeamDeleteTool",
+            "ListPeers",
+            "ListPeersTool",
+        ] {
+            assert!(
+                canonical_tool_discovery_name(deleted_name).is_none(),
+                "retired Team tool must not remain discoverable: {deleted_name}"
+            );
+        }
     }
 
     #[test]

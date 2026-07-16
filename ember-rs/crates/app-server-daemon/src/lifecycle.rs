@@ -190,7 +190,7 @@ mod tests {
     }
 
     #[test]
-    fn lifecycle_output_uses_ember_names_not_codex_names() {
+    fn lifecycle_output_uses_lime_names_not_codex_names() {
         let output =
             unsupported_lifecycle_output("/bin/app-server", "stdio://", "/state/app-server-daemon");
         let value = serde_json::to_value(output).expect("json");
@@ -222,7 +222,7 @@ mod tests {
         let lock = acquire_operation_lock(path.clone()).expect("reacquire lock");
         drop(lock);
         assert!(!path.exists());
-        let _ = std::fs::remove_dir_all(path.parent().and_then(Path::parent).expect("temp root"));
+        let _ = std::fs::remove_dir_all(path.parent().expect("temp root"));
     }
 
     fn temp_lock_path(name: &str) -> PathBuf {

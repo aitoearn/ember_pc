@@ -45,7 +45,7 @@ describe("agent-qc-process-owner-core", () => {
           stat: "S",
           etime: "10:00:00",
           command:
-            "./qcloop --db .ember/qc/example.db serve --addr 127.0.0.1:18080 --workers 1",
+            "./qcloop --db .lime/qc/example.db serve --addr 127.0.0.1:18080 --workers 1",
         },
         {
           pid: 35,
@@ -100,7 +100,7 @@ describe("agent-qc-process-owner-core", () => {
           pgid: 50,
           stat: "S",
           etime: "00:05:00",
-          command: "node codex exec 只读执行 Ember Agent QC P0 场景",
+          command: "node codex exec 只读执行 Lime Agent QC P0 场景",
         },
         {
           pid: 60,

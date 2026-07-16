@@ -1,17 +1,17 @@
 {
   "name": "@embercloud/agent-runtime-projection",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Shared Agent Runtime event projection and read-model helpers.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/aitoearn/ember_pc.git",
+    "url": "git+https://github.com/limecloud/lime.git",
     "directory": "packages/agent-runtime-projection"
   },
-  "homepage": "https://github.com/aitoearn/ember_pc/tree/main/packages/agent-runtime-projection#readme",
+  "homepage": "https://github.com/limecloud/lime/tree/main/packages/agent-runtime-projection#readme",
   "bugs": {
-    "url": "https://github.com/aitoearn/ember_pc/issues"
+    "url": "https://github.com/limecloud/lime/issues"
   },
   "publishConfig": {
     "access": "public"

@@ -17,7 +17,7 @@ AI content workspace for Chinese creators: desktop writing, research, prompt man
 ## Website
 
 ```text
-https://github.com/aitoearn/ember_pc
+https://github.com/limecloud/lime
 ```
 
 ## Topics
@@ -44,7 +44,7 @@ open-source
 
 建议使用包含以下元素的横版图片：
 
-- Ember Logo
+- Lime Logo
 - 一句话定位：`AI content workspace for Chinese creators`
 - 3 个核心词：`Writing`、`Research`、`Prompt Library`
 - 清晰留白，保证在 GitHub、社交媒体和搜索摘要中缩略显示时仍能读清

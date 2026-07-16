@@ -83,7 +83,7 @@ describe("skillsApi", () => {
       },
     });
 
-    await expect(skillsApi.getLocal("ember")).resolves.toEqual([
+    await expect(skillsApi.getLocal("lime")).resolves.toEqual([
       expect.objectContaining({
         key: "local:writer",
         catalogSource: "user",
@@ -100,7 +100,7 @@ describe("skillsApi", () => {
       }),
     ]);
     expect(appServerRequestMock).toHaveBeenCalledWith("skillManagement/list", {
-      app: "ember",
+      app: "lime",
       refreshRemote: false,
       scope: "user",
     });
@@ -115,7 +115,7 @@ describe("skillsApi", () => {
       result: {},
     });
 
-    await expect(skillsApi.getLocal("ember")).rejects.toThrow(
+    await expect(skillsApi.getLocal("lime")).rejects.toThrow(
       "skillManagement/list did not return skills",
     );
     expect(safeInvoke).not.toHaveBeenCalledWith(
@@ -143,7 +143,7 @@ describe("skillsApi", () => {
       },
     });
 
-    await expect(skillsApi.getAll("ember")).resolves.toEqual([
+    await expect(skillsApi.getAll("lime")).resolves.toEqual([
       expect.objectContaining({
         key: "local:writer",
         standardCompliance: {
@@ -155,7 +155,7 @@ describe("skillsApi", () => {
     ]);
 
     expect(appServerRequestMock).toHaveBeenCalledWith("skillManagement/list", {
-      app: "ember",
+      app: "lime",
       refreshRemote: false,
     });
     expect(safeInvoke).not.toHaveBeenCalledWith(
@@ -170,7 +170,7 @@ describe("skillsApi", () => {
       .mockResolvedValueOnce({ result: { directories: [] } });
 
     await expect(skillsApi.getRepos()).resolves.toEqual([]);
-    await expect(skillsApi.getInstalledEmberSkills()).resolves.toEqual([]);
+    await expect(skillsApi.getInstalledLimeSkills()).resolves.toEqual([]);
     expect(appServerRequestMock).toHaveBeenNthCalledWith(
       1,
       "skillRepository/list",
@@ -182,7 +182,7 @@ describe("skillsApi", () => {
       {},
     );
     expect(safeInvoke).not.toHaveBeenCalledWith("get_skill_repos");
-    expect(safeInvoke).not.toHaveBeenCalledWith("get_installed_ember_skills");
+    expect(safeInvoke).not.toHaveBeenCalledWith("get_installed_lime_skills");
   });
 
   it("Skill 管理写链、脚手架、导入与远程检查应走 App Server current 网关", async () => {
@@ -267,12 +267,12 @@ describe("skillsApi", () => {
     expect(appServerRequestMock).toHaveBeenNthCalledWith(
       1,
       "skillManagement/install",
-      { app: "ember", directory: "article-typesetting-master" },
+      { app: "lime", directory: "article-typesetting-master" },
     );
     expect(appServerRequestMock).toHaveBeenNthCalledWith(
       2,
       "skillManagement/uninstall",
-      { app: "ember", directory: "article-typesetting-master" },
+      { app: "lime", directory: "article-typesetting-master" },
     );
     expect(appServerRequestMock).toHaveBeenNthCalledWith(
       3,
@@ -299,13 +299,13 @@ describe("skillsApi", () => {
     expect(appServerRequestMock).toHaveBeenNthCalledWith(
       6,
       "skillLocal/inspect",
-      { app: "ember", directory: "article-typesetting-master" },
+      { app: "lime", directory: "article-typesetting-master" },
     );
     expect(appServerRequestMock).toHaveBeenNthCalledWith(
       7,
       "skillLocal/scaffold/create",
       {
-        app: "ember",
+        app: "lime",
         request: {
           target: "user",
           directory: "article-typesetting-master",
@@ -318,7 +318,7 @@ describe("skillsApi", () => {
       8,
       "skillLocal/import",
       {
-        app: "ember",
+        app: "lime",
         sourcePath: "/Users/demo/article-typesetting-master",
       },
     );
@@ -388,7 +388,7 @@ describe("skillsApi", () => {
       .mockResolvedValueOnce({
         platform: "macos",
         extension: "skill",
-        mimeType: "application/vnd.ember.skill+zip",
+        mimeType: "application/vnd.lime.skill+zip",
         appIdentifier: "com.embercloud.ember",
         isDefault: false,
         canSetDefault: true,
@@ -403,7 +403,7 @@ describe("skillsApi", () => {
         status: {
           platform: "macos",
           extension: "skill",
-          mimeType: "application/vnd.ember.skill+zip",
+          mimeType: "application/vnd.lime.skill+zip",
           appIdentifier: "com.embercloud.ember",
           isDefault: true,
           canSetDefault: true,
@@ -518,7 +518,7 @@ describe("skillsApi", () => {
       1,
       "skillLocal/detail/inspect",
       {
-        app: "ember",
+        app: "lime",
         directory: "article-typesetting-master",
       },
     );
@@ -526,7 +526,7 @@ describe("skillsApi", () => {
       2,
       "skillLocal/rename",
       {
-        app: "ember",
+        app: "lime",
         directory: "article-typesetting-master",
         newDirectory: "article-typesetting",
       },
@@ -535,7 +535,7 @@ describe("skillsApi", () => {
       3,
       "skillPackage/local/inspect",
       {
-        app: "ember",
+        app: "lime",
         sourcePath: "/Users/demo/article-typesetting-master.skill",
       },
     );
@@ -543,7 +543,7 @@ describe("skillsApi", () => {
       4,
       "skillPackage/local/install",
       {
-        app: "ember",
+        app: "lime",
         sourcePath: "/Users/demo/article-typesetting-master.skill",
       },
     );
@@ -551,7 +551,7 @@ describe("skillsApi", () => {
       5,
       "skillPackage/local/replace",
       {
-        app: "ember",
+        app: "lime",
         directory: "article-typesetting-master",
         sourcePath: "/Users/demo/article-typesetting-master.skill",
       },
@@ -560,7 +560,7 @@ describe("skillsApi", () => {
       6,
       "skillPackage/export",
       {
-        app: "ember",
+        app: "lime",
         directory: "article-typesetting-master",
         targetPath: "/Users/demo/article-typesetting-master.skills",
       },
@@ -670,7 +670,7 @@ describe("skillsApi", () => {
       1,
       "skillMarketplace/install",
       {
-        app: "ember",
+        app: "lime",
         manifestVersion: "agentskills.v1",
         name: "article-typesetting-master",
         aliases: ["article-typesetting"],
@@ -691,7 +691,7 @@ describe("skillsApi", () => {
       2,
       "skillPackage/download/install",
       {
-        app: "ember",
+        app: "lime",
         skillName: "article-typesetting-master",
         downloadUrl: "https://example.com/article-typesetting-master.skill",
       },
@@ -733,7 +733,7 @@ describe("skillsApi", () => {
     ).resolves.toBe(true);
 
     expect(appServerRequestMock).toHaveBeenCalledWith("skillManagement/list", {
-      app: "ember",
+      app: "lime",
       refreshRemote: false,
       scope: "user",
     });
@@ -773,7 +773,7 @@ describe("skillsApi", () => {
     );
 
     expect(appServerRequestMock).toHaveBeenCalledWith("skillManagement/list", {
-      app: "ember",
+      app: "lime",
       refreshRemote: false,
       scope: "user",
     });
@@ -904,7 +904,7 @@ describe("skillsApi", () => {
       .mockResolvedValueOnce({
         platform: "macos",
         extension: "skill",
-        mimeType: "application/vnd.ember.skill+zip",
+        mimeType: "application/vnd.lime.skill+zip",
         appIdentifier: "com.embercloud.ember",
         isDefault: false,
         canSetDefault: true,

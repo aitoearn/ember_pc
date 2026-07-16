@@ -1,4 +1,4 @@
-import type { AgentRuntimeEvidenceVerificationSummary } from "@/lib/api/agentRuntime";
+import type { AgentRuntimeEvidenceVerificationSummary } from "@/lib/api/agentRuntime/evidenceTypes";
 import { buildHarnessEvidenceVerificationCardPresentations } from "@/lib/agentRuntime/harnessVerificationPresentation";
 import { Badge } from "@/components/ui/badge";
 import { ShieldAlert } from "lucide-react";
@@ -18,7 +18,7 @@ export function HarnessVerificationSummarySection({
         <ShieldAlert className="h-4 w-4 text-emerald-600" />
         <span>{t("agentChat.harnessVerification.section.title")}</span>
       </div>
-      <div className="mt-3 grid gap-2 md:grid-cols-3">
+      <div className="mt-3 grid min-w-0 gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr))]">
         {buildHarnessEvidenceVerificationCardPresentations(summary, {
           locale,
           t,

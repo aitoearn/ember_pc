@@ -55,7 +55,7 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Doc Freshness Check
+Lime Doc Freshness Check
 
 用法:
   node scripts/check-doc-freshness.mjs
@@ -127,7 +127,7 @@ function runDocFreshnessCli() {
     const targetPath = path.resolve(repoRoot, options.output);
     fs.mkdirSync(path.dirname(targetPath), { recursive: true });
     fs.writeFileSync(targetPath, output, "utf8");
-    console.log(`[ember] doc freshness output: ${targetPath}`);
+    console.log(`[lime] doc freshness output: ${targetPath}`);
   } else {
     process.stdout.write(output);
   }

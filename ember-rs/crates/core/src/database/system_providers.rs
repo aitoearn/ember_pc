@@ -26,10 +26,10 @@ pub fn get_system_providers() -> Vec<SystemProviderDef> {
         // 主流 AI (11个) - Requirements 3.1
         // =========================================================================
         SystemProviderDef {
-            id: "ember-hub",
-            name: "Ember Hub",
+            id: "lime-hub",
+            name: "Lime Hub",
             provider_type: ApiProviderType::Openai,
-            api_host: "https://hub.ember.ai/v1",
+            api_host: "https://hub.lime.ai/v1",
             group: ProviderGroup::Mainstream,
             sort_order: 0,
             api_version: None,
@@ -905,6 +905,7 @@ pub fn to_api_key_provider(def: &SystemProviderDef) -> ApiKeyProvider {
 
 fn default_custom_models_for_system_provider(provider_id: &str) -> Vec<String> {
     match provider_id {
+        "lime-hub" => vec!["gpt-5.2-pro".to_string()],
         "airgate-openai-images" => vec!["gpt-images-2".to_string()],
         _ => Vec::new(),
     }
@@ -934,5 +935,16 @@ mod tests {
         let api_provider = to_api_key_provider(&provider);
 
         assert_eq!(api_provider.custom_models, vec!["gpt-images-2".to_string()]);
+    }
+
+    #[test]
+    fn test_lime_hub_system_provider_includes_default_chat_model() {
+        let provider = get_system_providers()
+            .into_iter()
+            .find(|provider| provider.id == "lime-hub")
+            .expect("lime-hub system provider should exist");
+        let api_provider = to_api_key_provider(&provider);
+
+        assert_eq!(api_provider.custom_models, vec!["gpt-5.2-pro".to_string()]);
     }
 }

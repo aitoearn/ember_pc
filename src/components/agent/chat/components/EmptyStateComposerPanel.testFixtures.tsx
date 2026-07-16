@@ -18,14 +18,38 @@ import {
   type InputbarCoreCopyKey,
 } from "./Inputbar/components/inputbarCoreCopy";
 import type { InputbarWorkflowCopyKey } from "./Inputbar/inputbarWorkflowCopy";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
+import type {
+  InputbarPluginCapability,
+  InputbarPluginSelectionOptions,
+  InputbarPluginSkillCapability,
+} from "./Inputbar/pluginInputCapability";
 
 vi.mock("./ChatModelSelector", () => ({
   ChatModelSelector: () => <div data-testid="empty-state-model-selector" />,
 }));
 
+export const mockEmptyStateCharacterMention = vi.fn<
+  (props: {
+    onSelectPlugin?: (
+      plugin: InputbarPluginCapability,
+      skill?: InputbarPluginSkillCapability,
+      options?: InputbarPluginSelectionOptions,
+    ) => void;
+  }) => React.ReactNode
+>();
+
 vi.mock("../skill-selection/CharacterMention", () => ({
-  CharacterMention: () => <div data-testid="empty-state-character-mention" />,
+  CharacterMention: (props: {
+    onSelectPlugin?: (
+      plugin: InputbarPluginCapability,
+      skill?: InputbarPluginSkillCapability,
+      options?: InputbarPluginSelectionOptions,
+    ) => void;
+  }) => {
+    mockEmptyStateCharacterMention(props);
+    return <div data-testid="empty-state-character-mention" />;
+  },
 }));
 
 vi.mock("../skill-selection/SkillBadge", () => ({
@@ -46,6 +70,21 @@ vi.mock("../skill-selection/CuratedTaskBadge", () => ({
 
 vi.mock("../skill-selection/SkillSelector", () => ({
   SkillSelector: () => <div data-testid="empty-state-skill-selector" />,
+}));
+
+vi.mock("./Inputbar/components/InputbarObjectiveInlinePanel", () => ({
+  InputbarObjectiveInlinePanel: (props: {
+    sessionId: string;
+    workspaceId?: string | null;
+    runtimeBusy?: boolean;
+  }) => (
+    <div
+      data-testid="empty-state-objective-inline-panel"
+      data-session-id={props.sessionId}
+      data-workspace-id={props.workspaceId ?? ""}
+      data-runtime-busy={String(Boolean(props.runtimeBusy))}
+    />
+  ),
 }));
 
 function translateResource(
@@ -146,7 +185,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 afterEach(() => {
@@ -288,7 +327,7 @@ export function openPlusMenu(container: HTMLDivElement) {
 
 export function openPlusMenuPanel(
   container: HTMLDivElement,
-  panel: "knowledge" | "objective" | "skills",
+  panel: "knowledge" | "objective" | "plugins" | "skills",
 ) {
   openPlusMenu(container);
 

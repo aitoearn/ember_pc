@@ -18,11 +18,11 @@ export interface RecordMentionEntryUsageInput {
   slotValues?: ServiceSkillSlotValues;
 }
 
-const MENTION_ENTRY_USAGE_STORAGE_KEY = "ember:mention-entry-usage:v1";
+const MENTION_ENTRY_USAGE_STORAGE_KEY = "lime:mention-entry-usage:v1";
 const MAX_MENTION_ENTRY_USAGE_RECORDS = 12;
 const MAX_MENTION_ENTRY_REPLAY_TEXT_LENGTH = 400;
 export const MENTION_ENTRY_USAGE_CHANGED_EVENT =
-  "ember:mention-entry-usage-changed";
+  "lime:mention-entry-usage-changed";
 
 function normalizeOptionalText(value: unknown): string | undefined {
   if (typeof value !== "string") {

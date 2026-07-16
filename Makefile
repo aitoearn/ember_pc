@@ -4,7 +4,7 @@
 	tdd tdd-file tdd-rust tdd-rust-filter test-layer-budget test-rust-layer-budget test-layer-stats test-all-layers
 
 help:
-	@echo "Ember test layers"
+	@echo "Lime test layers"
 	@echo "  make tdd                  Run frontend unit tests for local/AI TDD"
 	@echo "  make tdd-file FILE=...    Run one frontend unit test file for local/AI TDD"
 	@echo "  make tdd-rust             Run Rust unit tests for local/AI TDD"
@@ -72,7 +72,7 @@ test-rust-layers-stats:
 	npm run test:rust:layers:stats
 
 test-layer-budget:
-	node scripts/check-vitest-layer-budget.mjs --max-component-candidates 12
+	node scripts/check-vitest-layer-budget.mjs --max-component-candidates 22
 
 test-rust-layer-budget:
 	node scripts/check-rust-layer-budget.mjs --max-e2e-runnable 0

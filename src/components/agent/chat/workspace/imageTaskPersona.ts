@@ -1,12 +1,15 @@
 import type { MessageImageWorkbenchPreview } from "../types";
-import { collapseImageWorkbenchWhitespace } from "../utils/imageWorkbenchPresentation";
+import {
+  collapseImageWorkbenchWhitespace,
+  resolveImageTaskPromptSubject,
+} from "../utils/imageWorkbenchPresentation";
 
 type ImageTaskMode = NonNullable<MessageImageWorkbenchPreview["mode"]>;
 
-const IMAGE_TASK_PERSONA_ID = "ember_image_creator";
-const IMAGE_TASK_PERSONA_VERSION = "ember-image-persona-v1";
-const IMAGE_TASK_PRESENTATION_VERSION = "ember-image-chat-v1";
-const IMAGE_TASK_TASTE_VERSION = "ember-image-taste-v1";
+const IMAGE_TASK_PERSONA_ID = "lime_image_creator";
+const IMAGE_TASK_PERSONA_VERSION = "lime-image-persona-v1";
+const IMAGE_TASK_PRESENTATION_VERSION = "lime-image-chat-v1";
+const IMAGE_TASK_TASTE_VERSION = "lime-image-taste-v1";
 
 function uniqueCompactStrings(values: Array<string | null | undefined>) {
   const seen = new Set<string>();
@@ -22,28 +25,6 @@ function uniqueCompactStrings(values: Array<string | null | undefined>) {
   return result;
 }
 
-function normalizeImageTaskDisplayTarget(value: string): string {
-  const normalized = collapseImageWorkbenchWhitespace(value)
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/!\[[^\]]*]\([^)]*\)/g, " ")
-    .replace(/^@\S+(?:\s+\S+)?\s*/u, "")
-    .trim();
-
-  if (normalized.length <= 72) {
-    return normalized;
-  }
-  return `${normalized.slice(0, 72).trim()}...`;
-}
-
-export function buildImageTaskAssistantContent(params: {
-  prompt: string;
-  mode?: ImageTaskMode;
-  modelName?: string | null;
-}): string {
-  void params;
-  return "";
-}
-
 export function buildImageTaskPersonaContext(): Record<string, unknown> {
   return {
     version: IMAGE_TASK_PERSONA_VERSION,
@@ -55,7 +36,6 @@ export function buildImageTaskPersonaContext(): Record<string, unknown> {
       single_assistant_message: true,
       no_submission_summary: true,
       no_task_ids_in_chat: true,
-      no_second_reply_after_tool_submit: true,
       no_internal_tool_names_in_chat: true,
     },
     opening_policy: {
@@ -78,11 +58,11 @@ export function buildImageTaskPresentationContext(params: {
   mode: ImageTaskMode;
   modelId?: string;
 }): Record<string, unknown> {
-  const promptIntent = normalizeImageTaskDisplayTarget(params.prompt);
+  const promptIntent = resolveImageTaskPromptSubject(params.prompt);
   return {
     version: IMAGE_TASK_PRESENTATION_VERSION,
     surface: "conversation",
-    assistant_label: "Ember",
+    assistant_label: "Lime",
     persona_id: IMAGE_TASK_PERSONA_ID,
     opening_guidance: {
       source: "model_stream",
@@ -110,7 +90,7 @@ export function buildImageTaskPresentationContext(params: {
     },
     message_contract: {
       single_assistant_message: true,
-      preserve_intro_during_stream: false,
+      preserve_intro_during_stream: true,
       prefer_model_stream_text: true,
       hide_runtime_details: true,
     },
@@ -155,7 +135,7 @@ export function buildImageTaskTasteContext(params: {
     source: "taste_layer",
     entry_source: params.entrySource || "at_image_command",
     memory_sources: memorySources,
-    prompt_intent: normalizeImageTaskDisplayTarget(params.prompt),
+    prompt_intent: resolveImageTaskPromptSubject(params.prompt),
     reference_image_count: params.referenceImageCount,
     reference_summaries: referenceSummaries,
     style_keywords: [],

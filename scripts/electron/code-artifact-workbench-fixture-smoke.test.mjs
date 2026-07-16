@@ -18,9 +18,9 @@ describe("code artifact workbench Electron fixture smoke guard", () => {
     expect(content).toContain('logStage("wait-app-url")');
     expect(content).toContain('"--use-mock-keychain"');
     expect(content).toContain("ELECTRON_E2E_USER_DATA_DIR");
-    expect(content).toContain('EMBER_ELECTRON_E2E: "1"');
-    expect(content).toContain('EMBER_ELECTRON_DEV_HTTP_BRIDGE: "0"');
-    expect(content).toContain("window.__EMBER_ELECTRON__ === true");
+    expect(content).toContain('LIME_ELECTRON_E2E: "1"');
+    expect(content).toContain('LIME_ELECTRON_DEV_HTTP_BRIDGE: "0"');
+    expect(content).toContain("window.__LIME_ELECTRON__ === true");
     expect(content).toContain(
       'typeof window.electronAPI?.invoke === "function"',
     );
@@ -37,6 +37,9 @@ describe("code artifact workbench Electron fixture smoke guard", () => {
     expect(content).toContain('providerPreference: "fixture-provider"');
     expect(content).toContain('modelPreference: "fixture-model"');
     expect(content).toContain("liveProviderNotUsed");
+    expect(content).toContain('entry.kind !== "turnStart"');
+    expect(content).toContain("!entry.providerPreference");
+    expect(content).toContain("!entry.modelPreference");
     expect(content).not.toContain('APP_SERVER_BACKEND_MODE: "mock"');
     expect(content).not.toContain('backendMode: "mock"');
     expect(content).not.toContain("--allow-live-provider");
@@ -50,14 +53,70 @@ describe("code artifact workbench Electron fixture smoke guard", () => {
     expect(content).toContain('"agentSession/update"');
     expect(content).toContain('"agentSession/turn/start"');
     expect(content).toContain('"agentSession/read"');
-    expect(content).toContain('type: "tool.started"');
-    expect(content).toContain('type: "tool.result"');
+    expect(content).toContain('type: "item.started"');
+    expect(content).toContain('type: "item.completed"');
+    expect(content).toContain("canonicalToolItem");
+    expect(content).toContain("call_id: toolCallId");
+    expect(content).not.toContain('callId: "${TOOL_CALL_ID}"');
+    expect(content).toContain("ordinal: 4");
+    expect(content).not.toContain('type: "tool.started"');
+    expect(content).not.toContain('type: "tool.result"');
     expect(content).toContain("TOOL_CALL_ID");
     expect(content).toContain("TOOL_OUTPUT_PREVIEW");
     expect(content).toContain("collectToolCalls");
     expect(content).toContain("hasToolTimelineProjection");
     expect(content).toContain("toolTimelineProjectionPersisted");
+    expect(content).toContain("codingProjectionPersisted");
+    expect(content).toContain("expandTimelineProcessGroups");
+    expect(content).toContain('logStage("expand-timeline-process-groups")');
+    expect(content).toContain("timelineProcessEvidence");
+    expect(content).toContain('[data-testid="streaming-process-group"]');
     expect(content).toContain("hasGuiToolTimelineEvidence");
+    expect(content).toContain("collectCodingWorkbenchGuiEvidence");
+    expect(content).toContain("codingWorkbenchGuiEvidence");
+    expect(content).toContain("gui-coding-input");
+    expect(content).toContain("GUI_CODING_PROMPT");
+    expect(content).toContain("sendPromptFromGui");
+    expect(content).toContain("guiPromptSubmitted");
+    expect(content).toContain("clickCodingWorkbenchRecovery");
+    expect(content).toContain("codingRecoveryEvidence");
+    expect(content).toContain("open-session-after-recovery");
+    expect(content).toContain("open-workbench-after-recovery");
+    expect(content).toContain("guiSessionOpenAfterRecovery");
+    expect(content).toContain("workbenchAfterRecovery");
+    expect(content).toContain("coding-workbench-recovery-submit");
+    expect(content).toContain("coding_workbench_recovery");
+    expect(content).toContain("runtimeOptions?.runtimeRequest?.metadata");
+    expect(content).not.toContain("runtimeOptions?.metadata");
+    expect(content).toContain("codingRecoveryGuiSubmitted");
+    expect(content).toContain("codingRecoveryReachedBackend");
+    expect(content).toContain("capturedRecoveryContext");
+    expect(content).toContain("appServerJsonRpcObserved");
+    expect(content).toContain("backendTurnStartObserved");
+    expect(content).toContain("assertNoRendererErrors");
+    expect(content).toContain("Electron renderer console error");
+    expect(content).toContain("Electron renderer page error");
+    expect(content).toContain(
+      "assertNoRendererErrors(consoleErrors, pageErrors)",
+    );
+    expect(content).toContain("lime:agent-runtime-sessions-changed");
+    expect(content).toContain('reason: "external"');
+    expect(content).toContain("workspaceId");
+    expect(content).toContain("codingChangesEvidencePresent");
+    expect(content).toContain("codingOutputsEvidencePresent");
+    expect(content).toContain("codingLogsEvidencePresent");
+    expect(content).toContain("data-canvas-tab-key");
+    expect(content).toContain("canvas-workbench-panel-changes");
+    expect(content).toContain("canvas-workbench-panel-outputs");
+    expect(content).toContain("canvas-workbench-panel-logs");
+    expect(content).toContain('type: "file.changed"');
+    expect(content).toContain('type: "patch.started"');
+    expect(content).toContain('type: "patch.applied"');
+    expect(content).toContain('type: "command.started"');
+    expect(content).toContain('type: "command.output"');
+    expect(content).toContain('type: "command.exited"');
+    expect(content).toContain('type: "test.started"');
+    expect(content).toContain('type: "test.completed"');
     expect(content).toContain("guiToolTimelineEvidencePresent");
     expect(content).toContain("toolTimelineEvidencePresent");
     const toolTimelineEvidenceAssertion = content.slice(
@@ -74,12 +133,27 @@ describe("code artifact workbench Electron fixture smoke guard", () => {
       "guiToolTimelineEvidencePresent",
     );
     expect(content).toContain('type: "artifact.snapshot"');
-    expect(content).toContain('type: "turn.final_done"');
-    expect(content).toContain("Hello Ember Workbench");
+    expect(content).toContain('type: "turn.completed"');
+    expect(content).not.toContain('type: "turn.final_done"');
+    expect(content).toContain('kind: "backendEvents"');
+    expect(content).toContain("backendEmittedEventTypes");
+    expect(content).toContain("backendEmittedCurrentTerminal");
+    expect(content).toContain("backendDidNotEmitLegacyTerminal");
+    expect(content).toContain("Hello Lime Workbench");
     expect(content).toContain("CODE_ARTIFACT_WORKBENCH_DONE");
-    expect(content).toContain("openFixtureSessionFromSidebar");
+    expect(content).toContain("waitForFixtureSessionOpenedFromSidebar");
+    expect(content).not.toContain('"lime:task-center:open-task"');
     expect(content).toContain("openWorkbench");
     expect(content).toContain("hasUserPrompt");
+    expect(content).toContain("function hasHydratedSessionSnapshot(snapshot)");
+    expect(content).toContain(
+      "function hasGuiCodingInputHydratedSession(snapshot)",
+    );
+    expect(content).toContain(
+      "guiHydratedSession: hasHydratedSessionSnapshot(",
+    );
+    expect(content).toContain("isGuiCodingInput");
+    expect(content).toContain("hasToolTimelineText");
     expect(content).toContain("hasTaskCenterShell");
     expect(content).toContain("hasTaskCenterWorkbenchTab");
     expect(content).toContain("task-center-chrome-shell");
@@ -90,8 +164,84 @@ describe("code artifact workbench Electron fixture smoke guard", () => {
     expect(content).toContain("artifact-workbench-shell");
     expect(content).toContain("canvas-workbench-shell");
     expect(content).toContain("canvas-workbench-layout");
+    expect(content).toContain("代码产物会话未在 GUI 中完成 hydrate:");
     expect(content).toContain("canvas-workbench-panel-");
+    expect(content).toContain("visibleWorkbenchRoot");
+    expect(content).toContain(
+      'root.querySelectorAll(`[data-canvas-tab-key="${key}"]`)',
+    );
+    expect(content).toContain(
+      "root.querySelectorAll('[data-canvas-tab-key=\"outputs\"]')",
+    );
+    expect(content).toContain(
+      "root.querySelectorAll('[data-testid=\"canvas-workbench-panel-outputs\"]')",
+    );
+    expect(content).not.toContain(
+      'document.querySelectorAll(`[data-canvas-tab-key="${key}"]`)',
+    );
+    expect(content).not.toContain(
+      "document.querySelectorAll('[data-canvas-tab-key=\"outputs\"]')",
+    );
+    expect(content).not.toContain("const sourceText =");
     expect(content).toContain('window.dispatchEvent(new Event("focus"))');
+  });
+
+  it("keeps recovery execution identities turn-scoped while preserving failure source refs", () => {
+    const content = readSmokeScript();
+
+    expect(content).toContain("const turnScopedExecutionId = (baseId) =>");
+    expect(content).toContain(
+      'isRecoveryTurn ? baseId + ":" + turnId : baseId',
+    );
+    expect(content).toContain(
+      'const toolCallId = turnScopedExecutionId("${TOOL_CALL_ID}")',
+    );
+    expect(content).toContain(
+      'const fileChangeItemId = turnScopedExecutionId("${CODING_ARTIFACT_ID}")',
+    );
+    expect(content).toContain(
+      'const patchId = turnScopedExecutionId("${CODING_PATCH_ID}")',
+    );
+    expect(content).toContain(
+      'const commandId = turnScopedExecutionId("${CODING_COMMAND_ID}")',
+    );
+    expect(content).toContain(
+      'const testRunId = turnScopedExecutionId("${CODING_TEST_RUN_ID}")',
+    );
+    expect(content).toContain("itemId: toolCallId");
+    expect(content).toContain("call_id: toolCallId");
+    expect(content).toContain("itemId: fileChangeItemId");
+    expect(content).toContain("executionIds: {");
+    expect(content).toContain("recoveryExecutionIdsTurnScoped:");
+    expect(content).toContain("recoveryExecutionIds.length === 5");
+    expect(content).toContain(
+      "executionId.endsWith(`:${backendRecoveryTurnStart.turnId}`)",
+    );
+    expect(content).not.toContain('itemId: "${TOOL_CALL_ID}"');
+    expect(content).not.toContain('patchId: "${CODING_PATCH_ID}"');
+    expect(content).not.toContain('commandId: "${CODING_COMMAND_ID}"');
+    expect(content).not.toContain('testRunId: "${CODING_TEST_RUN_ID}"');
+    expect(content).toContain(
+      "summary.codingRecoveryEvidence?.recovery?.sourceIds?.commandId ===\n            CODING_COMMAND_ID",
+    );
+    expect(content).toContain(
+      "summary.codingRecoveryEvidence?.recovery?.sourceIds?.testRunId ===\n            CODING_TEST_RUN_ID",
+    );
+  });
+
+  it("always replaces backend ledger evidence on a failed Gate B run", () => {
+    const content = readSmokeScript();
+    const catchStart = content.lastIndexOf("  } catch (error) {");
+    const finallyStart = content.indexOf("  } finally {", catchStart);
+    const failureBranch = content.slice(catchStart, finallyStart);
+
+    expect(content).toContain("function persistBackendLedgerEvidence(");
+    expect(failureBranch).toContain("persistBackendLedgerEvidence(");
+    expect(failureBranch).toContain("summary.backendKinds =");
+    expect(failureBranch).toContain("summary.backendEmittedEventTypes =");
+    expect(failureBranch.indexOf("persistBackendLedgerEvidence(")).toBeLessThan(
+      failureBranch.indexOf("writeJsonFile(summaryPath, summary)"),
+    );
   });
 
   it("does not use legacy commands or renderer mock fallback as success evidence", () => {

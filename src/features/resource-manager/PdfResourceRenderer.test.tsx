@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { PdfResourceRenderer } from "./PdfResourceRenderer";
 import type { ResourceManagerItem } from "./types";
 
@@ -23,7 +23,7 @@ function renderPdf(item: ResourceManagerItem) {
 describe("PdfResourceRenderer", () => {
   beforeEach(async () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
   });
 
   afterEach(async () => {
@@ -31,7 +31,7 @@ describe("PdfResourceRenderer", () => {
       act(() => item.root.unmount());
       item.container.remove();
     }
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
     vi.unstubAllGlobals();
   });
 

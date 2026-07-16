@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  BookmarkPlus,
   Check,
   Copy,
   FileText,
@@ -15,7 +14,6 @@ interface MessageActionButtonsProps {
   actionContent: string;
   canCopyMessage: boolean;
   canQuoteMessage: boolean;
-  canSaveMessageAsInspiration: boolean;
   canSaveMessageAsKnowledge: boolean;
   canSaveMessageAsSkill: boolean;
   copied: boolean;
@@ -26,10 +24,6 @@ interface MessageActionButtonsProps {
   messageId: string;
   onCopy?: (content: string, messageId: string) => void;
   onQuoteMessage?: (content: string, messageId: string) => void;
-  onSaveMessageAsInspiration?: (source: {
-    messageId: string;
-    content: string;
-  }) => void;
   onSaveMessageAsKnowledge?: (source: {
     messageId: string;
     content: string;
@@ -46,7 +40,6 @@ export function MessageActionButtons({
   actionContent,
   canCopyMessage,
   canQuoteMessage,
-  canSaveMessageAsInspiration,
   canSaveMessageAsKnowledge,
   canSaveMessageAsSkill,
   copied,
@@ -57,7 +50,6 @@ export function MessageActionButtons({
   messageId,
   onCopy,
   onQuoteMessage,
-  onSaveMessageAsInspiration,
   onSaveMessageAsKnowledge,
   onSaveMessageAsSkill,
 }: MessageActionButtonsProps) {
@@ -119,27 +111,11 @@ export function MessageActionButtons({
           <Sparkles size={12} />
         </Button>
       ) : null}
-      {canSaveMessageAsInspiration ? (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 rounded-full border border-amber-200/90 bg-amber-50/92 text-amber-600 shadow-sm shadow-amber-950/5 hover:bg-amber-100 hover:text-amber-700"
-          onClick={() =>
-            onSaveMessageAsInspiration?.({
-              messageId,
-              content: actionContent,
-            })
-          }
-          aria-label={t("agentChat.messageList.actions.saveToInspiration")}
-          title={t("agentChat.messageList.actions.saveToInspiration")}
-        >
-          <BookmarkPlus size={12} />
-        </Button>
-      ) : null}
       {canSaveMessageAsKnowledge ? (
         <Button
           variant="ghost"
-          className="relative z-10 h-8 w-auto gap-1.5 rounded-full border border-sky-200/90 bg-sky-50/92 px-2.5 text-xs font-semibold text-sky-700 shadow-sm shadow-sky-950/5 hover:bg-sky-100 hover:text-sky-800"
+          size="icon"
+          className="relative z-10 h-8 w-8 rounded-full border border-sky-200/90 bg-sky-50/92 text-sky-700 shadow-sm shadow-sky-950/5 hover:bg-sky-100 hover:text-sky-800"
           onClick={() =>
             onSaveMessageAsKnowledge?.({
               messageId,
@@ -152,7 +128,6 @@ export function MessageActionButtons({
           title={t("agentChat.messageList.actions.saveToKnowledge")}
         >
           <FileText size={12} />
-          <span>{t("agentChat.messageList.actions.saveToKnowledge")}</span>
         </Button>
       ) : null}
     </MessageActions>

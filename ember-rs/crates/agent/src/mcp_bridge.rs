@@ -1,286 +1,160 @@
-//! MCP 桥接客户端
+//! MCP 桥接运行时边界
 //!
-//! 实现 Aster 的 McpClientTrait，将工具调用转发到
-//! Ember 已有的 MCP RunningService，避免重复启动进程。
+//! 将 Agent reply-loop 的 MCP 调用绑定到其 Session-owned connection generation。
 
-use aster::agents::mcp_client::{Error as McpError, McpClientTrait};
-use aster::session_context::{current_session_id, SESSION_ID_HEADER};
-use ember_mcp::client::LimeMcpClient;
-use rmcp::model::{
-    CallToolRequest, CallToolRequestParam, CallToolResult, CancelledNotification,
-    CancelledNotificationMethod, CancelledNotificationParam, ClientRequest, GetPromptRequest,
-    GetPromptRequestParam, GetPromptResult, InitializeResult, JsonObject, ListPromptsRequest,
-    ListPromptsResult, ListResourcesRequest, ListResourcesResult, ListToolsRequest,
-    ListToolsResult, Meta, PaginatedRequestParam, ReadResourceRequest, ReadResourceRequestParam,
-    ReadResourceResult, ServerNotification, ServerResult,
+use lime_mcp::{
+    build_runtime_extension_surface, runtime_extension_name,
+    McpBridgeClient as RuntimeMcpBridgeClient, McpBridgeSnapshot,
 };
-use rmcp::service::{PeerRequestOptions, RunningService, ServiceError};
-use rmcp::RoleClient;
-use serde_json::Value;
+use rmcp::model::{CallToolResult, Extensions, JsonObject, ListToolsResult, ServerNotification};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex, RwLock};
 use tokio_util::sync::CancellationToken;
+use tool_runtime::mcp_connection::McpConnectionRegistry;
+use tool_runtime::mcp_connection::{McpCallScope, McpConnection, McpConnectionError};
+use tool_runtime::tool_extension::{RuntimeExtensionRegistration, RuntimeExtensionSyncPlan};
 
-/// MCP 桥接客户端
-///
-/// 持有 Ember 的 rmcp RunningService 引用，
-/// 将 Aster 的工具调用转发到已有的 MCP 连接。
-#[allow(dead_code)]
-pub struct McpBridgeClient {
-    /// 服务器名称
-    name: String,
-    /// Ember 的 rmcp RunningService
-    service: Arc<RunningService<RoleClient, LimeMcpClient>>,
-    /// Ember MCP 客户端处理器
-    handler: Arc<LimeMcpClient>,
-    /// 服务器初始化信息
-    server_info: Option<InitializeResult>,
-    /// 请求超时时间
-    timeout: Duration,
+pub(crate) struct McpBridgeRuntimeRegistry {
+    registered_bridge_names: RwLock<HashSet<String>>,
+}
+
+impl McpBridgeRuntimeRegistry {
+    pub(crate) fn new() -> Self {
+        Self {
+            registered_bridge_names: RwLock::new(HashSet::new()),
+        }
+    }
+
+    pub(crate) async fn sync(
+        &self,
+        connections: &McpConnectionRegistry,
+        snapshots: Vec<McpBridgeSnapshot>,
+    ) -> usize {
+        let mut snapshots_by_bridge_name = HashMap::new();
+        let mut registrations = Vec::new();
+        for snapshot in snapshots {
+            let extension_name = runtime_extension_name(&snapshot.server_name);
+            let surface = build_runtime_extension_surface(
+                &extension_name,
+                snapshot.description.clone(),
+                &snapshot.tools,
+            );
+
+            let bridge_name = surface.name.clone();
+            registrations.push(RuntimeExtensionRegistration::new(
+                surface,
+                Some(snapshot.server_name.clone()),
+            ));
+            snapshots_by_bridge_name.insert(bridge_name, snapshot);
+        }
+
+        let previous_bridge_names = self.registered_bridge_names.read().await.clone();
+        let plan = RuntimeExtensionSyncPlan::from_registrations(
+            previous_bridge_names.iter().cloned(),
+            registrations,
+        );
+        let active_bridge_names = plan.active_names();
+
+        for registration in &plan.registrations {
+            let bridge_name = registration.config.name.clone();
+            let Some(snapshot) = snapshots_by_bridge_name.get(&bridge_name) else {
+                continue;
+            };
+            let client: Arc<Mutex<Box<dyn McpConnection>>> = Arc::new(Mutex::new(Box::new(
+                McpBridgeClient::new(
+                    Arc::clone(&snapshot.manager),
+                    Arc::clone(&snapshot.running_service),
+                    snapshot.tool_timeout,
+                ),
+            )));
+            let surface = registration.config.clone();
+
+            connections
+                .register(bridge_name.clone(), surface, client)
+                .await;
+        }
+
+        for stale_name in &plan.stale_names {
+            if !connections.remove(stale_name).await {
+                tracing::warn!(
+                    extension_name = %stale_name,
+                    "[AgentRuntime] 清理过期 MCP bridge 失败"
+                );
+            }
+        }
+
+        let bridge_count = plan.registrations.len();
+        *self.registered_bridge_names.write().await = active_bridge_names;
+        bridge_count
+    }
+}
+
+struct McpBridgeClient {
+    _manager: Arc<lime_mcp::McpClientManager>,
+    inner: RuntimeMcpBridgeClient,
 }
 
 impl McpBridgeClient {
-    pub fn new(
-        name: String,
-        service: Arc<RunningService<RoleClient, LimeMcpClient>>,
-        handler: Arc<LimeMcpClient>,
-        server_info: Option<InitializeResult>,
+    fn new(
+        manager: Arc<lime_mcp::McpClientManager>,
+        service: Arc<
+            rmcp::service::RunningService<rmcp::RoleClient, lime_mcp::LimeMcpClientService>,
+        >,
+        tool_timeout: std::time::Duration,
     ) -> Self {
         Self {
-            name,
-            service,
-            handler,
-            server_info,
-            timeout: Duration::from_secs(60), // 默认超时 60s
+            _manager: manager,
+            inner: RuntimeMcpBridgeClient::new(service, tool_timeout),
         }
     }
 
-    /// 发送请求并处理取消和超时
-    async fn send_request(
-        &self,
-        request: ClientRequest,
-        cancel_token: CancellationToken,
-    ) -> Result<ServerResult, McpError> {
-        // 发送请求
-        let handle = self
-            .service
-            .send_cancellable_request(request, PeerRequestOptions::no_options())
-            .await?;
-
-        let request_id = handle.id;
-        let peer = handle.peer.clone();
-
-        // 等待响应，同时处理超时和取消
-        tokio::select! {
-            result = handle.rx => {
-                result.map_err(|_e| ServiceError::TransportClosed)?
-            }
-            _ = tokio::time::sleep(self.timeout) => {
-                // 超时，发送取消通知
-                let _ = peer.send_notification(
-                    CancelledNotification {
-                        params: CancelledNotificationParam {
-                            request_id,
-                            reason: Some("timed out".to_owned()),
-                        },
-                        method: CancelledNotificationMethod,
-                        extensions: Default::default(),
-                    }
-                    .into(),
-                ).await;
-                Err(ServiceError::Timeout{timeout: self.timeout})
-            }
-            _ = cancel_token.cancelled() => {
-                // 取消，发送取消通知
-                let _ = peer.send_notification(
-                    CancelledNotification {
-                        params: CancelledNotificationParam {
-                            request_id,
-                            reason: Some("operation cancelled".to_owned()),
-                        },
-                        method: CancelledNotificationMethod,
-                        extensions: Default::default(),
-                    }
-                    .into(),
-                ).await;
-                Err(ServiceError::Cancelled { reason: None })
-            }
-        }
-    }
-
-    /// 注入 Session ID 到扩展字段
-    fn inject_session(&self, mut extensions: rmcp::model::Extensions) -> rmcp::model::Extensions {
-        if let Some(session_id) = current_session_id() {
-            let mut meta_map = extensions
-                .get::<Meta>()
-                .map(|meta| meta.0.clone())
-                .unwrap_or_default();
-
-            // 移除旧的 ID (大小写不敏感)
-            meta_map.retain(|k, _| !k.eq_ignore_ascii_case(SESSION_ID_HEADER));
-            // 插入新的 ID
-            meta_map.insert(SESSION_ID_HEADER.to_string(), Value::String(session_id));
-
-            extensions.insert(Meta(meta_map));
-        }
-        extensions
+    fn request_extensions(&self) -> Extensions {
+        Extensions::default()
     }
 }
 
+fn map_mcp_result<T>(
+    result: Result<T, rmcp::service::ServiceError>,
+) -> Result<T, McpConnectionError> {
+    result
+}
+
 #[async_trait::async_trait]
-impl McpClientTrait for McpBridgeClient {
-    async fn list_resources(
-        &self,
-        cursor: Option<String>,
-        cancel_token: CancellationToken,
-    ) -> Result<ListResourcesResult, McpError> {
-        let res = self
-            .send_request(
-                ClientRequest::ListResourcesRequest(ListResourcesRequest {
-                    params: Some(PaginatedRequestParam { cursor }),
-                    method: Default::default(),
-                    extensions: self.inject_session(Default::default()),
-                }),
-                cancel_token,
-            )
-            .await?;
-
-        match res {
-            ServerResult::ListResourcesResult(result) => Ok(result),
-            _ => Err(ServiceError::UnexpectedResponse),
-        }
-    }
-
-    async fn read_resource(
-        &self,
-        uri: &str,
-        cancel_token: CancellationToken,
-    ) -> Result<ReadResourceResult, McpError> {
-        let res = self
-            .send_request(
-                ClientRequest::ReadResourceRequest(ReadResourceRequest {
-                    params: ReadResourceRequestParam {
-                        uri: uri.to_string(),
-                    },
-                    method: Default::default(),
-                    extensions: self.inject_session(Default::default()),
-                }),
-                cancel_token,
-            )
-            .await?;
-
-        match res {
-            ServerResult::ReadResourceResult(result) => Ok(result),
-            _ => Err(ServiceError::UnexpectedResponse),
-        }
-    }
-
+impl McpConnection for McpBridgeClient {
     async fn list_tools(
         &self,
         cursor: Option<String>,
         cancel_token: CancellationToken,
-    ) -> Result<ListToolsResult, McpError> {
-        let res = self
-            .send_request(
-                ClientRequest::ListToolsRequest(ListToolsRequest {
-                    params: Some(PaginatedRequestParam { cursor }),
-                    method: Default::default(),
-                    extensions: self.inject_session(Default::default()),
-                }),
-                cancel_token,
-            )
-            .await?;
-
-        match res {
-            ServerResult::ListToolsResult(result) => Ok(result),
-            _ => Err(ServiceError::UnexpectedResponse),
-        }
+    ) -> Result<ListToolsResult, McpConnectionError> {
+        map_mcp_result(
+            self.inner
+                .list_tools(cursor, self.request_extensions(), cancel_token)
+                .await,
+        )
     }
 
     async fn call_tool(
         &self,
         name: &str,
         arguments: Option<JsonObject>,
+        scope: &McpCallScope,
         cancel_token: CancellationToken,
-    ) -> Result<CallToolResult, McpError> {
-        let res = self
-            .send_request(
-                ClientRequest::CallToolRequest(CallToolRequest {
-                    params: CallToolRequestParam {
-                        name: name.to_string().into(),
-                        arguments,
-                    },
-                    method: Default::default(),
-                    extensions: self.inject_session(Default::default()),
-                }),
-                cancel_token,
-            )
-            .await?;
-
-        match res {
-            ServerResult::CallToolResult(result) => Ok(result),
-            _ => Err(ServiceError::UnexpectedResponse),
-        }
-    }
-
-    async fn list_prompts(
-        &self,
-        cursor: Option<String>,
-        cancel_token: CancellationToken,
-    ) -> Result<ListPromptsResult, McpError> {
-        let res = self
-            .send_request(
-                ClientRequest::ListPromptsRequest(ListPromptsRequest {
-                    params: Some(PaginatedRequestParam { cursor }),
-                    method: Default::default(),
-                    extensions: self.inject_session(Default::default()),
-                }),
-                cancel_token,
-            )
-            .await?;
-
-        match res {
-            ServerResult::ListPromptsResult(result) => Ok(result),
-            _ => Err(ServiceError::UnexpectedResponse),
-        }
-    }
-
-    async fn get_prompt(
-        &self,
-        name: &str,
-        arguments: Value,
-        cancel_token: CancellationToken,
-    ) -> Result<GetPromptResult, McpError> {
-        let arguments = match arguments {
-            Value::Object(map) => Some(map),
-            _ => None,
-        };
-        let res = self
-            .send_request(
-                ClientRequest::GetPromptRequest(GetPromptRequest {
-                    params: GetPromptRequestParam {
-                        name: name.to_string(),
-                        arguments,
-                    },
-                    method: Default::default(),
-                    extensions: self.inject_session(Default::default()),
-                }),
-                cancel_token,
-            )
-            .await?;
-
-        match res {
-            ServerResult::GetPromptResult(result) => Ok(result),
-            _ => Err(ServiceError::UnexpectedResponse),
-        }
+    ) -> Result<CallToolResult, McpConnectionError> {
+        map_mcp_result(
+            self.inner
+                .call_tool(
+                    name,
+                    arguments,
+                    self.request_extensions(),
+                    Some(scope),
+                    cancel_token,
+                )
+                .await,
+        )
     }
 
     async fn subscribe(&self) -> mpsc::Receiver<ServerNotification> {
-        self.handler.subscribe().await
-    }
-
-    fn get_info(&self) -> Option<&InitializeResult> {
-        self.server_info.as_ref()
+        self.inner.subscribe().await
     }
 }

@@ -5,9 +5,9 @@ import type {
 } from "./types";
 
 const SERVICE_SKILL_AUTOMATION_LINKS_STORAGE_KEY =
-  "ember:service-skill-automation-links:v1";
+  "lime:service-skill-automation-links:v1";
 export const SERVICE_SKILL_AUTOMATION_LINKS_CHANGED_EVENT =
-  "ember:service-skill-automation-links-changed";
+  "lime:service-skill-automation-links-changed";
 
 function hasWindow(): boolean {
   return typeof window !== "undefined";

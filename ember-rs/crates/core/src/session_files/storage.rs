@@ -20,7 +20,7 @@ pub struct SessionFileStorage {
 impl SessionFileStorage {
     /// 创建新的存储服务
     ///
-    /// 默认使用应用数据目录下的 `ember/sessions`，并兼容旧 Home 历史目录
+    /// 默认使用应用数据目录下的 `lime/sessions`，并兼容旧 Home 历史目录
     pub fn new() -> Result<Self, String> {
         let base_dir = Self::get_default_base_dir()?;
         fs::create_dir_all(&base_dir).map_err(|e| format!("创建会话存储目录失败: {e}"))?;
@@ -666,7 +666,7 @@ mod tests {
         storage
             .save_file(
                 "test-session-hidden",
-                ".ember/tasks/demo.json",
+                ".lime/tasks/demo.json",
                 "{\"ok\":true}",
             )
             .unwrap();
@@ -714,7 +714,7 @@ mod tests {
         let (storage, temp_dir) = create_test_storage();
         storage.create_session("test-session-6").unwrap();
 
-        let nested_file = ".ember/artifacts/thread-1/report.artifact.json";
+        let nested_file = ".lime/artifacts/thread-1/report.artifact.json";
         storage
             .save_file("test-session-6", nested_file, "{\"ok\":true}")
             .unwrap();
@@ -723,7 +723,7 @@ mod tests {
             .path()
             .join("test-session-6")
             .join("files")
-            .join(".ember")
+            .join(".lime")
             .join("artifacts")
             .join("thread-1")
             .join("report.artifact.json");

@@ -10,6 +10,7 @@ import {
   createAgentSessionCurrent,
   exportAgentSessionEvidencePackCurrent,
   invokeDevBridge,
+  invokeAppServerMethod,
   readAgentRuntimeThreadCurrent,
   readAgentSessionDetailCurrent,
   respondAgentSessionActionCurrent,
@@ -31,6 +32,14 @@ import {
   liveProviderSmokeAllowed,
 } from "../lib/live-provider-smoke-gate.mjs";
 import { startOpenAiCompatibleFixtureServer } from "../lib/openai-compatible-fixture-server.mjs";
+import {
+  buildDeferredMcpToolSearchAssertions,
+  buildDeferredMcpToolSearchFixtureResponses,
+  cleanupDeferredMcpToolSearchServer,
+  createDeferredMcpToolSearchServer,
+  makeDeferredMcpToolSearchServerName,
+  runDeferredMcpNewTurnIsolation,
+} from "./deferred-mcp-tool-search-gate-b.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,35 +47,42 @@ const rootDir = path.resolve(__dirname, "../..");
 
 const DEFAULT_OUTPUT = path.join(
   rootDir,
-  ".ember/qc/agent-runtime-tool-execution-smoke.json",
+  ".lime/qc/agent-runtime-tool-execution-smoke.json",
 );
 const DEFAULT_HEALTH_URL = "http://127.0.0.1:3030/health";
 const DEFAULT_INVOKE_URL = "http://127.0.0.1:3030/invoke";
 const DEFAULT_TIMEOUT_MS = 240_000;
 const DEFAULT_INTERVAL_MS = 1_000;
 const LOG_PREFIX = "[smoke:agent-runtime-tool-execution]";
+const APP_SERVER_METHOD_AGENT_SESSION_TOOL_INVENTORY_READ =
+  "agentSession/toolInventory/read";
 
-const FIXTURE_ROOT = "ember-qc/agent-runtime-tool-execution";
+const FIXTURE_ROOT = "lime-qc/agent-runtime-tool-execution";
 const EDIT_RELATIVE_PATH = `${FIXTURE_ROOT}/files/edit-target.txt`;
 const WRITE_RELATIVE_PATH = `${FIXTURE_ROOT}/files/write-target.txt`;
 const GREP_RELATIVE_PATH = `${FIXTURE_ROOT}/files/search-target.txt`;
 const IMAGE_RELATIVE_PATH = `${FIXTURE_ROOT}/images/tiny.png`;
 const NOTEBOOK_RELATIVE_PATH = `${FIXTURE_ROOT}/notebooks/sample.ipynb`;
-const LSP_RELATIVE_PATH = `${FIXTURE_ROOT}/code/lsp-target.ts`;
 const AUDIO_RELATIVE_PATH = `${FIXTURE_ROOT}/media/sample-audio.txt`;
-const DEFAULT_BATCH_ID = "safe-core-tools";
+const DEFAULT_BATCH_ID = "coding-current-tools";
+const CONTEXT7_LIVE_URL = "https://mcp.context7.com/mcp";
+const CONTEXT7_HEADER_NAME = "CONTEXT7_API_KEY";
+const CONTEXT7_ENV_VAR_NAME = "CONTEXT7_API_KEY";
+const CONTEXT7_LIBRARY_ID = "/openai/openai-agents-python";
 const SAFE_FILE_TOOLS = ["Read", "Edit", "Write", "Glob", "Grep"];
+const CODING_CURRENT_TOOLS = ["Read", "apply_patch", "Glob", "Grep", "Bash"];
 const MEDIA_NOTEBOOK_SHELL_TOOLS = ["view_image", "NotebookEdit", "Bash"];
 const TASK_BOARD_TOOLS = ["TaskCreate", "TaskGet", "TaskUpdate", "TaskList"];
 const BACKGROUND_TASK_TOOLS = ["Bash", "TaskOutput", "TaskStop"];
-const RUNTIME_INTROSPECTION_TOOLS = ["ToolSearch", "SendUserMessage"];
+const RUNTIME_INTROSPECTION_TOOLS = ["tool_search", "SendUserMessage"];
 const WEB_TOOLS = ["WebFetch", "WebSearch"];
 const AGENT_CONTROL_TOOLS = [
-  "TeamCreate",
-  "ListPeers",
-  "Agent",
-  "SendMessage",
-  "TeamDelete",
+  "spawn_agent",
+  "send_message",
+  "followup_task",
+  "wait_agent",
+  "interrupt_agent",
+  "list_agents",
 ];
 const PLAN_WORKTREE_TOOLS = [
   "EnterPlanMode",
@@ -74,21 +90,25 @@ const PLAN_WORKTREE_TOOLS = [
   "EnterWorktree",
   "ExitWorktree",
 ];
-const ASK_LSP_TOOLS = ["AskUserQuestion", "LSP"];
+const ASK_TOOLS = ["request_user_input"];
 const CREATION_TASK_TOOLS = [
-  "ember_create_audio_generation_task",
-  "ember_create_broadcast_generation_task",
-  "ember_create_cover_generation_task",
-  "ember_create_image_generation_task",
-  "ember_create_modal_resource_search_task",
-  "ember_create_transcription_task",
-  "ember_create_typesetting_task",
-  "ember_create_url_parse_task",
+  "lime_create_audio_generation_task",
+  "lime_create_broadcast_generation_task",
+  "lime_create_cover_generation_task",
+  "lime_create_image_generation_task",
+  "lime_create_modal_resource_search_task",
+  "lime_create_transcription_task",
+  "lime_create_typesetting_task",
+  "lime_create_url_parse_task",
 ];
 const MCP_RESOURCE_TOOLS = ["ListMcpResourcesTool", "ReadMcpResourceTool"];
 const SKILL_TOOLS = ["Skill"];
+const MCP_CONTEXT7_TOOLSEARCH_BATCH_ID = "mcp-context7-toolsearch";
+const MCP_DEFERRED_TOOLSEARCH_GATE_B_BATCH_ID =
+  "mcp-deferred-tool-search-gate-b";
 const BATCH_TARGET_TOOLS = {
-  [DEFAULT_BATCH_ID]: SAFE_FILE_TOOLS,
+  "safe-core-tools": SAFE_FILE_TOOLS,
+  "coding-current-tools": CODING_CURRENT_TOOLS,
   "media-notebook-shell-tools": MEDIA_NOTEBOOK_SHELL_TOOLS,
   "task-board-tools": TASK_BOARD_TOOLS,
   "background-task-tools": BACKGROUND_TASK_TOOLS,
@@ -96,10 +116,12 @@ const BATCH_TARGET_TOOLS = {
   "web-tools": WEB_TOOLS,
   "agent-control-tools": AGENT_CONTROL_TOOLS,
   "plan-worktree-tools": PLAN_WORKTREE_TOOLS,
-  "ask-lsp-tools": ASK_LSP_TOOLS,
+  "ask-tools": ASK_TOOLS,
   "creation-task-tools": CREATION_TASK_TOOLS,
   "mcp-resource-tools": MCP_RESOURCE_TOOLS,
   "skill-tools": SKILL_TOOLS,
+  [MCP_CONTEXT7_TOOLSEARCH_BATCH_ID]: ["tool_search"],
+  [MCP_DEFERRED_TOOLSEARCH_GATE_B_BATCH_ID]: ["tool_search"],
 };
 const SUPPORTED_BATCH_IDS = Object.keys(BATCH_TARGET_TOOLS);
 const OPTIONAL_RUNTIME_COVERAGE_TOOLS = [
@@ -112,7 +134,7 @@ const OPTIONAL_RUNTIME_COVERAGE_TOOLS = [
 
 function printHelp() {
   console.log(`
-Ember Agent Runtime Tool Execution Smoke
+Lime Agent Runtime Tool Execution Smoke
 
 用途:
   通过 localhost OpenAI-compatible fixture 验证工具从自然语言 runtime 回合进入 provider request，
@@ -124,7 +146,7 @@ Ember Agent Runtime Tool Execution Smoke
 
 选项:
   --batch <id>          工具批次：${SUPPORTED_BATCH_IDS.join(" / ")}，默认 ${DEFAULT_BATCH_ID}
-  --output <path>       evidence JSON 输出路径，默认 .ember/qc/agent-runtime-tool-execution-smoke.json
+  --output <path>       evidence JSON 输出路径，默认 .lime/qc/agent-runtime-tool-execution-smoke.json
   --health-url <url>    DevBridge health 地址，默认 ${DEFAULT_HEALTH_URL}
   --invoke-url <url>    DevBridge invoke 地址，默认 ${DEFAULT_INVOKE_URL}
   --timeout-ms <ms>     总等待超时，默认 ${DEFAULT_TIMEOUT_MS}
@@ -211,7 +233,7 @@ function parseArgs(argv) {
   if (!options.outputExplicit && options.batch !== DEFAULT_BATCH_ID) {
     options.output = path.join(
       rootDir,
-      `.ember/qc/agent-runtime-tool-execution-${options.batch}.json`,
+      `.lime/qc/agent-runtime-tool-execution-${options.batch}.json`,
     );
   }
   return options;
@@ -277,9 +299,9 @@ function prepareFixtureFiles(workspaceRoot) {
     workspaceRoot,
     EDIT_RELATIVE_PATH,
     [
-      "Ember runtime tool execution fixture",
+      "Lime runtime tool execution fixture",
       "replace-target",
-      "EMBER_TOOL_EXECUTION_MARKER",
+      "LIME_TOOL_EXECUTION_MARKER",
       "",
     ].join("\n"),
   );
@@ -288,7 +310,7 @@ function prepareFixtureFiles(workspaceRoot) {
   writeTextFile(
     workspaceRoot,
     GREP_RELATIVE_PATH,
-    ["searchable text", "EMBER_TOOL_EXECUTION_MARKER", ""].join("\n"),
+    ["searchable text", "LIME_TOOL_EXECUTION_MARKER", ""].join("\n"),
   );
   const imagePath = writeTinyPng(workspaceRoot, IMAGE_RELATIVE_PATH);
   const notebookPath = writeTextFile(
@@ -296,20 +318,10 @@ function prepareFixtureFiles(workspaceRoot) {
     NOTEBOOK_RELATIVE_PATH,
     buildNotebookFixture(),
   );
-  const lspPath = writeTextFile(
-    workspaceRoot,
-    LSP_RELATIVE_PATH,
-    [
-      "export function limeToolExecutionSmoke(value: string): string {",
-      "  return `EMBER_LSP_TOOL_EXECUTION_${value}`;",
-      "}",
-      "",
-    ].join("\n"),
-  );
   const audioPath = writeTextFile(
     workspaceRoot,
     AUDIO_RELATIVE_PATH,
-    "EMBER_TRANSCRIPTION_SOURCE_PLACEHOLDER\n",
+    "LIME_TRANSCRIPTION_SOURCE_PLACEHOLDER\n",
   );
 
   return {
@@ -317,7 +329,6 @@ function prepareFixtureFiles(workspaceRoot) {
     writePath,
     imagePath,
     notebookPath,
-    lspPath,
     audioPath,
   };
 }
@@ -365,17 +376,18 @@ function extractBackgroundTaskIdFromContext(context) {
   return taskId;
 }
 
-function extractAgentIdFromContext(context) {
-  const text = requestTextFromFixtureContext(context);
-  const metadataMatch = text.match(/"agentId"\s*:\s*"([^"]+)"/);
-  const outputMatch = text.match(/Agent launched:\s*([^\s\n]+)/);
-  const agentId = (metadataMatch?.[1] || outputMatch?.[1] || "").trim();
-  if (!agentId) {
-    throw new Error(
-      "fixture dynamic SendMessage response could not parse Agent result agentId",
-    );
-  }
-  return agentId;
+function requestToolCallNamesFromFixtureContext(context) {
+  const messages = Array.isArray(context?.body?.messages)
+    ? context.body.messages
+    : [];
+  return messages.flatMap((message) => {
+    const toolCalls = Array.isArray(message?.tool_calls)
+      ? message.tool_calls
+      : [];
+    return toolCalls
+      .map((toolCall) => String(toolCall?.function?.name || "").trim())
+      .filter(Boolean);
+  });
 }
 
 function outputPathFor(toolName) {
@@ -398,14 +410,14 @@ function buildSafeFileFixtureResponses() {
     }),
     toolCall("Write", "call-tool-exec-write", {
       path: WRITE_RELATIVE_PATH,
-      content: "EMBER_TOOL_EXECUTION_WRITE_OK\n",
+      content: "LIME_TOOL_EXECUTION_WRITE_OK\n",
     }),
     toolCall("Glob", "call-tool-exec-glob", {
       pattern: `${FIXTURE_ROOT}/**/*.txt`,
       max_results: 20,
     }),
     toolCall("Grep", "call-tool-exec-grep", {
-      pattern: "EMBER_TOOL_EXECUTION_MARKER",
+      pattern: "LIME_TOOL_EXECUTION_MARKER",
       path: FIXTURE_ROOT,
       mode: "content",
       include_hidden: true,
@@ -418,8 +430,51 @@ function buildSafeFileFixtureResponses() {
   ];
 }
 
+function buildCodingCurrentFixtureResponses() {
+  const patch = [
+    "*** Begin Patch",
+    `*** Update File: ${EDIT_RELATIVE_PATH}`,
+    "@@",
+    " Lime runtime tool execution fixture",
+    "-replace-target",
+    "+replace-done",
+    " LIME_TOOL_EXECUTION_MARKER",
+    "*** Add File: " + WRITE_RELATIVE_PATH,
+    "+LIME_TOOL_EXECUTION_WRITE_OK",
+    "*** End Patch",
+  ].join("\n");
+  const bashScript = "console.log('LIME_TOOL_EXECUTION_TEST_OK')";
+  return [
+    toolCall("Read", "call-tool-exec-coding-read", {
+      path: EDIT_RELATIVE_PATH,
+    }),
+    toolCall("apply_patch", "call-tool-exec-coding-apply-patch", {
+      patch,
+    }),
+    toolCall("Glob", "call-tool-exec-coding-glob", {
+      pattern: `${FIXTURE_ROOT}/**/*.txt`,
+      max_results: 20,
+    }),
+    toolCall("Grep", "call-tool-exec-coding-grep", {
+      pattern: "LIME_TOOL_EXECUTION_MARKER",
+      path: FIXTURE_ROOT,
+      mode: "content",
+      include_hidden: true,
+      max_results: 20,
+    }),
+    toolCall("Bash", "call-tool-exec-coding-bash", {
+      command: `node -e ${JSON.stringify(bashScript)}`,
+      timeout: 30,
+    }),
+    {
+      type: "text",
+      content: "AGENT_RUNTIME_CODING_CURRENT_TOOLS_DONE",
+    },
+  ];
+}
+
 function buildMediaNotebookShellFixtureResponses({ notebookPath }) {
-  const bashScript = "console.log('EMBER_TOOL_EXECUTION_BASH_OK')";
+  const bashScript = "console.log('LIME_TOOL_EXECUTION_BASH_OK')";
   return [
     toolCall("view_image", "call-tool-exec-view-image", {
       path: IMAGE_RELATIVE_PATH,
@@ -471,7 +526,7 @@ function buildBackgroundTaskFixtureResponses() {
     "let count = 0;",
     "const timer = setInterval(() => {",
     "  count += 1;",
-    "  console.log(`EMBER_BACKGROUND_TASK_TICK_${count}`);",
+    "  console.log(`LIME_BACKGROUND_TASK_TICK_${count}`);",
     "}, 200);",
     "setTimeout(() => { clearInterval(timer); }, 60000);",
   ].join(" ");
@@ -501,16 +556,13 @@ function buildBackgroundTaskFixtureResponses() {
 
 function buildRuntimeIntrospectionFixtureResponses() {
   return [
-    toolCall("ToolSearch", "call-tool-exec-tool-search", {
-      query: "select:Read,ToolSearch,SendUserMessage",
-      caller: "assistant",
-      limit: 10,
-      include_deferred: true,
-      include_schema: false,
+    toolCall("tool_search", "call-tool-exec-tool-search", {
+      query: "select:Read,tool_search,SendUserMessage",
+      max_results: 10,
     }),
     toolCall("SendUserMessage", "call-tool-exec-send-user-message", {
       message:
-        "EMBER_TOOL_EXECUTION_SEND_USER_MESSAGE_OK: runtime tool smoke delivered a user-visible message.",
+        "LIME_TOOL_EXECUTION_SEND_USER_MESSAGE_OK: runtime tool smoke delivered a user-visible message.",
       status: "normal",
       attachments: [],
     }),
@@ -526,14 +578,14 @@ function buildWebFixtureResponses() {
     toolCall("WebFetch", "call-tool-exec-web-fetch", {
       url: "https://example.com/",
       prompt:
-        "Return the page title and mention EMBER_TOOL_EXECUTION_WEBFETCH_OK.",
+        "Return the page title and mention LIME_TOOL_EXECUTION_WEBFETCH_OK.",
       focus_query: "Example Domain",
       dynamic_filter: true,
       max_chars: 2000,
       max_chunks: 2,
     }),
     toolCall("WebSearch", "call-tool-exec-web-search", {
-      query: "Ember runtime tool smoke example domain",
+      query: "Lime runtime tool smoke example domain",
       allowed_domains: ["example.com"],
     }),
     {
@@ -543,34 +595,60 @@ function buildWebFixtureResponses() {
   ];
 }
 
-function buildAgentControlFixtureResponses() {
-  const teamName = `ember-tool-smoke-${Date.now()}-${process.pid}`;
-  return [
-    toolCall("TeamCreate", "call-tool-exec-team-create", {
-      team_name: teamName,
-      description: "Agent runtime tool execution smoke team.",
-    }),
-    toolCall("ListPeers", "call-tool-exec-list-peers", {}),
-    toolCall("Agent", "call-tool-exec-agent", {
-      description: "tool smoke child",
-      prompt:
-        "Respond with AGENT_RUNTIME_AGENT_CHILD_OK and do not call tools.",
-      name: "tool-smoke-child",
-      team_name: teamName,
-      run_in_background: true,
-    }),
-    (context) =>
-      toolCall("SendMessage", "call-tool-exec-send-message", {
-        to: extractAgentIdFromContext(context),
-        summary: "runtime smoke ping",
-        message: "EMBER_TOOL_EXECUTION_SEND_MESSAGE_OK",
-      }),
-    toolCall("TeamDelete", "call-tool-exec-team-delete", {}),
-    {
+function buildAgentControlFixtureResponse(context) {
+  const requestText = requestUserMessagesText(context?.body);
+  if (
+    requestText.includes("AGENT_RUNTIME_AGENT_CHILD_READY") ||
+    requestText.includes("AGENT_RUNTIME_AGENT_CHILD_FOLLOWUP")
+  ) {
+    return {
       type: "text",
-      content: "AGENT_RUNTIME_AGENT_CONTROL_TOOLS_DONE",
-    },
-  ];
+      content: "AGENT_RUNTIME_AGENT_CHILD_OK",
+    };
+  }
+
+  const calledTools = new Set(requestToolCallNamesFromFixtureContext(context));
+  if (!calledTools.has("spawn_agent")) {
+    return toolCall("spawn_agent", "call-tool-exec-spawn-agent", {
+      task_name: "tool_smoke_child",
+      message:
+        "Reply with AGENT_RUNTIME_AGENT_CHILD_READY and do not call tools.",
+    });
+  }
+  if (!calledTools.has("list_agents")) {
+    return toolCall("list_agents", "call-tool-exec-list-agents", {});
+  }
+  if (!calledTools.has("send_message")) {
+    return toolCall("send_message", "call-tool-exec-send-message", {
+      target: "tool_smoke_child",
+      message: "LIME_TOOL_EXECUTION_SEND_MESSAGE_OK",
+    });
+  }
+  if (!calledTools.has("followup_task")) {
+    return toolCall("followup_task", "call-tool-exec-followup-task", {
+      target: "tool_smoke_child",
+      message:
+        "Reply with AGENT_RUNTIME_AGENT_CHILD_FOLLOWUP and do not call tools.",
+    });
+  }
+  if (!calledTools.has("interrupt_agent")) {
+    return toolCall("interrupt_agent", "call-tool-exec-interrupt-agent", {
+      target: "tool_smoke_child",
+    });
+  }
+  if (!calledTools.has("wait_agent")) {
+    return toolCall("wait_agent", "call-tool-exec-wait-agent", {
+      timeout_ms: 0,
+    });
+  }
+  return {
+    type: "text",
+    content: "AGENT_RUNTIME_AGENT_CONTROL_TOOLS_DONE",
+  };
+}
+
+function buildAgentControlFixtureResponses() {
+  return Array.from({ length: 7 }, () => buildAgentControlFixtureResponse);
 }
 
 function buildPlanWorktreeFixtureResponses() {
@@ -580,7 +658,7 @@ function buildPlanWorktreeFixtureResponses() {
       allowedPrompts: [],
     }),
     toolCall("EnterWorktree", "call-tool-exec-enter-worktree", {
-      name: `ember-tool-smoke-${Date.now()}-${process.pid}`,
+      name: `lime-tool-smoke-${Date.now()}-${process.pid}`,
     }),
     toolCall("ExitWorktree", "call-tool-exec-exit-worktree", {
       action: "remove",
@@ -593,17 +671,18 @@ function buildPlanWorktreeFixtureResponses() {
   ];
 }
 
-function buildAskLspFixtureResponses() {
+function buildAskFixtureResponses() {
   return [
-    toolCall("AskUserQuestion", "call-tool-exec-ask-user-question", {
+    toolCall("request_user_input", "call-tool-exec-request-user-input", {
       questions: [
         {
-          question: "Continue Ember runtime tool smoke?",
+          id: "continue_ask_validation",
+          question: "Continue Lime runtime tool smoke?",
           header: "Runtime",
           options: [
             {
               label: "Continue",
-              description: "Proceed with LSP tool validation.",
+              description: "Proceed with request_user_input validation.",
             },
             {
               label: "Stop",
@@ -613,13 +692,9 @@ function buildAskLspFixtureResponses() {
         },
       ],
     }),
-    toolCall("LSP", "call-tool-exec-lsp", {
-      operation: "document_symbol",
-      path: LSP_RELATIVE_PATH,
-    }),
     {
       type: "text",
-      content: "AGENT_RUNTIME_ASK_LSP_TOOLS_DONE",
+      content: "AGENT_RUNTIME_ASK_TOOLS_DONE",
     },
   ];
 }
@@ -627,74 +702,74 @@ function buildAskLspFixtureResponses() {
 function buildCreationTaskFixtureResponses({ audioPath }) {
   return [
     toolCall(
-      "ember_create_audio_generation_task",
+      "lime_create_audio_generation_task",
       "call-tool-exec-create-audio",
       {
-        sourceText: "EMBER_TOOL_EXECUTION_AUDIO_TASK_OK",
+        sourceText: "LIME_TOOL_EXECUTION_AUDIO_TASK_OK",
         title: "Audio task smoke",
         outputPath: outputPathFor("audio"),
       },
     ),
     toolCall(
-      "ember_create_broadcast_generation_task",
+      "lime_create_broadcast_generation_task",
       "call-tool-exec-create-broadcast",
       {
-        content: "EMBER_TOOL_EXECUTION_BROADCAST_TASK_OK",
+        content: "LIME_TOOL_EXECUTION_BROADCAST_TASK_OK",
         title: "Broadcast task smoke",
         outputPath: outputPathFor("broadcast"),
       },
     ),
     toolCall(
-      "ember_create_cover_generation_task",
+      "lime_create_cover_generation_task",
       "call-tool-exec-create-cover",
       {
-        prompt: "EMBER_TOOL_EXECUTION_COVER_TASK_OK",
+        prompt: "LIME_TOOL_EXECUTION_COVER_TASK_OK",
         title: "Cover task smoke",
         outputPath: outputPathFor("cover"),
       },
     ),
     toolCall(
-      "ember_create_image_generation_task",
+      "lime_create_image_generation_task",
       "call-tool-exec-create-image",
       {
-        prompt: "EMBER_TOOL_EXECUTION_IMAGE_TASK_OK",
+        prompt: "LIME_TOOL_EXECUTION_IMAGE_TASK_OK",
         title: "Image task smoke",
         output_path: outputPathFor("image"),
       },
     ),
     toolCall(
-      "ember_create_modal_resource_search_task",
+      "lime_create_modal_resource_search_task",
       "call-tool-exec-create-resource-search",
       {
         resourceType: "image",
-        query: "EMBER_TOOL_EXECUTION_RESOURCE_SEARCH_TASK_OK",
+        query: "LIME_TOOL_EXECUTION_RESOURCE_SEARCH_TASK_OK",
         title: "Resource search task smoke",
         outputPath: outputPathFor("resource-search"),
       },
     ),
     toolCall(
-      "ember_create_transcription_task",
+      "lime_create_transcription_task",
       "call-tool-exec-create-transcription",
       {
         sourcePath: audioPath,
-        prompt: "EMBER_TOOL_EXECUTION_TRANSCRIPTION_TASK_OK",
+        prompt: "LIME_TOOL_EXECUTION_TRANSCRIPTION_TASK_OK",
         title: "Transcription task smoke",
         outputPath: outputPathFor("transcription"),
       },
     ),
     toolCall(
-      "ember_create_typesetting_task",
+      "lime_create_typesetting_task",
       "call-tool-exec-create-typesetting",
       {
-        content: "EMBER_TOOL_EXECUTION_TYPESETTING_TASK_OK",
+        content: "LIME_TOOL_EXECUTION_TYPESETTING_TASK_OK",
         title: "Typesetting task smoke",
         outputPath: outputPathFor("typesetting"),
       },
     ),
-    toolCall("ember_create_url_parse_task", "call-tool-exec-create-url-parse", {
+    toolCall("lime_create_url_parse_task", "call-tool-exec-create-url-parse", {
       url: "https://example.com/",
       title: "URL parse task smoke",
-      summary: "EMBER_TOOL_EXECUTION_URL_PARSE_TASK_OK",
+      summary: "LIME_TOOL_EXECUTION_URL_PARSE_TASK_OK",
       outputPath: outputPathFor("url-parse"),
     }),
     {
@@ -708,8 +783,8 @@ function buildMcpResourceFixtureResponses() {
   return [
     toolCall("ListMcpResourcesTool", "call-tool-exec-mcp-list", {}),
     toolCall("ReadMcpResourceTool", "call-tool-exec-mcp-read", {
-      server: "ember-tool-smoke-missing-server",
-      uri: "ember://tool-smoke/missing-resource",
+      server: "lime-tool-smoke-missing-server",
+      uri: "lime://tool-smoke/missing-resource",
     }),
     {
       type: "text",
@@ -721,8 +796,8 @@ function buildMcpResourceFixtureResponses() {
 function buildSkillFixtureResponses() {
   return [
     toolCall("Skill", "call-tool-exec-skill", {
-      skill: "project:ember-tool-smoke-missing-skill",
-      args: "EMBER_TOOL_EXECUTION_SKILL_OK",
+      skill: "project:lime-tool-smoke-missing-skill",
+      args: "LIME_TOOL_EXECUTION_SKILL_OK",
     }),
     {
       type: "text",
@@ -731,12 +806,252 @@ function buildSkillFixtureResponses() {
   ];
 }
 
+function makeContext7AgentTurnServerName() {
+  return `Context7Agent${Date.now().toString(36)}${process.pid.toString(36)}`;
+}
+
+function mcpRuntimeToolName(serverName, toolName) {
+  return `mcp__${serverName}__${toolName}`;
+}
+
+function buildContext7ToolSearchFixtureResponses({ queryDocsToolName }) {
+  return [
+    toolCall("tool_search", "call-tool-exec-context7-tool-search", {
+      query: `select:${queryDocsToolName}`,
+      max_results: 10,
+    }),
+    toolCall(queryDocsToolName, "call-tool-exec-context7-query-docs", {
+      libraryId: CONTEXT7_LIBRARY_ID,
+      query: "AI Agent 是什么",
+    }),
+    {
+      type: "text",
+      content: "AGENT_RUNTIME_MCP_CONTEXT7_TOOLSEARCH_DONE",
+    },
+  ];
+}
+
+async function createContext7AgentTurnServer(options, serverName) {
+  const serverId = `mcp-context7-agent-turn-${Date.now()}-${process.pid}`;
+  const result = await invokeAppServerMethod(
+    options,
+    "mcpServer/create",
+    {
+      server: {
+        id: serverId,
+        name: serverName,
+        description: "Agent turn Context7 tool_search smoke",
+        server_config: {
+          transport: "streamable_http",
+          url: CONTEXT7_LIVE_URL,
+          timeout: 10,
+          env_http_headers: {
+            [CONTEXT7_HEADER_NAME]: CONTEXT7_ENV_VAR_NAME,
+          },
+        },
+        enabled_lime: true,
+        enabled_claude: false,
+        enabled_codex: false,
+        enabled_gemini: false,
+        created_at: Date.now(),
+      },
+    },
+    30_000,
+  );
+  const createdServer = Array.isArray(result?.servers)
+    ? result.servers.find(
+        (server) => server?.id === serverId || server?.name === serverName,
+      )
+    : null;
+  return {
+    serverId,
+    serverName,
+    serverCreated: Boolean(createdServer),
+    serverCreateReturnedServers: Array.isArray(result?.servers),
+    urlHost: new URL(CONTEXT7_LIVE_URL).host,
+    envHttpHeaderNames: [CONTEXT7_HEADER_NAME],
+    envHttpHeaderEnvVars: [CONTEXT7_ENV_VAR_NAME],
+    context7ApiKeyEnvPresent: Boolean(process.env.CONTEXT7_API_KEY),
+  };
+}
+
+async function cleanupContext7AgentTurnServer(options, context) {
+  if (!context?.serverName && !context?.serverId) {
+    return;
+  }
+  if (context.serverName) {
+    await invokeAppServerMethod(
+      options,
+      "mcpServer/stop",
+      { name: context.serverName },
+      30_000,
+    ).catch((error) => {
+      console.warn(
+        `${LOG_PREFIX} context7 stop failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    });
+  }
+  if (context.serverId) {
+    await invokeAppServerMethod(
+      options,
+      "mcpServer/delete",
+      { id: context.serverId },
+      30_000,
+    ).catch((error) => {
+      console.warn(
+        `${LOG_PREFIX} context7 delete failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    });
+  }
+}
+
 function buildBatchScenario(batchId, fixtureFiles) {
+  if (batchId === MCP_DEFERRED_TOOLSEARCH_GATE_B_BATCH_ID) {
+    const serverName = makeDeferredMcpToolSearchServerName();
+    const deferredToolName = mcpRuntimeToolName(serverName, "deferred_echo");
+    return {
+      id: MCP_DEFERRED_TOOLSEARCH_GATE_B_BATCH_ID,
+      prompt:
+        "请从普通输入框完成 deferred MCP 工具验收：先调用 tool_search 精确选择 deferred_echo，再调用该工具。不要使用命令入口。",
+      promptNeedle: "deferred MCP 工具验收",
+      targetTools: ["tool_search", deferredToolName],
+      initialInventoryTargetTools: ["tool_search"],
+      requiresTargetToolsInInitialInventory: false,
+      requiresEvidenceToolPresence: false,
+      deferScriptedToolCallsUntilAvailable: true,
+      expectedFixtureRequestCount: 3,
+      turnMetadata: {
+        harness: {
+          skip_mcp_prewarm: false,
+        },
+      },
+      scriptedResponses: buildDeferredMcpToolSearchFixtureResponses({
+        deferredToolName,
+        toolCall,
+      }),
+      async prepareAfterInventory(options) {
+        return createDeferredMcpToolSearchServer({
+          options,
+          serverName,
+          mcpRuntimeToolName,
+          invokeAppServerMethod,
+          sleep,
+        });
+      },
+      async cleanup(options, context) {
+        await cleanupDeferredMcpToolSearchServer({
+          options,
+          context,
+          invokeAppServerMethod,
+          logPrefix: LOG_PREFIX,
+        });
+      },
+      buildAssertions(values) {
+        return buildDeferredMcpToolSearchAssertions({
+          ...values,
+          deferredToolName,
+        });
+      },
+    };
+  }
+
+  if (batchId === MCP_CONTEXT7_TOOLSEARCH_BATCH_ID) {
+    const serverName = makeContext7AgentTurnServerName();
+    const queryDocsToolName = mcpRuntimeToolName(serverName, "query-docs");
+    return {
+      id: MCP_CONTEXT7_TOOLSEARCH_BATCH_ID,
+      prompt:
+        "请从普通输入框自然语言触发 Context7 MCP 工具验收：先用 tool_search 精确选择 Context7 query-docs 工具，再调用 query-docs 查询 AI Agent 是什么。不要使用命令入口。",
+      promptNeedle: "Context7 MCP 工具验收",
+      targetTools: ["tool_search", queryDocsToolName],
+      initialInventoryTargetTools: ["tool_search"],
+      requiresTargetToolsInInitialInventory: false,
+      requiresEvidenceToolPresence: false,
+      deferScriptedToolCallsUntilAvailable: true,
+      expectedFixtureRequestCount: 3,
+      turnMetadata: {
+        harness: {
+          skip_mcp_prewarm: false,
+        },
+      },
+      scriptedResponses: buildContext7ToolSearchFixtureResponses({
+        queryDocsToolName,
+      }),
+      async prepareAfterInventory(options) {
+        const context = await createContext7AgentTurnServer(
+          options,
+          serverName,
+        );
+        return {
+          ...context,
+          queryDocsToolName,
+          resolveLibraryToolName: mcpRuntimeToolName(
+            serverName,
+            "resolve-library-id",
+          ),
+          createdContext7WithoutManualStart: true,
+        };
+      },
+      async cleanup(options, context) {
+        await cleanupContext7AgentTurnServer(options, context);
+      },
+      buildAssertions({
+        evidencePackText,
+        providerRequests,
+        runtimeContext,
+        toolOutputText,
+      }) {
+        const toolSearchOutput =
+          toolOutputText
+            .split("\n")
+            .find((line) => line.startsWith("tool_search:")) || "";
+        const normalizedToolSearchOutput = toolSearchOutput
+          .replace(/\\"/g, '"')
+          .replace(/\\n/g, "\n");
+        const toolSearchReturnedEmptyMatches = /"matches"\s*:\s*\[\s*\]/.test(
+          normalizedToolSearchOutput,
+        );
+        const queryDocsProviderRequestSeen = providerRequests.some((request) =>
+          request.toolNames.includes(queryDocsToolName),
+        );
+        return {
+          usesCurrentMcpControlPlane: Boolean(runtimeContext?.serverCreated),
+          createdContext7WithoutManualStart:
+            runtimeContext?.createdContext7WithoutManualStart === true,
+          toolSearchSawContext7QueryDocs:
+            normalizedToolSearchOutput.includes('"matches"') &&
+            normalizedToolSearchOutput.includes(queryDocsToolName) &&
+            !toolSearchReturnedEmptyMatches,
+          providerExposedContext7QueryDocsAfterToolSearch:
+            queryDocsProviderRequestSeen,
+          context7QueryDocsExecuted:
+            toolOutputText.includes(queryDocsToolName) &&
+            !toolOutputText.includes('"isError":true') &&
+            !toolOutputText.includes('"is_error":true'),
+          evidencePackMentionsContext7ToolSearch:
+            evidencePackText.includes(queryDocsToolName) ||
+            toolOutputText.includes(queryDocsToolName) ||
+            evidencePackText.includes(
+              "AGENT_RUNTIME_MCP_CONTEXT7_TOOLSEARCH_DONE",
+            ),
+          agentTurnAutostartedContext7:
+            runtimeContext?.createdContext7WithoutManualStart === true &&
+            queryDocsProviderRequestSeen &&
+            normalizedToolSearchOutput.includes(queryDocsToolName),
+        };
+      },
+    };
+  }
+
   if (batchId === "media-notebook-shell-tools") {
     return {
       id: "media-notebook-shell-tools",
       prompt:
-        "请从普通输入框自然语言触发媒体、notebook 和命令工具验收：查看一张 fixture 图片，编辑一个 notebook 单元格，然后运行一个输出 EMBER_TOOL_EXECUTION_BASH_OK 的最小本地命令。不要使用命令入口。",
+        "请从普通输入框自然语言触发媒体、notebook 和命令工具验收：查看一张 fixture 图片，编辑一个 notebook 单元格，然后运行一个输出 LIME_TOOL_EXECUTION_BASH_OK 的最小本地命令。不要使用命令入口。",
       promptNeedle: "媒体、notebook 和命令工具验收",
       targetTools: MEDIA_NOTEBOOK_SHELL_TOOLS,
       scriptedResponses: buildMediaNotebookShellFixtureResponses({
@@ -752,12 +1067,50 @@ function buildBatchScenario(batchId, fixtureFiles) {
             "# Notebook fixture updated",
           ),
           bashToolReturnedOutput: toolOutputText.includes(
-            "EMBER_TOOL_EXECUTION_BASH_OK",
+            "LIME_TOOL_EXECUTION_BASH_OK",
           ),
           evidencePackMentionsMediaNotebookShell:
             evidencePackText.includes("view_image") ||
             evidencePackText.includes("NotebookEdit") ||
-            evidencePackText.includes("EMBER_TOOL_EXECUTION_BASH_OK"),
+            evidencePackText.includes("LIME_TOOL_EXECUTION_BASH_OK"),
+        };
+      },
+    };
+  }
+
+  if (batchId === "coding-current-tools") {
+    return {
+      id: "coding-current-tools",
+      prompt:
+        "请从普通输入框自然语言触发 Codex-first coding 工具验收：读取 fixture 文件，用 apply_patch 修改并新增文件，再用 glob/grep 搜索文件，最后运行一个输出 LIME_TOOL_EXECUTION_TEST_OK 的最小本地命令。不要使用命令入口。",
+      promptNeedle: "Codex-first coding 工具验收",
+      targetTools: CODING_CURRENT_TOOLS,
+      requiresTargetToolsInInitialInventory: false,
+      deferScriptedToolCallsUntilAvailable: true,
+      expectedFixtureRequestCount: 2,
+      scriptedResponses: buildCodingCurrentFixtureResponses(),
+      buildAssertions({ evidencePackText, fixtureFiles, toolOutputText }) {
+        const editContent = readTextIfExists(fixtureFiles.editPath);
+        const writeContent = readTextIfExists(fixtureFiles.writePath);
+        return {
+          applyPatchMutatedFile: editContent.includes("replace-done"),
+          applyPatchCreatedFile: writeContent.includes(
+            "LIME_TOOL_EXECUTION_WRITE_OK",
+          ),
+          grepToolReturnedMarker: toolOutputText.includes(
+            "LIME_TOOL_EXECUTION_MARKER",
+          ),
+          globToolReturnedFixturePath:
+            toolOutputText.includes("edit-target.txt") ||
+            toolOutputText.includes("write-target.txt") ||
+            toolOutputText.includes("search-target.txt"),
+          bashToolReturnedOutput: toolOutputText.includes(
+            "LIME_TOOL_EXECUTION_TEST_OK",
+          ),
+          evidencePackMentionsCodingExecution:
+            evidencePackText.includes("apply_patch") ||
+            evidencePackText.includes("LIME_TOOL_EXECUTION_TEST_OK") ||
+            evidencePackText.includes("LIME_TOOL_EXECUTION_WRITE_OK"),
         };
       },
     };
@@ -791,7 +1144,7 @@ function buildBatchScenario(batchId, fixtureFiles) {
     return {
       id: "background-task-tools",
       prompt:
-        "请从普通输入框自然语言触发后台任务工具验收：用 Bash 后台启动一个会持续输出 EMBER_BACKGROUND_TASK_TICK 的本地命令，然后用 TaskOutput 读取同一个后台任务，再用 TaskStop 停止同一个后台任务。不要使用命令入口。",
+        "请从普通输入框自然语言触发后台任务工具验收：用 Bash 后台启动一个会持续输出 LIME_BACKGROUND_TASK_TICK 的本地命令，然后用 TaskOutput 读取同一个后台任务，再用 TaskStop 停止同一个后台任务。不要使用命令入口。",
       promptNeedle: "后台任务工具验收",
       targetTools: BACKGROUND_TASK_TOOLS,
       scriptedResponses: buildBackgroundTaskFixtureResponses(),
@@ -801,13 +1154,13 @@ function buildBatchScenario(batchId, fixtureFiles) {
             "Background task started with ID:",
           ),
           taskOutputUsedRuntimeTaskId:
-            toolOutputText.includes("EMBER_BACKGROUND_TASK_TICK") ||
+            toolOutputText.includes("LIME_BACKGROUND_TASK_TICK") ||
             toolOutputText.includes('"retrieval_status"'),
           taskStopUsedRuntimeTaskId: toolOutputText.includes(
             "Successfully stopped task",
           ),
           evidencePackMentionsToolExecution:
-            evidencePackText.includes("EMBER_BACKGROUND_TASK") ||
+            evidencePackText.includes("LIME_BACKGROUND_TASK") ||
             evidencePackText.includes("Background task started"),
         };
       },
@@ -818,7 +1171,7 @@ function buildBatchScenario(batchId, fixtureFiles) {
     return {
       id: "runtime-introspection-tools",
       prompt:
-        "请从普通输入框自然语言触发运行时自检工具验收：先搜索当前工具面，再发送一条包含 EMBER_TOOL_EXECUTION_SEND_USER_MESSAGE_OK 的用户可见消息。不要使用命令入口。",
+        "请从普通输入框自然语言触发运行时自检工具验收：先搜索当前工具面，再发送一条包含 LIME_TOOL_EXECUTION_SEND_USER_MESSAGE_OK 的用户可见消息。不要使用命令入口。",
       promptNeedle: "运行时自检工具验收",
       targetTools: RUNTIME_INTROSPECTION_TOOLS,
       scriptedResponses: buildRuntimeIntrospectionFixtureResponses(),
@@ -826,14 +1179,19 @@ function buildBatchScenario(batchId, fixtureFiles) {
         return {
           toolSearchReturnedToolSurface:
             toolOutputText.includes('"tools"') ||
-            toolOutputText.includes("ToolSearch"),
+            toolOutputText.includes("tool_search"),
           sendUserMessageDelivered: toolOutputText.includes(
             "Message delivered to user",
           ),
           evidencePackMentionsRuntimeIntrospection:
             evidencePackText.includes(
-              "EMBER_TOOL_EXECUTION_SEND_USER_MESSAGE_OK",
-            ) || evidencePackText.includes("runtime-introspection-tools"),
+              "LIME_TOOL_EXECUTION_SEND_USER_MESSAGE_OK",
+            ) ||
+            evidencePackText.includes("runtime-introspection-tools") ||
+            (toolOutputText.includes(
+              "LIME_TOOL_EXECUTION_SEND_USER_MESSAGE_OK",
+            ) &&
+              toolOutputText.includes('"matches"')),
         };
       },
     };
@@ -857,7 +1215,7 @@ function buildBatchScenario(batchId, fixtureFiles) {
             toolOutputText.includes("Example Domain") ||
             toolOutputText.includes("example.com"),
           webSearchReturnedQuery:
-            toolOutputText.includes("Ember runtime tool smoke example domain") ||
+            toolOutputText.includes("Lime runtime tool smoke example domain") ||
             toolOutputText.includes("example.com"),
           evidencePackMentionsWebExecution:
             evidencePackText.includes("WebFetch") ||
@@ -871,34 +1229,35 @@ function buildBatchScenario(batchId, fixtureFiles) {
     return {
       id: "agent-control-tools",
       prompt:
-        "请从普通输入框自然语言触发协作工具验收：创建一个 team，列出 peers，启动一个后台子代理，给它发送一条消息，然后删除 team。不要使用命令入口。",
-      promptNeedle: "协作工具验收",
+        "请从普通输入框自然语言触发 Agent control 工具验收：创建子代理、列出 Agent、排队消息、续派任务、中断子代理并等待活动。不要使用命令入口。",
+      promptNeedle: "Agent control 工具验收",
       targetTools: AGENT_CONTROL_TOOLS,
       scriptedResponses: buildAgentControlFixtureResponses(),
+      requiresTargetToolsInInitialInventory: false,
       buildAssertions({ evidencePackText, toolOutputText }) {
         return {
-          teamToolCreatedTeam:
-            toolOutputText.includes("team_name") ||
-            toolOutputText.includes("TeamCreate") ||
-            toolOutputText.includes("ember-tool-smoke"),
-          listPeersReturnedPeerSurface:
-            toolOutputText.includes("peers") ||
-            toolOutputText.includes("ListPeers"),
-          agentToolLaunchedChild:
-            toolOutputText.includes("Agent launched:") ||
-            toolOutputText.includes('"agentId"'),
-          sendMessageDelivered:
-            toolOutputText.includes("Message sent") ||
-            toolOutputText.includes("EMBER_TOOL_EXECUTION_SEND_MESSAGE_OK") ||
-            toolOutputText.includes("SendMessage"),
-          teamDeleteCompleted:
-            toolOutputText.includes("TeamDelete") ||
-            toolOutputText.includes("deleted") ||
-            toolOutputText.includes("删除"),
-          evidencePackMentionsAgentTool:
-            evidencePackText.includes("TeamCreate") ||
-            evidencePackText.includes("SendMessage") ||
-            evidencePackText.includes("agent-control-tools"),
+          spawnAgentCreatedDurableChild:
+            toolOutputText.includes("spawn_agent:") &&
+            toolOutputText.includes("tool_smoke_child"),
+          listAgentsReturnedDurableTree:
+            toolOutputText.includes("list_agents:") &&
+            toolOutputText.includes('"agents"'),
+          sendMessageQueuedMailboxItem:
+            toolOutputText.includes("send_message:") &&
+            toolOutputText.includes('"message_id"'),
+          followupTaskTriggeredChild:
+            toolOutputText.includes("followup_task:") &&
+            toolOutputText.includes('"message_id"'),
+          interruptAgentReturnedPreviousStatus:
+            toolOutputText.includes("interrupt_agent:") &&
+            toolOutputText.includes('"previous_status"'),
+          waitAgentReturnedTerminalResult:
+            toolOutputText.includes("wait_agent:") &&
+            toolOutputText.includes('"timed_out"'),
+          evidencePackMentionsCurrentAgentControl:
+            evidencePackText.includes("spawn_agent") &&
+            evidencePackText.includes("list_agents") &&
+            evidencePackText.includes("interrupt_agent"),
         };
       },
     };
@@ -938,27 +1297,24 @@ function buildBatchScenario(batchId, fixtureFiles) {
     };
   }
 
-  if (batchId === "ask-lsp-tools") {
+  if (batchId === "ask-tools") {
     return {
-      id: "ask-lsp-tools",
+      id: "ask-tools",
       prompt:
-        "请从普通输入框自然语言触发问答和 LSP 工具验收：先向用户询问是否继续，然后读取 fixture TypeScript 文件的 document_symbol。不要使用命令入口。",
-      promptNeedle: "问答和 LSP 工具验收",
-      targetTools: ASK_LSP_TOOLS,
-      scriptedResponses: buildAskLspFixtureResponses(),
+        "请从普通输入框自然语言触发 request_user_input 工具验收：向用户询问是否继续。不要使用命令入口。",
+      promptNeedle: "request_user_input 工具验收",
+      targetTools: ASK_TOOLS,
+      scriptedResponses: buildAskFixtureResponses(),
       buildAssertions({ evidencePackText, toolOutputText }) {
         return {
           askUserQuestionResolved:
             toolOutputText.includes("User has answered your questions") ||
             toolOutputText.includes("Continue"),
-          lspReturnedSymbols:
-            toolOutputText.includes("limeToolExecutionSmoke") ||
-            toolOutputText.includes("document_symbol") ||
-            toolOutputText.includes("LSP"),
-          evidencePackMentionsAskLsp:
-            evidencePackText.includes("AskUserQuestion") ||
-            evidencePackText.includes("document_symbol") ||
-            evidencePackText.includes("ask-lsp-tools"),
+          evidencePackMentionsAsk:
+            evidencePackText.includes("request_user_input") ||
+            evidencePackText.includes("ask-tools"),
+          evidencePackDoesNotMentionAskUserQuestion:
+            !evidencePackText.includes("AskUserQuestion"),
         };
       },
     };
@@ -977,7 +1333,7 @@ function buildBatchScenario(batchId, fixtureFiles) {
       buildAssertions({ evidencePackText, toolOutputText }) {
         return {
           creationToolsCreatedTaskArtifact:
-            toolOutputText.includes("EMBER_TOOL_EXECUTION_AUDIO_TASK_OK") ||
+            toolOutputText.includes("LIME_TOOL_EXECUTION_AUDIO_TASK_OK") ||
             toolOutputText.includes("task") ||
             toolOutputText.includes("artifact"),
           creationToolsMentionOutput:
@@ -985,7 +1341,7 @@ function buildBatchScenario(batchId, fixtureFiles) {
             toolOutputText.includes("output") ||
             toolOutputText.includes("projectId"),
           evidencePackMentionsCreationTools:
-            evidencePackText.includes("ember_create_audio_generation_task") ||
+            evidencePackText.includes("lime_create_audio_generation_task") ||
             evidencePackText.includes("creation-task-tools"),
         };
       },
@@ -1007,7 +1363,7 @@ function buildBatchScenario(batchId, fixtureFiles) {
             toolOutputText.includes("[]") ||
             toolOutputText.includes("resources"),
           mcpReadAttempted:
-            toolOutputText.includes("ember-tool-smoke-missing-server") ||
+            toolOutputText.includes("lime-tool-smoke-missing-server") ||
             toolOutputText.includes("MCP") ||
             toolOutputText.includes("resource"),
           evidencePackMentionsMcpResourceTools:
@@ -1023,7 +1379,7 @@ function buildBatchScenario(batchId, fixtureFiles) {
     return {
       id: "skill-tools",
       prompt:
-        "请从普通输入框自然语言触发 Skill 工具验收：调用一个项目 Skill，并传入 EMBER_TOOL_EXECUTION_SKILL_OK 参数。不要使用命令入口。",
+        "请从普通输入框自然语言触发 Skill 工具验收：调用一个项目 Skill，并传入 LIME_TOOL_EXECUTION_SKILL_OK 参数。不要使用命令入口。",
       promptNeedle: "Skill 工具验收",
       targetTools: SKILL_TOOLS,
       scriptedResponses: buildSkillFixtureResponses(),
@@ -1031,8 +1387,8 @@ function buildBatchScenario(batchId, fixtureFiles) {
         return {
           skillToolAttempted:
             toolOutputText.includes("Skill") ||
-            toolOutputText.includes("ember-tool-smoke-missing-skill") ||
-            toolOutputText.includes("EMBER_TOOL_EXECUTION_SKILL_OK"),
+            toolOutputText.includes("lime-tool-smoke-missing-skill") ||
+            toolOutputText.includes("LIME_TOOL_EXECUTION_SKILL_OK"),
           evidencePackMentionsSkillTool:
             evidencePackText.includes("Skill") ||
             evidencePackText.includes("skill-tools"),
@@ -1042,7 +1398,7 @@ function buildBatchScenario(batchId, fixtureFiles) {
   }
 
   return {
-    id: DEFAULT_BATCH_ID,
+    id: "safe-core-tools",
     prompt:
       "请从普通输入框自然语言触发本地文件工具验收：读取文件、编辑文件、写入文件、按 glob 搜索文件、按 grep 搜索文件内容。不要使用命令入口。",
     promptNeedle: "本地文件工具验收",
@@ -1054,18 +1410,18 @@ function buildBatchScenario(batchId, fixtureFiles) {
       return {
         editToolMutatedFile: editContent.includes("replace-done"),
         writeToolCreatedFile: writeContent.includes(
-          "EMBER_TOOL_EXECUTION_WRITE_OK",
+          "LIME_TOOL_EXECUTION_WRITE_OK",
         ),
         grepToolReturnedMarker: toolOutputText.includes(
-          "EMBER_TOOL_EXECUTION_MARKER",
+          "LIME_TOOL_EXECUTION_MARKER",
         ),
         globToolReturnedFixturePath:
           toolOutputText.includes("edit-target.txt") ||
           toolOutputText.includes("write-target.txt") ||
           toolOutputText.includes("search-target.txt"),
         evidencePackMentionsToolExecution:
-          evidencePackText.includes("EMBER_TOOL_EXECUTION_MARKER") ||
-          evidencePackText.includes("EMBER_TOOL_EXECUTION_WRITE_OK"),
+          evidencePackText.includes("LIME_TOOL_EXECUTION_MARKER") ||
+          evidencePackText.includes("LIME_TOOL_EXECUTION_WRITE_OK"),
       };
     },
   };
@@ -1144,16 +1500,50 @@ function providerRequestSummaries(fixtureRequests) {
       stream: request?.body?.stream === true,
       toolCount: toolNames.length,
       toolNames,
+      responseKind: request?.responseKind || null,
+      responseToolName: request?.responseToolName || null,
+      responseError: request?.responseError || null,
     };
   });
 }
 
 function getToolCalls(threadRead) {
-  return Array.isArray(threadRead?.tool_calls)
+  const toolCalls = Array.isArray(threadRead?.tool_calls)
     ? threadRead.tool_calls
     : Array.isArray(threadRead?.toolCalls)
       ? threadRead.toolCalls
       : [];
+  const threadItems = Array.isArray(threadRead?.thread_items)
+    ? threadRead.thread_items
+    : Array.isArray(threadRead?.threadItems)
+      ? threadRead.threadItems
+      : [];
+  const seenCallIds = new Set(
+    toolCalls
+      .map((call) => String(call?.call_id || call?.callId || "").trim())
+      .filter(Boolean),
+  );
+  const canonicalToolCalls = threadItems.flatMap((item) => {
+    if (item?.type !== "tool_call") {
+      return [];
+    }
+    const canonicalToolName = toolName(item);
+    const callId = String(item?.call_id || item?.callId || "").trim();
+    if (!canonicalToolName || !callId || seenCallIds.has(callId)) {
+      return [];
+    }
+    seenCallIds.add(callId);
+    return [
+      {
+        tool_name: canonicalToolName,
+        call_id: callId,
+        status: item?.status,
+        success: item?.metadata?.success ?? null,
+        output: item?.output,
+      },
+    ];
+  });
+  return [...toolCalls, ...canonicalToolCalls];
 }
 
 function toolName(toolCall) {
@@ -1221,6 +1611,7 @@ function buildToolStageMatrix({
   providerToolPresence,
   matrix,
   evidenceToolPresence,
+  evidenceToolPresenceRequired = true,
 }) {
   return targetTools.map((tool) => {
     const runtimeToolVisible =
@@ -1233,9 +1624,11 @@ function buildToolStageMatrix({
       Boolean(runtime) &&
       runtime.status === "completed" &&
       runtime.success !== false;
-    const evidenceReturned = evidenceToolPresence?.[tool] === true;
+    const evidenceReturned =
+      evidenceToolPresenceRequired !== true ||
+      evidenceToolPresence?.[tool] === true;
     let failureStage = null;
-    if (!runtimeToolPresent || !runtimeToolVisible) {
+    if ((!runtimeToolPresent || !runtimeToolVisible) && !runtimeCompleted) {
       failureStage = "runtime_inventory";
     } else if (!providerRequestPresent) {
       failureStage = "provider_request";
@@ -1530,7 +1923,7 @@ function mergeScenarioTurnMetadata(scenario, targetTools) {
     harness: {
       ...scenarioHarness,
       access_mode: "full-access",
-      skip_mcp_prewarm: true,
+      skip_mcp_prewarm: scenarioHarness.skip_mcp_prewarm ?? true,
       runtime_tool_execution: {
         scenario_id: scenario.id,
         source: "smoke:agent-runtime-tool-execution",
@@ -1546,24 +1939,32 @@ async function collectToolInventories(options, metadata) {
     metadata,
   };
   const [core, workbench, browserAssist] = await Promise.all([
-    invokeDevBridge(options, "agent_runtime_get_tool_inventory", {
-      request: baseRequest,
+    readToolInventoryCurrent(options, baseRequest),
+    readToolInventoryCurrent(options, {
+      ...baseRequest,
+      workbench: true,
     }),
-    invokeDevBridge(options, "agent_runtime_get_tool_inventory", {
-      request: {
-        ...baseRequest,
-        workbench: true,
-      },
-    }),
-    invokeDevBridge(options, "agent_runtime_get_tool_inventory", {
-      request: {
-        ...baseRequest,
-        browserAssist: true,
-      },
+    readToolInventoryCurrent(options, {
+      ...baseRequest,
+      browserAssist: true,
     }),
   ]);
 
   return { core, workbench, browserAssist };
+}
+
+async function readToolInventoryCurrent(options, request) {
+  const response = await invokeAppServerMethod(
+    options,
+    APP_SERVER_METHOD_AGENT_SESSION_TOOL_INVENTORY_READ,
+    request,
+  );
+  const inventory = response?.inventory;
+  assertSmoke(
+    inventory && typeof inventory === "object" && !Array.isArray(inventory),
+    "agentSession/toolInventory/read 未返回工具库存",
+  );
+  return inventory;
 }
 
 async function resolveWorkspaceRoot(options, workspace, workspaceId) {
@@ -1621,6 +2022,7 @@ async function waitForRuntimeCompletion(
       },
       fixtureChatRequestCount: fixtureChatRequestCount(fixture.requests),
       expectedFixtureChatRequestCount: expectedRequestCount,
+      providerRequests: providerRequestSummaries(fixture.requests),
       turnObserved,
       pendingRequestCount: pendingRequests.length,
       completedToolCount: matrix.filter(
@@ -1697,12 +2099,28 @@ async function runSmoke(options) {
       summarizeInventory(inventory),
     ]),
   );
+  let runtimeContext = null;
+  if (typeof scenario.prepareAfterInventory === "function") {
+    console.log(`${LOG_PREFIX} stage=scenario-prepare`);
+    runtimeContext = await scenario.prepareAfterInventory(options, {
+      workspaceId,
+      workspaceRoot,
+      turnMetadata,
+    });
+  }
 
   console.log(`${LOG_PREFIX} stage=fixture-provider`);
   const fixture = await startOpenAiCompatibleFixtureServer({
-    deferScriptedToolCallsUntilAvailable: options.batch === "web-tools",
+    deferScriptedToolCallsUntilAvailable:
+      scenario.deferScriptedToolCallsUntilAvailable === true ||
+      options.batch === "web-tools",
     scriptedResponses,
   });
+  const providerFixtureRequests = fixture.requests;
+  assertSmoke(
+    Array.isArray(providerFixtureRequests),
+    "localhost fixture 未暴露 provider request ledger",
+  );
   console.log(
     `${LOG_PREFIX} provider=localhost-fixture baseUrl=${fixture.baseUrl}`,
   );
@@ -1731,14 +2149,14 @@ async function runSmoke(options) {
 
     console.log(`${LOG_PREFIX} stage=submit-turn session=${sessionId}`);
     const turnId = `tool-execution-${Date.now()}-${process.pid}`;
-    const eventName = `agent_runtime_tool_execution_${turnId}`;
+    const eventName = `app_server_tool_execution_${turnId}`;
     await startAgentSessionTurnCurrent(options, {
       sessionId,
       workspaceId,
       message: scenario.prompt,
       eventName,
       turnId,
-      turnConfig: {
+      runtimeRequest: {
         providerPreference: fixture.provider.providerPreference,
         modelPreference: fixture.provider.modelPreference,
         providerConfig: fixture.provider.providerConfig,
@@ -1754,7 +2172,7 @@ async function runSmoke(options) {
       options,
       sessionId,
       fixture,
-      scriptedResponses.length,
+      scenario.expectedFixtureRequestCount || scriptedResponses.length,
       targetTools,
       eventName,
       turnId,
@@ -1766,20 +2184,46 @@ async function runSmoke(options) {
       turnId,
     });
 
-    const providerRequests = providerRequestSummaries(fixture.requests);
+    const providerRequests = providerRequestSummaries(providerFixtureRequests);
+    const newTurnIsolation =
+      scenario.id === MCP_DEFERRED_TOOLSEARCH_GATE_B_BATCH_ID
+        ? await runDeferredMcpNewTurnIsolation({
+            options,
+            sessionId,
+            workspaceId,
+            fixtureRequests: providerFixtureRequests,
+            provider: fixture.provider,
+            turnMetadata,
+            startAgentSessionTurnCurrent,
+            readAgentRuntimeThreadCurrent,
+            summarizeThreadRead,
+            threadSettled,
+            fixtureChatRequestCount,
+            providerRequestSummaries,
+            assertSmoke,
+            sleep,
+            logPrefix: LOG_PREFIX,
+          })
+        : null;
+    const newTurnProviderRequests = newTurnIsolation?.providerRequests ?? null;
     const matrix = buildToolExecutionMatrix(finalState.threadRead, targetTools);
     const providerToolPresence = allTargetToolsPresentInProviderRequests(
       providerRequests,
       targetTools,
     );
     const completedTools = allTargetToolsCompleted(matrix);
+    const inventoryTargetTools = Array.isArray(
+      scenario.initialInventoryTargetTools,
+    )
+      ? scenario.initialInventoryTargetTools
+      : targetTools;
     const inventoryCoverage = buildInventoryCoverage(
       inventories,
       matrix,
-      targetTools,
+      inventoryTargetTools,
     );
     const firstUserRequestText = requestUserMessagesText(
-      fixture.requests[0]?.body,
+      providerFixtureRequests[0]?.body,
     );
     const detailText = JSON.stringify(finalState.sessionDetail || {});
     const evidencePackText = JSON.stringify(evidencePack || {});
@@ -1793,6 +2237,8 @@ async function runSmoke(options) {
       providerToolPresence,
       matrix,
       evidenceToolPresence,
+      evidenceToolPresenceRequired:
+        scenario.requiresEvidenceToolPresence !== false,
     });
     const toolOutputText = matrix
       .map((entry) => `${entry.tool}:${entry.outputPreview}`)
@@ -1800,11 +2246,15 @@ async function runSmoke(options) {
     const scenarioAssertions = scenario.buildAssertions({
       evidencePackText,
       fixtureFiles,
+      providerRequests,
+      runtimeContext,
       toolOutputText,
+      newTurnProviderRequests,
     });
     const assertions = {
       fixtureProviderUsed:
-        fixtureChatRequestCount(fixture.requests) >= scriptedResponses.length,
+        fixtureChatRequestCount(providerFixtureRequests) >=
+        (scenario.expectedFixtureRequestCount || scriptedResponses.length),
       naturalLanguageWithoutAtCommand:
         firstUserRequestText.includes(scenario.promptNeedle) &&
         !firstUserRequestText.trimStart().startsWith("@") &&
@@ -1812,6 +2262,7 @@ async function runSmoke(options) {
       allTargetToolsPresentInProviderRequests:
         Object.values(providerToolPresence).every(Boolean),
       allTargetToolsPresentInRuntimeInventory:
+        scenario.requiresTargetToolsInInitialInventory === false ||
         inventoryCoverage.missingTargetToolsInInventory.length === 0,
       allTargetToolsCompleted: Object.values(completedTools).every(Boolean),
       sessionDefaultedToReact:
@@ -1842,10 +2293,11 @@ async function runSmoke(options) {
         verifiesRuntimeInventoryTools: true,
         verifiesRuntimeToolExecution: true,
         verifiesEvidencePack: true,
-        usesCompatToolInventoryCommand: true,
+        usesAppServerToolInventoryCurrent: true,
         usesAppServerEvidenceExportCurrent: true,
         batchId: scenario.id,
         targetTools,
+        initialInventoryTargetTools: inventoryTargetTools,
         allScenarioTargetTools: inventoryCoverage.allScenarioTargetTools,
         coveredVisibleRuntimeTools:
           inventoryCoverage.coveredVisibleRuntimeTools,
@@ -1874,17 +2326,20 @@ async function runSmoke(options) {
         modelPreference: fixture.provider.modelPreference,
         source: fixture.provider.source,
         requests: providerRequests,
+        newTurnIsolationRequests: newTurnProviderRequests,
         targetToolPresence: providerToolPresence,
       },
       inventory: {
         summaries: inventorySummaries,
         coverage: inventoryCoverage,
       },
+      scenarioRuntimeContext: runtimeContext,
       runtime: {
         sessionId,
         turnId,
         eventName,
         finalSnapshot: finalState.snapshot,
+        newTurnIsolation,
         matrix,
         toolStageMatrix,
         completedTools,
@@ -1895,7 +2350,6 @@ async function runSmoke(options) {
         grepPath: GREP_RELATIVE_PATH,
         imagePath: IMAGE_RELATIVE_PATH,
         notebookPath: NOTEBOOK_RELATIVE_PATH,
-        lspPath: LSP_RELATIVE_PATH,
         audioPath: AUDIO_RELATIVE_PATH,
       },
       evidencePack: summarizeEvidencePack(evidencePack),
@@ -1908,6 +2362,17 @@ async function runSmoke(options) {
       console.log(`${LOG_PREFIX} evidence=${writtenPath}`);
     }
 
+    if (failedAssertions.length > 0) {
+      console.error(
+        `${LOG_PREFIX} failure=${JSON.stringify({
+          failedAssertions,
+          providerRequests,
+          finalSnapshot: finalState.snapshot,
+          matrix,
+        })}`,
+      );
+    }
+
     for (const key of failedAssertions) {
       assertSmoke(false, `断言失败: ${key}`);
     }
@@ -1915,11 +2380,22 @@ async function runSmoke(options) {
     console.log(`${LOG_PREFIX} pass session=${sessionId}`);
     return evidence;
   } finally {
+    if (typeof scenario.cleanup === "function") {
+      await scenario.cleanup(options, runtimeContext).catch((error) => {
+        console.warn(
+          `${LOG_PREFIX} scenario cleanup failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      });
+    }
     await fixture.close();
   }
 }
 
 runSmoke(parseArgs(process.argv.slice(2))).catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
+  console.error(
+    error instanceof Error ? error.stack || error.message : String(error),
+  );
   process.exit(1);
 });

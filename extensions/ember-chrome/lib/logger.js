@@ -2,14 +2,14 @@
  * Debug logger — controlled by a module-level flag.
  *
  * When `DEBUG` is true, all log/warn/error calls forward to the console
- * with a [ember-relay] prefix and a module tag. When false, only warn/error emit.
+ * with a [lime-relay] prefix and a module tag. When false, only warn/error emit.
  *
  * Usage:
  *   import { createLogger, setDebug } from './logger.js'
  *   const log = createLogger('relay')
  *   setDebug(true)
- *   log.debug('connected', { port: 9236 })  // → console.debug('[ember:relay] connected', {port:9236})
- *   log.info('ok')                           // → console.info('[ember:relay] ok')
+ *   log.debug('connected', { port: 9236 })  // → console.debug('[lime:relay] connected', {port:9236})
+ *   log.info('ok')                           // → console.info('[lime:relay] ok')
  *   log.warn('slow')                         // always prints
  *   log.error('fail', err)                   // always prints
  */
@@ -29,7 +29,7 @@ export function isDebug() {
  * @param {string} module — short tag (e.g. 'relay', 'tabs', 'cdp', 'bg')
  */
 export function createLogger(module) {
-  const prefix = `[ember:${module}]`
+  const prefix = `[lime:${module}]`
 
   return {
     /** Only prints when DEBUG is true */

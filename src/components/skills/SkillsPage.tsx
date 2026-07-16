@@ -81,7 +81,7 @@ function getErrorMessage(error: unknown) {
 export const SkillsPage = forwardRef<SkillsPageRef, SkillsPageProps>(
   (
     {
-      initialApp = "ember",
+      initialApp = "lime",
       hideHeader = false,
       initialScaffoldDraft = null,
       initialScaffoldRequestKey = null,
@@ -578,7 +578,7 @@ export const SkillsPage = forwardRef<SkillsPageRef, SkillsPageProps>(
           }}
           onCreate={handleCreateScaffold}
           creating={scaffoldCreating}
-          allowProjectTarget={app === "ember"}
+          allowProjectTarget={app === "lime"}
           initialValues={scaffoldDialogDraft}
           sourceHint={scaffoldDialogDraft?.sourceExcerpt ?? null}
           onBringBackToCreation={onBringScaffoldToCreation}

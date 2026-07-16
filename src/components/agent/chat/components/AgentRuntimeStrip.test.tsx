@@ -1,8 +1,12 @@
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { AgentRuntimeStrip } from "./AgentRuntimeStrip";
+import type {
+  CanonicalAgentStatus,
+  CanonicalChildThreadSummary,
+} from "../projection/canonicalChildThreadSummary";
 import type { HarnessSessionState } from "../utils/harnessState";
 import type { RuntimeToolAvailability } from "../utils/runtimeToolAvailability";
 
@@ -17,17 +21,10 @@ const DEFAULT_RUNTIME_TOOL_AVAILABILITY: RuntimeToolAvailability = {
   subagentCore: false,
   subagentTeamTools: false,
   subagentRuntime: false,
-  taskRuntime: false,
+  planRuntime: false,
   missingSubagentCoreTools: ["Agent", "SendMessage"],
   missingSubagentTeamTools: ["TeamCreate", "TeamDelete", "ListPeers"],
-  missingTaskTools: [
-    "TaskCreate",
-    "TaskGet",
-    "TaskList",
-    "TaskUpdate",
-    "TaskOutput",
-    "TaskStop",
-  ],
+  missingPlanTools: ["update_plan"],
 };
 
 const CODE_RUNTIME_TOOL_AVAILABILITY: RuntimeToolAvailability = {
@@ -39,10 +36,10 @@ const CODE_RUNTIME_TOOL_AVAILABILITY: RuntimeToolAvailability = {
   subagentCore: true,
   subagentTeamTools: true,
   subagentRuntime: true,
-  taskRuntime: true,
+  planRuntime: true,
   missingSubagentCoreTools: [],
   missingSubagentTeamTools: [],
-  missingTaskTools: [],
+  missingPlanTools: [],
 };
 
 function createHarnessState(
@@ -70,6 +67,20 @@ function createHarnessState(
     recentFileEvents: [],
     hasSignals: false,
     ...overrides,
+  };
+}
+
+function createCanonicalChild(
+  status: CanonicalAgentStatus,
+  index: number,
+): CanonicalChildThreadSummary {
+  return {
+    name: `child-${index}`,
+    parentThreadId: "parent-thread",
+    sessionId: `child-session-${index}`,
+    status,
+    threadId: `child-thread-${index}`,
+    updatedAtMs: index,
   };
 }
 
@@ -105,7 +116,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 afterEach(async () => {
@@ -119,7 +130,7 @@ afterEach(async () => {
     });
     mounted.container.remove();
   }
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 describe("AgentRuntimeStrip", () => {
@@ -136,12 +147,12 @@ describe("AgentRuntimeStrip", () => {
     ).toContain("Runtime 工具面 4 项");
     expect(
       container.querySelector(
-        '[data-testid="agent-runtime-strip-status-task_runtime_gap"]',
+        '[data-testid="agent-runtime-strip-status-plan_runtime_gap"]',
       )?.textContent,
-    ).toContain("任务工具缺 6");
+    ).toContain("计划工具缺 1");
     expect(
       container.querySelector(
-        '[data-testid="agent-runtime-strip-status-subagent_runtime_gap"]',
+        '[data-testid="agent-runtime-strip-status-subagent_tool_gap"]',
       )?.textContent,
     ).toContain("Subagents 缺 5 个 current tools");
     expect(
@@ -180,9 +191,7 @@ describe("AgentRuntimeStrip", () => {
         '[data-testid="agent-runtime-strip-status-runtime_surface"][data-status-key="runtime_surface"]',
       )?.textContent,
     ).toContain("Runtime 工具面 12 项");
-    expect(
-      container.querySelector('[data-testid*="code_"]'),
-    ).toBeNull();
+    expect(container.querySelector('[data-testid*="code_"]')).toBeNull();
   });
 
   it("运行时信号应露出待确认与产物出口状态", () => {
@@ -276,5 +285,158 @@ describe("AgentRuntimeStrip", () => {
         '[data-testid="agent-runtime-strip"][data-runtime-kind="runtime"]',
       ),
     ).toBeTruthy();
+  });
+
+  it("team 运行条应暴露 collaboration facts 与 Soul metadata contract", () => {
+    const container = renderStrip({
+      runtimeToolAvailability: CODE_RUNTIME_TOOL_AVAILABILITY,
+      canonicalChildren: [
+        createCanonicalChild("running", 1),
+        createCanonicalChild("pendingInit", 2),
+      ],
+      harnessState: createHarnessState({
+        delegatedTasks: [
+          {
+            id: "delegated-1",
+            title: "整理证据",
+            status: "running",
+          },
+        ],
+      }),
+    });
+
+    const strip = container.querySelector(
+      '[data-testid="agent-runtime-strip"]',
+    );
+    const teamSummary = container.querySelector(
+      '[data-testid="agent-runtime-strip-team-summary"]',
+    );
+
+    expect(strip?.getAttribute("data-collaboration-facts")).toBe("yes");
+    expect(strip?.getAttribute("data-collaboration-surface")).toBe(
+      "runtime_strip",
+    );
+    expect(strip?.getAttribute("data-collaboration-phase")).toBe("acting");
+    expect(strip?.getAttribute("data-collaboration-kind")).toBe(
+      "team_runtime_status",
+    );
+    expect(strip?.getAttribute("data-soul-style-level")).toBe("L1");
+    expect(strip?.getAttribute("data-soul-risk-level")).toBe("normal");
+    expect(teamSummary?.getAttribute("data-collaboration-facts")).toBe("yes");
+    expect(teamSummary?.getAttribute("data-collaboration-phase")).toBe(
+      "acting",
+    );
+    expect(strip?.getAttribute("data-team-roster-source")).toBe("canonical");
+    expect(strip?.getAttribute("data-team-active-count")).toBe("2");
+    expect(strip?.getAttribute("data-team-pending-init-count")).toBe("1");
+  });
+
+  it("canonical roster 应优先并按 Codex 七态独立计数", () => {
+    const canonicalChildren = (
+      [
+        "pendingInit",
+        "running",
+        "interrupted",
+        "completed",
+        "errored",
+        "shutdown",
+        "notFound",
+      ] satisfies CanonicalAgentStatus[]
+    ).map(createCanonicalChild);
+    const container = renderStrip({
+      canonicalChildren,
+      runtimeToolAvailability: CODE_RUNTIME_TOOL_AVAILABILITY,
+    });
+    const strip = container.querySelector(
+      '[data-testid="agent-runtime-strip"]',
+    );
+
+    expect(strip?.getAttribute("data-team-roster-source")).toBe("canonical");
+    expect(strip?.getAttribute("data-team-total-count")).toBe("7");
+    expect(strip?.getAttribute("data-team-active-count")).toBe("2");
+    expect(strip?.getAttribute("data-team-pending-init-count")).toBe("1");
+    expect(strip?.getAttribute("data-team-running-count")).toBe("1");
+    expect(strip?.getAttribute("data-team-queued-count")).toBe("0");
+    expect(strip?.getAttribute("data-team-interrupted-count")).toBe("1");
+    expect(strip?.getAttribute("data-team-completed-count")).toBe("1");
+    expect(strip?.getAttribute("data-team-errored-count")).toBe("1");
+    expect(strip?.getAttribute("data-team-shutdown-count")).toBe("1");
+    expect(strip?.getAttribute("data-team-not-found-count")).toBe("1");
+    expect(
+      container.querySelector(
+        '[data-testid="agent-runtime-strip-status-team_running"]',
+      )?.textContent,
+    ).toContain("任务进行中 2/7");
+    expect(
+      container.querySelector(
+        '[data-testid="agent-runtime-strip-status-team_interrupted"]',
+      )?.textContent,
+    ).toContain("已中断 1");
+  });
+
+  it("空 canonical roster 应保持零计数", () => {
+    const container = renderStrip({
+      canonicalChildren: [],
+      runtimeToolAvailability: CODE_RUNTIME_TOOL_AVAILABILITY,
+    });
+    const strip = container.querySelector(
+      '[data-testid="agent-runtime-strip"]',
+    );
+
+    expect(strip?.getAttribute("data-team-roster-source")).toBe("canonical");
+    expect(strip?.getAttribute("data-team-total-count")).toBe("0");
+    expect(strip?.getAttribute("data-team-active-count")).toBe("0");
+    expect(
+      container.querySelector(
+        '[data-testid="agent-runtime-strip-status-team_running"]',
+      ),
+    ).toBeNull();
+  });
+
+  it("应消费标准 ReasoningState 并显示运行时思考状态", () => {
+    const container = renderStrip({
+      runtimeToolAvailability: CODE_RUNTIME_TOOL_AVAILABILITY,
+      harnessState: createHarnessState({
+        reasoning: {
+          reasoning: {
+            supported: true,
+            status: "running",
+            reasoningId: "reasoning-1",
+            text: "先理解目标。",
+          },
+        },
+      }),
+    });
+
+    expect(
+      container.querySelector(
+        '[data-testid="agent-runtime-strip-status-reasoning"][data-status-key="reasoning"]',
+      )?.textContent,
+    ).toContain("深度思考");
+  });
+
+  it("仅有 model.effective 能力快照时不应显示运行时思考状态", () => {
+    const container = renderStrip({
+      runtimeToolAvailability: CODE_RUNTIME_TOOL_AVAILABILITY,
+      harnessState: createHarnessState({
+        reasoning: {
+          model: {
+            providerId: "openai",
+            modelId: "gpt-codex",
+          },
+          reasoning: {
+            supported: true,
+            requestedLevel: "high",
+            effectiveLevel: "high",
+          },
+        },
+      }),
+    });
+
+    expect(
+      container.querySelector(
+        '[data-testid="agent-runtime-strip-status-reasoning"]',
+      ),
+    ).toBeNull();
   });
 });

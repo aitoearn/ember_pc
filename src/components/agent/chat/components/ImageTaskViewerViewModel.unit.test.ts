@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { changeEmberLocale, getEmberI18n } from "@/i18n/createI18n";
+import { changeLimeLocale, getLimeI18n } from "@/i18n/createI18n";
 
 import {
   buildFollowUpCommand,
+  canRetryImageTask,
   orderTaskOutputsByTaskOutputIds,
   resolveEmptyStateDescription,
   resolveFollowUpLabel,
@@ -28,11 +29,11 @@ import {
 
 describe("ImageTaskViewerViewModel", () => {
   beforeEach(async () => {
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
   });
 
   it("应在中文 locale 下输出稳定文案", () => {
-    const i18n = getEmberI18n();
+    const i18n = getLimeI18n();
     const t = i18n.getFixedT(null, "agent");
 
     expect(resolveModeEyebrow("variation", t)).toBe("图片重绘");
@@ -61,7 +62,7 @@ describe("ImageTaskViewerViewModel", () => {
   });
 
   it("应收敛 mode / status / 槽位与布局展示决策", () => {
-    const i18n = getEmberI18n();
+    const i18n = getLimeI18n();
     const t = i18n.getFixedT(null, "agent");
 
     expect(resolveFollowUpLabel("edit", t)).toBe(
@@ -102,6 +103,9 @@ describe("ImageTaskViewerViewModel", () => {
       "重绘中",
     );
     expect(resolveStatusTone("error")).toContain("rose");
+    expect(canRetryImageTask("error")).toBe(true);
+    expect(canRetryImageTask("cancelled")).toBe(true);
+    expect(canRetryImageTask("complete")).toBe(false);
     expect(resolveEmptyStateDescription("queued", "", "generate", t)).toBe(
       "图片任务已经提交，正在等待服务分配执行槽位。",
     );
@@ -117,7 +121,7 @@ describe("ImageTaskViewerViewModel", () => {
   });
 
   it("应收敛运行合同、策略标签和 follow up 命令", () => {
-    const i18n = getEmberI18n();
+    const i18n = getLimeI18n();
     const t = i18n.getFixedT(null, "agent");
 
     expect(
@@ -144,11 +148,11 @@ describe("ImageTaskViewerViewModel", () => {
     ).toBe("模型能力来自 model_registry · 不支持图片生成");
     expect(
       resolveRuntimeContractPolicyLabel({
-        embercorePolicyEvaluationStatus: "input_gap",
-        embercorePolicyEvaluationDecision: "ask",
-        embercorePolicyEvaluationPendingRefs: ["model_catalog"],
+        limecorePolicyEvaluationStatus: "input_gap",
+        limecorePolicyEvaluationDecision: "ask",
+        limecorePolicyEvaluationPendingRefs: ["model_catalog"],
       } as never),
-    ).toBe("EmberCore 策略输入待命中: 1");
+    ).toBe("LimeCore 策略输入待命中: 1");
     expect(
       buildFollowUpCommand({
         mode: "edit",
@@ -159,7 +163,7 @@ describe("ImageTaskViewerViewModel", () => {
   });
 
   it("应为选中分镜生成稳定的 storyboard 选择信息", () => {
-    const i18n = getEmberI18n();
+    const i18n = getLimeI18n();
     const t = i18n.getFixedT(null, "agent");
 
     const selected = resolveSelectedStoryboardSlot({

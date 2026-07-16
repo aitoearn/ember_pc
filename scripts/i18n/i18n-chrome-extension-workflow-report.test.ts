@@ -13,7 +13,7 @@ const tempDirs: string[] = [];
 
 function createTempDir(): string {
   const dir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ember-i18n-chrome-extension-"),
+    path.join(os.tmpdir(), "lime-i18n-chrome-extension-"),
   );
   tempDirs.push(dir);
   return dir;
@@ -35,17 +35,17 @@ afterEach(() => {
 describe("i18n chrome extension workflow report", () => {
   it("应识别扩展仍使用 InstallI18n registry 而不是 Chrome _locales", () => {
     const root = createTempDir();
-    const extensionRoot = path.join(root, "extensions", "ember-chrome");
+    const extensionRoot = path.join(root, "extensions", "lime-chrome");
 
     writeFile(
       extensionRoot,
       "manifest.json",
       JSON.stringify(
         {
-          action: { default_title: "Ember Browser Bridge" },
-          description: "Attach Ember to your browser.",
+          action: { default_title: "Lime Browser Bridge" },
+          description: "Attach Lime to your browser.",
           manifest_version: 3,
-          name: "Ember Browser Bridge",
+          name: "Lime Browser Bridge",
           version: "0.4.0",
         },
         null,
@@ -63,8 +63,8 @@ describe("i18n chrome extension workflow report", () => {
       [
         "const SUPPORTED_LANGUAGES = ['en', 'zh'];",
         "const OPTIONS_TRANSLATIONS = {",
-        "  en: { title: 'Ember Browser Connector Relay' },",
-        "  zh: { title: 'Ember Browser Connector Relay' },",
+        "  en: { title: 'Lime Browser Connector Relay' },",
+        "  zh: { title: 'Lime Browser Connector Relay' },",
         "};",
       ].join("\n"),
     );
@@ -72,18 +72,18 @@ describe("i18n chrome extension workflow report", () => {
       extensionRoot,
       "pages/options.html",
       [
-        '<h1 data-i18n="title">Ember Browser Bridge</h1>',
+        '<h1 data-i18n="title">Lime Browser Bridge</h1>',
         '<button data-i18n-title="copy">Copy</button>',
-        "<script>InstallI18n.register('en', { title: 'Ember Browser Bridge' });</script>",
-        "<script>InstallI18n.register('zh', { title: 'Ember Browser Bridge' });</script>",
+        "<script>InstallI18n.register('en', { title: 'Lime Browser Bridge' });</script>",
+        "<script>InstallI18n.register('zh', { title: 'Lime Browser Bridge' });</script>",
       ].join("\n"),
     );
     writeFile(
       extensionRoot,
       "pages/install-extension.html",
       [
-        '<p data-i18n="body">Use Ember Agent for Browser Connection.</p>',
-        "<script>InstallI18n.register('de', { title: 'Ember Browser Bridge' });</script>",
+        '<p data-i18n="body">Use Lime Agent for Browser Connection.</p>',
+        "<script>InstallI18n.register('de', { title: 'Lime Browser Bridge' });</script>",
       ].join("\n"),
     );
 
@@ -93,7 +93,7 @@ describe("i18n chrome extension workflow report", () => {
     });
 
     expect(report.schemaVersion).toBe(
-      "ember.i18n.chromeExtensionWorkflowReport.v1",
+      "lime.i18n.chromeExtensionWorkflowReport.v1",
     );
     expect(report.manifest.hasDefaultLocale).toBe(false);
     expect(report.chromeLocales.localesDirExists).toBe(false);
@@ -127,7 +127,7 @@ describe("i18n chrome extension workflow report", () => {
       }),
     );
     expect(
-      report.terminology.find((entry) => entry.term === "Ember Browser Bridge")
+      report.terminology.find((entry) => entry.term === "Lime Browser Bridge")
         ?.present,
     ).toBe(true);
     expect(
@@ -144,20 +144,20 @@ describe("i18n chrome extension workflow report", () => {
       JSON.parse(formatChromeExtensionWorkflowReport(report, "json")),
     ).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.chromeExtensionWorkflowReport.v1",
+        schemaVersion: "lime.i18n.chromeExtensionWorkflowReport.v1",
       }),
     );
   });
 
   it("应识别扩展 registry 与 options translation locale 漂移", () => {
     const root = createTempDir();
-    const extensionRoot = path.join(root, "extensions", "ember-chrome");
+    const extensionRoot = path.join(root, "extensions", "lime-chrome");
 
     writeFile(
       extensionRoot,
       "manifest.json",
       JSON.stringify(
-        { manifest_version: 3, name: "Ember Browser Bridge" },
+        { manifest_version: 3, name: "Lime Browser Bridge" },
         null,
         2,
       ),
@@ -173,8 +173,8 @@ describe("i18n chrome extension workflow report", () => {
       [
         "const SUPPORTED_LANGUAGES = ['en', 'zh'];",
         "const OPTIONS_TRANSLATIONS = {",
-        "  en: { title: 'Ember Browser Bridge' },",
-        "  pt: { title: 'Ember Browser Bridge' },",
+        "  en: { title: 'Lime Browser Bridge' },",
+        "  pt: { title: 'Lime Browser Bridge' },",
         "};",
       ].join("\n"),
     );
@@ -182,9 +182,9 @@ describe("i18n chrome extension workflow report", () => {
       extensionRoot,
       "pages/options.html",
       [
-        '<h1 data-i18n="title">Ember Browser Bridge</h1>',
-        "<script>InstallI18n.register('en', { title: 'Ember Browser Bridge' });</script>",
-        "<script>InstallI18n.register('pt', { title: 'Ember Browser Bridge' });</script>",
+        '<h1 data-i18n="title">Lime Browser Bridge</h1>',
+        "<script>InstallI18n.register('en', { title: 'Lime Browser Bridge' });</script>",
+        "<script>InstallI18n.register('pt', { title: 'Lime Browser Bridge' });</script>",
       ].join("\n"),
     );
 
@@ -208,12 +208,12 @@ describe("i18n chrome extension workflow report", () => {
 
   it("应支持 CLI 写出 JSON", () => {
     const root = createTempDir();
-    const extensionRoot = path.join(root, "extensions", "ember-chrome");
+    const extensionRoot = path.join(root, "extensions", "lime-chrome");
     writeFile(
       extensionRoot,
       "manifest.json",
       JSON.stringify(
-        { manifest_version: 3, name: "Ember Browser Bridge" },
+        { manifest_version: 3, name: "Lime Browser Bridge" },
         null,
         2,
       ),
@@ -231,7 +231,7 @@ describe("i18n chrome extension workflow report", () => {
     writeFile(
       extensionRoot,
       "pages/options.html",
-      '<span data-i18n="title">Ember Browser Bridge</span>\n',
+      '<span data-i18n="title">Lime Browser Bridge</span>\n',
     );
 
     const outFile = path.join(root, "report.json");
@@ -254,7 +254,7 @@ describe("i18n chrome extension workflow report", () => {
     expect(writeSpy).not.toHaveBeenCalled();
     expect(JSON.parse(fs.readFileSync(outFile, "utf8"))).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.chromeExtensionWorkflowReport.v1",
+        schemaVersion: "lime.i18n.chromeExtensionWorkflowReport.v1",
       }),
     );
   });

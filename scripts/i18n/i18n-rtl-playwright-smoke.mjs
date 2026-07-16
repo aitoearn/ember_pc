@@ -16,10 +16,10 @@ const DEFAULTS = {
 
 function printHelp() {
   console.log(`
-Ember RTL Playwright Smoke
+Lime RTL Playwright Smoke
 
 用途:
-  在现有 Ember 页面上强制 RTL 方向，验证首页、Workspace、设置页和用户菜单
+  在现有 Lime 页面上强制 RTL 方向，验证首页、Workspace、设置页和用户菜单
   在方向反转下仍可交互，并输出截图与 JSON evidence。
 
 用法:
@@ -28,7 +28,7 @@ Ember RTL Playwright Smoke
 
 选项:
   --app-url <url>       前端地址，默认 http://127.0.0.1:1420/
-  --evidence-dir <dir>  证据目录，默认 docs/roadmap/i18n/evidence
+  --evidence-dir <dir>  证据目录，默认 internal/roadmap/i18n/evidence
   --timeout-ms <ms>     总超时，默认 120000
   --headed              使用 headed 浏览器
   -h, --help            显示帮助
@@ -108,7 +108,7 @@ async function waitForPageReady(page, timeoutMs) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     if (
-      (await page.title().catch(() => "")) === "Ember" &&
+      (await page.title().catch(() => "")) === "Lime" &&
       (await page
         .locator('button[aria-label="搜索任务"]')
         .count()
@@ -291,7 +291,7 @@ async function runSmoke(options) {
       },
       evidenceDir: options.evidenceDir,
       pageErrors,
-      schemaVersion: "ember.i18n.rtlPlaywrightSmokeReport.v1",
+      schemaVersion: "lime.i18n.rtlPlaywrightSmokeReport.v1",
       screenshots: {
         home: homeScreenshotPath,
         homeFullPage: homeFullPageScreenshotPath,

@@ -1,8 +1,47 @@
 import { describe, expect, it } from "vitest";
 
+import { limeI18nResources } from "@/i18n/createI18n";
+import { SUPPORTED_LOCALES } from "@/i18n/locales";
 import type { AgentToolCallState } from "@/lib/api/agentProtocol";
 
 import { summarizeStreamingToolBatch } from "./toolBatchGrouping";
+
+const TOOL_BATCH_COPY_KEYS = [
+  "agentChat.toolBatch.separator.clause",
+  "agentChat.toolBatch.webSearch.fallback.searchAndFetch",
+  "agentChat.toolBatch.webSearch.fallback.searchOnly",
+  "agentChat.toolBatch.webSearch.latestHint",
+  "agentChat.toolBatch.webSearch.title.running.singleWithHint",
+  "agentChat.toolBatch.webSearch.title.completed.singleWithHint",
+  "agentChat.toolBatch.webSearch.title.running.searchAndFetch",
+  "agentChat.toolBatch.webSearch.title.completed.searchAndFetch",
+  "agentChat.toolBatch.webSearch.title.running.searchOnly",
+  "agentChat.toolBatch.webSearch.title.completed.searchOnly",
+  "agentChat.toolBatch.webSearch.count.searchAndFetch",
+  "agentChat.toolBatch.webSearch.count.searchOnly",
+  "agentChat.toolBatch.webSearch.rawDetail.running.searchAndFetch",
+  "agentChat.toolBatch.webSearch.rawDetail.running.searchOnly",
+  "agentChat.toolBatch.webSearch.rawDetail.completed.searchAndFetch",
+  "agentChat.toolBatch.webSearch.rawDetail.completed.searchOnly",
+  "agentChat.toolBatch.exploration.title.mixed",
+  "agentChat.toolBatch.exploration.title.read",
+  "agentChat.toolBatch.exploration.title.search",
+  "agentChat.toolBatch.exploration.title.list",
+  "agentChat.toolBatch.exploration.detail.read",
+  "agentChat.toolBatch.exploration.detail.search",
+  "agentChat.toolBatch.exploration.detail.list",
+  "agentChat.toolBatch.exploration.latestHint",
+  "agentChat.toolBatch.exploration.count.read",
+  "agentChat.toolBatch.exploration.count.search",
+  "agentChat.toolBatch.exploration.count.list",
+  "agentChat.toolBatch.exploration.count.steps",
+  "agentChat.toolBatch.exploration.rawDetail",
+  "agentChat.toolBatch.browser.title",
+  "agentChat.toolBatch.browser.fallbackLine",
+  "agentChat.toolBatch.browser.latestHint",
+  "agentChat.toolBatch.browser.count",
+  "agentChat.toolBatch.browser.rawDetail",
+] as const;
 
 function createToolCall(
   name: string,
@@ -23,10 +62,18 @@ function createToolCall(
 }
 
 describe("toolBatchGrouping", () => {
+  it("工具批次 copy key 应覆盖所有 current locale", () => {
+    for (const locale of SUPPORTED_LOCALES) {
+      for (const key of TOOL_BATCH_COPY_KEYS) {
+        expect(limeI18nResources[locale].agent).toHaveProperty(key);
+      }
+    }
+  });
+
   it("应把 MCP 搜索与读取归入探索批次", () => {
     const summary = summarizeStreamingToolBatch([
       createToolCall("mcp__github__search_code", {
-        query: "repo:ember tool runtime",
+        query: "repo:lime tool runtime",
       }),
       createToolCall("mcp__github__get_file_contents", {
         path: "docs/guide.md",
@@ -153,6 +200,218 @@ describe("toolBatchGrouping", () => {
     expect(summary?.supportingLines).toContain("AP world news June 2026");
     expect(summary?.supportingLines).toContain(
       "https://apnews.com/hub/world-news",
+    );
+  });
+
+  it("应优先使用 tool_process_facts.operationKind 聚合未知工具批次", () => {
+    const summary = summarizeStreamingToolBatch([
+      {
+        ...createToolCall("RuntimeProvidedTool"),
+        metadata: {
+          tool_process_facts: {
+            source: "runtime_facts",
+            toolName: "RuntimeProvidedTool",
+            operationKind: "web_search",
+            subject: "Soul output surface",
+          },
+        },
+      },
+      {
+        ...createToolCall("RuntimeFetchTool"),
+        metadata: {
+          tool_process_facts: {
+            source: "runtime_facts",
+            toolName: "RuntimeFetchTool",
+            operation_kind: "web_fetch",
+            subject: "https://example.com/soul",
+          },
+        },
+      },
+    ]);
+
+    expect(summary).toEqual(
+      expect.objectContaining({
+        kind: "web_search",
+        title: "已搜索网页 1 次，读取网页 1 次",
+        countLabel: "搜 1 / 读 1",
+      }),
+    );
+    expect(summary?.supportingLines).toEqual(
+      expect.arrayContaining(["Soul output surface", "example.com/soul"]),
+    );
+  });
+
+  it("应把工具生命周期 Soul metadata 透传到批次 descriptor", () => {
+    const summary = summarizeStreamingToolBatch([
+      {
+        ...createToolCall("web_search", {
+          query: "Lime Soul tool lifecycle",
+        }),
+        metadata: {
+          soul_lifecycle: {
+            surface: "tool_lifecycle",
+            phase: "after_tool_success",
+            status: "completed",
+            styleLevel: "L2",
+            riskLevel: "normal",
+            toneVariant: "cheeky_sassy",
+            profileId: "cheeky_sassy_executor",
+            packId: "com.lime.soul.cheeky-sassy-executor",
+          },
+          soul_surface: "tool_lifecycle",
+          soul_phase: "after_tool_success",
+          style_level: "L2",
+          risk_level: "normal",
+          tone_variant: "cheeky_sassy",
+          profile_id: "cheeky_sassy_executor",
+          pack_id: "com.lime.soul.cheeky-sassy-executor",
+        },
+      },
+    ]);
+
+    expect(summary).toEqual(
+      expect.objectContaining({
+        kind: "web_search",
+        soulLifecycle: expect.objectContaining({
+          phase: "after_tool_success",
+          surface: "tool_lifecycle",
+        }),
+        soulSurface: "tool_lifecycle",
+        soulPhase: "after_tool_success",
+        styleLevel: "L2",
+        riskLevel: "normal",
+        toneVariant: "cheeky_sassy",
+        profileId: "cheeky_sassy_executor",
+        packId: "com.lime.soul.cheeky-sassy-executor",
+      }),
+    );
+  });
+
+  it("单条 WebSearch 也应生成网页搜索摘要", () => {
+    const summary = summarizeStreamingToolBatch([
+      createToolCall("web_search", {
+        query: "Lime history import",
+      }),
+    ]);
+
+    expect(summary).toEqual(
+      expect.objectContaining({
+        kind: "web_search",
+        title: "已搜索网页：Lime history import",
+        countLabel: "1 次",
+        rawDetailLabel: "展开查看搜索来源",
+      }),
+    );
+    expect(summary?.supportingLines).toContain("Lime history import");
+  });
+
+  it("Codex web_search action object 应使用 query 作为搜索标题而不是渲染 JSON", () => {
+    const summary = summarizeStreamingToolBatch([
+      {
+        ...createToolCall("web_search", {
+          action: {
+            type: "search_query",
+            query: "codex desktop search rendering",
+          },
+        }),
+        status: "running",
+      },
+    ]);
+
+    expect(summary).toEqual(
+      expect.objectContaining({
+        kind: "web_search",
+        title: "正在搜索网页 codex desktop search rendering",
+      }),
+    );
+    expect(summary?.supportingLines.join("\n")).toContain(
+      "codex desktop search rendering",
+    );
+    expect(summary?.supportingLines.join("\n")).not.toContain("{");
+    expect(summary?.supportingLines.join("\n")).not.toContain("search_query");
+  });
+
+  it("全部 WebSearch 失败时仍应聚合为轻量网页搜索轨迹", () => {
+    const diagnosticOutput = JSON.stringify({
+      metadata: {
+        web_search: {
+          attempts: [
+            {
+              error: "缺少环境变量 TAVILY_API_KEY",
+            },
+          ],
+        },
+      },
+    });
+    const summary = summarizeStreamingToolBatch([
+      {
+        ...createToolCall("web_search", {
+          query: "today world news Reuters",
+        }),
+        status: "failed",
+        result: {
+          success: false,
+          output: diagnosticOutput,
+          error: diagnosticOutput,
+        },
+      },
+      {
+        ...createToolCall("mcp__system__web_search", {
+          query: "AP world news June 2026",
+        }),
+        status: "failed",
+        result: {
+          success: false,
+          output: diagnosticOutput,
+          error: diagnosticOutput,
+        },
+      },
+    ]);
+
+    expect(summary).toEqual(
+      expect.objectContaining({
+        kind: "web_search",
+        title: "已搜索网页 2 次",
+        countLabel: "2 次",
+        rawDetailLabel: "展开查看搜索来源",
+      }),
+    );
+    expect(summary?.supportingLines).toEqual(
+      expect.arrayContaining([
+        "today world news Reuters",
+        "AP world news June 2026",
+      ]),
+    );
+    expect(summary?.supportingLines.join("\n")).not.toContain("TAVILY_API_KEY");
+    expect(summary?.supportingLines.join("\n")).not.toContain("metadata");
+  });
+
+  it("运行中的 WebSearch / WebFetch 应展示搜索进行态而不是完成态", () => {
+    const summary = summarizeStreamingToolBatch([
+      {
+        ...createToolCall("web_search", {
+          query: "today world news Reuters",
+        }),
+        status: "running",
+      },
+      {
+        ...createToolCall("WebFetch", {
+          url: "https://www.reuters.com/world/",
+        }),
+        status: "running",
+      },
+    ]);
+
+    expect(summary).toEqual(
+      expect.objectContaining({
+        kind: "web_search",
+        title: "正在搜索网页 1 次，读取网页 1 次",
+        countLabel: "搜 1 / 读 1",
+        rawDetailLabel: "展开查看搜索与读取进度",
+      }),
+    );
+    expect(summary?.supportingLines).toEqual(
+      expect.arrayContaining(["today world news Reuters", "reuters.com/world"]),
     );
   });
 
@@ -332,19 +591,29 @@ describe("toolBatchGrouping", () => {
     expect(summary).toEqual(
       expect.objectContaining({
         kind: "web_search",
-        title: "已搜索网页 1 次",
-        countLabel: "1 次",
-        rawDetailLabel: "展开查看搜索来源",
+        title: "已搜索网页 1 次，读取网页 2 次",
+        countLabel: "搜 1 / 读 2",
+        rawDetailLabel: "展开查看搜索与读取来源",
       }),
     );
     expect(summary?.supportingLines).toEqual(
       expect.arrayContaining([
         "June 2 2026 world news",
         "Reuters World News",
-        "https://www.reuters.com/world/",
-        "https://news.un.org/en/",
+        "reuters.com/world",
+        "news.un.org/en",
       ]),
     );
+    expect(summary?.supportingSections).toEqual([
+      {
+        kind: "web_search_sources",
+        lines: ["June 2 2026 world news", "Reuters World News"],
+      },
+      {
+        kind: "web_fetch_pages",
+        lines: ["reuters.com/world", "news.un.org/en"],
+      },
+    ]);
   });
 
   it("普通搜索工具仍应按项目线索展示，避免混成 WebSearch", () => {
@@ -403,10 +672,10 @@ describe("toolBatchGrouping", () => {
 
   it("应继续把浏览器 MCP 步骤聚合为页面检查摘要", () => {
     const summary = summarizeStreamingToolBatch([
-      createToolCall("mcp__ember-browser__navigate", {
+      createToolCall("mcp__lime-browser__navigate", {
         url: "https://example.com",
       }),
-      createToolCall("mcp__ember-browser__click", {
+      createToolCall("mcp__lime-browser__click", {
         selector: "#cta",
       }),
     ]);

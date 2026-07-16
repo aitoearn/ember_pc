@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ExternalLink, FileText, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { openExternalUrlWithSystemBrowser } from "@/lib/api/externalUrl";
 import { cn } from "@/lib/utils";
 import { skillsApi } from "@/lib/api/skills";
 import { MarkdownRenderer } from "./MarkdownRenderer";
@@ -13,6 +12,7 @@ import {
 } from "../hooks/agentChatToolResult";
 import type { AgentToolCallState as ToolCallState } from "@/lib/api/agentProtocol";
 import type { SiteSavedContentTarget } from "../types";
+import type { SearchResultPreviewItem } from "../utils/searchResultPreview";
 import {
   buildToolHeadline,
   getToolDisplayInfo,
@@ -25,401 +25,77 @@ import {
   isUnifiedWebSearchToolName,
   resolveSearchResultPreviewItemsFromText,
 } from "../utils/searchResultPreview";
+import { isUnifiedWebFetchToolName } from "../utils/toolNameFamily";
+import { attachUrlPreviewSnapshotsToSearchResults } from "../utils/urlPreviewSnapshot";
 import {
-  normalizeSiteToolResultSummary,
-  resolveSiteProjectTargetLabel,
   resolveSiteSavedContentTargetDisplayName,
   resolveSiteSavedContentTargetRelativePath,
   resolveSiteSavedContentTargetFromMetadata,
 } from "../utils/siteToolResultSummary";
-import {
-  normalizeToolSearchResultSummary,
-  resolveUserFacingToolSearchItemLabel,
-} from "../utils/toolSearchResultSummary";
+import { normalizeToolSearchResultSummary } from "../utils/toolSearchResultSummary";
+import { resolveTaskBoardResultDetailText } from "../utils/taskBoardToolResultDetail";
 import {
   resolveToolErrorDetailText,
   resolveToolProcessNarrative,
   isLikelyWebRetrievalDiagnosticNoise,
 } from "../utils/toolProcessSummary";
+import { resolveToolSoulMetadataDomAttributes } from "../utils/toolSoulLifecycleMetadata";
+import { resolveMemoryToolEvidence } from "../utils/memoryToolEvidence";
+import {
+  resolveWorkspaceSkillRuntimeEnableResultDisplay,
+  shouldHideProtocolToolResultEnvelope,
+  shouldHideToolResultEnvelope,
+} from "../utils/toolResultEnvelopeDisplay";
+import {
+  normalizeToolResultDetailText,
+  resolveStructuredToolContentDetailText,
+  resolveToolResultStructuredContent,
+  sanitizeToolResultDetailMarkdown,
+} from "../utils/toolResultDetailText";
 import {
   isLimeTaskProtocolFailure,
   resolveLimeTaskProtocolFailureDisplayText,
-} from "../utils/emberTaskProtocolNoise";
+} from "../utils/limeTaskProtocolNoise";
+import { MemoryToolEvidencePanel } from "./MemoryToolEvidencePanel";
+import {
+  asRecord,
+  buildSiteNoticeLines,
+  normalizeSummaryLine,
+  readBoolean,
+  readNumber,
+  readString,
+  resolveWebFetchResultText,
+  summarizeDiagnosticResultPreview,
+  summarizeResultText,
+  summarizeSearchResultPreview,
+  summarizeToolSearchPreview,
+} from "./InlineToolProcessStepViewModel";
 
 interface InlineToolProcessStepProps {
   toolCall: ToolCallState;
   grouped?: boolean;
   groupMarker?: string;
+  isActiveProcess?: boolean;
   isMessageStreaming?: boolean;
   onFileClick?: (fileName: string, content: string) => void;
   onOpenSavedSiteContent?: (target: SiteSavedContentTarget) => void;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-  return value as Record<string, unknown>;
-}
-
-function readString(
-  record: Record<string, unknown> | null,
-  keys: string[],
-): string | null {
-  if (!record) {
-    return null;
-  }
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-  return null;
-}
-
-function readNumber(
-  record: Record<string, unknown> | null,
-  keys: string[],
-): number | null {
-  if (!record) {
-    return null;
-  }
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return value;
-    }
-  }
-  return null;
-}
-
-function readBoolean(
-  record: Record<string, unknown> | null,
-  keys: string[],
-): boolean | null {
-  if (!record) {
-    return null;
-  }
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "boolean") {
-      return value;
-    }
-  }
-  return null;
-}
-
-function summarizeResultText(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  const singleLine = trimmed.replace(/\s+/g, " ");
-  if (singleLine.length <= 180) {
-    return singleLine;
-  }
-  return `${singleLine.slice(0, 180).trim()}...`;
-}
-
-const LARGE_RESULT_AUTO_COLLAPSE_CHARS = 1200;
-const STRUCTURED_DETAIL_TEXT_KEYS = [
-  "markdown",
-  "markdownContent",
-  "markdown_content",
-  "contentMarkdown",
-  "content_markdown",
-  "bodyMarkdown",
-  "body_markdown",
-  "content",
-  "text",
-  "body",
-  "summary",
-  "description",
-  "output",
-] as const;
-const STRUCTURED_DETAIL_OBJECT_KEYS = [
-  "result",
-  "data",
-  "page",
-  "article",
-  "document",
-  "content",
-] as const;
-const TASK_BOARD_TOOL_NAMES = new Set([
-  "taskcreate",
-  "tasklist",
-  "taskget",
-  "taskupdate",
-]);
-
-function sanitizeToolResultDetailMarkdown(value: string): string {
-  return value.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function parseStructuredToolResult(value: string): unknown {
-  const trimmed = value.trim();
-  if (!trimmed || (!trimmed.startsWith("{") && !trimmed.startsWith("["))) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    return null;
-  }
-}
-
-function readArray(
-  record: Record<string, unknown> | null,
-  keys: string[],
-): unknown[] | null {
-  if (!record) {
-    return null;
-  }
-  for (const key of keys) {
-    const value = record[key];
-    if (Array.isArray(value)) {
-      return value;
-    }
-  }
-  return null;
-}
-
-function taskRecordFrom(value: unknown): Record<string, unknown> | null {
-  return asRecord(value);
-}
-
-function readTaskSubject(
-  record: Record<string, unknown> | null,
-): string | null {
-  return readString(record, ["subject", "content", "title", "description"]);
-}
-
-function readTaskStatus(record: Record<string, unknown> | null): string | null {
-  return readString(record, ["status", "state"]);
-}
-
-function readTaskId(record: Record<string, unknown> | null): string | null {
-  return readString(record, ["id", "taskId", "task_id"]);
-}
-
-function formatTaskLine(record: Record<string, unknown>): string | null {
-  const id = readTaskId(record);
-  const subject = readTaskSubject(record);
-  const status = readTaskStatus(record);
-  const label = [id ? `#${id}` : null, subject].filter(Boolean).join(" ");
-  const main = label || status;
-  if (!main) {
-    return null;
-  }
-  return status && label ? `${main} · ${status}` : main;
-}
-
-function resolveTaskBoardResultDetailText(params: {
-  toolName: string;
-  outputText: string;
-  metadata: Record<string, unknown> | null;
-  fallbackSummary: string | null;
-}): string | null {
-  const normalizedName = normalizeToolNameKey(params.toolName);
-  if (!TASK_BOARD_TOOL_NAMES.has(normalizedName)) {
-    return null;
-  }
-
-  const parsedOutput = parseStructuredToolResult(params.outputText);
-  const outputRecord = asRecord(parsedOutput);
-  const metadata = params.metadata;
-  const task =
-    taskRecordFrom(metadata?.task) || taskRecordFrom(outputRecord?.task);
-  const tasks =
-    readArray(metadata, ["tasks", "task_list"]) ||
-    readArray(outputRecord, ["tasks", "task_list"]);
-  const lines: string[] = [];
-
-  if (task) {
-    const taskLine = formatTaskLine(task);
-    if (taskLine) {
-      lines.push(taskLine);
-    }
-  }
-
-  if (!task && normalizedName === "taskget") {
-    lines.push("未找到任务");
-  }
-
-  if (tasks) {
-    const taskLines = tasks
-      .map((item) => taskRecordFrom(item))
-      .filter((item): item is Record<string, unknown> => Boolean(item))
-      .map(formatTaskLine)
-      .filter((item): item is string => Boolean(item));
-    if (taskLines.length > 0) {
-      lines.push(...taskLines.slice(0, 5));
-      if (taskLines.length > 5) {
-        lines.push(`还有 ${taskLines.length - 5} 个任务`);
-      }
-    } else if (normalizedName === "tasklist") {
-      lines.push("任务列表为空");
-    }
-  }
-
-  const summary = params.fallbackSummary?.trim();
-  if (summary && !lines.includes(summary)) {
-    lines.unshift(summary);
-  }
-
-  return lines.length > 0 ? lines.join("\n") : summary || null;
-}
-
-function extractStructuredToolDetailText(
-  value: unknown,
-  visited = new Set<unknown>(),
-): string | null {
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    return trimmed || null;
-  }
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  if (visited.has(value)) {
-    return null;
-  }
-  visited.add(value);
-
-  if (Array.isArray(value)) {
-    const parts = value
-      .map((item) => extractStructuredToolDetailText(item, visited))
-      .filter((item): item is string => Boolean(item));
-    return parts.length > 0 ? parts.slice(0, 3).join("\n\n") : null;
-  }
-
-  const record = value as Record<string, unknown>;
-  for (const key of STRUCTURED_DETAIL_TEXT_KEYS) {
-    const candidate = record[key];
-    if (typeof candidate === "string" && candidate.trim()) {
-      return candidate.trim();
-    }
-  }
-
-  for (const key of STRUCTURED_DETAIL_OBJECT_KEYS) {
-    const nested = record[key];
-    if (nested && typeof nested === "object") {
-      const candidate = extractStructuredToolDetailText(nested, visited);
-      if (candidate) {
-        return candidate;
-      }
-    }
-  }
-
-  return null;
-}
-
-function normalizeToolResultDetailText(value: string): string {
-  const parsed = parseStructuredToolResult(value);
-  if (!parsed) {
-    return value;
-  }
-
-  return extractStructuredToolDetailText(parsed) || value;
-}
-
-function summarizeToolSearchPreview(
-  value: ReturnType<typeof normalizeToolSearchResultSummary>,
-): string | null {
-  if (!value) {
-    return null;
-  }
-
-  const toolNames = value.tools
-    .slice(0, 2)
-    .map((item) => resolveUserFacingToolSearchItemLabel(item.name))
-    .filter(Boolean);
-  const prefix = `找到工具 ${value.count} 个`;
-
-  if (toolNames.length === 0) {
-    return prefix;
-  }
-
-  return `${prefix} · ${toolNames.join(" · ")}`;
-}
-
-function summarizeSearchResultPreview(resultCount: number): string | null {
-  if (resultCount <= 0) {
-    return null;
-  }
-
-  return `找到 ${resultCount} 条搜索结果`;
-}
-
-function normalizeSummaryLine(
-  value: string | null,
-  headline: string,
-): string | null {
-  const normalized = value?.trim();
-  if (!normalized) {
-    return null;
-  }
-
-  const normalizedHeadline = headline.trim();
-  if (normalized === normalizedHeadline) {
-    return null;
-  }
-
-  return normalized;
-}
-
-function buildSiteNoticeLines(toolCall: ToolCallState): string[] {
-  const summary = normalizeSiteToolResultSummary(toolCall.result?.metadata);
-  if (!summary) {
-    return [];
-  }
-
-  const lines: string[] = [];
-  const savedProjectId =
-    summary.savedProjectId || summary.savedContent?.projectId || "";
-  const savedProjectTarget = resolveSiteProjectTargetLabel({
-    source: summary.savedBy,
-    projectId: savedProjectId || undefined,
-  });
-
-  if (summary.savedContent?.title) {
-    lines.push(`已保存到${savedProjectTarget}：${summary.savedContent.title}`);
-  }
-
-  if (summary.savedContent?.markdownRelativePath) {
-    lines.push("已导出 Markdown 文稿");
-  }
-
-  if (typeof summary.savedContent?.imageCount === "number") {
-    lines.push(`附带图片 ${summary.savedContent.imageCount} 张`);
-  }
-
-  if (summary.saveSkippedProjectId) {
-    const skippedProjectTarget = resolveSiteProjectTargetLabel({
-      source: summary.saveSkippedBy,
-      projectId: summary.saveSkippedProjectId,
-    });
-    lines.push(`未保存到${skippedProjectTarget}`);
-  }
-
-  if (summary.saveErrorMessage) {
-    lines.push(`自动保存失败：${summary.saveErrorMessage}`);
-  }
-
-  return lines;
+  onOpenUrlPreview?: (item: SearchResultPreviewItem) => void;
+  urlPreviewToolCalls?: ToolCallState[];
 }
 
 export const InlineToolProcessStep: React.FC<InlineToolProcessStepProps> = ({
   toolCall,
   grouped = false,
   groupMarker = "•",
+  isActiveProcess,
   isMessageStreaming = false,
   onFileClick,
   onOpenSavedSiteContent,
+  onOpenUrlPreview,
+  urlPreviewToolCalls,
 }) => {
   const { t } = useTranslation("agent");
+  const shouldTreatAsActiveProcess = isActiveProcess ?? isMessageStreaming;
   const [expanded, setExpanded] = useState(false);
   const [skillContentExpanded, setSkillContentExpanded] = useState(false);
   const [fetchedSkillContent, setFetchedSkillContent] = useState<string | null>(
@@ -442,15 +118,48 @@ export const InlineToolProcessStep: React.FC<InlineToolProcessStepProps> = ({
     [toolCall.name, toolCall.status],
   );
   const ToolIcon = toolDisplay.icon;
-  const metadata = useMemo(
-    () => asRecord(toolCall.result?.metadata),
-    [toolCall.result?.metadata],
+  const metadata = useMemo(() => {
+    const merged = {
+      ...(asRecord(toolCall.metadata) || {}),
+      ...(asRecord(toolCall.result?.metadata) || {}),
+    };
+    return Object.keys(merged).length > 0 ? merged : null;
+  }, [toolCall.metadata, toolCall.result?.metadata]);
+  const normalizedToolName = useMemo(
+    () => normalizeToolNameKey(toolCall.name),
+    [toolCall.name],
   );
+  const isToolSearch = useMemo(
+    () => normalizedToolName === "toolsearch",
+    [normalizedToolName],
+  );
+  const isMcpStructuredToolResult = useMemo(
+    () =>
+      normalizedToolName === "mcp" ||
+      toolCall.name.trim().toLowerCase().startsWith("mcp__"),
+    [normalizedToolName, toolCall.name],
+  );
+  const isSkillLikeTool =
+    toolDisplay.family === "skill" ||
+    metadata?.tool_family === "skill" ||
+    normalizedToolName === "skill" ||
+    normalizedToolName === "skilltool" ||
+    normalizedToolName === "limerunserviceskill";
+  const shouldSuppressTransientResultText =
+    (toolCall.status === "running" || isMessageStreaming) &&
+    !isToolSearch &&
+    !isUnifiedWebSearchToolName(toolCall.name) &&
+    !isUnifiedWebFetchToolName(toolCall.name);
+  const shouldSuppressResultText =
+    shouldSuppressTransientResultText || toolDisplay.family === "vision";
   const filePath = useMemo(() => resolveToolFilePath(parsedArgs), [parsedArgs]);
   const fileContent = useMemo(() => {
     const content = parsedArgs.content || parsedArgs.text;
-    return content ? String(content) : "";
-  }, [parsedArgs.content, parsedArgs.text]);
+    if (content) {
+      return String(content);
+    }
+    return toolCall.result?.output ? String(toolCall.result.output) : "";
+  }, [parsedArgs.content, parsedArgs.text, toolCall.result?.output]);
   const subject = useMemo(
     () => resolveToolPrimarySubject(toolCall.name, parsedArgs, filePath),
     [filePath, parsedArgs, toolCall.name],
@@ -459,7 +168,53 @@ export const InlineToolProcessStep: React.FC<InlineToolProcessStepProps> = ({
     const rawText = toolCall.result?.error || toolCall.result?.output || "";
     return extractLimeToolMetadataBlock(rawText).text.trim();
   }, [toolCall.result?.error, toolCall.result?.output]);
-  const emberTaskProtocolFailureText = useMemo(() => {
+  const structuredContentValue = useMemo(
+    () => resolveToolResultStructuredContent(toolCall.result),
+    [toolCall.result],
+  );
+  const structuredContentDetail = useMemo(
+    () => resolveStructuredToolContentDetailText(structuredContentValue),
+    [structuredContentValue],
+  );
+  const shouldPreferStructuredProtocolResult = useMemo(
+    () =>
+      toolCall.status !== "failed" &&
+      Boolean(structuredContentDetail) &&
+      shouldHideProtocolToolResultEnvelope({
+        toolName: toolCall.name,
+        rawResultText,
+        structuredContent: structuredContentValue,
+      }),
+    [
+      rawResultText,
+      structuredContentDetail,
+      structuredContentValue,
+      toolCall.name,
+      toolCall.status,
+    ],
+  );
+  const shouldHideResultEnvelope = useMemo(
+    () =>
+      shouldHideToolResultEnvelope({
+        toolName: toolCall.name,
+        rawResultText,
+        metadata,
+        result: toolCall.result,
+      }),
+    [metadata, rawResultText, toolCall.name, toolCall.result],
+  );
+  const workspaceSkillRuntimeEnableSummary = useMemo(
+    () =>
+      resolveWorkspaceSkillRuntimeEnableResultDisplay({
+        toolName: toolCall.name,
+        rawResultText,
+        metadata,
+        translate: (key, defaultValue, options) =>
+          String(t(key, { defaultValue, ...options })),
+      }),
+    [metadata, rawResultText, t, toolCall.name],
+  );
+  const limeTaskProtocolFailureText = useMemo(() => {
     if (toolCall.status !== "failed") {
       return null;
     }
@@ -476,52 +231,113 @@ export const InlineToolProcessStep: React.FC<InlineToolProcessStepProps> = ({
   }, [rawResultText, toolCall.name, toolCall.status]);
   const headline = useMemo(
     () =>
-      emberTaskProtocolFailureText ||
+      limeTaskProtocolFailureText ||
       buildToolHeadline({
         toolDisplay,
         subject,
         toolName: toolCall.name,
       }),
-    [emberTaskProtocolFailureText, subject, toolCall.name, toolDisplay],
+    [limeTaskProtocolFailureText, subject, toolCall.name, toolDisplay],
   );
   const processNarrative = useMemo(
     () => resolveToolProcessNarrative(toolCall),
     [toolCall],
   );
+  const soulLifecycleAttributes = useMemo(
+    () => resolveToolSoulMetadataDomAttributes(processNarrative),
+    [processNarrative],
+  );
+  const memoryToolEvidence = useMemo(
+    () => resolveMemoryToolEvidence(toolCall),
+    [toolCall],
+  );
   const resultText = useMemo(() => {
+    const fallbackSummary =
+      processNarrative.postSummary ||
+      processNarrative.summary ||
+      processNarrative.preSummary ||
+      "";
+
+    if (shouldSuppressResultText) {
+      return "";
+    }
+
+    if (shouldPreferStructuredProtocolResult) {
+      return structuredContentDetail || "";
+    }
+
+    if (isMcpStructuredToolResult && structuredContentDetail) {
+      return structuredContentDetail;
+    }
+
+    if (isUnifiedWebFetchToolName(toolCall.name)) {
+      return resolveWebFetchResultText({
+        rawResultText,
+        fallbackSummary,
+      });
+    }
+
+    if (shouldHideResultEnvelope) {
+      return toolCall.status === "running"
+        ? ""
+        : structuredContentDetail || fallbackSummary || "";
+    }
+
     if (toolCall.status !== "failed") {
       return (
         resolveTaskBoardResultDetailText({
           toolName: toolCall.name,
           outputText: rawResultText,
           metadata,
-          fallbackSummary:
-            processNarrative.postSummary ||
-            processNarrative.summary ||
-            processNarrative.preSummary,
-        }) || normalizeToolResultDetailText(rawResultText)
+          fallbackSummary,
+          copy: {
+            taskNotFound: () =>
+              t("agentChat.toolCall.taskBoard.notFound", "Task not found"),
+            moreTasks: (count) =>
+              t("agentChat.toolCall.taskBoard.moreTasks", {
+                count,
+                defaultValue: "{{count}} more tasks",
+              }),
+            emptyTaskList: () =>
+              t(
+                "agentChat.toolCall.taskBoard.emptyTaskList",
+                "Task list is empty",
+              ),
+          },
+        }) ||
+        normalizeToolResultDetailText(rawResultText) ||
+        structuredContentDetail ||
+        ""
       );
     }
 
     return (
-      resolveToolErrorDetailText(toolCall.name, rawResultText) || rawResultText
+      resolveToolErrorDetailText(toolCall.name, rawResultText) ||
+      rawResultText ||
+      structuredContentDetail ||
+      ""
     );
   }, [
+    isMcpStructuredToolResult,
     metadata,
     processNarrative.postSummary,
     processNarrative.preSummary,
     processNarrative.summary,
     rawResultText,
+    shouldHideResultEnvelope,
+    shouldPreferStructuredProtocolResult,
+    shouldSuppressResultText,
+    structuredContentDetail,
+    t,
     toolCall.name,
     toolCall.status,
   ]);
-  const shouldHideRawDiagnosticDetail = useMemo(
+  const isRawDiagnosticDetail = useMemo(
     () =>
-      toolCall.status !== "failed" &&
       processNarrative.postSource === "error" &&
       Boolean(rawResultText) &&
       isLikelyWebRetrievalDiagnosticNoise(rawResultText),
-    [processNarrative.postSource, rawResultText, toolCall.status],
+    [processNarrative.postSource, rawResultText],
   );
   const resultDetailMarkdown = useMemo(
     () => sanitizeToolResultDetailMarkdown(resultText),
@@ -531,18 +347,33 @@ export const InlineToolProcessStep: React.FC<InlineToolProcessStepProps> = ({
     () => summarizeResultText(resultText),
     [resultText],
   );
+  const liveResultPreview = useMemo(() => {
+    if (
+      toolCall.status !== "running" ||
+      !rawResultText ||
+      isSkillLikeTool ||
+      toolDisplay.family === "vision" ||
+      shouldHideResultEnvelope
+    ) {
+      return null;
+    }
+
+    return summarizeResultText(normalizeToolResultDetailText(rawResultText));
+  }, [
+    isSkillLikeTool,
+    rawResultText,
+    shouldHideResultEnvelope,
+    toolCall.status,
+    toolDisplay.family,
+  ]);
   const resultImages = useMemo(
     () =>
       normalizeToolResultImages(
         toolCall.result?.images,
         rawResultText,
-        toolCall.result?.metadata,
+        metadata,
       ) || [],
-    [rawResultText, toolCall.result?.images, toolCall.result?.metadata],
-  );
-  const isToolSearch = useMemo(
-    () => normalizeToolNameKey(toolCall.name) === "toolsearch",
-    [toolCall.name],
+    [metadata, rawResultText, toolCall.result?.images],
   );
   const toolSearchSummary = useMemo(
     () =>
@@ -554,17 +385,38 @@ export const InlineToolProcessStep: React.FC<InlineToolProcessStepProps> = ({
       return [];
     }
 
-    return resolveSearchResultPreviewItemsFromText(rawResultText);
-  }, [rawResultText, toolCall.name]);
+    const items = resolveSearchResultPreviewItemsFromText(rawResultText);
+    return attachUrlPreviewSnapshotsToSearchResults({
+      items,
+      toolCalls: urlPreviewToolCalls,
+    });
+  }, [rawResultText, toolCall.name, urlPreviewToolCalls]);
   const structuredResultPreview = useMemo(() => {
+    if (shouldSuppressResultText) {
+      return null;
+    }
     if (toolSearchSummary) {
       return summarizeToolSearchPreview(toolSearchSummary);
+    }
+    if (memoryToolEvidence) {
+      return memoryToolEvidence.summary;
     }
     if (searchResultItems.length > 0) {
       return summarizeSearchResultPreview(searchResultItems.length);
     }
+    if (isRawDiagnosticDetail) {
+      return summarizeDiagnosticResultPreview(rawResultText);
+    }
     return resultPreview;
-  }, [resultPreview, searchResultItems.length, toolSearchSummary]);
+  }, [
+    isRawDiagnosticDetail,
+    memoryToolEvidence,
+    rawResultText,
+    resultPreview,
+    searchResultItems.length,
+    shouldSuppressResultText,
+    toolSearchSummary,
+  ]);
   const savedSiteContentTarget = useMemo(
     () => resolveSiteSavedContentTargetFromMetadata(toolCall.result?.metadata),
     [toolCall.result?.metadata],
@@ -588,10 +440,7 @@ export const InlineToolProcessStep: React.FC<InlineToolProcessStepProps> = ({
   const skillSource =
     readString(metadata, ["skill_source", "skillSource"]) ||
     readString(argsRecord, ["source"]);
-  const isSkillInvocation =
-    toolDisplay.family === "skill" ||
-    metadata?.tool_family === "skill" ||
-    skillSource === "SKILL.md";
+  const isSkillInvocation = isSkillLikeTool || skillSource === "SKILL.md";
   const skillName =
     readString(metadata, ["skill_name", "skillName"]) ||
     readString(argsRecord, ["skill", "name"]);
@@ -625,67 +474,104 @@ export const InlineToolProcessStep: React.FC<InlineToolProcessStepProps> = ({
     ? t("agentChat.toolCall.skillContent.title.snapshot")
     : t("agentChat.toolCall.skillContent.title.current");
   const processSummary = useMemo(() => {
+    const streamingResultPreview = liveResultPreview || structuredResultPreview;
     const streamingOutputSummary =
-      toolCall.status === "running" && structuredResultPreview
-        ? `实时输出：${structuredResultPreview}`
+      toolCall.status === "running" && streamingResultPreview
+        ? t("agentChat.toolCall.inline.streamingOutput", {
+            value: streamingResultPreview,
+          })
         : null;
     const progressSummary =
       toolCall.status === "running" && toolCall.progress?.message
-        ? `进度：${toolCall.progress.message}`
+        ? t("agentChat.toolCall.inline.progress", {
+            message: toolCall.progress.message,
+          })
         : null;
-    const preferredSummary =
-      toolCall.status === "running"
-        ? streamingOutputSummary ||
-          progressSummary ||
-          processNarrative.preSummary
-        : processNarrative.postSource === "generic" && structuredResultPreview
-          ? structuredResultPreview
+    const transientSummary = shouldSuppressResultText
+      ? streamingOutputSummary || progressSummary || processNarrative.preSummary
+      : null;
+    const shouldPreferResultPreview =
+      toolCall.status !== "running" &&
+      Boolean(structuredResultPreview) &&
+      (shouldPreferStructuredProtocolResult ||
+        (isMcpStructuredToolResult && Boolean(structuredContentDetail)) ||
+        (toolDisplay.family === "command" &&
+          (processNarrative.postSource === "generic" ||
+            processNarrative.postSource === "none")));
+    const preferredSummary = transientSummary
+      ? transientSummary
+      : shouldPreferResultPreview
+        ? structuredResultPreview
+        : toolCall.status === "running"
+          ? isSkillLikeTool
+            ? progressSummary || processNarrative.preSummary
+            : streamingOutputSummary ||
+              progressSummary ||
+              processNarrative.preSummary
           : processNarrative.postSummary ||
-            structuredResultPreview ||
+            (processNarrative.postSource === "generic"
+              ? processNarrative.preSummary
+              : structuredResultPreview) ||
             processNarrative.preSummary;
 
     return normalizeSummaryLine(preferredSummary, headline);
   }, [
     headline,
+    isSkillLikeTool,
+    isMcpStructuredToolResult,
+    liveResultPreview,
     processNarrative.postSource,
     processNarrative.postSummary,
     processNarrative.preSummary,
+    shouldSuppressResultText,
+    shouldPreferStructuredProtocolResult,
+    structuredContentDetail,
     structuredResultPreview,
+    t,
     toolCall.progress?.message,
     toolCall.status,
+    toolDisplay.family,
   ]);
   const hasDetails =
-    (Boolean(resultText) && !shouldHideRawDiagnosticDetail) ||
+    (Boolean(resultText) &&
+      (!isUnifiedWebSearchToolName(toolCall.name) ||
+        toolCall.status === "failed" ||
+        isRawDiagnosticDetail)) ||
     resultImages.length > 0 ||
     searchResultItems.length > 0 ||
     Boolean(toolSearchSummary) ||
+    Boolean(memoryToolEvidence) ||
     siteNoticeLines.length > 0 ||
     Boolean(savedSiteContentTarget) ||
     Boolean(skillTitle && skillTitle !== subject);
 
-  const handleOpenExternalUrl = useCallback(async (url: string) => {
-    try {
-      await openExternalUrlWithSystemBrowser(url);
-    } catch (error) {
-      console.error("打开外部链接失败:", error);
-    }
-  }, []);
+  const handleOpenSearchResult = useCallback(
+    (item: SearchResultPreviewItem) => {
+      onOpenUrlPreview?.(item);
+    },
+    [onOpenUrlPreview],
+  );
 
   useEffect(() => {
-    if (toolCall.status === "running" || siteNoticeLines.length > 0) {
+    if (
+      (toolCall.status === "running" &&
+        !isUnifiedWebSearchToolName(toolCall.name) &&
+        !isUnifiedWebFetchToolName(toolCall.name)) ||
+      siteNoticeLines.length > 0 ||
+      (shouldTreatAsActiveProcess &&
+        (isUnifiedWebSearchToolName(toolCall.name) ||
+          isUnifiedWebFetchToolName(toolCall.name)))
+    ) {
       setExpanded(true);
       return;
     }
-
-    if (isMessageStreaming && !toolSearchSummary) {
-      setExpanded(resultText.length <= LARGE_RESULT_AUTO_COLLAPSE_CHARS);
-    }
   }, [
-    isMessageStreaming,
-    resultText.length,
+    shouldTreatAsActiveProcess,
     siteNoticeLines.length,
     toolCall.status,
+    toolCall.name,
     toolSearchSummary,
+    memoryToolEvidence,
   ]);
 
   useEffect(() => {
@@ -744,8 +630,11 @@ export const InlineToolProcessStep: React.FC<InlineToolProcessStepProps> = ({
   ]);
 
   const detailBadges = [
-    isPreload ? "系统预执行" : null,
-    skillTitle && skillTitle !== subject ? `技能：${skillTitle}` : null,
+    isPreload ? t("agentChat.toolCall.inline.badge.preload") : null,
+    skillTitle && skillTitle !== subject
+      ? t("agentChat.toolCall.inline.badge.skill", { title: skillTitle })
+      : null,
+    workspaceSkillRuntimeEnableSummary,
     toolCall.status === "running" || toolCall.status === "failed"
       ? toolDisplay.action
       : null,
@@ -756,8 +645,15 @@ export const InlineToolProcessStep: React.FC<InlineToolProcessStepProps> = ({
       className="py-1"
       data-testid="inline-tool-process-step"
       data-grouped={grouped ? "yes" : "no"}
+      {...soulLifecycleAttributes}
     >
-      <div className="flex items-start gap-2">
+      <div
+        className="flex items-start gap-2"
+        data-testid="tool-call-row"
+        data-tool-call-id={toolCall.id}
+        data-tool-name={toolCall.name}
+        data-tool-status={toolCall.status}
+      >
         {grouped ? (
           <span className="pt-0.5 font-mono text-xs text-slate-400">
             {groupMarker}
@@ -844,6 +740,8 @@ export const InlineToolProcessStep: React.FC<InlineToolProcessStepProps> = ({
               {hasOpenableFile ? (
                 <button
                   type="button"
+                  data-testid="inline-tool-open-file"
+                  data-file-path={filePath || undefined}
                   className="rounded-md p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
                   title={t("agentChat.toolCall.openInCanvas")}
                   aria-label={t("agentChat.toolCall.openInCanvasWithTarget", {
@@ -862,7 +760,16 @@ export const InlineToolProcessStep: React.FC<InlineToolProcessStepProps> = ({
                 <button
                   type="button"
                   className="rounded-md p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                  title={expanded ? "收起过程详情" : "展开过程详情"}
+                  title={
+                    expanded
+                      ? t("agentChat.toolCall.inline.collapseDetails")
+                      : t("agentChat.toolCall.inline.expandDetails")
+                  }
+                  aria-label={
+                    expanded
+                      ? t("agentChat.toolCall.inline.collapseDetails")
+                      : t("agentChat.toolCall.inline.expandDetails")
+                  }
                   onClick={() => setExpanded((current) => !current)}
                 >
                   <ChevronDown
@@ -949,6 +856,12 @@ export const InlineToolProcessStep: React.FC<InlineToolProcessStepProps> = ({
             </div>
           ) : null}
 
+          {memoryToolEvidence ? (
+            <div className="ml-1 mt-2">
+              <MemoryToolEvidencePanel evidence={memoryToolEvidence} />
+            </div>
+          ) : null}
+
           {expanded && hasDetails ? (
             <div className="ml-1 mt-2 space-y-2 border-l border-slate-200 pl-3">
               {siteNoticeLines.length > 0 ? (
@@ -975,8 +888,10 @@ export const InlineToolProcessStep: React.FC<InlineToolProcessStepProps> = ({
                       <span className="block text-xs font-medium leading-5 text-emerald-900">
                         {savedSiteContentTarget.preferredTarget ===
                         "project_file"
-                          ? "在下方预览导出 Markdown"
-                          : "打开已保存内容"}
+                          ? t(
+                              "agentChat.toolCall.siteResult.openMarkdownPreview",
+                            )
+                          : t("agentChat.toolCall.siteResult.openSavedContent")}
                       </span>
                       {savedSiteContentDisplayName ? (
                         <span className="block truncate text-[11px] leading-5 text-emerald-700/80">
@@ -996,10 +911,12 @@ export const InlineToolProcessStep: React.FC<InlineToolProcessStepProps> = ({
                 />
               ) : null}
 
-              {!toolSearchSummary && searchResultItems.length > 0 ? (
+              {!toolSearchSummary &&
+              !memoryToolEvidence &&
+              searchResultItems.length > 0 ? (
                 <SearchResultPreviewList
                   items={searchResultItems}
-                  onOpenUrl={handleOpenExternalUrl}
+                  onOpenItem={handleOpenSearchResult}
                   popoverSide="bottom"
                   popoverAlign="start"
                   className="max-w-2xl"
@@ -1007,9 +924,9 @@ export const InlineToolProcessStep: React.FC<InlineToolProcessStepProps> = ({
               ) : null}
 
               {!toolSearchSummary &&
+              !memoryToolEvidence &&
               searchResultItems.length === 0 &&
-              resultText &&
-              !shouldHideRawDiagnosticDetail ? (
+              resultText ? (
                 <div className="text-sm leading-6 text-slate-700">
                   <MarkdownRenderer content={resultDetailMarkdown} />
                 </div>

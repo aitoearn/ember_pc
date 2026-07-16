@@ -45,14 +45,11 @@ function loadDefaultMocks(): Promise<Record<string, MockHandler>> {
   defaultMocksPromise ??= (async () => {
     const [
       browser,
-      agentRuntime,
-      agentRuntimeObjective,
-      agentApp,
+      plugin,
       fileSystem,
       knowledge,
       layeredDesign,
       log,
-      mcp,
       mediaTask,
       memory,
       model,
@@ -60,20 +57,16 @@ function loadDefaultMocks(): Promise<Record<string, MockHandler>> {
       sessionFile,
       skillManagement,
       skillForge,
-      runtimeToolInventory,
       update,
       workspace,
       voice,
     ] = await Promise.all([
       import("./browserMocks"),
-      import("./agentRuntimeMocks"),
-      import("./agentRuntimeObjectiveMocks"),
-      import("./agentAppMocks"),
+      import("./pluginMocks"),
       import("./fileSystemMocks"),
       import("./knowledgeMocks"),
       import("./layeredDesignMocks"),
       import("./logMocks"),
-      import("./mcpMocks"),
       import("./mediaTaskMocks"),
       import("./memoryMocks"),
       import("./modelMocks"),
@@ -81,7 +74,6 @@ function loadDefaultMocks(): Promise<Record<string, MockHandler>> {
       import("./sessionFileMocks"),
       import("./skillManagementMocks"),
       import("./skillForgeMocks"),
-      import("./runtimeToolInventoryMocks"),
       import("./updateMocks"),
       import("./workspaceMocks"),
       import("./voiceMocks"),
@@ -89,7 +81,6 @@ function loadDefaultMocks(): Promise<Record<string, MockHandler>> {
 
     loadedMockResetters = [
       knowledge.clearKnowledgeMocks,
-      agentRuntimeObjective.resetAgentRuntimeObjectiveMocks,
       skillForge.clearSkillForgeMocks,
       layeredDesign.clearLayeredDesignMocks,
     ];
@@ -99,9 +90,7 @@ function loadDefaultMocks(): Promise<Record<string, MockHandler>> {
       ...skillForge.skillForgeMocks,
       ...browser.browserMocks,
 
-      ...agentRuntime.agentRuntimeMocks,
-      ...agentApp.agentAppMocks,
-      ...runtimeToolInventory.runtimeToolInventoryMocks,
+      ...plugin.pluginMocks,
 
       ...skillManagement.skillManagementMocks,
       ...provider.providerMocks,
@@ -110,7 +99,6 @@ function loadDefaultMocks(): Promise<Record<string, MockHandler>> {
       ...sessionFile.sessionFileMocks,
       ...layeredDesign.layeredDesignMocks,
       ...model.modelMocks,
-      ...mcp.mcpMocks,
 
       ...fileSystem.fileSystemMocks,
       ...log.logMocks,

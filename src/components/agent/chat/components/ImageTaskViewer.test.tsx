@@ -2,7 +2,7 @@ import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const { mockOpenResourceManager } = vi.hoisted(() => ({
   mockOpenResourceManager: vi.fn(),
@@ -92,7 +92,7 @@ function renderComponent(
 }
 
 beforeEach(async () => {
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   (
     globalThis as typeof globalThis & {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -194,6 +194,132 @@ describe("ImageTaskViewer", () => {
     );
   });
 
+  it("普通图片查看器不展示运行合同、策略和 provider/model 审计字段", () => {
+    const { container } = renderComponent({
+      tasks: [
+        {
+          id: "task-runtime-model-1",
+          mode: "generate",
+          status: "complete",
+          prompt: "最新模型青柠主视觉",
+          rawText: "@配图 最新模型青柠主视觉",
+          expectedCount: 1,
+          outputIds: ["output-runtime-model-1"],
+          createdAt: 1,
+          runtimeContract: {
+            providerId: "fal",
+            model: "fal-ai/nano-banana-pro-v2",
+            contractKey: "image_generation",
+            routingOutcome: "accepted",
+            limecorePolicyEvaluationStatus: "input_gap",
+            limecorePolicyMissingInputs: ["subject"],
+          },
+        },
+      ],
+      outputs: [
+        {
+          id: "output-runtime-model-1",
+          refId: "img-runtime-model-1",
+          taskId: "task-runtime-model-1",
+          url: "https://example.com/runtime-model.png",
+          prompt: "最新模型青柠主视觉",
+          createdAt: 1,
+        },
+      ],
+      selectedTaskId: "task-runtime-model-1",
+      selectedOutputId: "output-runtime-model-1",
+    });
+
+    expect(
+      container.querySelector('[data-testid="image-task-viewer-runtime-contract"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector(
+        '[data-testid="image-task-viewer-runtime-contract-registry"]',
+      ),
+    ).toBeNull();
+    expect(
+      container.querySelector(
+        '[data-testid="image-task-viewer-runtime-contract-policy"]',
+      ),
+    ).toBeNull();
+    expect(container.textContent).not.toContain("运行合同");
+    expect(container.textContent).not.toContain("LimeCore 策略");
+    expect(container.textContent).not.toContain("fal");
+    expect(container.textContent).not.toContain("fal-ai/nano-banana-pro-v2");
+
+    const openButton = container.querySelector(
+      '[data-testid="image-task-viewer-open-image"]',
+    );
+    expect(openButton).toBeTruthy();
+
+    act(() => {
+      openButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(mockOpenResourceManager).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            id: "output-runtime-model-1",
+            metadata: expect.not.objectContaining({
+              providerName: expect.any(String),
+              modelName: expect.any(String),
+            }),
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("右侧图片查看器不展示 workflow 审计过程", () => {
+    const { container } = renderComponent({
+      tasks: [
+        {
+          id: "task-workflow-hidden",
+          mode: "generate",
+          status: "running",
+          prompt: "生成一张深圳夏天的图",
+          rawText: "@配图 生成一张深圳夏天的图",
+          expectedCount: 1,
+          outputIds: [],
+          createdAt: 1,
+          workflowRun: {
+            runId: "run-image-workflow-hidden",
+            workflowKey: "image_command_workflow",
+            title: "图片生成工作流",
+            summary: "图片工作流正在运行",
+            requestedCount: 1,
+            status: "running",
+            steps: [
+              { id: "intent", title: "解析图片需求", status: "succeeded" },
+              { id: "generate", title: "生成图片", status: "running" },
+            ],
+            branches: [
+              {
+                branchId: "branch-1",
+                title: "深圳夏天",
+                prompt: "深圳夏天",
+                status: "running",
+              },
+            ],
+            nextActions: [],
+          },
+        },
+      ],
+      outputs: [],
+      selectedTaskId: "task-workflow-hidden",
+      selectedOutputId: null,
+    });
+
+    expect(
+      container.querySelector('[data-testid="image-task-viewer-workflow"]'),
+    ).toBeNull();
+    expect(container.textContent).not.toContain("图片生成工作流");
+    expect(container.textContent).not.toContain("解析图片需求");
+    expect(container.textContent).not.toContain("生成图片");
+  });
+
   it("结果图加载失败时应展示兜底文案并隐藏打开原图入口", () => {
     const { container } = renderComponent();
 
@@ -282,6 +408,39 @@ describe("ImageTaskViewer", () => {
     expect(
       container.querySelector('[data-testid="image-task-viewer-open-image"]'),
     ).toBeNull();
+  });
+
+  it("失败或取消任务应显示重试动作并透传当前任务 ID", () => {
+    const onRetryTask = vi.fn();
+    const { container } = renderComponent({
+      tasks: [
+        {
+          id: "task-failed-retry",
+          mode: "generate",
+          status: "error",
+          prompt: "青柠极简插画",
+          rawText: "@配图 青柠极简插画",
+          expectedCount: 1,
+          outputIds: [],
+          createdAt: 2,
+        },
+      ],
+      outputs: [],
+      selectedTaskId: "task-failed-retry",
+      selectedOutputId: null,
+      onRetryTask,
+    });
+
+    const retryButton = container.querySelector(
+      '[data-testid="image-task-viewer-action-retry"]',
+    );
+    expect(retryButton?.textContent).toContain("重试");
+
+    act(() => {
+      retryButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onRetryTask).toHaveBeenCalledWith("task-failed-retry");
   });
 
   it("3x3 分镜应把分镜元信息传给独立资源管理器", () => {

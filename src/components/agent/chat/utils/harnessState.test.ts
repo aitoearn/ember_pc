@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { AgentThreadItem, Message } from "../types";
-import { deriveHarnessSessionState } from "./harnessState";
+import type { ActionRequired, AgentThreadItem, Message } from "../types";
+import {
+  deriveHarnessSessionShellState,
+  deriveHarnessSessionState,
+} from "./harnessState";
 
 function createMessage(overrides: Partial<Message> = {}): Message {
   return {
@@ -13,7 +16,67 @@ function createMessage(overrides: Partial<Message> = {}): Message {
 }
 
 describe("deriveHarnessSessionState", () => {
-  it("应优先从 thread items 提取计划、审批与文件活动", () => {
+  it("轻量 shell state 不构建工具输出和文件活动详情", () => {
+    const messages = [
+      createMessage({
+        runtimeStatus: {
+          phase: "routing",
+          title: "正在处理",
+          detail: "工具调用进行中",
+          checkpoints: ["已进入运行时"],
+        },
+        contextTrace: [{ stage: "routing", detail: "命中 coding slot" }],
+      }),
+    ];
+    const pendingApprovals: ActionRequired[] = [
+      {
+        requestId: "approval-shell",
+        actionType: "tool_confirmation",
+        prompt: "确认执行",
+        status: "pending",
+      },
+    ];
+
+    const shellState = deriveHarnessSessionShellState(
+      messages,
+      pendingApprovals,
+      [{ id: "todo-1", content: "保留计划摘要", status: "in_progress" }],
+    );
+
+    expect(shellState.runtimeStatus?.title).toBe("正在处理");
+    expect(shellState.pendingApprovals).toBe(pendingApprovals);
+    expect(shellState.latestContextTrace).toHaveLength(1);
+    expect(shellState.plan.items).toEqual([
+      {
+        id: "todo-1",
+        content: "保留计划摘要",
+        status: "in_progress",
+      },
+    ]);
+    expect(shellState.hasSignals).toBe(true);
+    expect("outputSignals" in shellState).toBe(false);
+    expect("recentFileEvents" in shellState).toBe(false);
+    expect("activity" in shellState).toBe(false);
+  });
+
+  it("轻量 shell state 不从普通 assistant 正文推断 Harness 信号", () => {
+    const shellState = deriveHarnessSessionShellState(
+      [
+        createMessage({
+          content: "这是一段普通回答，不应让 Harness 面板进入活动态。",
+        }),
+      ],
+      [],
+    );
+
+    expect(shellState.plan).toEqual({
+      phase: "idle",
+      items: [],
+    });
+    expect(shellState.hasSignals).toBe(false);
+  });
+
+  it("无 revision 的历史 plan 不应再驱动运行时计划", () => {
     const messages = [
       createMessage({
         runtimeStatus: {
@@ -69,14 +132,105 @@ describe("deriveHarnessSessionState", () => {
 
     const state = deriveHarnessSessionState(messages, [], items);
 
-    expect(state.plan.phase).toBe("planning");
+    expect(state.plan.phase).toBe("idle");
     expect(state.runtimeStatus?.title).toBe("正在准备处理");
-    expect(state.plan.items).toHaveLength(2);
+    expect(state.plan.items).toHaveLength(0);
+    expect(state.plan.sourceToolCallId).toBeUndefined();
+    expect(state.plan.revisionId).toBeUndefined();
     expect(state.pendingApprovals).toHaveLength(1);
     expect(state.pendingApprovals[0]?.requestId).toBe("approval-1");
     expect(state.recentFileEvents[0]?.path).toBe("workspace/plan.md");
     expect(state.outputSignals[0]?.artifactPath).toBe("workspace/plan.md");
     expect(state.latestContextTrace).toHaveLength(1);
+  });
+
+  it("应通过标准 PlanState 从带 revision 的 plan item 恢复运行时计划", () => {
+    const messages = [createMessage()];
+    const items: AgentThreadItem[] = [
+      {
+        id: "legacy-plan-step",
+        thread_id: "thread-1",
+        turn_id: "turn-1",
+        sequence: 1,
+        status: "completed",
+        started_at: "2026-03-13T12:00:00.000Z",
+        completed_at: "2026-03-13T12:00:01.000Z",
+        updated_at: "2026-03-13T12:00:01.000Z",
+        type: "plan",
+        text: "旧单步计划",
+      },
+      {
+        id: "standard-plan",
+        thread_id: "thread-1",
+        turn_id: "turn-2",
+        sequence: 2,
+        status: "completed",
+        started_at: "2026-03-13T12:00:02.000Z",
+        completed_at: "2026-03-13T12:00:03.000Z",
+        updated_at: "2026-03-13T12:00:03.000Z",
+        type: "plan",
+        text: "- [x] 建立标准状态\n- [ ] 接入运行时条",
+        metadata: {
+          revisionId: "proposed_plan:2",
+          plan: [
+            { step: "建立标准状态", status: "completed" },
+            { step: "接入运行时条", status: "pending" },
+          ],
+        },
+      },
+    ];
+
+    const state = deriveHarnessSessionState(messages, [], items);
+
+    expect(state.plan).toEqual({
+      phase: "ready",
+      items: [
+        {
+          id: "standard-plan:1",
+          content: "建立标准状态",
+          status: "completed",
+        },
+        {
+          id: "standard-plan:2",
+          content: "接入运行时条",
+          status: "pending",
+        },
+      ],
+      sourceToolCallId: "standard-plan",
+      summaryText: undefined,
+      revisionId: "proposed_plan:2",
+      turnId: "turn-2",
+      source: "thread_item",
+    });
+  });
+
+  it("应通过标准 ReasoningState 从 reasoning item 恢复运行时思考状态", () => {
+    const messages = [createMessage()];
+    const items: AgentThreadItem[] = [
+      {
+        id: "reasoning-1",
+        thread_id: "thread-1",
+        turn_id: "turn-1",
+        sequence: 1,
+        status: "in_progress",
+        started_at: "2026-03-13T12:00:00.000Z",
+        updated_at: "2026-03-13T12:00:01.000Z",
+        type: "reasoning",
+        text: "先拆解用户意图，再确认计划状态。",
+      },
+    ];
+
+    const state = deriveHarnessSessionState(messages, [], items);
+
+    expect(state.reasoning).toEqual({
+      reasoning: {
+        supported: true,
+        status: "running",
+        reasoningId: "reasoning-1",
+        text: "先拆解用户意图，再确认计划状态。",
+      },
+    });
+    expect(state.hasSignals).toBe(true);
   });
 
   it("应从消息 artifacts 提取当前文件写入状态", () => {
@@ -415,5 +569,30 @@ describe("deriveHarnessSessionState", () => {
       },
     ]);
     expect(state.plan.summaryText).toBeUndefined();
+  });
+
+  it("canonical SubAgent activity 不应把 activity Item 的完成态伪装成 child 终态", () => {
+    const activities = ["started", "interacted", "interrupted"] as const;
+    const items = activities.map(
+      (statusLabel, index) =>
+        ({
+          id: `item_subagent-${index + 1}`,
+          thread_id: "thread-1",
+          turn_id: "turn-1",
+          sequence: index + 1,
+          status: "completed",
+          started_at: `2026-03-13T12:00:0${index}.000Z`,
+          completed_at: `2026-03-13T12:00:0${index}.100Z`,
+          updated_at: `2026-03-13T12:00:0${index}.100Z`,
+          type: "subagent_activity",
+          status_label: statusLabel,
+          session_id: "thread-child",
+        }) satisfies AgentThreadItem,
+    );
+
+    const state = deriveHarnessSessionState([createMessage()], [], items);
+
+    expect(state.activity.delegation).toBe(3);
+    expect(state.delegatedTasks).toEqual([]);
   });
 });

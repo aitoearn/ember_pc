@@ -6,13 +6,21 @@ interface BaseComposerRenderContext {
   hasContent: boolean;
   canSend: boolean;
   isPrimaryDisabled: boolean;
+  onPrimaryActionStart: () => void;
   onPrimaryAction: () => void;
+}
+
+export type BaseComposerSendTriggerSource = "button" | "enter" | "ime";
+
+export interface BaseComposerSendMetadata {
+  triggeredAt: number;
+  triggerSource: BaseComposerSendTriggerSource;
 }
 
 export interface BaseComposerProps {
   text: string;
   setText: (value: string) => void;
-  onSend: () => void;
+  onSend: (metadata?: BaseComposerSendMetadata) => void;
   onStop?: () => void;
   isLoading?: boolean;
   disabled?: boolean;
@@ -31,6 +39,7 @@ export interface BaseComposerProps {
   autoFocus?: boolean;
   allowSendWhileLoading?: boolean;
   allowEmptySend?: boolean;
+  sendOnPointerDown?: boolean;
   children: (context: BaseComposerRenderContext) => React.ReactNode;
 }
 
@@ -56,12 +65,14 @@ export const BaseComposer: React.FC<BaseComposerProps> = ({
   autoFocus = false,
   allowSendWhileLoading = false,
   allowEmptySend = false,
+  sendOnPointerDown = false,
   children,
 }) => {
   const internalTextareaRef = useRef<HTMLTextAreaElement>(null);
   const textareaRef = externalTextareaRef || internalTextareaRef;
   const textareaId = useId();
   const pendingImeSendRef = useRef(false);
+  const pendingPointerSendClickRef = useRef(false);
   const canSendRef = useRef(false);
   const onSendRef = useRef(onSend);
 
@@ -120,7 +131,44 @@ export const BaseComposer: React.FC<BaseComposerProps> = ({
     [],
   );
 
+  const dispatchPrimaryAction = useCallback(
+    (triggeredAt: number) => {
+      if (isLoading && !allowSendWhileLoading) {
+        onStop?.();
+        return;
+      }
+
+      if (!canSend) {
+        return;
+      }
+
+      onSend({ triggeredAt, triggerSource: "button" });
+    },
+    [allowSendWhileLoading, canSend, isLoading, onSend, onStop],
+  );
+
+  const onPrimaryActionStart = useCallback(() => {
+    if (!sendOnPointerDown || pendingPointerSendClickRef.current) {
+      return;
+    }
+
+    pendingPointerSendClickRef.current = true;
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        pendingPointerSendClickRef.current = false;
+      }, 1_000);
+    }
+
+    dispatchPrimaryAction(Date.now());
+  }, [dispatchPrimaryAction, sendOnPointerDown]);
+
   const onPrimaryAction = useCallback(() => {
+    if (sendOnPointerDown && pendingPointerSendClickRef.current) {
+      pendingPointerSendClickRef.current = false;
+      return;
+    }
+
+    const triggeredAt = Date.now();
     if (isLoading && !allowSendWhileLoading) {
       onStop?.();
       return;
@@ -130,8 +178,15 @@ export const BaseComposer: React.FC<BaseComposerProps> = ({
       return;
     }
 
-    onSend();
-  }, [allowSendWhileLoading, canSend, isLoading, onSend, onStop]);
+    onSend({ triggeredAt, triggerSource: "button" });
+  }, [
+    allowSendWhileLoading,
+    canSend,
+    isLoading,
+    onSend,
+    onStop,
+    sendOnPointerDown,
+  ]);
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -149,16 +204,17 @@ export const BaseComposer: React.FC<BaseComposerProps> = ({
       }
 
       if (event.key === "Enter" && sendOnEnter && !event.shiftKey) {
+        const triggeredAt = Date.now();
         event.preventDefault();
         if (canSend) {
           if (deferSendOnEnter && typeof window !== "undefined") {
             window.requestAnimationFrame(() => {
               if (canSendRef.current) {
-                onSendRef.current();
+                onSendRef.current({ triggeredAt, triggerSource: "enter" });
               }
             });
           } else {
-            onSend();
+            onSend({ triggeredAt, triggerSource: "enter" });
           }
         }
         return;
@@ -190,9 +246,10 @@ export const BaseComposer: React.FC<BaseComposerProps> = ({
       return;
     }
 
+    const triggeredAt = Date.now();
     window.requestAnimationFrame(() => {
       if (canSendRef.current) {
-        onSendRef.current();
+        onSendRef.current({ triggeredAt, triggerSource: "ime" });
       }
     });
   }, [sendOnEnter]);
@@ -219,6 +276,7 @@ export const BaseComposer: React.FC<BaseComposerProps> = ({
         hasContent,
         canSend,
         isPrimaryDisabled,
+        onPrimaryActionStart,
         onPrimaryAction,
       })}
     </>

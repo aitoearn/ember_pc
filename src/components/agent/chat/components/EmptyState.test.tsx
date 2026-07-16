@@ -3,10 +3,9 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EmptyState } from "./EmptyState";
-import type { Character } from "@/lib/api/memory";
+import type { Character } from "@/lib/api/projectMemory";
 import type { ProjectGitStatus } from "@/lib/api/projectGit";
 import type { Skill } from "@/lib/api/skills";
-import type { UnifiedMemory } from "@/lib/api/unifiedMemory";
 import type { ServiceSkillHomeItem } from "../service-skills/types";
 import type { InputCapabilitySelection } from "../skill-selection/inputCapabilitySelection";
 import type { InputbarSendPayload } from "./Inputbar/inputbarSendPayload";
@@ -16,9 +15,9 @@ import {
   findCuratedTaskTemplateById,
   recordCuratedTaskTemplateUsage,
 } from "../utils/curatedTaskTemplates";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
-  recordCuratedTaskRecommendationSignalFromMemory,
+  recordCuratedTaskRecommendationSignalFromMemoryReference,
   recordCuratedTaskRecommendationSignalFromReviewDecision,
 } from "../utils/curatedTaskRecommendationSignals";
 
@@ -32,36 +31,38 @@ const {
 } = vi.hoisted(() => ({
   mockGetConfig: vi.fn(async () => ({})),
   mockProjectSelector: vi.fn(),
-  mockReadProjectGitStatus: vi.fn(async (): Promise<ProjectGitStatus> => ({
-    rootPath: "/workspace/ember",
-    repositoryRoot: undefined,
-    hasGitRepository: false,
-    currentBranch: undefined,
-    branches: [],
-    uncommittedFileCount: 0,
-  })),
+  mockReadProjectGitStatus: vi.fn(
+    async (): Promise<ProjectGitStatus> => ({
+      rootPath: "/workspace/lime",
+      repositoryRoot: undefined,
+      hasGitRepository: false,
+      currentBranch: undefined,
+      branches: [],
+      uncommittedFileCount: 0,
+    }),
+  ),
   mockCheckoutProjectGitBranch: vi.fn(async () => ({
-    rootPath: "/workspace/ember",
-    repositoryRoot: "/workspace/ember",
+    rootPath: "/workspace/lime",
+    repositoryRoot: "/workspace/lime",
     hasGitRepository: true,
     currentBranch: "main",
     branches: ["feature/demo", "main"],
     uncommittedFileCount: 0,
   })),
   mockCreateProjectGitBranch: vi.fn(async () => ({
-    rootPath: "/workspace/ember",
-    repositoryRoot: "/workspace/ember",
+    rootPath: "/workspace/lime",
+    repositoryRoot: "/workspace/lime",
     hasGitRepository: true,
     currentBranch: "feature/new",
     branches: ["feature/demo", "feature/new", "main"],
     uncommittedFileCount: 0,
   })),
   mockCreateProjectGitWorktree: vi.fn(async () => ({
-    worktreePath: "/workspace/ember-worktree-test",
+    worktreePath: "/workspace/lime-worktree-test",
     branch: "main",
     status: {
-      rootPath: "/workspace/ember-worktree-test",
-      repositoryRoot: "/workspace/ember",
+      rootPath: "/workspace/lime-worktree-test",
+      repositoryRoot: "/workspace/lime",
       hasGitRepository: true,
       currentBranch: "abcdef0",
       branches: ["feature/demo", "main"],
@@ -91,9 +92,7 @@ const {
   mockGetChromeBridgeStatus: vi.fn(),
 }));
 
-const mockListUnifiedMemories = vi.hoisted(() =>
-  vi.fn<() => Promise<UnifiedMemory[]>>(async () => []),
-);
+const mockGetAgentRuntimeObjective = vi.hoisted(() => vi.fn(async () => null));
 
 const mockCharacterMention = vi.fn<
   (props: {
@@ -128,9 +127,16 @@ vi.mock("@/lib/api/channelsRuntime", () => ({
   gatewayChannelStatus: mockGatewayChannelStatus,
 }));
 
-vi.mock("@/lib/api/unifiedMemory", () => ({
-  listUnifiedMemories: mockListUnifiedMemories,
-}));
+vi.mock("@/lib/api/agentRuntime/objectiveClient", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("@/lib/api/agentRuntime/objectiveClient")
+    >();
+  return {
+    ...actual,
+    getAgentRuntimeObjective: mockGetAgentRuntimeObjective,
+  };
+});
 
 vi.mock("@/lib/api/skillCatalog", async (importOriginal) => {
   const actual =
@@ -172,6 +178,21 @@ vi.mock("@/lib/api/projectGit", () => ({
 
 vi.mock("./ChatModelSelector", () => ({
   ChatModelSelector: () => <div data-testid="chat-model-selector" />,
+}));
+
+vi.mock("./Inputbar/components/InputbarObjectiveInlinePanel", () => ({
+  InputbarObjectiveInlinePanel: (props: {
+    sessionId: string;
+    workspaceId?: string | null;
+    runtimeBusy?: boolean;
+  }) => (
+    <div
+      data-testid="empty-state-objective-inline-panel"
+      data-session-id={props.sessionId}
+      data-workspace-id={props.workspaceId ?? ""}
+      data-runtime-busy={String(Boolean(props.runtimeBusy))}
+    />
+  ),
 }));
 
 vi.mock("../utils/contextualRecommendations", () => ({
@@ -344,7 +365,7 @@ vi.mock("sonner", () => ({
 const mountedRoots: Array<{ root: Root; container: HTMLDivElement }> = [];
 
 beforeEach(async () => {
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   (
     globalThis as typeof globalThis & {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -370,9 +391,8 @@ beforeEach(async () => {
     observer_count: 1,
     control_count: 0,
   });
-  mockListUnifiedMemories.mockResolvedValue([]);
   mockReadProjectGitStatus.mockResolvedValue({
-    rootPath: "/workspace/ember",
+    rootPath: "/workspace/lime",
     repositoryRoot: undefined,
     hasGitRepository: false,
     currentBranch: undefined,
@@ -380,27 +400,27 @@ beforeEach(async () => {
     uncommittedFileCount: 0,
   });
   mockCheckoutProjectGitBranch.mockResolvedValue({
-    rootPath: "/workspace/ember",
-    repositoryRoot: "/workspace/ember",
+    rootPath: "/workspace/lime",
+    repositoryRoot: "/workspace/lime",
     hasGitRepository: true,
     currentBranch: "main",
     branches: ["feature/demo", "main"],
     uncommittedFileCount: 0,
   });
   mockCreateProjectGitBranch.mockResolvedValue({
-    rootPath: "/workspace/ember",
-    repositoryRoot: "/workspace/ember",
+    rootPath: "/workspace/lime",
+    repositoryRoot: "/workspace/lime",
     hasGitRepository: true,
     currentBranch: "feature/new",
     branches: ["feature/demo", "feature/new", "main"],
     uncommittedFileCount: 0,
   });
   mockCreateProjectGitWorktree.mockResolvedValue({
-    worktreePath: "/workspace/ember-worktree-test",
+    worktreePath: "/workspace/lime-worktree-test",
     branch: "main",
     status: {
-      rootPath: "/workspace/ember-worktree-test",
-      repositoryRoot: "/workspace/ember",
+      rootPath: "/workspace/lime-worktree-test",
+      repositoryRoot: "/workspace/lime",
       hasGitRepository: true,
       currentBranch: "abcdef0",
       branches: ["feature/demo", "main"],
@@ -478,11 +498,13 @@ function expectEmptyStateSend(
     "images" | "textOverride" | "sendOptions"
   > = {},
 ) {
-  expect(onSend).toHaveBeenCalledWith({
-    images: payload.images,
-    textOverride: payload.textOverride,
-    sendOptions: payload.sendOptions,
-  });
+  const actual = onSend.mock.calls.at(-1)?.[0] as
+    | InputbarSendPayload
+    | undefined;
+  expect(actual).toBeTruthy();
+  expect(actual?.images).toEqual(payload.images);
+  expect(actual?.textOverride).toEqual(payload.textOverride);
+  expect(actual?.sendOptions).toEqual(payload.sendOptions);
 }
 
 function updateFieldValue(
@@ -634,7 +656,7 @@ function createSceneBoundServiceSkill(): ServiceSkillHomeItem {
 }
 
 describe("EmptyState", () => {
-  it("首页应以 slogan 作为主视觉并保留测试语义", async () => {
+  it("首页应以 slogan 作为主视觉并保留创作语义", async () => {
     const container = renderEmptyState({
       activeTheme: "general",
     });
@@ -643,14 +665,14 @@ describe("EmptyState", () => {
       await Promise.resolve();
     });
 
-    expect(container.textContent).toContain("测试");
-    expect(container.textContent).toContain("熠测一下，端测即启");
+    expect(container.textContent).toContain("创作");
+    expect(container.textContent).toContain("青柠一下，灵感即来");
     expect(
       container.querySelector('[data-testid="empty-state-hero-eyebrow-badge"]')
         ?.textContent,
-    ).toBe("测试");
+    ).toBe("创作");
     expect(container.textContent).not.toContain(
-      "说一句目标，Ember 就接着帮你做。",
+      "说一句目标，Lime 就接着帮你做。",
     );
     expect(container.textContent).not.toContain(
       "文案、图片、视频、搜索和网页任务围绕同一目标持续推进，并沉淀上下文、偏好和做法。",
@@ -664,12 +686,12 @@ describe("EmptyState", () => {
       activeTheme: "general",
       onLaunchBrowserAssist: vi.fn(),
       onSelectServiceSkill: vi.fn(),
-      projectId: "ember",
+      projectId: "lime",
       openedProjects: [
         {
-          id: "ember",
-          name: "ember",
-          rootPath: "/workspace/ember",
+          id: "lime",
+          name: "lime",
+          rootPath: "/workspace/lime",
         },
       ],
     });
@@ -726,7 +748,7 @@ describe("EmptyState", () => {
           0,
       ),
     ).toBe(true);
-    expect(projectContextBar?.textContent).toContain("ember");
+    expect(projectContextBar?.textContent).toContain("lime");
     expect(projectContextBar?.textContent).toContain("本地模式");
     expect(projectContextBar?.textContent).not.toContain("main");
     expect(
@@ -734,24 +756,26 @@ describe("EmptyState", () => {
         '[data-testid="inputbar-project-context-branch"]',
       ),
     ).toBeNull();
-    expect(container.textContent).toContain("测试引导");
-    expect(container.textContent).toContain("测试用例编写");
-    expect(container.textContent).toContain("导入测试资料");
-    expect(container.textContent).toContain("测试方案");
-    expect(container.textContent).toContain("测试报告");
-    expect(container.textContent).toContain("更多用例");
+    expect(container.textContent).toContain("引导帮助");
+    expect(container.textContent).toContain("写作");
+    expect(container.textContent).toContain("添加资料");
+    expect(container.textContent).toContain("PPT");
+    expect(container.textContent).toContain("调研报告");
+    expect(container.textContent).toContain("更多做法");
     expect(
       container.querySelector('[data-testid="home-guide-cards"]'),
     ).toBeNull();
     expect(
       container.querySelector('[data-testid="entry-home-knowledge-import"]'),
     ).toBeTruthy();
-    const scrollCue = container.querySelector(
-      '[data-testid="home-scroll-cue"]',
+    expect(
+      container.querySelector('[data-testid="home-scroll-cue"]'),
+    ).toBeNull();
+    expect(container.textContent).not.toContain(
+      "向下滑，看看 Lime 可以帮你做什么",
     );
-    expect(scrollCue).toBeTruthy();
-    expect(scrollCue?.textContent).toContain(
-      "向下滑，看看 熠测 可以帮你测什么",
+    expect(container.textContent).not.toContain(
+      "往下看更多任务样例；真正执行仍会回到生成里继续补充。",
     );
     expect(
       container.querySelector('[data-testid="home-second-screen"]'),
@@ -759,8 +783,8 @@ describe("EmptyState", () => {
     expect(
       container.querySelector('[data-testid="home-skill-gallery"]'),
     ).toBeTruthy();
-    expect(container.textContent).toContain("你可以从这些测试任务开始");
-    expect(container.textContent).toContain("冒烟检查清单");
+    expect(container.textContent).toContain("你可以从这些任务开始");
+    expect(container.textContent).toContain("每日趋势摘要");
     expect(container.textContent).not.toContain("先开始这一轮");
     expect(container.textContent).not.toContain("其他起手结果");
     expect(container.textContent).not.toContain("也可以直接按做法开工");
@@ -771,8 +795,8 @@ describe("EmptyState", () => {
 
   it("通用首页项目包含 Git 目录时应显示启动模式和分支菜单", async () => {
     mockReadProjectGitStatus.mockResolvedValue({
-      rootPath: "/workspace/ember",
-      repositoryRoot: "/workspace/ember",
+      rootPath: "/workspace/lime",
+      repositoryRoot: "/workspace/lime",
       hasGitRepository: true,
       currentBranch: "main",
       branches: ["feature/demo", "main"],
@@ -783,12 +807,12 @@ describe("EmptyState", () => {
       activeTheme: "general",
       onLaunchBrowserAssist: vi.fn(),
       onSelectServiceSkill: vi.fn(),
-      projectId: "ember",
+      projectId: "lime",
       openedProjects: [
         {
-          id: "ember",
-          name: "ember",
-          rootPath: "/workspace/ember",
+          id: "lime",
+          name: "lime",
+          rootPath: "/workspace/lime",
         },
       ],
     });
@@ -824,16 +848,16 @@ describe("EmptyState", () => {
 
   it("通用首页项目分支菜单应通过后端切换分支", async () => {
     mockReadProjectGitStatus.mockResolvedValue({
-      rootPath: "/workspace/ember",
-      repositoryRoot: "/workspace/ember",
+      rootPath: "/workspace/lime",
+      repositoryRoot: "/workspace/lime",
       hasGitRepository: true,
       currentBranch: "main",
       branches: ["feature/demo", "main"],
       uncommittedFileCount: 0,
     });
     mockCheckoutProjectGitBranch.mockResolvedValue({
-      rootPath: "/workspace/ember",
-      repositoryRoot: "/workspace/ember",
+      rootPath: "/workspace/lime",
+      repositoryRoot: "/workspace/lime",
       hasGitRepository: true,
       currentBranch: "feature/demo",
       branches: ["feature/demo", "main"],
@@ -844,12 +868,12 @@ describe("EmptyState", () => {
       activeTheme: "general",
       onLaunchBrowserAssist: vi.fn(),
       onSelectServiceSkill: vi.fn(),
-      projectId: "ember",
+      projectId: "lime",
       openedProjects: [
         {
-          id: "ember",
-          name: "ember",
-          rootPath: "/workspace/ember",
+          id: "lime",
+          name: "lime",
+          rootPath: "/workspace/lime",
         },
       ],
     });
@@ -866,7 +890,7 @@ describe("EmptyState", () => {
     });
 
     expect(mockCheckoutProjectGitBranch).toHaveBeenCalledWith(
-      "/workspace/ember",
+      "/workspace/lime",
       "feature/demo",
     );
     expect(
@@ -877,16 +901,16 @@ describe("EmptyState", () => {
 
   it("通用首页项目分支搜索回车应通过后端创建并检出新分支", async () => {
     mockReadProjectGitStatus.mockResolvedValue({
-      rootPath: "/workspace/ember",
-      repositoryRoot: "/workspace/ember",
+      rootPath: "/workspace/lime",
+      repositoryRoot: "/workspace/lime",
       hasGitRepository: true,
       currentBranch: "main",
       branches: ["feature/demo", "main"],
       uncommittedFileCount: 0,
     });
     mockCreateProjectGitBranch.mockResolvedValue({
-      rootPath: "/workspace/ember",
-      repositoryRoot: "/workspace/ember",
+      rootPath: "/workspace/lime",
+      repositoryRoot: "/workspace/lime",
       hasGitRepository: true,
       currentBranch: "feature/new",
       branches: ["feature/demo", "feature/new", "main"],
@@ -897,12 +921,12 @@ describe("EmptyState", () => {
       activeTheme: "general",
       onLaunchBrowserAssist: vi.fn(),
       onSelectServiceSkill: vi.fn(),
-      projectId: "ember",
+      projectId: "lime",
       openedProjects: [
         {
-          id: "ember",
-          name: "ember",
-          rootPath: "/workspace/ember",
+          id: "lime",
+          name: "lime",
+          rootPath: "/workspace/lime",
         },
       ],
     });
@@ -925,7 +949,7 @@ describe("EmptyState", () => {
     });
 
     expect(mockCreateProjectGitBranch).toHaveBeenCalledWith(
-      "/workspace/ember",
+      "/workspace/lime",
       "feature/new",
     );
     expect(
@@ -996,7 +1020,7 @@ describe("EmptyState", () => {
   });
 
   it("通用首页静态起手与引导文案应跟随 en-US 资源", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const container = renderEmptyState({
       activeTheme: "general",
       serviceSkills: [],
@@ -1006,19 +1030,19 @@ describe("EmptyState", () => {
       await Promise.resolve();
     });
 
-    expect(container.textContent).toContain("Testing");
-    expect(container.textContent).toContain("Tap Ember, testing starts");
+    expect(container.textContent).toContain("Creation");
+    expect(container.textContent).toContain("Ask Lime, spark the idea");
     expect(container.textContent).not.toContain(
-      "State a test goal and Ember keeps going with you.",
+      "Say the goal and Lime will keep going with you.",
     );
-    expect(container.textContent).toContain("Test guide");
-    expect(container.textContent).toContain("Write test cases");
-    expect(container.textContent).toContain("Import test assets");
-    expect(container.textContent).toContain("More test cases");
-    expect(container.textContent).toContain("Start from these test tasks");
+    expect(container.textContent).toContain("Guide help");
+    expect(container.textContent).toContain("Writing");
+    expect(container.textContent).toContain("Add knowledge");
+    expect(container.textContent).toContain("More methods");
+    expect(container.textContent).toContain("Start from these tasks");
     expect(
-      container.querySelector('[data-testid="home-scroll-cue"]')?.textContent,
-    ).toContain("Scroll down to see what Ember can help you test");
+      container.querySelector('[data-testid="home-scroll-cue"]'),
+    ).toBeNull();
 
     const guideTrigger = container.querySelector(
       '[data-testid="home-guide-help-trigger"]',
@@ -1036,7 +1060,7 @@ describe("EmptyState", () => {
   });
 
   it("非通用首页快速启动面板应跟随 en-US 资源", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const container = renderEmptyState({
       activeTheme: "image",
       serviceSkills: [],
@@ -1048,15 +1072,15 @@ describe("EmptyState", () => {
 
     expect(container.textContent).toContain("Quick start");
     expect(container.textContent).toContain(
-      "Choose a test task template first, then keep adding details and follow-ups in this session.",
+      "Choose a task template first, then keep adding details and follow-ups in this session.",
     );
-    expect(container.textContent).toContain("API test cases");
-    expect(container.textContent).toContain("Organize test Notebook");
-    expect(container.textContent).toContain("Exploratory testing");
+    expect(container.textContent).toContain("Generate image");
+    expect(container.textContent).toContain("Organize as Notebook");
+    expect(container.textContent).toContain("Enter research mode");
   });
 
   it("仅发送路径引用时应使用当前 locale 的兜底 prompt", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const onSend = vi.fn();
     const container = renderEmptyState({
       activeTheme: "general",
@@ -1099,6 +1123,47 @@ describe("EmptyState", () => {
         }),
       }),
     });
+    const payload = onSend.mock.calls.at(-1)?.[0] as
+      | InputbarSendPayload
+      | undefined;
+    expect(payload?.triggerSource).toBe("button");
+    expect(payload?.triggeredAt).toEqual(expect.any(Number));
+  });
+
+  it("启用 pointerdown 发送时首页发送按钮不应在 click 重复发送", async () => {
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(1_780_000_200_000);
+    const onSend = vi.fn();
+    const container = renderEmptyState({
+      activeTheme: "general",
+      input: "你好",
+      onSend,
+      sendOnPointerDown: true,
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const sendButton = container.querySelector(
+      '[data-testid="send-btn"]',
+    ) as HTMLButtonElement | null;
+    expect(sendButton).toBeTruthy();
+
+    act(() => {
+      sendButton?.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      sendButton?.click();
+    });
+
+    expect(onSend).toHaveBeenCalledTimes(1);
+    expectEmptyStateSend(onSend, {
+      textOverride: "你好",
+    });
+    const payload = onSend.mock.calls.at(-1)?.[0] as
+      | InputbarSendPayload
+      | undefined;
+    expect(payload?.triggerSource).toBe("button");
+    expect(payload?.triggeredAt).toBe(1_780_000_200_000);
+    nowSpy.mockRestore();
   });
 
   it("从 Skills 页带回的技能应显示在首页输入框内的 @ 标签", async () => {
@@ -1158,6 +1223,120 @@ describe("EmptyState", () => {
     });
   });
 
+  it("首页中断恢复请求应由 EmptyState 完整恢复文本、图片、路径和技能 route", async () => {
+    const onSend = vi.fn();
+    const onInputRestoreRequestHandled = vi.fn();
+    const pathReference = {
+      id: "file:/tmp/report.md",
+      path: "/tmp/report.md",
+      name: "report.md",
+      isDir: false,
+      source: "file_manager" as const,
+    };
+    const image = {
+      data: "image-data",
+      mediaType: "image/png",
+    };
+    const capabilityRoute = {
+      kind: "installed_skill" as const,
+      skillKey: "draft",
+      skillName: "起草",
+    };
+    const skill = {
+      key: "local:draft",
+      name: "起草",
+      description: "恢复输入用技能",
+      directory: "draft",
+      installed: true,
+      sourceKind: "other",
+    } as Skill;
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    mountedRoots.push({ root, container });
+
+    function RestoreHarness() {
+      const [input, setInput] = React.useState("");
+      const [pathReferences, setPathReferences] = React.useState<
+        (typeof pathReference)[]
+      >([]);
+      const [restoreRequest, setRestoreRequest] = React.useState<
+        React.ComponentProps<typeof EmptyState>["inputRestoreRequest"]
+      >({
+        requestId: "restore-empty-state-1",
+        reason: "output_free_interrupted_turn",
+        draft: {
+          text: "继续生成提纲",
+          images: [image],
+          pathReferences: [pathReference],
+          inputCapabilityRoute: capabilityRoute,
+        },
+      });
+
+      return (
+        <EmptyState
+          input={input}
+          setInput={setInput}
+          onSend={onSend}
+          providerType="openai"
+          setProviderType={vi.fn()}
+          model="gpt-4.1"
+          setModel={vi.fn()}
+          activeTheme="general"
+          skills={[skill]}
+          pathReferences={pathReferences}
+          onClearPathReferences={() => setPathReferences([])}
+          onAddPathReferences={(references) =>
+            setPathReferences(references as (typeof pathReference)[])
+          }
+          inputRestoreRequest={restoreRequest}
+          onInputRestoreRequestHandled={(requestId) => {
+            onInputRestoreRequestHandled(requestId);
+            setRestoreRequest(null);
+          }}
+        />
+      );
+    }
+
+    await act(async () => {
+      root.render(<RestoreHarness />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await flushAsyncEffects();
+
+    expect(container.querySelector("textarea")?.value).toBe("继续生成提纲");
+    expect(
+      container.querySelector('[data-testid="input-skill-badge"]'),
+    ).toBeTruthy();
+    expect(onInputRestoreRequestHandled).toHaveBeenCalledWith(
+      "restore-empty-state-1",
+    );
+
+    const sendButton = container.querySelector(
+      'button[aria-label="发送"]',
+    ) as HTMLButtonElement | null;
+    expect(sendButton).toBeTruthy();
+
+    act(() => {
+      sendButton?.click();
+    });
+
+    expectEmptyStateSend(onSend, {
+      images: [image],
+      textOverride: "继续生成提纲",
+      sendOptions: expect.objectContaining({
+        capabilityRoute,
+        inputRestoreDraft: expect.objectContaining({
+          text: "继续生成提纲",
+          images: [image],
+          pathReferences: [pathReference],
+          inputCapabilityRoute: capabilityRoute,
+        }),
+      }),
+    });
+  });
+
   it("首页添加资料入口应打开输入框资料中枢，而不是预填一段说明", async () => {
     const setInput = vi.fn();
     const onToggleKnowledgePack = vi.fn<(enabled: boolean) => void>();
@@ -1191,7 +1370,7 @@ describe("EmptyState", () => {
     const starter = container.querySelector(
       '[data-testid="entry-home-knowledge-import"]',
     ) as HTMLButtonElement | null;
-    expect(starter?.textContent).toContain("导入测试资料");
+    expect(starter?.textContent).toContain("添加资料");
 
     act(() => {
       starter?.click();
@@ -1266,15 +1445,13 @@ describe("EmptyState", () => {
     ).toBeTruthy();
     expect(
       container.querySelector('[data-testid="home-input-tab-suggestion"]'),
-    ).toBeTruthy();
+    ).toBeNull();
   });
 
-  it("点击首屏起手任务应预填测试相关 prompt，不弹出启动表单", async () => {
-    const setInput = vi.fn();
+  it("点击首屏起手任务只挂载输入区能力，不弹出启动表单", async () => {
     const container = renderEmptyState({
       activeTheme: "general",
       serviceSkills: [],
-      setInput,
     });
 
     await act(async () => {
@@ -1282,7 +1459,7 @@ describe("EmptyState", () => {
     });
 
     const starter = container.querySelector(
-      '[data-testid="entry-home-test-report"]',
+      '[data-testid="entry-recommended-daily-trend-briefing"]',
     ) as HTMLButtonElement | null;
     expect(starter).toBeTruthy();
 
@@ -1293,9 +1470,10 @@ describe("EmptyState", () => {
     expect(document.body.textContent).not.toContain(
       "开始这一步前，我先确认几件事。",
     );
-    expect(setInput).toHaveBeenCalledWith(
-      expect.stringContaining("测试报告"),
-    );
+    expect(
+      container.querySelector('[data-testid="curated-task-badge"]'),
+    ).toBeTruthy();
+    expect(container.textContent).toContain("每日趋势摘要");
   });
 
   it("保存判断结论后不应打乱首屏固定起手入口", async () => {
@@ -1316,7 +1494,7 @@ describe("EmptyState", () => {
       container.querySelector('[data-testid="entry-review-feedback-banner"]'),
     ).toBeNull();
     const initialStarterItems = Array.from(
-      container.querySelectorAll('[data-testid^="entry-home-"]'),
+      container.querySelectorAll('[data-testid^="entry-recommended-"]'),
     ).map((element) => element.getAttribute("data-testid"));
 
     await act(async () => {
@@ -1340,11 +1518,11 @@ describe("EmptyState", () => {
     });
 
     const starterItems = Array.from(
-      container.querySelectorAll('[data-testid^="entry-home-"]'),
+      container.querySelectorAll('[data-testid^="entry-recommended-"]'),
     ).map((element) => element.getAttribute("data-testid"));
 
     expect(starterItems).toEqual(initialStarterItems);
-    expect(starterItems[0]).toBe("entry-home-test-case-writing");
+    expect(starterItems[0]).toBe("entry-recommended-social-post-starter");
     expect(
       container.querySelector('[data-testid="entry-review-feedback-banner"]'),
     ).toBeNull();
@@ -1392,7 +1570,7 @@ describe("EmptyState", () => {
       serviceSkills: [
         {
           id: "daily-trend-briefing",
-          title: "冒烟检查清单",
+          title: "每日趋势摘要",
           summary: "围绕指定平台与关键词输出趋势摘要。",
           entryHint: "把平台和关键词给我，我先整理一份趋势报告。",
           category: "内容运营",
@@ -1435,7 +1613,7 @@ describe("EmptyState", () => {
       await Promise.resolve();
     });
 
-    expect(container.textContent).toContain("冒烟检查清单");
+    expect(container.textContent).toContain("每日趋势摘要");
     expect(container.textContent).not.toContain("云目录");
     expect(container.textContent).not.toContain("最近使用");
 
@@ -1540,7 +1718,7 @@ describe("EmptyState", () => {
     );
 
     await act(async () => {
-      updateFieldValue(subjectInput, "Ember 的内容创作主链升级");
+      updateFieldValue(subjectInput, "Lime 的内容创作主链升级");
       updateFieldValue(audienceInput, "内容负责人");
       await Promise.resolve();
     });
@@ -1557,7 +1735,7 @@ describe("EmptyState", () => {
       buildCuratedTaskLaunchPrompt({
         task: template!,
         inputValues: {
-          subject_or_product: "Ember 的内容创作主链升级",
+          subject_or_product: "Lime 的内容创作主链升级",
           target_audience: "内容负责人",
         },
         referenceEntries: [
@@ -1642,9 +1820,9 @@ describe("EmptyState", () => {
       installed: true,
       sourceKind: "other",
       metadata: {
-        ember_when_to_use: "当你需要继续复用这套内容主稿方法时使用。",
-        ember_argument_hint: "主题、受众与复盘约束",
-        ember_output_hint: "带着这套内容主稿方法进入生成",
+        lime_when_to_use: "当你需要继续复用这套内容主稿方法时使用。",
+        lime_argument_hint: "主题、受众与复盘约束",
+        lime_output_hint: "带着这套内容主稿方法进入生成",
       },
     };
 
@@ -1778,10 +1956,10 @@ describe("EmptyState", () => {
         subagentCore: true,
         subagentTeamTools: true,
         subagentRuntime: true,
-        taskRuntime: true,
+        planRuntime: true,
         missingSubagentCoreTools: [],
         missingSubagentTeamTools: [],
-        missingTaskTools: [],
+        missingPlanTools: [],
       },
       runtimeTaskCard: {
         taskId: "task-1",
@@ -1846,7 +2024,7 @@ describe("EmptyState", () => {
     expect(onLaunchBrowserAssist).not.toHaveBeenCalled();
   });
 
-  it("点击冒烟检查清单应打开模板确认，不再切换联网搜索前置开关", async () => {
+  it("点击每日趋势摘要应打开模板确认，不再切换联网搜索前置开关", async () => {
     const setInput = vi.fn<(value: string) => void>();
     const template = findCuratedTaskTemplateById("daily-trend-briefing");
     expect(template).toBeTruthy();
@@ -1968,20 +2146,20 @@ describe("EmptyState", () => {
     const badgeAction = container.querySelector(
       '[data-testid="curated-task-badge-review-action"]',
     ) as HTMLButtonElement | null;
-    expect(badgeAction?.textContent).toContain("改用「测试迭代复盘」");
+    expect(badgeAction?.textContent).toContain("改用「复盘这个账号/项目」");
 
     await act(async () => {
       badgeAction?.click();
       await Promise.resolve();
     });
 
-    expect(document.body.textContent).toContain("测试迭代复盘");
+    expect(document.body.textContent).toContain("复盘这个账号/项目");
     expect(document.body.textContent).toContain(
-      "已按最近判断切到更适合的测试模板",
+      "已按最近判断切到更适合的结果模板",
     );
   });
 
-  it("点击功能用例生成应直接写入起始动作，不再切换旧主题", async () => {
+  it("点击内容主稿生成应直接写入起始动作，不再切换旧主题", async () => {
     const setInput = vi.fn<(value: string) => void>();
     const onThemeChange = vi.fn<(theme: string) => void>();
     const template = findCuratedTaskTemplateById("social-post-starter");
@@ -2013,7 +2191,7 @@ describe("EmptyState", () => {
     ) as HTMLInputElement | null;
 
     await act(async () => {
-      updateFieldValue(subjectInput, "Ember 的 AI 内容创作闭环升级");
+      updateFieldValue(subjectInput, "Lime 的 AI 内容创作闭环升级");
       updateFieldValue(audienceInput, "内容团队负责人");
       await Promise.resolve();
     });
@@ -2031,14 +2209,14 @@ describe("EmptyState", () => {
       buildCuratedTaskLaunchPrompt({
         task: template!,
         inputValues: {
-          subject_or_product: "Ember 的 AI 内容创作闭环升级",
+          subject_or_product: "Lime 的 AI 内容创作闭环升级",
           target_audience: "内容团队负责人",
         },
       }),
     );
   });
 
-  it("点击需求转用例集应直接写入起始动作", async () => {
+  it("点击长文转多平台发布稿应直接写入起始动作", async () => {
     const setInput = vi.fn<(value: string) => void>();
     const template = findCuratedTaskTemplateById(
       "longform-multiplatform-rewrite",
@@ -2106,7 +2284,7 @@ describe("EmptyState", () => {
       await Promise.resolve();
     });
 
-    expect(container.textContent).toContain("兼容性测试");
+    expect(container.textContent).toContain("复制轮播帖");
     expect(container.textContent).not.toContain("GitHub 仓库线索检索");
 
     const card = container.querySelector(
@@ -2121,7 +2299,7 @@ describe("EmptyState", () => {
     expect(onSelectServiceSkill).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "carousel-post-replication",
-        title: "兼容性测试",
+        title: "复制轮播帖",
       }),
     );
   });
@@ -2200,7 +2378,7 @@ describe("EmptyState", () => {
     const serviceSkills: ServiceSkillHomeItem[] = [
       {
         id: "daily-trend-briefing",
-        title: "冒烟检查清单",
+        title: "每日趋势摘要",
         summary: "围绕指定平台与关键词输出趋势摘要。",
         entryHint: "把平台和关键词给我，我先整理一份趋势报告。",
         aliases: ["趋势报告"],
@@ -2331,11 +2509,14 @@ describe("EmptyState", () => {
     act(() => {
       sendButtonAfterCapabilityCleared?.click();
     });
-    expect(onSend).toHaveBeenNthCalledWith(2, {
-      images: undefined,
+    const secondPayload = onSend.mock.calls[1]?.[0] as
+      | InputbarSendPayload
+      | undefined;
+    expect(secondPayload).toMatchObject({
       textOverride: "帮我设计封面",
-      sendOptions: undefined,
     });
+    expect(secondPayload?.images).toBeUndefined();
+    expect(secondPayload?.sendOptions).toBeUndefined();
   });
 
   it("首页选择 builtin command 后发送应透传结构化 capability route", async () => {
@@ -2584,7 +2765,7 @@ describe("EmptyState", () => {
         capabilityRoute: {
           kind: "curated_task",
           taskId: "daily-trend-briefing",
-          taskTitle: "冒烟检查清单",
+          taskTitle: "每日趋势摘要",
           prompt,
           launchInputValues: {
             theme_target: "AI 内容创作",
@@ -2607,30 +2788,7 @@ describe("EmptyState", () => {
     });
   });
 
-  it("首页结果模板带着灵感引用发送时，应附带引用 route 与 request metadata", async () => {
-    const referenceMemory = {
-      id: "memory-1",
-      session_id: "session-1",
-      memory_type: "project" as const,
-      category: "context" as const,
-      title: "品牌风格样本",
-      content: "保留轻盈、专业、对比清晰的表达方式。",
-      summary: "轻盈但专业的品牌语气参考。",
-      tags: ["品牌", "语气"],
-      metadata: {
-        confidence: 0.92,
-        importance: 8,
-        access_count: 2,
-        last_accessed_at: 1_712_345_678_000,
-        source: "manual" as const,
-        embedding: null,
-      },
-      created_at: 1_712_345_670_000,
-      updated_at: 1_712_345_678_000,
-      archived: false,
-    };
-    mockListUnifiedMemories.mockResolvedValue([referenceMemory]);
-
+  it("首页结果模板带着记忆参考发送时，应附带引用 route 与 request metadata", async () => {
     const template = findCuratedTaskTemplateById("daily-trend-briefing");
     expect(template).toBeTruthy();
     const promptWithReference = buildCuratedTaskLaunchPrompt({
@@ -2656,6 +2814,26 @@ describe("EmptyState", () => {
       input: promptWithReference,
       setInput,
       onSend,
+      creationReplaySurface: {
+        kind: "memory_entry",
+        eyebrow: "当前带入记忆参考",
+        badgeLabel: "参考",
+        title: "品牌风格样本",
+        summary: "轻盈但专业的品牌语气参考。",
+        hint: "后续结果模板会默认把它一起带入。",
+        defaultReferenceMemoryIds: ["memory-1"],
+        defaultReferenceEntries: [
+          {
+            id: "memory-1",
+            sourceKind: "memory",
+            title: "品牌风格样本",
+            summary: "轻盈但专业的品牌语气参考。",
+            category: "context",
+            categoryLabel: "参考",
+            tags: ["品牌", "语气"],
+          },
+        ],
+      },
     });
 
     const templateButton = container.querySelector(
@@ -2684,9 +2862,10 @@ describe("EmptyState", () => {
     await act(async () => {
       updateFieldValue(themeInput, "AI 内容创作");
       updateFieldValue(platformInput, "X 与 TikTok 北美区");
-      referenceButton?.click();
       await Promise.resolve();
     });
+    expect(referenceButton).toBeTruthy();
+    expect(referenceButton?.disabled).toBe(false);
 
     const confirmButton = findLauncherConfirmButton();
     expect(confirmButton).toBeTruthy();
@@ -2712,9 +2891,16 @@ describe("EmptyState", () => {
           kind: "curated_task",
           taskId: "daily-trend-briefing",
           referenceMemoryIds: ["memory-1"],
+          referenceEntries: [
+            expect.objectContaining({
+              id: "memory-1",
+              sourceKind: "memory",
+            }),
+          ],
         }),
-        requestMetadata: {
-          harness: {
+        displayContent: expect.stringContaining("本轮可优先参考这些参考对象"),
+        requestMetadata: expect.objectContaining({
+          harness: expect.objectContaining({
             creation_replay: expect.objectContaining({
               kind: "memory_entry",
             }),
@@ -2727,41 +2913,17 @@ describe("EmptyState", () => {
                 }),
               ],
             }),
-          },
-        },
+          }),
+        }),
       }),
     });
   });
 
-  it("首页结果模板启动时，应默认沿用当前带入的灵感引用", async () => {
-    mockListUnifiedMemories.mockResolvedValue([
-      {
-        id: "memory-1",
-        session_id: "session-1",
-        memory_type: "project",
-        title: "品牌风格样本",
-        category: "context",
-        summary: "保留轻盈但专业的表达。",
-        content: "保留轻盈但专业的表达。",
-        tags: ["品牌", "语气"],
-        metadata: {
-          confidence: 0.9,
-          importance: 7,
-          access_count: 1,
-          last_accessed_at: null,
-          source: "manual",
-          embedding: null,
-        },
-        created_at: 1_712_345_670_000,
-        updated_at: 1_712_345_678_000,
-        archived: false,
-      },
-    ]);
-
+  it("首页结果模板启动时，应默认沿用当前带入的记忆参考", async () => {
     const container = renderEmptyState({
       creationReplaySurface: {
         kind: "memory_entry",
-        eyebrow: "当前带入灵感",
+        eyebrow: "当前带入记忆参考",
         badgeLabel: "参考",
         title: "品牌风格样本",
         summary: "保留轻盈但专业的表达。",
@@ -2896,7 +3058,7 @@ describe("EmptyState", () => {
     });
 
     expect(templateButton).toBeTruthy();
-    expect(templateButton?.textContent).toContain("冒烟检查清单");
+    expect(templateButton?.textContent).toContain("每日趋势摘要");
     expect(container.textContent).not.toContain("当前结果基线：AI 内容周报");
     expect(container.textContent).not.toContain("当前判断：先补复核与修复");
     expect(container.textContent).not.toContain("当前卡点：复核阻塞");
@@ -2932,7 +3094,7 @@ describe("EmptyState", () => {
 
     expect(container.textContent).toContain("参考");
     expect(container.textContent).toContain("品牌风格样本");
-    expect(container.textContent).toContain("功能用例生成");
+    expect(container.textContent).toContain("内容主稿生成");
   });
 
   it("当前带入 Skill 草稿时，首页应显影更明确的连续性横幅", async () => {
@@ -2959,8 +3121,8 @@ describe("EmptyState", () => {
     expect(container.textContent).not.toContain("先沿着当前做法开工");
   });
 
-  it("最近保存到灵感库的成果信号应影响首页结果模板推荐", async () => {
-    recordCuratedTaskRecommendationSignalFromMemory(
+  it("最近记忆参考成果信号应影响首页结果模板推荐", async () => {
+    recordCuratedTaskRecommendationSignalFromMemoryReference(
       {
         id: "memory-review-1",
         session_id: "session-review-1",
@@ -2998,7 +3160,7 @@ describe("EmptyState", () => {
     });
 
     expect(container.textContent).not.toContain("成果：账号复盘结论");
-    expect(container.textContent).toContain("测试迭代复盘");
+    expect(container.textContent).toContain("复盘这个账号/项目");
   });
 
   it("已激活结果模板后重新编辑启动信息时，应回填并更新输入", async () => {
@@ -3067,7 +3229,7 @@ describe("EmptyState", () => {
 
     const editButton = Array.from(container.querySelectorAll("button")).find(
       (button) =>
-        button.getAttribute("aria-label") === "编辑 冒烟检查清单 启动信息",
+        button.getAttribute("aria-label") === "编辑 每日趋势摘要 启动信息",
     ) as HTMLButtonElement | undefined;
     expect(editButton).toBeTruthy();
 
@@ -3168,7 +3330,7 @@ describe("EmptyState", () => {
     );
   });
 
-  it("通用对话默认展示 参考站式 Tab 起手建议", async () => {
+  it("通用对话默认不展示 Tab 起手建议", async () => {
     const container = renderEmptyState({
       activeTheme: "general",
       serviceSkills: [],
@@ -3179,10 +3341,8 @@ describe("EmptyState", () => {
     });
 
     expect(
-      container.querySelector('[data-testid="home-input-tab-suggestion"]')
-        ?.textContent,
-    ).toContain("Tab");
-    expect(container.textContent).toContain("帮我整理测试评审纪要");
+      container.querySelector('[data-testid="home-input-tab-suggestion"]'),
+    ).toBeNull();
   });
 
   it("高级设置不再渲染联网搜索前置开关", async () => {
@@ -3311,7 +3471,7 @@ describe("EmptyState", () => {
     expect(
       container.querySelector('[data-testid="home-start-surface"]'),
     ).toBeTruthy();
-    expect(container.textContent).toContain("测试报告");
+    expect(container.textContent).toContain("调研报告");
   });
 
   it("通用首页发送时不应自动注入任何历史默认 skill", async () => {
@@ -3402,11 +3562,15 @@ describe("EmptyState", () => {
               status: "active",
               set: expect.objectContaining({
                 threadId: "thread-empty-state-plan-goal",
-                objective: null,
+                objective: "请先规划再持续推进这个任务",
                 status: "active",
                 tokenBudget: null,
               }),
             }),
+            managed_objective: {
+              objective_text: "请先规划再持续推进这个任务",
+              source: "empty_state",
+            },
           }),
         }),
         toolPreferencesOverride: {

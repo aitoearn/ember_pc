@@ -15,14 +15,14 @@ const passPack = {
     {
       scenarioId: "command-bridge-contract",
       status: "pass",
-      evidenceRefs: ["qcloop:item:item-1", ".ember/qc/contract-summary.json"],
+      evidenceRefs: ["qcloop:item:item-1", ".lime/qc/contract-summary.json"],
     },
     {
       scenarioId: "workspace-ready-session-restore",
       status: "pass",
       evidenceRefs: [
         "qcloop:item:item-2",
-        ".ember/qc/gui-trace/workspace-ready.trace.zip",
+        ".lime/qc/gui-trace/workspace-ready.trace.zip",
       ],
     },
   ],

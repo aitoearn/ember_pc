@@ -20,9 +20,9 @@ use tracing::{debug, warn};
 
 use crate::material_service::MaterialService;
 use crate::persona_service::PersonaService;
-use ember_core::errors::project_error::ProjectError;
-use ember_core::models::project_model::{Material, Persona, ProjectContext};
-use ember_core::workspace::{Workspace, WorkspaceSettings, WorkspaceType};
+use lime_core::errors::project_error::ProjectError;
+use lime_core::models::project_model::{Material, Persona, ProjectContext};
+use lime_core::workspace::{Workspace, WorkspaceSettings, WorkspaceType};
 
 // ============================================================================
 // 项目上下文构建器
@@ -374,8 +374,8 @@ impl ProjectContextBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ember_core::database::schema::create_tables;
-    use ember_core::models::project_model::CreatePersonaRequest;
+    use lime_core::database::schema::create_tables;
+    use lime_core::models::project_model::CreatePersonaRequest;
 
     /// 创建测试数据库连接
     fn setup_test_db() -> Connection {
@@ -517,7 +517,7 @@ mod tests {
         create_test_project(&conn, "project-1", "测试项目");
 
         // 创建素材
-        use ember_core::models::project_model::UploadMaterialRequest;
+        use lime_core::models::project_model::UploadMaterialRequest;
         let req = UploadMaterialRequest {
             project_id: "project-1".to_string(),
             name: "参考文档".to_string(),
@@ -563,7 +563,7 @@ mod tests {
         PersonaService::set_default_persona(&conn, "project-1", &persona.id).unwrap();
 
         // 创建素材
-        use ember_core::models::project_model::UploadMaterialRequest;
+        use lime_core::models::project_model::UploadMaterialRequest;
         let material_req = UploadMaterialRequest {
             project_id: "project-1".to_string(),
             name: "素材1".to_string(),

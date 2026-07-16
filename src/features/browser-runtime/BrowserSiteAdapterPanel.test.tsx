@@ -1,6 +1,6 @@
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
   changeInputValue,
   cleanupMountedBrowserSiteAdapterPanels,
@@ -79,7 +79,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 
   mockSiteListAdapters.mockResolvedValue([createSiteAdapter()]);
   mockSiteRecommendAdapters.mockResolvedValue([createSiteRecommendation()]);

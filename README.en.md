@@ -1,25 +1,25 @@
 <div align="center"><a name="readme-top"></a>
 
-<img src="./docs/images/feature-start.png" alt="Ember home: start from one testing goal" width="100%" />
+<img src="./docs/images/readme-hero-en.png" alt="Lime README hero banner: Spark ideas with a touch of green" width="100%" />
 
-# Ember
+# Lime
 
-### Test once, quality in sight
+### Spark ideas with a touch of green
 
-**Open-source AI test workspace for QA teams**
+**Open-source AI content workspace for Chinese creators**
 
-Desktop test design, regression planning, API/E2E validation, knowledge context, multi-model analysis, and device automation workflows.
+Desktop writing, research, prompt management, knowledge base, and multi-model workflows for long-form content work.
 
-[简体中文](./README.md) · **English** · [Docs](./docs/README.md) · [Release Notes](./RELEASE_NOTES.en.md) · [Issues](https://github.com/aitoearn/ember_pc/issues)
+[简体中文](./README.md) · **English** · [Docs](./docs/README.md) · [Release Notes](./RELEASE_NOTES.en.md) · [Issues](https://github.com/limecloud/lime/issues)
 
 <p>
-  <a href="https://github.com/aitoearn/ember_pc/releases"><img src="https://img.shields.io/github/v/release/aitoearn/ember_pc?label=release" alt="Ember GitHub Release" /></a>
-  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-246B45" alt="Ember supports macOS and Windows" />
-  <img src="https://img.shields.io/badge/desktop-Electron-24C8DB" alt="Ember is an Electron desktop app" />
-  <img src="https://img.shields.io/badge/license-GPLv3-2F4F4F" alt="Ember GPLv3 license" />
+  <a href="https://github.com/limecloud/lime/releases"><img src="https://img.shields.io/github/v/release/limecloud/lime?label=release" alt="Lime GitHub Release" /></a>
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-246B45" alt="Lime supports macOS and Windows" />
+  <img src="https://img.shields.io/badge/desktop-Electron-24C8DB" alt="Lime is an Electron desktop app" />
+  <img src="https://img.shields.io/badge/license-GPLv3-2F4F4F" alt="Lime GPLv3 license" />
 </p>
 
-Ember keeps requirements, test context, cases, execution notes, and regression review in one place, so quality work becomes a workflow you can continue instead of a one-off chat.
+Lime keeps references, ideas, generation, revision, and review in one place, so content creation becomes a workflow you can continue instead of a one-off chat.
 
 <sub>The Simplified Chinese README is the primary version. This English page is a companion for international readers.</sub>
 
@@ -30,14 +30,14 @@ Ember keeps requirements, test context, cases, execution notes, and regression r
 <details>
 <summary><kbd>Table of Contents</kbd></summary>
 
-- [What is Ember?](#what-is-ember)
-- [What you can do with Ember](#what-you-can-do-with-ember)
-- [Core Capabilities](#core-capabilities)
-- [Real QA workflows](#real-qa-workflows)
+- [What is Lime?](#what-is-lime)
+- [What you can do with Lime](#what-you-can-do-with-lime)
+- [Real creator workflows](#real-creator-workflows)
 - [A simple workflow](#a-simple-workflow)
-- [Who Ember is for](#who-ember-is-for)
+- [Core Workflow](#core-workflow)
+- [Who Lime is for](#who-lime-is-for)
 - [If you are searching for these tools](#if-you-are-searching-for-these-tools)
-- [Who Ember is not for](#who-ember-is-not-for)
+- [Who Lime is not for](#who-lime-is-not-for)
 - [Quick Start](#quick-start)
 - [Tech Stack and Platforms](#tech-stack-and-platforms)
 - [FAQ](#faq)
@@ -48,208 +48,183 @@ Ember keeps requirements, test context, cases, execution notes, and regression r
 
 ---
 
-## What is Ember?
+## What is Lime?
 
-Ember is an open-source Electron desktop AI workspace for QA engineers, SDETs, release managers, and small quality teams. It brings test design, regression planning, API validation, E2E planning, performance and security testing, test context management, and multi-model workflows into one local desktop product.
+Lime is an open-source Electron desktop AI workspace for Chinese creators, brand operators, research writers, and small teams. It brings AI writing, topic research, reference management, prompt reuse, knowledge organization, and multi-model workflows into one local desktop product.
 
-Think of Ember as an AI workspace for long-running quality work:
+Think of Lime as an AI workspace for long-running content projects:
 
-- Not just one prompt and one answer, but a project or release that can keep moving forward.
-- Not repeatedly collecting PRDs, API docs, and old cases, but saving test context and repeatable methods.
-- Not leaving conclusions scattered across chat history, but keeping useful cases and checklists for the next round.
+- Not just one prompt and one answer, but a project that can keep moving forward.
+- Not repeatedly collecting references and rewriting prompts, but saving context, style, and repeatable methods.
+- Not leaving generated results scattered across chat history, but keeping useful outputs available for the next round.
 - Not locking you into one AI service, but letting you use the providers and models you already configure.
 
-If you often switch between requirements docs, API platforms, bug trackers, automation scripts, and model dashboards, Ember is designed to bring those steps back into one test space.
+If you often switch between bookmarks, documents, chat tools, image tools, and model dashboards, Lime is designed to bring those steps back into one creation space.
 
 ---
 
-## What you can do with Ember
+## What you can do with Lime
 
-- **Start from one testing goal**: describe reports, regression scope, case design, or specialized plans in natural language with quick-entry shortcuts.
-- **Manage cases and generate with AI**: organize modules and cases structurally, then draft from requirements or acceptance criteria and add them to the library.
-- **Build project knowledge**: curate PRDs, API notes, code snippets, and test reviews so later tasks can reuse confirmed context.
-- **Use the Expert Plaza and Skills**: pick expert agents for strategy, case design, automation, performance, security, and more.
-- **Manage devices and run mobile automation**: connect Android devices, then open the workbench for UI automation, Monkey, performance monitoring, and packet capture.
-- **Run mobile UI automation**: combine live device mirroring with natural-language steps so the agent follows a ReAct loop of screenshot, reasoning, and action.
-- **Bring your own AI models**: configure OpenAI-compatible providers, API hosts, keys, and primary models locally.
-
----
-
-## Core Capabilities
-
-### Start from one test task
-
-<img src="./docs/images/feature-start.png" alt="Home screen with testing goal input and quick-entry chips" width="100%" />
-
-The home surface is organized around the current project. Enter goals such as "help me write a test report" or "scope regression for this release," then jump into guidance, case writing, requirement-to-case, scenario coverage, and related workflows.
-
-### Test case management and AI generation
-
-<img src="./docs/images/test-case-ai.png" alt="Test case management with AI draft generation modal" width="100%" />
-
-Manage cases by module with search, IDs, and tags. When you need a fast draft, paste requirements or upload `.md` / `.txt` / `.json` material, choose a model, generate drafts, and add them to the library.
-
-### Project knowledge and test context
-
-<img src="./docs/images/feature-workspace.png" alt="Project materials page for confirmed test context" width="100%" />
-
-Organize PRDs, API docs, code snippets, and test reviews as project materials. After confirmation, mark what is available for testing or recommended for the current round so agents do not start from empty context.
-
-### Expert Plaza
-
-<img src="./docs/images/experts-plaza.png" alt="Expert Plaza with strategy, design, automation, and security experts" width="100%" />
-
-Browse expert agents by strategy, case design, automation, performance, security, and quality analysis. Add frequently used experts to a project and start from those entry points instead of rewriting prompts every time.
-
-### Device management
-
-<img src="./docs/images/device-management.png" alt="Device management list with online Android devices" width="100%" />
-
-See connected device model, OS version, resolution, and online status in one place, then enter the mobile workbench for AI case generation, UI automation, Monkey, performance monitoring, startup timing, and packet capture.
-
-### Mobile UI automation
-
-<img src="./docs/images/regression-review.png" alt="Mobile workbench with device mirror and natural-language UI automation" width="100%" />
-
-The left panel shows the live device screen; the right panel accepts natural-language steps and assertions. Supports UI-tree, vision, and hybrid perception modes plus free/strict execution for login flows, settings checks, kill-and-restart scenarios, and more.
-
-### Use your own AI services
-
-<img src="./docs/images/feature-provider.png" alt="AI provider settings for API host, key, and model priority" width="100%" />
-
-Ember does not provide model services itself. Configure OpenAI-compatible providers, API hosts, keys, and primary models in settings, fetch or manually add model lists, and test the connection before running tasks.
+- **AI writing and content creation**: write WeChat articles, Xiaohongshu notes, video scripts, podcast outlines, and live-stream talking points.
+- **Research and knowledge organization**: collect web pages, notes, screenshots, interviews, and historical materials, then turn them into reports or briefs.
+- **Topic analysis and content review**: analyze viral posts, competitors, publishing rhythm, and expression style.
+- **Prompt management and style reuse**: save writing patterns, brand tone, topic methods, and team templates.
+- **Multimodal preparation**: draft image prompts, cover directions, slide outlines, or web page drafts.
+- **Multi-model workflows**: use your own AI providers and models in the same task to revise, expand, compress, or adapt content for another platform.
 
 ---
 
-## Real QA workflows
+## Real creator workflows
 
-### 1. Before release: large change set, unclear regression scope
+### 1. WeChat writer: too many references, no clear draft
 
-A release touches login, order, and payment flows. You know regression is needed, but it is hard to decide what must be fully covered versus sampled.
+You want to write a timely opinion article. The browser has a dozen links open, WeChat favorites hold a few ideas, and you already have a position, but the draft still feels scattered.
 
-With Ember, you can put release notes, core paths, and known risks into one task, let AI draft regression scope and priorities, then keep refining: which scenarios must run in full? which need environment prep?
+With Lime, you can put references and rough notes into the same task, ask AI to organize angles and argument order, then continue asking: which part is not sharp enough? Which paragraph sounds generic? Can the title be more clickable without becoming clickbait?
 
-What remains is not just one answer, but a test trail from scope to execution checklist.
+What remains is not just one answer. It is a traceable path from research to first draft, then from first draft to final version.
 
-### 2. API testing: docs exist, cases and assertions do not
+### 2. Xiaohongshu creator: one topic, many expressions
 
-OpenAPI or contract docs are ready, but happy paths, auth failures, boundary values, and error responses are not yet structured.
+You may have a strong topic, but it needs to become a practical guide, a story, a product recommendation, and an interactive comment prompt. Rewriting each version is tiring, and your own style is easy to lose.
 
-In Ember, you can feed contracts and focus scenarios into a task, or use AI case generation to draft from requirements and persist them into the current project's test context.
+In Lime, you can save your usual tone, successful past notes, and title preferences. The next generation is not just "write one post for me"; it tries to continue in your own expression pattern.
 
-### 3. Mobile regression: device in hand, script maintenance too slow
+### 3. Brand operator: today's delivery is more than one piece of copy
 
-The same feature must be validated repeatedly on Android hardware, but traditional automation scripts take too long to build for short-notice regression.
+A product launch needs key visual copy, social posts, community warm-up messages, FAQs, short-video scripts, and an explanation that leadership can read. Source material comes from product docs, user feedback, competitor pages, and meeting notes.
 
-Ember's device workbench shows the live screen and accepts natural-language steps and assertions, with agents using UI-tree or vision perception for exploratory checks and regression spot tests.
+Lime fits this kind of continuous task: organize selling points first, generate multiple expressions, then split results across channels. After one revision round, you can review which wording is clearer and reuse it in the next round.
 
-### 4. Defect review: many issues, little structured analysis
+### 4. Research writer: more sources need a better thinking space
 
-A release accumulates defects and the team needs module distribution, recurrence risk, and root-cause patterns, but lacks time for systematic review.
+You may be preparing an industry observation, course material, topic study, or in-depth report. The challenge is not a lack of information. It is turning too much material into your own structure.
 
-With Ember, you can import defect summaries or test records, classify and analyze them, then turn the output into the next testing strategy and observation metrics.
+With Lime, you can add materials gradually, let AI classify them, then keep asking about contradictions, gaps, key judgments, and possible content angles. It behaves more like a workspace that helps you repeatedly inspect sources and structure ideas.
 
-### 5. Small teams: testing know-how lives in individuals
+### 5. Small team: not everyone should start from a blank prompt
 
-Some people are strong at API testing, others at E2E or performance. The problem is that this experience rarely becomes reusable team entry points.
+One teammate may be good at titles, another at topic selection, another at reviewing data. These skills often stay in individual heads and are hard to reuse.
 
-Ember can turn stable testing practices into experts, Skills, and app entries so the next regression plan or API review does not start from a blank prompt.
+Lime can turn stable methods into reusable task entries. The next time a new teammate writes a weekly report, reviews a campaign, analyzes competitors, or prepares a launch draft, they do not need to start from a blank input box.
 
 ---
 
 ## A simple workflow
 
-1. Create a task, such as "Scope regression for v2.3 release candidate"
-2. Organize and confirm PRDs, API notes, or defect history in project materials first
-3. Configure and test your model in AI provider settings
-4. Start from the home goal input, or open test cases, Expert Plaza, or mobile testing
-5. Keep refining assertions, steps, or on-device validation in the same task
-6. Save useful outputs into project knowledge or the case library for the next round
+1. Create a task, such as "write a WeChat article about choosing AI tools".
+2. Add references, ideas, past articles, or project background.
+3. Choose your AI provider and model.
+4. Let Lime organize direction, outline, or source structure first.
+5. Continue generating, revising, compressing, expanding, or adapting the content in the same task.
+6. Save useful results as references for the next creation round.
 
-In short: bring test context in first, let AI help you move forward, then keep what is useful.
+In short: bring the material in, let AI help move it forward, and keep the useful results.
 
 ---
 
-## Who Ember is for
+## Core Workflow
 
-- QA engineers, SDETs, quality leads, and release managers
-- Teams maintaining regression lists, API cases, E2E plans, or mobile validation
-- People who regularly organize PRDs, API docs, defects, and test reports
-- Teams that want to save personal methods, team templates, and project context
-- People already using AI models who want a more stable testing workspace
+### Start from one task
+
+<img src="./docs/images/readme-feature-start-en.png" alt="Lime start from one task feature image" />
+
+Start with one goal and keep references, models, reusable methods, and recent outputs in one place, without first facing a complex tool menu.
+
+### Keep revising in the same workspace
+
+<img src="./docs/images/readme-feature-workspace-en.png" alt="Lime refine in one workspace feature image" />
+
+Generation, follow-up questions, revisions, research, and result organization all stay around the current task. This fits articles, reports, scripts, and plans that need multiple rounds of work.
+
+### Use your own AI services
+
+<img src="./docs/images/readme-feature-provider-en.png" alt="Lime use your own AI services feature image" />
+
+Lime does not provide AI model services. You configure your own providers, provider keys, and preferred models, then use different capabilities for different content tasks.
+
+---
+
+## Who Lime is for
+
+- Content creators, independent media writers, video creators, and Xiaohongshu creators.
+- Brand, operations, growth, private-domain, and founder-led marketing teams.
+- People who often organize materials, write reports, conduct research, and publish opinions.
+- People who want to keep personal writing methods, team templates, and reference materials.
+- People already using AI models who want a more stable desktop creation workspace.
 
 ---
 
 ## If you are searching for these tools
 
-Ember may fit searches like: AI test workspace, desktop QA tool, test case design, regression planning, API testing assistant, knowledge base for testing, multi-model workflow, mobile UI automation, Android device testing, E2E testing, performance testing, security testing.
+Lime may fit searches such as AI content workspace, desktop AI app, AI writing tool, prompt management, knowledge base, research workflow, multi-model workflow, Chinese creators, 内容创作工作台, 桌面端 AI 应用, 公众号写作, 小红书创作, 选题研究, 素材管理, 提示词管理, 知识库, and 多模型创作流程.
 
 ---
 
-## Who Ember is not for
+## Who Lime is not for
 
-- People who only want a quick web chat and do not want project or test context management
-- People who refuse to configure any AI provider or API key
-- People expecting a tool that automatically runs all tests and owns quality outcomes
+- People who only want to open a web page and ask one casual question.
+- People who do not want to configure any AI provider or API key.
+- People who expect a tool to automatically judge, publish, and take responsibility for the final result.
 
-Ember works best when AI is a testing collaborator: you provide scope, context, and judgment; it helps organize, generate, analyze, and review.
+Lime is for creators who treat AI as a creation partner: you provide judgment, references, and direction; it helps organize, generate, revise, and review.
 
 ---
 
 ## Quick Start
 
-### Download
+### Download and install
 
-Download the installer for your platform from GitHub Releases:
+Download the installer for your platform from [Releases](https://github.com/limecloud/lime/releases).
 
-https://github.com/aitoearn/ember_pc/releases
+- macOS users can download the `.dmg` package or install with Homebrew.
+- Windows users can download `Lime_*_x64-setup.exe`.
+- Lime currently publishes macOS and Windows builds only. Linux desktop builds are paused.
+- If Windows SmartScreen appears, it usually means the installer is unsigned or has not built enough signing reputation. It does not necessarily mean the installer is broken.
 
-- macOS: `.dmg` installer
-- Windows: `Ember_*_x64-setup.exe` installer
-- macOS and Windows only; Linux desktop builds are paused
-- Windows SmartScreen warnings may appear for unsigned or low-reputation installers
+macOS users who use Homebrew can run:
+
+```bash
+brew tap aiclientproxy/tap
+brew install --cask lime
+```
 
 ### First run
 
-1. Open Ember
-2. Go to **AI provider settings**, add your API key, and test the model
-3. Organize and confirm project materials for this round
-4. Create a test task from home, or open **test cases**, **experts**, or **mobile testing**
-5. Add a PRD, API note, or testing goal and start generating cases, regression lists, or device validation
+1. Open Lime.
+2. Go to the AI provider configuration page.
+3. Enter your own provider key and test the connection.
+4. Return to the home page and create a content task.
+5. Add references or write a goal directly, then start generating.
 
 ---
 
 ## Tech Stack and Platforms
 
-- Desktop: Electron, Rust App Server
+- Desktop framework: Electron, Rust App Server
 - Frontend: React, TypeScript, Vite
-- Device automation: ADB, scrcpy, UI-agent perception, and device mirroring
-- Platforms: macOS, Windows
+- Supported platforms: macOS, Windows
 - License: GPLv3
 
 ---
 
 ## FAQ
 
-### Does Ember provide AI models?
+### Does Lime provide AI models?
 
-No. Ember is a testing workspace, not a model provider. Configure your own provider and API key in **AI provider settings**.
+No. Lime is a creation workspace and does not directly provide model services. You need to configure your own available AI provider and provider key. If you are unfamiliar with provider keys, think of them as credentials issued by an AI service provider.
 
-### Will all my test data be uploaded?
+### Will all my materials be uploaded?
 
-Ember prefers to keep project knowledge, session history, and settings on your machine. When you call AI generation, relevant input is sent to your configured provider. Handle sensitive data according to provider policy.
+Lime prioritizes storing project materials, conversation history, and configuration locally. When you call AI generation, however, relevant input is sent to the AI provider you configured. Please decide whether to use sensitive material according to that provider's policy.
 
-### How is this different from a normal chat tool?
+### How is Lime different from a normal chat tool?
 
-Chat tools optimize for one-shot Q&A. Ember optimizes for long-running quality work: project knowledge can be confirmed and reused, cases can be managed structurally, devices can be connected for validation, and experts or Skills can be called repeatedly.
+A normal chat tool is closer to one question and one answer. Lime emphasizes long-running creation: references can be saved, results can be retained, tasks can continue, and reusable methods can become part of your workflow.
 
-### Do I need to be good at prompt engineering?
+### Can I use it without knowing how to write prompts?
 
-No. Start from home quick entries, Expert Plaza, project materials, or AI case generation, then let agents iterate on confirmed context.
-
-### What do I need for mobile testing?
-
-A working local ADB setup and a connected Android device or emulator. After connection, check status in device management, then open the workbench for mirroring and UI automation.
+Yes. One goal of Lime is to reduce the cost of starting from a blank prompt every time. You can begin with reusable tasks, existing materials, and historical results, then let AI help you move forward step by step.
 
 ---
 
@@ -259,13 +234,18 @@ A working local ADB setup and a connected Android device or emulator. After conn
 
 ## Disclaimer
 
-This project is for learning and research. Users assume their own risk.
-Ember does not provide AI model services; model capabilities come from third-party providers.
+This project is provided for learning and research purposes only. Users are responsible for their own use and risk.
+
+Lime does not directly provide AI model services. Model capabilities are provided by third-party AI service providers configured by the user.
 
 ---
 
 <div align="center">
 
+### WeChat Community
 
+<img src="./docs/images/coso.jpg" alt="Lime WeChat community QR code" width="180" />
+
+Scan the QR code and mention `Lime` to join the discussion group.
 
 </div>

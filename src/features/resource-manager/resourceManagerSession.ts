@@ -13,9 +13,9 @@ import {
   inferResourceKindFromMime,
 } from "./resourceFormatCatalog";
 
-const RESOURCE_MANAGER_STORAGE_PREFIX = "ember:resource-manager:session:";
+const RESOURCE_MANAGER_STORAGE_PREFIX = "lime:resource-manager:session:";
 export const RESOURCE_MANAGER_ACTIVE_SESSION_KEY =
-  "ember:resource-manager:active-session";
+  "lime:resource-manager:active-session";
 export const RESOURCE_MANAGER_SESSION_TTL_MS = 1000 * 60 * 60 * 12;
 
 const PASSTHROUGH_SRC_PREFIXES = [

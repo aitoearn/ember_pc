@@ -1,0 +1,191 @@
+{
+  "$schema": "ember-framework-upgrade-freeze-v1",
+  "description": "Lime 框架升级期间 Ember 独有模块冻结清单。合入 lime 代码时 skip 这些路径，合入后 restore。冲突时以本文件为事实源。",
+  "forkBase": "2cf98aa9034e64142e2387b6ce05495277b49919",
+  "targetBaseline": "v1.104.0",
+  "updatedAt": "2026-07-16",
+  "batchBoundaries": {
+    "A": { "from": "2cf98aa", "to": "b95403785", "release": "v1.80.0" },
+    "B": { "from": "b95403785", "to": "10d9a2e0d", "release": "v1.90.0" },
+    "C": { "from": "10d9a2e0d", "to": "56e4e7d9a", "release": "v1.100.0" },
+    "D": { "from": "56e4e7d9a", "to": "d1ddadf5f", "release": "v1.104.0" }
+  },
+  "prerequisites": {
+    "m0_5_hostWiring": {
+      "blocking": true,
+      "beforeBatch": "A",
+      "auditDoc": "docs/exec-plans/lime-framework-upgrade-host-wiring-audit.md",
+      "summary": "device_automation_* 未注册 ipcChannels/hostCommands，Batch A 前必须接线"
+    }
+  },
+  "freezeDirectories": [
+    "src/features/device-automation",
+    "src/features/test-case-management",
+    "src/features/agent-observability",
+    "electron/deviceAutomation",
+    "scripts/device-automation",
+    "specs/001-test-case-management",
+    "specs/002-device-performance-monitor",
+    "specs/003-deterministic-flow-self-healing",
+    "specs/004-stability-assurance",
+    "scripts/branding"
+  ],
+  "emberOwnedDirectories": [
+    "packages/ember-cli-npm"
+  ],
+  "freezeGlobPatterns": [
+    "src/components/agent/chat/components/Harness*.tsx",
+    "src/components/agent/chat/components/Harness*.test.tsx",
+    "src/components/agent/chat/components/useHarness*.ts"
+  ],
+  "freezeFiles": [
+    "electron/deviceAutomationSidecar.ts",
+    "electron/productIdentity.ts"
+  ],
+  "emberOnlyRustModules": [
+    "ember-rs/crates/app-server-protocol/src/protocol/v0/perf_trace.rs",
+    "ember-rs/crates/app-server-protocol/src/protocol/v0/test_cases.rs",
+    "ember-rs/crates/app-server-protocol/src/protocol/v0/device_flow.rs",
+    "ember-rs/crates/core/src/database/dao/perf_trace_dao.rs",
+    "ember-rs/crates/core/src/database/dao/test_case_dao.rs",
+    "ember-rs/crates/core/src/database/dao/device_flow_dao.rs",
+    "ember-rs/crates/app-server/src/local_data_source/perf_trace.rs",
+    "ember-rs/crates/app-server/src/local_data_source/test_cases.rs",
+    "ember-rs/crates/app-server/src/local_data_source/device_flow.rs",
+    "ember-rs/crates/app-server/src/processor/perf_trace.rs",
+    "ember-rs/crates/app-server/src/processor/test_cases.rs",
+    "ember-rs/crates/app-server/src/processor/device_flow.rs"
+  ],
+  "emberOnlyRustSchemas": [
+    "ember-rs/crates/app-server-protocol/schema/json/v0/PerfTrace*.json",
+    "ember-rs/crates/app-server-protocol/schema/json/v0/TestCase*.json",
+    "ember-rs/crates/app-server-protocol/schema/json/v0/DeviceFlow*.json"
+  ],
+  "emberOnlyRustModRegistration": [
+    "ember-rs/crates/app-server/src/lib.rs",
+    "ember-rs/crates/app-server/src/processor/mod.rs",
+    "ember-rs/crates/app-server/src/local_data_source/mod.rs",
+    "ember-rs/crates/app-server-protocol/src/protocol/v0/mod.rs"
+  ],
+  "postMergeRegistrationCheck": {
+    "description": "Batch C 合入后必须人工核对测试模块仍挂载；不参与 export --check 阻断",
+    "paths": [
+      "ember-rs/crates/app-server/src/lib.rs",
+      "ember-rs/crates/app-server/src/processor/mod.rs",
+      "ember-rs/crates/app-server/src/local_data_source/mod.rs",
+      "ember-rs/crates/app-server-protocol/src/protocol/v0/mod.rs"
+    ],
+    "keywords": ["perf_trace", "test_cases", "device_flow"]
+  },
+  "emberOnlyApiGateway": [
+    "src/lib/api/deviceAutomation.ts",
+    "src/lib/api/deviceAutomationKea2.ts",
+    "src/lib/api/deviceAutomationMonkey.ts",
+    "src/lib/api/deviceAutomationPerformance.ts",
+    "src/lib/api/deviceExplore.ts",
+    "src/lib/api/deviceFlow.ts",
+    "src/lib/api/deviceStabilityAnalysis.ts",
+    "src/lib/api/stabilityLlmConfig.ts",
+    "src/lib/api/uiAgent.ts"
+  ],
+  "emberOnlyAgentRuntimeApi": [
+    "src/lib/api/agentRuntime/mediaClient.ts",
+    "src/lib/api/agentRuntime/subagentClient.ts",
+    "src/lib/api/agentRuntime/commandManifest.generated.ts"
+  ],
+  "protocolFourSides": {
+    "ipcWhitelist": "electron/ipcChannels.ts",
+    "hostDispatch": "electron/hostCommands.ts",
+    "rendererPolicy": "src/lib/dev-bridge/commandPolicy.ts",
+    "appServerSchema": "packages/app-server-client + ember-rs/crates/app-server-protocol/schema"
+  },
+  "hostCommandPrefixes": [
+    "device_automation_monkey_",
+    "device_automation_kea2_",
+    "device_automation_stability_",
+    "device_automation_stability_llm_config_",
+    "device_automation_perf_",
+    "device_automation_perf_trace_",
+    "device_automation_ensure_",
+    "device_automation_get_",
+    "device_automation_list_",
+    "device_automation_capture_",
+    "device_automation_send_",
+    "device_automation_prepare_",
+    "device_automation_submit_",
+    "device_automation_poll_",
+    "device_automation_cancel_",
+    "device_automation_scrcpy_"
+  ],
+  "hostEvents": [
+    "device_automation_inventory_changed",
+    "device_automation_monkey_event",
+    "device_automation_perf_frame",
+    "device_automation_perf_trace_progress",
+    "device_automation_stability_analysis_event"
+  ],
+  "frozenPages": [
+    "device-automation",
+    "agent-observability",
+    "test-case-management",
+    "agent-app",
+    "agent-apps",
+    "agent-app-lab",
+    "memory"
+  ],
+  "deviceAutomationTabs": [
+    "ai-case-generation",
+    "ui-auto-test",
+    "stability-assurance",
+    "performance",
+    "startup-time",
+    "packet-capture",
+    "devices"
+  ],
+  "packageJsonScriptsToProtect": [
+    "electron:build:host:dev",
+    "electron:build:device-automation-assets",
+    "electron:download:adb",
+    "electron:download:scrcpy-server",
+    "electron:ensure:scrcpy-server",
+    "electron:ensure:fastbot-python",
+    "smoke:perf-monitor-adb"
+  ],
+  "brandKeep": {
+    "npmScope": "@embercloud",
+    "rustDir": "ember-rs",
+    "displayName": "熠测",
+    "internalName": "Ember"
+  },
+  "limeRsToEmberRsMapping": {
+    "sourceDir": "ember-rs",
+    "targetDir": "ember-rs",
+    "npmScopeFrom": "@embercloud",
+    "npmScopeTo": "@embercloud",
+    "skipDiffPaths": ["perf_trace", "test_cases", "device_flow"]
+  },
+  "forcedMigrationPaths": [
+    {
+      "path": "src/features/test-case-management/aiGeneration.ts",
+      "reason": "asterChatRequest 在 lime v1.90+ 已删除，Batch C 必须迁移到 canonical startTurn",
+      "batch": "C",
+      "designDoc": "docs/exec-plans/lime-framework-upgrade-aster-migration.md"
+    }
+  ],
+  "highConflictLegacyToRemove": [
+    "ember-rs/crates/app-server/src/aster_backend.rs",
+    "ember-rs/crates/agent/src/team_runtime_governor.rs",
+    "ember-rs/crates/agent/src/subagent_control.rs",
+    "ember-rs/crates/agent/src/subagent_profiles.rs",
+    "ember-rs/crates/agent/src/subagent_scheduler.rs",
+    "ember-rs/crates/agent/src/session_store.rs",
+    "ember-rs/crates/agent/src/session_store_types.rs",
+    "ember-rs/crates/agent/src/session_store_tests.rs",
+    "ember-rs/crates/agent/src/session_store_history_visibility.rs",
+    "ember-rs/crates/agent/src/session_store_message_projection.rs",
+    "ember-rs/crates/agent/src/session_store_runtime_detail.rs",
+    "ember-rs/crates/agent/src/session_store_runtime_projection.rs",
+    "ember-rs/crates/agent/src/session_store_subagent_context.rs",
+    "ember-rs/crates/agent/src/session_store_todo_projection.rs"
+  ]
+}

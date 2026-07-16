@@ -12,7 +12,7 @@ import {
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ember-i18n-docs-locale-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lime-i18n-docs-locale-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -26,11 +26,11 @@ function writeFile(root: string, relativePath: string, content: string): void {
 function writeScope(root: string, items: unknown[]): void {
   writeFile(
     root,
-    "docs/roadmap/i18n/release-docs-translation-scope.json",
+    "internal/roadmap/i18n/release-docs-translation-scope.json",
     JSON.stringify(
       {
         items,
-        schemaVersion: "ember.i18n.releaseDocsTranslationScope.v1",
+        schemaVersion: "lime.i18n.releaseDocsTranslationScope.v1",
         sourceLocale: "zh-CN",
         targetLocales: ["en-US"],
       },
@@ -50,12 +50,12 @@ afterEach(() => {
 describe("i18n docs locale build manifest", () => {
   it("应基于 release docs translation scope 生成构建前 locale manifest", () => {
     const root = createTempDir();
-    writeFile(root, "README.md", "# Ember\n");
-    writeFile(root, "README.en.md", "# Ember\n");
+    writeFile(root, "README.md", "# Lime\n");
+    writeFile(root, "README.en.md", "# Lime\n");
     writeFile(root, "docs/content/index.md", "# Docs\n");
     writeFile(
       root,
-      "docs/roadmap/i18n/companions/docs-content-index.en.md",
+      "internal/roadmap/i18n/companions/docs-content-index.en.md",
       "# Docs\n",
     );
     writeFile(root, "docs/content/02.user-guide/a.md", "# Guide\n");
@@ -67,7 +67,7 @@ describe("i18n docs locale build manifest", () => {
         priority: "required",
       },
       {
-        enUSPath: "docs/roadmap/i18n/companions/docs-content-index.en.md",
+        enUSPath: "internal/roadmap/i18n/companions/docs-content-index.en.md",
         kind: "docs-home",
         path: "docs/content/index.md",
         priority: "pilot",
@@ -82,7 +82,7 @@ describe("i18n docs locale build manifest", () => {
 
     const manifest = buildDocsLocaleBuildManifest({ repoRoot: root });
 
-    expect(manifest.schemaVersion).toBe("ember.i18n.docsLocaleBuildManifest.v1");
+    expect(manifest.schemaVersion).toBe("lime.i18n.docsLocaleBuildManifest.v1");
     expect(manifest.summary).toEqual({
       blockedEntryCount: 0,
       companionEntryCount: 2,
@@ -111,7 +111,7 @@ describe("i18n docs locale build manifest", () => {
 
   it("应把 required companion 缺失暴露为阻断项", () => {
     const root = createTempDir();
-    writeFile(root, "README.md", "# Ember\n");
+    writeFile(root, "README.md", "# Lime\n");
     writeScope(root, [
       {
         enUSPath: "README.en.md",
@@ -133,8 +133,8 @@ describe("i18n docs locale build manifest", () => {
 
   it("应支持 CLI 写出 JSON manifest 并在 --check ready 时返回 0", () => {
     const root = createTempDir();
-    writeFile(root, "README.md", "# Ember\n");
-    writeFile(root, "README.en.md", "# Ember\n");
+    writeFile(root, "README.md", "# Lime\n");
+    writeFile(root, "README.en.md", "# Lime\n");
     writeScope(root, [
       {
         enUSPath: "README.en.md",
@@ -162,7 +162,7 @@ describe("i18n docs locale build manifest", () => {
     expect(writeSpy).not.toHaveBeenCalled();
     expect(JSON.parse(fs.readFileSync(outFile, "utf8"))).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.docsLocaleBuildManifest.v1",
+        schemaVersion: "lime.i18n.docsLocaleBuildManifest.v1",
         summary: expect.objectContaining({
           workflowStatus: "ready",
         }),

@@ -4,7 +4,7 @@
  */
 
 export type HotkeyPlatform = "mac" | "windows" | "other";
-export const UNSET_SHORTCUT_TOKEN = "__ember_unset_shortcut__";
+export const UNSET_SHORTCUT_TOKEN = "__lime_unset_shortcut__";
 
 export interface HotkeyEventLike {
   key: string;

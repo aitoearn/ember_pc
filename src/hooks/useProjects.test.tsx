@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import type { WorkspaceEnsureResult } from "@/lib/api/project";
 
 const projectApiMocks = vi.hoisted(() => ({
@@ -124,7 +124,7 @@ function mountHook(): HookHarness {
 
 describe("useProjects", () => {
   beforeEach(async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     (
       globalThis as typeof globalThis & {
         IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -136,7 +136,7 @@ describe("useProjects", () => {
 
   afterEach(async () => {
     vi.useRealTimers();
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
   });
 
   it("不应等待默认项目目录健康检查完成才暴露项目列表", async () => {

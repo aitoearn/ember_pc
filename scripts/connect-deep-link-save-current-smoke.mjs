@@ -16,13 +16,13 @@ const DEFAULTS = {
   intervalMs: 250,
   evidenceDir: path.join(
     process.cwd(),
-    ".ember",
+    ".lime",
     "qc",
     "gui-evidence",
     "connect-deep-link-save-current",
   ),
   prefix: "connect-deep-link-save-current",
-  deepLinkUrl: `ember://connect?relay=${RELAY_ID}&key=${API_KEY}&name=${encodeURIComponent(
+  deepLinkUrl: `lime://connect?relay=${RELAY_ID}&key=${API_KEY}&name=${encodeURIComponent(
     RELAY_NAME,
   )}&ref=smoke`,
   appUrl: "",
@@ -51,7 +51,7 @@ function printHelp() {
 Connect Deep Link Save Current Smoke
 
 用途:
-  启动真实 Electron Desktop Host，把 ember://connect URL 作为首启参数交给
+  启动真实 Electron Desktop Host，把 lime://connect URL 作为首启参数交给
   Electron main，点击“确认添加”，验证 Connect API Key 保存与 callback
   发送请求均走 app_server_handle_json_lines -> App Server JSON-RPC current
   主链，而不是旧 desktop command / renderer mock。
@@ -64,7 +64,7 @@ Connect Deep Link Save Current Smoke
   --deep-link-url <url>   默认使用本脚本的 registry fixture relay
   --timeout-ms <ms>       总超时，默认 120000
   --interval-ms <ms>      轮询间隔，默认 250
-  --evidence-dir <path>   证据目录，默认 .ember/qc/gui-evidence/connect-deep-link-save-current
+  --evidence-dir <path>   证据目录，默认 .lime/qc/gui-evidence/connect-deep-link-save-current
   --prefix <name>         证据文件前缀，默认 connect-deep-link-save-current
   -h, --help              显示帮助
 `);
@@ -117,8 +117,8 @@ function parseArgs(argv) {
   if (!Number.isFinite(options.intervalMs) || options.intervalMs < 100) {
     throw new Error("--interval-ms 必须是 >= 100 的数字");
   }
-  if (!options.deepLinkUrl.startsWith("ember://connect")) {
-    throw new Error("--deep-link-url 必须是 ember://connect URL");
+  if (!options.deepLinkUrl.startsWith("lime://connect")) {
+    throw new Error("--deep-link-url 必须是 lime://connect URL");
   }
   if (!options.evidenceDir || !options.prefix) {
     throw new Error("--evidence-dir / --prefix 均不能为空");
@@ -296,12 +296,12 @@ async function waitForRendererReady(page, options) {
     const snapshot = await evaluatePageSnapshot(page, () => {
       return {
         url: window.location.href,
-        electron: window.__EMBER_ELECTRON__ === true,
+        electron: window.__LIME_ELECTRON__ === true,
         hasDeepLinkBridge:
           typeof window.electronAPI?.deepLink?.getCurrent === "function" &&
           typeof window.electronAPI?.deepLink?.onOpenUrl === "function",
         startupVisible: Boolean(
-          document.querySelector("[data-ember-startup-shell]"),
+          document.querySelector("[data-lime-startup-shell]"),
         ),
       };
     });
@@ -328,7 +328,7 @@ async function waitForConnectDialog(page, options) {
     const snapshot = await evaluatePageSnapshot(page, async () => {
       const bodyText = document.body?.innerText || "";
       const traceRaw = window.localStorage.getItem(
-        "ember_invoke_trace_buffer_v1",
+        "lime_invoke_trace_buffer_v1",
       );
       const pendingDeepLinks = window.electronAPI?.deepLink?.getCurrent
         ? await window.electronAPI.deepLink.getCurrent()
@@ -403,7 +403,7 @@ async function waitForSaveEvidence(page, options) {
       };
       const bodyText = document.body?.innerText || "";
       const traceRaw = window.localStorage.getItem(
-        "ember_invoke_trace_buffer_v1",
+        "lime_invoke_trace_buffer_v1",
       );
       const visibleButtons = Array.from(document.querySelectorAll("button"))
         .filter(visible)
@@ -469,13 +469,13 @@ function buildIsolatedRuntimeEnv(tmpRoot) {
   const xdgDataHome = ensureDir(path.join(tmpRoot, "xdg-data"));
   const appData = ensureDir(path.join(tmpRoot, "appdata"));
   const localAppData = ensureDir(path.join(tmpRoot, "local-appdata"));
-  const asterRoot = ensureDir(path.join(tmpRoot, "aster"));
+  const agentRoot = ensureDir(path.join(tmpRoot, "agent"));
   return {
     HOME: home,
     XDG_DATA_HOME: xdgDataHome,
     APPDATA: appData,
     LOCALAPPDATA: localAppData,
-    EMBER_ASTER_ROOT: asterRoot,
+    LIME_AGENT_RUNTIME_ROOT: agentRoot,
   };
 }
 
@@ -515,10 +515,10 @@ function registryPayload() {
 
 function seedConnectRegistryCaches(tmpRoot, env) {
   const candidateDataDirs = [
-    path.join(env.HOME, "Library", "Application Support", "ember"),
-    path.join(env.XDG_DATA_HOME, "ember"),
-    path.join(env.APPDATA, "ember"),
-    path.join(env.LOCALAPPDATA, "ember"),
+    path.join(env.HOME, "Library", "Application Support", "lime"),
+    path.join(env.XDG_DATA_HOME, "lime"),
+    path.join(env.APPDATA, "lime"),
+    path.join(env.LOCALAPPDATA, "lime"),
   ];
   const registry = registryPayload();
   const seededPaths = [];
@@ -623,9 +623,9 @@ async function run() {
         ...appServerEnv,
         ...isolatedRuntimeEnv,
         ELECTRON_E2E_USER_DATA_DIR: tmpUserDataDir,
-        EMBER_ELECTRON_E2E: "1",
-        EMBER_ELECTRON_BRAND_DEV_APP: "0",
-        EMBER_ELECTRON_CLEAR_RENDERER_CACHE: "0",
+        LIME_ELECTRON_E2E: "1",
+        LIME_ELECTRON_BRAND_DEV_APP: "0",
+        LIME_ELECTRON_CLEAR_RENDERER_CACHE: "0",
         ...(options.appUrl ? { VITE_DEV_SERVER_URL: options.appUrl } : {}),
       },
       timeout: options.timeoutMs,
@@ -673,7 +673,7 @@ async function run() {
       traceEntries: saveEvidence.traceEntries ?? [],
     });
 
-    summary.databaseFiles = listRelativeFiles(tmpRoot, "ember.db");
+    summary.databaseFiles = listRelativeFiles(tmpRoot, "lime.db");
     summary.consoleErrors = consoleErrors;
     summary.screenshot = screenshotPath;
     await page.screenshot({ path: screenshotPath, fullPage: true });
@@ -698,7 +698,7 @@ async function run() {
     );
     assert(
       summary.databaseFiles.length > 0,
-      "未在隔离 app data 下观察到 ember.db",
+      "未在隔离 app data 下观察到 lime.db",
     );
 
     summary.ok = true;
@@ -712,7 +712,7 @@ async function run() {
   } catch (error) {
     summary.error = error instanceof Error ? error.message : String(error);
     summary.consoleErrors = consoleErrors;
-    summary.databaseFiles = listRelativeFiles(tmpRoot, "ember.db");
+    summary.databaseFiles = listRelativeFiles(tmpRoot, "lime.db");
     writeJsonFile(summaryPath, summary);
     if (page) {
       try {

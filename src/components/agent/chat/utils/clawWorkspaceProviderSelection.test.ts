@@ -161,6 +161,33 @@ describe("resolveClawWorkspaceProviderSelection", () => {
     expect(mockFetchProviderModelsAuto).not.toHaveBeenCalled();
   });
 
+  it("解析普通聊天模型时应跳过纯图片模型", async () => {
+    mockLoadConfiguredProviders.mockResolvedValueOnce([createProvider()]);
+    mockGetModelRegistry.mockResolvedValueOnce([
+      createModel("gpt-image-1", {
+        task_families: ["image_generation"],
+        output_modalities: ["image"],
+        is_latest: true,
+      }),
+      createModel("gpt-5.4-mini", {
+        task_families: ["chat"],
+        output_modalities: ["text"],
+      }),
+    ]);
+
+    const result = await resolveClawWorkspaceProviderSelection({
+      currentProviderType: "custom-social-provider",
+      currentModel: null,
+      theme: "general",
+    });
+
+    expect(result).toEqual({
+      providerType: "custom-social-provider",
+      model: "gpt-5.4-mini",
+    });
+    expect(mockFetchProviderModelsAuto).not.toHaveBeenCalled();
+  });
+
   it("本地注册表无模型时应回退到后端 provider API 结果", async () => {
     mockLoadConfiguredProviders.mockResolvedValueOnce([
       createProvider({
@@ -239,10 +266,10 @@ describe("resolveClawWorkspaceProviderSelection", () => {
   it("关闭 provider fallback 时不应跨到其他已配置 Provider", async () => {
     mockLoadConfiguredProviders.mockResolvedValueOnce([
       createProvider({
-        key: "ember-hub",
-        label: "Ember Hub",
-        registryId: "ember-hub",
-        providerId: "ember-hub",
+        key: "lime-hub",
+        label: "Lime Hub",
+        registryId: "lime-hub",
+        providerId: "lime-hub",
         apiHost: "https://hub.example.com/v1",
       }),
       createProvider({
@@ -266,7 +293,7 @@ describe("resolveClawWorkspaceProviderSelection", () => {
     });
 
     const result = await resolveClawWorkspaceProviderSelection({
-      currentProviderType: "ember-hub",
+      currentProviderType: "lime-hub",
       currentModel: null,
       theme: "general",
       allowProviderFallback: false,
@@ -274,6 +301,116 @@ describe("resolveClawWorkspaceProviderSelection", () => {
 
     expect(result).toBeNull();
     expect(mockFetchProviderModelsAuto).toHaveBeenCalledTimes(1);
-    expect(mockFetchProviderModelsAuto).toHaveBeenCalledWith("ember-hub");
+    expect(mockFetchProviderModelsAuto).toHaveBeenCalledWith("lime-hub");
+  });
+
+  it("自动解析 Claw provider 时应跳过需要登录的 Lime Hub 提示", async () => {
+    mockLoadConfiguredProviders.mockResolvedValueOnce([
+      createProvider({
+        key: "lime-hub",
+        label: "Lime Hub",
+        registryId: "lime-hub",
+        providerId: "lime-hub",
+        apiHost: "https://hub.example.com/v1",
+        authStatus: "login_required",
+      }),
+      createProvider({
+        key: "deepseek",
+        label: "DeepSeek",
+        registryId: "deepseek",
+        providerId: "deepseek",
+        apiHost: "https://api.deepseek.com/v1",
+      }),
+    ]);
+    mockFetchProviderModelsAuto.mockResolvedValueOnce({
+      models: [
+        createModel("deepseek-chat", {
+          provider_id: "deepseek",
+          provider_name: "DeepSeek",
+        }),
+      ],
+      source: "Api",
+      error: null,
+    });
+
+    const result = await resolveClawWorkspaceProviderSelection({
+      currentProviderType: "lime-hub",
+      currentModel: "gpt-5.5",
+      theme: "general",
+    });
+
+    expect(result).toEqual({
+      providerType: "deepseek",
+      model: "deepseek-chat",
+    });
+    expect(mockFetchProviderModelsAuto).toHaveBeenCalledTimes(1);
+    expect(mockFetchProviderModelsAuto).toHaveBeenCalledWith("deepseek");
+  });
+
+  it("需要登录但已有声明模型的 Lime Hub 应保留为可选模型", async () => {
+    mockLoadConfiguredProviders.mockResolvedValueOnce([
+      createProvider({
+        key: "lime-hub",
+        label: "Lime Hub",
+        registryId: "lime-hub",
+        providerId: "lime-hub",
+        apiHost: "https://llm.limeai.run#lime_tenant_id=tenant-0001",
+        authStatus: "login_required",
+        customModels: ["agnes-2.0-flash"],
+      }),
+      createProvider({
+        key: "deepseek",
+        label: "DeepSeek",
+        registryId: "deepseek",
+        providerId: "deepseek",
+        apiHost: "https://api.deepseek.com/v1",
+      }),
+    ]);
+
+    const result = await resolveClawWorkspaceProviderSelection({
+      currentProviderType: "lime-hub",
+      currentModel: "",
+      theme: "general",
+    });
+
+    expect(result).toEqual({
+      providerType: "lime-hub",
+      model: "agnes-2.0-flash",
+    });
+    expect(mockFetchProviderModelsAuto).not.toHaveBeenCalled();
+  });
+
+  it("只有图片生成模型时不应为普通 Claw 聊天选择该 Provider", async () => {
+    mockLoadConfiguredProviders.mockResolvedValueOnce([
+      createProvider({
+        key: "fixture-image-provider",
+        label: "Fixture Image Provider",
+        registryId: "openai",
+        providerId: "custom-image-provider",
+        apiHost: "http://127.0.0.1:56755/v1",
+      }),
+    ]);
+    mockFetchProviderModelsAuto.mockResolvedValueOnce({
+      models: [
+        createModel("gpt-image-1", {
+          provider_id: "openai",
+          provider_name: "OpenAI",
+          task_families: ["image_generation"],
+          input_modalities: ["text"],
+          output_modalities: ["image"],
+          source: "custom",
+        }),
+      ],
+      source: "Api",
+      error: null,
+    });
+
+    const result = await resolveClawWorkspaceProviderSelection({
+      currentProviderType: "fixture-provider",
+      currentModel: "fixture-model",
+      theme: "general",
+    });
+
+    expect(result).toBeNull();
   });
 });

@@ -2,7 +2,7 @@ import React from "react";
 import { Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { formatNumber } from "@/i18n/format";
-import { EMBER_BRAND_LOGO_SRC, EMBER_BRAND_NAME } from "@/lib/branding";
+import { LIME_BRAND_LOGO_SRC, LIME_BRAND_NAME } from "@/lib/branding";
 
 function formatContentLength(value: number): string {
   return formatNumber(value);
@@ -134,8 +134,8 @@ export function TaskCenterEmptyState() {
         <div className="flex items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-slate-200/80 bg-slate-50/80">
             <img
-              src={EMBER_BRAND_LOGO_SRC}
-              alt={EMBER_BRAND_NAME}
+              src={LIME_BRAND_LOGO_SRC}
+              alt={LIME_BRAND_NAME}
               className="h-5 w-5 opacity-80"
             />
           </div>
@@ -165,23 +165,6 @@ export function TaskCenterEmptyState() {
           <span>{t("agentChat.messageList.taskCenterEmpty.chip.restore")}</span>
         </div>
       </section>
-    </div>
-  );
-}
-
-export function DefaultConversationEmptyState() {
-  const { t } = useTranslation("agent");
-
-  return (
-    <div className="flex h-64 flex-col items-center justify-center text-muted-foreground opacity-50">
-      <img
-        src={EMBER_BRAND_LOGO_SRC}
-        alt={EMBER_BRAND_NAME}
-        className="mb-4 h-12 w-12 opacity-20"
-      />
-      <p className="text-lg font-medium">
-        {t("agentChat.messageList.empty.defaultTitle")}
-      </p>
     </div>
   );
 }

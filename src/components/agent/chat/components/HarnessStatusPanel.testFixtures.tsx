@@ -1,15 +1,16 @@
 import { act, type ComponentProps, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, vi } from "vitest";
-import type { AgentRuntimeToolInventory } from "@/lib/api/agentRuntime";
+import type { AgentRuntimeToolInventory } from "@/lib/api/agentRuntime/toolInventoryTypes";
 import {
   areLightweightRenderersRegistered,
   registerLightweightRenderers,
 } from "@/components/artifact/renderers";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { HarnessStatusPanel } from "./HarnessStatusPanel";
 import type { HarnessSessionState } from "../utils/harnessState";
 import { clearAgentUiProjectionEvents } from "../projection/conversationProjectionStore";
+import { clearHarnessEvidencePackStore } from "./harnessEvidencePackStore";
 
 const {
   exportAgentRuntimeAnalysisHandoffMock,
@@ -18,7 +19,6 @@ const {
   exportAgentRuntimeReplayCaseMock,
   exportAgentRuntimeReviewDecisionTemplateMock,
   saveAgentRuntimeReviewDecisionMock,
-  prefetchContextMemoryForTurnMock,
   mockOpenExternalUrlWithSystemBrowser,
   mockToast,
 } = vi.hoisted(() => ({
@@ -28,7 +28,6 @@ const {
   exportAgentRuntimeReplayCaseMock: vi.fn(),
   exportAgentRuntimeReviewDecisionTemplateMock: vi.fn(),
   saveAgentRuntimeReviewDecisionMock: vi.fn(),
-  prefetchContextMemoryForTurnMock: vi.fn(),
   mockOpenExternalUrlWithSystemBrowser: vi.fn().mockResolvedValue(undefined),
   mockToast: {
     success: vi.fn(),
@@ -46,16 +45,15 @@ export function getHarnessPanelTestMocks() {
     exportAgentRuntimeReplayCaseMock,
     exportAgentRuntimeReviewDecisionTemplateMock,
     saveAgentRuntimeReviewDecisionMock,
-    prefetchContextMemoryForTurnMock,
     mockOpenExternalUrlWithSystemBrowser,
     mockToast,
   };
 }
 
-vi.mock("@/lib/api/agentRuntime", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/api/agentRuntime")>(
-    "@/lib/api/agentRuntime",
-  );
+vi.mock("@/lib/api/agentRuntime/exportClient", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/api/agentRuntime/exportClient")
+  >("@/lib/api/agentRuntime/exportClient");
   return {
     ...actual,
     exportAgentRuntimeAnalysisHandoff: exportAgentRuntimeAnalysisHandoffMock,
@@ -76,18 +74,14 @@ vi.mock("@/lib/api/externalUrl", () => ({
   openExternalUrlWithSystemBrowser: mockOpenExternalUrlWithSystemBrowser,
 }));
 
-vi.mock("react-syntax-highlighter", () => ({
-  Prism: ({ children }: { children?: unknown }) => (
+vi.mock("react-syntax-highlighter/dist/esm/prism", () => ({
+  default: ({ children }: { children?: unknown }) => (
     <pre data-testid="syntax-highlighter-mock">{String(children ?? "")}</pre>
   ),
 }));
 
 vi.mock("react-syntax-highlighter/dist/esm/styles/prism", () => ({
   oneLight: {},
-}));
-
-vi.mock("@/lib/api/memoryRuntime", () => ({
-  prefetchContextMemoryForTurn: prefetchContextMemoryForTurnMock,
 }));
 
 export interface RenderResult {
@@ -157,6 +151,15 @@ export function renderPanel(
   return rendered;
 }
 
+export function renderExpandedPanel(
+  overrides: Partial<ComponentProps<typeof HarnessStatusPanel>> = {},
+): RenderResult {
+  return renderPanel({
+    layout: "dialog",
+    ...overrides,
+  });
+}
+
 export function mountHarnessElement(element: ReactNode): RenderResult {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -217,7 +220,7 @@ export function createToolInventory(): AgentRuntimeToolInventory {
     },
     agent_initialized: true,
     warnings: ["extension 搜索工具面存在延迟加载项"],
-    mcp_servers: ["ember-browser"],
+    mcp_servers: ["lime-browser"],
     default_allowed_tools: ["ToolSearch", "WebSearch"],
     counts: {
       catalog_total: 3,
@@ -227,9 +230,9 @@ export function createToolInventory(): AgentRuntimeToolInventory {
       default_allowed_total: 2,
       runtime_total: 4,
       runtime_visible_total: 3,
-      registry_total: 2,
-      registry_visible_total: 1,
-      registry_catalog_unmapped_total: 0,
+      native_total: 2,
+      native_visible_total: 1,
+      native_catalog_unmapped_total: 0,
       extension_surface_total: 1,
       extension_mcp_bridge_total: 1,
       extension_runtime_total: 0,
@@ -245,7 +248,7 @@ export function createToolInventory(): AgentRuntimeToolInventory {
         profiles: ["core"],
         capabilities: ["execution"],
         lifecycle: "current",
-        source: "aster_builtin",
+        source: "agent_builtin",
         permission_plane: "parameter_restricted",
         workspace_default_allow: false,
         execution_warning_policy: "shell_command_risk",
@@ -260,7 +263,7 @@ export function createToolInventory(): AgentRuntimeToolInventory {
         profiles: ["core"],
         capabilities: ["workspace_io"],
         lifecycle: "current",
-        source: "aster_builtin",
+        source: "agent_builtin",
         permission_plane: "parameter_restricted",
         workspace_default_allow: false,
         execution_warning_policy: "none",
@@ -275,7 +278,7 @@ export function createToolInventory(): AgentRuntimeToolInventory {
         profiles: ["core"],
         capabilities: ["web_search"],
         lifecycle: "current",
-        source: "ember_injected",
+        source: "lime_injected",
         permission_plane: "session_allowlist",
         workspace_default_allow: true,
         execution_warning_policy: "none",
@@ -286,12 +289,12 @@ export function createToolInventory(): AgentRuntimeToolInventory {
         execution_sandbox_profile_source: "default",
       },
     ],
-    registry_tools: [
+    native_tools: [
       {
         name: "bash",
         description: "执行工作区命令",
         catalog_entry_name: "bash",
-        catalog_source: "aster_builtin",
+        catalog_source: "agent_builtin",
         catalog_lifecycle: "current",
         catalog_permission_plane: "parameter_restricted",
         catalog_workspace_default_allow: false,
@@ -306,6 +309,7 @@ export function createToolInventory(): AgentRuntimeToolInventory {
         allowed_callers: ["assistant"],
         tags: ["shell"],
         input_examples_count: 2,
+        has_output_schema: false,
         caller_allowed: true,
         visible_in_context: true,
       },
@@ -313,7 +317,7 @@ export function createToolInventory(): AgentRuntimeToolInventory {
         name: "ToolSearch",
         description: "搜索工具目录",
         catalog_entry_name: "ToolSearch",
-        catalog_source: "ember_injected",
+        catalog_source: "lime_injected",
         catalog_lifecycle: "current",
         catalog_permission_plane: "session_allowlist",
         catalog_workspace_default_allow: true,
@@ -328,6 +332,7 @@ export function createToolInventory(): AgentRuntimeToolInventory {
         allowed_callers: [],
         tags: ["search"],
         input_examples_count: 1,
+        has_output_schema: false,
         caller_allowed: false,
         visible_in_context: false,
       },
@@ -338,7 +343,7 @@ export function createToolInventory(): AgentRuntimeToolInventory {
         description: "创建或调度子任务",
         source_kind: "current_surface",
         catalog_entry_name: "Agent",
-        catalog_source: "aster_builtin",
+        catalog_source: "agent_builtin",
         catalog_lifecycle: "current",
         catalog_permission_plane: "session_allowlist",
         catalog_workspace_default_allow: false,
@@ -347,15 +352,16 @@ export function createToolInventory(): AgentRuntimeToolInventory {
         allowed_callers: [],
         tags: [],
         input_examples_count: 0,
+        has_output_schema: false,
         caller_allowed: true,
         visible_in_context: true,
       },
       {
         name: "bash",
         description: "执行工作区命令",
-        source_kind: "registry_native",
+        source_kind: "current_surface",
         catalog_entry_name: "bash",
-        catalog_source: "aster_builtin",
+        catalog_source: "agent_builtin",
         catalog_lifecycle: "current",
         catalog_permission_plane: "parameter_restricted",
         catalog_workspace_default_allow: false,
@@ -364,29 +370,31 @@ export function createToolInventory(): AgentRuntimeToolInventory {
         allowed_callers: ["assistant"],
         tags: ["shell"],
         input_examples_count: 2,
+        has_output_schema: false,
         caller_allowed: true,
         visible_in_context: true,
       },
       {
-        name: "mcp__ember-browser__navigate",
+        name: "mcp__lime-browser__navigate",
         description: "打开网页",
         source_kind: "runtime_extension",
-        source_label: "mcp__ember-browser",
+        source_label: "mcp__lime-browser",
         status: "loaded",
         deferred_loading: false,
         always_visible: false,
         allowed_callers: ["assistant"],
         tags: [],
         input_examples_count: 0,
+        has_output_schema: true,
         caller_allowed: true,
         visible_in_context: true,
       },
       {
         name: "ToolSearch",
         description: "搜索工具目录",
-        source_kind: "registry_native",
+        source_kind: "current_surface",
         catalog_entry_name: "ToolSearch",
-        catalog_source: "ember_injected",
+        catalog_source: "lime_injected",
         catalog_lifecycle: "current",
         catalog_permission_plane: "session_allowlist",
         catalog_workspace_default_allow: true,
@@ -395,31 +403,32 @@ export function createToolInventory(): AgentRuntimeToolInventory {
         allowed_callers: [],
         tags: ["search"],
         input_examples_count: 1,
+        has_output_schema: false,
         caller_allowed: false,
         visible_in_context: false,
       },
     ],
     extension_surfaces: [
       {
-        extension_name: "mcp__ember-browser",
+        extension_name: "mcp__lime-browser",
         description: "浏览器桥接工具面",
         source_kind: "mcp_bridge",
         deferred_loading: true,
         allowed_caller: "assistant",
         available_tools: ["navigate", "click"],
         always_expose_tools: ["navigate"],
-        loaded_tools: ["mcp__ember-browser__navigate"],
+        loaded_tools: ["mcp__lime-browser__navigate"],
         searchable_tools: [
-          "mcp__ember-browser__navigate",
-          "mcp__ember-browser__click",
+          "mcp__lime-browser__navigate",
+          "mcp__lime-browser__click",
         ],
       },
     ],
     extension_tools: [
       {
-        name: "mcp__ember-browser__navigate",
+        name: "mcp__lime-browser__navigate",
         description: "打开网页",
-        extension_name: "mcp__ember-browser",
+        extension_name: "mcp__lime-browser",
         source_kind: "mcp_bridge",
         deferred_loading: false,
         allowed_caller: "assistant",
@@ -430,14 +439,15 @@ export function createToolInventory(): AgentRuntimeToolInventory {
     ],
     mcp_tools: [
       {
-        server_name: "ember-browser",
-        name: "mcp__ember-browser__navigate",
+        server_name: "lime-browser",
+        name: "mcp__lime-browser__navigate",
         description: "导航到指定页面",
         deferred_loading: false,
         always_visible: true,
         allowed_callers: ["assistant"],
         tags: ["browser", "navigation"],
         input_examples_count: 1,
+        has_output_schema: true,
         caller_allowed: true,
         visible_in_context: true,
       },
@@ -452,8 +462,8 @@ export function createAlignedRuntimeToolInventory(): AgentRuntimeToolInventory {
     ...base,
     counts: {
       ...base.counts,
-      runtime_total: 15,
-      runtime_visible_total: 14,
+      runtime_total: 10,
+      runtime_visible_total: 9,
     },
     runtime_tools: [
       {
@@ -461,7 +471,7 @@ export function createAlignedRuntimeToolInventory(): AgentRuntimeToolInventory {
         description: "创建或调度子任务",
         source_kind: "current_surface",
         catalog_entry_name: "Agent",
-        catalog_source: "aster_builtin",
+        catalog_source: "agent_builtin",
         catalog_lifecycle: "current",
         catalog_permission_plane: "session_allowlist",
         catalog_workspace_default_allow: false,
@@ -470,6 +480,7 @@ export function createAlignedRuntimeToolInventory(): AgentRuntimeToolInventory {
         allowed_callers: [],
         tags: [],
         input_examples_count: 0,
+        has_output_schema: false,
         caller_allowed: true,
         visible_in_context: true,
       },
@@ -478,7 +489,7 @@ export function createAlignedRuntimeToolInventory(): AgentRuntimeToolInventory {
         description: "向子任务追加输入",
         source_kind: "current_surface",
         catalog_entry_name: "SendMessage",
-        catalog_source: "aster_builtin",
+        catalog_source: "agent_builtin",
         catalog_lifecycle: "current",
         catalog_permission_plane: "session_allowlist",
         catalog_workspace_default_allow: false,
@@ -487,6 +498,7 @@ export function createAlignedRuntimeToolInventory(): AgentRuntimeToolInventory {
         allowed_callers: [],
         tags: ["team"],
         input_examples_count: 0,
+        has_output_schema: false,
         caller_allowed: true,
         visible_in_context: true,
       },
@@ -495,7 +507,7 @@ export function createAlignedRuntimeToolInventory(): AgentRuntimeToolInventory {
         description: "创建子代理组",
         source_kind: "current_surface",
         catalog_entry_name: "TeamCreate",
-        catalog_source: "aster_builtin",
+        catalog_source: "agent_builtin",
         catalog_lifecycle: "current",
         catalog_permission_plane: "session_allowlist",
         catalog_workspace_default_allow: false,
@@ -504,6 +516,7 @@ export function createAlignedRuntimeToolInventory(): AgentRuntimeToolInventory {
         allowed_callers: [],
         tags: ["team"],
         input_examples_count: 0,
+        has_output_schema: false,
         caller_allowed: true,
         visible_in_context: true,
       },
@@ -512,7 +525,7 @@ export function createAlignedRuntimeToolInventory(): AgentRuntimeToolInventory {
         description: "删除子代理组",
         source_kind: "current_surface",
         catalog_entry_name: "TeamDelete",
-        catalog_source: "aster_builtin",
+        catalog_source: "agent_builtin",
         catalog_lifecycle: "current",
         catalog_permission_plane: "session_allowlist",
         catalog_workspace_default_allow: false,
@@ -521,6 +534,7 @@ export function createAlignedRuntimeToolInventory(): AgentRuntimeToolInventory {
         allowed_callers: [],
         tags: ["team"],
         input_examples_count: 0,
+        has_output_schema: false,
         caller_allowed: true,
         visible_in_context: true,
       },
@@ -529,7 +543,7 @@ export function createAlignedRuntimeToolInventory(): AgentRuntimeToolInventory {
         description: "列出当前子代理成员",
         source_kind: "current_surface",
         catalog_entry_name: "ListPeers",
-        catalog_source: "aster_builtin",
+        catalog_source: "agent_builtin",
         catalog_lifecycle: "current",
         catalog_permission_plane: "session_allowlist",
         catalog_workspace_default_allow: false,
@@ -538,108 +552,25 @@ export function createAlignedRuntimeToolInventory(): AgentRuntimeToolInventory {
         allowed_callers: [],
         tags: ["team"],
         input_examples_count: 0,
+        has_output_schema: false,
         caller_allowed: true,
         visible_in_context: true,
       },
       {
-        name: "TaskCreate",
-        description: "创建任务",
+        name: "update_plan",
+        description: "维护执行计划",
         source_kind: "current_surface",
-        catalog_entry_name: "TaskCreate",
-        catalog_source: "aster_builtin",
+        catalog_entry_name: "update_plan",
+        catalog_source: "lime_injected",
         catalog_lifecycle: "current",
         catalog_permission_plane: "session_allowlist",
         catalog_workspace_default_allow: false,
         deferred_loading: false,
         always_visible: false,
         allowed_callers: [],
-        tags: ["task"],
+        tags: ["plan"],
         input_examples_count: 0,
-        caller_allowed: true,
-        visible_in_context: true,
-      },
-      {
-        name: "TaskGet",
-        description: "查看任务详情",
-        source_kind: "current_surface",
-        catalog_entry_name: "TaskGet",
-        catalog_source: "aster_builtin",
-        catalog_lifecycle: "current",
-        catalog_permission_plane: "session_allowlist",
-        catalog_workspace_default_allow: false,
-        deferred_loading: false,
-        always_visible: false,
-        allowed_callers: [],
-        tags: ["task"],
-        input_examples_count: 0,
-        caller_allowed: true,
-        visible_in_context: true,
-      },
-      {
-        name: "TaskList",
-        description: "列出任务",
-        source_kind: "current_surface",
-        catalog_entry_name: "TaskList",
-        catalog_source: "aster_builtin",
-        catalog_lifecycle: "current",
-        catalog_permission_plane: "session_allowlist",
-        catalog_workspace_default_allow: false,
-        deferred_loading: false,
-        always_visible: false,
-        allowed_callers: [],
-        tags: ["task"],
-        input_examples_count: 0,
-        caller_allowed: true,
-        visible_in_context: true,
-      },
-      {
-        name: "TaskUpdate",
-        description: "更新任务",
-        source_kind: "current_surface",
-        catalog_entry_name: "TaskUpdate",
-        catalog_source: "aster_builtin",
-        catalog_lifecycle: "current",
-        catalog_permission_plane: "session_allowlist",
-        catalog_workspace_default_allow: false,
-        deferred_loading: false,
-        always_visible: false,
-        allowed_callers: [],
-        tags: ["task"],
-        input_examples_count: 0,
-        caller_allowed: true,
-        visible_in_context: true,
-      },
-      {
-        name: "TaskOutput",
-        description: "读取任务输出",
-        source_kind: "current_surface",
-        catalog_entry_name: "TaskOutput",
-        catalog_source: "aster_builtin",
-        catalog_lifecycle: "current",
-        catalog_permission_plane: "session_allowlist",
-        catalog_workspace_default_allow: false,
-        deferred_loading: false,
-        always_visible: false,
-        allowed_callers: [],
-        tags: ["task"],
-        input_examples_count: 0,
-        caller_allowed: true,
-        visible_in_context: true,
-      },
-      {
-        name: "TaskStop",
-        description: "终止任务",
-        source_kind: "current_surface",
-        catalog_entry_name: "TaskStop",
-        catalog_source: "aster_builtin",
-        catalog_lifecycle: "current",
-        catalog_permission_plane: "session_allowlist",
-        catalog_workspace_default_allow: false,
-        deferred_loading: false,
-        always_visible: false,
-        allowed_callers: [],
-        tags: ["task"],
-        input_examples_count: 0,
+        has_output_schema: false,
         caller_allowed: true,
         visible_in_context: true,
       },
@@ -648,7 +579,7 @@ export function createAlignedRuntimeToolInventory(): AgentRuntimeToolInventory {
         description: "执行联网检索",
         source_kind: "current_surface",
         catalog_entry_name: "WebSearch",
-        catalog_source: "ember_injected",
+        catalog_source: "lime_injected",
         catalog_lifecycle: "current",
         catalog_permission_plane: "session_allowlist",
         catalog_workspace_default_allow: true,
@@ -657,6 +588,7 @@ export function createAlignedRuntimeToolInventory(): AgentRuntimeToolInventory {
         allowed_callers: [],
         tags: ["search"],
         input_examples_count: 0,
+        has_output_schema: false,
         caller_allowed: true,
         visible_in_context: true,
       },
@@ -671,7 +603,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 
   if (!areLightweightRenderersRegistered()) {
     registerLightweightRenderers();
@@ -688,15 +620,6 @@ beforeEach(async () => {
   Object.defineProperty(window, "open", {
     configurable: true,
     value: vi.fn(),
-  });
-  prefetchContextMemoryForTurnMock.mockResolvedValue({
-    session_id: "session-default",
-    rules_source_paths: [],
-    working_memory_excerpt: null,
-    durable_memories: [],
-    team_memory_entries: [],
-    latest_compaction: null,
-    prompt: null,
   });
 });
 
@@ -720,5 +643,6 @@ afterEach(() => {
     value: originalWindowOpen,
   });
   clearAgentUiProjectionEvents();
+  clearHarnessEvidencePackStore();
   vi.clearAllMocks();
 });

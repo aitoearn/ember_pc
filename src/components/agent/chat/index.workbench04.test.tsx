@@ -27,6 +27,7 @@ const {
   mockInputbar,
   mockJotaiState,
   mockLaunchBrowserSession,
+  mockExecuteBrowserSessionAction,
   mockUseAgentChatUnified,
 } = getIndexTestMocks();
 
@@ -57,7 +58,7 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
               toolCalls: [
                 {
                   id: "tool-browser-pending",
-                  name: "mcp__ember-browser__browser_navigate",
+                  name: "mcp__lime-browser__browser_navigate",
                   arguments: JSON.stringify({
                     url: "https://accounts.example.com",
                     profile_key: "general_browser_assist",
@@ -143,7 +144,7 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
               toolCalls: [
                 {
                   id: "tool-browser-failed",
-                  name: "mcp__ember-browser__browser_navigate",
+                  name: "mcp__lime-browser__browser_navigate",
                   arguments: JSON.stringify({
                     url: "https://accounts.example.com",
                     profile_key: "general_browser_assist",
@@ -277,7 +278,7 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
               toolCalls: [
                 {
                   id: "tool-browser-open-refresh",
-                  name: "mcp__ember-browser__browser_navigate",
+                  name: "mcp__lime-browser__browser_navigate",
                   arguments: JSON.stringify({
                     url: "https://www.rokid.com/news",
                     profile_key: "general_browser_assist",
@@ -341,21 +342,15 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
 
   it("显式新 URL 的浏览器请求应复用现有会话并导航到新页面", async () => {
     mockBrowserAssistCompletedSession();
-    mockBrowserExecuteAction.mockResolvedValueOnce({
-      success: true,
-      backend: "cdp_direct",
-      session_id: "browser-session-1",
-      target_id: "target-news-1",
+    mockExecuteBrowserSessionAction.mockResolvedValueOnce({
+      sessionId: "browser-session-1",
       action: "navigate",
-      request_id: "browser-action-news",
-      data: {
+      result: {
         page_info: {
           title: "百度新闻",
           url: "https://news.baidu.com",
         },
       },
-      error: undefined,
-      attempts: [],
     });
 
     renderPage({
@@ -378,22 +373,21 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
     });
     await flushEffects(12);
 
-    expect(mockBrowserExecuteAction).toHaveBeenCalledWith({
-      profile_key: "general_browser_assist",
-      backend: "cdp_direct",
+    expect(mockExecuteBrowserSessionAction).toHaveBeenCalledWith({
+      sessionId: "browser-session-1",
       action: "navigate",
       args: {
         action: "goto",
         url: "https://news.baidu.com",
-        wait_for_page_info: true,
+        timeout_ms: 20000,
       },
-      timeout_ms: 20000,
     });
+    expect(mockBrowserExecuteAction).not.toHaveBeenCalled();
     expect(sharedSendMessageMock).toHaveBeenCalledTimes(1);
     const sendCall = getSendMessageCall();
     expect(sendCall.content).toBe(prompt);
     expect(sendCall.images).toEqual([]);
-    expect(sendCall.webSearch).toBeUndefined();
+    expect(sendCall.webSearch).toBe(false);
     expect(sendCall.thinking).toBeUndefined();
     expect(sendCall.skipUserMessage).toBe(false);
     expect(sendCall.executionStrategy).toBe("react");
@@ -408,8 +402,12 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
               enabled: true,
               profile_key: "general_browser_assist",
             }),
+            browser_requirement: "required",
+            browser_launch_url: "https://news.baidu.com",
+            browser_user_step_required: false,
           }),
         }),
+        searchMode: "disabled",
       }),
     );
     expect(mockJotaiState.artifacts).toEqual(
@@ -444,7 +442,7 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
           browser_assist: {
             enabled: true,
             profile_key: "general_browser_assist",
-            preferred_backend: "ember_extension_bridge",
+            preferred_backend: "lime_extension_bridge",
             auto_launch: false,
           },
         },
@@ -465,7 +463,7 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
           browser_assist: expect.objectContaining({
             enabled: true,
             profile_key: "general_browser_assist",
-            preferred_backend: "ember_extension_bridge",
+            preferred_backend: "lime_extension_bridge",
             auto_launch: false,
           }),
         }),
@@ -482,7 +480,7 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
       }),
     );
 
-    const prompt = "请以测试策略专家身份帮我整理回归测试范围";
+    const prompt = "请以营销策略专家身份帮我拆解增长方案";
     mockGetOrCreateDefaultProject.mockResolvedValue(
       createProject("project-expert-default"),
     );
@@ -516,8 +514,11 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
       '[data-testid="expert-info-panel"]',
     );
     expect(expertPanel).not.toBeNull();
+    expect(expertPanel?.getAttribute("data-layout")).toBe(
+      "right-surface-full",
+    );
     expect(expertPanel?.textContent).toMatch(/专家信息|Expert Info/);
-    expect(expertPanel?.textContent).toContain("测试策略专家");
+    expect(expertPanel?.textContent).toContain("营销策略专家");
     expect(
       expertPanel?.querySelector('[data-testid="expert-info-section-memory"]'),
     ).not.toBeNull();
@@ -527,6 +528,52 @@ describe("AgentChatPage 通用工作台", { timeout: 20_000 }, () => {
     expect(
       expertPanel?.querySelector('[data-testid="expert-info-workflow"]'),
     ).not.toBeNull();
+
+    const canvasToggle = await waitForElement(
+      container,
+      '[data-testid="toggle-canvas"]',
+      80,
+    );
+    expect(canvasToggle).not.toBeNull();
+    act(() => {
+      canvasToggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects(6);
+
+    expect(
+      container.querySelector('[data-testid="expert-info-panel"]'),
+    ).toBeNull();
+
+    act(() => {
+      canvasToggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects(6);
+
+    expect(
+      container.querySelector('[data-testid="expert-info-panel"]'),
+    ).toBeNull();
+    expect(
+      (
+        container.querySelector(
+          '[data-testid="task-center-utility-toolbar"]',
+        ) as HTMLElement | null
+      )?.dataset.expertInfoPanelVisible,
+    ).toBe("false");
+
+    const expertToggle = container.querySelector(
+      '[data-testid="task-center-expert-info-toggle"]',
+    );
+    expect(expertToggle).not.toBeNull();
+    act(() => {
+      expertToggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects(6);
+
+    const reopenedExpertPanel = container.querySelector(
+      '[data-testid="expert-info-panel"]',
+    );
+    expect(reopenedExpertPanel).not.toBeNull();
+    expect(reopenedExpertPanel?.textContent).toContain("营销策略专家");
 
     expect(sharedSendMessageMock).toHaveBeenCalledTimes(1);
     expect(sharedSendMessageMock.mock.calls[0]?.[0]).toBe(prompt);

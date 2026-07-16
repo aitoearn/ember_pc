@@ -15,7 +15,11 @@ export function isAgentMessageCommentaryPhase(
 export function isAgentMessageFinalAnswerPhase(
   phase?: string | null,
 ): boolean {
-  return normalizeAgentMessagePhase(phase) === AGENT_MESSAGE_PHASE_FINAL_ANSWER;
+  const normalized = normalizeAgentMessagePhase(phase);
+  return (
+    normalized === AGENT_MESSAGE_PHASE_FINAL_ANSWER ||
+    normalized === "final"
+  );
 }
 
 export function shouldUseAgentMessageAsFinalText(
@@ -23,7 +27,9 @@ export function shouldUseAgentMessageAsFinalText(
 ): boolean {
   const normalized = normalizeAgentMessagePhase(phase);
   return (
-    normalized === null || normalized === AGENT_MESSAGE_PHASE_FINAL_ANSWER
+    normalized === null ||
+    normalized === AGENT_MESSAGE_PHASE_FINAL_ANSWER ||
+    normalized === "final"
   );
 }
 
@@ -34,6 +40,8 @@ export interface AgentMessagePhaseSelectionCandidate {
   sequence?: number | null;
   phase?: string | null;
   text?: string | null;
+  content?: string | null;
+  message?: string | null;
 }
 
 function resolveSelectionTurnId(
@@ -66,7 +74,8 @@ export function resolveFinalAgentMessageItemIds<
     if (item.type !== "agent_message") {
       continue;
     }
-    if (item.text !== undefined && item.text !== null && !item.text.trim()) {
+    const text = item.text ?? item.content ?? item.message;
+    if (text !== undefined && text !== null && !text.trim()) {
       continue;
     }
     const turnId = resolveSelectionTurnId(item);

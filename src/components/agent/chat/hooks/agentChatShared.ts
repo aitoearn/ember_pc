@@ -1,9 +1,9 @@
+import type { AgentExecutionStrategy } from "@/lib/api/agentExecutionRuntime";
 import type {
-  AsterExecutionStrategy,
-  AsterSessionInfo,
+  AgentSessionInfo,
   AutoContinueRequestPayload,
-  AgentRuntimeWebSearchMode,
-} from "@/lib/api/agentRuntime";
+} from "@/lib/api/agentRuntime/sessionTypes";
+import type { RuntimeSearchMode } from "@embercloud/app-server-client";
 import type {
   AgentRuntimeStatus,
   Message,
@@ -15,9 +15,23 @@ import type { ChatToolPreferences } from "../utils/chatToolPreferences";
 import type { InputCapabilitySendRoute } from "../skill-selection/inputCapabilitySelection";
 import { normalizeProjectId } from "../utils/topicProjectResolution";
 import { normalizeExecutionStrategy } from "./agentChatCoreUtils";
+import { resolveUnfinishedSessionProjection } from "../projection/unfinishedSessionProjection";
 import { sanitizeMessageTextForPreview } from "../utils/messageDisplaySanitizer";
+import { sanitizeGeneratedAutoTitle } from "./agentChatAutoTitleViewModel";
+import type { SoulInteractionCopy } from "@/lib/soul/interactionCopy";
+import type { ModelCapabilitySummary } from "@/lib/model/inferModelCapabilities";
+import type {
+  InterruptedInputDraftSnapshot,
+  InterruptedInputRestoreRequest,
+} from "./agentStreamInputRestoreTypes";
 
-export type TaskStatus = "draft" | "running" | "waiting" | "done" | "failed";
+export type TaskStatus =
+  | "draft"
+  | "running"
+  | "queued"
+  | "waiting"
+  | "done"
+  | "failed";
 export type TaskStatusReason =
   | "default"
   | "workspace_error"
@@ -36,8 +50,9 @@ export interface Topic {
   createdAt: Date;
   updatedAt: Date;
   workspaceId?: string | null;
+  workingDir?: string | null;
   messagesCount: number;
-  executionStrategy: AsterExecutionStrategy;
+  executionStrategy: AgentExecutionStrategy;
   status: TaskStatus;
   statusReason?: TaskStatusReason;
   lastPreview: string;
@@ -47,15 +62,18 @@ export interface Topic {
   sourceSessionId: string;
 }
 
-export interface UseAsterAgentChatOptions {
+export interface UseAgentChatOptions {
   systemPrompt?: string;
+  clawTraceEnabled?: boolean;
   onWriteFile?: (
     content: string,
     fileName: string,
     context?: WriteArtifactContext,
   ) => void;
   workspaceId: string;
+  workingDir?: string | null;
   disableSessionRestore?: boolean;
+  sessionRestorePresentation?: "foreground" | "background";
   initialTopicsLoadMode?: "immediate" | "deferred";
   initialTopicsDeferredDelayMs?: number;
   initialRuntimeWarmupLoadMode?: "immediate" | "deferred";
@@ -64,6 +82,8 @@ export interface UseAsterAgentChatOptions {
     sessionId: string,
   ) => ChatToolPreferences | null;
   onOpenSubagents?: () => void;
+  onRestoreInterruptedInput?: (request: InterruptedInputRestoreRequest) => void;
+  soulCopy?: SoulInteractionCopy;
 }
 
 export interface SendMessageObserver {
@@ -91,14 +111,18 @@ export interface SendMessageOptions {
   observer?: SendMessageObserver;
   requestMetadata?: Record<string, unknown>;
   assistantDraft?: AssistantDraftState;
+  inputRestoreDraft?: InterruptedInputDraftSnapshot;
   displayContent?: string;
   capabilityRoute?: InputCapabilitySendRoute;
   skillRequest?: SlashSkillRequest;
   providerOverride?: string;
   modelOverride?: string;
+  modelCapabilitySummary?: ModelCapabilitySummary | null;
   reasoningEffort?: string;
   systemPromptOverride?: string;
-  searchMode?: AgentRuntimeWebSearchMode;
+  searchMode?: RuntimeSearchMode;
+  explicitToolPreferences?: boolean;
+  targetSessionId?: string;
   skipSessionRestore?: boolean;
   skipSessionStartHooks?: boolean;
   skipPreSubmitResume?: boolean;
@@ -150,7 +174,7 @@ export type SendMessageFn = (
   webSearch?: boolean,
   thinking?: boolean,
   skipUserMessage?: boolean,
-  executionStrategyOverride?: AsterExecutionStrategy,
+  executionStrategyOverride?: AgentExecutionStrategy,
   modelOverride?: string,
   autoContinue?: AutoContinueRequestPayload,
   options?: SendMessageOptions,
@@ -368,11 +392,17 @@ export function deriveTaskLiveState(params: {
   }
 
   if (
-    isSending ||
-    queuedTurnCount > 0 ||
-    threadStatus === "running" ||
-    threadStatus === "queued"
+    threadStatus === "waitingAction" ||
+    threadStatus === "waiting_action" ||
+    threadStatus === "waiting_request"
   ) {
+    return {
+      status: "waiting",
+      statusReason: "user_action",
+    };
+  }
+
+  if (isSending || threadStatus === "running") {
     return {
       status: "running",
       statusReason: "default",
@@ -386,6 +416,13 @@ export function deriveTaskLiveState(params: {
       statusReason: pendingAction
         ? resolvePendingActionStatusReason(pendingAction)
         : "user_action",
+    };
+  }
+
+  if (queuedTurnCount > 0 || threadStatus === "queued") {
+    return {
+      status: "queued",
+      statusReason: "default",
     };
   }
 
@@ -469,27 +506,31 @@ function resolveRecentTopicPriority(topic: RecentSessionLabelSource): number {
     return 0;
   }
 
-  if (topic.status === "failed" && topic.statusReason === "workspace_error") {
+  if (topic.status === "queued") {
     return 1;
   }
 
-  if (topic.status === "running") {
+  if (topic.status === "failed" && topic.statusReason === "workspace_error") {
     return 2;
   }
 
-  if (topic.status === "done") {
+  if (topic.status === "running") {
     return 3;
   }
 
-  if (topic.status === "failed") {
+  if (topic.status === "done") {
     return 4;
   }
 
-  if ((topic.messagesCount ?? 0) > 0) {
+  if (topic.status === "failed") {
     return 5;
   }
 
-  return 6;
+  if ((topic.messagesCount ?? 0) > 0) {
+    return 6;
+  }
+
+  return 7;
 }
 
 export function resolveRecentTopicCandidate(
@@ -575,26 +616,48 @@ function buildSessionFallbackTitle(createdAt: Date): string {
     : "新任务";
 }
 
-export const mapSessionToTopic = (session: AsterSessionInfo): Topic => {
+export const mapSessionToTopic = (session: AgentSessionInfo): Topic => {
   const updatedAtValue = session.updated_at ?? session.created_at;
   const messagesCount = session.messages_count ?? 0;
   const createdAt = resolveSessionTimestampDate(session.created_at);
   const updatedAt = resolveSessionTimestampDate(updatedAtValue);
+  const fallbackTitle = buildSessionFallbackTitle(createdAt);
+  const sessionTitle = sanitizeGeneratedAutoTitle(
+    session.name || fallbackTitle,
+    session.name,
+  );
+  const unfinishedProjection = resolveUnfinishedSessionProjection(session);
+  const status: TaskStatus = unfinishedProjection
+    ? unfinishedProjection.status === "waitingAction"
+      ? "waiting"
+      : unfinishedProjection.status === "queued"
+        ? "queued"
+        : "running"
+    : messagesCount > 0
+      ? "done"
+      : "draft";
+  const statusReason: TaskStatusReason =
+    unfinishedProjection?.status === "waitingAction"
+      ? "user_action"
+      : "default";
+  const lastPreview =
+    unfinishedProjection?.preview ||
+    (messagesCount > 0
+      ? `已记录 ${messagesCount} 条消息，可继续补充或接着推进。`
+      : "等待你补充任务需求后开始执行。");
 
   return {
     id: session.id,
-    title: session.name || buildSessionFallbackTitle(createdAt),
+    title: sessionTitle || fallbackTitle,
     createdAt,
     updatedAt,
     workspaceId: normalizeProjectId(session.workspace_id),
+    workingDir: session.working_dir ?? null,
     messagesCount,
     executionStrategy: normalizeExecutionStrategy(session.execution_strategy),
-    status: messagesCount > 0 ? "done" : "draft",
-    statusReason: "default",
-    lastPreview:
-      messagesCount > 0
-        ? `已记录 ${messagesCount} 条消息，可继续补充或接着推进。`
-        : "等待你补充任务需求后开始执行。",
+    status,
+    statusReason,
+    lastPreview,
     isPinned: false,
     hasUnread: false,
     tag: null,

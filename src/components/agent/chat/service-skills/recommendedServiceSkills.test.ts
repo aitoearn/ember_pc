@@ -1,13 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  resolveServiceSkillEntrySurfaces,
-  supportsServiceSkillEntrySurface,
-} from "./entryAdapter";
-import type { ServiceSkillHomeItem } from "./types";
-import {
   buildServiceSkillRecommendationBuckets,
   listPrimaryRecommendedServiceSkills,
 } from "./recommendedServiceSkills";
+import type { ServiceSkillHomeItem } from "./types";
 
 function createServiceSkill(
   overrides: Partial<ServiceSkillHomeItem> = {},
@@ -42,24 +38,6 @@ function createServiceSkill(
 }
 
 describe("recommendedServiceSkills", () => {
-  it("显式空 surfaceScopes 时不应出现在任何入口面", () => {
-    const internalSkill = createServiceSkill({
-      id: "personal-ip-knowledge-builder",
-      title: "个人 IP 知识库生成器",
-      surfaceScopes: [],
-    });
-
-    expect(resolveServiceSkillEntrySurfaces(internalSkill)).toEqual([]);
-    expect(supportsServiceSkillEntrySurface(internalSkill, "workspace")).toBe(
-      false,
-    );
-    expect(
-      buildServiceSkillRecommendationBuckets([internalSkill], {
-        surface: "workspace",
-      }).remainingSkills,
-    ).toEqual([]);
-  });
-
   it("应把最近使用、推荐技能和剩余技能拆成互不重复的同一事实源", () => {
     const recentOlder = createServiceSkill({
       id: "recent-older",

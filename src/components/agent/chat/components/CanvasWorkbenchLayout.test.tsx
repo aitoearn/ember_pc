@@ -1,15 +1,15 @@
+import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type {
-  CanvasWorkbenchDefaultPreview,
-  CanvasWorkbenchPreviewTarget,
-} from "./CanvasWorkbenchLayout";
+import type { CanvasWorkbenchDefaultPreview } from "./CanvasWorkbenchLayout";
 import {
-  MockArtifactDocumentPreview,
   type CanvasWorkbenchLayoutProps,
   clickByAriaLabel,
+  clickNewWorkbenchTool,
+  clickPreviewMode,
   createArtifact,
-  createMockArtifactDocumentController,
   createTaskFile,
+  expectNewWorkbenchToolInMenu,
+  expectWorkbenchTabNotInNewMenu,
   flushEffects,
   mockListDirectory,
   mount,
@@ -18,7 +18,7 @@ import {
 } from "./CanvasWorkbenchLayout.testFixtures";
 
 describe("CanvasWorkbenchLayout", () => {
-  it("应以顶部标签式画布承载 session、文件与结果文件标签", async () => {
+  it("应以顶部标签承载审查、真实文件与新建工具入口", async () => {
     const onOpenPath = vi.fn(async () => undefined);
     const onRevealPath = vi.fn(async () => undefined);
     const loadFilePreview = vi.fn(async (path: string) => {
@@ -67,11 +67,6 @@ describe("CanvasWorkbenchLayout", () => {
       workspaceView: {
         tabBadge: "当前项目",
       },
-      renderPreview: (target) => (
-        <div data-testid="preview-panel">
-          {target.kind}:{target.title}
-        </div>
-      ),
     });
 
     await flushEffects();
@@ -85,58 +80,111 @@ describe("CanvasWorkbenchLayout", () => {
     expect(
       container.querySelector('[data-testid="canvas-workbench-shell"]')
         ?.className,
-    ).toContain("ember-workbench-theme-scope");
+    ).toContain("lime-workbench-theme-scope");
     expect(
       container.querySelector('[data-testid="canvas-workbench-shell"]')
         ?.className,
-    ).toContain("ember-workbench-surface-scope");
+    ).toContain("lime-workbench-surface-scope");
     expect(
       container.querySelector('[data-testid="canvas-workbench-shell"]')
         ?.className,
-    ).toContain("bg-[color:var(--ember-surface)]");
+    ).toContain("bg-[color:var(--lime-surface)]");
     expect(
-      container.querySelector('button[aria-label="切换画布标签-结果"]'),
+      container.querySelector('[data-testid="canvas-workbench-shell"]')
+        ?.className,
+    ).not.toContain("rounded-[12px]");
+    expect(
+      container.querySelector('[data-testid="canvas-workbench-top-tabs-slot"]')
+        ?.className,
+    ).toContain("overflow-visible");
+    expect(
+      container.querySelector('button[aria-label="切换画布标签-审查"]'),
     ).not.toBeNull();
     expect(
-      container.querySelector('button[aria-label="切换画布标签-文件"]'),
-    ).not.toBeNull();
-    expect(
-      container.querySelector('button[aria-label="切换画布标签-outputs"]'),
+      container.querySelector(
+        '[data-testid="canvas-workbench-direct-tabs"] [aria-label="切换画布标签-文件"]',
+      ),
     ).toBeNull();
     expect(
-      container.querySelector('button[aria-label="切换画布标签-draft.md"]'),
+      container.querySelector(
+        '[data-testid="canvas-workbench-direct-tabs"] [aria-label="切换画布标签-Markdown"]',
+      ),
+    ).toBeNull();
+    expect(
+      container.querySelector(
+        '[data-testid="canvas-workbench-direct-tabs"] [aria-label="切换画布标签-HTML"]',
+      ),
+    ).toBeNull();
+    expect(
+      container.querySelector(
+        '[data-testid="canvas-workbench-direct-tabs"] [aria-label="切换画布标签-Code"]',
+      ),
+    ).toBeNull();
+    expectNewWorkbenchToolInMenu(container, "终端");
+    expectNewWorkbenchToolInMenu(container, "浏览器");
+    expectNewWorkbenchToolInMenu(container, "文件");
+    expectWorkbenchTabNotInNewMenu(container, "文件");
+    expectWorkbenchTabNotInNewMenu(container, "Markdown");
+    expectWorkbenchTabNotInNewMenu(container, "HTML");
+    expectWorkbenchTabNotInNewMenu(container, "Code");
+    const draftTab = container.querySelector(
+      '[data-testid="canvas-workbench-direct-tabs"] [aria-label="切换画布标签-draft.md"]',
+    );
+    expect(draftTab).not.toBeNull();
+    expect(draftTab?.getAttribute("data-canvas-tab-kind")).toBe("markdown");
+    expect(
+      container.querySelector('[data-testid="canvas-workbench-panel-changes"]'),
     ).not.toBeNull();
     expect(
-      container.querySelectorAll('button[aria-label="切换画布标签-draft.md"]'),
-    ).toHaveLength(1);
+      container.querySelector(
+        '[data-testid="canvas-workbench-changes-file-list"]',
+      ),
+    ).toBeNull();
+    clickByAriaLabel(container, "显示文件");
+    await flushEffects();
     expect(
-      container.querySelector('[data-testid="preview-panel"]')?.textContent,
-    ).toContain("default-canvas:draft.md");
-    const documentPreviewRegion = container.querySelector(
-      '[data-testid="canvas-workbench-preview-region"]',
-    ) as HTMLElement | null;
-    expect(documentPreviewRegion?.className).toContain("bg-white");
-    expect(documentPreviewRegion?.className).not.toContain("rounded-[14px]");
-    expect(documentPreviewRegion?.className).not.toContain("border");
+      container.querySelector(
+        '[data-testid="canvas-workbench-changes-file-list"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(
+        '[data-testid="canvas-workbench-changes-files-resizer"]',
+      ),
+    ).not.toBeNull();
+    clickByAriaLabel(container, "隐藏文件");
+    await flushEffects();
+    expect(
+      container.querySelector(
+        '[data-testid="canvas-workbench-changes-file-list"]',
+      ),
+    ).toBeNull();
     expect(
       container.querySelector('[data-testid="canvas-workbench-header-actions"]')
         ?.textContent ?? "",
     ).toBe("");
 
-    clickByAriaLabel(container, "切换画布标签-文件");
+    clickNewWorkbenchTool(container, "文件");
     await flushEffects();
 
-    const workspaceTab = container.querySelector(
-      'button[aria-label="切换画布标签-文件"]',
+    expect(
+      container.querySelector(
+        '[data-testid="canvas-workbench-header-actions"]',
+      ),
+    ).toBeNull();
+    const projectFilesTab = container.querySelector(
+      '[data-testid="canvas-workbench-direct-tabs"] [aria-label="切换画布标签-打开文件"]',
     ) as HTMLButtonElement | null;
-    expect(workspaceTab?.className).toContain("--theme-subtle");
-    expect(workspaceTab?.className).toContain("rounded-[10px]");
-    expect(workspaceTab?.className).not.toContain("border-b-2");
-    expect(workspaceTab?.textContent).toBe("文件");
+    const projectFilesTabFrame = projectFilesTab?.closest(
+      '[data-canvas-tab-kind="project-files"]',
+    );
+    expect(projectFilesTabFrame?.className).toContain("rounded-[7px]");
+    expect(projectFilesTabFrame?.className).toContain("bg-white");
+    expect(projectFilesTab?.textContent).toBe("打开文件");
     expect(container.textContent).toContain("名称");
     expect(container.textContent).toContain("修改日期");
     expect(container.textContent).toContain("大小");
-    expect(container.textContent).not.toContain(".ember");
+    expect(container.textContent).not.toContain(".lime");
     expect(container.textContent).toContain("exports");
     expect(container.textContent).not.toContain("output_image.jpg");
     expect(container.textContent).not.toContain(".DS_Store");
@@ -145,8 +193,24 @@ describe("CanvasWorkbenchLayout", () => {
 
     expect(loadFilePreview).toHaveBeenCalledWith("/workspace/README.md");
     expect(
-      container.querySelector('[data-testid="preview-panel"]')?.textContent,
-    ).toContain("default-canvas:README.md");
+      container.querySelector(
+        '[data-testid="canvas-workbench-markdown-preview"]',
+      ),
+    ).not.toBeNull();
+    clickPreviewMode(container, "Code");
+    await flushEffects();
+    expect(
+      container.querySelector(
+        '[data-testid="canvas-workbench-panel-project-files"] [data-testid="canvas-workbench-code-preview"]',
+      ),
+    ).not.toBeNull();
+    const documentPreviewRegion = container.querySelector(
+      '[data-testid="canvas-workbench-preview-mode-panel"]',
+    ) as HTMLElement | null;
+    expect(documentPreviewRegion?.className).toContain("bg-white");
+    expect(documentPreviewRegion?.className).not.toContain("rounded-[14px]");
+    expect(documentPreviewRegion?.className).not.toContain("border");
+    expect(container.textContent).toContain("README.md");
     expect(
       container.querySelector(
         '[data-testid="canvas-workbench-header-actions"]',
@@ -156,9 +220,11 @@ describe("CanvasWorkbenchLayout", () => {
       container.querySelector('[data-testid="canvas-workbench-header-actions"]')
         ?.textContent ?? "",
     ).toBe("");
-    expect(
-      container.querySelector('button[aria-label="切换画布标签-README.md"]'),
-    ).not.toBeNull();
+    const readmeTab = container.querySelector(
+      '[data-testid="canvas-workbench-direct-tabs"] [aria-label="切换画布标签-README.md"]',
+    );
+    expect(readmeTab).not.toBeNull();
+    expect(readmeTab?.getAttribute("data-canvas-tab-kind")).toBe("markdown");
 
     clickByAriaLabel(container, "复制路径");
     await flushEffects();
@@ -177,19 +243,69 @@ describe("CanvasWorkbenchLayout", () => {
     clickByAriaLabel(container, "下载");
     expect(globalThis.URL.createObjectURL).toHaveBeenCalledTimes(1);
     expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1);
-
-    clickByAriaLabel(container, "关闭文件标签-README.md");
-    await flushEffects();
-    expect(
-      container.querySelector('button[aria-label="切换画布标签-README.md"]'),
-    ).toBeNull();
   });
 
-  it("命中文档产物时应在文件标签内提供文稿 inspector", async () => {
-    const controller = createMockArtifactDocumentController();
-
+  it("连续新增工具时应创建独立可关闭 tab，而不是替换同类 tab", async () => {
     const container = mount({
-      artifacts: [controller.artifact],
+      artifacts: [],
+      canvasState: null,
+      taskFiles: [],
+      workspaceRoot: "/workspace",
+      workspaceUnavailable: false,
+      defaultPreview: null,
+      loadFilePreview: vi.fn(async (path: string) => ({
+        path,
+        content: "",
+        isBinary: false,
+        size: 0,
+        error: null,
+      })),
+      onOpenPath: vi.fn(async () => undefined),
+      onRevealPath: vi.fn(async () => undefined),
+      workbenchMode: "coding",
+    });
+
+    await flushEffects();
+    clickNewWorkbenchTool(container, "浏览器");
+    await flushEffects();
+    clickNewWorkbenchTool(container, "浏览器");
+    await flushEffects();
+
+    const browserTabs = container.querySelectorAll(
+      '[data-testid="canvas-workbench-direct-tabs"] [data-canvas-tab-kind="browser"]',
+    );
+    expect(browserTabs).toHaveLength(2);
+    expect(browserTabs[0]?.textContent).toContain("Google");
+    expect(browserTabs[1]?.textContent).toContain("新选项卡 2");
+
+    const browserClose = container.querySelector(
+      '[aria-label="关闭工作台标签-新选项卡 2"]',
+    ) as HTMLButtonElement | null;
+    expect(browserClose).not.toBeNull();
+    act(() => {
+      browserClose?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushEffects();
+
+    expect(
+      container.querySelectorAll(
+        '[data-testid="canvas-workbench-direct-tabs"] [data-canvas-tab-kind="browser"]',
+      ),
+    ).toHaveLength(1);
+    expect(
+      container.querySelector('[data-testid="canvas-workbench-panel-browser"]'),
+    ).not.toBeNull();
+  });
+
+  it("命中文档产物时应使用 Markdown 与 Code 模式预览，不再走旧文稿 inspector", async () => {
+    const artifact = createArtifact(
+      "artifact-doc",
+      ".lime/artifacts/thread-1/board-review.artifact.json",
+      "# 董事会季度复盘\n\n需要优先补齐来源与版本线索。",
+      40,
+    );
+    const container = mount({
+      artifacts: [artifact],
       canvasState: null,
       taskFiles: [],
       workspaceRoot: "/workspace",
@@ -204,36 +320,22 @@ describe("CanvasWorkbenchLayout", () => {
       })),
       onOpenPath: vi.fn(async () => undefined),
       onRevealPath: vi.fn(async () => undefined),
-      renderPreview: (target, options) => (
-        <MockArtifactDocumentPreview
-          controller={controller}
-          target={target}
-          onArtifactDocumentControllerChange={
-            options?.onArtifactDocumentControllerChange
-          }
-        />
-      ),
     });
 
     await flushEffects();
 
     expect(
-      container.querySelector('[data-testid="preview-panel"]')?.textContent,
-    ).toContain("artifact:board-review.artifact.json");
-    expect(container.textContent).toContain("当前文稿");
+      container.querySelector('[data-testid="canvas-workbench-code-preview"]'),
+    ).not.toBeNull();
     expect(container.textContent).toContain("董事会季度复盘");
     expect(container.textContent).toContain("需要优先补齐来源与版本线索。");
     expect(
       container.querySelector('button[aria-label="展开当前文稿检查器"]'),
-    ).not.toBeNull();
-
-    clickByAriaLabel(container, "展开当前文稿检查器");
+    ).toBeNull();
+    clickPreviewMode(container, "Code");
     await flushEffects();
-
     expect(
-      container.querySelector(
-        '[data-testid="canvas-workbench-document-inspector"]',
-      ),
+      container.querySelector('[data-testid="canvas-workbench-code-preview"]'),
     ).not.toBeNull();
   });
 
@@ -267,32 +369,276 @@ describe("CanvasWorkbenchLayout", () => {
       })),
       onOpenPath: vi.fn(async () => undefined),
       onRevealPath: vi.fn(async () => undefined),
-      renderPreview: (target) => (
-        <div data-testid="preview-panel">
-          {target.kind}:{target.title}
-        </div>
-      ),
     });
 
     await flushEffects();
 
     expect(
-      container.querySelector('[data-testid="preview-panel"]')?.textContent,
-    ).toContain("artifact:渠道预览稿");
-    expect(
       container.querySelector(
-        'button[aria-label="切换画布标签-demo-preview.md"]',
+        '[data-testid="canvas-workbench-markdown-preview"]',
       ),
     ).not.toBeNull();
+    expect(container.textContent).toContain("渠道预览稿");
+    const previewTab = container.querySelector(
+      '[data-testid="canvas-workbench-direct-tabs"] [aria-label="切换画布标签-demo-preview.md"]',
+    );
+    expect(previewTab).not.toBeNull();
+    expect(previewTab?.getAttribute("data-canvas-tab-kind")).toBe("markdown");
+    expect(
+      container.querySelector(
+        '[data-testid="canvas-workbench-direct-tabs"] [aria-label="切换画布标签-渠道预览稿"]',
+      ),
+    ).toBeNull();
+  });
+
+  it("previewOpenRequest 命中媒体 preview artifact 时应打开统一 artifact 预览", async () => {
+    const artifact = createArtifact(
+      "preview-session-file-image",
+      "/tmp/imported-attachment.png",
+      "asset://imported-attachment.png",
+      80,
+    );
+    artifact.meta = {
+      ...artifact.meta,
+      previewArtifact: true,
+      isSourceBacked: true,
+      source: "session_file",
+      sourceRef: "/tmp/imported-attachment.png",
+      sourcePath: "/tmp/imported-attachment.png",
+      contentKind: "image",
+      renderMode: "media",
+      previewUrl: "asset://imported-attachment.png",
+      openedFrom: "message-attachment",
+    };
+
+    const onPreviewOpenRequestHandled = vi.fn();
+    const container = mount({
+      artifacts: [artifact],
+      canvasState: null,
+      taskFiles: [],
+      workspaceRoot: "/workspace",
+      workspaceUnavailable: false,
+      defaultPreview: null,
+      loadFilePreview: vi.fn(async (path: string) => ({
+        path,
+        content: null,
+        isBinary: true,
+        size: 0,
+        error: null,
+      })),
+      onOpenPath: vi.fn(async () => undefined),
+      onRevealPath: vi.fn(async () => undefined),
+      previewOpenRequest: {
+        requestKey: 1,
+        filePath: "/tmp/imported-attachment.png",
+        selectionKey: "artifact:preview-session-file-image",
+      },
+      onPreviewOpenRequestHandled,
+    });
+
+    await flushEffects();
+
+    expect(onPreviewOpenRequestHandled).toHaveBeenCalledWith(1);
+    const image = container.querySelector(
+      '[data-testid="preview-artifact-image"]',
+    ) as HTMLImageElement | null;
+    expect(image).not.toBeNull();
+    expect(image?.getAttribute("src")).toBe("asset://imported-attachment.png");
+    expect(
+      container.querySelector(
+        '[data-testid="canvas-workbench-preview-mode-panel"]',
+      )?.textContent,
+    ).toContain("imported-attachment.png");
+  });
+
+  it("当前停在图片附件时，previewOpenRequest 应切到导入 Markdown artifact", async () => {
+    const imageArtifact = createArtifact(
+      "preview-session-file-image",
+      "/tmp/attachment-1.png",
+      "asset://attachment-1.png",
+      70,
+    );
+    imageArtifact.meta = {
+      ...imageArtifact.meta,
+      previewArtifact: true,
+      isSourceBacked: true,
+      source: "session_file",
+      sourceRef: "/tmp/attachment-1.png",
+      sourcePath: "/tmp/attachment-1.png",
+      contentKind: "image",
+      renderMode: "media",
+      previewUrl: "asset://attachment-1.png",
+      openedFrom: "message-attachment",
+    };
+    const markdownArtifact = createArtifact(
+      "preview-imported-markdown",
+      "/tmp/imported-preview.md",
+      "# 导入会话 Markdown 预览内容\n\n文件打开链路进入 Artifact Workbench。",
+      80,
+    );
+    markdownArtifact.meta = {
+      ...markdownArtifact.meta,
+      previewArtifact: true,
+      isSourceBacked: true,
+      source: "file",
+      sourceRef: "/tmp/imported-preview.md",
+      sourcePath: "/tmp/imported-preview.md",
+      filePath: "/tmp/imported-preview.md",
+      contentKind: "markdown",
+      renderMode: "inline",
+      openedFrom: "general-workbench-file",
+    };
+
+    const onPreviewOpenRequestHandled = vi.fn();
+    const container = mount({
+      artifacts: [imageArtifact, markdownArtifact],
+      canvasState: null,
+      taskFiles: [],
+      workspaceRoot: "/workspace",
+      workspaceUnavailable: false,
+      defaultPreview: {
+        selectionKey: "artifact:preview-session-file-image",
+        title: "attachment-1",
+        content: "asset://attachment-1.png",
+        filePath: "/tmp/attachment-1.png",
+        absolutePath: "/tmp/attachment-1.png",
+        previousContent: null,
+      } satisfies CanvasWorkbenchDefaultPreview,
+      loadFilePreview: vi.fn(async (path: string) => ({
+        path,
+        content: null,
+        isBinary: true,
+        size: 0,
+        error: null,
+      })),
+      onOpenPath: vi.fn(async () => undefined),
+      onRevealPath: vi.fn(async () => undefined),
+      previewOpenRequest: {
+        requestKey: 12,
+        filePath: "/tmp/imported-preview.md",
+        selectionKey: "artifact:preview-imported-markdown",
+      },
+      onPreviewOpenRequestHandled,
+    });
+
+    await flushEffects();
+
+    expect(onPreviewOpenRequestHandled).toHaveBeenCalledWith(12);
+    expect(
+      container.querySelector(
+        '[data-testid="canvas-workbench-markdown-preview"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(
+        '[data-testid="canvas-workbench-preview-mode-panel"]',
+      )?.textContent,
+    ).toContain("导入会话 Markdown 预览内容");
+    expect(
+      container.querySelector(
+        '[data-testid="canvas-workbench-preview-mode-panel"]',
+      )?.textContent,
+    ).not.toContain("attachment-1.png");
+  });
+
+  it("previewOpenRequest 早于 artifact 入库时应等待选择上下文命中再确认并切到 HTML 预览", async () => {
+    const imageArtifact = createArtifact(
+      "preview-session-file-image-before-html",
+      "/tmp/attachment-before-html.png",
+      "asset://attachment-before-html.png",
+      70,
+    );
+    imageArtifact.meta = {
+      ...imageArtifact.meta,
+      previewArtifact: true,
+      isSourceBacked: true,
+      source: "session_file",
+      sourceRef: "/tmp/attachment-before-html.png",
+      sourcePath: "/tmp/attachment-before-html.png",
+      contentKind: "image",
+      renderMode: "media",
+      previewUrl: "asset://attachment-before-html.png",
+      openedFrom: "message-attachment",
+    };
+    const artifact = createArtifact(
+      "preview-imported-html",
+      "/tmp/imported-preview.html",
+      "<!doctype html><html><body>导入 HTML 预览内容</body></html>",
+      80,
+    );
+    artifact.type = "html";
+    artifact.meta = {
+      ...artifact.meta,
+      previewArtifact: true,
+      isSourceBacked: true,
+      source: "file",
+      sourceRef: "/tmp/imported-preview.html",
+      sourcePath: "/tmp/imported-preview.html",
+      filePath: "/tmp/imported-preview.html",
+      contentKind: "html",
+      renderMode: "external_window",
+      openedFrom: "general-workbench-file",
+    };
+
+    const onPreviewOpenRequestHandled = vi.fn();
+    const baseProps: CanvasWorkbenchLayoutProps = {
+      artifacts: [imageArtifact],
+      canvasState: null,
+      taskFiles: [],
+      workspaceRoot: "/workspace",
+      workspaceUnavailable: false,
+      defaultPreview: {
+        selectionKey: "artifact:preview-session-file-image-before-html",
+        title: "attachment-before-html",
+        content: "asset://attachment-before-html.png",
+        filePath: "/tmp/attachment-before-html.png",
+        absolutePath: "/tmp/attachment-before-html.png",
+        previousContent: null,
+      } satisfies CanvasWorkbenchDefaultPreview,
+      loadFilePreview: vi.fn(async (path: string) => ({
+        path,
+        content: null,
+        isBinary: true,
+        size: 0,
+        error: null,
+      })),
+      onOpenPath: vi.fn(async () => undefined),
+      onRevealPath: vi.fn(async () => undefined),
+      previewOpenRequest: {
+        requestKey: 11,
+        filePath: "/tmp/imported-preview.html",
+        selectionKey: "artifact:preview-imported-html",
+      },
+      onPreviewOpenRequestHandled,
+    };
+
+    const harness = mountHarness(baseProps);
+    await flushEffects();
+
+    expect(onPreviewOpenRequestHandled).not.toHaveBeenCalled();
+
+    harness.rerender({
+      ...baseProps,
+      artifacts: [imageArtifact, artifact],
+    });
+    await flushEffects();
+
+    expect(onPreviewOpenRequestHandled).toHaveBeenCalledWith(11);
+    expect(
+      harness.container.querySelector(
+        '[data-testid="canvas-workbench-html-preview"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      harness.container
+        .querySelector('[data-testid="canvas-workbench-preview-mode-panel"]')
+        ?.getAttribute("data-preview-mode"),
+    ).toBe("html");
+    expect(harness.container.textContent).toContain("imported-preview.html");
   });
 
   it("sessionView 存在但没有默认主稿时，应回退渲染会话进展面板", async () => {
     const onClose = vi.fn();
-    const renderPreview = vi.fn((target: CanvasWorkbenchPreviewTarget) => (
-      <div data-testid="preview-panel">
-        {target.kind}:{target.title}
-      </div>
-    ));
     const renderSessionPanel = vi.fn(() => (
       <div data-testid="session-view-panel">session-runtime-panel</div>
     ));
@@ -314,7 +660,6 @@ describe("CanvasWorkbenchLayout", () => {
       onOpenPath: vi.fn(async () => undefined),
       onRevealPath: vi.fn(async () => undefined),
       onClose,
-      renderPreview,
       sessionView: {
         eyebrow: "Session Runtime",
         title: "执行过程",
@@ -333,14 +678,13 @@ describe("CanvasWorkbenchLayout", () => {
     await flushEffects();
 
     expect(
-      container.querySelector('[data-testid="canvas-workbench-panel-session"]'),
+      container.querySelector('[data-testid="canvas-workbench-panel-outputs"]'),
     ).not.toBeNull();
     expect(
       container.querySelector('[data-testid="session-view-panel"]')
         ?.textContent,
     ).toContain("session-runtime-panel");
     expect(renderSessionPanel).toHaveBeenCalled();
-    expect(renderPreview).not.toHaveBeenCalled();
 
     clickByAriaLabel(container, "关闭画布工作台");
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -376,11 +720,6 @@ describe("CanvasWorkbenchLayout", () => {
       })),
       onOpenPath: vi.fn(async () => undefined),
       onRevealPath: vi.fn(async () => undefined),
-      renderPreview: (target) => (
-        <div data-testid="preview-panel">
-          {target.kind}:{target.title}
-        </div>
-      ),
       sessionView: {
         eyebrow: "Session Runtime",
         title: "任务进展",
@@ -405,15 +744,17 @@ describe("CanvasWorkbenchLayout", () => {
 
     expect(
       container.querySelector(
-        '[data-testid="canvas-workbench-panel-document"]',
+        '[data-testid="canvas-workbench-markdown-preview"]',
       ),
     ).not.toBeNull();
     expect(
-      container.querySelector('[data-testid="canvas-workbench-panel-session"]'),
+      container.querySelector('[data-testid="canvas-workbench-panel-outputs"]'),
     ).toBeNull();
     expect(
-      container.querySelector('[data-testid="preview-panel"]')?.textContent,
-    ).toContain("default-canvas:draft.md");
+      container.querySelector(
+        '[data-testid="canvas-workbench-preview-mode-panel"]',
+      )?.textContent,
+    ).toContain("draft.md");
     expect(
       container.querySelector('[data-testid="session-view-panel"]'),
     ).toBeNull();
@@ -424,12 +765,6 @@ describe("CanvasWorkbenchLayout", () => {
     const renderSessionPanel = vi.fn(() => (
       <div data-testid="session-view-panel">session-runtime-panel</div>
     ));
-    const renderPreview = vi.fn((target: CanvasWorkbenchPreviewTarget) => (
-      <div data-testid="preview-panel">
-        {target.kind}:{target.title}
-      </div>
-    ));
-
     const baseProps: CanvasWorkbenchLayoutProps = {
       artifacts: [],
       canvasState: null,
@@ -446,7 +781,6 @@ describe("CanvasWorkbenchLayout", () => {
       })),
       onOpenPath: vi.fn(async () => undefined),
       onRevealPath: vi.fn(async () => undefined),
-      renderPreview,
       sessionView: {
         title: "任务进展",
         renderPanel: renderSessionPanel,
@@ -458,7 +792,7 @@ describe("CanvasWorkbenchLayout", () => {
 
     expect(
       harness.container.querySelector(
-        '[data-testid="canvas-workbench-panel-session"]',
+        '[data-testid="canvas-workbench-panel-outputs"]',
       ),
     ).not.toBeNull();
     expect(
@@ -484,16 +818,17 @@ describe("CanvasWorkbenchLayout", () => {
 
     expect(
       harness.container.querySelector(
-        '[data-testid="canvas-workbench-panel-document"]',
+        '[data-testid="canvas-workbench-markdown-preview"]',
       ),
     ).not.toBeNull();
     expect(
       harness.container.querySelector('[data-testid="session-view-panel"]'),
     ).toBeNull();
     expect(
-      harness.container.querySelector('[data-testid="preview-panel"]')
-        ?.textContent,
-    ).toContain("default-canvas:index.md");
+      harness.container.querySelector(
+        '[data-testid="canvas-workbench-preview-mode-panel"]',
+      )?.textContent,
+    ).toContain("index.md");
   });
 
   it("容器变窄时应继续保持顶部标签壳，但 data-layout-mode 切到 stacked", async () => {
@@ -525,11 +860,6 @@ describe("CanvasWorkbenchLayout", () => {
       })),
       onOpenPath: vi.fn(async () => undefined),
       onRevealPath: vi.fn(async () => undefined),
-      renderPreview: (target) => (
-        <div data-testid="preview-panel">
-          {target.kind}:{target.title}
-        </div>
-      ),
     });
 
     await flushEffects();
@@ -552,14 +882,14 @@ describe("CanvasWorkbenchLayout", () => {
       container.querySelector('button[aria-label="展开画布工作台"]'),
     ).toBeNull();
     expect(
-      container.querySelector('button[aria-label="切换画布标签-结果"]'),
+      container.querySelector('button[aria-label="切换画布标签-审查"]'),
     ).not.toBeNull();
 
-    clickByAriaLabel(container, "切换画布标签-文件");
+    clickNewWorkbenchTool(container, "文件");
     await flushEffects();
     expect(
       container.querySelector(
-        '[data-testid="canvas-workbench-panel-workspace"]',
+        '[data-testid="canvas-workbench-panel-project-files"]',
       ),
     ).not.toBeNull();
   });

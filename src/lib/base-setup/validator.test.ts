@@ -12,7 +12,7 @@ function createBaseSetupPackage(): BaseSetupPackage {
       {
         id: "short-video-skills",
         source: "remote",
-        pathOrUri: "ember://bundles/short-video",
+        pathOrUri: "lime://bundles/short-video",
         kind: "skill_bundle",
       },
     ],

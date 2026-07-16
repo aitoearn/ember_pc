@@ -7,14 +7,14 @@ import {
 import {
   CORE_NAMESPACES,
   getBundledNamespaceResourceParts as getNamespaceResourceParts,
-  type EmberNamespace,
+  type LimeNamespace,
 } from "./bundledNamespaceParts";
 export { CORE_NAMESPACES } from "./bundledNamespaceParts";
 
 export type I18nNamespaceResource = Record<string, string>;
 export type BundledI18nResources = Record<
   SupportedLocale,
-  Record<EmberNamespace, I18nNamespaceResource>
+  Record<LimeNamespace, I18nNamespaceResource>
 >;
 
 const bundledResourceModules = import.meta.glob<I18nNamespaceResource>(
@@ -30,14 +30,14 @@ function resourceModuleKey(locale: SupportedLocale, namespace: string) {
 }
 
 export function getBundledNamespaceResourceParts(
-  namespace: EmberNamespace,
+  namespace: LimeNamespace,
 ): readonly string[] {
   return getNamespaceResourceParts(namespace);
 }
 
 export function hasBundledNamespace(
   locale: string | null | undefined,
-  namespace: EmberNamespace,
+  namespace: LimeNamespace,
 ): boolean {
   const normalizedLocale = normalizeLocale(locale);
   return getNamespaceResourceParts(namespace).some(
@@ -48,7 +48,7 @@ export function hasBundledNamespace(
 
 export function loadNamespaceResource(
   locale: string | null | undefined,
-  namespace: EmberNamespace,
+  namespace: LimeNamespace,
 ): I18nNamespaceResource {
   const normalizedLocale = normalizeLocale(locale);
   return Object.assign(
@@ -68,7 +68,7 @@ export function loadNamespaceResource(
 }
 
 export function loadBundledI18nResources(
-  namespaces: readonly EmberNamespace[] = CORE_NAMESPACES,
+  namespaces: readonly LimeNamespace[] = CORE_NAMESPACES,
 ): BundledI18nResources {
   return Object.fromEntries(
     SUPPORTED_LOCALES.map((locale) => [

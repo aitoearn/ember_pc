@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2, Play, X } from "lucide-react";
-import type { QueuedTurnSnapshot } from "@/lib/api/agentRuntime";
+import type { QueuedTurnSnapshot } from "@/lib/api/queuedTurn";
+import { logAgentDebug } from "@/lib/agentDebug";
 import { buildInputbarQueuedTurnsCopy } from "./inputbarQueuedTurnsCopy";
 
 interface QueuedTurnsPanelProps {
@@ -17,10 +18,7 @@ export const QueuedTurnsPanel: React.FC<QueuedTurnsPanelProps> = ({
 }) => {
   const { t } = useTranslation("agent");
   const copy = useMemo(
-    () =>
-      buildInputbarQueuedTurnsCopy((key, values) =>
-        t(key, values ?? {}),
-      ),
+    () => buildInputbarQueuedTurnsCopy((key, values) => t(key, values ?? {})),
     [t],
   );
   const [expandedTurnId, setExpandedTurnId] = useState<string | null>(null);
@@ -49,6 +47,12 @@ export const QueuedTurnsPanel: React.FC<QueuedTurnsPanelProps> = ({
     const handler =
       type === "promote" ? onPromoteQueuedTurn : onRemoveQueuedTurn;
     if (!handler) {
+      logAgentDebug(
+        "InputbarQueuedTurnsPanel",
+        "missingActionHandler",
+        { queuedTurnId, type },
+        { level: "warn" },
+      );
       return;
     }
 
@@ -65,7 +69,7 @@ export const QueuedTurnsPanel: React.FC<QueuedTurnsPanelProps> = ({
   };
 
   return (
-    <div className="px-3 pb-2">
+    <div className="px-3 pb-2" data-testid="inputbar-queued-turns-panel">
       <div className="mb-2 flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
         <span>{copy.queuedCount(queuedTurns.length)}</span>
         <span>{copy.sequenceHint}</span>
@@ -87,12 +91,17 @@ export const QueuedTurnsPanel: React.FC<QueuedTurnsPanelProps> = ({
             pendingAction?.queuedTurnId === item.queued_turn_id &&
             pendingAction.type === "remove";
           const isBusy = isPromoting || isRemoving;
+          const canPromote = Boolean(onPromoteQueuedTurn);
+          const canRemove = Boolean(onRemoveQueuedTurn);
 
           return (
             <div
               key={item.queued_turn_id}
               className="flex items-start gap-2 rounded-xl border border-border/80 bg-background/80 px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]"
               aria-busy={isBusy}
+              data-testid="inputbar-queued-turn"
+              data-queued-turn-id={item.queued_turn_id}
+              data-queue-position={item.position}
             >
               <button
                 type="button"
@@ -139,8 +148,10 @@ export const QueuedTurnsPanel: React.FC<QueuedTurnsPanelProps> = ({
                   onClick={() =>
                     void runQueuedAction(item.queued_turn_id, "promote")
                   }
-                  disabled={isBusy}
+                  disabled={isBusy || !canPromote}
                   aria-label={copy.promoteAria}
+                  data-testid="inputbar-queued-turn-promote"
+                  data-action-available={canPromote ? "true" : "false"}
                 >
                   {isPromoting ? (
                     <Loader2 size={13} className="animate-spin" />
@@ -155,8 +166,10 @@ export const QueuedTurnsPanel: React.FC<QueuedTurnsPanelProps> = ({
                   onClick={() =>
                     void runQueuedAction(item.queued_turn_id, "remove")
                   }
-                  disabled={isBusy}
+                  disabled={isBusy || !canRemove}
                   aria-label={isRemoving ? copy.removing : copy.remove}
+                  data-testid="inputbar-queued-turn-remove"
+                  data-action-available={canRemove ? "true" : "false"}
                 >
                   {isRemoving ? (
                     <Loader2 size={14} className="animate-spin" />

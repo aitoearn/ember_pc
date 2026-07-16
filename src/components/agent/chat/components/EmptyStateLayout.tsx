@@ -39,21 +39,26 @@ const PageContainer = styled.div.attrs({
   background:
     radial-gradient(
       circle at 8% 12%,
-      var(--ember-home-glow-primary, rgba(132, 204, 22, 0.08)),
+      var(--lime-home-glow-primary, rgba(132, 204, 22, 0.08)),
       transparent 28%
     ),
     radial-gradient(
       circle at 76% 16%,
-      var(--ember-home-glow-secondary, rgba(186, 230, 253, 0.16)),
+      var(--lime-home-glow-secondary, rgba(186, 230, 253, 0.16)),
       transparent 30%
     ),
     linear-gradient(
       180deg,
-      var(--ember-home-bg-start, #f8fcf7) 0%,
-      var(--ember-home-bg-mid, #f9fbf8) 42%,
-      var(--ember-home-bg-end, #f5faf7) 100%
+      var(--lime-home-bg-start, #f8fcf7) 0%,
+      var(--lime-home-bg-mid, #f9fbf8) 42%,
+      var(--lime-home-bg-end, #f5faf7) 100%
     );
 `;
+
+const FIRST_SCREEN_OFFSET_Y = "100px";
+const FIRST_SCREEN_OFFSET_STYLE = {
+  "--empty-state-first-screen-offset-y": FIRST_SCREEN_OFFSET_Y,
+} as React.CSSProperties;
 
 const ContentWrapper = styled.div.attrs({
   className: EMPTY_STATE_CONTENT_WRAPPER_CLASSNAME,
@@ -69,10 +74,24 @@ const ContentWrapper = styled.div.attrs({
   scroll-snap-align: start;
   scroll-snap-stop: always;
   animation: ${contentReveal} 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  padding: 0.45rem 0.25rem 4.7rem;
+  padding: calc(
+      0.45rem +
+        var(--empty-state-first-screen-offset-y, ${FIRST_SCREEN_OFFSET_Y})
+    )
+    0.25rem 4.7rem;
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
+  }
+
+  @media (max-height: 860px) {
+    padding-top: calc(
+      0.45rem +
+        min(
+          var(--empty-state-first-screen-offset-y, ${FIRST_SCREEN_OFFSET_Y}),
+          8vh
+        )
+    );
   }
 `;
 
@@ -87,19 +106,19 @@ const ComposerGlowFrame = styled.div`
     right: clamp(1.5rem, 9vw, 7rem);
     bottom: -1.1rem;
     z-index: 0;
-    height: clamp(34px, 5vw, 58px);
+    height: clamp(24px, 4vw, 44px);
     border-radius: 999px;
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(187, 247, 208, 0.18) 16%,
-      rgba(110, 231, 183, 0.36) 42%,
-      rgba(45, 212, 191, 0.34) 58%,
-      rgba(186, 230, 253, 0.18) 84%,
+      rgba(187, 247, 208, 0.08) 16%,
+      rgba(110, 231, 183, 0.16) 42%,
+      rgba(45, 212, 191, 0.14) 58%,
+      rgba(186, 230, 253, 0.08) 84%,
       transparent 100%
     );
-    filter: blur(18px);
-    opacity: 0.86;
+    filter: blur(20px);
+    opacity: 0.46;
     pointer-events: none;
   }
 
@@ -115,77 +134,6 @@ const PrimaryStackFrame = styled.div`
   min-width: 0;
   flex-direction: column;
   gap: 0.75rem;
-`;
-
-const ScrollCue = styled.a`
-  position: absolute;
-  left: 50%;
-  bottom: clamp(0.7rem, 1.9vh, 1.25rem);
-  z-index: 0;
-  display: grid;
-  width: min(680px, calc(100% - 2rem));
-  max-width: calc(100% - 2rem);
-  grid-template-columns: minmax(64px, 1fr) auto minmax(64px, 1fr);
-  align-items: center;
-  justify-content: center;
-  gap: 0.9rem;
-  transform: translateX(-50%);
-  padding: 0.35rem 0;
-  color: var(--ember-brand-strong, rgb(47 83 60));
-  font-size: 13px;
-  font-weight: 760;
-  line-height: 1;
-  text-decoration: none;
-  white-space: nowrap;
-  pointer-events: none;
-  transition:
-    color 160ms ease,
-    transform 160ms ease;
-
-  &:hover {
-    color: var(--ember-text, rgb(71 85 105));
-    transform: translateX(-50%) translateY(-1px);
-  }
-`;
-
-const ScrollCueLine = styled.span`
-  display: block;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--ember-surface-border-strong, rgba(203, 213, 225, 0.82)) 18%,
-    var(--ember-surface-border-strong, rgba(203, 213, 225, 0.82)) 82%,
-    transparent 100%
-  );
-`;
-
-const ScrollCueText = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 0.32rem;
-  border-radius: 999px;
-  border: 1px solid rgba(187, 247, 208, 0.86);
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.94),
-      rgba(240, 253, 244, 0.88)
-    ),
-    var(--ember-surface, #fff);
-  padding: 0.42rem 0.78rem;
-  box-shadow:
-    0 10px 28px rgba(15, 23, 42, 0.055),
-    inset 0 1px 0 rgba(255, 255, 255, 0.92);
-`;
-
-const ScrollCueArrow = styled.span`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: inherit;
-  font-size: 14px;
-  line-height: 1;
 `;
 
 const SecondScreenSection = styled.section`
@@ -306,7 +254,10 @@ export function EmptyStateLayout({
 
   return (
     <PageContainer ref={pageContainerRef}>
-      <ContentWrapper>
+      <ContentWrapper
+        data-testid="empty-state-first-screen"
+        style={FIRST_SCREEN_OFFSET_STYLE}
+      >
         <EmptyStateHero
           eyebrow={heroCopy.eyebrow}
           title=""
@@ -316,20 +267,6 @@ export function EmptyStateLayout({
           prioritySlot={prioritySlot}
           supportingSlot={supportingSlot}
         />
-        {shouldShowSecondScreen ? (
-          <ScrollCue
-            href="#home-skill-gallery-screen"
-            data-testid="home-scroll-cue"
-            aria-label={chromeCopy.scrollCueLabel}
-          >
-            <ScrollCueLine aria-hidden />
-            <ScrollCueText>
-              {chromeCopy.scrollCueLabel}
-              <ScrollCueArrow aria-hidden>↓</ScrollCueArrow>
-            </ScrollCueText>
-            <ScrollCueLine aria-hidden />
-          </ScrollCue>
-        ) : null}
       </ContentWrapper>
       {shouldShowSecondScreen ? (
         <SecondScreenSection

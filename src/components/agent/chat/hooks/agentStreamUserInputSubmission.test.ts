@@ -2,10 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { activityLogger } from "@/lib/workspace/workbenchRuntime";
 import type { AgentThreadItem, AgentThreadTurn } from "@/lib/api/agentProtocol";
-import type {
-  AsterSessionExecutionRuntime,
-  QueuedTurnSnapshot,
-} from "@/lib/api/agentRuntime";
+import type { AgentSessionExecutionRuntime } from "@/lib/api/agentExecutionRuntime";
+import type { QueuedTurnSnapshot } from "@/lib/api/queuedTurn";
 import type { ActionRequired, Message } from "../types";
 import type { WorkspacePathMissingState } from "./agentChatShared";
 import type { ActiveStreamState } from "./agentStreamSubmissionLifecycle";
@@ -60,8 +58,10 @@ describe("agentStreamUserInputSubmission", () => {
       runtime,
       ensureSession: async () => "session-1",
       attemptSilentTurnRecovery: async () => false,
+      refreshSessionReadModel: async () => true,
       executionStrategy: "react",
       accessMode: "current",
+      clawTraceEnabled: false,
       providerTypeRef: { current: "openai" } as MutableRefObject<string>,
       modelRef: { current: "gpt-5.4" } as MutableRefObject<string>,
       reasoningEffortRef: { current: "" } as MutableRefObject<string>,
@@ -70,7 +70,7 @@ describe("agentStreamUserInputSubmission", () => {
       isThreadBusy: () => false,
       hasPendingPreparedSubmit: () => false,
       runPreparedSubmit: async (task) => task(),
-      getRequiredWorkspaceId: () => "workspace-1",
+      getWorkspaceIdForSubmit: () => "workspace-1",
       getSyncedSessionModelPreference: () => null,
       getSyncedSessionExecutionStrategy: () => "react",
       warnedKeysRef: { current: new Set<string>() },
@@ -106,7 +106,7 @@ describe("agentStreamUserInputSubmission", () => {
           currentTurnId = value;
         },
       ),
-      setExecutionRuntime: noopDispatch<AsterSessionExecutionRuntime | null>(),
+      setExecutionRuntime: noopDispatch<AgentSessionExecutionRuntime | null>(),
       setQueuedTurns: createStateSetter(
         () => queuedTurns,
         (value) => {
@@ -116,8 +116,6 @@ describe("agentStreamUserInputSubmission", () => {
       setPendingActions: noopDispatch<ActionRequired[]>(),
       setWorkspacePathMissing: noopDispatch<WorkspacePathMissingState | null>(),
       setIsSending: noopDispatch<boolean>(),
-      playToolcallSound: () => {},
-      playTypewriterSound: () => {},
       appendThinkingToParts: (
         parts: NonNullable<Message["contentParts"]>,
         _textDelta: string,

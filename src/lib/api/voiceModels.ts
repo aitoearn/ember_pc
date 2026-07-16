@@ -289,46 +289,29 @@ async function fetchOemVoiceModelCatalog(): Promise<
     return null;
   }
 
-  try {
-    const response = await fetch(
-      `${runtime.controlPlaneBaseUrl}/v1/public/tenants/${encodeURIComponent(
-        runtime.tenantId,
-      )}/client/voice-model-catalog`,
-      {
-        headers: {
-          Accept: "application/json",
-        },
+  const response = await fetch(
+    `${runtime.controlPlaneBaseUrl}/v1/public/tenants/${encodeURIComponent(
+      runtime.tenantId,
+    )}/client/voice-model-catalog`,
+    {
+      headers: {
+        Accept: "application/json",
       },
-    );
-    const payload = (await response.json().catch(() => null)) as unknown;
-    if (!response.ok) {
-      console.warn(
-        `[voiceModels] OEM 语音模型目录不可用 (${response.status})，将回退本地目录。`,
-        isRecord(payload) && typeof payload.message === "string"
-          ? payload.message
-          : undefined,
-      );
-      return null;
-    }
-
-    const data = unwrapEnvelope<OemVoiceModelCatalogResponse>(payload);
-    const items = (data.items ?? [])
-      .map(mapOemVoiceModelCatalogItem)
-      .filter((item): item is VoiceModelCatalogEntry => Boolean(item));
-    if (items.length === 0) {
-      console.warn(
-        "[voiceModels] OEM 语音模型目录为空，将回退本地目录。",
-      );
-      return null;
-    }
-    return items;
-  } catch (error) {
-    console.warn(
-      "[voiceModels] 拉取 OEM 语音模型目录失败，将回退本地目录。",
-      error,
-    );
-    return null;
+    },
+  );
+  const payload = (await response.json().catch(() => null)) as unknown;
+  if (!response.ok) {
+    const message =
+      isRecord(payload) && typeof payload.message === "string"
+        ? payload.message
+        : `拉取语音模型目录失败 (${response.status})`;
+    throw new Error(message);
   }
+
+  const data = unwrapEnvelope<OemVoiceModelCatalogResponse>(payload);
+  return (data.items ?? [])
+    .map(mapOemVoiceModelCatalogItem)
+    .filter((item): item is VoiceModelCatalogEntry => Boolean(item));
 }
 
 export async function listVoiceModelCatalog(): Promise<

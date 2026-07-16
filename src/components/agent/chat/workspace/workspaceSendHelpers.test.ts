@@ -1,17 +1,21 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { changeLimeLocale } from "@/i18n/createI18n";
+import type { AgentRuntimeWorkspaceSkillBinding } from "@/lib/api/agentRuntime/toolInventoryTypes";
 import {
   buildGeneralWorkbenchSendBoundaryState,
   buildGeneralWorkbenchResumePromptFromRunState,
   buildInitialDispatchKey,
-  buildInitialDispatchPreviewMessages,
-  buildRuntimeTeamDispatchPreviewMessages,
   buildSubmissionPreviewMessages,
   buildWorkspaceRequestMetadata,
   createSubmissionPreviewSnapshot,
-  resolveRuntimeTeamDispatchPreviewState,
+  serviceSkillLaunchRequiresProject,
 } from "./workspaceSendHelpers";
 
-describe("workspaceSendHelpers runtime team preview", () => {
+describe("workspaceSendHelpers", () => {
+  beforeEach(async () => {
+    await changeLimeLocale("zh-CN");
+  });
+
   it("initialDispatchKey 应稳定编码首轮 prompt 与图片签名", () => {
     expect(
       buildInitialDispatchKey("写一篇文章", [
@@ -20,28 +24,7 @@ describe("workspaceSendHelpers runtime team preview", () => {
     ).toContain("写一篇文章");
   });
 
-  it("bootstrap 预览消息应使用统一 initial-dispatch 结构", () => {
-    const messages = buildInitialDispatchPreviewMessages({
-      key: "initial-dispatch-1",
-      prompt: "请开始处理这个任务",
-      images: [],
-    });
-
-    expect(messages).toHaveLength(2);
-    expect(messages[0]).toMatchObject({
-      id: "initial-dispatch:initial-dispatch-1:user",
-      role: "user",
-      content: "请开始处理这个任务",
-    });
-    expect(messages[1]).toMatchObject({
-      id: "initial-dispatch:initial-dispatch-1:assistant",
-      role: "assistant",
-      content: "正在开始处理任务…",
-      isThinking: true,
-    });
-  });
-
-  it("工作区首条创作意图应包装成 current send boundary", () => {
+  it("工作区首条创作意图不应再包装成旧内容写作 skill", () => {
     const boundary = buildGeneralWorkbenchSendBoundaryState({
       isThemeWorkbench: true,
       contentId: "content-1",
@@ -49,16 +32,40 @@ describe("workspaceSendHelpers runtime team preview", () => {
       consumedInitialPromptKey: null,
       initialUserImages: [],
       mappedTheme: "general",
-      socialArticleSkillKey: "content_post_with_cover",
       sourceText: "请生成今天的社媒主稿",
     });
 
     expect(boundary).toMatchObject({
-      sourceText: "/content_post_with_cover 请生成今天的社媒主稿",
+      sourceText: "请生成今天的社媒主稿",
       shouldConsumePendingGeneralWorkbenchInitialPrompt: true,
       shouldDismissGeneralWorkbenchEntryPrompt: true,
       browserRequirementMatch: null,
     });
+  });
+
+  it("普通 metadata 不应被判定为需要项目的服务技能启动", () => {
+    expect(
+      serviceSkillLaunchRequiresProject({
+        harness: {
+          theme: "general",
+          session_mode: "default",
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it("缺少 project_id 的服务技能启动应要求先进入项目", () => {
+    expect(
+      serviceSkillLaunchRequiresProject({
+        harness: {
+          service_scene_launch: {
+            service_scene_run: {
+              skill_id: "x-article-export",
+            },
+          },
+        },
+      }),
+    ).toBe(true);
   });
 
   it("浏览器任务应在 current send boundary 中保留 requirement 检测", () => {
@@ -69,13 +76,10 @@ describe("workspaceSendHelpers runtime team preview", () => {
       consumedInitialPromptKey: null,
       initialUserImages: [],
       mappedTheme: "general",
-      socialArticleSkillKey: "content_post_with_cover",
       sourceText: "帮我把这篇文章发布到微信公众号后台",
     });
 
-    expect(boundary.sourceText).toBe(
-      "/content_post_with_cover 帮我把这篇文章发布到微信公众号后台",
-    );
+    expect(boundary.sourceText).toBe("帮我把这篇文章发布到微信公众号后台");
     expect(boundary.browserRequirementMatch).toEqual(
       expect.objectContaining({
         requirement: "required_with_user_step",
@@ -118,6 +122,60 @@ describe("workspaceSendHelpers runtime team preview", () => {
         }),
       }),
     });
+  });
+
+  it("workspace skill runtime enable 应进入发送 metadata 且不打开 allow_model_skills", () => {
+    const metadata = buildWorkspaceRequestMetadata({
+      effectiveToolPreferences: {
+        task: true,
+        subagent: false,
+      },
+      mappedTheme: "general",
+      isThemeWorkbench: false,
+      currentGateKey: "default",
+      workspaceSkillRuntimeEnable: {
+        workspaceRoot: "/Users/demo/project",
+        bindings: [
+          {
+            key: "workspace_skill:capability-report",
+            name: "能力报告",
+            description: "把能力输出整理成报告。",
+            directory: "capability-report",
+            registered_skill_directory:
+              "/Users/demo/project/.agents/skills/capability-report",
+            registration: {},
+            permission_summary: ["Level 0 只读发现"],
+            metadata: {},
+            allowed_tools: ["read_file"],
+            resource_summary: {},
+            standard_compliance: {},
+            runtime_binding_target: "workspace_skill",
+            binding_status: "ready_for_manual_enable",
+            binding_status_reason: "ready",
+            next_gate: "manual_runtime_enable",
+            query_loop_visible: false,
+            tool_runtime_visible: false,
+            launch_enabled: false,
+            runtime_gate: "manual_runtime_enable",
+          } satisfies AgentRuntimeWorkspaceSkillBinding,
+        ],
+      },
+    });
+
+    expect(metadata.harness).toMatchObject({
+      workspace_skill_runtime_enable: {
+        source: "manual_session_enable",
+        approval: "manual",
+        workspace_root: "/Users/demo/project",
+        bindings: [
+          expect.objectContaining({
+            directory: "capability-report",
+            skill: "project:capability-report",
+          }),
+        ],
+      },
+    });
+    expect(metadata.allow_model_skills).toBeUndefined();
   });
 
   it("默认工作区 metadata 不应注入 Creator / Brand Voice", () => {
@@ -344,6 +402,48 @@ describe("workspaceSendHelpers runtime team preview", () => {
     });
   });
 
+  it("历史专家 session metadata 应保留到工作区发送 request metadata", () => {
+    const metadata = buildWorkspaceRequestMetadata({
+      workspaceRequestMetadataBase: {
+        expert: {
+          expertId: "code-literature",
+          title: "代码文学专家",
+          skillRefs: ["skill:capability-report"],
+        },
+        harness: {
+          source: "history-session",
+          expert: {
+            expert_id: "code-literature",
+            title: "代码文学专家",
+            skill_refs: ["skill:capability-report"],
+          },
+        },
+      },
+      effectiveToolPreferences: {
+        task: false,
+        subagent: false,
+      },
+      mappedTheme: "general",
+      isThemeWorkbench: false,
+      currentGateKey: "default",
+    });
+
+    expect(metadata).toMatchObject({
+      expert: {
+        expertId: "code-literature",
+        title: "代码文学专家",
+        skillRefs: ["skill:capability-report"],
+      },
+      harness: expect.objectContaining({
+        expert: {
+          expert_id: "code-literature",
+          title: "代码文学专家",
+          skill_refs: ["skill:capability-report"],
+        },
+      }),
+    });
+  });
+
   it("保存的 Soul 创作声线无本轮显式声线时应作为发送 fallback", () => {
     const metadata = buildWorkspaceRequestMetadata({
       savedSoulArtifactVoiceGenerationBrief: {
@@ -485,7 +585,7 @@ describe("workspaceSendHelpers runtime team preview", () => {
             browser_assist: {
               enabled: true,
               profile_key: "general_browser_assist",
-              preferred_backend: "ember_extension_bridge",
+              preferred_backend: "lime_extension_bridge",
               auto_launch: false,
             },
           },
@@ -515,7 +615,7 @@ describe("workspaceSendHelpers runtime team preview", () => {
         browser_assist: expect.objectContaining({
           enabled: true,
           profile_key: "general_browser_assist",
-          preferred_backend: "ember_extension_bridge",
+          preferred_backend: "lime_extension_bridge",
           auto_launch: false,
         }),
       }),
@@ -550,114 +650,7 @@ describe("workspaceSendHelpers runtime team preview", () => {
     });
   });
 
-  it("应在失败预览中覆盖 formationState 的错误信息", () => {
-    const state = resolveRuntimeTeamDispatchPreviewState({
-      key: "runtime-team-failed",
-      prompt: "请继续处理",
-      images: [],
-      baseMessageCount: 0,
-      status: "failed",
-      failureMessage: "Provider 认证失败",
-      formationState: {
-        requestId: "runtime-1",
-        status: "forming",
-        label: "修复 Team",
-        summary: "分析、执行、验证三段式推进。",
-        members: [],
-        blueprint: null,
-        updatedAt: Date.now(),
-      },
-    });
-
-    expect(state).toMatchObject({
-      status: "failed",
-      errorMessage: "Provider 认证失败",
-    });
-  });
-
-  it("formed 预览消息应使用任务叙事", () => {
-    const messages = buildRuntimeTeamDispatchPreviewMessages({
-      key: "runtime-team-formed",
-      prompt: "请拆成分析、执行、验证三个并行步骤继续推进",
-      images: [],
-      baseMessageCount: 0,
-      status: "formed",
-      formationState: {
-        requestId: "runtime-formed-1",
-        status: "formed",
-        label: "修复 Team",
-        summary: "分析、执行、验证三段式推进。",
-        members: [
-          {
-            id: "task-1",
-            label: "分析",
-            summary: "收敛问题边界。",
-            roleKey: "explorer",
-            profileId: "code-explorer",
-            skillIds: ["repo-exploration"],
-            status: "planned",
-          },
-          {
-            id: "task-2",
-            label: "执行",
-            summary: "完成修复并汇报结果。",
-            roleKey: "executor",
-            profileId: "code-executor",
-            skillIds: ["bounded-implementation"],
-            status: "planned",
-          },
-        ],
-        blueprint: {
-          label: "代码排障 profile",
-          summary: "分析、执行、验证三段式推进。",
-          roles: [],
-        },
-        updatedAt: Date.now(),
-      },
-    });
-
-    expect(messages).toHaveLength(2);
-    expect(messages[1]?.content).toContain("Subagents 如下");
-    expect(messages[1]?.content).toContain("这些任务会分别展开处理");
-    expect(messages[1]?.runtimeStatus).toMatchObject({
-      title: "Subagents 已准备好",
-      detail: "分析、执行、验证三段式推进。",
-      checkpoints: [
-        "当前 Subagents profile：修复 Subagents profile",
-        "已安排 2 项任务",
-        "主对话会持续同步关键进展",
-      ],
-    });
-  });
-
-  it("forming 预览消息应提示等待任务接手", () => {
-    const messages = buildRuntimeTeamDispatchPreviewMessages({
-      key: "runtime-team-forming",
-      prompt: "请先拆任务再继续",
-      images: [],
-      baseMessageCount: 0,
-      status: "forming",
-      formationState: {
-        requestId: "runtime-forming-1",
-        status: "forming",
-        label: "排障 Team",
-        summary: "分析、执行两段式推进。",
-        members: [],
-        blueprint: null,
-        updatedAt: Date.now(),
-      },
-    });
-
-    expect(messages[1]?.isThinking).toBe(true);
-    expect(messages[1]?.runtimeStatus).toMatchObject({
-      title: "正在准备 Subagents",
-      detail:
-        "系统正在根据当前任务准备 Subagents，会先拆出合适的任务，再把关键进展持续汇总回主对话。",
-      checkpoints: ["确认当前任务目标", "准备 Subagents", "等待任务接手处理"],
-    });
-  });
-
-  it("提交预览应生成等待态快照并映射成双消息预览", () => {
+  it("提交预览应回显用户消息并保留 assistant 等待态", () => {
     vi.spyOn(Date, "now").mockReturnValue(1_710_000_000_000);
 
     const snapshot = createSubmissionPreviewSnapshot({
@@ -670,7 +663,6 @@ describe("workspaceSendHelpers runtime team preview", () => {
         skillName: "产品知识库",
       },
       images: [],
-      executionStrategy: "react",
     });
 
     expect(snapshot).toMatchObject({
@@ -679,7 +671,6 @@ describe("workspaceSendHelpers runtime team preview", () => {
       displayContent: "继续处理当前任务",
       createdAt: 1_710_000_000_000,
     });
-    expect(snapshot.runtimeStatus).not.toBeNull();
 
     const messages = buildSubmissionPreviewMessages(snapshot);
     expect(messages).toHaveLength(2);
@@ -696,8 +687,11 @@ describe("workspaceSendHelpers runtime team preview", () => {
     expect(messages[1]).toMatchObject({
       id: "submission-preview:submission-preview-1:assistant",
       role: "assistant",
+      content: "",
       isThinking: true,
-      runtimeStatus: snapshot.runtimeStatus,
+      runtimeStatus: {
+        phase: "preparing",
+      },
     });
 
     vi.restoreAllMocks();

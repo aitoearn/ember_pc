@@ -58,7 +58,7 @@ qcloop verifier 输出格式硬约束：
 function ensureWorkerEvidenceContract(template) {
   const normalized = isNonEmptyString(template)
     ? template
-    : "在 Ember 仓库中执行 Agent QC 场景 {{item}}，收集证据并给出结论。";
+    : "在 Lime 仓库中执行 Agent QC 场景 {{item}}，收集证据并给出结论。";
   if (
     normalized.includes(WORKER_RESULT_MARKER) &&
     normalized.includes(WORKER_EVIDENCE_SUMMARY_MARKER)
@@ -161,7 +161,7 @@ function buildQCLoopJobPayload(manifest, options = {}) {
       : normalizeRiskList(options.risks || ["P0"]).join("+") || "P0";
   const name =
     options.name ||
-    `ember-agent-qc-${riskLabel.toLowerCase()}-${new Date(options.generatedAt || Date.now()).toISOString().slice(0, 10)}`;
+    `lime-agent-qc-${riskLabel.toLowerCase()}-${new Date(options.generatedAt || Date.now()).toISOString().slice(0, 10)}`;
 
   const cwdLine = options.cwd
     ? `目标仓库 cwd: ${options.cwd}。执行任何命令前必须先切换到该目录，并在输出中记录 pwd。`
@@ -169,7 +169,7 @@ function buildQCLoopJobPayload(manifest, options = {}) {
   const workerPromptTemplate = ensureWorkerEvidenceContract(
     options.promptTemplate ||
       qcloop.workerPromptTemplate ||
-      "在 Ember 仓库中执行 Agent QC 场景 {{item}}，收集证据并给出结论。",
+      "在 Lime 仓库中执行 Agent QC 场景 {{item}}，收集证据并给出结论。",
   );
 
   return {

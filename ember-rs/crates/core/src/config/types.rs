@@ -1,8 +1,9 @@
 //! 配置类型定义
 //!
-//! 定义 Ember 的配置结构，支持 YAML 和 JSON 序列化/反序列化
+//! 定义 Lime 的配置结构，支持 YAML 和 JSON 序列化/反序列化
 //! 保持与旧版 JSON 配置的向后兼容性
 
+use super::tool_execution::ToolExecutionPolicyConfig;
 use crate::models::injection_types::{InjectionMode, InjectionRule};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -275,7 +276,7 @@ pub struct ApiKeyEntry {
 
 /// 默认 auth_dir 路径
 fn default_auth_dir() -> String {
-    "~/.ember/auth".to_string()
+    "~/.lime/auth".to_string()
 }
 
 /// 端点 Provider 配置
@@ -538,81 +539,6 @@ impl Default for WorkspaceSandboxConfig {
             strict: default_workspace_sandbox_strict(),
             notify_on_fallback: default_workspace_sandbox_notify_on_fallback(),
         }
-    }
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum ToolExecutionWarningPolicyConfig {
-    #[default]
-    None,
-    ShellCommandRisk,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum ToolExecutionRestrictionProfileConfig {
-    #[default]
-    None,
-    WorkspacePathRequired,
-    WorkspacePathOptional,
-    WorkspaceAbsolutePathRequired,
-    WorkspaceShellCommand,
-    AnalyzeImageInput,
-    SafeHttpsUrlRequired,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
-#[serde(rename_all = "snake_case")]
-pub enum ToolExecutionSandboxProfileConfig {
-    #[default]
-    None,
-    WorkspaceCommand,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
-pub struct ToolExecutionOverrideConfig {
-    #[serde(
-        default,
-        alias = "warningPolicy",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub warning_policy: Option<ToolExecutionWarningPolicyConfig>,
-    #[serde(
-        default,
-        alias = "restrictionProfile",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub restriction_profile: Option<ToolExecutionRestrictionProfileConfig>,
-    #[serde(
-        default,
-        alias = "sandboxProfile",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub sandbox_profile: Option<ToolExecutionSandboxProfileConfig>,
-}
-
-impl ToolExecutionOverrideConfig {
-    pub fn is_default(value: &Self) -> bool {
-        value.warning_policy.is_none()
-            && value.restriction_profile.is_none()
-            && value.sandbox_profile.is_none()
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
-pub struct ToolExecutionPolicyConfig {
-    #[serde(
-        default,
-        alias = "toolOverrides",
-        skip_serializing_if = "HashMap::is_empty"
-    )]
-    pub tool_overrides: HashMap<String, ToolExecutionOverrideConfig>,
-}
-
-impl ToolExecutionPolicyConfig {
-    pub fn is_default(value: &Self) -> bool {
-        value.tool_overrides.is_empty()
     }
 }
 
@@ -2503,6 +2429,11 @@ pub enum MemorySoulArtifactVoiceSource {
     BrandVoice,
 }
 
+/// 全局交互口吻预设 ID。
+///
+/// 具体风格由 Style Pack Registry 解析，配置层只保存稳定 ID，不枚举内置 seed。
+pub type MemorySoulStyleProfileId = String;
+
 /// 正式产物创作声线配置
 ///
 /// 该配置只作为 Generation Brief 的显式输入，默认不影响正式产物。
@@ -2530,7 +2461,7 @@ pub struct MemorySoulArtifactVoiceConfig {
 
 /// 全局交互人格配置
 ///
-/// 该配置只表达 Ember 与用户互动时的语气、解释节奏和追问方式。
+/// 该配置只表达 Lime 与用户互动时的语气、解释节奏和追问方式。
 /// 正式创作声线必须通过 Generation Brief，不从这里默认进入 artifact。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct MemorySoulConfig {
@@ -2543,6 +2474,9 @@ pub struct MemorySoulConfig {
     /// 一句话风格摘要
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    /// 交互口吻预设
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_profile_id: Option<MemorySoulStyleProfileId>,
     /// 语气标签
     #[serde(default)]
     pub tone: Vec<String>,
@@ -2577,8 +2511,8 @@ pub struct MemorySourcesConfig {
     pub managed_policy_path: Option<String>,
     /// 项目级记忆文件相对路径列表
     ///
-    /// 默认使用 `.ember/AGENTS.md`，仅解析当前 workspace 根目录；
-    /// 非 `.ember/` 路径仍兼容按目录层级向上查找。
+    /// 默认使用 `.lime/AGENTS.md`，仅解析当前 workspace 根目录；
+    /// 非 `.lime/` 路径仍兼容按目录层级向上查找。
     #[serde(default)]
     pub project_memory_paths: Vec<String>,
     /// 项目规则目录相对路径列表（会按目录层级向上查找）
@@ -2589,7 +2523,7 @@ pub struct MemorySourcesConfig {
     pub user_memory_path: Option<String>,
     /// 项目本地私有记忆文件（可选）
     ///
-    /// 默认使用 `.ember/AGENTS.local.md`，仅解析当前 workspace 根目录。
+    /// 默认使用 `.lime/AGENTS.local.md`，仅解析当前 workspace 根目录。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub project_local_memory_path: Option<String>,
 }
@@ -2598,10 +2532,10 @@ impl Default for MemorySourcesConfig {
     fn default() -> Self {
         Self {
             managed_policy_path: None,
-            project_memory_paths: vec![".ember/AGENTS.md".to_string()],
+            project_memory_paths: vec![".lime/AGENTS.md".to_string()],
             project_rule_dirs: vec![".agents/rules".to_string()],
             user_memory_path: None,
-            project_local_memory_path: Some(".ember/AGENTS.local.md".to_string()),
+            project_local_memory_path: Some(".lime/AGENTS.local.md".to_string()),
         }
     }
 }
@@ -2691,7 +2625,7 @@ pub enum MemoryEmbeddingProvider {
     Auto,
     /// 本地 ONNX 嵌入模型
     LocalOnnx,
-    /// Ember 内置模型通道
+    /// Lime 内置模型通道
     Builtin,
     /// OpenAI API Key Provider
     OpenaiApi,
@@ -2818,6 +2752,13 @@ pub struct UserProfile {
 
 #[cfg(test)]
 mod unit_tests {
+    use super::super::tool_execution::{
+        ToolExecutionCommandRiskLevelConfig, ToolExecutionCommandRuleConfig,
+        ToolExecutionCommandRuleMatchTypeConfig, ToolExecutionNetworkRuleConfig,
+        ToolExecutionNetworkRuleTargetConfig, ToolExecutionOverrideConfig,
+        ToolExecutionRestrictionProfileConfig, ToolExecutionSandboxProfileConfig,
+        ToolExecutionWarningPolicyConfig,
+    };
     use super::*;
 
     #[test]
@@ -2841,7 +2782,7 @@ mod unit_tests {
         assert!(!config.injection.enabled);
         assert!(config.injection.rules.is_empty());
         // 新增字段测试
-        assert_eq!(config.auth_dir, "~/.ember/auth");
+        assert_eq!(config.auth_dir, "~/.lime/auth");
         assert!(config.credential_pool.kiro.is_empty());
         assert!(config.credential_pool.openai.is_empty());
         assert!(config.crash_reporting.enabled);
@@ -2862,6 +2803,40 @@ mod unit_tests {
     }
 
     #[test]
+    fn memory_soul_style_profile_accepts_registry_profile_id() {
+        let yaml = r#"
+memory:
+  soul:
+    enabled: true
+    style_profile_id: cheeky_sassy_executor
+"#;
+
+        let config: Config = serde_yaml::from_str(yaml).expect("style profile id");
+
+        assert_eq!(
+            config.memory.soul.and_then(|soul| soul.style_profile_id),
+            Some("cheeky_sassy_executor".to_string())
+        );
+    }
+
+    #[test]
+    fn memory_soul_style_profile_does_not_alias_legacy_profile_id() {
+        let yaml = r#"
+memory:
+  soul:
+    enabled: true
+    style_profile_id: sassy_cute_executor
+"#;
+
+        let config: Config = serde_yaml::from_str(yaml).expect("style profile id");
+
+        assert_eq!(
+            config.memory.soul.and_then(|soul| soul.style_profile_id),
+            Some("sassy_cute_executor".to_string())
+        );
+    }
+
+    #[test]
     fn test_tool_execution_policy_config_supports_camel_case_runtime_shape() {
         let value = serde_json::json!({
             "toolOverrides": {
@@ -2873,7 +2848,28 @@ mod unit_tests {
                 "Task": {
                     "warning_policy": "shell_command_risk"
                 }
-            }
+            },
+            "shellCommandRules": [
+                {
+                    "ruleId": "block_release_publish",
+                    "matchType": "prefix",
+                    "pattern": "cargo publish",
+                    "riskLevel": "high",
+                    "reasonCode": "release_publish_command",
+                    "reason": "命令会发布 crate"
+                }
+            ],
+            "networkRules": [
+                {
+                    "ruleId": "block_internal_download",
+                    "matchType": "prefix",
+                    "target": "host",
+                    "pattern": "internal.",
+                    "riskLevel": "high",
+                    "reasonCode": "internal_network_target",
+                    "reason": "请求访问内部网络域名"
+                }
+            ]
         });
 
         let parsed: ToolExecutionPolicyConfig =
@@ -2900,10 +2896,33 @@ mod unit_tests {
                 .and_then(|item| item.warning_policy),
             Some(ToolExecutionWarningPolicyConfig::ShellCommandRisk)
         );
+        assert_eq!(parsed.shell_command_rules.len(), 1);
+        assert_eq!(
+            parsed.shell_command_rules[0].rule_id,
+            "block_release_publish"
+        );
+        assert_eq!(
+            parsed.shell_command_rules[0].match_type,
+            ToolExecutionCommandRuleMatchTypeConfig::Prefix
+        );
+        assert_eq!(
+            parsed.shell_command_rules[0].risk_level,
+            ToolExecutionCommandRiskLevelConfig::High
+        );
+        assert_eq!(parsed.network_rules.len(), 1);
+        assert_eq!(parsed.network_rules[0].rule_id, "block_internal_download");
+        assert_eq!(
+            parsed.network_rules[0].target,
+            ToolExecutionNetworkRuleTargetConfig::Host
+        );
+        assert_eq!(
+            parsed.network_rules[0].match_type,
+            ToolExecutionCommandRuleMatchTypeConfig::Prefix
+        );
     }
 
     #[test]
-    fn test_tool_execution_policy_config_roundtrip_preserves_non_default_overrides() {
+    fn test_tool_execution_policy_config_roundtrip_preserves_non_default_policy() {
         let config = ToolExecutionPolicyConfig {
             tool_overrides: HashMap::from([(
                 "bash".to_string(),
@@ -2915,6 +2934,23 @@ mod unit_tests {
                     sandbox_profile: Some(ToolExecutionSandboxProfileConfig::None),
                 },
             )]),
+            shell_command_rules: vec![ToolExecutionCommandRuleConfig {
+                rule_id: "block_release_publish".to_string(),
+                match_type: ToolExecutionCommandRuleMatchTypeConfig::Prefix,
+                pattern: "cargo publish".to_string(),
+                risk_level: ToolExecutionCommandRiskLevelConfig::High,
+                reason_code: "release_publish_command".to_string(),
+                reason: "命令会发布 crate".to_string(),
+            }],
+            network_rules: vec![ToolExecutionNetworkRuleConfig {
+                rule_id: "block_internal_download".to_string(),
+                match_type: ToolExecutionCommandRuleMatchTypeConfig::Prefix,
+                target: ToolExecutionNetworkRuleTargetConfig::Host,
+                pattern: "internal.".to_string(),
+                risk_level: ToolExecutionCommandRiskLevelConfig::High,
+                reason_code: "internal_network_target".to_string(),
+                reason: "请求访问内部网络域名".to_string(),
+            }],
         };
 
         let value = serde_json::to_value(&config).expect("tool execution config should serialize");

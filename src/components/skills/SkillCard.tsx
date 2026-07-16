@@ -25,9 +25,9 @@ import type { Skill } from "@/lib/api/skills";
 
 /**
  * Skill 来源类型
- * - builtin: Ember 内置技能
+ * - builtin: Lime 内置技能
  * - project: 当前项目 `.agents/skills` 中的技能
- * - official: 来自 ember/skills 官方仓库
+ * - official: 来自 lime/skills 官方仓库
  * - community: 来自其他 GitHub 仓库
  * - local: 本地安装，无仓库信息
  */
@@ -48,8 +48,8 @@ export type SkillSource =
  * - "builtin": sourceKind="builtin"
  * - "project": catalogSource="project"
  * - "local": catalogSource="user"
- * - "official": catalogSource="remote" 且 repoOwner="ember" AND repoName="skills"
- * - "community": catalogSource="remote" 且仓库不是 ember/skills
+ * - "official": catalogSource="remote" 且 repoOwner="lime" AND repoName="skills"
+ * - "community": catalogSource="remote" 且仓库不是 lime/skills
  * - compat: catalogSource 缺失时回退到 repo 字段推断
  */
 // eslint-disable-next-line react-refresh/only-export-components
@@ -69,7 +69,7 @@ export function getSkillSource(skill: Skill): SkillSource {
   ) {
     return "local";
   }
-  if (skill.repoOwner === "ember" && skill.repoName === "skills") {
+  if (skill.repoOwner === "lime" && skill.repoName === "skills") {
     return "official";
   }
   return "community";

@@ -4,7 +4,7 @@ use super::common::validate_skill_package_directory;
 use app_server_protocol::SkillMarketplaceBundleFile;
 use app_server_protocol::SkillMarketplaceInstallParams;
 use app_server_protocol::SkillMarketplaceInstallResponse;
-use ember_services::skill_service::SkillService;
+use lime_services::skill_service::SkillService;
 use sha2::Digest;
 use sha2::Sha256;
 use std::fs;
@@ -236,7 +236,7 @@ mod tests {
         let result = install_marketplace_skill_bundle_into_root(
             &target_root,
             SkillMarketplaceInstallParams {
-                app: "ember".to_string(),
+                app: "lime".to_string(),
                 manifest_version: "agentskills.v1".to_string(),
                 name: "market-skill".to_string(),
                 aliases: Vec::new(),
@@ -292,7 +292,7 @@ mod tests {
         let result = install_marketplace_skill_bundle_into_root(
             &target_root,
             SkillMarketplaceInstallParams {
-                app: "ember".to_string(),
+                app: "lime".to_string(),
                 manifest_version: "agentskills.v1".to_string(),
                 name: "analysis".to_string(),
                 aliases: Vec::new(),
@@ -325,7 +325,7 @@ mod tests {
         let err = install_marketplace_skill_bundle_into_root(
             &target_root,
             SkillMarketplaceInstallParams {
-                app: "ember".to_string(),
+                app: "lime".to_string(),
                 manifest_version: "agentskills.v1".to_string(),
                 name: "market-skill".to_string(),
                 aliases: Vec::new(),
@@ -354,7 +354,7 @@ mod tests {
         let err = install_marketplace_skill_bundle_into_root(
             &target_root,
             SkillMarketplaceInstallParams {
-                app: "ember".to_string(),
+                app: "lime".to_string(),
                 manifest_version: "agentskills.v1".to_string(),
                 name: "market-skill".to_string(),
                 aliases: Vec::new(),

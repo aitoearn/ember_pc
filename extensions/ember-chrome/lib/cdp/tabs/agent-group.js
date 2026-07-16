@@ -1,21 +1,21 @@
 /**
  * Agent tab group management.
  *
- * Creates and manages a Chrome tab group labeled "Ember Agent"
+ * Creates and manages a Chrome tab group labeled "Lime Agent"
  * to visually organize agent-controlled tabs.
  *
  * All addTab calls are serialized via a promise queue to prevent
  * concurrent calls from each creating separate tab groups.
  *
  * On reconnect, the manager attempts to find and reuse an existing
- * "Ember Agent" group rather than creating a duplicate.
+ * "Lime Agent" group rather than creating a duplicate.
  */
 
 import { createLogger } from '../../logger.js'
 
 const log = createLogger('group')
 
-export const TAB_GROUP_TITLE = 'Ember Agent'
+export const TAB_GROUP_TITLE = 'Lime Agent'
 const TAB_GROUP_COLOR = 'blue'
 
 export class AgentGroupManager {

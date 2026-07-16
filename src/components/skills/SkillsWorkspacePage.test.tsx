@@ -74,18 +74,18 @@ describe("SkillsWorkspacePage", () => {
     expect(container.textContent).not.toContain("ASP.NET Core");
   });
 
-  it("页面壳、卡片和详情弹窗应接入 Ember 主题变量", async () => {
+  it("页面壳、卡片和详情弹窗应接入 Lime 主题变量", async () => {
     const { container } = renderPage();
-    const shell = container.querySelector(".ember-workbench-theme-scope");
+    const shell = container.querySelector(".lime-workbench-theme-scope");
     const card = findMarketplaceCard(container, "数据分析");
 
-    expect(shell?.className).toContain("bg-[color:var(--ember-app-bg)]");
+    expect(shell?.className).toContain("bg-[color:var(--lime-app-bg)]");
     expect(shell?.querySelector("main")?.className).toContain(
-      "bg-[color:var(--ember-surface)]",
+      "bg-[color:var(--lime-surface)]",
     );
-    expect(card?.className).toContain("bg-[color:var(--ember-surface)]");
+    expect(card?.className).toContain("bg-[color:var(--lime-surface)]");
     expect(card?.className).toContain(
-      "border-[color:var(--ember-surface-border)]",
+      "border-[color:var(--lime-surface-border)]",
     );
 
     await act(async () => {
@@ -97,10 +97,10 @@ describe("SkillsWorkspacePage", () => {
     const detail = container.querySelector(
       '[data-testid="skills-marketplace-detail"]',
     );
-    const dialogScope = detail?.closest(".ember-workbench-theme-scope");
+    const dialogScope = detail?.closest(".lime-workbench-theme-scope");
 
-    expect(dialogScope?.className).toContain("ember-workbench-surface-scope");
-    expect(dialogScope?.className).toContain("bg-[color:var(--ember-surface)]");
+    expect(dialogScope?.className).toContain("lime-workbench-surface-scope");
+    expect(dialogScope?.className).toContain("bg-[color:var(--lime-surface)]");
   });
 
   it("用户安装页点击使用应回首页输入框预选 @ 技能，不显示入口横幅", () => {
@@ -139,7 +139,7 @@ describe("SkillsWorkspacePage", () => {
     const { container } = renderPage({ initialView: "installed" });
 
     expect(container.textContent).toContain("写作助手");
-    expect(mocks.getOrCreateDefaultProject).not.toHaveBeenCalled();
+    expect(mocks.getProject).not.toHaveBeenCalled();
     expect(mocks.listRegisteredSkills).not.toHaveBeenCalled();
     expect(mocks.listWorkspaceSkillBindings).not.toHaveBeenCalled();
     expect(
@@ -149,7 +149,200 @@ describe("SkillsWorkspacePage", () => {
     ).toBeNull();
   });
 
-  it("用户安装页没有已保存技能时不显示已保存技能空面板，但后台读取 workspace skill binding readiness", async () => {
+  it("初始搜索参数应进入用户安装页并过滤目标技能", () => {
+    const { container } = renderPage({
+      initialView: "installed",
+      initialSearchQuery: "writer",
+      initialSearchRequestKey: 1,
+    });
+    const searchInput = container.querySelector<HTMLInputElement>("input");
+
+    expect(searchInput?.value).toBe("writer");
+    expect(
+      container.querySelector('[data-testid="skills-installed-view"]'),
+    ).toBeTruthy();
+    expect(container.textContent).toContain("写作助手");
+    expect(container.textContent).not.toContain("ASP.NET Core");
+  });
+
+  it("初始脚手架草稿应进入用户安装页并打开创建对话框", () => {
+    const { container } = renderPage({
+      initialView: "installed",
+      initialScaffoldDraft: {
+        target: "project",
+        directory: "project-report",
+        name: "项目报告",
+        description: "沉淀为可注册的工作区技能。",
+        sourceExcerpt: "workspace_skill:project-report@1.0.0",
+      },
+      initialScaffoldRequestKey: 2,
+    });
+    const scaffoldDialog = container.querySelector(
+      '[data-testid="skill-scaffold-dialog"]',
+    );
+
+    expect(
+      container.querySelector('[data-testid="skills-installed-view"]'),
+    ).toBeTruthy();
+    expect(scaffoldDialog?.textContent).toContain("project-report");
+    expect(scaffoldDialog?.textContent).toContain("项目报告");
+    expect(scaffoldDialog?.textContent).toContain(
+      "沉淀为可注册的工作区技能。",
+    );
+  });
+
+  it("项目级脚手架创建后应刷新已保存技能和 workspace binding readiness", async () => {
+    const savedSkill: WorkspaceRegisteredSkillRecord = {
+      key: "workspace:project-report",
+      name: "项目报告",
+      description: "沉淀为可注册的工作区技能。",
+      directory: "project-report",
+      registeredSkillDirectory:
+        "/Users/demo/Lime/default-workspace/.agents/skills/project-report",
+      registration: {
+        registrationId: "skill-scaffold-project-report",
+        registeredAt: "2026-06-23T00:00:00.000Z",
+        skillDirectory: "project-report",
+        registeredSkillDirectory:
+          "/Users/demo/Lime/default-workspace/.agents/skills/project-report",
+        sourceDraftId: "skill-scaffold",
+        sourceVerificationReportId: "skill-scaffold-create",
+        generatedFileCount: 1,
+        permissionSummary: [],
+        verificationGates: [],
+        approvalRequests: [],
+      },
+      permissionSummary: [],
+      metadata: {},
+      allowedTools: [],
+      resourceSummary: {
+        hasScripts: false,
+        hasReferences: false,
+        hasAssets: false,
+      },
+      standardCompliance: {
+        isStandard: true,
+        validationErrors: [],
+        deprecatedFields: [],
+      },
+      launchEnabled: false,
+      runtimeGate: "等待手动启用",
+    };
+    vi.useFakeTimers();
+    mocks.listRegisteredSkills
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([savedSkill]);
+    mocks.listWorkspaceSkillBindings
+      .mockResolvedValueOnce({ bindings: [] })
+      .mockResolvedValueOnce({
+        bindings: [
+          {
+            key: "workspace_skill:project-report",
+            name: "项目报告",
+            description: "沉淀为可注册的工作区技能。",
+            directory: "project-report",
+            registered_skill_directory:
+              "/Users/demo/Lime/default-workspace/.agents/skills/project-report",
+            registration: {
+              sourceVerificationReportId: "skill-scaffold-create",
+            },
+            permission_summary: [],
+            metadata: {},
+            allowed_tools: [],
+            resource_summary: {
+              has_scripts: false,
+              has_references: false,
+              has_assets: false,
+            },
+            standard_compliance: {
+              is_standard: true,
+              validation_errors: [],
+              deprecated_fields: [],
+            },
+            runtime_binding_target: "workspace_skill",
+            binding_status: "ready_for_manual_enable",
+            binding_status_reason: "已具备 runtime binding 候选资格。",
+            next_gate: "manual_runtime_enable",
+            query_loop_visible: false,
+            tool_runtime_visible: false,
+            launch_enabled: false,
+            runtime_gate: "等待 P3E 显式启用。",
+          },
+        ],
+      });
+    mocks.createSkillScaffold.mockResolvedValueOnce({
+      content: "# 项目报告",
+      metadata: {},
+      allowedTools: [],
+      resourceSummary: {
+        hasScripts: false,
+        hasReferences: false,
+        hasAssets: false,
+      },
+      standardCompliance: {
+        isStandard: true,
+        validationErrors: [],
+        deprecatedFields: [],
+      },
+    });
+
+    try {
+      const { container } = renderPage({
+        initialView: "installed",
+        creationProjectId: "default-workspace",
+        initialScaffoldDraft: {
+          target: "project",
+          directory: "project-report",
+          name: "项目报告",
+          description: "沉淀为可注册的工作区技能。",
+          sourceExcerpt: "workspace_skill:project-report@1.0.0",
+        },
+        initialScaffoldRequestKey: 3,
+      });
+
+      await act(async () => {
+        vi.advanceTimersByTime(300);
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(mocks.listWorkspaceSkillBindings).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        container
+          .querySelector<HTMLButtonElement>(
+            '[data-testid="skill-scaffold-create"]',
+          )
+          ?.click();
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(mocks.createSkillScaffold).toHaveBeenCalledWith(
+        {
+          target: "project",
+          directory: "project-report",
+          name: "项目报告",
+          description: "沉淀为可注册的工作区技能。",
+        },
+        "lime",
+      );
+      expect(mocks.listRegisteredSkills).toHaveBeenCalledTimes(2);
+      expect(mocks.listWorkspaceSkillBindings).toHaveBeenCalledTimes(2);
+      expect(container.textContent).toContain("项目报告");
+      expect(
+        container.querySelector(
+          '[data-testid="workspace-registered-skill-enable-runtime"]',
+        ),
+      ).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("用户安装页没有当前项目时不读取 workspace skill binding readiness", async () => {
     vi.useFakeTimers();
     try {
       const { container } = renderPage({ initialView: "installed" });
@@ -167,12 +360,41 @@ describe("SkillsWorkspacePage", () => {
         ),
       ).toBeNull();
       expect(container.textContent).not.toContain("当前项目还没有已保存技能");
-      expect(mocks.getOrCreateDefaultProject).toHaveBeenCalledTimes(1);
+      expect(mocks.getProject).not.toHaveBeenCalled();
+      expect(mocks.listRegisteredSkills).not.toHaveBeenCalled();
+      expect(mocks.listWorkspaceSkillBindings).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("用户安装页有当前项目时按 current project 读取 workspace skill binding readiness", async () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = renderPage({
+        initialView: "installed",
+        creationProjectId: "default-workspace",
+      });
+
+      await act(async () => {
+        vi.advanceTimersByTime(300);
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(
+        container.querySelector(
+          '[data-testid="workspace-registered-skills-panel"]',
+        ),
+      ).toBeNull();
+      expect(container.textContent).not.toContain("当前项目还没有已保存技能");
+      expect(mocks.getProject).toHaveBeenCalledWith("default-workspace");
       expect(mocks.listRegisteredSkills).toHaveBeenCalledWith({
-        workspaceRoot: "/Users/demo/Ember/default-workspace",
+        workspaceRoot: "/Users/demo/Lime/default-workspace",
       });
       expect(mocks.listWorkspaceSkillBindings).toHaveBeenCalledWith({
-        workspaceRoot: "/Users/demo/Ember/default-workspace",
+        workspaceRoot: "/Users/demo/Lime/default-workspace",
         caller: "assistant",
         workbench: true,
       });
@@ -188,13 +410,13 @@ describe("SkillsWorkspacePage", () => {
       description: "保存到当前项目的写作技能。",
       directory: "writer-agent",
       registeredSkillDirectory:
-        "/Users/demo/Ember/default-workspace/.agents/skills/writer-agent",
+        "/Users/demo/Lime/default-workspace/.agents/skills/writer-agent",
       registration: {
         registrationId: "capreg-writer-agent",
         registeredAt: "2026-06-01T08:00:00.000Z",
         skillDirectory: "writer-agent",
         registeredSkillDirectory:
-          "/Users/demo/Ember/default-workspace/.agents/skills/writer-agent",
+          "/Users/demo/Lime/default-workspace/.agents/skills/writer-agent",
         sourceDraftId: "capdraft-writer-agent",
         sourceVerificationReportId: null,
         generatedFileCount: 1,
@@ -221,7 +443,10 @@ describe("SkillsWorkspacePage", () => {
     vi.useFakeTimers();
     mocks.listRegisteredSkills.mockResolvedValueOnce([savedSkill]);
     try {
-      const { container } = renderPage({ initialView: "installed" });
+      const { container } = renderPage({
+        initialView: "installed",
+        creationProjectId: "default-workspace",
+      });
 
       await act(async () => {
         vi.advanceTimersByTime(300);
@@ -237,6 +462,171 @@ describe("SkillsWorkspacePage", () => {
       ).toBeTruthy();
       expect(container.textContent).toContain("已保存技能");
       expect(container.textContent).toContain("项目写作技能");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("已保存技能点击试用一次应跳到 Agent 并携带 workspace runtime enable metadata", async () => {
+    const savedSkill: WorkspaceRegisteredSkillRecord = {
+      key: "workspace:capability-report",
+      name: "只读 CLI 报告",
+      description: "把本地只读 CLI 输出整理成 Markdown 报告。",
+      directory: "capability-report",
+      registeredSkillDirectory:
+        "/Users/demo/Lime/default-workspace/.agents/skills/capability-report",
+      registration: {
+        registrationId: "capreg-capability-report",
+        registeredAt: "2026-06-01T08:00:00.000Z",
+        skillDirectory: "capability-report",
+        registeredSkillDirectory:
+          "/Users/demo/Lime/default-workspace/.agents/skills/capability-report",
+        sourceDraftId: "capdraft-capability-report",
+        sourceVerificationReportId: "capver-capability-report",
+        generatedFileCount: 1,
+        permissionSummary: ["Level 0 只读发现"],
+        verificationGates: [],
+        approvalRequests: [],
+      },
+      permissionSummary: ["Level 0 只读发现"],
+      metadata: {},
+      allowedTools: [],
+      resourceSummary: {
+        hasScripts: true,
+        hasReferences: false,
+        hasAssets: false,
+      },
+      standardCompliance: {
+        isStandard: true,
+        validationErrors: [],
+        deprecatedFields: [],
+      },
+      launchEnabled: false,
+      runtimeGate: "等待手动启用",
+    };
+    vi.useFakeTimers();
+    mocks.listRegisteredSkills.mockResolvedValueOnce([savedSkill]);
+    mocks.listWorkspaceSkillBindings.mockResolvedValueOnce({
+      request: {
+        workspace_root: "/Users/demo/Lime/default-workspace",
+        caller: "assistant",
+        surface: {
+          workbench: true,
+          browser_assist: false,
+        },
+      },
+      warnings: [],
+      counts: {
+        registered_total: 1,
+        ready_for_manual_enable_total: 1,
+        blocked_total: 0,
+        query_loop_visible_total: 0,
+        tool_runtime_visible_total: 0,
+        launch_enabled_total: 0,
+      },
+      bindings: [
+        {
+          key: "workspace_skill:capability-report",
+          name: "只读 CLI 报告",
+          description: "把本地只读 CLI 输出整理成 Markdown 报告。",
+          directory: "capability-report",
+          registered_skill_directory:
+            "/Users/demo/Lime/default-workspace/.agents/skills/capability-report",
+          registration: {
+            registration_id: "capreg-capability-report",
+            registered_at: "2026-06-01T08:00:00.000Z",
+            skill_directory: "capability-report",
+            registered_skill_directory:
+              "/Users/demo/Lime/default-workspace/.agents/skills/capability-report",
+            source_draft_id: "capdraft-capability-report",
+            source_verification_report_id: "capver-capability-report",
+            generated_file_count: 1,
+            permission_summary: ["Level 0 只读发现"],
+          },
+          permission_summary: ["Level 0 只读发现"],
+          metadata: {},
+          allowed_tools: [],
+          resource_summary: {
+            has_scripts: true,
+            has_references: false,
+            has_assets: false,
+          },
+          standard_compliance: {
+            is_standard: true,
+            validation_errors: [],
+            deprecated_fields: [],
+          },
+          runtime_binding_target: "workspace_skill",
+          binding_status: "ready_for_manual_enable",
+          binding_status_reason: "已具备 runtime binding 候选资格。",
+          next_gate: "manual_runtime_enable",
+          query_loop_visible: false,
+          tool_runtime_visible: false,
+          launch_enabled: false,
+          runtime_gate: "等待 P3E 显式启用。",
+        },
+      ],
+    });
+    try {
+      const { container, onNavigate } = renderPage({
+        initialView: "installed",
+        creationProjectId: "default-workspace",
+      });
+
+      await act(async () => {
+        vi.advanceTimersByTime(300);
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      const enableButton = container.querySelector(
+        '[data-testid="workspace-registered-skill-enable-runtime"]',
+      ) as HTMLButtonElement | null;
+      expect(enableButton).toBeTruthy();
+      expect(enableButton?.disabled).toBe(false);
+
+      await act(async () => {
+        enableButton?.click();
+        await Promise.resolve();
+      });
+
+      expect(onNavigate).toHaveBeenCalledWith(
+        "agent",
+        expect.objectContaining({
+          agentEntry: "new-task",
+          projectId: "default-workspace",
+          autoRunInitialPromptOnMount: true,
+          initialUserPrompt: expect.stringContaining("只读 CLI 报告"),
+          initialRequestMetadata: {
+            harness: {
+              workspace_skill_runtime_enable: expect.objectContaining({
+                source: "manual_session_enable",
+                approval: "manual",
+                workspace_root: "/Users/demo/Lime/default-workspace",
+                bindings: [
+                  expect.objectContaining({
+                    directory: "capability-report",
+                    skill: "project:capability-report",
+                    registered_skill_directory:
+                      "/Users/demo/Lime/default-workspace/.agents/skills/capability-report",
+                    source_draft_id: "capdraft-capability-report",
+                    source_verification_report_id: "capver-capability-report",
+                  }),
+                ],
+              }),
+            },
+          },
+          initialAutoSendRequestMetadata: {
+            harness: {
+              workspace_skill_runtime_enable: expect.objectContaining({
+                source: "manual_session_enable",
+                approval: "manual",
+              }),
+            },
+          },
+        }),
+      );
     } finally {
       vi.useRealTimers();
     }
@@ -260,7 +650,7 @@ describe("SkillsWorkspacePage", () => {
 
     expect(mocks.inspectLocalSkillDetail).toHaveBeenCalledWith(
       "aspnet-core",
-      "ember",
+      "lime",
     );
     expect(
       container.querySelector('[data-testid="skills-installed-detail"]'),
@@ -289,7 +679,7 @@ describe("SkillsWorkspacePage", () => {
 
     expect(mocks.inspectLocalSkillDetail).toHaveBeenCalledWith(
       "writer",
-      "ember",
+      "lime",
     );
     expect(
       container.querySelector('[data-testid="skills-installed-detail"]'),

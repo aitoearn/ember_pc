@@ -31,7 +31,7 @@ export function useMessageListAutoScroll({
     const previousVisibleMessageCount = previousVisibleMessageCountRef.current;
     previousVisibleMessageCountRef.current = renderedMessageCount;
 
-    if ((!shouldAutoScroll && !isSending) || !scrollRef.current) {
+    if (!shouldAutoScroll || !scrollRef.current) {
       return;
     }
 
@@ -66,7 +66,13 @@ export function useMessageListScrollController() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const shouldAutoScrollRef = useRef(true);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const setAutoScrollEnabled = useCallback((value: boolean) => {
+    shouldAutoScrollRef.current = value;
+    setShouldAutoScroll(value);
+  }, []);
 
   const markUserScrolling = useCallback(() => {
     setIsUserScrolling(true);
@@ -89,11 +95,14 @@ export function useMessageListScrollController() {
 
     const handleScroll = () => {
       markUserScrolling();
-      setShouldAutoScroll(isNearScrollBottom(container));
+      setAutoScrollEnabled(isNearScrollBottom(container));
     };
 
-    const handleWheel = () => {
+    const handleWheel = (event: WheelEvent) => {
       markUserScrolling();
+      if (event.deltaY < 0) {
+        setAutoScrollEnabled(false);
+      }
     };
 
     container.addEventListener("scroll", handleScroll, { passive: true });
@@ -108,7 +117,7 @@ export function useMessageListScrollController() {
         scrollTimeoutRef.current = null;
       }
     };
-  }, [markUserScrolling]);
+  }, [markUserScrolling, setAutoScrollEnabled]);
 
   const scrollToTail = useCallback((behavior: "auto" | "smooth") => {
     scrollRef.current?.scrollIntoView({
@@ -117,12 +126,54 @@ export function useMessageListScrollController() {
     });
   }, []);
 
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    let animationFrame: number | null = null;
+    const scheduleResizeFollow = () => {
+      if (!shouldAutoScrollRef.current) {
+        return;
+      }
+      if (animationFrame !== null && typeof window !== "undefined") {
+        window.cancelAnimationFrame(animationFrame);
+      }
+      const run = () => {
+        animationFrame = null;
+        if (shouldAutoScrollRef.current) {
+          scrollToTail("auto");
+        }
+      };
+      if (typeof window !== "undefined" && window.requestAnimationFrame) {
+        animationFrame = window.requestAnimationFrame(run);
+        return;
+      }
+      run();
+    };
+
+    const resizeObserver = new ResizeObserver(scheduleResizeFollow);
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+      if (animationFrame !== null && typeof window !== "undefined") {
+        window.cancelAnimationFrame(animationFrame);
+      }
+    };
+  }, [scrollToTail]);
+
   const handleStreamingOverlayUpdate = useCallback(() => {
     if (!scrollRef.current) {
       return;
     }
 
-    setShouldAutoScroll(true);
+    if (!shouldAutoScrollRef.current) {
+      return;
+    }
+
+    setAutoScrollEnabled(true);
 
     const run = () => scrollToTail("auto");
 
@@ -132,7 +183,7 @@ export function useMessageListScrollController() {
     }
 
     run();
-  }, [scrollToTail]);
+  }, [scrollToTail, setAutoScrollEnabled]);
 
   return {
     containerRef,

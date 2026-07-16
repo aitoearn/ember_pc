@@ -11,20 +11,20 @@ use crate::provider_type_mapping::{
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use chrono::Utc;
-use ember_core::api_host_utils::{
+use lime_core::api_host_utils::{
     is_openai_responses_compatible_host, normalize_openai_compatible_api_host,
 };
-use ember_core::database::dao::api_key_provider::{
+use lime_core::database::dao::api_key_provider::{
     infer_managed_provider_type, ApiKeyEntry, ApiKeyProvider, ApiKeyProviderDao,
     ApiProviderPromptCacheMode, ApiProviderType, ProviderGroup, ProviderWithKeys,
 };
-use ember_core::database::system_providers::{get_system_providers, to_api_key_provider};
-use ember_core::database::DbConnection;
-use ember_core::models::runtime_provider_model::{
+use lime_core::database::system_providers::{get_system_providers, to_api_key_provider};
+use lime_core::database::DbConnection;
+use lime_core::models::runtime_provider_model::{
     runtime_api_key_credential_uuid, ProviderPromptCacheMode, RuntimeCredentialData,
     RuntimeProviderCredential, RuntimeProviderType,
 };
-use ember_core::provider_prompt_cache_support::is_known_automatic_anthropic_compatible_host;
+use lime_core::provider_prompt_cache_support::is_known_automatic_anthropic_compatible_host;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -62,11 +62,11 @@ mod tests {
     };
     use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
     use chrono::Utc;
-    use ember_core::database::dao::api_key_provider::ApiProviderType;
-    use ember_core::database::dao::api_key_provider::{
+    use lime_core::database::dao::api_key_provider::ApiProviderType;
+    use lime_core::database::dao::api_key_provider::{
         ApiKeyEntry, ApiKeyProviderDao, ApiProviderPromptCacheMode,
     };
-    use ember_core::database::{init_database, migration, schema, DbConnection};
+    use lime_core::database::{init_database, migration, schema, DbConnection};
     use rusqlite::Connection;
     use rusqlite::OptionalExtension;
     use std::sync::{Arc, Mutex};
@@ -124,10 +124,10 @@ mod tests {
     }
 
     fn resolve_real_codex_provider_id(
-        db: &ember_core::database::DbConnection,
+        db: &lime_core::database::DbConnection,
     ) -> Result<String, String> {
         if let Some(explicit) =
-            ember_core::env_compat::var(&["EMBER_REAL_PROVIDER_ID", "PROXYCAST_REAL_PROVIDER_ID"])
+            lime_core::env_compat::var(&["LIME_REAL_PROVIDER_ID", "PROXYCAST_REAL_PROVIDER_ID"])
         {
             let trimmed = explicit.trim();
             if !trimmed.is_empty() {
@@ -151,8 +151,8 @@ mod tests {
             |row| row.get::<_, String>(0),
         )
         .optional()
-        .map_err(|e| format!("查询 Codex Provider 失败: {e}"))?
-        .ok_or_else(|| "未找到可用的 Codex Provider，请先在设置中配置并启用".to_string())
+        .map_err(|e| format!("查询本地 CLI Provider 失败: {e}"))?
+        .ok_or_else(|| "未找到可用的本地 CLI Provider，请先在设置中配置并启用".to_string())
     }
 
     #[test]
@@ -200,7 +200,7 @@ data: [DONE]\n";
             "k-cp-looks-truncated",
         );
 
-        assert!(formatted.contains("Ember 已按 Anthropic 协议发送兼容鉴权"));
+        assert!(formatted.contains("Lime 已按 Anthropic 协议发送兼容鉴权"));
         assert!(formatted.contains("核对 API Key 是否完整"));
         assert!(!formatted.contains("MiniMax"));
     }
@@ -1079,9 +1079,9 @@ data: [DONE]\n";
     }
 
     #[tokio::test]
-    #[ignore = "真实联网测试：设置 EMBER_REAL_API_TEST=1 后执行"]
+    #[ignore = "真实联网测试：设置 LIME_REAL_API_TEST=1 后执行"]
     async fn test_real_codex_provider_chat_gpt_5_3_codex() {
-        if ember_core::env_compat::var(&["EMBER_REAL_API_TEST", "PROXYCAST_REAL_API_TEST"]).as_deref()
+        if lime_core::env_compat::var(&["LIME_REAL_API_TEST", "PROXYCAST_REAL_API_TEST"]).as_deref()
             != Some("1")
         {
             return;
@@ -1089,10 +1089,10 @@ data: [DONE]\n";
 
         let db = init_database().expect("初始化数据库失败");
         let service = ApiKeyProviderService::new();
-        let provider_id = resolve_real_codex_provider_id(&db).expect("解析 Codex Provider 失败");
-        let model = ember_core::env_compat::var(&["EMBER_REAL_MODEL", "PROXYCAST_REAL_MODEL"])
+        let provider_id = resolve_real_codex_provider_id(&db).expect("解析本地 CLI Provider 失败");
+        let model = lime_core::env_compat::var(&["LIME_REAL_MODEL", "PROXYCAST_REAL_MODEL"])
             .unwrap_or_else(|| "gpt-5.3-codex".to_string());
-        let prompt = ember_core::env_compat::var(&["EMBER_REAL_PROMPT", "PROXYCAST_REAL_PROMPT"])
+        let prompt = lime_core::env_compat::var(&["LIME_REAL_PROMPT", "PROXYCAST_REAL_PROMPT"])
             .unwrap_or_else(|| "请仅回复 REAL_OK".to_string());
 
         let result = service
@@ -1130,7 +1130,7 @@ pub struct ChatTestResult {
 /// 使用 XOR 加密 + Base64 编码
 /// 注意：这是一个简单的混淆方案，不是强加密
 struct EncryptionService {
-    /// 当前加密密钥（Ember）
+    /// 当前加密密钥（Lime）
     current_key: Vec<u8>,
     /// 兼容旧版 ProxyCast 的历史加密密钥
     legacy_keys: Vec<Vec<u8>>,
@@ -1142,9 +1142,9 @@ struct DecryptionResult {
 }
 
 impl EncryptionService {
-    const CURRENT_SALT: &'static [u8] = b"ember-api-key-encryption-salt";
+    const CURRENT_SALT: &'static [u8] = b"lime-api-key-encryption-salt";
     const LEGACY_SALT: &'static [u8] = b"proxycast-api-key-encryption-salt";
-    const CURRENT_DEFAULT_MACHINE_ID: &'static str = "ember-default-machine-id";
+    const CURRENT_DEFAULT_MACHINE_ID: &'static str = "lime-default-machine-id";
     const LEGACY_DEFAULT_MACHINE_ID: &'static str = "proxycast-default-machine-id";
 
     /// 创建新的加密服务
@@ -1421,7 +1421,7 @@ impl ApiKeyProviderService {
     }
 
     pub fn migrate_legacy_api_key_encryption(&self, db: &DbConnection) -> Result<usize, String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
         let providers = ApiKeyProviderDao::get_all_providers_with_keys(&conn)
             .map_err(|e| format!("读取 API Key 列表失败: {e}"))?;
 
@@ -1840,8 +1840,8 @@ impl ApiKeyProviderService {
         prompt: &str,
         provider_type: ApiProviderType,
     ) -> Result<(String, String), String> {
-        use ember_core::models::openai::{ChatCompletionRequest, ChatMessage, MessageContent};
-        use ember_providers::providers::openai_custom::OpenAICustomProvider;
+        use lime_core::models::openai::{ChatCompletionRequest, ChatMessage, MessageContent};
+        use lime_providers::providers::openai_custom::OpenAICustomProvider;
 
         let provider =
             OpenAICustomProvider::with_config(api_key.to_string(), Some(api_host.to_string()));
@@ -1926,7 +1926,7 @@ impl ApiKeyProviderService {
         enable_automatic_prompt_cache: bool,
         provider_type: ApiProviderType,
     ) -> Result<(String, String), String> {
-        use ember_providers::providers::claude_custom::{ClaudeCustomProvider, PromptCacheMode};
+        use lime_providers::providers::claude_custom::{ClaudeCustomProvider, PromptCacheMode};
 
         let prompt_cache_mode = if enable_automatic_prompt_cache {
             PromptCacheMode::Automatic
@@ -2146,7 +2146,7 @@ impl ApiKeyProviderService {
             && looks_like_misleading_auth_error
         {
             return format!(
-                "{base}。Ember 已按 Anthropic 协议发送兼容鉴权；若仍返回此错误，请优先核对 API Key 是否完整、未被截断，并确认该 Key 已开通当前 Base URL / 模型对应的接口权限。"
+                "{base}。Lime 已按 Anthropic 协议发送兼容鉴权；若仍返回此错误，请优先核对 API Key 是否完整、未被截断，并确认该 Key 已开通当前 Base URL / 模型对应的接口权限。"
             );
         }
 
@@ -2164,7 +2164,7 @@ impl ApiKeyProviderService {
         model: &str,
         prompt: &str,
     ) -> Result<(String, String), String> {
-        use ember_providers::providers::codex::CodexProvider;
+        use lime_providers::providers::codex::CodexProvider;
 
         let url = CodexProvider::build_responses_url(api_host);
         let request_body = Self::build_openai_responses_request(model, prompt, false);
@@ -2221,7 +2221,7 @@ impl ApiKeyProviderService {
         prompt: &str,
         provider_type: ApiProviderType,
     ) -> Result<(String, String), String> {
-        use ember_providers::providers::codex::CodexProvider;
+        use lime_providers::providers::codex::CodexProvider;
 
         let url = CodexProvider::build_responses_url(api_host);
 
@@ -2302,7 +2302,7 @@ impl ApiKeyProviderService {
     /// 检查数据库中是否存在系统 Provider，如果不存在则插入
     /// **Validates: Requirements 9.3**
     pub fn initialize_system_providers(&self, db: &DbConnection) -> Result<usize, String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
         let system_providers = get_system_providers();
         let mut inserted_count = 0;
         let mut updated_count = 0;
@@ -2314,9 +2314,21 @@ impl ApiKeyProviderService {
 
             match existing {
                 Some(mut provider) => {
+                    let default_provider = to_api_key_provider(def);
+                    let mut should_update = false;
                     if Self::should_update_system_provider_default_api_host(&provider, def.api_host)
                     {
                         provider.api_host = def.api_host.to_string();
+                        should_update = true;
+                    }
+                    if provider.is_system
+                        && provider.custom_models.is_empty()
+                        && !default_provider.custom_models.is_empty()
+                    {
+                        provider.custom_models = default_provider.custom_models;
+                        should_update = true;
+                    }
+                    if should_update {
                         provider.updated_at = Utc::now();
                         ApiKeyProviderDao::update_provider(&conn, &provider)
                             .map_err(|e| e.to_string())?;
@@ -2359,7 +2371,7 @@ impl ApiKeyProviderService {
         // 首先确保系统 Provider 已初始化
         self.initialize_system_providers(db)?;
 
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
         let providers =
             ApiKeyProviderDao::get_all_providers_with_keys(&conn).map_err(|e| e.to_string())?;
 
@@ -2386,7 +2398,7 @@ impl ApiKeyProviderService {
         db: &DbConnection,
         id: &str,
     ) -> Result<Option<ProviderWithKeys>, String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
         let provider =
             ApiKeyProviderDao::get_provider_by_id(&conn, id).map_err(|e| e.to_string())?;
 
@@ -2441,7 +2453,7 @@ impl ApiKeyProviderService {
             updated_at: now,
         };
 
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
         ApiKeyProviderDao::insert_provider(&conn, &provider).map_err(|e| e.to_string())?;
 
         Ok(provider)
@@ -2464,7 +2476,7 @@ impl ApiKeyProviderService {
         prompt_cache_mode: Option<ApiProviderPromptCacheMode>,
         custom_models: Option<Vec<String>>,
     ) -> Result<ApiKeyProvider, String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
         let mut provider = ApiKeyProviderDao::get_provider_by_id(&conn, id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("Provider 不存在: {id}"))?;
@@ -2517,7 +2529,7 @@ impl ApiKeyProviderService {
     /// 删除自定义 Provider
     /// 系统 Provider 不允许删除
     pub fn delete_custom_provider(&self, db: &DbConnection, id: &str) -> Result<bool, String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
 
         // 检查是否为系统 Provider
         let provider = ApiKeyProviderDao::get_provider_by_id(&conn, id)
@@ -2551,7 +2563,7 @@ impl ApiKeyProviderService {
             replace_existing
         );
 
-        let mut conn = ember_core::database::lock_db(db)?;
+        let mut conn = lime_core::database::lock_db(db)?;
 
         // 使用事务确保操作的原子性
         let tx = conn
@@ -2680,7 +2692,7 @@ impl ApiKeyProviderService {
 
     /// 删除 API Key
     pub fn delete_api_key(&self, db: &DbConnection, key_id: &str) -> Result<bool, String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
         ApiKeyProviderDao::delete_api_key(&conn, key_id).map_err(|e| e.to_string())
     }
 
@@ -2691,7 +2703,7 @@ impl ApiKeyProviderService {
         key_id: &str,
         enabled: bool,
     ) -> Result<ApiKeyEntry, String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
         let mut key = ApiKeyProviderDao::get_api_key_by_id(&conn, key_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("API Key not found: {key_id}"))?;
@@ -2709,7 +2721,7 @@ impl ApiKeyProviderService {
         key_id: &str,
         alias: Option<String>,
     ) -> Result<ApiKeyEntry, String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
         let mut key = ApiKeyProviderDao::get_api_key_by_id(&conn, key_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("API Key not found: {key_id}"))?;
@@ -2729,7 +2741,7 @@ impl ApiKeyProviderService {
         db: &DbConnection,
         provider_id: &str,
     ) -> Result<Option<String>, String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
 
         // 获取所有启用的 API Keys
         let keys = ApiKeyProviderDao::get_enabled_api_keys_by_provider(&conn, provider_id)
@@ -2756,7 +2768,7 @@ impl ApiKeyProviderService {
         db: &DbConnection,
         provider_id: &str,
     ) -> Result<Option<(String, String)>, String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
 
         // 获取所有启用的 API Keys
         let keys = ApiKeyProviderDao::get_enabled_api_keys_by_provider(&conn, provider_id)
@@ -2779,7 +2791,7 @@ impl ApiKeyProviderService {
 
     /// 记录 API Key 使用
     pub fn record_usage(&self, db: &DbConnection, key_id: &str) -> Result<(), String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
         let key = ApiKeyProviderDao::get_api_key_by_id(&conn, key_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("API Key not found: {key_id}"))?;
@@ -2795,7 +2807,7 @@ impl ApiKeyProviderService {
         db: &DbConnection,
         provider_id: &str,
     ) -> Result<Option<(String, ApiKeyProvider)>, String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
 
         // 获取 Provider 信息
         let provider = match ApiKeyProviderDao::get_provider_by_id(&conn, provider_id)
@@ -2836,7 +2848,7 @@ impl ApiKeyProviderService {
         db: &DbConnection,
         provider_type: ApiProviderType,
     ) -> Result<Option<(String, String, ApiKeyProvider)>, String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
 
         // 获取所有启用的 API Keys（按类型）
         let keys = ApiKeyProviderDao::get_enabled_api_keys_by_type(&conn, provider_type)
@@ -2860,7 +2872,7 @@ impl ApiKeyProviderService {
 
     /// 记录 API Key 错误
     pub fn record_error(&self, db: &DbConnection, key_id: &str) -> Result<(), String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
         ApiKeyProviderDao::increment_api_key_error(&conn, key_id).map_err(|e| e.to_string())
     }
 
@@ -2885,13 +2897,13 @@ impl ApiKeyProviderService {
 
     /// 获取 UI 状态
     pub fn get_ui_state(&self, db: &DbConnection, key: &str) -> Result<Option<String>, String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
         ApiKeyProviderDao::get_ui_state(&conn, key).map_err(|e| e.to_string())
     }
 
     /// 设置 UI 状态
     pub fn set_ui_state(&self, db: &DbConnection, key: &str, value: &str) -> Result<(), String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
         ApiKeyProviderDao::set_ui_state(&conn, key, value).map_err(|e| e.to_string())
     }
 
@@ -2902,7 +2914,7 @@ impl ApiKeyProviderService {
         db: &DbConnection,
         sort_orders: Vec<(String, i32)>,
     ) -> Result<(), String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
         ApiKeyProviderDao::update_provider_sort_orders(&conn, &sort_orders)
             .map_err(|e| e.to_string())
     }
@@ -2915,7 +2927,7 @@ impl ApiKeyProviderService {
         db: &DbConnection,
         include_keys: bool,
     ) -> Result<serde_json::Value, String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
         let providers =
             ApiKeyProviderDao::get_all_providers_with_keys(&conn).map_err(|e| e.to_string())?;
 
@@ -2975,7 +2987,7 @@ impl ApiKeyProviderService {
             .as_array()
             .ok_or_else(|| "配置格式错误: 缺少 providers 数组".to_string())?;
 
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
         let mut imported_providers = 0;
         let mut skipped_providers = 0;
         let mut errors = Vec::new();
@@ -3033,7 +3045,7 @@ impl ApiKeyProviderService {
         db: &DbConnection,
         provider_type: &str,
         provider_id_hint: Option<&str>,
-        client_type: Option<&ember_core::models::client_type::ClientType>,
+        client_type: Option<&lime_core::models::client_type::ClientType>,
     ) -> Result<Option<RuntimeProviderCredential>, String> {
         let mut runtime_provider_type = resolve_runtime_provider_type(provider_type);
         let mut resolved_provider_id_hint = provider_id_hint;
@@ -3107,7 +3119,7 @@ impl ApiKeyProviderService {
         db: &DbConnection,
         runtime_provider_type: Option<&RuntimeProviderType>,
         provider_id_hint: Option<&str>,
-        client_type: Option<&ember_core::models::client_type::ClientType>,
+        client_type: Option<&lime_core::models::client_type::ClientType>,
     ) -> Result<Option<RuntimeProviderCredential>, String> {
         tracing::debug!(
             "[select_runtime_credential] 开始查找: runtime_provider_type={runtime_provider_type:?}, provider_id_hint={provider_id_hint:?}"
@@ -3164,7 +3176,7 @@ impl ApiKeyProviderService {
         runtime_provider_type: &RuntimeProviderType,
         api_type: &ApiProviderType,
     ) -> Result<Option<RuntimeProviderCredential>, String> {
-        let conn = ember_core::database::lock_db(db)?;
+        let conn = lime_core::database::lock_db(db)?;
 
         // 查找该类型的启用的 Provider（按 sort_order 排序）
         let providers = ApiKeyProviderDao::get_all_providers(&conn).map_err(|e| e.to_string())?;
@@ -3230,11 +3242,11 @@ impl ApiKeyProviderService {
         &self,
         db: &DbConnection,
         provider_id: &str,
-        client_type: Option<&ember_core::models::client_type::ClientType>,
+        client_type: Option<&lime_core::models::client_type::ClientType>,
     ) -> Result<Option<RuntimeProviderCredential>, String> {
         // First, get all data we need while holding the lock
         let (provider, keys) = {
-            let conn = ember_core::database::lock_db(db)?;
+            let conn = lime_core::database::lock_db(db)?;
 
             // 直接按 provider_id 查找
             let provider = ApiKeyProviderDao::get_provider_by_id(&conn, provider_id)
@@ -3296,7 +3308,7 @@ impl ApiKeyProviderService {
 
             // 解密 API Key 进行测试
             let api_key = {
-                let conn = ember_core::database::lock_db(db)?;
+                let conn = lime_core::database::lock_db(db)?;
                 self.decrypt_api_key_entry_with_migration(&conn, candidate_key)?
             };
             let effective_provider_type = provider.effective_provider_type();
@@ -3307,7 +3319,7 @@ impl ApiKeyProviderService {
                     // 对于 Claude Code 客户端，可以使用任何 Claude 凭证
                     if matches!(
                         client,
-                        ember_core::models::client_type::ClientType::ClaudeCode
+                        lime_core::models::client_type::ClientType::ClaudeCode
                     ) {
                         selected_key = Some(candidate_key);
                         break;
@@ -3352,7 +3364,7 @@ impl ApiKeyProviderService {
 
         // 解密 API Key
         let api_key = {
-            let conn = ember_core::database::lock_db(db)?;
+            let conn = lime_core::database::lock_db(db)?;
             self.decrypt_api_key_entry_with_migration(&conn, selected_key)?
         };
 
@@ -3717,7 +3729,7 @@ impl ApiKeyProviderService {
         api_key: &str,
         api_host: &str,
     ) -> Result<Vec<String>, String> {
-        use ember_providers::providers::openai_custom::OpenAICustomProvider;
+        use lime_providers::providers::openai_custom::OpenAICustomProvider;
 
         let provider =
             OpenAICustomProvider::with_config(api_key.to_string(), Some(api_host.to_string()));
@@ -3858,7 +3870,7 @@ impl ApiKeyProviderService {
         model: &str,
         use_input_list: bool,
     ) -> Result<(reqwest::StatusCode, String), String> {
-        use ember_providers::providers::codex::CodexProvider;
+        use lime_providers::providers::codex::CodexProvider;
 
         let url = CodexProvider::build_responses_url(api_host);
         let request = Self::build_openai_responses_image_generation_request(
@@ -3985,7 +3997,7 @@ impl ApiKeyProviderService {
         api_host: &str,
         enable_automatic_prompt_cache: bool,
     ) -> Result<(), String> {
-        use ember_providers::providers::claude_custom::{ClaudeCustomProvider, PromptCacheMode};
+        use lime_providers::providers::claude_custom::{ClaudeCustomProvider, PromptCacheMode};
 
         let prompt_cache_mode = if enable_automatic_prompt_cache {
             PromptCacheMode::Automatic
@@ -4034,7 +4046,7 @@ impl ApiKeyProviderService {
         enable_automatic_prompt_cache: bool,
         provider_type: ApiProviderType,
     ) -> Result<Vec<String>, String> {
-        use ember_providers::providers::claude_custom::{ClaudeCustomProvider, PromptCacheMode};
+        use lime_providers::providers::claude_custom::{ClaudeCustomProvider, PromptCacheMode};
 
         let prompt_cache_mode = if enable_automatic_prompt_cache {
             PromptCacheMode::Automatic

@@ -377,7 +377,7 @@ impl ChromeBridgeHub {
             let _ = sender.send(
                 json!({
                     "type": "force_disconnect",
-                    "message": "Ember 已主动断开当前扩展连接。",
+                    "message": "Lime 已主动断开当前扩展连接。",
                 })
                 .to_string(),
             );
@@ -387,7 +387,7 @@ impl ChromeBridgeHub {
             let _ = sender.send(
                 json!({
                     "type": "force_disconnect",
-                    "message": "Ember 已主动断开当前控制连接。",
+                    "message": "Lime 已主动断开当前控制连接。",
                 })
                 .to_string(),
             );
@@ -411,7 +411,7 @@ impl ChromeBridgeHub {
         validate_command(&request.command, &request.url, &request.payload)?;
 
         let timeout = normalize_timeout_ms(request.timeout_ms);
-        let source_client_id = format!("ember-api-{}", Uuid::new_v4());
+        let source_client_id = format!("lime-api-{}", Uuid::new_v4());
         let request_id = format!("cb-api-{}", Uuid::new_v4());
 
         let (observer_id, observer_sender) = {
@@ -1461,7 +1461,7 @@ mod tests {
     fn build_command_payload_should_include_payload() {
         let payload = build_command_payload(
             "req-1",
-            "ember-api-1",
+            "lime-api-1",
             "run_adapter",
             Some("202".to_string()),
             None,

@@ -12,8 +12,7 @@ export type AgentUiOwner =
   | "diagnostics"
   | "ui_projection"
   | "unknown"
-  | "agent"
-  | "team";
+  | "agent";
 
 export type AgentUiScope =
   | "application"
@@ -30,8 +29,7 @@ export type AgentUiScope =
   | "action_request"
   | "artifact"
   | "evidence"
-  | "unknown"
-  | "team";
+  | "unknown";
 
 export type AgentUiPhase =
   | "draft"
@@ -164,7 +162,6 @@ export type AgentUiEventClass =
   | "agent.spawned"
   | "agent.completed"
   | "agent.handoff"
-  | "team.changed"
   | "worker.notification"
   | "review.requested"
   | "review.completed"
@@ -219,7 +216,6 @@ export type AgentUiProjectionSourceType =
   | "remote_task_projection"
   | "runtime_status"
   | "team_control_projection"
-  | "team_formation_projection"
   | "text_delta"
   | "thinking_delta"
   | "tool_end"
@@ -262,7 +258,6 @@ export interface AgentUiProjectionEvent {
   surface?: AgentUiSurface;
   persistence?: AgentUiPersistence;
   control?: AgentUiControl;
-  parentSessionId?: string;
   parentThreadId?: string;
   agentName?: string;
   teamName?: string;

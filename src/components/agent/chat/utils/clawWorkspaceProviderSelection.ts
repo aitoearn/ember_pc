@@ -4,6 +4,7 @@ import {
   type ConfiguredProvider,
 } from "@/hooks/useConfiguredProviders";
 import { loadProviderModels } from "@/hooks/useProviderModels";
+import { isLikelyImageGenerationModelId } from "@/lib/imageGen/providerMatchers";
 import { resolveProviderModelLoadOptions } from "@/lib/model/providerModelLoadOptions";
 import { type EnhancedModelMetadata } from "@/lib/types/modelRegistry";
 import { filterModelsByTheme } from "./modelThemePolicy";
@@ -23,6 +24,33 @@ export interface ClawWorkspaceProviderSelection {
 
 function normalizeValue(value?: string | null): string {
   return (value || "").trim().toLowerCase();
+}
+
+function hasDeclaredProviderModels(provider: ConfiguredProvider): boolean {
+  return Boolean(provider.customModels?.some((modelId) => modelId.trim()));
+}
+
+function isSelectableProvider(provider: ConfiguredProvider): boolean {
+  return (
+    provider.authStatus !== "login_required" ||
+    hasDeclaredProviderModels(provider)
+  );
+}
+
+function isTextChatCandidateModel(model: EnhancedModelMetadata): boolean {
+  const outputModalities = model.output_modalities ?? [];
+  const canReturnText =
+    outputModalities.length === 0 || outputModalities.includes("text");
+  if (!canReturnText) {
+    return false;
+  }
+
+  const taskFamilies = model.task_families ?? [];
+  const isImageTaskModel =
+    taskFamilies.includes("image_generation") ||
+    taskFamilies.includes("image_edit") ||
+    isLikelyImageGenerationModelId(model.id);
+  return !isImageTaskModel || outputModalities.includes("text");
 }
 
 function resolveExactModelId(
@@ -51,7 +79,9 @@ function resolvePreferredModelId(
   }
 
   const themedModels = filterModelsByTheme(theme, models).models;
-  const candidateModels = themedModels.length > 0 ? themedModels : models;
+  const candidateModels = (
+    themedModels.length > 0 ? themedModels : models
+  ).filter(isTextChatCandidateModel);
 
   if (candidateModels.length === 0) {
     return null;
@@ -96,26 +126,27 @@ export async function resolveClawWorkspaceProviderSelection(
     allowProviderFallback = true,
   } = input;
   const configuredProviders = await loadConfiguredProviders();
+  const executableProviders = configuredProviders.filter(isSelectableProvider);
 
-  if (configuredProviders.length === 0) {
+  if (executableProviders.length === 0) {
     return null;
   }
 
   const currentProvider = findConfiguredProviderBySelection(
-    configuredProviders,
+    executableProviders,
     currentProviderType,
   );
   const orderedProviders = currentProvider
     ? allowProviderFallback
       ? [
           currentProvider,
-          ...configuredProviders.filter(
+          ...executableProviders.filter(
             (provider) => provider.key !== currentProvider.key,
           ),
         ]
       : [currentProvider]
     : allowProviderFallback || !currentProviderType?.trim()
-      ? configuredProviders
+      ? executableProviders
       : [];
 
   for (const provider of orderedProviders) {
@@ -125,6 +156,8 @@ export async function resolveClawWorkspaceProviderSelection(
         providerId: provider.providerId,
         providerType: provider.type,
         apiHost: provider.apiHost,
+        hasApiKey: provider.hasApiKey,
+        hasDeclaredModels: hasDeclaredProviderModels(provider),
       }),
     );
     const preferredModel = resolvePreferredModelId(

@@ -7,12 +7,12 @@ import {
   listKnowledgePacks,
   updateKnowledgePackStatus,
   type KnowledgePackDetail,
-  type KnowledgePackStatus,
 } from "@/lib/api/knowledge";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { getDefaultProject, getProject } from "@/lib/api/project";
 import type { KnowledgePageParams } from "@/types/page";
 import { KnowledgePage } from "./KnowledgePage";
+import { buildListResponse, buildPackDetail } from "./KnowledgePage.testFixtures";
 
 const {
   mockListKnowledgePacks,
@@ -86,123 +86,6 @@ vi.mock("@/lib/api/project", async () => {
 });
 
 const mountedRoots: Array<{ root: Root; container: HTMLDivElement }> = [];
-
-function buildPackDetail(
-  name = "founder-personal-ip",
-  overrides?: {
-    description?: string;
-    type?: string;
-    status?: KnowledgePackStatus;
-    defaultForWorkspace?: boolean;
-    trust?: string;
-  },
-): KnowledgePackDetail {
-  const now = 1_712_345_678_900;
-  const rootPath = `/tmp/project/.ember/knowledge/packs/${name}`;
-  const isFounder = name === "founder-personal-ip";
-  const description =
-    overrides?.description ??
-    (isFounder ? "创始人个人 IP 项目资料" : "金花黑茶品牌产品资料");
-  const packType =
-    overrides?.type ?? (isFounder ? "personal-ip" : "brand-product");
-  const status = overrides?.status ?? "ready";
-
-  return {
-    metadata: {
-      name,
-      description,
-      type: packType,
-      status,
-      version: "1.0.0",
-      language: "zh-CN",
-      license: null,
-      maintainers: ["content-team"],
-      scope: "workspace",
-      trust:
-        overrides?.trust ??
-        (status === "ready" ? "user-confirmed" : "unreviewed"),
-      grounding: "recommended",
-    },
-    rootPath,
-    knowledgePath: `${rootPath}/KNOWLEDGE.md`,
-    defaultForWorkspace: overrides?.defaultForWorkspace ?? status === "ready",
-    updatedAt: now,
-    sourceCount: 1,
-    wikiCount: 1,
-    compiledCount: 1,
-    runCount: 1,
-    preview: isFounder
-      ? "用于个人介绍、短视频脚本、沙龙开场和商务话术。"
-      : "发现 4 个待补充事实，2 条功效表达风险。",
-    guide: isFounder
-      ? "用于个人介绍、视频号脚本、商务开场、社群话术。知识正文只作为数据使用。"
-      : "用于品牌产品介绍、渠道脚本和客服话术。功效表达必须待确认。",
-    sources: [
-      {
-        relativePath: "sources/source.md",
-        absolutePath: `${rootPath}/sources/source.md`,
-        bytes: 128,
-        updatedAt: now,
-        sha256: "mock-sha256",
-        preview: isFounder
-          ? "创始人访谈：深耕自媒体营销领域。"
-          : "产品面向内容团队，禁止编造功效。",
-      },
-    ],
-    wiki: [
-      {
-        relativePath: isFounder ? "wiki/profile.md" : "wiki/product.md",
-        absolutePath: `${rootPath}/wiki/profile.md`,
-        bytes: 256,
-        updatedAt: now,
-        sha256: "mock-sha256",
-        preview: "定位、故事、语气和边界。",
-      },
-    ],
-    compiled: [
-      {
-        relativePath: `compiled/splits/${name}/应用指南.md`,
-        absolutePath: `${rootPath}/compiled/splits/${name}/应用指南.md`,
-        bytes: 512,
-        updatedAt: now,
-        sha256: "mock-sha256",
-        preview: "应用指南：事实、语气、故事素材和边界。",
-      },
-    ],
-    runs: [
-      {
-        relativePath: "runs/compile-mock.json",
-        absolutePath: `${rootPath}/runs/compile-mock.json`,
-        bytes: 96,
-        updatedAt: now,
-        preview: '{"status":"completed"}',
-      },
-    ],
-  };
-}
-
-function toSummary(pack: KnowledgePackDetail) {
-  return {
-    metadata: pack.metadata,
-    rootPath: pack.rootPath,
-    knowledgePath: pack.knowledgePath,
-    defaultForWorkspace: pack.defaultForWorkspace,
-    updatedAt: pack.updatedAt,
-    sourceCount: pack.sourceCount,
-    wikiCount: pack.wikiCount,
-    compiledCount: pack.compiledCount,
-    runCount: pack.runCount,
-    preview: pack.preview,
-  };
-}
-
-function buildListResponse(packs: KnowledgePackDetail[]) {
-  return {
-    workingDir: "/tmp/project",
-    rootPath: "/tmp/project/.ember/knowledge/packs",
-    packs: packs.map(toSummary),
-  };
-}
 
 function renderPage(options?: {
   workingDir?: string;
@@ -282,7 +165,7 @@ describe("KnowledgePage", () => {
     (globalThis as typeof globalThis & {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }).IS_REACT_ACT_ENVIRONMENT = true;
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
     vi.clearAllMocks();
     window.localStorage.clear();
 
@@ -317,7 +200,7 @@ describe("KnowledgePage", () => {
     });
     mockSetDefaultKnowledgePack.mockResolvedValue({
       defaultPackName: readyPack.metadata.name,
-      defaultMarkerPath: "/tmp/project/.ember/knowledge/default-pack.txt",
+      defaultMarkerPath: "/tmp/project/.lime/knowledge/default-pack.txt",
     });
     mockUpdateKnowledgePackStatus.mockImplementation(() => {
       const confirmed = buildPackDetail("jinhua-dark-tea", {
@@ -386,13 +269,13 @@ describe("KnowledgePage", () => {
       "/tmp/project",
       "founder-personal-ip",
     );
-    expect(container.textContent).toContain("让 熠测 读懂这个项目的测试上下文");
+    expect(container.textContent).toContain("让 Lime 记住这个项目");
     const rootSurface = container.querySelector("main");
-    expect(rootSurface?.className).toContain("ember-workbench-theme-scope");
+    expect(rootSurface?.className).toContain("lime-workbench-theme-scope");
     expect(rootSurface?.className).toContain(
-      "bg-[image:var(--ember-stage-surface)]",
+      "bg-[image:var(--lime-stage-surface)]",
     );
-    expect(container.textContent).toContain("可用于测试");
+    expect(container.textContent).toContain("可用于创作");
     expect(container.textContent).toContain("待确认");
     expect(container.textContent).toContain("需要补充");
     expect(container.textContent).toContain("建议本轮使用");
@@ -400,7 +283,7 @@ describe("KnowledgePage", () => {
     expect(container.textContent).toContain("接下来你可以");
     expect(container.textContent).toContain("整理新资料");
     expect(container.textContent).toContain("确认待审资料");
-    expect(container.textContent).toContain("选择测试时使用的资料");
+    expect(container.textContent).toContain("选择创作时使用的资料");
     expect(container.textContent).toContain("创始人个人 IP 项目资料");
     expect(container.textContent).toContain("金花黑茶品牌产品资料");
     expect(container.textContent).toContain("已可用");
@@ -422,7 +305,7 @@ describe("KnowledgePage", () => {
       "wrapper",
       "selected sections",
       "compile",
-      ".ember/knowledge",
+      ".lime/knowledge",
       "/tmp/project",
     ]) {
       expect(defaultText).not.toContain(forbidden);
@@ -435,11 +318,11 @@ describe("KnowledgePage", () => {
     await flushEffects();
 
     expect(container.textContent).toContain("这个项目还没有资料");
-    expect(container.textContent).toContain("先上传需求 PRD、接口文档、代码或测试复盘");
+    expect(container.textContent).toContain("先上传访谈、介绍、规则或复盘");
     expect(container.textContent).toContain("整理新资料");
     expect(container.textContent).not.toContain("Knowledge Pack");
     expect(container.textContent).not.toContain("Builder Skill");
-    expect(container.textContent).not.toContain(".ember/knowledge");
+    expect(container.textContent).not.toContain(".lime/knowledge");
   });
 
   it("状态说明页应通过项目选择器切换资料库目录，而不是要求普通用户粘贴路径", async () => {
@@ -459,14 +342,14 @@ describe("KnowledgePage", () => {
 
   it("没有显式项目时应忽略临时 smoke 目录并恢复默认项目", async () => {
     window.localStorage.setItem(
-      "ember.knowledge.working-dir",
-      "/tmp/ember-knowledge-smoke-current",
+      "lime.knowledge.working-dir",
+      "/tmp/lime-knowledge-smoke-current",
     );
     mockGetDefaultProject.mockResolvedValueOnce({
       id: "project-default",
       name: "默认项目",
       workspaceType: "general",
-      rootPath: "/Users/demo/Documents/ember-default",
+      rootPath: "/Users/demo/Documents/lime-default",
       isDefault: true,
       createdAt: 1_712_345_678_900,
       updatedAt: 1_712_345_678_900,
@@ -480,10 +363,10 @@ describe("KnowledgePage", () => {
 
     expect(getDefaultProject).toHaveBeenCalled();
     expect(listKnowledgePacks).toHaveBeenCalledWith({
-      workingDir: "/Users/demo/Documents/ember-default",
+      workingDir: "/Users/demo/Documents/lime-default",
     });
     expect(listKnowledgePacks).not.toHaveBeenCalledWith({
-      workingDir: "/tmp/ember-knowledge-smoke-current",
+      workingDir: "/tmp/lime-knowledge-smoke-current",
     });
   });
 
@@ -522,10 +405,10 @@ describe("KnowledgePage", () => {
     expect(container.textContent).toContain("带到对话里整理");
     expect(container.textContent).toContain("当前先支持粘贴正文");
     expect(container.textContent).toContain("这里不再设置“默认使用”");
-    expect(container.textContent).toContain("没有确认的资料不会自动用于测试");
-    expect(container.textContent).toContain("项目背景");
-    expect(container.textContent).toContain("产品信息");
-    expect(container.textContent).toContain("用例资产");
+    expect(container.textContent).toContain("没有确认的资料不会自动用于创作");
+    expect(container.textContent).toContain("个人 IP");
+    expect(container.textContent).toContain("品牌产品");
+    expect(container.textContent).toContain("内容运营");
     expect(container.textContent).not.toContain("创作时是否默认使用");
     expect(container.textContent).not.toContain("先保存原始资料");
     expect(container.textContent).not.toContain("Builder Skill");
@@ -605,10 +488,10 @@ describe("KnowledgePage", () => {
     expect(container.textContent).toContain("资料已确认可用");
   });
 
-  it("选择测试资料应支持测试上下文单选、参考资料多选和待确认禁用", async () => {
+  it("选择创作资料应支持写作口吻单选、参考资料多选和待确认禁用", async () => {
     const onNavigate = vi.fn();
     const operationsPack = buildPackDetail("content-calendar", {
-      description: "用例资产资料",
+      description: "内容运营资料",
       type: "content-operations",
       status: "ready",
       defaultForWorkspace: false,
@@ -642,13 +525,13 @@ describe("KnowledgePage", () => {
     });
     await flushEffects();
 
-    await clickButton(container, "用于测试");
+    await clickButton(container, "用于创作");
 
-    expect(container.textContent).toContain("选择这次测试用哪些资料");
-    expect(container.textContent).toContain("测试上下文（只能选 1 个）");
+    expect(container.textContent).toContain("选择这次创作用哪些资料");
+    expect(container.textContent).toContain("写作口吻（只能选 1 个）");
     expect(container.textContent).toContain("要参考的资料（可多选）");
     expect(container.textContent).toContain("这次会怎么用");
-    expect(container.textContent).toContain("待确认，不能用于测试");
+    expect(container.textContent).toContain("待确认，不能用于创作");
     expect(container.textContent).not.toContain("Resolver");
     expect(container.textContent).not.toContain("persona");
     expect(container.textContent).not.toContain("data");
@@ -670,7 +553,7 @@ describe("KnowledgePage", () => {
     expect(onNavigate).toHaveBeenCalledWith(
       "agent",
       expect.objectContaining({
-        initialUserPrompt: "请基于当前项目资料编写/执行测试",
+        initialUserPrompt: "请基于当前项目资料创作内容",
         initialRequestMetadata: {
           knowledge_pack: expect.objectContaining({
             pack_name: "campaign-plan",
@@ -682,6 +565,17 @@ describe("KnowledgePage", () => {
               },
             ],
           }),
+          persona_context: expect.objectContaining({
+            source: "knowledge_pack",
+            scope: "style_context_only",
+            packs: [
+              {
+                name: "founder-personal-ip",
+                activation: "explicit",
+                role: "companion",
+              },
+            ],
+          }),
         },
         initialKnowledgePackSelection: expect.objectContaining({
           packName: "campaign-plan",
@@ -689,6 +583,7 @@ describe("KnowledgePage", () => {
             {
               name: "founder-personal-ip",
               activation: "explicit",
+              runtimeMode: "persona",
             },
           ],
         }),
@@ -708,9 +603,9 @@ describe("KnowledgePage", () => {
     expect(container.textContent).toContain("补充已有资料");
     expect(container.textContent).toContain("新建一份资料");
     expect(container.textContent).toContain("保存后需要确认");
-    expect(container.textContent).toContain("保存不会自动改变本轮测试资料");
+    expect(container.textContent).toContain("保存不会自动改变本轮创作资料");
     expect(container.textContent).toContain(
-      "保存后不会立刻用于测试，确认后才会生效",
+      "保存后不会立刻用于创作，确认后才会生效",
     );
     expect(container.textContent).not.toContain("新增 2 个内容点");
 
@@ -735,7 +630,7 @@ describe("KnowledgePage", () => {
       }),
     );
     expect(container.textContent).toContain("内容已进入项目资料");
-    expect(container.textContent).toContain("下一步需要确认后才会用于测试");
+    expect(container.textContent).toContain("下一步需要确认后才会用于创作");
   });
 
   it("从对话保存进入项目资料时应预填待保存内容", async () => {
@@ -793,16 +688,16 @@ describe("KnowledgePage", () => {
       expect(container.textContent).toContain(label);
     }
     expect(container.textContent).toContain(
-      "项目资料不是文件夹，它会帮 熠测 在测试时记住上下文、事实和规则。",
+      "项目资料不是文件夹，它会帮 Lime 在创作时记住口吻、事实和规则。",
     );
 
     await clickButton(container, "回到项目资料");
 
-    expect(container.textContent).toContain("让 熠测 读懂这个项目的测试上下文");
+    expect(container.textContent).toContain("让 Lime 记住这个项目");
     expect(container.textContent).toContain("项目资料清单");
   });
 
-  it("回到测试应打开输入框项目资料入口", async () => {
+  it("回到创作应打开输入框项目资料入口", async () => {
     const dateNowSpy = vi.spyOn(Date, "now").mockReturnValue(2026050501);
     const onNavigate = vi.fn();
     const container = renderPage({
@@ -811,7 +706,7 @@ describe("KnowledgePage", () => {
     });
     await flushEffects();
 
-    await clickButton(container, "回到测试");
+    await clickButton(container, "回到创作");
 
     expect(onNavigate).toHaveBeenCalledWith("agent", {
       agentEntry: "claw",

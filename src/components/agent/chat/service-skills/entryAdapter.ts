@@ -25,20 +25,14 @@ function collectServiceSkillSearchTokens(skill: ServiceSkillItem): string[] {
     .filter(Boolean);
 }
 
-export function resolveServiceSkillEntrySurfaces(
-  skill: ServiceSkillItem,
-): ServiceSkillEntrySurface[] {
-  if (skill.surfaceScopes !== undefined) {
-    return skill.surfaceScopes;
-  }
-  return DEFAULT_SERVICE_SKILL_ENTRY_SURFACES;
-}
-
 export function supportsServiceSkillEntrySurface(
   skill: ServiceSkillItem,
   surface: ServiceSkillEntrySurface,
 ): boolean {
-  return resolveServiceSkillEntrySurfaces(skill).includes(surface);
+  const surfaces = skill.surfaceScopes?.length
+    ? skill.surfaceScopes
+    : DEFAULT_SERVICE_SKILL_ENTRY_SURFACES;
+  return surfaces.includes(surface);
 }
 
 export function resolveServiceSkillEntryDescription(

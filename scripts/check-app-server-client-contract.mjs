@@ -3,9 +3,108 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import {
+  checkMcpRuntimeCurrentContracts,
+  checkWorkspaceRightSurfaceCurrentContracts,
+} from "./mcp/lib/contract-guards.mjs";
 
 const repoRoot = process.cwd();
-const normalizeContractSnippet = (value) => value.replace(/\s+/gu, "");
+function normalizeContractSnippet(value) {
+  return value
+    .replace(/\b(?:protocol|appServer|constants)\./gu, "")
+    .replace(/(\w+)\s*:\s*([A-Za-z0-9_<>,\[\]\s|&]+)\s*=\s*\{\}/gu, "$1?: $2")
+    .replace(/\basync\s+(?=[A-Za-z_$][\w$]*\()/gu, "")
+    .replace(/,\s*\)/gu, ")")
+    .replace(/\s+/gu, "");
+}
+
+function contractContentIncludes(content, snippet) {
+  if (content.includes(snippet)) {
+    return true;
+  }
+  const normalizedContent = normalizeContractSnippet(content);
+  const normalizedSnippet = normalizeContractSnippet(snippet);
+  if (normalizedContent.includes(normalizedSnippet)) {
+    return true;
+  }
+
+  const importedTypeSnippet = snippet.match(/^type\s+([A-Za-z0-9_]+),$/u);
+  if (importedTypeSnippet) {
+    return normalizedContent.includes(
+      normalizeContractSnippet(`protocol.${importedTypeSnippet[1]}`),
+    );
+  }
+
+  const dynamicClientCall = snippet.match(
+    /^this\.client\.([A-Za-z0-9_]+)\(params\)$/u,
+  );
+  if (dynamicClientCall) {
+    const clientMethodName = dynamicClientCall[1];
+    return (
+      (content.includes(`clientMethod: "${clientMethodName}"`) ||
+        content.includes(`name: "${clientMethodName}"`)) &&
+      content.includes("APP_SERVER_REQUEST_CLIENT_METHODS") &&
+      content.includes("client[spec.clientMethod](...clientArgs)")
+    );
+  }
+
+  return false;
+}
+const appServerClientIndexFile = "packages/app-server-client/src/index.ts";
+const appServerGeneratedProtocolFile =
+  "packages/app-server-client/src/generated/protocol-types.ts";
+const appServerClientSplitSourceFiles = [
+  appServerClientIndexFile,
+  "packages/app-server-client/src/request-client.ts",
+  "packages/app-server-client/src/request-client-methods.ts",
+  "packages/app-server-client/src/connection.ts",
+  "packages/app-server-client/src/connection-methods.ts",
+  "packages/app-server-client/src/sidecar.ts",
+  "packages/app-server-client/src/sidecar-types.ts",
+  "packages/app-server-client/src/sidecar-manifest.ts",
+  "packages/app-server-client/src/sidecar-process.ts",
+  "packages/app-server-client/src/sidecar-lifecycle.ts",
+  "packages/app-server-client/src/agent-runtime.ts",
+];
+const rendererAppServerIndexFile = "src/lib/api/appServer.ts";
+const rendererAppServerSplitSourceFiles = [
+  rendererAppServerIndexFile,
+  "src/lib/api/appServerConstants.ts",
+  "src/lib/api/appServerTypes.ts",
+  "src/lib/api/appServerTransport.ts",
+  "src/lib/api/appServerResponse.ts",
+  "src/lib/api/appServerClient.ts",
+  "src/lib/api/appServerClientMethods.ts",
+  "src/lib/api/appServerClientMethodSpecs.ts",
+];
+
+function expandContractFiles(files) {
+  return [
+    ...new Set(
+      files.flatMap((file) => {
+        if (file === appServerClientIndexFile) {
+          return appServerClientSplitSourceFiles;
+        }
+        if (file === rendererAppServerIndexFile) {
+          return rendererAppServerSplitSourceFiles;
+        }
+        return [file];
+      }),
+    ),
+  ];
+}
+
+function requiredContractContent(files, content) {
+  if (!files.includes("packages/app-server-client/src/protocol.ts")) {
+    return content;
+  }
+  const generatedPath = path.join(repoRoot, appServerGeneratedProtocolFile);
+  if (!fs.existsSync(generatedPath)) {
+    return content;
+  }
+  return `${content}\n${fs.readFileSync(generatedPath, "utf8")}`;
+}
+
 function collectRustFiles(relativeDir) {
   const absoluteDir = path.join(repoRoot, relativeDir);
   return fs
@@ -30,6 +129,65 @@ const appServerRuntimeFiles = [
   "ember-rs/crates/app-server/src/runtime.rs",
   ...collectRustFiles("ember-rs/crates/app-server/src/runtime"),
 ];
+const appServerRuntimeThreadReadProjectionFiles = [
+  "ember-rs/crates/app-server/src/runtime/load_context.rs",
+  "ember-rs/crates/app-server/src/runtime/session_lifecycle.rs",
+  "ember-rs/crates/app-server/src/runtime/read_model.rs",
+  "ember-rs/crates/app-server/src/runtime/tool_item_projection.rs",
+  "ember-rs/crates/app-server/src/runtime/tool_item_projection/extract.rs",
+  "ember-rs/crates/app-server/src/runtime/artifact_projection.rs",
+  "ember-rs/crates/app-server/src/runtime/output_refs.rs",
+  "ember-rs/crates/app-server/src/runtime/tests/read_model/tool_calls.rs",
+  "ember-rs/crates/app-server/src/runtime/tests/read_model/imports_items.rs",
+  "ember-rs/crates/app-server/src/runtime/tests/read_model/artifacts.rs",
+];
+const appServerRuntimeBackendFiles = [
+  "ember-rs/crates/app-server/src/runtime_backend.rs",
+  ...collectRustFiles("ember-rs/crates/app-server/src/runtime_backend"),
+];
+const appServerRuntimeBackendExecutionChainFiles = [
+  "ember-rs/crates/app-server/src/runtime_backend.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/action_response.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/event_mapper.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/execution_backend.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/plugin_worker_generation.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/provider_config.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/request_context.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/request_context/session_config.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/request_context/turn_context.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/request_context/workspace_scope.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/tool_events.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/tool_process_runtime_metadata.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/workspace_patch_host_execution.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/initialization_tests.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/tests.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/tests/coding_event_projection.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/tests/model_selection.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/tests/tool_policy_context.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/tests/tool_surface.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/tests/turn_flows.rs",
+  "ember-rs/crates/app-server/src/runtime_backend/tests/workspace_scope_context.rs",
+];
+const appServerProcessorFiles = [
+  "ember-rs/crates/app-server/src/processor/mod.rs",
+  ...collectRustFiles("ember-rs/crates/app-server/src/processor"),
+];
+const agentRuntimeBoundaryFiles = [
+  "ember-rs/crates/agent/src/lib.rs",
+  "ember-rs/crates/agent/src/runtime_state.rs",
+  "ember-rs/crates/agent/src/runtime_state_support.rs",
+  "ember-rs/crates/agent/src/provider_configuration.rs",
+  "ember-rs/crates/agent/src/session_configuration.rs",
+  "ember-rs/crates/agent/src/turn_context_configuration.rs",
+  "ember-rs/crates/agent/src/agent_tools/workspace_patch_host.rs",
+  "ember-rs/crates/agent/src/host_managed_generation.rs",
+  "ember-rs/crates/agent/src/direct_text_generation.rs",
+  "ember-rs/crates/agent/src/turn_execution.rs",
+];
+const agentRequestToolPolicyFiles = [
+  "ember-rs/crates/agent/src/request_tool_policy.rs",
+  ...collectRustFiles("ember-rs/crates/agent/src/request_tool_policy"),
+];
 const rustProtocolFiles = [
   "ember-rs/crates/app-server-protocol/src/lib.rs",
   "ember-rs/crates/app-server-protocol/src/jsonrpc_lite.rs",
@@ -39,19 +197,6 @@ const rustProtocolFiles = [
   ...schemaExportModuleFiles,
   "ember-rs/crates/app-server-protocol/src/schema_fixtures.rs",
 ];
-const retiredDesktopHostTopic = ["ta", "uri"].join("");
-const retiredAsterAppServerBuilder = [
-  "build",
-  retiredDesktopHostTopic,
-  "aster",
-  "app_server",
-].join("_");
-const retiredAsterRuntimeCoreBuilder = [
-  "build",
-  retiredDesktopHostTopic,
-  "aster",
-  "runtime_core",
-].join("_");
 const retiredTreeProjectionNames = [
   ["View", "Tree"].join(""),
   ["View", "tree"].join(""),
@@ -77,11 +222,98 @@ const agentUiPackageNamingGuardFiles = [
   "tsconfig.json",
   "vite.config.ts",
 ];
-const legacySessionCompatCommandSpecs = [
-  { command: "agent_runtime_create_session", key: "createSession" },
-  { command: "agent_runtime_list_sessions", key: "listSessions" },
-  { command: "agent_runtime_get_session", key: "getSession" },
-  { command: "agent_runtime_update_session", key: "updateSession" },
+const retiredAgentRuntimeSessionFacadeSnippets = [
+  "AGENT_RUNTIME_COMMANDS.createSession",
+  "AGENT_RUNTIME_COMMANDS.listSessions",
+  "AGENT_RUNTIME_COMMANDS.getSession",
+  "AGENT_RUNTIME_COMMANDS.updateSession",
+  'createSession: "agent_runtime_create_session"',
+  'listSessions: "agent_runtime_list_sessions"',
+  'getSession: "agent_runtime_get_session"',
+  'updateSession: "agent_runtime_update_session"',
+  'readonly createSession: "agent_runtime_create_session"',
+  'readonly listSessions: "agent_runtime_list_sessions"',
+  'readonly getSession: "agent_runtime_get_session"',
+  'readonly updateSession: "agent_runtime_update_session"',
+  '"agent_runtime_create_session"',
+  '"agent_runtime_list_sessions"',
+  '"agent_runtime_get_session"',
+  '"agent_runtime_update_session"',
+];
+const retiredAgentRuntimeSessionFacadeProductionFiles = [
+  "electron/hostCommands.ts",
+  "electron/ipcChannels.ts",
+  "src/lib/dev-bridge/commandPolicy.ts",
+  "src/lib/governance/agentCommandCatalog.json",
+];
+const retiredAgentRuntimeEvidenceExportFacadeSnippets = [
+  "AGENT_RUNTIME_COMMANDS.exportEvidencePack",
+  'exportEvidencePack: "agent_runtime_export_evidence_pack"',
+  'readonly exportEvidencePack: "agent_runtime_export_evidence_pack"',
+  '"agent_runtime_export_evidence_pack"',
+];
+const retiredAgentRuntimeEvidenceExportFacadeProductionFiles = [
+  "electron/hostCommands.ts",
+  "electron/ipcChannels.ts",
+  "src/lib/dev-bridge/commandPolicy.ts",
+  "src/lib/governance/agentCommandCatalog.json",
+];
+const retiredAgentRuntimeThreadReadFacadeSnippets = [
+  "AGENT_RUNTIME_COMMANDS.getThreadRead",
+  'getThreadRead: "agent_runtime_get_thread_read"',
+  'readonly getThreadRead: "agent_runtime_get_thread_read"',
+  '"agent_runtime_get_thread_read"',
+];
+const retiredAgentRuntimeThreadReadFacadeProductionFiles =
+  retiredAgentRuntimeEvidenceExportFacadeProductionFiles;
+const retiredAgentRuntimeSubmitTurnFacadeSnippets = [
+  "AGENT_RUNTIME_COMMANDS.submitTurn",
+  'submitTurn: "agent_runtime_submit_turn"',
+  'readonly submitTurn: "agent_runtime_submit_turn"',
+  '"agent_runtime_submit_turn"',
+];
+const retiredAgentRuntimeSubmitTurnFacadeProductionFiles =
+  retiredAgentRuntimeEvidenceExportFacadeProductionFiles;
+const retiredAgentRuntimeInterruptTurnFacadeSnippets = [
+  "AGENT_RUNTIME_COMMANDS.interruptTurn",
+  'interruptTurn: "agent_runtime_interrupt_turn"',
+  'readonly interruptTurn: "agent_runtime_interrupt_turn"',
+  '"agent_runtime_interrupt_turn"',
+];
+const retiredAgentRuntimeInterruptTurnFacadeProductionFiles =
+  retiredAgentRuntimeEvidenceExportFacadeProductionFiles;
+const retiredAgentRuntimeRespondActionFacadeSnippets = [
+  "AGENT_RUNTIME_COMMANDS.respondAction",
+  'respondAction: "agent_runtime_respond_action"',
+  'readonly respondAction: "agent_runtime_respond_action"',
+  '"agent_runtime_respond_action"',
+];
+const retiredAgentRuntimeRespondActionFacadeProductionFiles =
+  retiredAgentRuntimeEvidenceExportFacadeProductionFiles;
+const activeAgentRuntimeAipromptFiles = [
+  "AGENTS.md",
+  ...fs
+    .readdirSync(path.join(repoRoot, "internal/aiprompts"), {
+      withFileTypes: true,
+    })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
+    .map((entry) => `internal/aiprompts/${entry.name}`)
+    .sort(),
+];
+const activeAgentRuntimeMarkdownFiles = [
+  ...activeAgentRuntimeAipromptFiles,
+  ...collectMarkdownFiles("src"),
+  ...collectMarkdownFiles("packages"),
+  ...collectMarkdownFiles("electron"),
+];
+const allowedRetiredAgentRuntimeDocContextPattern =
+  /(旧|已删除|retired|legacy|历史|history|迁移|migration|compat|deprecated|dead|guard|test-only|fixture|只允许|不得|禁止|不再|不能|不要|not|forbid|forbidden|retire|退场|退役|残留|residual|reference|参考|cleanup|删除|现有迁移锚点)/i;
+const forbiddenAgentRuntimeCurrentDocContextPattern =
+  /(current|主链|事实源|唯一|继续收敛|新增|新增能力|当前.*入口|当前.*主路径|必须回到|继续走|default tool surface|统一提交|统一会话管理|统一中断|统一响应)/i;
+const retiredAgentRuntimeScriptCallPatterns = [
+  /\bcmd\s*:\s*["'`]agent_runtime_[A-Za-z0-9_]+["'`]/u,
+  /\bcommand\s*:\s*["'`]agent_runtime_[A-Za-z0-9_]+["'`]/u,
+  /\b(?:safeInvoke|invoke|invokeCommand|invokeAgentRuntimeBridge|bridgeInvoke|invokeViaHttp|postInvoke|postJson)\s*\([^)]*["'`]agent_runtime_[A-Za-z0-9_]+["'`]/su,
 ];
 const agentRuntimeThinGatewayForbiddenSnippets = [
   {
@@ -155,7 +387,7 @@ const agentRuntimeThinGatewayForbiddenSnippets = [
     reason: "frontend agentRuntime gateway cannot call model APIs directly",
   },
   {
-    snippet: "EMBER_GATEWAY",
+    snippet: "LIME_GATEWAY",
     reason: "frontend agentRuntime gateway cannot receive Gateway credentials",
   },
   {
@@ -174,165 +406,164 @@ const agentRuntimeThinGatewayForbiddenSnippets = [
       "frontend agentRuntime gateway cannot depend on App Server mock backend",
   },
 ];
-const agentAppUiRuntimeLifecycleForbiddenSnippets = [
+const pluginUiRuntimeLifecycleForbiddenSnippets = [
   {
     snippet: "safeInvoke",
     reason:
-      "Agent App UI runtime lifecycle must call App Server current methods, not legacy Desktop facade commands",
+      "Plugin UI runtime lifecycle must call App Server current methods, not legacy Desktop facade commands",
   },
   {
-    snippet: "agent_app_runtime_start_task",
-    reason: "Agent App UI runtime lifecycle cannot start Agent turn tasks",
+    snippet: "plugin_runtime_start_task",
+    reason: "Plugin UI runtime lifecycle cannot start Agent turn tasks",
   },
   {
-    snippet: "agent_app_runtime_cancel_task",
-    reason: "Agent App UI runtime lifecycle cannot cancel Agent turn tasks",
+    snippet: "plugin_runtime_cancel_task",
+    reason: "Plugin UI runtime lifecycle cannot cancel Agent turn tasks",
   },
   {
-    snippet: "agent_app_runtime_get_task",
-    reason: "Agent App UI runtime lifecycle cannot read Agent turn tasks",
+    snippet: "plugin_runtime_get_task",
+    reason: "Plugin UI runtime lifecycle cannot read Agent turn tasks",
   },
   {
-    snippet: "agent_app_runtime_submit_host_response",
+    snippet: "plugin_runtime_submit_host_response",
     reason:
-      "Agent App UI runtime lifecycle cannot submit Agent task host responses",
+      "Plugin UI runtime lifecycle cannot submit Agent task host responses",
   },
   {
     snippet: "agentSession/turn/start",
     reason:
-      "Agent App UI runtime lifecycle cannot call App Server turn lifecycle methods",
+      "Plugin UI runtime lifecycle cannot call App Server turn lifecycle methods",
   },
   {
     snippet: "METHOD_AGENT_SESSION_TURN_START",
     reason:
-      "Agent App UI runtime lifecycle cannot call App Server turn lifecycle methods",
+      "Plugin UI runtime lifecycle cannot call App Server turn lifecycle methods",
   },
   {
-    snippet: "startAgentAppRuntimeTask",
-    reason: "Agent App UI runtime lifecycle cannot delegate to the task facade",
+    snippet: "startPluginRuntimeTask",
+    reason: "Plugin UI runtime lifecycle cannot delegate to the task facade",
   },
   {
-    snippet: "cancelAgentAppRuntimeTask",
-    reason: "Agent App UI runtime lifecycle cannot delegate to the task facade",
+    snippet: "cancelPluginRuntimeTask",
+    reason: "Plugin UI runtime lifecycle cannot delegate to the task facade",
   },
   {
-    snippet: "getAgentAppRuntimeTask",
-    reason: "Agent App UI runtime lifecycle cannot delegate to the task facade",
+    snippet: "getPluginRuntimeTask",
+    reason: "Plugin UI runtime lifecycle cannot delegate to the task facade",
   },
   {
-    snippet: "submitAgentAppRuntimeHostResponse",
-    reason: "Agent App UI runtime lifecycle cannot delegate to the task facade",
+    snippet: "submitPluginRuntimeHostResponse",
+    reason: "Plugin UI runtime lifecycle cannot delegate to the task facade",
   },
   {
     snippet: "toolName",
-    reason: "Agent App UI runtime lifecycle cannot project tool runtime facts",
+    reason: "Plugin UI runtime lifecycle cannot project tool runtime facts",
   },
   {
     snippet: "toolCall",
-    reason: "Agent App UI runtime lifecycle cannot project tool runtime facts",
+    reason: "Plugin UI runtime lifecycle cannot project tool runtime facts",
   },
   {
     snippet: "tool_calls",
-    reason: "Agent App UI runtime lifecycle cannot project tool runtime facts",
+    reason: "Plugin UI runtime lifecycle cannot project tool runtime facts",
   },
   {
     snippet: "evidence",
-    reason: "Agent App UI runtime lifecycle cannot project evidence facts",
+    reason: "Plugin UI runtime lifecycle cannot project evidence facts",
   },
   {
     snippet: "evidencePack",
-    reason: "Agent App UI runtime lifecycle cannot project evidence facts",
+    reason: "Plugin UI runtime lifecycle cannot project evidence facts",
   },
   {
     snippet: "fetch(",
     reason:
-      "Agent App UI runtime lifecycle cannot call Provider or backend HTTP directly",
+      "Plugin UI runtime lifecycle cannot call Provider or backend HTTP directly",
   },
   {
     snippet: "XMLHttpRequest",
     reason:
-      "Agent App UI runtime lifecycle cannot call Provider or backend HTTP directly",
+      "Plugin UI runtime lifecycle cannot call Provider or backend HTTP directly",
   },
   {
     snippet: "EventSource",
     reason:
-      "Agent App UI runtime lifecycle cannot open a parallel stream transport",
+      "Plugin UI runtime lifecycle cannot open a parallel stream transport",
   },
   {
     snippet: "new WebSocket",
     reason:
-      "Agent App UI runtime lifecycle cannot open a parallel stream transport",
+      "Plugin UI runtime lifecycle cannot open a parallel stream transport",
   },
   {
     snippet: "/v1/chat/completions",
-    reason: "Agent App UI runtime lifecycle cannot call model APIs directly",
+    reason: "Plugin UI runtime lifecycle cannot call model APIs directly",
   },
   {
     snippet: "/v1/messages",
-    reason: "Agent App UI runtime lifecycle cannot call model APIs directly",
+    reason: "Plugin UI runtime lifecycle cannot call model APIs directly",
   },
   {
     snippet: "chat/completions",
-    reason: "Agent App UI runtime lifecycle cannot call model APIs directly",
+    reason: "Plugin UI runtime lifecycle cannot call model APIs directly",
   },
   {
-    snippet: "EMBER_GATEWAY",
-    reason: "Agent App UI runtime lifecycle cannot receive Gateway credentials",
+    snippet: "LIME_GATEWAY",
+    reason: "Plugin UI runtime lifecycle cannot receive Gateway credentials",
   },
   {
     snippet: "mockPriorityCommands",
     reason:
-      "Agent App UI runtime lifecycle cannot import renderer mock priority commands",
+      "Plugin UI runtime lifecycle cannot import renderer mock priority commands",
   },
   {
     snippet: "defaultMocks",
-    reason:
-      "Agent App UI runtime lifecycle cannot use default mocks as fallback",
+    reason: "Plugin UI runtime lifecycle cannot use default mocks as fallback",
   },
   {
     snippet: "invokeMockOnly",
-    reason: "Agent App UI runtime lifecycle cannot call test-only mocks",
+    reason: "Plugin UI runtime lifecycle cannot call test-only mocks",
   },
   {
     snippet: "APP_SERVER_BACKEND_MODE=mock",
     reason:
-      "Agent App UI runtime lifecycle cannot depend on App Server mock backend",
+      "Plugin UI runtime lifecycle cannot depend on App Server mock backend",
   },
   {
     snippet: 'APP_SERVER_BACKEND_MODE: "mock"',
     reason:
-      "Agent App UI runtime lifecycle cannot depend on App Server mock backend",
+      "Plugin UI runtime lifecycle cannot depend on App Server mock backend",
   },
   {
     snippet: "APP_SERVER_BACKEND_MODE: 'mock'",
     reason:
-      "Agent App UI runtime lifecycle cannot depend on App Server mock backend",
+      "Plugin UI runtime lifecycle cannot depend on App Server mock backend",
   },
 ];
-const agentAppUiRuntimeLifecycleSpecs = [
+const pluginUiRuntimeLifecycleSpecs = [
   {
-    functionName: "requestAgentAppUiRuntimeAppServer",
+    functionName: "requestPluginUiRuntimeAppServer",
     requiredSnippets: [
-      "appServerClient.request<AgentAppUiRuntimeStatusResponse>",
-      "normalizeAgentAppUiRuntimeStatusResponse(response.result)",
+      "appServerClient.request<PluginUiRuntimeStatusResponse>",
+      "normalizePluginUiRuntimeStatusResponse(response.result)",
     ],
   },
   {
-    functionName: "startAgentAppUiRuntime",
+    functionName: "startPluginUiRuntime",
     requiredSnippets: [
-      "requestAgentAppUiRuntimeAppServer(METHOD_AGENT_APP_UI_RUNTIME_START",
+      "requestPluginUiRuntimeAppServer(METHOD_PLUGIN_UI_RUNTIME_START",
     ],
   },
   {
-    functionName: "getAgentAppUiRuntimeStatus",
+    functionName: "getPluginUiRuntimeStatus",
     requiredSnippets: [
-      "requestAgentAppUiRuntimeAppServer(METHOD_AGENT_APP_UI_RUNTIME_STATUS",
+      "requestPluginUiRuntimeAppServer(METHOD_PLUGIN_UI_RUNTIME_STATUS",
     ],
   },
   {
-    functionName: "stopAgentAppUiRuntime",
+    functionName: "stopPluginUiRuntime",
     requiredSnippets: [
-      "requestAgentAppUiRuntimeAppServer(METHOD_AGENT_APP_UI_RUNTIME_STOP",
+      "requestPluginUiRuntimeAppServer(METHOD_PLUGIN_UI_RUNTIME_STOP",
     ],
   },
 ];
@@ -340,6 +571,43 @@ const retiredSkillExecutionSurfaceFiles = [
   "src/hooks/useSkillExecution.ts",
   "src/components/skills/SkillExecutionDialog.tsx",
   "src/components/skills/SkillExecutionDialog.test.tsx",
+];
+const retiredAgentRuntimeMockFiles = [
+  "src/lib/desktop-host/agentRuntimeMocks.ts",
+  "src/lib/desktop-host/agentRuntimeMocks.d.ts",
+  "src/lib/desktop-host/agentRuntimeObjectiveMocks.ts",
+  "src/lib/desktop-host/agentRuntimeMocks.test.ts",
+  "src/lib/desktop-host/agentRuntimeObjectiveMocks.test.ts",
+];
+const retiredAgentRuntimeCommandManifestFiles = [
+  "src/lib/governance/agentRuntimeCommandSchema.json",
+  "src/lib/api/agentRuntime/commandManifest.generated.ts",
+  "src/lib/api/agentRuntime/commandManifest.generated.d.ts",
+  "scripts/generate-agent-runtime-clients.mjs",
+];
+const retiredAgentRuntimeAdapterFiles = [
+  "ember-rs/crates/app-server/src/runtime_backend_adapter.rs",
+  "ember-rs/crates/agent/src/message_content_adapter.rs",
+  "ember-rs/crates/agent/src/event_converter.rs",
+];
+const retiredAgentRuntimeLegacyQueueFiles = [
+  "ember-rs/crates/core/src/database/agent_runtime_queue_repository.rs",
+  "ember-rs/crates/agent/src/agent_runtime_support.rs",
+];
+const retiredAgentRuntimeLegacyQueueSurfaceFiles = [
+  "ember-rs/crates/core/src/database/mod.rs",
+  "src/lib/governance/legacySurfaceCatalog.json",
+];
+const retiredAgentRuntimeLegacyQueueSnippets = [
+  "agent_runtime_queued_turns",
+  "agent_runtime_queue_repository",
+  "migrate_legacy_runtime_queue_to_agent_store",
+  "LegacyRuntimeQueueMigrationReport",
+  "LegacyRuntimeQueuedTurn",
+];
+const retiredAgentRuntimeToolInventoryMockFiles = [
+  "src/lib/desktop-host/runtimeToolInventoryMocks.ts",
+  "src/lib/desktop-host/runtimeToolInventoryMocks.d.ts",
 ];
 
 const checks = [
@@ -361,6 +629,10 @@ const checks = [
       "pub enum AppServerMethodKind",
       "pub struct AppServerMethodSpec",
       "pub const APP_SERVER_METHODS: &[AppServerMethodSpec]",
+      "pub enum AppServerRequestSerializationScope",
+      "pub struct AppServerRequestSerializationScopeSpec",
+      "pub const APP_SERVER_REQUEST_SERIALIZATION_SCOPES",
+      "pub fn app_server_request_serialization_scope",
       "pub fn is_app_server_request_method(method: &str) -> bool",
       "pub fn is_app_server_notification_method(method: &str) -> bool",
       "pub const CAPABILITY_DENIED: i64 = -32020",
@@ -380,12 +652,59 @@ const checks = [
       "pub include_protocol_types: bool",
       "fn jsonrpc_schemas() -> Vec<GeneratedJsonSchema>",
       "fn v0_schemas() -> Vec<GeneratedJsonSchema>",
+      'typed_schema::<AppServerRequestSerializationScope>("AppServerRequestSerializationScope")',
+      'typed_schema::<AppServerRequestSerializationScopeSpec>("AppServerRequestSerializationScopeSpec")',
       'typed_schema::<AgentSessionTurnStartParams>("AgentSessionTurnStartParams")',
       'PathBuf::from("json")',
       '.join("v0")',
       '.join("jsonrpc")',
       '"schemas": {',
       "schema_registry_matches_declared_type_names",
+    ],
+  },
+  {
+    name: "Rust App Server gates AgentUI runtime events before storage",
+    files: [
+      "ember-rs/crates/app-server/src/lib.rs",
+      "ember-rs/crates/app-server/src/agent_ui_event_schema.rs",
+      "ember-rs/crates/app-server/src/agent_ui_sequence_verifier.rs",
+      "ember-rs/crates/app-server/src/runtime.rs",
+      "ember-rs/crates/app-server/src/runtime/event_store.rs",
+      "ember-rs/crates/app-server/src/runtime/tool_lifecycle.rs",
+      "ember-rs/crates/app-server/src/runtime/tool_lifecycle_tests.rs",
+      "ember-rs/crates/app-server/src/runtime/tests.rs",
+      "ember-rs/crates/app-server/src/runtime/tests/external_events.rs",
+      ...collectRustFiles(
+        "ember-rs/crates/app-server/src/runtime/tests/external_events",
+      ),
+    ],
+    snippets: [
+      "mod agent_ui_event_schema;",
+      "mod agent_ui_sequence_verifier;",
+      "mod tool_lifecycle;",
+      "agent-runtime-event.v0.1.schema.json",
+      "agent-runtime-state-delta.v0.1.schema.json",
+      "jsonschema::validator_for",
+      "validation_context_for_event(stored, &events, turn_id)",
+      "agent_ui_event_schema::validate_agent_event(&event).map_err(RuntimeCoreError::Backend)?",
+      "agent_ui_sequence_verifier::validate_agent_event_sequence(validation_events, &event)",
+      "tool_lifecycle::validate_tool_lifecycle_event(&context, &event)",
+      "events.push(event)",
+      "stored.events.push(event)",
+      "pub(crate) fn validate_agent_event_sequence",
+      "pub(super) fn validate_tool_lifecycle_event",
+      "agent runtime event sequence validation failed",
+      "agent runtime tool lifecycle validation failed",
+      "rejects_policy_event_for_inactive_tool",
+      "rejects_tool_output_before_action_resolution",
+      "rejects_tool_result_after_action_denial",
+      "rejects_tool_result_owner_mismatch",
+      "append_external_runtime_events_rejects_invalid_state_delta_before_storage",
+      "invalid state.delta must fail closed",
+      "append_external_runtime_events_rejects_canonical_tool_completed_without_start",
+      "append_external_runtime_events_rejects_duplicate_canonical_tool_start",
+      "append_external_runtime_events_rejects_retired_raw_tool_wire",
+      "append_external_runtime_events_rejects_retired_raw_tool_wire_with_import_markers",
     ],
   },
   {
@@ -408,7 +727,7 @@ const checks = [
       "pub event_name: Option<String>",
       "pub action_scope: Option<AgentSessionActionScope>",
       "pub struct AgentSessionActionRespondResponse",
-      "method!(METHOD_AGENT_SESSION_ACTION_RESPOND, Request)",
+      "method: METHOD_AGENT_SESSION_ACTION_RESPOND,",
       "agent_session_action_respond_request_matches_protocol_fixture_shape",
     ],
   },
@@ -422,7 +741,7 @@ const checks = [
       "pub struct AgentSessionReplayedActionRequired",
       "pub struct AgentSessionActionReplayResponse",
       "pub action: Option<AgentSessionReplayedActionRequired>",
-      "method!(METHOD_AGENT_SESSION_ACTION_REPLAY, Request)",
+      "method: METHOD_AGENT_SESSION_ACTION_REPLAY,",
       "agent_session_action_replay_request_matches_protocol_fixture_shape",
     ],
   },
@@ -445,7 +764,7 @@ const checks = [
       "pub metadata: Option<serde_json::Value>",
       "pub struct ArtifactReadResponse",
       "pub artifacts: Vec<ArtifactSummary>",
-      "method!(METHOD_ARTIFACT_READ, Request)",
+      "method: METHOD_ARTIFACT_READ,",
       "artifact_read_request_matches_protocol_fixture_shape",
       "artifact_summary_content_status_matches_protocol_fixture_shape",
     ],
@@ -468,11 +787,11 @@ const checks = [
       "pub struct FileSystemDeleteFileParams",
       "pub recursive: Option<bool>",
       "pub struct FileSystemMutationResponse",
-      "method!(METHOD_FILE_SYSTEM_CREATE_FILE, Request)",
-      "method!(METHOD_FILE_SYSTEM_CREATE_DIRECTORY, Request)",
-      "method!(METHOD_FILE_SYSTEM_RENAME_FILE, Request)",
-      "method!(METHOD_FILE_SYSTEM_DELETE_FILE, Request)",
-      "app_server_method_catalog_keeps_request_and_notification_methods_together",
+      "method: METHOD_FILE_SYSTEM_CREATE_FILE,",
+      "method: METHOD_FILE_SYSTEM_CREATE_DIRECTORY,",
+      "method: METHOD_FILE_SYSTEM_RENAME_FILE,",
+      "method: METHOD_FILE_SYSTEM_DELETE_FILE,",
+      "app_server_method_catalog_keeps_all_method_kinds_together",
     ],
   },
   {
@@ -499,7 +818,7 @@ const checks = [
       "pub completion_audit_summary: Option<serde_json::Value>",
       "pub struct EvidencePackArtifact",
       "pub relative_path: String",
-      "method!(METHOD_EVIDENCE_EXPORT, Request)",
+      "method: METHOD_EVIDENCE_EXPORT,",
       "evidence_export_request_matches_protocol_fixture_shape",
       "evidence_export_response_matches_protocol_fixture_shape",
     ],
@@ -512,7 +831,7 @@ const checks = [
   },
   {
     name: "Rust server initializes capability discovery and dispatches capability/list",
-    file: "ember-rs/crates/app-server/src/processor/mod.rs",
+    files: appServerProcessorFiles,
     snippets: [
       "METHOD_CAPABILITY_LIST => self.handle_capability_list(params)",
       "let params: CapabilityListParams = parse_params(params)?",
@@ -523,7 +842,7 @@ const checks = [
   },
   {
     name: "Rust JSON-RPC router dispatches agentSession/action/respond into RuntimeCore",
-    file: "ember-rs/crates/app-server/src/processor/mod.rs",
+    files: appServerProcessorFiles,
     snippets: [
       "METHOD_AGENT_SESSION_ACTION_RESPOND => self.handle_action_respond(params).await",
       "let params: AgentSessionActionRespondParams = parse_params(params)?",
@@ -533,7 +852,7 @@ const checks = [
   },
   {
     name: "Rust JSON-RPC router dispatches agentSession/action/replay into RuntimeCore",
-    file: "ember-rs/crates/app-server/src/processor/mod.rs",
+    files: appServerProcessorFiles,
     snippets: [
       "METHOD_AGENT_SESSION_ACTION_REPLAY => self.handle_action_replay(params).await",
       "let params: AgentSessionActionReplayParams = parse_params(params)?",
@@ -543,7 +862,7 @@ const checks = [
   },
   {
     name: "Rust JSON-RPC router dispatches artifact/read into RuntimeCore",
-    file: "ember-rs/crates/app-server/src/processor/mod.rs",
+    files: appServerProcessorFiles,
     snippets: [
       "METHOD_ARTIFACT_READ => self.handle_artifact_read(params)",
       "fn handle_artifact_read(",
@@ -555,10 +874,7 @@ const checks = [
   },
   {
     name: "Rust JSON-RPC router dispatches fileSystem read/write into RuntimeCore",
-    files: [
-      "ember-rs/crates/app-server/src/processor/mod.rs",
-      "ember-rs/crates/app-server/src/processor/file.rs",
-    ],
+    files: appServerProcessorFiles,
     snippets: [
       "METHOD_FILE_SYSTEM_LIST_DIRECTORY =>",
       "METHOD_FILE_SYSTEM_READ_FILE_PREVIEW =>",
@@ -582,7 +898,7 @@ const checks = [
   },
   {
     name: "Rust JSON-RPC router dispatches evidence/export into RuntimeCore",
-    file: "ember-rs/crates/app-server/src/processor/mod.rs",
+    files: appServerProcessorFiles,
     snippets: [
       "METHOD_EVIDENCE_EXPORT => self.handle_evidence_export(params)",
       "fn handle_evidence_export(",
@@ -655,13 +971,13 @@ const checks = [
     ],
   },
   {
-    name: "Rust runtime replays pending action from RuntimeCore current timeline",
+    name: "Rust runtime replays pending action from RuntimeCore current session projection",
     files: appServerRuntimeFiles,
     snippets: [
       "pub async fn replay_action(",
       "params: AgentSessionActionReplayParams",
       "AgentSessionActionReplayResponse",
-      "ensure_current_timeline_session_hydrated(&params.session_id)",
+      "ensure_current_session_hydrated(&params.session_id)",
       "replayed_action_required_from_stored_session(stored, &params.request_id)",
       "response: AgentSessionActionReplayResponse { action }",
     ],
@@ -680,10 +996,10 @@ const checks = [
       'file_system_required_path(params.old_path, "fileSystem/renameFile.oldPath")',
       'file_system_required_path(params.new_path, "fileSystem/renameFile.newPath")',
       'file_system_required_path(params.path, "fileSystem/deleteFile")',
-      "ember_services::file_browser_service::create_file(path)",
-      "ember_services::file_browser_service::create_directory(path)",
-      "ember_services::file_browser_service::rename_file(",
-      "ember_services::file_browser_service::delete_file(",
+      "lime_services::file_browser_service::create_file(path)",
+      "lime_services::file_browser_service::create_directory(path)",
+      "lime_services::file_browser_service::rename_file(",
+      "lime_services::file_browser_service::delete_file(",
       "Ok(FileSystemMutationResponse::default())",
     ],
   },
@@ -722,7 +1038,7 @@ const checks = [
       "params: EvidenceExportParams",
       "Result<EvidenceExportResponse, RuntimeCoreError>",
       "events_for_turn(&stored.events, params.turn_id.as_deref())",
-      "artifact_summaries_for_turn(&stored.events, params.turn_id.as_deref())",
+      "artifact_projection::stored_artifact_summaries_for_turn(\n                &stored,\n                params.turn_id.as_deref(),\n            )",
       "session: stored.session.clone()",
       "EvidenceExportProvider",
       "async fn export_evidence_pack(",
@@ -746,29 +1062,47 @@ const checks = [
     ],
   },
   {
-    name: "Rust Aster backend exposes host port for action responses",
-    file: "ember-rs/crates/app-server/src/aster_backend.rs",
+    name: "Rust App Server keeps retired backend adapter out of RuntimeBackend",
+    files: [
+      "ember-rs/crates/app-server/src/main.rs",
+      "ember-rs/crates/app-server/src/runtime_backend.rs",
+      "ember-rs/crates/app-server/src/runtime_factory.rs",
+    ],
     snippets: [
-      "pub struct AsterBackendActionRespondRequest",
-      "pub struct AsterBackendActionRespondResult",
-      "async fn respond_action(",
-      "request: AsterBackendActionRespondRequest",
-      "ActionRespondRequest",
-      "action_type: request.action_type",
-      "action_scope: request.action_scope",
-      "aster_backend_action_responses_are_mapped_into_runtime_core_events",
+      "parse_args_rejects_runtime_backend_for_standalone_binary",
+      "unsupported app-server backend mode: agent",
+      "RuntimeBackend::with_execution_process_server",
+      "RuntimeBackend::with_db_and_execution_process_server",
+    ],
+    absentSnippets: [
+      "RuntimeBackendAdapter",
+      "RuntimeBackendHost",
+      "runtime_adapter_core",
     ],
   },
   {
     name: "Standalone App Server local data source implements workspace and skill surfaces",
     files: [
+      "ember-rs/crates/app-server/src/runtime/app_data.rs",
+      "ember-rs/crates/app-server/src/runtime/app_data/skills.rs",
+      "ember-rs/crates/app-server/src/runtime/app_data/workspaces.rs",
       "ember-rs/crates/app-server/src/local_data_source.rs",
+      "ember-rs/crates/app-server/src/local_data_source/impls/skills.rs",
+      "ember-rs/crates/app-server/src/local_data_source/impls/workspace_skill_bindings.rs",
+      "ember-rs/crates/app-server/src/local_data_source/impls/workspaces.rs",
       "ember-rs/crates/app-server/src/local_data_source/workspaces.rs",
       "ember-rs/crates/app-server/src/local_data_source/skills/workspace.rs",
     ],
     snippets: [
       "pub struct LocalAppDataSource",
-      "impl AppDataSource for LocalAppDataSource",
+      "pub trait AppDataSource:",
+      "impl<T> AppDataSource for T where",
+      "pub trait WorkspaceAppDataSource: Send + Sync",
+      "pub trait SkillAppDataSource: Send + Sync",
+      "pub trait WorkspaceSkillBindingAppDataSource: Send + Sync",
+      "impl WorkspaceAppDataSource for LocalAppDataSource",
+      "impl SkillAppDataSource for LocalAppDataSource",
+      "impl WorkspaceSkillBindingAppDataSource for LocalAppDataSource",
       "async fn list_workspaces(&self) -> Result<WorkspaceListResponse, RuntimeCoreError>",
       "async fn read_workspace(",
       "async fn read_workspace_by_path(",
@@ -785,45 +1119,51 @@ const checks = [
     ],
   },
   {
-    name: "Standalone App Server local data source preserves current session list archive filters",
+    name: "Runtime projection store preserves current session list cwd and archive filters",
     files: [
-      "ember-rs/crates/app-server/src/local_data_source.rs",
-      "ember-rs/crates/app-server/src/local_data_source/current_timeline.rs",
-      "ember-rs/crates/app-server/src/local_data_source/tests.rs",
-      "ember-rs/crates/app-server/src/local_data_source/workspaces.rs",
+      "ember-rs/crates/app-server/src/runtime/session_lifecycle.rs",
+      "ember-rs/crates/app-server/src/runtime/session_list_scope.rs",
+      "ember-rs/crates/app-server/src/runtime/projection_store.rs",
+      "ember-rs/crates/app-server/src/runtime/tests/session_list_projection.rs",
+      "ember-rs/crates/app-server/src/runtime/tests/sessions.rs",
     ],
     snippets: [
-      "async fn list_current_timeline_sessions(",
-      "let workspace_id = workspaces::normalize_workspace_filter(params.workspace_id.as_deref());",
-      "let include_archived = params.include_archived.unwrap_or(false);",
-      "let archived_only = params.archived_only.unwrap_or(false);",
-      "query_current_timeline_session_overviews(",
-      "fn normalize_workspace_filter(value: Option<&str>) -> Option<&str>",
-      "if value.is_empty() || value == LEGACY_DEFAULT_WORKSPACE_ID",
-      "fn query_current_timeline_session_overviews(",
-      "include_archived: bool,",
-      "archived_only: bool,",
-      "workspace_id: Option<&str>,",
-      "(?1 = 1 AND s.archived_at IS NOT NULL)",
-      "(?1 = 0 AND (?2 = 1 OR s.archived_at IS NULL))",
-      "AND (?3 IS NULL OR w.id = ?3)",
-      "LIMIT ?4",
-      "params![archived_only, include_archived, workspace_id, limit as i64,]",
-      "async fn update_current_timeline_session_updates_title_and_archive_state()",
-      "assert!(updated.session.archived_at.is_some());",
-      "assert!(recent.sessions.is_empty());",
+      "pub struct SessionListScope",
+      "pub fn from_params(params: &AgentSessionListParams) -> Self",
+      "normalize_cwd_filter(params.cwd.as_ref())",
+      "workspace_id_filters: normalize_id_filter(params.workspace_id.as_deref())",
+      "pub fn matches_session(&self, workspace_id: Option<&str>, cwd: Option<&str>) -> bool",
+      "let scope = SessionListScope::from_params(params);",
+      "let cwd_filters = scope.cwd_filters();",
+      'Some(format!("working_dir IN ({placeholders})"))',
+      'format!(" AND (({cwd}) OR ({workspace_id}))")',
+      "params.include_archived.unwrap_or(false)",
+      "params.archived_only.unwrap_or(false)",
+      "(?1 = 1 AND archived_at IS NOT NULL)",
+      "(?1 = 0 AND (?2 = 1 OR archived_at IS NULL))",
+      "pub fn archive_many_sessions(",
+      "pub fn list_session_overviews(",
+      ".list_session_overviews(&params)",
+      ".archive_many_sessions(",
       "archived_only: Some(true)",
+      "list_agent_sessions_filters_projection_by_cwd",
+    ],
+    absentSnippets: [
+      "pub(crate) fn list_current_timeline_sessions(",
+      "pub(crate) fn resolve_session_list_scope(",
+      "fn query_current_timeline_session_overviews(",
     ],
   },
   {
     name: "App Server protocol exposes current app data surface methods and DTOs",
     files: rustProtocolFiles,
     snippets: [
-      'pub const METHOD_AGENT_APP_INSTALLED_LIST: &str = "agentAppInstalled/list"',
-      'pub const METHOD_AGENT_APP_SHELL_PREPARE: &str = "agentAppShell/prepare"',
-      'pub const METHOD_AGENT_APP_UI_RUNTIME_START: &str = "agentAppUiRuntime/start"',
-      'pub const METHOD_AGENT_APP_UI_RUNTIME_STATUS: &str = "agentAppUiRuntime/status"',
-      'pub const METHOD_AGENT_APP_UI_RUNTIME_STOP: &str = "agentAppUiRuntime/stop"',
+      'pub const METHOD_PLUGIN_INSTALLED_LIST: &str = "pluginInstalled/list"',
+      'pub const METHOD_PLUGIN_HOST_LIFECYCLE_LIST: &str = "pluginHostLifecycle/list"',
+      'pub const METHOD_PLUGIN_SHELL_PREPARE: &str = "pluginShell/prepare"',
+      'pub const METHOD_PLUGIN_UI_RUNTIME_START: &str = "pluginUiRuntime/start"',
+      'pub const METHOD_PLUGIN_UI_RUNTIME_STATUS: &str = "pluginUiRuntime/status"',
+      'pub const METHOD_PLUGIN_UI_RUNTIME_STOP: &str = "pluginUiRuntime/stop"',
       'pub const METHOD_KNOWLEDGE_PACK_LIST: &str = "knowledgePack/list"',
       'pub const METHOD_KNOWLEDGE_PACK_READ: &str = "knowledgePack/read"',
       'pub const METHOD_KNOWLEDGE_SOURCE_IMPORT: &str = "knowledgePack/source/import"',
@@ -834,18 +1174,28 @@ const checks = [
       'pub const METHOD_KNOWLEDGE_CONTEXT_RUN_VALIDATE: &str = "knowledgeContextRun/validate"',
       'pub const METHOD_AUTOMATION_JOB_LIST: &str = "automationJob/list"',
       'pub const METHOD_PROJECT_MEMORY_READ: &str = "projectMemory/read"',
-      "pub struct AgentAppInstalledListResponse",
+      'pub const METHOD_MEMORY_STORE_LIST: &str = "memoryStore/list"',
+      'pub const METHOD_MEMORY_STORE_READ: &str = "memoryStore/read"',
+      'pub const METHOD_MEMORY_STORE_SEARCH: &str = "memoryStore/search"',
+      'pub const METHOD_MEMORY_STORE_ADD_NOTE: &str = "memoryStore/addNote"',
+      'pub const METHOD_MEMORY_STORE_CONSOLIDATE: &str = "memoryStore/consolidate"',
+      'pub const METHOD_MEMORY_STORE_REVIEW_LIST: &str = "memoryStore/review/list"',
+      'pub const METHOD_MEMORY_STORE_REVIEW_RESOLVE: &str = "memoryStore/review/resolve"',
+      'pub const METHOD_MEMORY_STORE_HEALTH: &str = "memoryStore/health"',
+      'pub const METHOD_MEMORY_STORE_RESET: &str = "memoryStore/reset"',
+      'pub const METHOD_MEMORY_STORE_INDEX_REBUILD: &str = "memoryStore/index/rebuild"',
+      "pub struct PluginInstalledListResponse",
       "pub states: Vec<serde_json::Value>",
       "pub issues: Vec<serde_json::Value>",
-      "pub struct AgentAppShellPrepareParams",
-      "pub struct AgentAppShellPrepareResponse",
-      "pub package_mount: Option<AgentAppShellPackageMount>",
-      "pub struct AgentAppUiRuntimeStartParams",
+      "pub struct PluginShellPrepareParams",
+      "pub struct PluginShellPrepareResponse",
+      "pub package_mount: Option<PluginShellPackageMount>",
+      "pub struct PluginUiRuntimeStartParams",
       "pub app_id: String",
       "pub entry_key: Option<String>",
-      "pub struct AgentAppUiRuntimeStatusParams",
-      "pub struct AgentAppUiRuntimeStopParams",
-      "pub struct AgentAppUiRuntimeStatusResponse",
+      "pub struct PluginUiRuntimeStatusParams",
+      "pub struct PluginUiRuntimeStopParams",
+      "pub struct PluginUiRuntimeStatusResponse",
       "pub status: String",
       "pub entry_url: Option<String>",
       "pub struct KnowledgeListPacksParams",
@@ -887,19 +1237,48 @@ const checks = [
       "pub project_id: String",
       "pub struct ProjectMemoryReadResponse",
       "pub memory: serde_json::Value",
-      "method!(METHOD_AGENT_APP_INSTALLED_LIST, Request)",
-      "method!(METHOD_AGENT_APP_UI_RUNTIME_START, Request)",
-      "method!(METHOD_AGENT_APP_UI_RUNTIME_STATUS, Request)",
-      "method!(METHOD_AGENT_APP_UI_RUNTIME_STOP, Request)",
-      "method!(METHOD_KNOWLEDGE_PACK_LIST, Request)",
-      "method!(METHOD_KNOWLEDGE_PACK_READ, Request)",
-      "method!(METHOD_AUTOMATION_JOB_LIST, Request)",
-      "method!(METHOD_PROJECT_MEMORY_READ, Request)",
-      "AgentAppInstalledListResponse",
-      "AgentAppUiRuntimeStartParams",
-      "AgentAppUiRuntimeStatusParams",
-      "AgentAppUiRuntimeStopParams",
-      "AgentAppUiRuntimeStatusResponse",
+      "pub struct MemoryStoreListParams",
+      "pub struct MemoryStoreReadParams",
+      "pub struct MemoryStoreSearchParams",
+      "pub struct MemoryStoreAddNoteParams",
+      "pub struct MemoryStoreConsolidateParams",
+      "pub struct MemoryStoreReviewListParams",
+      "pub enum MemoryStoreReviewResolveAction",
+      "pub struct MemoryStoreReviewResolveParams",
+      "pub struct MemoryStoreResetParams",
+      "pub struct MemoryStoreListResponse",
+      "pub struct MemoryStoreReadResponse",
+      "pub struct MemoryStoreSearchResponse",
+      "pub struct MemoryStoreAddNoteResponse",
+      "pub struct MemoryStoreConsolidateResponse",
+      "pub struct MemoryStoreReviewNote",
+      "pub struct MemoryStoreReviewListResponse",
+      "pub struct MemoryStoreReviewResolveResponse",
+      "pub struct MemoryStoreHealthResponse",
+      "pub struct MemoryStoreResetResponse",
+      "method: METHOD_PLUGIN_INSTALLED_LIST,",
+      "method: METHOD_PLUGIN_UI_RUNTIME_START,",
+      "method: METHOD_PLUGIN_UI_RUNTIME_STATUS,",
+      "method: METHOD_PLUGIN_UI_RUNTIME_STOP,",
+      "method: METHOD_KNOWLEDGE_PACK_LIST,",
+      "method: METHOD_KNOWLEDGE_PACK_READ,",
+      "method: METHOD_AUTOMATION_JOB_LIST,",
+      "method: METHOD_PROJECT_MEMORY_READ,",
+      "method: METHOD_MEMORY_STORE_LIST,",
+      "method: METHOD_MEMORY_STORE_READ,",
+      "method: METHOD_MEMORY_STORE_SEARCH,",
+      "method: METHOD_MEMORY_STORE_ADD_NOTE,",
+      "method: METHOD_MEMORY_STORE_CONSOLIDATE,",
+      "method: METHOD_MEMORY_STORE_REVIEW_LIST,",
+      "method: METHOD_MEMORY_STORE_REVIEW_RESOLVE,",
+      "method: METHOD_MEMORY_STORE_HEALTH,",
+      "method: METHOD_MEMORY_STORE_RESET,",
+      "method: METHOD_MEMORY_STORE_INDEX_REBUILD,",
+      "PluginInstalledListResponse",
+      "PluginUiRuntimeStartParams",
+      "PluginUiRuntimeStatusParams",
+      "PluginUiRuntimeStopParams",
+      "PluginUiRuntimeStatusResponse",
       "KnowledgeListPacksParams",
       "KnowledgeListPacksResponse",
       "KnowledgeReadPackParams",
@@ -907,28 +1286,66 @@ const checks = [
       "AutomationJobListResponse",
       "ProjectMemoryReadParams",
       "ProjectMemoryReadResponse",
+      "MemoryStoreListParams",
+      "MemoryStoreReadParams",
+      "MemoryStoreSearchParams",
+      "MemoryStoreAddNoteParams",
+      "MemoryStoreConsolidateParams",
+      "MemoryStoreReviewListParams",
+      "MemoryStoreReviewResolveAction",
+      "MemoryStoreReviewResolveParams",
+      "MemoryStoreResetParams",
+      "MemoryStoreListResponse",
+      "MemoryStoreReadResponse",
+      "MemoryStoreSearchResponse",
+      "MemoryStoreAddNoteResponse",
+      "MemoryStoreConsolidateResponse",
+      "MemoryStoreReviewNote",
+      "MemoryStoreReviewListResponse",
+      "MemoryStoreReviewResolveResponse",
+      "MemoryStoreHealthResponse",
+      "MemoryStoreResetResponse",
+    ],
+    absentSnippets: [
+      "UnifiedMemory",
+      "unifiedMemory/list",
+      "unifiedMemory/create",
+      "unifiedMemory/update",
+      "unifiedMemory/delete",
+      "unifiedMemory/search",
+      "unifiedMemory/stats",
+      "unifiedMemory/analyze",
+      "unifiedMemory/semanticSearch",
+      "unifiedMemory/hybridSearch",
     ],
   },
   {
     name: "Rust App Server runtime and data source expose current app data surface",
     files: [
       "ember-rs/crates/app-server/src/runtime.rs",
-      "ember-rs/crates/app-server/src/runtime/agent_apps.rs",
+      "ember-rs/crates/app-server/src/runtime/plugins.rs",
+      "ember-rs/crates/app-server/src/runtime/app_data.rs",
+      "ember-rs/crates/app-server/src/runtime/automation.rs",
+      "ember-rs/crates/app-server/src/runtime/knowledge.rs",
+      "ember-rs/crates/app-server/src/runtime/memory.rs",
       "ember-rs/crates/app-server/src/local_data_source.rs",
-      "ember-rs/crates/app-server/src/local_data_source/agent_apps.rs",
+      "ember-rs/crates/app-server/src/local_data_source/plugins.rs",
       "ember-rs/crates/app-server/src/local_data_source/automation.rs",
+      "ember-rs/crates/app-server/src/local_data_source/impls/plugins.rs",
+      "ember-rs/crates/app-server/src/local_data_source/impls/automation_overview.rs",
+      "ember-rs/crates/app-server/src/local_data_source/impls/memory.rs",
       "ember-rs/crates/app-server/src/local_data_source/knowledge.rs",
     ],
     snippets: [
-      "async fn list_agent_app_installed(",
-      "Result<AgentAppInstalledListResponse, RuntimeCoreError>",
-      "pub async fn start_agent_app_ui_runtime(",
-      "params: AgentAppUiRuntimeStartParams",
-      "Result<AgentAppUiRuntimeStatusResponse, RuntimeCoreError>",
-      "pub async fn agent_app_ui_runtime_status(",
-      "params: AgentAppUiRuntimeStatusParams",
-      "pub async fn stop_agent_app_ui_runtime(",
-      "params: AgentAppUiRuntimeStopParams",
+      "async fn list_plugin_installed(",
+      "Result<PluginInstalledListResponse, RuntimeCoreError>",
+      "pub async fn start_plugin_ui_runtime(",
+      "params: PluginUiRuntimeStartParams",
+      "Result<PluginUiRuntimeStatusResponse, RuntimeCoreError>",
+      "pub async fn plugin_ui_runtime_status(",
+      "params: PluginUiRuntimeStatusParams",
+      "pub async fn stop_plugin_ui_runtime(",
+      "params: PluginUiRuntimeStopParams",
       "async fn list_knowledge_packs(",
       "params: KnowledgeListPacksParams",
       "Result<KnowledgeListPacksResponse, RuntimeCoreError>",
@@ -953,17 +1370,44 @@ const checks = [
       "async fn read_project_memory(",
       "params: ProjectMemoryReadParams",
       "Result<ProjectMemoryReadResponse, RuntimeCoreError>",
-      "self.app_data_source.list_agent_app_installed().await",
-      "pub async fn prepare_agent_app_shell(",
-      "params: AgentAppShellPrepareParams",
-      "parse_agent_app_shell_descriptor(&params.descriptor)",
-      "validate_agent_app_shell_against_installed_state(",
-      "resolve_agent_app_runtime_dir(&state)",
-      "spawn_agent_app_ui_process(&app_dir, port)",
+      "async fn list_memory_store(",
+      "params: MemoryStoreListParams",
+      "Result<MemoryStoreListResponse, RuntimeCoreError>",
+      "async fn read_memory_store(",
+      "params: MemoryStoreReadParams",
+      "Result<MemoryStoreReadResponse, RuntimeCoreError>",
+      "async fn search_memory_store(",
+      "params: MemoryStoreSearchParams",
+      "Result<MemoryStoreSearchResponse, RuntimeCoreError>",
+      "async fn add_memory_store_note(",
+      "params: MemoryStoreAddNoteParams",
+      "Result<MemoryStoreAddNoteResponse, RuntimeCoreError>",
+      "async fn consolidate_memory_store(",
+      "params: MemoryStoreConsolidateParams",
+      "Result<MemoryStoreConsolidateResponse, RuntimeCoreError>",
+      "async fn list_memory_store_review_notes(",
+      "params: MemoryStoreReviewListParams",
+      "Result<MemoryStoreReviewListResponse, RuntimeCoreError>",
+      "async fn resolve_memory_store_review_note(",
+      "params: MemoryStoreReviewResolveParams",
+      "Result<MemoryStoreReviewResolveResponse, RuntimeCoreError>",
+      "async fn health_memory_store(",
+      "params: MemoryStoreRootParams",
+      "Result<MemoryStoreHealthResponse, RuntimeCoreError>",
+      "async fn reset_memory_store(",
+      "params: MemoryStoreResetParams",
+      "Result<MemoryStoreResetResponse, RuntimeCoreError>",
+      "self.app_data_source.list_plugin_installed().await",
+      "pub async fn prepare_plugin_shell(",
+      "params: PluginShellPrepareParams",
+      "parse_plugin_shell_descriptor(&params.descriptor)",
+      "validate_plugin_shell_against_installed_state(",
+      "resolve_plugin_runtime_dir(&state)",
+      "spawn_plugin_ui_process(&app_dir, port)",
       "self.app_data_source.list_knowledge_packs(params).await",
       "self.app_data_source.read_knowledge_pack(params).await",
       "self.app_data_source.import_knowledge_source(params).await",
-      "ember_knowledge::plan_knowledge_builder_runtime(&request)",
+      "lime_knowledge::plan_knowledge_builder_runtime(&request)",
       "self.knowledge_builder_runtime_executor",
       "self.app_data_source.compile_knowledge_pack(request).await",
       ".set_default_knowledge_pack(params)",
@@ -972,34 +1416,37 @@ const checks = [
       ".validate_knowledge_context_run(params)",
       "self.app_data_source.list_automation_jobs().await",
       "self.app_data_source.read_project_memory(params).await",
-      "list_agent_app_installed_state().map_err(data_error)",
-      "ember_knowledge::list_knowledge_packs(ember_knowledge::KnowledgeListPacksRequest",
-      "ember_knowledge::get_knowledge_pack(ember_knowledge::KnowledgeGetPackRequest",
-      "ember_knowledge::import_knowledge_source(ember_knowledge::KnowledgeImportSourceRequest",
-      "ember_knowledge::compile_knowledge_pack(request)",
-      "ember_knowledge::set_default_knowledge_pack(",
-      "ember_knowledge::update_knowledge_pack_status(",
-      "ember_knowledge::resolve_knowledge_context(",
-      "ember_knowledge::validate_knowledge_context_run(",
+      "self.app_data_source.list_memory_store(params).await",
+      "self.app_data_source.read_memory_store(params).await",
+      "self.app_data_source.search_memory_store(params).await",
+      "self.app_data_source.add_memory_store_note(params).await",
+      "self.app_data_source.consolidate_memory_store(params).await",
+      "self.app_data_source.health_memory_store(params).await",
+      "self.app_data_source.reset_memory_store(params).await",
+      "list_plugin_installed_state().map_err(data_error)",
+      "lime_knowledge::list_knowledge_packs(lime_knowledge::KnowledgeListPacksRequest",
+      "lime_knowledge::get_knowledge_pack(lime_knowledge::KnowledgeGetPackRequest",
+      "lime_knowledge::import_knowledge_source(lime_knowledge::KnowledgeImportSourceRequest",
+      "lime_knowledge::compile_knowledge_pack(request)",
+      "lime_knowledge::set_default_knowledge_pack(",
+      "lime_knowledge::update_knowledge_pack_status(",
+      "lime_knowledge::resolve_knowledge_context(",
+      "lime_knowledge::validate_knowledge_context_run(",
       "AutomationJobDao::list(&conn).map_err(data_error)",
-      "ember_core::memory::read_project_memory(self.db.clone(), &params.project_id)",
+      "lime_core::memory::read_project_memory(self.db.clone(), &params.project_id)",
+      "LocalMemoryBackend::new(data_root)",
+      "memory_backend: Arc<dyn MemoryBackend>",
     ],
   },
   {
     name: "Rust JSON-RPC router dispatches current app data surface into RuntimeCore",
-    files: [
-      "ember-rs/crates/app-server/src/processor/mod.rs",
-      "ember-rs/crates/app-server/src/processor/agent_app.rs",
-      "ember-rs/crates/app-server/src/processor/knowledge.rs",
-      "ember-rs/crates/app-server/src/processor/automation.rs",
-      "ember-rs/crates/app-server/src/processor/project.rs",
-    ],
+    files: appServerProcessorFiles,
     snippets: [
-      "METHOD_AGENT_APP_INSTALLED_LIST => self.handle_agent_app_installed_list_impl().await",
-      "METHOD_AGENT_APP_SHELL_PREPARE =>",
-      "METHOD_AGENT_APP_UI_RUNTIME_START =>",
-      "METHOD_AGENT_APP_UI_RUNTIME_STATUS =>",
-      "METHOD_AGENT_APP_UI_RUNTIME_STOP =>",
+      "METHOD_PLUGIN_INSTALLED_LIST => self.handle_plugin_installed_list_impl().await",
+      "METHOD_PLUGIN_SHELL_PREPARE =>",
+      "METHOD_PLUGIN_UI_RUNTIME_START =>",
+      "METHOD_PLUGIN_UI_RUNTIME_STATUS =>",
+      "METHOD_PLUGIN_UI_RUNTIME_STOP =>",
       "METHOD_KNOWLEDGE_PACK_LIST => self.handle_knowledge_pack_list_impl(params).await",
       "METHOD_KNOWLEDGE_PACK_READ => self.handle_knowledge_pack_read_impl(params).await",
       "METHOD_KNOWLEDGE_SOURCE_IMPORT =>",
@@ -1011,16 +1458,24 @@ const checks = [
       "METHOD_KNOWLEDGE_CONTEXT_RUN_VALIDATE =>",
       "METHOD_AUTOMATION_JOB_LIST => self.handle_automation_job_list_impl().await",
       "METHOD_PROJECT_MEMORY_READ => self.handle_project_memory_read_impl(params).await",
-      "async fn handle_agent_app_installed_list_impl(",
-      "async fn handle_agent_app_shell_prepare_impl(",
-      "async fn handle_agent_app_ui_runtime_start_impl(",
-      "async fn handle_agent_app_ui_runtime_status_impl(",
-      "async fn handle_agent_app_ui_runtime_stop_impl(",
+      "METHOD_MEMORY_STORE_LIST => self.handle_memory_store_list_impl(params).await",
+      "METHOD_MEMORY_STORE_READ => self.handle_memory_store_read_impl(params).await",
+      "METHOD_MEMORY_STORE_SEARCH => self.handle_memory_store_search_impl(params).await",
+      "METHOD_MEMORY_STORE_ADD_NOTE =>",
+      "METHOD_MEMORY_STORE_CONSOLIDATE =>",
+      "METHOD_MEMORY_STORE_HEALTH => self.handle_memory_store_health_impl(params).await",
+      "METHOD_MEMORY_STORE_RESET => self.handle_memory_store_reset_impl(params).await",
+      "METHOD_MEMORY_STORE_INDEX_REBUILD =>",
+      "async fn handle_plugin_installed_list_impl(",
+      "async fn handle_plugin_shell_prepare_impl(",
+      "async fn handle_plugin_ui_runtime_start_impl(",
+      "async fn handle_plugin_ui_runtime_status_impl(",
+      "async fn handle_plugin_ui_runtime_stop_impl(",
       "self.ensure_initialized()?",
-      ".list_agent_app_installed()",
-      ".start_agent_app_ui_runtime(params)",
-      ".agent_app_ui_runtime_status(params)",
-      ".stop_agent_app_ui_runtime(params)",
+      ".list_plugin_installed()",
+      ".start_plugin_ui_runtime(params)",
+      ".plugin_ui_runtime_status(params)",
+      ".stop_plugin_ui_runtime(params)",
       "let params: KnowledgeListPacksParams = parse_params(params)?",
       ".list_knowledge_packs(params)",
       "let params: KnowledgeReadPackParams = parse_params(params)?",
@@ -1041,19 +1496,40 @@ const checks = [
       ".list_automation_jobs()",
       "let params: ProjectMemoryReadParams = parse_params(params)?",
       ".read_project_memory(params)",
+      "let params: MemoryStoreListParams = parse_params(params)?",
+      ".list_memory_store(params)",
+      "let params: MemoryStoreReadParams = parse_params(params)?",
+      ".read_memory_store(params)",
+      "let params: MemoryStoreSearchParams = parse_params(params)?",
+      ".search_memory_store(params)",
+      "let params: MemoryStoreAddNoteParams = parse_params(params)?",
+      ".add_memory_store_note(params)",
+      "let params: MemoryStoreConsolidateParams = parse_params(params)?",
+      ".consolidate_memory_store(params)",
+      "let params: MemoryStoreReviewListParams = parse_params(params)?",
+      ".list_memory_store_review_notes(params)",
+      "let params: MemoryStoreReviewResolveParams = parse_params(params)?",
+      ".resolve_memory_store_review_note(params)",
+      "let params: MemoryStoreRootParams = parse_params(params)?",
+      ".health_memory_store(params)",
+      "let params: MemoryStoreResetParams = parse_params(params)?",
+      ".reset_memory_store(params)",
     ],
+    absentSnippets: ["mod unified;", "processor/unified.rs"],
   },
   {
     name: "Rust app-server-client exposes typed helpers for current app data surface",
     file: "ember-rs/crates/app-server-client/src/lib.rs",
     snippets: [
-      "pub use app_server_protocol::AgentAppInstalledListResponse",
-      "pub use app_server_protocol::AgentAppShellPrepareParams",
-      "pub use app_server_protocol::AgentAppShellPrepareResponse",
-      "pub use app_server_protocol::AgentAppUiRuntimeStartParams",
-      "pub use app_server_protocol::AgentAppUiRuntimeStatusParams",
-      "pub use app_server_protocol::AgentAppUiRuntimeStatusResponse",
-      "pub use app_server_protocol::AgentAppUiRuntimeStopParams",
+      "pub use app_server_protocol::PluginInstalledListResponse",
+      "pub use app_server_protocol::PluginLocalPackageExportParams",
+      "pub use app_server_protocol::PluginLocalPackageExportResponse",
+      "pub use app_server_protocol::PluginShellPrepareParams",
+      "pub use app_server_protocol::PluginShellPrepareResponse",
+      "pub use app_server_protocol::PluginUiRuntimeStartParams",
+      "pub use app_server_protocol::PluginUiRuntimeStatusParams",
+      "pub use app_server_protocol::PluginUiRuntimeStatusResponse",
+      "pub use app_server_protocol::PluginUiRuntimeStopParams",
       "pub use app_server_protocol::KnowledgeListPacksParams",
       "pub use app_server_protocol::KnowledgeListPacksResponse",
       "pub use app_server_protocol::KnowledgeReadPackParams",
@@ -1073,30 +1549,66 @@ const checks = [
       "pub use app_server_protocol::AutomationJobListResponse",
       "pub use app_server_protocol::ProjectMemoryReadParams",
       "pub use app_server_protocol::ProjectMemoryReadResponse",
-      "pub use app_server_protocol::METHOD_AGENT_APP_INSTALLED_LIST",
-      "pub use app_server_protocol::METHOD_AGENT_APP_SHELL_PREPARE",
-      "pub use app_server_protocol::METHOD_AGENT_APP_UI_RUNTIME_START",
-      "pub use app_server_protocol::METHOD_AGENT_APP_UI_RUNTIME_STATUS",
-      "pub use app_server_protocol::METHOD_AGENT_APP_UI_RUNTIME_STOP",
+      "pub use app_server_protocol::MemoryStoreListParams",
+      "pub use app_server_protocol::MemoryStoreReadParams",
+      "pub use app_server_protocol::MemoryStoreSearchParams",
+      "pub use app_server_protocol::MemoryStoreAddNoteParams",
+      "pub use app_server_protocol::MemoryStoreConsolidateParams",
+      "pub use app_server_protocol::MemoryStoreReviewListParams",
+      "pub use app_server_protocol::MemoryStoreReviewResolveAction",
+      "pub use app_server_protocol::MemoryStoreReviewResolveParams",
+      "pub use app_server_protocol::MemoryStoreResetParams",
+      "pub use app_server_protocol::MemoryStoreListResponse",
+      "pub use app_server_protocol::MemoryStoreReadResponse",
+      "pub use app_server_protocol::MemoryStoreSearchResponse",
+      "pub use app_server_protocol::MemoryStoreAddNoteResponse",
+      "pub use app_server_protocol::MemoryStoreConsolidateResponse",
+      "pub use app_server_protocol::MemoryStoreReviewNote",
+      "pub use app_server_protocol::MemoryStoreReviewListResponse",
+      "pub use app_server_protocol::MemoryStoreReviewResolveResponse",
+      "pub use app_server_protocol::MemoryStoreHealthResponse",
+      "pub use app_server_protocol::MemoryStoreResetResponse",
+      "pub use app_server_protocol::METHOD_PLUGIN_INSTALLED_LIST",
+      "pub use app_server_protocol::METHOD_PLUGIN_LOCAL_PACKAGE_EXPORT",
+      "pub use app_server_protocol::METHOD_PLUGIN_SHELL_PREPARE",
+      "pub use app_server_protocol::METHOD_PLUGIN_UI_RUNTIME_START",
+      "pub use app_server_protocol::METHOD_PLUGIN_UI_RUNTIME_STATUS",
+      "pub use app_server_protocol::METHOD_PLUGIN_UI_RUNTIME_STOP",
       "pub use app_server_protocol::METHOD_KNOWLEDGE_PACK_LIST",
       "pub use app_server_protocol::METHOD_KNOWLEDGE_PACK_READ",
       "pub use app_server_protocol::METHOD_AUTOMATION_JOB_LIST",
       "pub use app_server_protocol::METHOD_PROJECT_MEMORY_READ",
-      "pub fn list_agent_app_installed(&mut self) -> Result<JsonRpcRequest, ClientError>",
-      "pub fn prepare_agent_app_shell(",
-      "pub fn start_agent_app_ui_runtime(",
-      "pub fn agent_app_ui_runtime_status(",
-      "pub fn stop_agent_app_ui_runtime(",
+      "pub use app_server_protocol::METHOD_MEMORY_STORE_LIST",
+      "pub use app_server_protocol::METHOD_MEMORY_STORE_READ",
+      "pub use app_server_protocol::METHOD_MEMORY_STORE_SEARCH",
+      "pub use app_server_protocol::METHOD_MEMORY_STORE_ADD_NOTE",
+      "pub use app_server_protocol::METHOD_MEMORY_STORE_CONSOLIDATE",
+      "pub use app_server_protocol::METHOD_MEMORY_STORE_HEALTH",
+      "pub use app_server_protocol::METHOD_MEMORY_STORE_RESET",
+      "pub use app_server_protocol::METHOD_MEMORY_STORE_INDEX_REBUILD",
+      "pub fn list_plugin_installed(&mut self) -> Result<JsonRpcRequest, ClientError>",
+      "pub fn export_plugin_local_package(",
+      "pub fn prepare_plugin_shell(",
+      "pub fn start_plugin_ui_runtime(",
+      "pub fn plugin_ui_runtime_status(",
+      "pub fn stop_plugin_ui_runtime(",
       "pub fn list_knowledge_packs(",
       "pub fn read_knowledge_pack(",
       "pub fn list_automation_jobs(&mut self) -> Result<JsonRpcRequest, ClientError>",
       "pub fn read_project_memory(",
-      "pub fn list_agent_app_installed() -> TypedRequest<serde_json::Value>",
-      "TypedRequest::new(METHOD_AGENT_APP_INSTALLED_LIST, serde_json::json!({}))",
-      "TypedRequest::new(METHOD_AGENT_APP_SHELL_PREPARE, params)",
-      "TypedRequest::new(METHOD_AGENT_APP_UI_RUNTIME_START, params)",
-      "TypedRequest::new(METHOD_AGENT_APP_UI_RUNTIME_STATUS, params)",
-      "TypedRequest::new(METHOD_AGENT_APP_UI_RUNTIME_STOP, params)",
+      "pub fn list_memory_store(",
+      "pub fn read_memory_store(",
+      "pub fn search_memory_store(",
+      "pub fn add_memory_store_note(",
+      "pub fn consolidate_memory_store(",
+      "pub fn health_memory_store(",
+      "pub fn reset_memory_store(",
+      "pub fn list_plugin_installed() -> TypedRequest<serde_json::Value>",
+      "TypedRequest::new(METHOD_PLUGIN_INSTALLED_LIST, serde_json::json!({}))",
+      "TypedRequest::new(METHOD_PLUGIN_SHELL_PREPARE, params)",
+      "TypedRequest::new(METHOD_PLUGIN_UI_RUNTIME_START, params)",
+      "TypedRequest::new(METHOD_PLUGIN_UI_RUNTIME_STATUS, params)",
+      "TypedRequest::new(METHOD_PLUGIN_UI_RUNTIME_STOP, params)",
       "TypedRequest::new(METHOD_KNOWLEDGE_PACK_LIST, params)",
       "TypedRequest::new(METHOD_KNOWLEDGE_PACK_READ, params)",
       "TypedRequest::new(METHOD_KNOWLEDGE_SOURCE_IMPORT, params)",
@@ -1107,6 +1619,14 @@ const checks = [
       "TypedRequest::new(METHOD_KNOWLEDGE_CONTEXT_RUN_VALIDATE, params)",
       "TypedRequest::new(METHOD_AUTOMATION_JOB_LIST, serde_json::json!({}))",
       "TypedRequest::new(METHOD_PROJECT_MEMORY_READ, params)",
+      "TypedRequest::new(METHOD_MEMORY_STORE_LIST, params)",
+      "TypedRequest::new(METHOD_MEMORY_STORE_READ, params)",
+      "TypedRequest::new(METHOD_MEMORY_STORE_SEARCH, params)",
+      "TypedRequest::new(METHOD_MEMORY_STORE_ADD_NOTE, params)",
+      "TypedRequest::new(METHOD_MEMORY_STORE_CONSOLIDATE, params)",
+      "TypedRequest::new(METHOD_MEMORY_STORE_HEALTH, params)",
+      "TypedRequest::new(METHOD_MEMORY_STORE_RESET, params)",
+      "TypedRequest::new(METHOD_MEMORY_STORE_INDEX_REBUILD, params)",
       "fn app_data_surface_helpers_use_current_methods()",
     ],
   },
@@ -1114,15 +1634,17 @@ const checks = [
     name: "TypeScript app-server-client mirrors current app data surface",
     files: [
       "packages/app-server-client/src/protocol.ts",
+      "packages/app-server-client/src/generated/protocol-types.ts",
       "packages/app-server-client/src/index.ts",
       "packages/app-server-client/tests/client.test.mjs",
     ],
     snippets: [
-      'export const METHOD_AGENT_APP_INSTALLED_LIST = "agentAppInstalled/list"',
-      'export const METHOD_AGENT_APP_SHELL_PREPARE = "agentAppShell/prepare"',
-      'export const METHOD_AGENT_APP_UI_RUNTIME_START = "agentAppUiRuntime/start"',
-      'export const METHOD_AGENT_APP_UI_RUNTIME_STATUS = "agentAppUiRuntime/status"',
-      'export const METHOD_AGENT_APP_UI_RUNTIME_STOP = "agentAppUiRuntime/stop"',
+      'export const METHOD_PLUGIN_INSTALLED_LIST = "pluginInstalled/list"',
+      "export const METHOD_PLUGIN_HOST_LIFECYCLE_LIST =",
+      'export const METHOD_PLUGIN_SHELL_PREPARE = "pluginShell/prepare"',
+      'export const METHOD_PLUGIN_UI_RUNTIME_START = "pluginUiRuntime/start"',
+      'export const METHOD_PLUGIN_UI_RUNTIME_STATUS = "pluginUiRuntime/status"',
+      'export const METHOD_PLUGIN_UI_RUNTIME_STOP = "pluginUiRuntime/stop"',
       'export const METHOD_KNOWLEDGE_PACK_LIST = "knowledgePack/list"',
       'export const METHOD_KNOWLEDGE_PACK_READ = "knowledgePack/read"',
       'export const METHOD_KNOWLEDGE_SOURCE_IMPORT = "knowledgePack/source/import"',
@@ -1133,13 +1655,23 @@ const checks = [
       "export const METHOD_KNOWLEDGE_CONTEXT_RUN_VALIDATE =",
       'export const METHOD_AUTOMATION_JOB_LIST = "automationJob/list"',
       'export const METHOD_PROJECT_MEMORY_READ = "projectMemory/read"',
-      "export type AgentAppInstalledListResponse",
-      "export type AgentAppShellPrepareParams",
-      "export type AgentAppShellPrepareResponse",
-      "export type AgentAppUiRuntimeStartParams",
-      "export type AgentAppUiRuntimeStatusParams",
-      "export type AgentAppUiRuntimeStopParams",
-      "export type AgentAppUiRuntimeStatusResponse",
+      'export const METHOD_MEMORY_STORE_LIST = "memoryStore/list"',
+      'export const METHOD_MEMORY_STORE_READ = "memoryStore/read"',
+      'export const METHOD_MEMORY_STORE_SEARCH = "memoryStore/search"',
+      'export const METHOD_MEMORY_STORE_ADD_NOTE = "memoryStore/addNote"',
+      'export const METHOD_MEMORY_STORE_CONSOLIDATE = "memoryStore/consolidate"',
+      'export const METHOD_MEMORY_STORE_REVIEW_LIST = "memoryStore/review/list"',
+      "export const METHOD_MEMORY_STORE_REVIEW_RESOLVE =",
+      'export const METHOD_MEMORY_STORE_HEALTH = "memoryStore/health"',
+      'export const METHOD_MEMORY_STORE_RESET = "memoryStore/reset"',
+      'export const METHOD_MEMORY_STORE_INDEX_REBUILD = "memoryStore/index/rebuild"',
+      "export type PluginInstalledListResponse",
+      "export type PluginShellPrepareParams",
+      "export type PluginShellPrepareResponse",
+      "export type PluginUiRuntimeStartParams",
+      "export type PluginUiRuntimeStatusParams",
+      "export type PluginUiRuntimeStopParams",
+      "export type PluginUiRuntimeStatusResponse",
       "export type KnowledgeListPacksParams",
       "export type KnowledgeListPacksResponse",
       "export type KnowledgeReadPackParams",
@@ -1159,39 +1691,53 @@ const checks = [
       "export type AutomationJobListResponse",
       "export type ProjectMemoryReadParams",
       "export type ProjectMemoryReadResponse",
-      "listAgentAppInstalled(): JsonRpcRequest",
-      "startAgentAppUiRuntime(params: AgentAppUiRuntimeStartParams): JsonRpcRequest",
-      "getAgentAppUiRuntimeStatus(",
-      "stopAgentAppUiRuntime(params: AgentAppUiRuntimeStopParams): JsonRpcRequest",
-      "listKnowledgePacks(params: KnowledgeListPacksParams): JsonRpcRequest",
-      "readKnowledgePack(params: KnowledgeReadPackParams): JsonRpcRequest",
-      "importKnowledgeSource(params: KnowledgeImportSourceParams): JsonRpcRequest",
-      "compileKnowledgePack(params: KnowledgeCompilePackParams): JsonRpcRequest",
+      "export interface MemoryStoreListParams",
+      "export interface MemoryStoreReadParams",
+      "export interface MemoryStoreSearchParams",
+      "export interface MemoryStoreAddNoteParams",
+      "export interface MemoryStoreConsolidateParams",
+      "export interface MemoryStoreReviewListParams",
+      "export type MemoryStoreReviewResolveAction",
+      "export interface MemoryStoreReviewResolveParams",
+      "export interface MemoryStoreResetParams",
+      "export interface MemoryStoreListResponse",
+      "export interface MemoryStoreReadResponse",
+      "export interface MemoryStoreSearchResponse",
+      "export interface MemoryStoreAddNoteResponse",
+      "export interface MemoryStoreConsolidateResponse",
+      "export interface MemoryStoreReviewNote",
+      "export interface MemoryStoreReviewListResponse",
+      "export interface MemoryStoreReviewResolveResponse",
+      "export interface MemoryStoreHealthResponse",
+      "export interface MemoryStoreResetResponse",
+      "listPluginInstalled(): protocol.JsonRpcRequest",
+      "startPluginUiRuntime(params: protocol.PluginUiRuntimeStartParams): protocol.JsonRpcRequest",
+      "getPluginUiRuntimeStatus(",
+      "stopPluginUiRuntime(params: protocol.PluginUiRuntimeStopParams): protocol.JsonRpcRequest",
+      "listKnowledgePacks(params: protocol.KnowledgeListPacksParams): protocol.JsonRpcRequest",
+      "readKnowledgePack(params: protocol.KnowledgeReadPackParams): protocol.JsonRpcRequest",
+      "importKnowledgeSource(params: protocol.KnowledgeImportSourceParams): protocol.JsonRpcRequest",
+      "compileKnowledgePack(params: protocol.KnowledgeCompilePackParams): protocol.JsonRpcRequest",
       "setDefaultKnowledgePack(",
       "updateKnowledgePackStatus(",
       "resolveKnowledgeContext(",
       "validateKnowledgeContextRun(",
-      "listAutomationJobs(): JsonRpcRequest",
-      "readProjectMemory(params: ProjectMemoryReadParams): JsonRpcRequest",
-      "async listAgentAppInstalled(",
-      "async startAgentAppUiRuntime(",
-      "async getAgentAppUiRuntimeStatus(",
-      "async stopAgentAppUiRuntime(",
-      "async listKnowledgePacks(",
-      "async readKnowledgePack(",
-      "async importKnowledgeSource(",
-      "async compileKnowledgePack(",
-      "async setDefaultKnowledgePack(",
-      "async updateKnowledgePackStatus(",
-      "async resolveKnowledgeContext(",
-      "async validateKnowledgeContextRun(",
-      "async listAutomationJobs(",
-      "async readProjectMemory(",
+      "listAutomationJobs(): protocol.JsonRpcRequest",
+      "readProjectMemory(params: protocol.ProjectMemoryReadParams): protocol.JsonRpcRequest",
+      "listMemoryStore(params: protocol.MemoryStoreListParams): protocol.JsonRpcRequest",
+      "readMemoryStore(params: protocol.MemoryStoreReadParams): protocol.JsonRpcRequest",
+      "searchMemoryStore(params: protocol.MemoryStoreSearchParams): protocol.JsonRpcRequest",
+      "addMemoryStoreNote(params: protocol.MemoryStoreAddNoteParams): protocol.JsonRpcRequest",
+      "consolidateMemoryStore(params: protocol.MemoryStoreConsolidateParams): protocol.JsonRpcRequest",
+      "listMemoryStoreReviewNotes(",
+      "resolveMemoryStoreReviewNote(",
+      "healthMemoryStore(params: protocol.MemoryStoreRootParams): protocol.JsonRpcRequest",
+      "resetMemoryStore(params: protocol.MemoryStoreResetParams): protocol.JsonRpcRequest",
       "builds app data surface requests with current methods",
-      "assert.equal(installed.method, METHOD_AGENT_APP_INSTALLED_LIST)",
-      "assert.equal(runtimeStart.method, METHOD_AGENT_APP_UI_RUNTIME_START)",
-      "assert.equal(runtimeStatus.method, METHOD_AGENT_APP_UI_RUNTIME_STATUS)",
-      "assert.equal(runtimeStop.method, METHOD_AGENT_APP_UI_RUNTIME_STOP)",
+      "assert.equal(installed.method, METHOD_PLUGIN_INSTALLED_LIST)",
+      "assert.equal(runtimeStart.method, METHOD_PLUGIN_UI_RUNTIME_START)",
+      "assert.equal(runtimeStatus.method, METHOD_PLUGIN_UI_RUNTIME_STATUS)",
+      "assert.equal(runtimeStop.method, METHOD_PLUGIN_UI_RUNTIME_STOP)",
       "assert.equal(knowledge.method, METHOD_KNOWLEDGE_PACK_LIST)",
       "assert.equal(knowledgeDetail.method, METHOD_KNOWLEDGE_PACK_READ)",
       "assert.equal(importedKnowledgeSource.method, METHOD_KNOWLEDGE_SOURCE_IMPORT)",
@@ -1202,11 +1748,31 @@ const checks = [
       "METHOD_KNOWLEDGE_CONTEXT_RUN_VALIDATE",
       "assert.equal(jobs.method, METHOD_AUTOMATION_JOB_LIST)",
       "assert.equal(memory.method, METHOD_PROJECT_MEMORY_READ)",
+      "assert.equal(memoryStoreList.method, METHOD_MEMORY_STORE_LIST)",
+      "assert.equal(memoryStoreRead.method, METHOD_MEMORY_STORE_READ)",
+      "assert.equal(memoryStoreSearch.method, METHOD_MEMORY_STORE_SEARCH)",
+      "assert.equal(memoryStoreAddNote.method, METHOD_MEMORY_STORE_ADD_NOTE)",
+      "assert.equal(memoryStoreConsolidate.method, METHOD_MEMORY_STORE_CONSOLIDATE)",
+      "assert.equal(memoryStoreReviewList.method, METHOD_MEMORY_STORE_REVIEW_LIST)",
+      "memoryStoreReviewResolve.method",
+      "METHOD_MEMORY_STORE_REVIEW_RESOLVE",
+      "assert.equal(memoryStoreHealth.method, METHOD_MEMORY_STORE_HEALTH)",
+      "assert.equal(memoryStoreReset.method, METHOD_MEMORY_STORE_RESET)",
+      "METHOD_MEMORY_STORE_INDEX_REBUILD",
+    ],
+    absentSnippets: [
+      "METHOD_UNIFIED_MEMORY",
+      "UnifiedMemory",
+      "unifiedMemory/",
+      "listUnifiedMemories(",
+      "createUnifiedMemory(",
+      "updateUnifiedMemory(",
+      "deleteUnifiedMemory(",
     ],
   },
   {
     name: "Renderer project memory aggregate read uses App Server projectMemory/read",
-    file: "src/lib/api/memory.ts",
+    file: "src/lib/api/projectMemory.ts",
     snippets: [
       'import { AppServerClient } from "@/lib/api/appServer"',
       "METHOD_PROJECT_MEMORY_READ",
@@ -1220,7 +1786,7 @@ const checks = [
       "appServerClient.request<ProjectMemoryReadResponse>",
       "METHOD_PROJECT_MEMORY_READ",
       "{ projectId: normalizedProjectId }",
-      "App Server projectMemory/read did not return memory",
+      "App Server projectMemory/read did not return project memory",
       "projectMemoryCache.set(normalizedProjectId",
       "projectMemoryInflight.set(normalizedProjectId",
     ],
@@ -1233,18 +1799,203 @@ const checks = [
   },
   {
     name: "Renderer project memory tests lock App Server current path and no legacy fallback",
-    file: "src/lib/api/memory.test.ts",
+    file: "src/lib/api/projectMemory.test.ts",
     snippets: [
       "createProjectMemoryClient",
       "ProjectMemoryAppServerClient",
       "projectMemory/read",
-      "并发读取同一项目记忆时应复用同一个 projectMemory/read",
-      "项目记忆读取缺少 projectId 时应 fail closed",
-      "App Server 未返回 memory 时不应回退 legacy project_memory_get",
+      "并发读取同一项目上下文时应复用同一个 projectMemory/read",
+      "项目上下文读取缺少 projectId 时应 fail closed",
+      "App Server 未返回项目上下文时不应返回空对象",
       "projectId is required to read App Server project memory",
-      "App Server projectMemory/read did not return memory",
-      "expect(safeInvoke).not.toHaveBeenCalledWith(",
-      '"project_memory_get"',
+      "App Server projectMemory/read did not return project memory",
+    ],
+  },
+  {
+    name: "Workspace Right Surface uses App Server current JSON-RPC contract",
+    files: [
+      ...rustProtocolFiles,
+      ...appServerRuntimeFiles,
+      ...appServerProcessorFiles,
+      "ember-rs/crates/app-server-client/src/lib.rs",
+      "packages/app-server-client/src/protocol.ts",
+      "packages/app-server-client/src/generated/protocol-types.ts",
+      "packages/app-server-client/src/index.ts",
+      "packages/app-server-client/tests/client.test.mjs",
+      "src/lib/api/appServer.ts",
+      "src/lib/api/appServer.test.ts",
+      "src/lib/api/workspaceRightSurface.ts",
+      "src/lib/api/workspaceRightSurface.test.ts",
+      "src/lib/governance/agentCommandCatalog.json",
+    ],
+    snippets: [
+      'pub const METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST: &str = "workspaceRightSurface/request"',
+      '"workspaceRightSurface/pending/list"',
+      '"workspaceRightSurface/pending/consume"',
+      '"workspaceRightSurface/pending/dismiss"',
+      '"workspaceRightSurface/pendingChanged"',
+      "pub struct WorkspaceRightSurfaceRequestParams",
+      "pub struct WorkspaceRightSurfacePendingListParams",
+      "pub struct WorkspaceRightSurfacePendingConsumeParams",
+      "pub struct WorkspaceRightSurfacePendingDismissParams",
+      "pub struct WorkspaceRightSurfacePendingRequest",
+      "pub struct WorkspaceRightSurfaceRequestResponse",
+      "pub struct WorkspaceRightSurfacePendingListResponse",
+      "pub struct WorkspaceRightSurfacePendingConsumeResponse",
+      "pub struct WorkspaceRightSurfacePendingDismissResponse",
+      "pub struct WorkspaceRightSurfacePendingChangedParams",
+      "method: METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST,",
+      "method: METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_LIST,",
+      "method: METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CONSUME,",
+      "method: METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_DISMISS,",
+      "method: METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED,",
+      "request_workspace_right_surface(",
+      "list_workspace_right_surface_pending(",
+      "consume_workspace_right_surface_pending(",
+      "dismiss_workspace_right_surface_pending(",
+      "METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST =>",
+      "METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_LIST =>",
+      "METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CONSUME =>",
+      "METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_DISMISS =>",
+      "handle_workspace_right_surface_request_impl",
+      "handle_workspace_right_surface_pending_list_impl",
+      "handle_workspace_right_surface_pending_consume_impl",
+      "handle_workspace_right_surface_pending_dismiss_impl",
+      "pub use app_server_protocol::WorkspaceRightSurfaceRequestParams",
+      "pub use app_server_protocol::WorkspaceRightSurfacePendingConsumeParams",
+      "pub use app_server_protocol::WorkspaceRightSurfacePendingDismissParams",
+      "pub use app_server_protocol::WorkspaceRightSurfacePendingChangedParams",
+      "pub use app_server_protocol::METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST",
+      "pub use app_server_protocol::METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CONSUME",
+      "pub use app_server_protocol::METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_DISMISS",
+      "pub use app_server_protocol::METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED",
+      "export const METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST =",
+      "METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CONSUME",
+      "METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_DISMISS",
+      "METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED",
+      "export interface WorkspaceRightSurfaceRequestParams",
+      "export interface WorkspaceRightSurfacePendingListResponse",
+      "export interface WorkspaceRightSurfacePendingConsumeResponse",
+      "export interface WorkspaceRightSurfacePendingDismissResponse",
+      "export interface WorkspaceRightSurfacePendingChangedParams",
+      "workspaceRightSurfacePendingChangedNotification(",
+      "requestWorkspaceRightSurface(",
+      "listWorkspaceRightSurfacePending(",
+      "consumeWorkspaceRightSurfacePending(",
+      "dismissWorkspaceRightSurfacePending(",
+      "APP_SERVER_METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST",
+      "APP_SERVER_METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CONSUME",
+      "APP_SERVER_METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_DISMISS",
+      "APP_SERVER_METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED",
+      'import { AppServerClient } from "@/lib/api/appServer"',
+      "export type WorkspaceRightSurfaceAppServerClient = Pick<",
+      "App Server workspaceRightSurface/request did not return a valid pending request",
+      "App Server workspaceRightSurface/pending/list did not return valid pending requests",
+      "App Server workspaceRightSurface/pending/consume did not return consumed request ids",
+      "App Server workspaceRightSurface/pending/dismiss did not return dismissed request ids",
+      "workspaceRightSurface methods 应通过 App Server JSON-RPC 调度右侧 surface",
+      "Right Surface 请求应走 App Server current method",
+      '"appServerWorkspaceRightSurfaceMethods"',
+      '"workspaceRightSurface/request"',
+      '"workspaceRightSurface/pending/list"',
+      '"workspaceRightSurface/pending/consume"',
+      '"workspaceRightSurface/pending/dismiss"',
+      '"workspaceRightSurface/pendingChanged"',
+    ],
+    absentSnippets: [
+      '"agent_runtime_request_right_surface"',
+      '"right_surface_request"',
+      "invokeMockOnly",
+      "defaultMocks",
+      "mockPriorityCommands",
+    ],
+  },
+  {
+    name: "Browser Session uses App Server current JSON-RPC contract",
+    files: [
+      ...rustProtocolFiles,
+      ...appServerRuntimeFiles,
+      ...appServerProcessorFiles,
+      "ember-rs/crates/app-server/Cargo.toml",
+      "ember-rs/crates/app-server-client/src/lib.rs",
+      "packages/app-server-client/src/protocol.ts",
+      "packages/app-server-client/src/generated/protocol-types.ts",
+      "packages/app-server-client/src/request-client.ts",
+      "packages/app-server-client/src/request-client-methods.ts",
+      "packages/app-server-client/tests/client.test.mjs",
+      "scripts/browser-runtime-smoke.mjs",
+      "src/lib/api/browserRuntime.ts",
+      "src/lib/api/browserRuntime.test.ts",
+      "src/lib/governance/agentCommandCatalog.json",
+    ],
+    snippets: [
+      'pub const METHOD_BROWSER_SESSION_TARGET_LIST: &str = "browserSession/target/list"',
+      '"browserSession/open"',
+      '"browserSession/read"',
+      '"browserSession/close"',
+      '"browserSession/event/list"',
+      '"browserSession/action/execute"',
+      "pub struct BrowserSessionTargetListParams",
+      "pub struct BrowserSessionOpenParams",
+      "pub struct BrowserSessionState",
+      "pub struct BrowserSessionEventListResponse",
+      "pub struct BrowserSessionActionExecuteResponse",
+      "method: METHOD_BROWSER_SESSION_TARGET_LIST,",
+      "method: METHOD_BROWSER_SESSION_OPEN,",
+      "method: METHOD_BROWSER_SESSION_READ,",
+      "method: METHOD_BROWSER_SESSION_CLOSE,",
+      "method: METHOD_BROWSER_SESSION_EVENT_LIST,",
+      "method: METHOD_BROWSER_SESSION_ACTION_EXECUTE,",
+      "lime-browser-runtime.workspace = true",
+      "browser_runtime: Arc<BrowserRuntimeManager>",
+      "list_browser_session_targets(",
+      "open_browser_session(",
+      "read_browser_session(",
+      "close_browser_session(",
+      "list_browser_session_events(",
+      "execute_browser_session_action(",
+      "METHOD_BROWSER_SESSION_TARGET_LIST =>",
+      "METHOD_BROWSER_SESSION_OPEN =>",
+      "METHOD_BROWSER_SESSION_READ =>",
+      "METHOD_BROWSER_SESSION_CLOSE =>",
+      "METHOD_BROWSER_SESSION_EVENT_LIST =>",
+      "METHOD_BROWSER_SESSION_ACTION_EXECUTE =>",
+      "handle_browser_session_target_list_impl",
+      "handle_browser_session_action_execute_impl",
+      "pub use app_server_protocol::BrowserSessionOpenParams",
+      "pub use app_server_protocol::METHOD_BROWSER_SESSION_OPEN",
+      "pub fn open_browser_session(",
+      "export const METHOD_BROWSER_SESSION_TARGET_LIST =",
+      "METHOD_BROWSER_SESSION_ACTION_EXECUTE",
+      "listBrowserSessionTargets(",
+      "openBrowserSession(",
+      "readBrowserSession(",
+      "closeBrowserSession(",
+      "listBrowserSessionEvents(",
+      "executeBrowserSessionAction(",
+      'import { AppServerClient } from "@/lib/api/appServer"',
+      "export type BrowserRuntimeAppServerClient = Pick<",
+      "did not return targets",
+      "did not return action result",
+      'const APP_SERVER_HANDLE_JSON_LINES_COMMAND = "app_server_handle_json_lines"',
+      'const METHOD_BROWSER_SESSION_OPEN = "browserSession/open"',
+      "invokeAppServerJsonRpc(",
+      "METHOD_BROWSER_SESSION_ACTION_EXECUTE",
+      "--remote-debugging-port",
+      '"appServerBrowserSessionMethods"',
+      '"browserSession/target/list"',
+      '"browserSession/action/execute"',
+    ],
+    absentSnippets: [
+      '"launch_browser_session"',
+      '"close_chrome_profile_session"',
+      '"get_browser_session_state"',
+      '"browser_execute_action"',
+      '"get_browser_action_audit_logs"',
+      '"close_cdp_session"',
+      "invokeMockOnly",
+      "defaultMocks",
+      "mockPriorityCommands",
     ],
   },
   {
@@ -1671,111 +2422,121 @@ const checks = [
     ],
   },
   {
-    name: "Renderer Agent App lifecycle uses App Server current methods",
-    file: "src/lib/api/agentApps.ts",
+    name: "Renderer Plugin lifecycle uses App Server current methods",
+    files: [
+      "src/lib/api/plugins.ts",
+      "src/lib/api/pluginsTypes.ts",
+      "src/lib/api/pluginsResultGuards.ts",
+    ],
     snippets: [
       'import { AppServerClient } from "@/lib/api/appServer"',
-      "METHOD_AGENT_APP_LOCAL_PACKAGE_INSPECT",
-      "METHOD_AGENT_APP_PACKAGE_FETCH_CLOUD",
-      "METHOD_AGENT_APP_INSTALLED_SAVE",
-      "METHOD_AGENT_APP_INSTALLED_LIST",
-      "METHOD_AGENT_APP_INSTALLED_DISABLED_SET",
-      "METHOD_AGENT_APP_INSTALLED_UNINSTALL_REHEARSAL",
-      "METHOD_AGENT_APP_INSTALLED_UNINSTALL",
-      "METHOD_AGENT_APP_UI_RUNTIME_START",
-      "METHOD_AGENT_APP_UI_RUNTIME_STATUS",
-      "METHOD_AGENT_APP_UI_RUNTIME_STOP",
+      "METHOD_PLUGIN_LOCAL_PACKAGE_INSPECT",
+      "METHOD_PLUGIN_LOCAL_PACKAGE_EXPORT",
+      "METHOD_PLUGIN_PACKAGE_FETCH_CLOUD",
+      "METHOD_PLUGIN_INSTALLED_SAVE",
+      "METHOD_PLUGIN_INSTALLED_LIST",
+      "METHOD_PLUGIN_INSTALLED_DISABLED_SET",
+      "METHOD_PLUGIN_INSTALLED_UNINSTALL_REHEARSAL",
+      "METHOD_PLUGIN_INSTALLED_UNINSTALL",
+      "METHOD_PLUGIN_UI_RUNTIME_START",
+      "METHOD_PLUGIN_UI_RUNTIME_STATUS",
+      "METHOD_PLUGIN_UI_RUNTIME_STOP",
       'from "../../../packages/app-server-client/src/protocol"',
-      'type AgentAppInstalledListAppServerClient = Pick<AppServerClient, "request">',
-      'type AgentAppUiRuntimeAppServerClient = Pick<AppServerClient, "request">',
-      'type AgentAppLifecycleAppServerClient = Pick<AppServerClient, "request">',
-      "function normalizeInstalledAgentAppListResponse(",
-      "function normalizeAgentAppUiRuntimeStatusResponse(",
-      "async function requestAgentAppInstalledListAppServer(",
-      "async function requestAgentAppAppServer<T>",
-      "async function requestAgentAppUiRuntimeAppServer(",
-      "appServerClient.request<AgentAppInstalledListResponse>",
-      "appServerClient.request<AgentAppUiRuntimeStatusResponse>",
-      "METHOD_AGENT_APP_LOCAL_PACKAGE_INSPECT",
-      "METHOD_AGENT_APP_PACKAGE_FETCH_CLOUD",
-      "METHOD_AGENT_APP_INSTALLED_SAVE",
-      "METHOD_AGENT_APP_INSTALLED_LIST",
-      "METHOD_AGENT_APP_INSTALLED_DISABLED_SET",
-      "METHOD_AGENT_APP_INSTALLED_UNINSTALL_REHEARSAL",
-      "METHOD_AGENT_APP_INSTALLED_UNINSTALL",
-      "METHOD_AGENT_APP_UI_RUNTIME_START",
-      "METHOD_AGENT_APP_UI_RUNTIME_STATUS",
-      "METHOD_AGENT_APP_UI_RUNTIME_STOP",
-      "assertAgentAppLocalPackageInspectionResult(",
-      "assertAgentAppPackageCacheEntryResult(",
-      "assertInstalledAgentAppStateResult(",
-      "assertInstalledAgentAppStateListResult(",
-      "assertAgentAppUninstallRehearsalResult(",
-      "assertAgentAppUninstallResult(",
-      "App Server agentAppInstalled/list did not return states",
-      "App Server agentAppInstalled/list did not return issues",
-      "App Server Agent App UI runtime did not return status",
-      "requestAgentAppAppServer<AgentAppLocalPackageInspectResponse>",
-      "requestAgentAppAppServer<AppServerAgentAppPackageCacheEntry>",
-      "requestAgentAppAppServer<AgentAppInstalledListResponse>",
-      "requestAgentAppAppServer<AgentAppUninstallRehearsalResponse>",
-      "requestAgentAppAppServer<AgentAppUninstallResponse>",
-      "return requestAgentAppInstalledListAppServer()",
-      "requestAgentAppUiRuntimeAppServer(METHOD_AGENT_APP_UI_RUNTIME_START",
-      "requestAgentAppUiRuntimeAppServer(METHOD_AGENT_APP_UI_RUNTIME_STATUS",
-      "requestAgentAppUiRuntimeAppServer(METHOD_AGENT_APP_UI_RUNTIME_STOP",
+      'type PluginInstalledListAppServerClient = Pick<AppServerClient, "request">',
+      'type PluginUiRuntimeAppServerClient = Pick<AppServerClient, "request">',
+      'type PluginLifecycleAppServerClient = Pick<AppServerClient, "request">',
+      "function normalizeInstalledPluginListResponse(",
+      "function normalizePluginUiRuntimeStatusResponse(",
+      "async function requestPluginInstalledListAppServer(",
+      "async function requestPluginAppServer<T>",
+      "async function requestPluginUiRuntimeAppServer(",
+      "appServerClient.request<PluginInstalledListResponse>",
+      "appServerClient.request<PluginUiRuntimeStatusResponse>",
+      "METHOD_PLUGIN_LOCAL_PACKAGE_INSPECT",
+      "METHOD_PLUGIN_PACKAGE_FETCH_CLOUD",
+      "METHOD_PLUGIN_INSTALLED_SAVE",
+      "METHOD_PLUGIN_INSTALLED_LIST",
+      "METHOD_PLUGIN_INSTALLED_DISABLED_SET",
+      "METHOD_PLUGIN_INSTALLED_UNINSTALL_REHEARSAL",
+      "METHOD_PLUGIN_INSTALLED_UNINSTALL",
+      "METHOD_PLUGIN_UI_RUNTIME_START",
+      "METHOD_PLUGIN_UI_RUNTIME_STATUS",
+      "METHOD_PLUGIN_UI_RUNTIME_STOP",
+      "assertPluginLocalPackageInspectionResult(",
+      "assertPluginLocalPackageExportResult(",
+      "assertPluginPackageCacheEntryResult(",
+      "assertInstalledPluginStateResult(",
+      "assertInstalledPluginStateListResult(",
+      "assertPluginUninstallRehearsalResult(",
+      "assertPluginUninstallResult(",
+      "App Server pluginInstalled/list did not return states",
+      "App Server pluginInstalled/list did not return issues",
+      "App Server Plugin UI runtime did not return status",
+      "requestPluginAppServer<PluginLocalPackageInspectResponse>",
+      "requestPluginAppServer<PluginLocalPackageExportResponse>",
+      "requestPluginAppServer<AppServerPluginPackageCacheEntry>",
+      "requestPluginAppServer<PluginInstalledListResponse>",
+      "requestPluginAppServer<PluginUninstallRehearsalResponse>",
+      "requestPluginAppServer<PluginUninstallResponse>",
+      "return requestPluginInstalledListAppServer()",
+      "requestPluginUiRuntimeAppServer(METHOD_PLUGIN_UI_RUNTIME_START",
+      "requestPluginUiRuntimeAppServer(METHOD_PLUGIN_UI_RUNTIME_STATUS",
+      "requestPluginUiRuntimeAppServer(METHOD_PLUGIN_UI_RUNTIME_STOP",
     ],
     absentSnippets: [
-      'safeInvoke<InstalledAgentAppStateListResult>("agent_app_list_installed"',
-      'safeInvoke("agent_app_inspect_local_package"',
-      'safeInvoke("agent_app_fetch_cloud_package"',
-      'safeInvoke("agent_app_save_installed_state"',
-      'safeInvoke("agent_app_set_disabled"',
-      'safeInvoke("agent_app_uninstall_rehearsal"',
-      'safeInvoke("agent_app_uninstall"',
-      'safeInvoke("agent_app_list_installed"',
-      'safeInvoke<AgentAppUiRuntimeStatus>("agent_app_start_ui_runtime"',
-      'safeInvoke<AgentAppUiRuntimeStatus>("agent_app_get_ui_runtime_status"',
-      'safeInvoke<AgentAppUiRuntimeStatus>("agent_app_stop_ui_runtime"',
+      'safeInvoke<InstalledPluginStateListResult>("plugin_list_installed"',
+      'safeInvoke("plugin_inspect_local_package"',
+      'safeInvoke("plugin_fetch_cloud_package"',
+      'safeInvoke("plugin_save_installed_state"',
+      'safeInvoke("plugin_set_disabled"',
+      'safeInvoke("plugin_uninstall_rehearsal"',
+      'safeInvoke("plugin_uninstall"',
+      'safeInvoke("plugin_list_installed"',
+      'safeInvoke<PluginUiRuntimeStatus>("plugin_start_ui_runtime"',
+      'safeInvoke<PluginUiRuntimeStatus>("plugin_get_ui_runtime_status"',
+      'safeInvoke<PluginUiRuntimeStatus>("plugin_stop_ui_runtime"',
       "invokeMockOnly",
     ],
   },
   {
-    name: "Renderer Agent App installed list tests lock App Server current path and no legacy fallback",
-    file: "src/lib/api/agentApps.test.ts",
+    name: "Renderer Plugin installed list tests lock App Server current path and no legacy fallback",
+    file: "src/lib/api/plugins.test.ts",
     snippets: [
       "appServerRequestMock",
       'vi.mock("@/lib/api/appServer"',
-      "已安装 Agent App 列表应通过 App Server agentAppInstalled/list 读取",
-      "已安装 Agent App 列表缺少必需 result 时不应回退 legacy",
-      "Agent App UI runtime 网关应直连 App Server current 命令",
-      '"agentAppLocalPackage/inspect"',
-      '"agentAppPackage/fetchCloud"',
-      '"agentAppInstalled/save"',
-      '"agentAppInstalled/list"',
-      '"agentAppInstalled/disabled/set"',
-      '"agentAppInstalled/uninstall/rehearsal"',
-      '"agentAppInstalled/uninstall"',
-      '"agentAppShell/prepare"',
-      '"agentAppUiRuntime/start"',
-      '"agentAppUiRuntime/status"',
-      '"agentAppUiRuntime/stop"',
-      "App Server agentAppInstalled/list did not return states",
-      "App Server agentAppInstalled/list did not return issues",
-      "agentAppLocalPackage/inspect did not return appDir",
-      "agentAppPackage/fetchCloud did not return appId",
-      "agentAppInstalled/save did not return appId",
+      "已安装 Plugin 列表应通过 App Server pluginInstalled/list 读取",
+      "已安装 Plugin 列表缺少必需 result 时不应回退 legacy",
+      "Plugin UI runtime 网关应直连 App Server current 命令",
+      '"pluginLocalPackage/inspect"',
+      '"pluginLocalPackage/export"',
+      '"pluginPackage/fetchCloud"',
+      '"pluginInstalled/save"',
+      '"pluginInstalled/list"',
+      '"pluginInstalled/disabled/set"',
+      '"pluginInstalled/uninstall/rehearsal"',
+      '"pluginInstalled/uninstall"',
+      '"pluginHostLifecycle/list"',
+      '"pluginShell/prepare"',
+      '"pluginUiRuntime/start"',
+      '"pluginUiRuntime/status"',
+      '"pluginUiRuntime/stop"',
+      "App Server pluginInstalled/list did not return states",
+      "App Server pluginInstalled/list did not return issues",
+      "pluginLocalPackage/inspect did not return appDir",
+      "pluginLocalPackage/export did not return packageBase64",
+      "pluginPackage/fetchCloud did not return appId",
+      "pluginInstalled/save did not return appId",
       "expect(safeInvoke).not.toHaveBeenCalledWith(",
-      '"agent_app_inspect_local_package"',
-      '"agent_app_fetch_cloud_package"',
-      '"agent_app_save_installed_state"',
-      '"agent_app_list_installed"',
-      '"agent_app_set_disabled"',
-      '"agent_app_uninstall_rehearsal"',
-      '"agent_app_uninstall"',
-      '"agent_app_start_ui_runtime"',
-      '"agent_app_get_ui_runtime_status"',
-      '"agent_app_stop_ui_runtime"',
+      '"plugin_inspect_local_package"',
+      '"plugin_fetch_cloud_package"',
+      '"plugin_save_installed_state"',
+      '"plugin_list_installed"',
+      '"plugin_set_disabled"',
+      '"plugin_uninstall_rehearsal"',
+      '"plugin_uninstall"',
+      '"plugin_start_ui_runtime"',
+      '"plugin_get_ui_runtime_status"',
+      '"plugin_stop_ui_runtime"',
     ],
   },
   {
@@ -1870,32 +2631,36 @@ const checks = [
     ],
   },
   {
-    name: "Electron Desktop Host implementation keeps Knowledge legacy facade retired",
-    files: ["electron/hostCommands.ts", "electron/ipcChannels.ts"],
+    name: "Electron Desktop Host implementation keeps Knowledge legacy facade retired and project memory direct",
+    files: [
+      "electron/hostCommands.ts",
+      "electron/pluginShellHost.ts",
+      "electron/ipcChannels.ts",
+    ],
     snippets: [
-      "METHOD_AGENT_APP_UI_RUNTIME_START",
-      "METHOD_AGENT_APP_UI_RUNTIME_STATUS",
-      "METHOD_AGENT_APP_UI_RUNTIME_STOP",
-      "METHOD_PROJECT_MEMORY_READ",
-      'case "agent_app_start_ui_runtime":',
-      "return await this.#startAgentAppUiRuntime(args)",
-      'case "agent_app_get_ui_runtime_status":',
-      "return await this.#getAgentAppUiRuntimeStatus(args)",
-      'case "agent_app_stop_ui_runtime":',
-      "return await this.#stopAgentAppUiRuntime(args)",
-      'case "project_memory_get":',
-      "return await this.#readProjectMemory(args)",
-      "async #startAgentAppUiRuntime(",
-      "async #getAgentAppUiRuntimeStatus(",
-      "async #stopAgentAppUiRuntime(",
-      "async #readProjectMemory(args: HostArgs)",
+      "METHOD_PLUGIN_UI_RUNTIME_START",
+      "METHOD_PLUGIN_UI_RUNTIME_STATUS",
+      "METHOD_PLUGIN_UI_RUNTIME_STOP",
+      'case "plugin_start_ui_runtime":',
+      "return await this.#pluginShellHost.startUiRuntime(args)",
+      'case "plugin_get_ui_runtime_status":',
+      "return await this.#pluginShellHost.getUiRuntimeStatus(args)",
+      'case "plugin_stop_ui_runtime":',
+      "return await this.#pluginShellHost.stopUiRuntime(args)",
+      "async startUiRuntime(",
+      "async getUiRuntimeStatus(",
+      "async stopUiRuntime(",
       "ELECTRON_APP_SERVER_TRUTH_BRIDGE_COMMANDS",
-      '"agent_app_start_ui_runtime"',
-      '"agent_app_get_ui_runtime_status"',
-      '"agent_app_stop_ui_runtime"',
-      '"project_memory_get"',
+      '"plugin_start_ui_runtime"',
+      '"plugin_get_ui_runtime_status"',
+      '"plugin_stop_ui_runtime"',
     ],
     absentSnippets: [
+      "METHOD_PROJECT_MEMORY_READ",
+      'case "project_memory_get":',
+      "return await this.#readProjectMemory(args)",
+      "async #readProjectMemory(args: HostArgs)",
+      '"project_memory_get"',
       "METHOD_KNOWLEDGE_PACK_LIST",
       "METHOD_KNOWLEDGE_PACK_READ",
       "METHOD_KNOWLEDGE_SOURCE_IMPORT",
@@ -1904,10 +2669,10 @@ const checks = [
       "METHOD_KNOWLEDGE_PACK_STATUS_UPDATE",
       "METHOD_KNOWLEDGE_CONTEXT_RESOLVE",
       "METHOD_KNOWLEDGE_CONTEXT_RUN_VALIDATE",
-      'case "agent_app_list_installed":',
-      "return await this.#listAgentAppInstalled()",
-      "async #listAgentAppInstalled()",
-      '"agent_app_list_installed"',
+      'case "plugin_list_installed":',
+      "return await this.#listPluginInstalled()",
+      "async #listPluginInstalled()",
+      '"plugin_list_installed"',
       'case "knowledge_list_packs":',
       'case "knowledge_get_pack":',
       'case "knowledge_import_source":',
@@ -2019,8 +2784,10 @@ const checks = [
     ],
   },
   {
-    name: "Electron Desktop Host projects Agent App runtime facade into App Server JSON-RPC",
+    name: "Electron Desktop Host projects Plugin runtime facade into App Server JSON-RPC",
     files: [
+      "electron/pluginRuntimeTaskHost.ts",
+      "electron/pluginRuntimeTaskHost.test.ts",
       "electron/hostCommands.ts",
       "electron/hostCommands.test.ts",
       "electron/ipcChannels.ts",
@@ -2034,36 +2801,37 @@ const checks = [
       "METHOD_AGENT_SESSION_TURN_START",
       "METHOD_AGENT_SESSION_TURN_CANCEL",
       "METHOD_AGENT_SESSION_ACTION_RESPOND",
-      'case "agent_app_runtime_start_task":',
-      'case "agent_app_runtime_get_task":',
-      'case "agent_app_runtime_cancel_task":',
-      'case "agent_app_runtime_submit_host_response":',
-      "async #startAgentAppRuntimeTask(",
-      "async #getAgentAppRuntimeTask(",
-      "async #cancelAgentAppRuntimeTask(",
-      "async #submitAgentAppRuntimeHostResponse(",
-      "async #ensureAgentAppRuntimeSession(",
+      'case "plugin_runtime_start_task":',
+      'case "plugin_runtime_get_task":',
+      'case "plugin_runtime_cancel_task":',
+      'case "plugin_runtime_submit_host_response":',
+      "new PluginRuntimeTaskHost(",
+      "async startTask(",
+      "async getTask(",
+      "async cancelTask(",
+      "async submitHostResponse(",
+      "async #ensureSession(",
       "isAppServerSessionAlreadyExistsError(",
-      "buildAgentAppRuntimeTaskMessage(",
-      "sessionStatusToAgentAppTaskStatus(",
+      "buildPluginRuntimeTaskMessage(",
+      "sessionStatusToPluginTaskStatus(",
       "normalizeAgentSessionActionScope(",
-      '"agent_app_runtime_start_task"',
-      '"agent_app_runtime_cancel_task"',
-      '"agent_app_runtime_get_task"',
-      '"agent_app_runtime_submit_host_response"',
+      '"plugin_runtime_start_task"',
+      '"plugin_runtime_cancel_task"',
+      '"plugin_runtime_get_task"',
+      '"plugin_runtime_submit_host_response"',
       '"agentSession/start"',
       '"agentSession/turn/start"',
       '"agentSession/read"',
       '"agentSession/turn/cancel"',
       '"agentSession/action/respond"',
-      "hostOptions: {",
-      "asterChatRequest: expect.objectContaining",
-      "agent_app_runtime_start_task 对已存在 session 做幂等投影并继续提交 turn",
-      "agent_app_runtime_submit_host_response 投影 snake_case runtime request 到 action/respond",
+      "const runtimeRequest = {",
+      "runtimeRequest: expect.objectContaining({",
+      "startTask 对已存在 session 做幂等投影并继续提交 turn",
+      "submitHostResponse 投影 snake_case runtime request 到 action/respond",
       "ELECTRON_APP_SERVER_TRUTH_BRIDGE_COMMANDS",
     ],
     absentSnippets: [
-      "agentAppMocks",
+      "pluginMocks",
       "mockPriorityCommands",
       "defaultMocks",
       "invokeMockOnly",
@@ -2071,91 +2839,68 @@ const checks = [
     ],
   },
   {
-    name: "Electron Desktop Host projects Claw Agent runtime facade turnConfig into App Server hostOptions",
-    files: ["electron/hostCommands.ts", "electron/hostCommands.test.ts"],
+    name: "App Server exposes full Agent runtime tool inventory current method",
+    files: [
+      "ember-rs/crates/app-server-protocol/src/protocol/v0/method_names.rs",
+      "ember-rs/crates/app-server-protocol/src/protocol/v0/catalog.rs",
+      "ember-rs/crates/app-server-protocol/src/protocol/v0/agent_session.rs",
+      "ember-rs/crates/app-server/src/processor/mod.rs",
+      "ember-rs/crates/app-server/src/processor/agent_session.rs",
+      "ember-rs/crates/app-server/src/processor/dispatch.rs",
+      "ember-rs/crates/app-server/src/runtime.rs",
+      "ember-rs/crates/app-server/src/runtime_backend.rs",
+      "ember-rs/crates/app-server/src/runtime_backend/execution_backend.rs",
+      "ember-rs/crates/app-server/src/runtime_backend/tool_inventory.rs",
+      "ember-rs/crates/agent/src/agent_tools/inventory.rs",
+      "ember-rs/crates/agent/src/agent_tools/tool_inventory_runtime_snapshot.rs",
+      "packages/app-server-client/src/protocol.ts",
+      "packages/app-server-client/src/index.ts",
+      "src/lib/api/appServer.ts",
+    ],
     snippets: [
-      'case "agent_runtime_submit_turn":',
-      "async #submitAgentRuntimeTurn(",
-      "buildAgentRuntimeAsterChatRequest(",
-      "const asterChatRequest = buildAgentRuntimeAsterChatRequest({",
-      "hostOptions: {\n            asterChatRequest,",
-      "agentRuntimeSubmitTurnRequest: request",
-      "provider_config:\n      turnConfig?.provider_config ?? turnConfig?.providerConfig ?? null",
-      'workspace_id:\n      readString(request, "workspace_id") ??',
-      "turn_config: turnConfig",
-      "agent_runtime_submit_turn 将 Claw turnConfig 投影到 App Server asterChatRequest",
-      "providerConfig: {",
-      'apiKey: "fixture-key"',
-      'baseUrl: "http://127.0.0.1:5555/v1"',
-      "provider_config: {",
-      "agentRuntimeSubmitTurnRequest: expect.objectContaining",
+      'METHOD_AGENT_SESSION_TOOL_INVENTORY_READ: &str = "agentSession/toolInventory/read"',
+      "method: METHOD_AGENT_SESSION_TOOL_INVENTORY_READ,",
+      "pub struct AgentSessionToolInventoryReadParams",
+      "pub struct AgentSessionToolInventoryReadResponse",
+      "METHOD_AGENT_SESSION_TOOL_INVENTORY_READ =>",
+      "handle_tool_inventory_read_impl",
+      "read_agent_session_tool_inventory",
+      "ToolInventoryReadRequest",
+      "async fn read_tool_inventory(",
+      "read_agent_tool_inventory_runtime_snapshot",
+      "build_tool_inventory(AgentToolInventoryBuildInput",
+      'METHOD_AGENT_SESSION_TOOL_INVENTORY_READ =\n  "agentSession/toolInventory/read"',
+      "readAgentSessionToolInventory(",
+      "APP_SERVER_METHOD_AGENT_SESSION_TOOL_INVENTORY_READ",
     ],
-    absentSnippets: [
-      "asterChatRequest: request",
-      "invokeMockOnly",
-      "mockPriorityCommands",
-      "defaultMocks",
-    ],
-  },
-  {
-    name: "Electron Desktop Host projects App Server tool capabilities into Claw runtime inventory",
-    files: ["electron/hostCommands.ts", "electron/hostCommands.test.ts"],
-    snippets: [
-      'case "agent_runtime_get_tool_inventory":',
-      "METHOD_CAPABILITY_LIST",
-      "capabilitiesToToolInventory(response.capabilities, caller, surface)",
-      "capabilityRuntimeToolNames(capability)",
-      "function capabilityToolName(capability: CapabilityDescriptor): string | null",
-      'if (!id.startsWith("tool.")) {',
-      'return id.slice("tool.".length).trim() || null;',
-      "agent_runtime_get_tool_inventory 将 App Server tool capability 投影为运行时工具名",
-      'id: "tool.WebFetch"',
-      'id: "tool.WebSearch"',
-      'name: "WebFetch"',
-      'name: "WebSearch"',
-      'source_label: "tool.WebFetch"',
-      'source_label: "tool.WebSearch"',
-    ],
-    absentSnippets: ["invokeMockOnly", "mockPriorityCommands", "defaultMocks"],
-  },
-  {
-    name: "Electron Desktop Host preserves App Server thread_read tool calls for Claw runtime facade",
-    files: ["electron/hostCommands.ts", "electron/hostCommands.test.ts"],
-    snippets: [
-      'case "agent_runtime_get_thread_read":',
-      "METHOD_AGENT_SESSION_READ",
-      "const threadRead = threadReadFromAgentSessionRead(response);",
-      "function threadReadFromAgentSessionRead(",
-      "toRecord(detail?.thread_read) ?? toRecord(detail?.threadRead)",
-      "agent_runtime_get_thread_read 透传 App Server read detail 的工具调用",
-      'tool_name: "WebFetch"',
-      'toolName: "WebSearch"',
-      'status: "completed"',
-      "output_preview",
-      "outputPreview",
-    ],
-    absentSnippets: ["invokeMockOnly", "mockPriorityCommands", "defaultMocks"],
   },
   {
     name: "App Server session read projects runtime events into thread_read",
-    files: appServerRuntimeFiles,
+    files: appServerRuntimeThreadReadProjectionFiles,
     snippets: [
-      "let detail = runtime_session_read_detail(stored);",
+      "let detail = read_model::runtime_session_read_detail_with_options(",
       "detail: Some(detail)",
-      "fn runtime_session_read_detail(stored: &StoredSession) -> serde_json::Value",
-      "fn runtime_thread_read_from_stored_session(stored: &StoredSession) -> serde_json::Value",
+      "pub(super) fn runtime_session_read_detail_with_options(",
+      "pub(super) fn from_params(params: &AgentSessionReadParams) -> Self",
+      "fn runtime_thread_read_from_stored_session_with_usage_events(",
+      "fn runtime_events_with_workflow_audit<'a>(",
+      "article_workspace: Option<serde_json::Value>",
       '"thread_read": thread_read',
-      '"tool_calls": tool_calls_from_events(&stored.events)',
-      '"artifacts": artifact_summaries_for_turn(&stored.events, None)',
-      "fn tool_calls_from_events(events: &[AgentEvent]) -> Vec<serde_json::Value>",
-      "fn tool_call_from_event(event: &AgentEvent) -> Option<serde_json::Value>",
-      '"tool.started" => "running"',
-      '"tool.result" => "completed"',
-      '"tool.failed" => "failed"',
+      '"tool_calls": tool_item_projection::tool_calls_from_events(&stored.events)',
+      "items.extend(tool_item_projection::tool_items_from_events(stored))",
+      '"artifacts": artifact_projection::stored_artifact_summaries_for_turn(stored, None)',
+      '"outputs": output_refs::read_model_outputs(stored.output_blobs.values(), None)',
+      "pub(super) fn tool_calls_from_events(events: &[AgentEvent]) -> Vec<Value>",
+      "pub(super) fn tool_items_from_events(stored: &StoredSession) -> Vec<Value>",
+      "pub(super) fn current_tool_item_from_event(event: &AgentEvent) -> Option<CurrentToolItem>",
+      "fn apply_current_item(",
+      "ToolState::from_current_item(",
+      "self.tools[index].merge_current_item(event, item)",
+      '"item.started" | "item.updated" | "item.completed"',
       "read_session_projects_runtime_events_into_thread_read_tool_calls",
-      "read_session_projects_runtime_events_into_thread_read_artifacts",
-      '"tool.started"',
-      '"tool.result"',
+      "read_session_merges_tool_started_arguments_into_completed_tool_calls",
+      "canonical_tool_projection_does_not_downgrade_completed_item_with_late_update",
+      "read_session_keeps_workspace_patch_in_thread_read_artifacts_only",
       '"artifact.snapshot"',
       '"contentFactoryWorkspacePatch"',
       'assert_eq!(web_fetch["status"], "completed")',
@@ -2176,7 +2921,7 @@ const checks = [
       "ember-rs/crates/app-server/src/runtime_factory.rs",
     ],
     snippets: [
-      "ember_agent::agent_tools::catalog",
+      "lime_agent::agent_tools::catalog",
       "tool_catalog_entries_for_surface",
       "WorkspaceToolSurface::workbench_with_browser_assist()",
       "ToolLifecycle::Current",
@@ -2192,33 +2937,77 @@ const checks = [
     absentSnippets: ["APP_SERVER_BACKEND_MODE=mock", '"backend": "mock"'],
   },
   {
-    name: "Electron Agent App runtime fixture proves Desktop Host facade to App Server runtime state",
-    file: "scripts/agent-app/runtime-electron-task-fixture-smoke.mjs",
+    name: "Conversation import preserves tools after canonical Item lowering",
+    files: [
+      "ember-rs/crates/app-server/src/runtime/conversation_import/commit.rs",
+      "ember-rs/crates/app-server/src/runtime/conversation_import/codex/history_builder.rs",
+      "ember-rs/crates/app-server/src/runtime/conversation_import/codex/canonical_items.rs",
+      "ember-rs/crates/app-server/src/runtime/conversation_import/tests/runtime_events.rs",
+    ],
     snippets: [
-      "[smoke:agent-app-runtime-electron-task-fixture]",
+      "build_canonical_history_events",
+      "project_rollout_events_to_canonical",
+      '"item.started"',
+      '"item.completed"',
+      "commit_preserves_codex_tool_command_and_patch_timeline",
+      "commit_preserves_high_volume_codex_tool_events_in_canonical_projection",
+      "commit_preserves_imported_commands_across_turns_without_projection_budget",
+      "commit_preserves_imported_assistant_message_order_between_runtime_events",
+      "commit_delays_imported_turn_terminal_until_after_late_runtime_events",
+      "commit_preserves_imported_update_plan_timeline_item",
+      "commit_imports_user_and_agent_items_with_canonical_lifecycle",
+      "commit_projects_codex_runtime_specialized_items_into_existing_timeline_types",
+      "commit_closes_incomplete_imported_lifecycles_as_failed_timeline_items",
+    ],
+    absentSnippets: ["lower_imported_runtime_events_for_commit"],
+  },
+  {
+    name: "Request tool policy validates required WebSearch from current item lifecycle",
+    files: agentRequestToolPolicyFiles,
+    snippets: [
+      "pub struct RequestToolPolicy",
+      "pub fn resolve_request_tool_policy_with_mode(",
+      "pub struct WebSearchExecutionTracker",
+      "record_tool_item",
+      "observed_item_lifecycle",
+      "validate_web_search_requirement",
+    ],
+    absentSnippets: [
+      "PreflightSearchPlan",
+      "PlannedWebSearchQuery",
+      "build_preflight_queries",
+      "should_run_web_search_preflight",
+      ".execute(&preflight_tool_name",
+    ],
+  },
+  {
+    name: "Electron Plugin runtime fixture proves Desktop Host facade to App Server runtime state",
+    file: "scripts/plugin/runtime-electron-task-fixture-smoke.mjs",
+    snippets: [
+      "[smoke:plugin-runtime-electron-task-fixture]",
       "import { _electron as electron }",
       "electron.launch({",
       '"--use-mock-keychain"',
       'APP_SERVER_BACKEND_MODE: "external"',
       "APP_SERVER_BACKEND_COMMAND: process.execPath",
       "APP_SERVER_BACKEND_ARGS: JSON.stringify",
-      'EMBER_ELECTRON_DEV_HTTP_BRIDGE: "0"',
-      "window.__EMBER_ELECTRON__ === true",
+      'LIME_ELECTRON_DEV_HTTP_BRIDGE: "0"',
+      "window.__LIME_ELECTRON__ === true",
       'typeof electronApi?.supportsCommand === "function"',
-      "agent_app_runtime_start_task",
-      "agent_app_runtime_get_task",
-      "agent_app_runtime_submit_host_response",
-      "agent_app_runtime_cancel_task",
+      "plugin_runtime_start_task",
+      "plugin_runtime_get_task",
+      "plugin_runtime_submit_host_response",
+      "plugin_runtime_cancel_task",
       "writeExternalBackend(",
       "readBackendLogEntries(",
       'kind === "turnStart"',
       'kind === "actionRespond"',
       'kind === "turnCancel"',
-      "hostOptionsAsterChatRequestSeen",
-      "turnConfigMirrorSeen",
-      'providerPreference: "fixture-provider"',
-      'modelPreference: "fixture-model"',
-      "provider_config: {",
+      "runtimeRequestSeen",
+      "runtimeRequestProviderConfigSeen",
+      'providerName: "fixture-provider"',
+      'modelName: "fixture-model"',
+      "providerConfig: {",
       'taskStatus === "blocked"',
       'taskStatus === "running"',
       'taskStatus === "cancelled"',
@@ -2236,37 +3025,42 @@ const checks = [
       "mockPriorityCommands",
       "defaultMocks",
       "invokeMockOnly",
-      "agentAppMocks",
+      "pluginMocks",
       'backendMode: "mock"',
+      "turnConfig:",
+      "turn_config",
+      "agentChatRequest",
+      "agent_chat_request",
+      "hostOptions",
     ],
   },
   {
-    name: "Electron Agent App SDK fixture proves iframe Host Bridge to App Server runtime state",
-    file: "scripts/agent-app/runtime-electron-sdk-fixture-smoke.mjs",
+    name: "Electron Plugin SDK fixture proves iframe Host Bridge to App Server runtime state",
+    file: "scripts/plugin/runtime-electron-sdk-fixture-smoke.mjs",
     snippets: [
-      "[smoke:agent-app-runtime-electron-sdk-fixture]",
+      "[smoke:plugin-runtime-electron-sdk-fixture]",
       "import { _electron as electron }",
       "electron.launch({",
       '"--use-mock-keychain"',
       'APP_SERVER_BACKEND_MODE: "external"',
       "APP_SERVER_BACKEND_COMMAND: process.execPath",
       "APP_SERVER_BACKEND_ARGS: JSON.stringify",
-      'EMBER_ELECTRON_DEV_HTTP_BRIDGE: "0"',
-      "window.__EMBER_ELECTRON__ === true",
-      '[data-testid="agent-app-runtime-surface"]',
-      '[data-testid="agent-app-runtime-frame"]',
+      'LIME_ELECTRON_DEV_HTTP_BRIDGE: "0"',
+      "window.__LIME_ELECTRON__ === true",
+      '[data-testid="plugin-runtime-surface"]',
+      '[data-testid="plugin-runtime-frame"]',
       "createLimeHostBridgeCapabilityInvoker",
       "bridge.ready()",
       "bridge.getHostSnapshot()",
       "bridge.call({",
-      'capability: "ember.agent"',
+      'capability: "lime.agent"',
       'method: "startTask"',
       'method: "getTask"',
       'method: "submitHostResponse"',
       'method: "cancelTask"',
       "bridge.getCallLog()",
-      "__agentAppSdkFixtureResult",
-      '"ember.agent": "^0.3.0"',
+      "__pluginSdkFixtureResult",
+      '"lime.agent": "^0.3.0"',
       "requiredCapabilities: [",
       'declaredBy: ["requires"]',
       'declaredBy: ["entry"]',
@@ -2278,17 +3072,17 @@ const checks = [
       'kind === "turnStart"',
       'kind === "actionRespond"',
       'kind === "turnCancel"',
-      "hostOptionsAsterChatRequestSeen",
-      "turnConfigMirrorSeen",
-      "turnConfigProviderName",
-      "turnConfigModel",
-      "provider_config",
-      "system_prompt",
-      "reasoning_effort",
-      "approval_policy",
-      "sandbox_policy",
-      "web_search",
-      "execution_strategy",
+      "runtimeRequestSeen",
+      "runtimeRequestProviderConfigSeen",
+      "runtimeRequestProviderName",
+      "runtimeRequestModelName",
+      "providerConfig",
+      "systemPrompt",
+      "reasoningEffort",
+      "approvalPolicy",
+      "sandboxPolicy",
+      "webSearch",
+      "executionStrategy",
       'type: "tool.started"',
       'type: "tool.result"',
       "TOOL_CALL_ID",
@@ -2319,14 +3113,19 @@ const checks = [
       "agent_runtime_interrupt_turn",
       "agent_runtime_get_thread_read",
       "agent_runtime_respond_action",
-      'window.electronAPI.invoke("agent_app_runtime_start_task"',
-      'window.electronAPI.invoke("agent_app_runtime_get_task"',
-      'window.electronAPI.invoke("agent_app_runtime_submit_host_response"',
-      'window.electronAPI.invoke("agent_app_runtime_cancel_task"',
-      'api.invoke("agent_app_runtime_start_task"',
-      'api.invoke("agent_app_runtime_get_task"',
-      'api.invoke("agent_app_runtime_submit_host_response"',
-      'api.invoke("agent_app_runtime_cancel_task"',
+      'window.electronAPI.invoke("plugin_runtime_start_task"',
+      'window.electronAPI.invoke("plugin_runtime_get_task"',
+      'window.electronAPI.invoke("plugin_runtime_submit_host_response"',
+      'window.electronAPI.invoke("plugin_runtime_cancel_task"',
+      'api.invoke("plugin_runtime_start_task"',
+      'api.invoke("plugin_runtime_get_task"',
+      'api.invoke("plugin_runtime_submit_host_response"',
+      'api.invoke("plugin_runtime_cancel_task"',
+      "turnConfig:",
+      "turn_config",
+      "agentChatRequest",
+      "agent_chat_request",
+      "hostOptions",
     ],
   },
   {
@@ -2338,8 +3137,8 @@ const checks = [
       "electron.launch({",
       '"--use-mock-keychain"',
       'APP_SERVER_BACKEND_MODE: "unavailable"',
-      'EMBER_ELECTRON_DEV_HTTP_BRIDGE: "0"',
-      "window.__EMBER_ELECTRON__ === true",
+      'LIME_ELECTRON_DEV_HTTP_BRIDGE: "0"',
+      "window.__LIME_ELECTRON__ === true",
       "window.electronAPI.supportsCommand",
       'const APP_SERVER_HANDLE_JSON_LINES_COMMAND = "app_server_handle_json_lines"',
       '"initialize"',
@@ -2355,7 +3154,7 @@ const checks = [
       "archiveRequestSeen",
       "archiveFailClosed",
       "listedSessionArchivedAt == null",
-      "seedPersistedCurrentTimelineSession",
+      "seedPersistedProjectionSession",
       "SQLITE3_BINARY",
       "PERSISTED_SESSION_ID",
       "launchElectronFixture",
@@ -2378,24 +3177,26 @@ const checks = [
       "waitForSidebarGuiUpdateTrace",
       "parseJsonRpcRequestsFromInvokeTrace",
       "SIDEBAR_RECENT_LIST_SELECTOR",
-      "SIDEBAR_ARCHIVED_LIST_SELECTOR",
+      "SETTINGS_ARCHIVED_CONVERSATIONS_SELECTOR",
       "SIDEBAR_ARCHIVE_MENU_ITEM_SELECTOR",
       "app-sidebar-conversation-menu-archive",
-      'request.status === "success"',
+      'entry.status === "success"',
       "sidebarGuiArchiveSummary",
-      "sidebarGuiArchive",
+      "settingsGuiRestoreSummary",
+      "runSettingsGuiRestorePhase",
+      "settings-archived-conversation-restore",
+      "settingsGuiRestore",
       "archiveTrace",
       "unarchiveTrace",
       "侧栏 GUI 点击未发起 agentSession/update archived=true",
-      "侧栏 GUI 点击未发起 agentSession/update archived=false",
+      "归档设置页 GUI 点击未发起 agentSession/update archived=false",
       "detail.turns",
       "detail.items",
       "detail.queued_turns",
-      "detail.child_subagent_sessions",
       "detail.thread_read",
       "listSessionFound",
       "listedSession?.title === UPDATED_TITLE",
-      "不能破坏 hydrate",
+      "不是数组",
     ],
     absentSnippets: [
       'APP_SERVER_BACKEND_MODE: "mock"',
@@ -2420,10 +3221,10 @@ const checks = [
       'APP_SERVER_BACKEND_MODE: "external"',
       "APP_SERVER_BACKEND_COMMAND: process.execPath",
       "writeFixtureBackend(",
-      "readJsonl(runtimeEnv.backendLedgerPath)",
-      "writeJsonFile(backendLedgerEvidencePath",
-      'EMBER_ELECTRON_DEV_HTTP_BRIDGE: "0"',
-      "window.__EMBER_ELECTRON__ === true",
+      "function persistBackendLedgerEvidence(",
+      "writeJsonFile(evidencePath",
+      'LIME_ELECTRON_DEV_HTTP_BRIDGE: "0"',
+      "window.__LIME_ELECTRON__ === true",
       "window.electronAPI.supportsCommand",
       'const APP_SERVER_HANDLE_JSON_LINES_COMMAND = "app_server_handle_json_lines"',
       '"agentSession/start"',
@@ -2432,8 +3233,12 @@ const checks = [
       '"agentSession/read"',
       '"agentSession/list"',
       'type: "artifact.snapshot"',
-      'type: "turn.final_done"',
-      "Hello Ember Workbench",
+      'type: "turn.completed"',
+      'kind: "backendEvents"',
+      "backendEmittedEventTypes",
+      "backendEmittedCurrentTerminal",
+      "backendDidNotEmitLegacyTerminal",
+      "Hello Lime Workbench",
       "openFixtureSessionFromSidebar",
       "openWorkbench",
       "workbenchOpened",
@@ -2452,6 +3257,7 @@ const checks = [
       "defaultMocks",
       "invokeMockOnly",
       "explicitMockFallback",
+      'type: "turn.final_done"',
     ],
   },
   {
@@ -2460,8 +3266,118 @@ const checks = [
     snippets: [
       '"smoke:agent-session-history-electron-fixture"',
       "scripts/electron/session-history-fixture-smoke.mjs",
+      '"smoke:codex-import-continuation-electron-fixture"',
+      "scripts/electron/codex-import-continuation-fixture-smoke.mjs",
+      '"smoke:codex-import-click-through-electron-fixture"',
+      "scripts/electron/codex-import-click-through-fixture-smoke.mjs",
       '"smoke:code-artifact-workbench-electron-fixture"',
       "scripts/electron/code-artifact-workbench-fixture-smoke.mjs",
+    ],
+  },
+  {
+    name: "Electron local history import click-through fixture launches current Desktop Host path",
+    file: "scripts/electron/codex-import-click-through-fixture-smoke.mjs",
+    snippets: [
+      "[smoke:codex-import-click-through-fixture]",
+      "import { _electron as electron }",
+      "electron.launch({",
+      '"--use-mock-keychain"',
+      'APP_SERVER_BACKEND_MODE: "external"',
+      "APP_SERVER_BACKEND_COMMAND: process.execPath",
+      'LIME_ELECTRON_DEV_HTTP_BRIDGE: "0"',
+      "createClickThroughFixtureRuntimeEnv",
+      "REQUIRED_BACKEND_METHODS",
+      '"agentSession/read"',
+      "导入细节还原",
+      "waitForImportedSessionDetails",
+      "sendFollowUpFromGui",
+      "CODEX_IMPORT_CLICK_THROUGH_DONE",
+      "backendMetadataImported",
+      "backendCwd === IMPORTED_CWD",
+    ],
+    absentSnippets: [
+      'APP_SERVER_BACKEND_MODE: "mock"',
+      'backendMode: "mock"',
+      "--allow-live-provider",
+      "agent_runtime_",
+      "mockPriorityCommands",
+      "defaultMocks",
+      "invokeMockOnly",
+      "explicitMockFallback",
+    ],
+  },
+  {
+    name: "Electron local history import click-through fixture owns source data and backend methods",
+    file: "scripts/electron/lib/local-history-import-click-through-fixture.mjs",
+    snippets: [
+      "writeFixtureBackend(",
+      "session_index.jsonl",
+      "CODEX_HOME: sourceRoot",
+      '"conversationImport/source/scan"',
+      '"conversationImport/thread/preview"',
+      '"conversationImport/thread/commit"',
+      '"agentSession/read"',
+      '"agentSession/turn/start"',
+      "IMPORTED_REASONING_TEXT",
+      "IMPORTED_CWD",
+      "readBackendLedger(",
+    ],
+    absentSnippets: [
+      'APP_SERVER_BACKEND_MODE: "mock"',
+      'backendMode: "mock"',
+      "--allow-live-provider",
+      "agent_runtime_",
+      "mockPriorityCommands",
+      "defaultMocks",
+      "invokeMockOnly",
+      "explicitMockFallback",
+    ],
+  },
+  {
+    name: "Electron local history import click-through fixture owns sidebar dialog selectors",
+    file: "scripts/electron/lib/local-history-import-click-through-gui.mjs",
+    snippets: [
+      "app-sidebar-import-conversation-button",
+      "app-sidebar-conversation-import-dialog",
+      "app-sidebar-conversation-import-confirm",
+      'textarea[name="agent-chat-message"]',
+      "waitForImportPreview",
+      "confirmImport",
+      "waitForImportedSessionDetails",
+      "sendFollowUpFromGui",
+      "collectImportedSessionVisualAudit",
+    ],
+    absentSnippets: [
+      'APP_SERVER_BACKEND_MODE: "mock"',
+      'backendMode: "mock"',
+      "--allow-live-provider",
+      "agent_runtime_",
+      "mockPriorityCommands",
+      "defaultMocks",
+      "invokeMockOnly",
+      "explicitMockFallback",
+    ],
+  },
+  {
+    name: "Electron local history import click-through fixture owns App Server bridge readiness checks",
+    file: "scripts/electron/lib/local-history-import-smoke-utils.mjs",
+    snippets: [
+      "window.__LIME_ELECTRON__ === true",
+      "window.electronAPI.supportsCommand",
+      'export const APP_SERVER_HANDLE_JSON_LINES_COMMAND =\n  "app_server_handle_json_lines"',
+      "invokeAppServerFromPage",
+      'jsonrpc: "2.0"',
+      "initializeAppServer",
+    ],
+    absentSnippets: [
+      'APP_SERVER_BACKEND_MODE: "mock"',
+      'backendMode: "mock"',
+      "--allow-live-provider",
+      "agent_runtime_",
+      "mockPriorityCommands",
+      "defaultMocks",
+      "invokeMockOnly",
+      "explicitMockFallback",
     ],
   },
   {
@@ -2475,8 +3391,8 @@ const checks = [
       'APP_SERVER_BACKEND_MODE: "external"',
       "APP_SERVER_BACKEND_COMMAND: process.execPath",
       "APP_SERVER_BACKEND_ARGS: JSON.stringify",
-      'EMBER_ELECTRON_DEV_HTTP_BRIDGE: "0"',
-      "window.__EMBER_ELECTRON__ === true",
+      'LIME_ELECTRON_DEV_HTTP_BRIDGE: "0"',
+      "window.__LIME_ELECTRON__ === true",
       "window.electronAPI.supportsCommand",
       'const APP_SERVER_HANDLE_JSON_LINES_COMMAND = "app_server_handle_json_lines"',
       '"initialize"',
@@ -2525,35 +3441,26 @@ const checks = [
     ],
   },
   {
-    name: "Rust JSON-RPC aster host test implements action response port",
-    file: "ember-rs/crates/app-server/src/lib.rs",
+    name: "Rust runtime backend initializes current Agent runtime before action responses",
+    file: "ember-rs/crates/app-server/src/runtime_backend/initialization_tests.rs",
     snippets: [
-      "async fn respond_action(",
-      "request: AsterBackendActionRespondRequest",
-      "AsterBackendActionRespondResult::default()",
+      "respond_action_initializes_agent_before_runtime_resume",
+      "ExecutionBackend::respond_action",
+      "ActionRespondRequest",
+      "AgentSessionActionType::AskUser",
+      "assert!(backend.agent_state.is_initialized().await)",
     ],
   },
   {
-    name: "Rust JSON-RPC aster flow smoke covers artifact/read and action/respond",
-    file: "ember-rs/crates/app-server/src/lib.rs",
+    name: "Rust runtime backend flow tests cover current turn and action response events",
+    files: appServerRuntimeBackendFiles,
     snippets: [
-      "struct JsonRpcAsterAgentFlowSmokeHost",
-      "submit_count: AtomicUsize",
-      "action_count: AtomicUsize",
-      "async fn aster_backend_json_rpc_agent_flow_smoke_covers_artifact_read_and_action_response()",
-      "AppServerRuntimeFactory::aster_app_server(host.clone())",
-      "METHOD_AGENT_SESSION_TURN_START",
-      "METHOD_AGENT_SESSION_EVENT",
-      "METHOD_ARTIFACT_READ",
-      "METHOD_AGENT_SESSION_ACTION_RESPOND",
-      "ArtifactReadParams {",
-      "AgentSessionActionRespondParams {",
-      "AgentSessionActionType::ToolConfirmation",
-      '"artifact.snapshot"',
+      "handle_action_response",
+      "respond_action_tool_confirmation_resumes_pending_agent_tool_future",
       '"action.resolved"',
-      "assert_agent_event_notification(",
-      "assert_eq!(host.submit_count.load(Ordering::SeqCst), 1)",
-      "assert_eq!(host.action_count.load(Ordering::SeqCst), 1)",
+      "run_agent_turn_with_policy",
+      "AgentTurnExecutionRequest",
+      '"turn.completed"',
     ],
   },
   {
@@ -2582,7 +3489,6 @@ const checks = [
       "pub fn mock_runtime_core_with_sources_and_evidence_export_provider(",
       "evidence_export_provider: Arc<dyn EvidenceExportProvider>",
       "with_backend_capability_source_artifact_content_provider_and_evidence_export_provider",
-      "pub fn aster_runtime_core_with_sources_and_evidence_export_provider(",
     ],
   },
   {
@@ -2596,10 +3502,11 @@ const checks = [
       "pub fn unavailable_runtime_core_with_capability_source(",
       "pub fn unavailable_app_server_with_capability_source(",
       "factory_builds_unavailable_runtime_with_injected_capability_source",
-      "pub fn aster_runtime_core_with_capability_source(",
-      "pub fn aster_runtime_core_with_sources(",
+      "pub fn runtime_backend_core_with_capability_source(",
+      "pub fn runtime_backend_core_with_db_and_capability_source(",
+      "pub fn runtime_app_server_with_capability_source(",
       "artifact_content_provider: Arc<dyn ArtifactContentProvider>",
-      "Arc::new(AsterBackend::new(host))",
+      "Arc::new(RuntimeBackend::with_execution_process_server(",
     ],
   },
   {
@@ -2656,7 +3563,7 @@ const checks = [
       "parse_args_accepts_app_policy_path",
       "load_app_policy_source_reads_scoped_capabilities",
       "parse_args_accepts_explicit_unavailable_backend",
-      "unsupported app-server backend mode: aster",
+      "unsupported app-server backend mode: agent",
     ],
   },
   {
@@ -2722,46 +3629,93 @@ const checks = [
     absentSnippets: ["child.wait_with_output()"],
   },
   {
-    name: "Standalone App Server current runtime backend embeds Claw Aster execution chain",
+    name: "Standalone App Server current runtime backend delegates Claw Agent execution chain",
     files: [
+      ...agentRuntimeBoundaryFiles,
+      ...agentRequestToolPolicyFiles,
       "ember-rs/crates/app-server/src/lib.rs",
-      "ember-rs/crates/app-server/src/runtime_backend.rs",
-      "ember-rs/crates/app-server/src/runtime_backend/tests.rs",
+      ...appServerRuntimeBackendExecutionChainFiles,
     ],
     snippets: [
       "mod runtime_backend;",
       "pub use runtime_backend::RuntimeBackend",
       "pub struct RuntimeBackend",
       "impl ExecutionBackend for RuntimeBackend",
-      "initialize_aster_runtime(",
-      "failed to initialize Aster runtime for App Server runtime backend",
-      "AsterAgentState::new()",
+      "init_agent_with_db(",
+      "failed to initialize Agent runtime for App Server runtime backend",
+      "AgentRuntimeState::new()",
       "direct_provider_config_from_request",
-      "configure_provider(provider_config.clone(), &session_scope.session_id, &db)",
-      "configure_provider_from_pool(",
-      "stream_reply_with_policy(",
+      "configure_provider_for_session(",
+      "install_provider_for_session(&runtime_config).await?",
+      "create_configured_reply_provider(runtime_config)",
+      "configure_model_route_provider_for_session_with_provider(",
+      "pub struct SessionProviderConfig",
+      "ProviderConfigurationRequest",
+      "session_provider_config_to_runtime_provider_config(",
+      "config.route_protocol = request.route_protocol.or(config.route_protocol)",
+      "route_protocol_from_session_provider_config",
+      "ProtocolKind::OpenaiResponses",
+      "ModelProviderProtocol::Responses",
+      "RuntimeProviderProtocol::Responses",
+      "build_agent_session_config(",
+      "AgentSessionConfigurationRequest",
+      "SessionConfigBuilder",
+      "build_agent_turn_context(",
+      "AgentTurnContextConfigurationRequest",
+      "set_agent_turn_output_schema(",
+      "TurnContextOverride",
+      "TurnOutputSchemaSource",
+      "execute_workspace_patch_host_tool_plan",
+      "RuntimeToolExecutorHandle",
+      "RuntimeToolExecutionContext",
+      ".execute_call(",
+      "run_host_managed_generation",
+      "HostManagedGenerationPlan",
+      "run_agent_turn_with_policy",
+      "AgentTurnExecutionRequest",
+      "stream_runtime_reply_with_policy(",
+      "runtime_events_from_agent_event",
+      "runtime_event_type_for_agent_event",
+      '"item.started"',
+      '"item.completed"',
+      '"failureCategory"',
+      "canonical_tool_item(event)",
+      "canonical_arguments_value",
+      "final_done_raw_runtime_event_does_not_map_to_current_terminal_event",
+      "canonical_tool_start_without_arguments_emits_only_item",
+      "canonical_tool_start_emits_only_typed_item_arguments",
+      "canonical_tool_completion_preserves_output_and_metadata",
+      "runtime_agent_failed_shell_tool_is_mirrored_to_coding_facts",
       "request_tool_policy_from_request",
-      "RequestToolPolicyMode::Allowed",
-      "resolve_request_tool_policy_with_mode(web_search, search_mode, true)",
-      "natural_language_news_turn_leaves_search_mode_to_model_tool_choice",
+      "RequestToolPolicyMode::Auto",
+      "resolve_request_tool_policy_with_mode(web_search, search_mode)",
+      "natural_language_news_turn_exposes_search_tool_surface_by_default",
+      "explicit_auto_search_mode_uses_model_tool_choice",
       "direct_host_provider_config_allows_localhost_fixture_without_database_provider",
       "if request.api_key.is_none() && request.base_url.is_none() {",
       '"message.delta"',
-      '"turn.final_done"',
+      '"turn.completed"',
       "selection_from_explicit_preferences",
       "selection_from_host_provider_config",
       "selection_from_session_default",
       '"/providerSelector"',
       '"/modelName"',
-      "current_timeline_extension_data_provider_routing_is_used_as_session_default",
+      "session_extension_data_provider_routing_is_used_as_session_default",
       "let provider = session_default_provider(metadata)?;",
       "let model = session_default_model(metadata)?;",
       "App Server runtime backend requires provider/model selection",
       "persist a complete session provider/model default",
     ],
     absentSnippets: [
+      ".configure_provider(",
+      "configure_provider_from_pool(",
+      "impl From<SessionProviderConfig> for StateProviderConfig",
       ".complete(&system, &messages, &[])",
       "message_requires_fresh_web_search",
+      "mode_default",
+      "unwrap_or(mode_default)",
+      "(None, None) if mode_default",
+      "resolve_request_tool_policy_with_mode(web_search, search_mode, true)",
       "resolve_request_tool_policy_with_mode(web_search, search_mode, false)",
       "fresh_news_request_promotes_search_to_required",
       "selection_from_enabled_provider_catalog",
@@ -2776,24 +3730,32 @@ const checks = [
     ],
   },
   {
-    name: "Request tool policy keeps freshness keyword helper internal",
-    files: [
-      "ember-rs/crates/agent/src/lib.rs",
-      "ember-rs/crates/agent/src/request_tool_policy.rs",
+    name: "App Server runtime backend delegates Agent streaming loop to lime-agent",
+    file: "ember-rs/crates/app-server/src/runtime_backend.rs",
+    snippets: ["run_agent_turn_with_policy(", "AgentTurnExecutionRequest"],
+    absentSnippets: [
+      "stream_reply_with_policy(",
+      "create_cancel_token(",
+      "remove_cancel_token(",
     ],
+  },
+  {
+    name: "Request tool policy avoids freshness keyword hard-code for preflight",
+    files: ["ember-rs/crates/agent/src/lib.rs", ...agentRequestToolPolicyFiles],
     snippets: [
       "pub fn resolve_request_tool_policy_with_mode(",
-      "fn build_preflight_queries(",
-      "if !policy.requires_web_search() || !message_requires_fresh_web_search(message_text)",
-      "fn should_run_web_search_preflight(policy: &RequestToolPolicy, _message_text: &str) -> bool",
-      "policy.requires_web_search()",
-      "allowed_web_search_should_not_run_preflight_from_message_keywords",
-      "required_news_web_search_should_expand_preflight_queries",
+      "record_tool_item",
+      "observed_item_lifecycle",
+      "pub struct RequestToolPolicy",
+      "pub struct WebSearchExecutionTracker",
+      "validate_web_search_requirement",
     ],
     absentSnippets: [
+      "message_requires_fresh_web_search",
       "pub fn message_requires_fresh_web_search(",
       "pub use request_tool_policy::message_requires_fresh_web_search",
       "merge_system_prompt_with_web_search_preflight_context, message_requires_fresh_web_search",
+      "fresh_news_request_promotes_search_to_required",
     ],
   },
   {
@@ -2802,6 +3764,7 @@ const checks = [
       "ember-rs/crates/app-server/src/lib.rs",
       "ember-rs/crates/app-server/src/processor/mod.rs",
       "ember-rs/crates/app-server/src/runtime.rs",
+      "ember-rs/crates/app-server/src/runtime/turn_execution.rs",
       "ember-rs/crates/app-server-transport/src/lib.rs",
     ],
     snippets: [
@@ -2814,7 +3777,10 @@ const checks = [
       "fn emit_failure(&mut self, error: &RuntimeCoreError) -> Result<(), RuntimeCoreError>",
       '"turn.failed"',
       "mpsc::unbounded_channel::<StreamedTransportMessage>()",
-      "is_streaming_turn_start_request",
+      "should_stream_transport_request",
+      "METHOD_AGENT_SESSION_MEDIA_READ",
+      'params.get("stream")',
+      "media_read_streaming_transport_requires_stream_flag",
       "METHOD_EVIDENCE_EXPORT",
       "json_lines_loop_streams_external_backend_events_before_turn_response",
       "json_lines_loop_streams_turn_failed_after_partial_external_backend_events",
@@ -2876,7 +3842,7 @@ const checks = [
     ],
   },
   {
-    name: "Standalone App Server external backend smoke proves independent app query loop",
+    name: "Standalone App Server external backend smoke proves controlled fixture event bridge",
     file: "scripts/app-server/external-backend-smoke.mjs",
     snippets: [
       "[smoke:app-server-external-backend] ok",
@@ -2895,12 +3861,13 @@ const checks = [
       "connection.exportEvidence",
       "message.delta",
       "artifact.snapshot",
-      "turn.final_done",
+      "turn.completed",
       'assertEqual(readTurns.length, 1, "read turn count")',
       'assertEqual(readTurn.status, "completed", "read turn status")',
       "evidenceEvents=${evidenceResult.result.events.length}",
       "content-draft-smoke",
     ],
+    absentSnippets: ["turn.final_done"],
   },
   {
     name: "npm exposes standalone external backend smoke",
@@ -2920,20 +3887,6 @@ const checks = [
       "fn rollback_started_turn(",
       "stored.turns.retain(|turn| turn.turn_id != turn_id)",
       "unavailable_backend_rejects_turn_without_persisting_fake_turn",
-    ],
-  },
-  {
-    name: "Electron Host action command bridges to App Server current action/respond",
-    file: "electron/hostCommands.ts",
-    snippets: [
-      'case "agent_runtime_respond_action":',
-      "async #respondAgentRuntimeAction(args: HostArgs): Promise<void>",
-      "METHOD_AGENT_SESSION_ACTION_RESPOND",
-      "agent_runtime_respond_action requires session_id and request_id",
-      "requestId",
-      "actionType",
-      "actionScope",
-      "userData",
     ],
   },
   {
@@ -3062,11 +4015,17 @@ const checks = [
     name: "TypeScript protocol exposes typed capability/list contract",
     file: "packages/app-server-client/src/protocol.ts",
     snippets: [
-      'export const METHOD_CAPABILITY_LIST = "capability/list"',
+      "GENERATED_APP_SERVER_METHODS,",
+      "GENERATED_APP_SERVER_REQUEST_SERIALIZATION_SCOPES,",
       'export type AppServerMethodKind = "request" | "notification"',
       "export type AppServerMethodSpec = {",
-      "export const APP_SERVER_METHODS = [",
-      '{ method: METHOD_INITIALIZED, kind: "notification" }',
+      "export const APP_SERVER_METHODS =",
+      "GENERATED_APP_SERVER_METHODS satisfies readonly AppServerMethodSpec[]",
+      "export type AppServerRequestSerializationScope =",
+      "export type AppServerRequestSerializationScopeSpec = {",
+      "export const APP_SERVER_REQUEST_SERIALIZATION_SCOPES =",
+      "GENERATED_APP_SERVER_REQUEST_SERIALIZATION_SCOPES satisfies readonly AppServerRequestSerializationScopeSpec[]",
+      "export function getAppServerRequestSerializationScope(",
       "export function isAppServerRequestMethod(method: string): boolean",
       "export function isAppServerNotificationMethod(method: string): boolean",
       "capabilityDenied: -32020",
@@ -3078,11 +4037,35 @@ const checks = [
       "limit?: number",
       "export type CapabilityDescriptor = {",
       "nextCursor?: string",
+      "requestSerializationScopes: AppServerRequestSerializationScopeSpec[]",
     ],
     absentSnippets: [
+      'export const METHOD_INITIALIZE = "initialize"',
+      'export const METHOD_CAPABILITY_LIST = "capability/list"',
       "DEFAULT_LISTEN_URL",
       "DEFAULT_RELEASE_MANIFEST_NAME",
       "DEFAULT_PROTOCOL_SCHEMA_MANIFEST_NAME",
+    ],
+  },
+  {
+    name: "Generated TypeScript protocol exposes Rust-owned method constants and tagged messages",
+    file: "packages/app-server-client/src/generated/protocol-types.ts",
+    snippets: [
+      'export const METHOD_INITIALIZE = "initialize";',
+      'export const METHOD_CAPABILITY_LIST = "capability/list";',
+      "export type AppServerClientRequest =",
+      'method: "initialize";',
+      'method: "agentSession/turn/start";',
+      "export type ClientNotification =",
+      'method: "initialized";',
+      "export type ServerNotification =",
+      'method: "agentSession/event";',
+      'method: "workspaceRightSurface/pendingChanged";',
+    ],
+    absentSnippets: [
+      "export interface AppServerClientRequest",
+      "method: AppServerRequestMethod;",
+      "export type AppServerNotification =",
     ],
   },
   {
@@ -3090,6 +4073,7 @@ const checks = [
     file: "packages/app-server-client/src/index.ts",
     snippets: [
       'export * from "./protocol.js"',
+      'export * from "./request-client-methods.js"',
       'from "./protocol.js"',
       "METHOD_CAPABILITY_LIST",
       "export class AppServerRequestError extends Error",
@@ -3122,12 +4106,20 @@ const checks = [
     ],
     snippets: [
       "mediaTaskArtifact/video/create",
+      "mediaTaskArtifact/image/complete",
       "METHOD_MEDIA_TASK_ARTIFACT_VIDEO_CREATE",
+      "METHOD_MEDIA_TASK_ARTIFACT_IMAGE_COMPLETE",
       "MediaTaskArtifactVideoCreateParams",
+      "MediaTaskArtifactCompletedImageInput",
+      "MediaTaskArtifactImageCompleteParams",
       "createVideoMediaTaskArtifact",
+      "completeImageMediaTaskArtifact",
       "createVideoGenerationTaskArtifact",
+      "completeImageGenerationTaskArtifact",
       "create_video_media_task_artifact",
+      "complete_image_media_task_artifact",
       "create_video_generation_task_artifact",
+      "complete_image_generation_task_artifact",
       "MediaTaskType::VideoGenerate",
       "video_generation_model",
     ],
@@ -3139,44 +4131,11 @@ const checks = [
     ],
   },
   {
-    name: "Deterministic device flow CRUD/run/healing is wired through App Server current clients",
-    files: [
-      "packages/app-server-client/src/protocol.ts",
-      "src/features/device-automation/flow/api.ts",
-      "src/lib/dev-bridge/commandPolicy.ts",
-      "lime-rs/crates/app-server-protocol/src/protocol/v0/method_names.rs",
-      "lime-rs/crates/app-server-protocol/src/protocol/v0/device_flow.rs",
-      "lime-rs/crates/app-server-protocol/src/protocol/v0/catalog.rs",
-      "lime-rs/crates/app-server/src/processor/mod.rs",
-      "lime-rs/crates/app-server/src/processor/device_flow.rs",
-      "lime-rs/crates/app-server/src/runtime.rs",
-      "lime-rs/crates/app-server/src/local_data_source/device_flow.rs",
-    ],
-    snippets: [
-      "deviceFlow/save",
-      "deviceFlow/delete",
-      "deviceFlowRun/save",
-      "deviceFlowRun/read",
-      "deviceFlowHealing/list",
-      "deviceFlowHealing/resolve",
-      "METHOD_DEVICE_FLOW_SAVE",
-      "METHOD_DEVICE_FLOW_HEALING_RESOLVE",
-      "DeviceFlowSaveParams",
-      "DeviceFlowHealingResolveResponse",
-      "saveDeviceFlow",
-      "resolveDeviceFlowHealing",
-      "handle_device_flow_save_impl",
-      "handle_device_flow_healing_resolve_impl",
-      "resolve_device_flow_healing",
-    ],
-  },
-  {
     name: "TypeScript protocol exposes typed agentSession/action/respond contract",
     file: "packages/app-server-client/src/protocol.ts",
     snippets: [
       "export const METHOD_AGENT_SESSION_ACTION_RESPOND =",
       '"agentSession/action/respond"',
-      '{ method: METHOD_AGENT_SESSION_ACTION_RESPOND, kind: "request" }',
       "export type AgentSessionActionType =",
       '"tool_confirmation"',
       '"ask_user"',
@@ -3192,7 +4151,6 @@ const checks = [
     snippets: [
       "export const METHOD_AGENT_SESSION_ACTION_REPLAY =",
       '"agentSession/action/replay"',
-      '{ method: METHOD_AGENT_SESSION_ACTION_REPLAY, kind: "request" }',
       "export type AgentSessionActionReplayParams = {",
       "export type AgentSessionReplayedActionRequired = {",
       'type: "action_required"',
@@ -3225,7 +4183,6 @@ const checks = [
     file: "packages/app-server-client/src/protocol.ts",
     snippets: [
       'export const METHOD_ARTIFACT_READ = "artifact/read"',
-      '{ method: METHOD_ARTIFACT_READ, kind: "request" }',
       "export type ArtifactReadParams = {",
       "artifactRef?: string",
       "includeContent?: boolean",
@@ -3247,12 +4204,6 @@ const checks = [
       '"fileSystem/createDirectory"',
       '"fileSystem/renameFile"',
       '"fileSystem/deleteFile"',
-      '{ method: METHOD_FILE_SYSTEM_LIST_DIRECTORY, kind: "request" }',
-      '{ method: METHOD_FILE_SYSTEM_READ_FILE_PREVIEW, kind: "request" }',
-      '{ method: METHOD_FILE_SYSTEM_CREATE_FILE, kind: "request" }',
-      '{ method: METHOD_FILE_SYSTEM_CREATE_DIRECTORY, kind: "request" }',
-      '{ method: METHOD_FILE_SYSTEM_RENAME_FILE, kind: "request" }',
-      '{ method: METHOD_FILE_SYSTEM_DELETE_FILE, kind: "request" }',
       "export type FileSystemListDirectoryParams = {",
       "export type FileSystemReadFilePreviewParams = {",
       "maxSize?: number",
@@ -3315,7 +4266,6 @@ const checks = [
     file: "packages/app-server-client/src/protocol.ts",
     snippets: [
       'export const METHOD_EVIDENCE_EXPORT = "evidence/export"',
-      '{ method: METHOD_EVIDENCE_EXPORT, kind: "request" }',
       "export type EvidenceExportParams = {",
       "includeEvents?: boolean",
       "includeArtifacts?: boolean",
@@ -3368,10 +4318,6 @@ const checks = [
       '"agentSession/reviewDecisionTemplate/export"',
       "export const METHOD_AGENT_SESSION_REVIEW_DECISION_SAVE =",
       '"agentSession/reviewDecision/save"',
-      '{ method: METHOD_AGENT_SESSION_REPLAY_CASE_EXPORT, kind: "request" }',
-      '{ method: METHOD_AGENT_SESSION_ANALYSIS_HANDOFF_EXPORT, kind: "request" }',
-      "method: METHOD_AGENT_SESSION_REVIEW_DECISION_TEMPLATE_EXPORT",
-      '{ method: METHOD_AGENT_SESSION_REVIEW_DECISION_SAVE, kind: "request" }',
       "export type AgentSessionReplayCaseExportParams = {",
       "export type AgentSessionReplayCaseExportResponse = {",
       "export type AgentSessionAnalysisHandoffExportParams = {",
@@ -3409,7 +4355,6 @@ const checks = [
     file: "packages/app-server-client/src/protocol.ts",
     snippets: [
       'export const METHOD_AGENT_SESSION_UPDATE = "agentSession/update"',
-      '{ method: METHOD_AGENT_SESSION_UPDATE, kind: "request" }',
       "export type AgentSessionUpdateParams = {",
       "sessionId: string",
       "providerSelector?: string",
@@ -3418,9 +4363,32 @@ const checks = [
       "executionStrategy?: string",
       "recentAccessMode?: string",
       "recentPreferences?: unknown",
-      "recentTeamSelection?: unknown",
+      "articleWorkspaceEditedDraft?: unknown",
       "export type AgentSessionUpdateResponse = {",
       "session: AgentSessionOverview",
+    ],
+    absentSnippets: ["recentTeamSelection?: unknown"],
+  },
+  {
+    name: "Retired recent Team selection is absent from current session contracts",
+    files: [
+      "ember-rs/crates/app-server-protocol/src/protocol/v0/session_admin.rs",
+      "ember-rs/crates/app-server/src/runtime/session_lifecycle.rs",
+      "ember-rs/crates/app-server/src/runtime/projection_store.rs",
+      "ember-rs/crates/app-server/src/runtime/read_model/session_metadata.rs",
+      "ember-rs/crates/agent-runtime/src/session_execution.rs",
+      "ember-rs/crates/agent-runtime/src/session_recent.rs",
+      "packages/app-server-client/src/protocol.ts",
+      "packages/app-server-client/src/generated/protocol-types.ts",
+      "src/lib/api/agentExecutionRuntime.ts",
+      "src/lib/api/agentRuntime/requestTypes.ts",
+      "src/lib/api/agentRuntime/appServerSessionClient.ts",
+    ],
+    snippets: [],
+    absentSnippets: [
+      "recent_team_selection",
+      "recentTeamSelection",
+      "RecentTeamSelection",
     ],
   },
   {
@@ -3438,7 +4406,6 @@ const checks = [
     file: "packages/app-server-client/src/protocol.ts",
     snippets: [
       'export const METHOD_AGENT_SESSION_ARCHIVE_MANY = "agentSession/archiveMany"',
-      '{ method: METHOD_AGENT_SESSION_ARCHIVE_MANY, kind: "request" }',
       "export type AgentSessionArchiveManyParams = {",
       "sessionIds?: string[]",
       "export type AgentSessionArchiveManyResponse = {",
@@ -3456,6 +4423,27 @@ const checks = [
     ],
   },
   {
+    name: "TypeScript protocol exposes typed agentSession/delete contract",
+    file: "packages/app-server-client/src/protocol.ts",
+    snippets: [
+      'export const METHOD_AGENT_SESSION_DELETE = "agentSession/delete"',
+      "export type AgentSessionDeleteParams = {",
+      "sessionId: string",
+      "export type AgentSessionDeleteResponse = {",
+      "deleted: boolean",
+    ],
+  },
+  {
+    name: "TypeScript client wraps typed agentSession/delete helper",
+    file: "packages/app-server-client/src/index.ts",
+    snippets: [
+      "METHOD_AGENT_SESSION_DELETE",
+      "deleteSession(params: AgentSessionDeleteParams): JsonRpcRequest",
+      "this.client.deleteSession(params)",
+      "Promise<AppServerRequestResult<AgentSessionDeleteResponse>>",
+    ],
+  },
+  {
     name: "TypeScript protocol exposes typed agentSession objective CRUD contract",
     file: "packages/app-server-client/src/protocol.ts",
     snippets: [
@@ -3466,10 +4454,6 @@ const checks = [
       '"agentSession/objective/status/update"',
       "export const METHOD_AGENT_SESSION_OBJECTIVE_CLEAR =",
       '"agentSession/objective/clear"',
-      '{ method: METHOD_AGENT_SESSION_OBJECTIVE_READ, kind: "request" }',
-      '{ method: METHOD_AGENT_SESSION_OBJECTIVE_SET, kind: "request" }',
-      "method: METHOD_AGENT_SESSION_OBJECTIVE_STATUS_UPDATE",
-      '{ method: METHOD_AGENT_SESSION_OBJECTIVE_CLEAR, kind: "request" }',
       "export type AgentSessionObjectiveReadParams = {",
       "export type AgentSessionObjectiveSetParams = {",
       "export type AgentSessionObjectiveStatusUpdateParams = {",
@@ -3505,15 +4489,39 @@ const checks = [
     ],
   },
   {
+    name: "TypeScript connection methods derive from request client protocol specs",
+    file: "packages/app-server-client/src/connection-methods.ts",
+    snippets: [
+      "APP_SERVER_REQUEST_CLIENT_METHODS.filter(",
+      "CONNECTION_CLIENT_METHOD_EXCLUSIONS",
+      'spec.kind === "request"',
+      "clientMethod: spec.name",
+      "method: spec.method",
+      "params: spec.params",
+    ],
+    absentSnippets: ["method: protocol.METHOD_"],
+  },
+  {
+    name: "TypeScript request client exposes the single wrapper protocol spec",
+    file: "packages/app-server-client/src/request-client-methods.ts",
+    snippets: [
+      "export type AppServerRequestClientMethodSpec",
+      "export const APP_SERVER_REQUEST_CLIENT_METHODS",
+      "installAppServerRequestClientMethods(",
+    ],
+  },
+  {
     name: "TypeScript capability/list tests lock helper and connection shape",
     file: "packages/app-server-client/tests/client.test.mjs",
     snippets: [
       "APP_SERVER_METHODS",
       "METHOD_CAPABILITY_LIST",
       "builds capability list requests with empty params",
-      "exports app-server method catalog with request and notification kinds",
+      "exports app-server method catalog from checked-in Rust manifest",
       "METHOD_AGENT_SESSION_UPDATE",
+      "METHOD_AGENT_SESSION_DELETE",
       "assert.equal(updateSession.method, METHOD_AGENT_SESSION_UPDATE)",
+      "assert.equal(deleteSession.method, METHOD_AGENT_SESSION_DELETE)",
       'providerSelector: "custom-provider"',
       'recentAccessMode: "full-access"',
       "isAppServerRequestMethod(METHOD_AGENT_SESSION_TURN_START)",
@@ -3599,7 +4607,7 @@ const checks = [
       "assert.equal(sent[4].method, METHOD_FILE_SYSTEM_RENAME_FILE)",
       "assert.equal(sent[5].method, METHOD_FILE_SYSTEM_DELETE_FILE)",
       'assert.equal(result.result.entries[0].name, "README.md")',
-      'assert.equal(previewResult.result.content, "# Ember")',
+      'assert.equal(previewResult.result.content, "# Lime")',
       "assert.deepEqual(createFileResult.result, {})",
     ],
   },
@@ -3645,66 +4653,48 @@ const checks = [
     name: "Renderer-safe App Server helper aliases capability/list protocol types",
     file: "src/lib/api/appServer.ts",
     snippets: [
-      "METHOD_CAPABILITY_LIST,",
-      "type CapabilityListParams,",
-      "type CapabilityListResponse,",
-      "export const APP_SERVER_METHOD_CAPABILITY_LIST = METHOD_CAPABILITY_LIST;",
-      "export type AppServerCapabilityListParams = CapabilityListParams;",
-      "export type AppServerCapabilityListResponse = CapabilityListResponse;",
-      "async listCapabilities(",
-      "APP_SERVER_METHOD_CAPABILITY_LIST",
+      "APP_SERVER_METHOD_CAPABILITY_LIST = protocol.METHOD_CAPABILITY_LIST",
+      "export type AppServerCapabilityListParams = protocol.CapabilityListParams;",
+      "export type AppServerCapabilityListResponse = protocol.CapabilityListResponse;",
+      "listCapabilities(params?: appServer.AppServerCapabilityListParams)",
+      '{ name: "listCapabilities", method: constants.APP_SERVER_METHOD_CAPABILITY_LIST',
     ],
   },
   {
     name: "Renderer-safe App Server helper aliases fileSystem protocol types",
     file: "src/lib/api/appServer.ts",
     snippets: [
-      "METHOD_FILE_SYSTEM_LIST_DIRECTORY,",
-      "METHOD_FILE_SYSTEM_READ_FILE_PREVIEW,",
-      "METHOD_FILE_SYSTEM_CREATE_FILE,",
-      "METHOD_FILE_SYSTEM_CREATE_DIRECTORY,",
-      "METHOD_FILE_SYSTEM_RENAME_FILE,",
-      "METHOD_FILE_SYSTEM_DELETE_FILE,",
-      "type FileSystemListDirectoryParams,",
-      "type FileSystemReadFilePreviewParams,",
-      "type FileSystemCreateFileParams,",
-      "type FileSystemCreateDirectoryParams,",
-      "type FileSystemRenameFileParams,",
-      "type FileSystemDeleteFileParams,",
-      "type FileSystemMutationResponse,",
-      "type FileSystemDirectoryListing,",
-      "type FileSystemFilePreview,",
       "export const APP_SERVER_METHOD_FILE_SYSTEM_LIST_DIRECTORY =",
-      "METHOD_FILE_SYSTEM_LIST_DIRECTORY;",
+      "protocol.METHOD_FILE_SYSTEM_LIST_DIRECTORY;",
       "export const APP_SERVER_METHOD_FILE_SYSTEM_READ_FILE_PREVIEW =",
-      "METHOD_FILE_SYSTEM_READ_FILE_PREVIEW;",
+      "protocol.METHOD_FILE_SYSTEM_READ_FILE_PREVIEW;",
       "export const APP_SERVER_METHOD_FILE_SYSTEM_CREATE_FILE =",
-      "METHOD_FILE_SYSTEM_CREATE_FILE;",
+      "protocol.METHOD_FILE_SYSTEM_CREATE_FILE;",
       "export const APP_SERVER_METHOD_FILE_SYSTEM_CREATE_DIRECTORY =",
-      "METHOD_FILE_SYSTEM_CREATE_DIRECTORY;",
+      "protocol.METHOD_FILE_SYSTEM_CREATE_DIRECTORY;",
       "export const APP_SERVER_METHOD_FILE_SYSTEM_RENAME_FILE =",
-      "METHOD_FILE_SYSTEM_RENAME_FILE;",
+      "protocol.METHOD_FILE_SYSTEM_RENAME_FILE;",
       "export const APP_SERVER_METHOD_FILE_SYSTEM_DELETE_FILE =",
-      "METHOD_FILE_SYSTEM_DELETE_FILE;",
-      "export type AppServerFileSystemListDirectoryParams =",
-      "export type AppServerFileSystemReadFilePreviewParams =",
-      "export type AppServerFileSystemCreateFileParams =",
-      "export type AppServerFileSystemCreateDirectoryParams =",
-      "export type AppServerFileSystemRenameFileParams =",
-      "export type AppServerFileSystemDeleteFileParams =",
-      "export type AppServerFileSystemMutationResponse =",
-      "async listDirectory(",
-      "APP_SERVER_METHOD_FILE_SYSTEM_LIST_DIRECTORY",
-      "async readFilePreview(",
-      "APP_SERVER_METHOD_FILE_SYSTEM_READ_FILE_PREVIEW",
-      "async createFile(",
-      "APP_SERVER_METHOD_FILE_SYSTEM_CREATE_FILE",
-      "async createDirectory(",
-      "APP_SERVER_METHOD_FILE_SYSTEM_CREATE_DIRECTORY",
-      "async renameFile(",
-      "APP_SERVER_METHOD_FILE_SYSTEM_RENAME_FILE",
-      "async deleteFile(",
-      "APP_SERVER_METHOD_FILE_SYSTEM_DELETE_FILE",
+      "protocol.METHOD_FILE_SYSTEM_DELETE_FILE;",
+      "export type AppServerFileSystemListDirectoryParams =\n  protocol.FileSystemListDirectoryParams;",
+      "export type AppServerFileSystemReadFilePreviewParams =\n  protocol.FileSystemReadFilePreviewParams;",
+      "export type AppServerFileSystemCreateFileParams = protocol.FileSystemCreateFileParams;",
+      "export type AppServerFileSystemCreateDirectoryParams =\n  protocol.FileSystemCreateDirectoryParams;",
+      "export type AppServerFileSystemRenameFileParams = protocol.FileSystemRenameFileParams;",
+      "export type AppServerFileSystemDeleteFileParams = protocol.FileSystemDeleteFileParams;",
+      "export type AppServerFileSystemMutationResponse = protocol.FileSystemMutationResponse;",
+      "listDirectory(params: appServer.AppServerFileSystemListDirectoryParams)",
+      '{ name: "listDirectory", method: constants.APP_SERVER_METHOD_FILE_SYSTEM_LIST_DIRECTORY',
+      "readFilePreview(params: appServer.AppServerFileSystemReadFilePreviewParams)",
+      '{ name: "readFilePreview", method: constants.APP_SERVER_METHOD_FILE_SYSTEM_READ_FILE_PREVIEW',
+      "createFile(params: appServer.AppServerFileSystemCreateFileParams)",
+      '{ name: "createFile", method: constants.APP_SERVER_METHOD_FILE_SYSTEM_CREATE_FILE',
+      "createDirectory(params: appServer.AppServerFileSystemCreateDirectoryParams)",
+      '{ name: "createDirectory", method: constants.APP_SERVER_METHOD_FILE_SYSTEM_CREATE_DIRECTORY',
+      "renameFile(params: appServer.AppServerFileSystemRenameFileParams)",
+      '{ name: "renameFile", method: constants.APP_SERVER_METHOD_FILE_SYSTEM_RENAME_FILE',
+      "deleteFile(params: appServer.AppServerFileSystemDeleteFileParams)",
+      '{ name: "deleteFile", method: constants.APP_SERVER_METHOD_FILE_SYSTEM_DELETE_FILE',
     ],
   },
   {
@@ -3730,14 +4720,12 @@ const checks = [
     file: "src/lib/api/appServer.ts",
     snippets: [
       "export const APP_SERVER_METHOD_AGENT_SESSION_ACTION_RESPOND =",
-      "METHOD_AGENT_SESSION_ACTION_RESPOND;",
-      "type AgentSessionActionRespondParams,",
-      "type AgentSessionActionRespondResponse,",
-      "export type AppServerAgentSessionActionType = AgentSessionActionType;",
+      "protocol.METHOD_AGENT_SESSION_ACTION_RESPOND;",
+      "export type AppServerAgentSessionActionType = protocol.AgentSessionActionType;",
       "export type AppServerAgentSessionActionRespondParams =\n  AgentSessionActionRespondParams;",
-      "export type AppServerAgentSessionActionRespondResponse =\n  AgentSessionActionRespondResponse;",
-      "async respondAction(",
-      "APP_SERVER_METHOD_AGENT_SESSION_ACTION_RESPOND",
+      "export type AppServerAgentSessionActionRespondResponse =\n  protocol.AgentSessionActionRespondResponse;",
+      "respondAction(params: appServer.AppServerAgentSessionActionRespondParams)",
+      '{ name: "respondAction", method: constants.APP_SERVER_METHOD_AGENT_SESSION_ACTION_RESPOND',
     ],
   },
   {
@@ -3745,13 +4733,11 @@ const checks = [
     file: "src/lib/api/appServer.ts",
     snippets: [
       "export const APP_SERVER_METHOD_AGENT_SESSION_ACTION_REPLAY =",
-      "METHOD_AGENT_SESSION_ACTION_REPLAY;",
-      "type AgentSessionActionReplayParams,",
-      "type AgentSessionActionReplayResponse,",
-      "export type AppServerAgentSessionActionReplayParams =\n  AgentSessionActionReplayParams;",
-      "export type AppServerAgentSessionActionReplayResponse =\n  AgentSessionActionReplayResponse;",
-      "async replayAction(",
-      "APP_SERVER_METHOD_AGENT_SESSION_ACTION_REPLAY",
+      "protocol.METHOD_AGENT_SESSION_ACTION_REPLAY;",
+      "export type AppServerAgentSessionActionReplayParams =\n  protocol.AgentSessionActionReplayParams;",
+      "export type AppServerAgentSessionActionReplayResponse =\n  protocol.AgentSessionActionReplayResponse;",
+      "replayAction(params: appServer.AppServerAgentSessionActionReplayParams)",
+      '{ name: "replayAction", method: constants.APP_SERVER_METHOD_AGENT_SESSION_ACTION_REPLAY',
     ],
   },
   {
@@ -3759,27 +4745,32 @@ const checks = [
     file: "src/lib/api/appServer.ts",
     snippets: [
       "export const APP_SERVER_METHOD_AGENT_SESSION_TURN_CANCEL =",
-      "METHOD_AGENT_SESSION_TURN_CANCEL;",
-      "type AgentSessionTurnCancelParams,",
-      "type AgentSessionTurnCancelResponse,",
-      "export type AppServerAgentSessionTurnCancelParams =\n  AgentSessionTurnCancelParams;",
-      "export type AppServerAgentSessionTurnCancelResponse =\n  AgentSessionTurnCancelResponse;",
-      "async cancelTurn(",
-      "APP_SERVER_METHOD_AGENT_SESSION_TURN_CANCEL",
+      "protocol.METHOD_AGENT_SESSION_TURN_CANCEL;",
+      "export type AppServerAgentSessionTurnCancelParams =\n  protocol.AgentSessionTurnCancelParams;",
+      "export type AppServerAgentSessionTurnCancelResponse =\n  protocol.AgentSessionTurnCancelResponse;",
+      "cancelTurn(params: appServer.AppServerAgentSessionTurnCancelParams)",
+      '{ name: "cancelTurn", method: constants.APP_SERVER_METHOD_AGENT_SESSION_TURN_CANCEL',
     ],
   },
   {
     name: "Renderer Agent Runtime thread client requires centralized App Server bridge availability",
-    file: "src/lib/api/agentRuntime/threadClient.ts",
+    files: [
+      "src/lib/api/agentRuntime/threadClient.ts",
+      "src/lib/api/agentRuntime/appServerEventStream.ts",
+      "src/lib/api/agentRuntime/appServerEventStreamRouting.ts",
+      "src/lib/api/agentRuntime/appServerEventPayloadProjection.ts",
+      "src/lib/api/agentRuntime/appServerEventTimelineReaders.ts",
+    ],
     snippets: [
       "isAppServerBridgeAvailable",
       "export type AgentRuntimeAppServerClient = Pick<",
       "appServerClient = new AppServerClient()",
       "isAppServerTurnLifecycleAvailable = defaultIsAppServerTurnLifecycleAvailable",
       "assertAppServerTurnLifecycleAvailable(isAppServerTurnLifecycleAvailable)",
-      "current Agent runtime cannot use legacy agent_runtime_* commands",
+      "Agent Runtime requires the App Server current lifecycle channel",
       "appServerClient.startTurn(",
-      "appServerTurnStartParamsFromRequest(request)",
+      "standardRuntimeClient.startTurn(request)",
+      "createAppServerAgentRuntimeLifecycleClient(",
       "appServerClient.cancelTurn(",
       "appServerTurnCancelParamsFromRequest(request)",
       "request.turn_id",
@@ -3792,9 +4783,10 @@ const checks = [
       "appServerClient.respondAction(",
       "appServerActionRespondParamsFromRequest(request)",
       "publishAppServerAgentSessionNotifications(",
+      'from "./appServerEventStream"',
       "projectAppServerAgentEventPayload(",
       "APP_SERVER_METHOD_AGENT_SESSION_EVENT",
-      "publishAgentRuntimeEvent(eventName, payload)",
+      "publishProcessedAgentRuntimeEvent(eventName, payload)",
       'type: "text_delta"',
       'readString(payload, "type") === "text_delta_batch"',
       'type: "text_delta_batch"',
@@ -3808,27 +4800,15 @@ const checks = [
       'type: "runtime_status"',
       'case "turn.completed":',
       'type: "turn_completed"',
-      'case "turn.final_done":',
-      'type: "final_done"',
-      "hostOptions: {\n        asterChatRequest: appServerAsterChatRequestFromRequest(request),",
-      "function appServerAsterChatRequestFromRequest(",
-      "provider_config: request.turn_config?.provider_config",
-      "reasoning_effort: request.turn_config?.reasoning_effort",
-      "thinking_enabled: request.turn_config?.thinking_enabled",
-      "approval_policy: request.turn_config?.approval_policy",
-      "sandbox_policy: request.turn_config?.sandbox_policy",
-      'workspace_id: request.workspace_id ?? ""',
-      "web_search: request.turn_config?.web_search",
-      "search_mode: request.turn_config?.search_mode",
-      "execution_strategy: request.turn_config?.execution_strategy",
-      "auto_continue: request.turn_config?.auto_continue",
-      "system_prompt: request.turn_config?.system_prompt",
+      'case "turn.failed":',
+      'type: "turn_failed"',
+      'case "turn.canceled":',
+      'type: "turn_canceled"',
     ],
     absentSnippets: [
       'const APP_SERVER_HANDLE_JSON_LINES_COMMAND = "app_server_handle_json_lines"',
       "isElectronHostCommandAvailable(APP_SERVER_HANDLE_JSON_LINES_COMMAND)",
       "AGENT_RUNTIME_COMMANDS.submitTurn",
-      "AGENT_RUNTIME_COMMANDS.interruptTurn",
       "AGENT_RUNTIME_COMMANDS.respondAction",
       "AGENT_RUNTIME_COMMANDS.compactSession",
       "AGENT_RUNTIME_COMMANDS.resumeThread",
@@ -3838,7 +4818,14 @@ const checks = [
       '"agent_runtime_resume_thread"',
       '"agent_runtime_remove_queued_turn"',
       '"agent_runtime_promote_queued_turn"',
-      "asterChatRequest: request",
+      "runtimeRequest: {",
+      "appServerTurnStartParamsFromRequest",
+      "appServerRuntimeRequestFromRequest",
+      "turnConfig",
+      "turn_config",
+      "agentChatRequest",
+      "agent_chat_request",
+      "hostOptions",
     ],
   },
   {
@@ -3852,28 +4839,53 @@ const checks = [
     ],
   },
   {
-    name: "Renderer Agent Runtime thread client keeps Claw/Aster request parity inside flat App Server hostOptions",
+    name: "Renderer Agent Runtime thread client preserves turn configuration in RuntimeRequest",
     file: "src/lib/api/agentRuntime/threadClient.test.ts",
     snippets: [
-      "App Server submit 应通过 hostOptions 无损携带 Claw/Aster 原始请求快照",
-      "asterChatRequest: {",
-      "provider_config: {",
-      'reasoning_effort: "high"',
-      "thinking_enabled: true",
-      'approval_policy: "on-request"',
-      'sandbox_policy: "workspace-write"',
-      'execution_strategy: "react"',
-      "web_search: true",
-      'search_mode: "required"',
-      "auto_continue: {",
-      'system_prompt: "保留 Claw 原始系统提示"',
-      'workspace_id: "workspace-claw"',
-      "queue_if_busy: true",
-      'queued_turn_id: "queued-claw"',
+      "App Server submit 参数将 Turn 输入与 current runtime 配置分离",
+      "runtimeRequest: {",
+      "providerConfig: {",
+      'reasoningEffort: "high"',
+      "thinkingEnabled: true",
+      'approvalPolicy: "on-request"',
+      'sandboxPolicy: "workspace-write"',
+      'executionStrategy: "react"',
+      "webSearch: true",
+      'searchMode: "required"',
+      "autoContinue: true",
+      'systemPrompt: "保留 Claw 原始系统提示"',
+      'workspaceId: "workspace-claw"',
+      "queueIfBusy: true",
+      'queuedTurnId: "queued-claw"',
     ],
     absentSnippets: [
-      "asterChatRequest: request",
-      "turn_config: {\n              provider_preference",
+      "hostOptions: {",
+      "agentChatRequest",
+      "agent_chat_request",
+      "turn_config",
+      "turnConfig",
+    ],
+  },
+  {
+    name: "Current Turn submission accepts only RuntimeRequest across renderer, Plugin, and smoke evidence",
+    files: [
+      "src/lib/api/agentProtocolOps.ts",
+      "src/components/agent/chat/hooks/agentRuntimeAdapter.ts",
+      "src/lib/api/agentRuntime/threadClient.ts",
+      "src/features/plugin/runtime/agentRuntimeCapabilityHost.ts",
+      "src/features/plugin/runtime/agentRuntimeClientApi.ts",
+      "scripts/claw-chat-ready-streaming-smoke.mjs",
+      "scripts/lib/managed-objective-continuation-smoke-core.mjs",
+      "scripts/agent-runtime/claw-chat-current-fixture-backend-script.mjs",
+      "scripts/agent-runtime/claw-chat-current-fixture-backend-ledger.mjs",
+    ],
+    snippets: ["runtimeRequest", "AgentSessionTurnStartParams"],
+    absentSnippets: [
+      "agentChatRequest",
+      "agent_chat_request",
+      "turn_config",
+      "turnConfig",
+      "hostOptions",
     ],
   },
   {
@@ -3995,77 +5007,84 @@ const checks = [
     absentSnippets: ['"capability_draft_list_registered_skills"'],
   },
   {
-    name: "Renderer Agent Runtime tool inventory stays explicit compat until full inventory method exists",
+    name: "Renderer Agent Runtime tool inventory uses App Server current method",
     file: "src/lib/api/agentRuntime/inventoryClient.ts",
     snippets: [
       "async function getAgentRuntimeToolInventory(",
-      "invokeCommand<AgentRuntimeToolInventory>",
+      "METHOD_AGENT_SESSION_TOOL_INVENTORY_READ",
+      "appServerClient.request<AppServerToolInventoryReadResponse>",
+      "toolInventoryParamsFromRequest(request)",
+      "App Server agentSession/toolInventory/read did not return tool inventory",
+    ],
+    absentSnippets: [
+      "APP_SERVER_METHOD_CAPABILITY_LIST",
+      "listCapabilities(",
       "AGENT_RUNTIME_COMMANDS.getToolInventory",
-    ],
-    absentSnippets: ["APP_SERVER_METHOD_CAPABILITY_LIST", "listCapabilities("],
-  },
-  {
-    name: "Renderer Agent Runtime workspace skill bindings schema is compat only",
-    file: "src/lib/governance/agentRuntimeCommandSchema.json",
-    snippets: [
-      `"command": "agent_runtime_list_workspace_skill_bindings",
-      "domain": "inventory",
-      "requestType": "AgentRuntimeListWorkspaceSkillBindingsRequest",
-      "responseType": "AgentRuntimeWorkspaceSkillBindings",
-      "lifecycle": "compat",
-      "mockStrategy": "bridge-only"`,
-    ],
-    absentSnippets: [
-      `"command": "agent_runtime_list_workspace_skill_bindings",
-      "domain": "inventory",
-      "requestType": "AgentRuntimeListWorkspaceSkillBindingsRequest",
-      "responseType": "AgentRuntimeWorkspaceSkillBindings",
-      "lifecycle": "current",
-      "mockStrategy": "mock-priority"`,
+      "agent_runtime_get_tool_inventory",
+      "invokeCommand<AgentRuntimeToolInventory>",
     ],
   },
   {
-    name: "Renderer Agent Runtime workspace skill bindings manifest is compat only",
-    file: "src/lib/api/agentRuntime/commandManifest.generated.ts",
-    snippets: [
-      `key: "listWorkspaceSkillBindings",
-    command: AGENT_RUNTIME_COMMANDS.listWorkspaceSkillBindings,
-    domain: "inventory",
-    requestType: "AgentRuntimeListWorkspaceSkillBindingsRequest",
-    responseType: "AgentRuntimeWorkspaceSkillBindings",
-    lifecycle: "compat",
-    mockStrategy: "bridge-only"`,
+    name: "Agent Runtime workspace skill bindings legacy command is retired from production command surfaces",
+    files: [
+      "electron/hostCommands.ts",
+      "electron/ipcChannels.ts",
+      "src/lib/dev-bridge/commandPolicy.ts",
+      "src/lib/governance/agentCommandCatalog.json",
     ],
+    snippets: [],
+    absentSnippets: ['"agent_runtime_list_workspace_skill_bindings"'],
+  },
+  {
+    name: "Agent Runtime retired subagent facade names stay out of production gateway policy",
+    file: "src/lib/dev-bridge/commandPolicy.ts",
+    snippets: [],
     absentSnippets: [
-      `key: "listWorkspaceSkillBindings",
-    command: AGENT_RUNTIME_COMMANDS.listWorkspaceSkillBindings,
-    domain: "inventory",
-    requestType: "AgentRuntimeListWorkspaceSkillBindingsRequest",
-    responseType: "AgentRuntimeWorkspaceSkillBindings",
-    lifecycle: "current",
-    mockStrategy: "mock-priority"`,
+      '"agent_runtime_spawn_subagent"',
+      '"agent_runtime_send_subagent_input"',
+      '"agent_runtime_wait_subagents"',
+      '"agent_runtime_resume_subagent"',
+      '"agent_runtime_close_subagent"',
+      'command.startsWith("agent_runtime_")',
     ],
   },
   {
-    name: "Renderer Agent Runtime workspace skill bindings declaration is compat only",
-    file: "src/lib/api/agentRuntime/commandManifest.generated.d.ts",
+    name: "Plugin runtime projections expose App Server current source labels",
+    files: [
+      "src/features/plugin/runtime/capabilityDispatcher.ts",
+      "src/features/plugin/runtime/agentRuntimeCapabilityHost.ts",
+      "src/features/plugin/runtime/agentRuntimeTaskState.ts",
+      "src/features/plugin/runtime/capabilityDispatcherClawCapabilities.ts",
+      "src/features/plugin/runtime/capabilityDispatcherContextProjection.ts",
+      "src/features/plugin/runtime/capabilityDispatcherRuntimeDispatch.ts",
+      "src/features/plugin/runtime/capabilityDispatcherRuntimeProjection.ts",
+      "src/features/plugin/runtime/capabilityDispatcherRuntimeTypes.ts",
+      "src/features/plugin/runtime/capabilityDispatcherToolExecution.ts",
+      "src/features/plugin/runtime/capabilityDispatcherToolRuns.ts",
+    ],
     snippets: [
-      `readonly key: "listWorkspaceSkillBindings";
-    readonly command: "agent_runtime_list_workspace_skill_bindings";
-    readonly domain: "inventory";
-    readonly requestType: "AgentRuntimeListWorkspaceSkillBindingsRequest";
-    readonly responseType: "AgentRuntimeWorkspaceSkillBindings";
-    readonly lifecycle: "compat";
-    readonly mockStrategy: "bridge-only"`,
+      "app_server_runtime_capability_catalog",
+      "app_server_runtime_model_constraints",
+      "app_server_runtime_projection",
+      "app_server_runtime_process",
+      "app_server_runtime_thread_read",
+      "app_server_tool_runtime",
+      "app_server_artifact_replay",
+      "app_server_tool_call_replay",
+      "lime_agent_sdk_unavailable",
+      "no_app_server_runtime_budget_facts",
     ],
     absentSnippets: [
-      `readonly key: "listWorkspaceSkillBindings";
-    readonly command: "agent_runtime_list_workspace_skill_bindings";
-    readonly domain: "inventory";
-    readonly requestType: "AgentRuntimeListWorkspaceSkillBindingsRequest";
-    readonly responseType: "AgentRuntimeWorkspaceSkillBindings";
-    readonly lifecycle: "current";
-    readonly mockStrategy: "mock-priority"`,
+      '"agent_runtime_capability_catalog"',
+      '"agent_runtime_model_constraints"',
+      '"agent_runtime_projection"',
+      '"agent_runtime_process"',
+      '"agent_runtime_thread_read"',
+      '"agent_runtime_tool_runtime"',
+      '"agent_runtime_artifact_replay"',
+      '"agent_runtime_tool_call_replay"',
+      '"agent_runtime_sdk_unavailable"',
+      '"no_agent_runtime_budget_facts"',
     ],
   },
   {
@@ -4154,9 +5173,11 @@ const checks = [
       "appServerSessionClient.getAgentRuntimeSession(",
       "appServerSessionClient.updateAgentRuntimeSession(request)",
       "async function deleteAgentRuntimeSession(sessionId: string): Promise<void>",
-      "return await updateAgentRuntimeSession({",
-      "session_id: sessionId",
-      "archived: true",
+      "appServerSessionClient.deleteAgentRuntimeSession(sessionId)",
+      'reason: "deleted"',
+      '"deleted"',
+      "AGENT_RUNTIME_SESSIONS_CHANGED_EVENT",
+      "notifyAgentRuntimeSessionsChanged(",
     ],
     absentSnippets: [
       "AGENT_RUNTIME_COMMANDS.createSession",
@@ -4181,6 +5202,7 @@ const checks = [
       '| "readSession"',
       '| "updateSession"',
       '| "archiveManySessions"',
+      '| "deleteSession"',
       '| "request"',
       "appServerClient.request<AppServerAgentSessionListResponse>",
       "METHOD_AGENT_SESSION_LIST",
@@ -4189,11 +5211,11 @@ const checks = [
       "appServerClient.readSession(",
       "appServerClient.updateSession(",
       "appServerClient.archiveManySessions(",
+      "appServerClient.deleteSession(",
       "appServerSessionUpdateParamsFromRequest(request)",
       "providerSelector: request.provider_selector?.trim() || undefined",
       "recentAccessMode: request.recent_access_mode",
       "recentPreferences: request.recent_preferences",
-      "recentTeamSelection: request.recent_team_selection",
     ],
     absentSnippets: [
       "APP_SERVER_METHOD_AGENT_SESSION_LIST",
@@ -4202,6 +5224,8 @@ const checks = [
       '"agent_runtime_get_session"',
       '"agent_runtime_create_session"',
       '"agent_runtime_update_session"',
+      "recentTeamSelection",
+      "recent_team_selection",
     ],
   },
   {
@@ -4254,7 +5278,8 @@ const checks = [
     name: "Renderer fresh Agent sessions persist provider model defaults before first turn",
     files: [
       "src/components/agent/chat/hooks/useAgentSession.ts",
-      "src/components/agent/chat/hooks/useAsterAgentChat.test.tsx",
+      "src/components/agent/chat/hooks/useAgentChat.test.tsx",
+      "src/components/agent/chat/hooks/useAgentChat.test/slashSkillExecution.case.tsx",
     ],
     snippets: [
       "function buildFreshSessionProviderModelMetadata(",
@@ -4262,7 +5287,7 @@ const checks = [
       "const modelName = model.trim()",
       "executionRuntime: {",
       "extensionData: {",
-      '"ember_provider_routing.v0": {',
+      '"lime_provider_routing.v0": {',
       "metadata: buildFreshSessionProviderModelMetadata(",
       "首条发送创建新会话时不应额外回写 provider/model 或 accessMode",
       "providerSelector: selectedProvider",
@@ -4281,8 +5306,11 @@ const checks = [
       "createAppServerAgentRuntimeLifecycleClient(appServerClient)",
       "async function getAgentRuntimeThreadRead(",
       "assertAppServerTurnLifecycleAvailable(isAppServerTurnLifecycleAvailable)",
-      "standardRuntimeClient.readThread({",
+      "appServerClient.readSession({",
       "return projectAppServerSessionReadResult(response.result)",
+      "async function readAgentRuntimeThread(",
+      "appServerClient.readThread({",
+      'turnsView: "full"',
     ],
     absentSnippets: [
       "AGENT_RUNTIME_COMMANDS.getThreadRead",
@@ -4415,7 +5443,6 @@ const checks = [
       'export * from "./routing.js"',
       'export * from "./runtimeFacts.js"',
       'export * from "./summary.js"',
-      'export * from "./subagentStatusEvents.js"',
       'export * from "./threadItems.js"',
       'export * from "./toolEvents.js"',
       'export * from "./readModel.js"',
@@ -4450,7 +5477,6 @@ const checks = [
       "packages/agent-runtime-projection/src/routing.ts",
       "packages/agent-runtime-projection/src/runtimeFacts.ts",
       "packages/agent-runtime-projection/src/summary.ts",
-      "packages/agent-runtime-projection/src/subagentStatusEvents.ts",
       "packages/agent-runtime-projection/src/threadItems.ts",
       "packages/agent-runtime-projection/src/toolEvents.ts",
       "packages/agent-runtime-projection/src/readModel.ts",
@@ -4478,8 +5504,6 @@ const checks = [
       "buildAgentUiProjectionBase",
       "buildAgentUiThreadStartedEvent",
       "buildAgentUiRuntimeStatusEvent",
-      "buildAgentUiRuntimeTeamChangedEvent",
-      "buildAgentUiSubagentStatusChangedEvents",
       "buildAgentUiRunStartedEvent",
       "buildAgentUiRunFinishedEvent",
       "buildAgentUiRunFailedEvent",
@@ -4488,7 +5512,6 @@ const checks = [
       "buildAgentUiThreadItemBase",
       "buildAgentUiThreadItemActionEvent",
       "buildAgentUiThreadItemSubagentActivityEvent",
-      "buildAgentUiThreadItemSubagentWorkerNotificationEvent",
       "buildAgentUiThreadItemEvent",
       "buildAgentUiToolStartEvents",
       "buildAgentUiToolEndEvent",
@@ -4524,6 +5547,7 @@ const checks = [
       "new WebSocket",
       "fetch(",
       "XMLHttpRequest",
+      "buildAgentUiThreadItemSubagentWorkerNotificationEvent",
     ],
   },
   {
@@ -4697,6 +5721,7 @@ const checks = [
       'surface: "hitl"',
       "control: ",
     ],
+    absentSnippets: ["buildAgentUiRuntimeTeamChangedEvent"],
   },
   {
     name: "Renderer Agent UI runtime lifecycle projection delegates lifecycle builders to standard projection package",
@@ -4729,8 +5754,10 @@ const checks = [
       "permissionProfileKeys: event.task_profile.permissionProfileKeys ?? []",
     ],
     absentSnippets: [
+      "buildAgentUiRuntimeTeamChangedEvent",
       "buildAgentUiProjectionBase",
       "buildTeamRuntimeFacts",
+      'type: "team.changed"',
       "compactProjectionFields",
       "metadataKeys",
       "normalizeRuntimePhaseFromRuntimeStatusPhase",
@@ -4755,6 +5782,21 @@ const checks = [
       "runtimeStatus:",
       "latestTurnStatus:",
       "checkpointCount:",
+    ],
+  },
+  {
+    name: "Renderer Team control projection emits task and handoff facts only",
+    file: "src/components/agent/chat/projection/teamControlProjection.ts",
+    snippets: [
+      "buildAgentUiTeamControlProjectionEvents",
+      'type: "task.changed"',
+      'type: "agent.handoff"',
+      "sourceType: \"team_control_projection\"",
+    ],
+    absentSnippets: [
+      'type: "team.changed"',
+      'owner: "team"',
+      'scope: "team"',
     ],
   },
   {
@@ -4790,64 +5832,6 @@ const checks = [
       "declaredOnly:",
       "turnGating:",
       "sourcePhase:",
-    ],
-  },
-  {
-    name: "Renderer Agent UI runtime team status projection delegates team builder to standard projection package",
-    file: "src/components/agent/chat/projection/subagentStatusProjection.ts",
-    snippets: [
-      'from "@embercloud/agent-runtime-projection"',
-      "buildAgentUiRuntimeTeamChangedEvent",
-      "return buildAgentUiRuntimeTeamChangedEvent(",
-      "sourceType: event.type",
-      "phase: event.status.phase",
-      "title: event.status.title",
-      "detail: event.status.detail",
-      "metadata: event.status.metadata",
-    ],
-    absentSnippets: [
-      "buildTeamRuntimeFacts",
-      "hasTeamRuntimeMetadata",
-      "normalizeRuntimeStatusFromRuntimePhase",
-      "normalizeTeamRuntimePhase",
-      "metadata?.concurrency_phase",
-      "metadata?.concurrency_scope",
-      'teamEvent: "runtime_status_changed"',
-      "detailPreview: truncateText(event.status.detail)",
-    ],
-  },
-  {
-    name: "Renderer Agent UI subagent status projection delegates composite team events to standard projection package",
-    file: "src/components/agent/chat/projection/subagentStatusProjection.ts",
-    snippets: [
-      'from "@embercloud/agent-runtime-projection"',
-      "buildAgentUiSubagentStatusChangedEvents",
-      "return buildAgentUiSubagentStatusChangedEvents(",
-      "sourceType: event.type",
-      "session_id: event.session_id",
-      "root_session_id: event.root_session_id",
-      "parent_session_id: event.parent_session_id",
-      "status: event.status",
-      "latest_turn_id: event.latest_turn_id",
-      "latest_turn_status: event.latest_turn_status",
-      "usage: event.usage",
-      "result_ref: event.result_ref",
-    ],
-    absentSnippets: [
-      "buildSubagentProjectionPayload",
-      "buildSubagentRuntimeFacts",
-      "buildWorkerUsageProjection",
-      "isSubagentSpawnStatus",
-      "isSubagentTerminalStatus",
-      "resolveSubagentStatusControl",
-      "resolveSubagentStatusPhase",
-      "normalizeHandoffProjectionPhase",
-      'type: "agent.handoff"',
-      'type: "worker.notification"',
-      'teamEvent: "teammate_status_changed"',
-      'handoffEvent: "specialist_handoff"',
-      "workerNotificationId:",
-      "transcriptRef:",
     ],
   },
   {
@@ -5029,11 +6013,9 @@ const checks = [
       'from "@embercloud/agent-runtime-projection"',
       "buildAgentUiThreadItemBase as buildStandardThreadItemBase",
       "buildAgentUiThreadItemEvent",
-      "buildAgentUiThreadItemSubagentWorkerNotificationEvent",
       "extractAgentUiTaskOwnerChangeProjection",
       "return buildStandardThreadItemBase(sourceType, item, context)",
       "return buildAgentUiThreadItemEvent(sourceType, item, context)",
-      "buildAgentUiThreadItemSubagentWorkerNotificationEvent(",
       "const taskOwnerProjection = extractAgentUiTaskOwnerChangeProjection(",
       "extractPlanApprovalProjection(item.metadata)",
       "buildTaskOwnerChangeProjectionEvents(sourceType, item, context)",
@@ -5065,6 +6047,7 @@ const checks = [
       'type: "action.resolved"',
       'type: "agent.changed"',
       'type: "worker.notification"',
+      "buildAgentUiThreadItemSubagentWorkerNotificationEvent",
       'owner: "tool"',
       'scope: "tool_call"',
       'scope: "action_request"',
@@ -5224,18 +6207,18 @@ const checks = [
     ],
   },
   {
-    name: "Agent App run projection panel uses the standard projection view only",
+    name: "Plugin run projection panel uses the standard projection view only",
     files: [
-      "src/features/agent-app/runtime/agentRunProjectionState.ts",
-      "src/features/agent-app/ui/AgentRunProjectionPanel.tsx",
-      "src/features/agent-app/ui/AgentRunProjectionPanel.test.tsx",
-      "src/features/agent-app/ui/AgentAppRuntimePage.agentRun.test.tsx",
-      "src/features/agent-app/ui/AgentRunHostDrawer.tsx",
+      "src/features/plugin/runtime/agentRunProjectionState.ts",
+      "src/features/plugin/ui/AgentRunProjectionPanel.tsx",
+      "src/features/plugin/ui/AgentRunProjectionPanel.test.tsx",
+      "src/features/plugin/ui/PluginRuntimePage.agentRun.test.tsx",
+      "src/features/plugin/ui/AgentRunHostDrawer.tsx",
     ],
     snippets: [
       'import { AgentUiProjectionView } from "@embercloud/agent-runtime-ui"',
       'import { projectAgentUiState } from "@embercloud/agent-runtime-projection"',
-      "buildAgentAppStandardRuntimeEvents",
+      "buildPluginStandardRuntimeEvents",
       "return projectAgentUiState({ executionEvents })",
       "buildSharedProjectionInput(run, t)",
       "buildAgentRunStandardProjectionStateFromState(sharedProjectionInput)",
@@ -5269,10 +6252,10 @@ const checks = [
   {
     name: "Agent UI Runtime standard document is the current package and host integration fact source",
     files: [
-      "docs/aiprompts/agent-ui-runtime-standard.md",
-      "docs/aiprompts/README.md",
-      "docs/aiprompts/agent-protocol-standards-map.md",
-      "docs/prd/next/implementation-roadmap.md",
+      "internal/aiprompts/agent-ui-runtime-standard.md",
+      "internal/aiprompts/README.md",
+      "internal/aiprompts/agent-protocol-standards-map.md",
+      "internal/prd/next/implementation-roadmap.md",
       "packages/agent-runtime-projection/README.md",
     ],
     snippets: [
@@ -5401,7 +6384,6 @@ const checks = [
       "exportAgentRuntimeEvidencePack 应走 App Server evidence/export，不回退 legacy command",
       "createExportClient({",
       "appServerClient,",
-      "invokeCommand,",
       'client.exportAgentRuntimeEvidencePack(" session-1 ")',
       "workspace_root",
       "appServerClient.exportEvidence",
@@ -5409,7 +6391,6 @@ const checks = [
       "includeEvents: true",
       "includeArtifacts: true",
       "includeEvidencePack: true",
-      "expect(invokeCommand).not.toHaveBeenCalled()",
       "缺少 sessionId 时 evidence export 应 fail closed",
       "sessionId is required to export App Server evidence",
     ],
@@ -5427,7 +6408,6 @@ const checks = [
       "appServerClient.exportReplayCase",
       "appServerClient.exportReviewDecisionTemplate",
       "appServerClient.saveReviewDecision",
-      "expect(invokeCommand).not.toHaveBeenCalled()",
       "agentSession/analysisHandoff/export did not return runtime analysis handoff",
       "agentSession/replayCase/export did not return runtime replay case",
       "agentSession/reviewDecisionTemplate/export did not return runtime review decision template",
@@ -5456,7 +6436,7 @@ const checks = [
       "relative_path",
       "absolute_path",
       "Windows 路径也应能从 packAbsoluteRoot 推导 workspace_root",
-      "C:\\\\work\\\\.ember\\\\harness\\\\sessions\\\\session-1\\\\evidence",
+      "C:\\\\work\\\\.lime\\\\harness\\\\sessions\\\\session-1\\\\evidence",
       'expect(pack.workspace_root).toBe("C:\\\\work")',
       "缺少 evidencePack 时应 fail closed",
       "App Server evidence/export did not return evidencePack",
@@ -5487,7 +6467,7 @@ const checks = [
       "appServerClient.promoteAgentSessionQueuedTurn",
       "appServerClient.replayAction",
       "appServerClient.respondAction",
-      'rejects.toThrow("App Server turn lifecycle is unavailable")',
+      "App Server turn lifecycle is unavailable; Agent Runtime requires the App Server current lifecycle channel.",
       "expect(invokeCommand).not.toHaveBeenCalled()",
     ],
     absentSnippets: [
@@ -5503,7 +6483,6 @@ const checks = [
     snippets: [
       'expect(call?.[0]).toBe("app_server_handle_json_lines")',
       "APP_SERVER_METHOD_AGENT_SESSION_TURN_START",
-      "APP_SERVER_METHOD_AGENT_SESSION_TURN_CANCEL",
       "APP_SERVER_METHOD_AGENT_SESSION_UPDATE",
       "APP_SERVER_METHOD_AGENT_SESSION_ACTION_REPLAY",
       "APP_SERVER_METHOD_AGENT_SESSION_ACTION_RESPOND",
@@ -5515,11 +6494,10 @@ const checks = [
       "respondAgentRuntimeAction 应经 Electron IPC 调 App Server action/respond",
       "resumeAgentRuntimeThread 应经 Electron IPC 调 App Server thread/resume",
       "promoteAgentRuntimeQueuedTurn 应经 Electron IPC 调 App Server queuedTurn/promote",
-      "interruptAgentRuntimeTurn 与 updateAgentRuntimeSession 应经 Electron IPC 调 App Server",
+      "updateAgentRuntimeSession 应经 Electron IPC 调 App Server",
       "exportAgentRuntimeEvidencePack 应经 Electron IPC 调 App Server evidence/export",
       "mockIsElectronHostCommandAvailable.mockReturnValue(true)",
       "expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_TURN_START",
-      "expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_TURN_CANCEL",
       "expectAppServerRequest(2, APP_SERVER_METHOD_AGENT_SESSION_UPDATE",
       "expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_ACTION_REPLAY",
       "expectAppServerRequest(1, APP_SERVER_METHOD_AGENT_SESSION_ACTION_RESPOND",
@@ -5562,29 +6540,29 @@ const checks = [
     ],
   },
   {
-    name: "Agent App runtime startTask exposes and forwards Claw turnConfig parity",
+    name: "Plugin runtime startTask exposes and forwards typed RuntimeRequest parity",
     files: [
-      "src/lib/api/agentAppRuntime.ts",
-      "src/features/agent-app/types.ts",
-      "src/features/agent-app/runtime/agentRuntimeCapabilityHost.ts",
-      "src/features/agent-app/runtime/agentRuntimeCapabilityHost.test.ts",
+      "src/lib/api/pluginRuntime.ts",
+      "src/features/plugin/types.ts",
+      "src/features/plugin/runtime/agentRuntimeCapabilityHost.ts",
+      "src/features/plugin/runtime/agentRuntimeCapabilityHost.test.ts",
     ],
     snippets: [
-      "AgentTurnConfigSnapshot",
-      "turnConfig?: AgentTurnConfigSnapshot;",
-      'turnConfig?: AgentAppRuntimeStartTaskRequest["turnConfig"];',
-      "turnConfig: runtimeRequest.turnConfig",
-      "turnConfig: {",
-      "provider_config: {",
-      'reasoning_effort: "high"',
-      "thinking_enabled: true",
-      'approval_policy: "on-request"',
-      'sandbox_policy: "workspace-write"',
-      'execution_strategy: "react"',
-      "web_search: true",
-      'search_mode: "required"',
-      'system_prompt: "保留 Agent App 的 Claw 运行时提示"',
-      "turnConfig: expect.objectContaining({",
+      "runtimeRequest?: RuntimeRequest;",
+      'runtimeRequest?: PluginRuntimeStartTaskRequest["runtimeRequest"];',
+      "const turnRuntimeRequest = {",
+      "runtimeRequest: turnRuntimeRequest",
+      "runtimeRequest: {",
+      "providerConfig: {",
+      'reasoningEffort: "high"',
+      "thinkingEnabled: true",
+      'approvalPolicy: "on-request"',
+      'sandboxPolicy: "workspace-write"',
+      'executionStrategy: "react"',
+      "webSearch: true",
+      'searchMode: "required"',
+      'systemPrompt: "保留 Plugin 的 Claw 运行时提示"',
+      "runtimeRequest: expect.objectContaining({",
     ],
     absentSnippets: [
       "AGENT_RUNTIME_COMMANDS.submitTurn",
@@ -5593,39 +6571,42 @@ const checks = [
     ],
   },
   {
-    name: "Agent App runtime standard client adapter uses App Server AgentRuntimeClient current methods",
+    name: "Plugin runtime standard client adapter uses App Server AgentRuntimeClient current methods",
     files: [
-      "src/features/agent-app/runtime/agentRuntimeCapabilityApi.ts",
-      "src/features/agent-app/runtime/agentRuntimeClientApi.ts",
-      "src/features/agent-app/runtime/agentRuntimeClientApi.test.ts",
+      "src/features/plugin/runtime/agentRuntimeCapabilityApi.ts",
+      "src/features/plugin/runtime/agentRuntimeClientApi.ts",
+      "src/features/plugin/runtime/agentRuntimeClientApi.test.ts",
     ],
     snippets: [
       "@embercloud/agent-runtime-client",
-      "createFailClosedAgentAppRuntimeCapabilityApi",
-      "createAgentAppRuntimeCapabilityApiFromClient",
+      "createFailClosedPluginRuntimeCapabilityApi",
+      "createPluginRuntimeCapabilityApiFromClient",
       '"startTurn" | "readThread" | "cancelTurn" | "respondAction"',
       "runtimeClient.startTurn(startParams)",
       "runtimeClient.readThread({",
       "runtimeClient.cancelTurn({",
       "runtimeClient.respondAction(",
       "AgentRuntimeClient adapter requires an existing sessionId",
-      "hostOptions: {",
-      "asterChatRequest",
-      "turn_config: turnConfig",
-      "threadReadFromAgentSessionRead(response)",
-      "detail?.thread_read",
-      "detail?.threadRead",
+      "runtimeRequest: mergePluginRuntimeRequest(",
+      "function mergePluginRuntimeRequest(",
+      "const thread = await readCanonicalThread(runtimeClient, threadId)",
+      "function activeThreadTurn(thread:",
+      'turn.status === "inProgress" && turn.queue?.state !== "queued"',
+      "function readCanonicalThread(",
+      "thread.threadId !== threadId",
+      "turn.threadId !== thread.threadId",
+      "Plugin task cancel requires a canonical threadId",
       "requires a standard AgentRuntimeClient or explicit compat api",
-      "把 Agent App startTask 投影到标准 AgentRuntimeClient.startTurn",
+      "把 Plugin startTask 投影到标准 AgentRuntimeClient.startTurn",
       "没有 sessionId 时 fail closed，不伪造独立 task 协议",
     ],
     absentSnippets: [
-      "defaultAgentAppRuntimeCapabilityApi",
+      "defaultPluginRuntimeCapabilityApi",
       "safeInvoke",
-      "agent_app_runtime_start_task",
-      "agent_app_runtime_get_task",
-      "agent_app_runtime_cancel_task",
-      "agent_app_runtime_submit_host_response",
+      "plugin_runtime_start_task",
+      "plugin_runtime_get_task",
+      "plugin_runtime_cancel_task",
+      "plugin_runtime_submit_host_response",
       "agent_runtime_submit_turn",
       "agent_runtime_get_thread_read",
       "agent_runtime_interrupt_turn",
@@ -5655,11 +6636,11 @@ const checks = [
       "type AgentRuntimeLifecycleClient",
       "type AgentRuntimeSessionGateway",
       '"startTurn" | "readThread" | "cancelTurn" | "respondAction"',
-      "readSession(",
-      "callAgentRuntimeSessionGateway(gateway.readSession, params, options)",
+      "readThread:",
+      "callAgentRuntimeSessionGateway(gateway.readThread, params, options)",
       "if (options === undefined)",
-      "createAgentRuntimeClientFromSessionGateway adapts an existing session gateway",
-      "readSession",
+      "createAgentRuntimeClientFromSessionGateway(...)` 只适配现有 session gateway",
+      "readThread",
       "timeoutMs: 120_000",
     ],
     absentSnippets: [
@@ -5667,39 +6648,39 @@ const checks = [
       "mockPriorityCommands",
       "defaultMocks",
       "invokeMockOnly",
-      "agent_app_runtime_",
+      "plugin_runtime_",
       "agent_runtime_submit_turn",
       "fetch(",
       "XMLHttpRequest",
     ],
   },
   {
-    name: "Agent App capability host accepts standard AgentRuntimeClient injection",
+    name: "Plugin capability host accepts standard AgentRuntimeClient injection",
     files: [
-      "src/features/agent-app/types.ts",
-      "src/features/agent-app/types.d.ts",
-      "src/features/agent-app/runtime/agentRuntimeCapabilityApi.ts",
-      "src/features/agent-app/runtime/agentRuntimeCapabilityHost.ts",
-      "src/features/agent-app/runtime/agentRuntimeCapabilityHost.test.ts",
+      "src/features/plugin/types.ts",
+      "src/features/plugin/types.d.ts",
+      "src/features/plugin/runtime/agentRuntimeCapabilityApi.ts",
+      "src/features/plugin/runtime/agentRuntimeCapabilityHost.ts",
+      "src/features/plugin/runtime/agentRuntimeCapabilityHost.test.ts",
     ],
     snippets: [
       'import type { AgentRuntimeClient } from "@embercloud/agent-runtime-client"',
       "runtimeClient?: Pick<",
       '"startTurn" | "readThread" | "cancelTurn" | "respondAction"',
-      "createAgentAppRuntimeCapabilityApiFromClient(options.runtimeClient",
-      "createFailClosedAgentAppRuntimeCapabilityApi()",
+      "createPluginRuntimeCapabilityApiFromClient(options.runtimeClient",
+      "createFailClosedPluginRuntimeCapabilityApi()",
       "requires a standard AgentRuntimeClient or explicit compat api",
       "sessionId?: string;",
       "workspaceId?: string;",
       "没有标准 runtime client 或显式 compat api 时不再隐式回退旧 facade",
-      "可以直接注入标准 AgentRuntimeClient 驱动 ember.agent task",
+      "可以直接注入标准 AgentRuntimeClient 驱动 lime.agent task",
       'sessionId: "session-standard"',
-      "provider_config: {",
-      'model_name: "claude-sonnet-4"',
+      "providerConfig: {",
+      'modelName: "claude-sonnet-4"',
       "artifact:created",
     ],
     absentSnippets: [
-      "defaultAgentAppRuntimeCapabilityApi",
+      "defaultPluginRuntimeCapabilityApi",
       "AGENT_RUNTIME_COMMANDS.submitTurn",
       "agent_runtime_submit_turn",
       "agent_runtime_get_thread_read",
@@ -5709,66 +6690,69 @@ const checks = [
     ],
   },
   {
-    name: "Agent App runtime page defaults to App Server backed standard runtime client",
+    name: "Plugin runtime page defaults to App Server backed standard runtime client",
     files: [
-      "src/features/agent-app/runtime/agentRuntimeAppServerClient.ts",
-      "src/features/agent-app/runtime/agentRuntimeAppServerClient.test.ts",
-      "src/features/agent-app/ui/AgentAppRuntimePage.tsx",
-      "src/features/agent-app/ui/AgentAppRuntimePage.hostBridge.test.tsx",
-      "src/features/agent-app/ui/AgentAppRuntimePage.testFixtures.tsx",
+      "src/features/plugin/runtime/agentRuntimeAppServerClient.ts",
+      "src/features/plugin/runtime/agentRuntimeAppServerClient.test.ts",
+      "src/features/plugin/ui/PluginRuntimePage.tsx",
+      "src/features/plugin/ui/PluginRuntimePage.hostBridge.test.tsx",
+      "src/features/plugin/ui/PluginRuntimePage.testFixtures.tsx",
     ],
     snippets: [
       "@embercloud/agent-runtime-client/sessionGateway",
       "createAgentRuntimeClientFromSessionGateway",
       "type AgentRuntimeLifecycleClient",
       "type AgentRuntimeSessionGateway",
-      "createAgentAppRuntimeClientFromAppServer",
-      "createAgentAppRuntimeSessionResolver",
-      "createDefaultAgentAppRuntimeHostOptions",
+      "createPluginRuntimeClientFromAppServer",
+      "createPluginRuntimeSessionResolver",
+      "createDefaultPluginRuntimeHostOptions",
       "appServerClient.startSession({",
-      'kind: "agent_app.task"',
+      'kind: "plugin.task"',
       "createAgentRuntimeClientFromSessionGateway as",
-      "runtimeClient: createAgentAppRuntimeClientFromAppServer(appServerClient)",
-      "ensureSession: createAgentAppRuntimeSessionResolver(appServerClient)",
-      "...createDefaultAgentAppRuntimeHostOptions()",
-      "app_server_agent_runtime_client",
+      "runtimeClient: createPluginRuntimeClientFromAppServer(appServerClient)",
+      "ensureSession: createPluginRuntimeSessionResolver(appServerClient)",
+      "...createDefaultPluginRuntimeHostOptions()",
+      "app_server_runtime_client",
       "appServerClientMocks.startSession",
       "appServerClientMocks.startTurn",
       "appServerClientMocks.readSession",
       "appServerClientMocks.respondAction",
-      "runtimeApiMocks.startAgentAppRuntimeTask).not.toHaveBeenCalled()",
-      "runtimeApiMocks.getAgentAppRuntimeTask).not.toHaveBeenCalled()",
-      "通过 agentSession/start 为 Agent App 默认宿主创建 current session",
+      "runtimeApiMocks.startPluginRuntimeTask).not.toHaveBeenCalled()",
+      "runtimeApiMocks.getPluginRuntimeTask).not.toHaveBeenCalled()",
+      "通过 agentSession/start 为 Plugin 默认宿主创建 current session",
       "默认 Host options 同时提供 runtime client 与 session resolver，且 session 失败时 fail closed",
     ],
     absentSnippets: [
       "safeInvoke",
-      "agent_app_runtime_start_task",
-      "agent_app_runtime_get_task",
-      "agent_app_runtime_cancel_task",
-      "agent_app_runtime_submit_host_response",
+      "plugin_runtime_start_task",
+      "plugin_runtime_get_task",
+      "plugin_runtime_cancel_task",
+      "plugin_runtime_submit_host_response",
+      "app_server_agent_runtime_client",
       "mockPriorityCommands",
       "defaultMocks",
       "invokeMockOnly",
     ],
   },
   {
-    name: "Agent App runtime task record replays App Server read model tool calls",
+    name: "Plugin runtime task record replays App Server read model tool calls",
     files: [
-      "src/features/agent-app/runtime/agentRuntimeCapabilityHost.ts",
-      "src/features/agent-app/runtime/agentRuntimeCapabilityHost.test.ts",
+      "src/features/plugin/runtime/agentRuntimeCapabilityHost.ts",
+      "src/features/plugin/runtime/agentRuntimeTaskState.ts",
+      "src/features/plugin/runtime/agentRuntimeCapabilityHost.test.ts",
     ],
     snippets: [
       "function readThreadReadToolCalls(",
-      "const nestedThreadRead =",
-      "threadRead.thread_read",
-      "threadRead.threadRead",
-      'readRecordArray(threadRead, "tool_calls")',
-      'readRecordArray(threadRead, "toolCalls")',
-      'readRecordArray(nestedThreadRead, "tool_calls")',
+      "canonicalThreadItems(threadRead)",
+      "function canonicalThreadItems(",
+      "Array.isArray(threadRead.turns)",
+      'type !== "tool"',
+      'type !== "mcpToolCall"',
+      'type !== "collabAgentToolCall"',
+      'readRecordString(payload, "call_id")',
       "function buildRuntimeToolCallReplayEvents(",
       'type: "task:toolCall"',
-      'source: "agent_runtime_tool_call_replay"',
+      'source: "app_server_tool_call_replay"',
       "toolName",
       "outputPreview",
       '"tool.started"',
@@ -5784,6 +6768,12 @@ const checks = [
       "mockPriorityCommands",
       "defaultMocks",
       "invokeMockOnly",
+      "const nestedThreadRead =",
+      "threadRead.thread_read",
+      "threadRead.threadRead",
+      'readRecordArray(threadRead, "tool_calls")',
+      'readRecordArray(threadRead, "toolCalls")',
+      'readRecordArray(nestedThreadRead, "tool_calls")',
     ],
   },
   {
@@ -5815,11 +6805,11 @@ const checks = [
       "无 Electron host 且无 HTTP bridge 时 production invoke fail-closed",
       "测试注册的配置 mock",
       "知识库 legacy 显式 mock 已退场",
-      "工具库存显式 mock 不应返回空壳清单",
-      "工具库存显式 mock 应按 workbench + browser surface 补齐当前工具面",
+      "工具库存 legacy 显式 mock 已退场",
       "显式 mock 入口可返回默认工作区数据已退场",
       "媒体任务 artifact 默认 mock 已退场并 fail closed",
       'invokeMockOnly("agent_runtime_get_tool_inventory"',
+      '未注册命令 "agent_runtime_get_tool_inventory"',
       "expect(mocks.invokeViaHttp).not.toHaveBeenCalled()",
     ],
     absentSnippets: [
@@ -5833,17 +6823,18 @@ const checks = [
     ],
   },
   {
-    name: "Desktop Host default mocks do not fake App Server turn lifecycle",
-    file: "src/lib/desktop-host/agentRuntimeMocks.ts",
+    name: "Desktop Host core no longer loads Agent Runtime default mocks",
+    file: "src/lib/desktop-host/core.ts",
     snippets: [
-      "const createDeprecatedCommandMock",
-      "Mock 不再为旧链路伪造成功结果",
-      "deprecatedAgentCommandMocks",
-      "export const agentRuntimeMocks",
+      "生产 invoke 不再回退 mock",
+      "export async function invokeMockOnly<T = any>",
+      "const defaultMocks = await loadDefaultMocks()",
     ],
     absentSnippets: [
-      "app_server_handle_json_lines",
-      "app_server_drain_events",
+      'import("./agentRuntimeMocks")',
+      'import("./agentRuntimeObjectiveMocks")',
+      "agentRuntime.agentRuntimeMocks",
+      "agentRuntimeObjective.resetAgentRuntimeObjectiveMocks",
       "agent_runtime_submit_turn:",
       "agent_runtime_interrupt_turn:",
       "agent_runtime_respond_action:",
@@ -5851,7 +6842,7 @@ const checks = [
   },
   {
     name: "Frontend integration matrix forbids legacy or mock turn lifecycle evidence",
-    file: "docs/roadmap/appserver/frontend-integration-matrix.md",
+    file: "internal/roadmap/appserver/frontend-integration-matrix.md",
     snippets: [
       "Frontend -> Electron Desktop Host bridge -> App Server JSON-RPC -> RuntimeCore / backend",
       "真正的后端事实源只有一个：App Server JSON-RPC",
@@ -5863,9 +6854,9 @@ const checks = [
       "不能把 initialize smoke 或 hook 测试误判成完整聊天闭环",
       "`agent_runtime_submit_turn` / `agent_runtime_interrupt_turn` / `agent_runtime_respond_action`",
       "只能作为负向回归扫描对象，不能作为 Agent turn lifecycle 的完成证据",
-      "完整 Claw streaming GUI E2E 必须显式传入 `--allow-live-provider` 或 `EMBER_ALLOW_LIVE_PROVIDER_SMOKE=1`",
-      "未授权时 smoke 必须在 `wait-health`、`prepare-runtime`、`aster_agent_init`、`modelProvider/list`、`modelProvider/testChat` 之前 fail closed",
-      "不能用 mock、无模型探针或 Provider 自动探测替代真实业务闭环",
+      "`claw-chat-ready-streaming` 是用户显式发起的 live E2E 入口，不再要求 `--allow-live-provider` 二次授权",
+      "证明 `WebSearch` / `WebFetch` 同一 turn 的真实工具事件与 read model 输出",
+      "不能用 mock、无模型探针、Provider 自动探测或 renderer fallback 替代真实业务闭环",
       "`exportAgentRuntimeEvidencePack(...)` 已通过 `AppServerClient.exportEvidence(...) -> evidence/export` 进入 App Server current 主链",
       "handoff bundle / replay case / analysis handoff / review decision template / save review decision 已分别通过",
       "`exportAgentRuntimeEvidencePack -> AppServerClient.exportEvidence -> evidence/export` 已接入",
@@ -5904,7 +6895,7 @@ const checks = [
   },
   {
     name: "Execution plan records Agent turn lifecycle as current-only after P3.122",
-    file: "docs/exec-plans/app-server-implementation-plan.md",
+    file: "internal/exec-plans/app-server-implementation-plan.md",
     snippets: [
       "P3.135 Agent turn lifecycle current-only 文档 / 契约守卫",
       "该诊断已由 P3.122 之后的 current-only 改造收口",
@@ -5920,20 +6911,23 @@ const checks = [
   },
   {
     name: "Execution plan records production mock and live-provider smoke gates",
-    file: "docs/exec-plans/app-server-implementation-plan.md",
+    file: "internal/exec-plans/app-server-implementation-plan.md",
     snippets: [
       "P3.137 production mock / live-provider gate 收口",
       "生产不能 mock，只有测试才 mock",
       "`scripts/check-command-contracts.mjs` 的生产 mock-only 扫描已覆盖 `src / electron / packages`",
       "前端命令统计仍只扫描 `src`",
-      "完整 Claw streaming GUI E2E 必须显式传入 `--allow-live-provider` 或 `EMBER_ALLOW_LIVE_PROVIDER_SMOKE=1`",
-      "未授权 gate 实测在 `wait-health`、`prepare-runtime` 和 Provider 探测前 fail closed",
-      "本轮未运行带 `--allow-live-provider` 的真实模型调用",
+      "P3.308 Claw live E2E 二次授权 gate 清理",
+      "`claw-chat-ready-streaming` 是用户显式发起的 live Provider / WebSearch-WebFetch E2E 入口",
+      "不再要求 `--allow-live-provider` 二次授权",
+      "P3.316 Claw live E2E 二次授权残留清理",
+      "P3.316 live E2E 自动选型修正",
+      "历史早期 P3.137/P3.194/P3.220 等记录只作为 historical evidence，不再作为 current 执行指令",
     ],
   },
   {
     name: "Execution plan records evidence pack export gateway as App Server current",
-    file: "docs/exec-plans/app-server-implementation-plan.md",
+    file: "internal/exec-plans/app-server-implementation-plan.md",
     snippets: [
       "P3.138 evidence pack UI gateway current 化",
       "`exportAgentRuntimeEvidencePack(sessionId)` 现在直接调用 `AppServerClient.exportEvidence({ sessionId, includeEvents: true, includeArtifacts: true, includeEvidencePack: true })`",
@@ -5977,6 +6971,8 @@ const checks = [
       "summary.appServerEvidence =",
       "appServerTurnStartSeen",
       "appServerTurnCancelSeen",
+      "longTurnFastCompleteAccepted",
+      "longTurnCanBeInterrupted",
       "appServerSessionReadSeen",
       "appServerEventSeen",
       "appServerSessionReadAfterEventSeen",
@@ -5984,7 +6980,8 @@ const checks = [
       "readAfterEvent: appServerReadAfterEvent",
       "interruptedTurnCanceled",
       "summary.assertions.appServerTurnStartSeen &&",
-      "summary.assertions.appServerTurnCancelSeen &&",
+      "(summary.assertions.longTurnCanBeInterrupted ||",
+      "summary.assertions.longTurnFastCompleteAccepted) &&",
       "summary.assertions.appServerSessionReadSeen &&",
       "summary.assertions.appServerEventSeen &&",
       "summary.assertions.appServerSessionReadAfterEventSeen &&",
@@ -6001,26 +6998,33 @@ const checks = [
     ],
   },
   {
-    name: "Claw chat streaming smoke gates live provider before runtime probes",
+    name: "Claw chat streaming smoke is explicit live E2E without duplicate provider gate",
     file: "scripts/claw-chat-ready-streaming-smoke.mjs",
     snippets: [
-      'import {\n  assertLiveProviderSmokeAllowed,\n  liveProviderSmokeAllowed,\n} from "./lib/live-provider-smoke-gate.mjs"',
-      "allowLiveProvider: liveProviderSmokeAllowed()",
-      "assertLiveProviderSmokeAllowed({",
-      'scriptName: "smoke:claw-chat-ready-streaming"',
-      "--allow-live-provider",
       'logStage("wait-health")',
       'logStage("prepare-runtime")',
-      '"aster_agent_init"',
       '"modelProvider/list"',
       '"modelProvider/testChat"',
+      "LIVE_WEB_TOOL_PROMPT",
+      "REQUIRED_LIVE_WEB_TOOL_NAMES",
+      "function modelLooksLightweight(",
+      "function modelLooksExpensive(",
+      "function modelLooksToolReliable(",
+      "modelLooksToolReliable(value)",
+      "modelLooksLightweight(model)",
+      "modelLooksExpensive(model)",
+      "modelPenalty",
+      "@搜索 关键词:联网工具验证",
+      "webSearch=true",
+      'searchMode="required"',
+      "liveWebExplicitSearchRequired",
     ],
-    orderedSnippets: [
+    absentSnippets: [
+      'from "./lib/live-provider-smoke-gate.mjs"',
       "assertLiveProviderSmokeAllowed({",
-      'logStage("wait-health")',
-      'logStage("prepare-runtime")',
-      '"aster_agent_init"',
-      "APP_SERVER_METHOD_MODEL_PROVIDER_LIST",
+      "liveProviderSmokeAllowed(",
+      "allowLiveProvider",
+      "--allow-live-provider",
     ],
   },
   {
@@ -6045,7 +7049,7 @@ const checks = [
     file: "electron/main.ts",
     snippets: [
       "function normalizeDeepLinkUrl(",
-      'trimmed.startsWith("ember://")',
+      'trimmed.startsWith("lime://")',
       "function collectDeepLinkUrls(",
       "function recordDeepLinkUrls(",
       "recordDeepLinkUrls(collectDeepLinkUrls(process.argv))",
@@ -6054,7 +7058,7 @@ const checks = [
       'app.setPath("userData", resolvedUserDataDir)',
     ],
     absentSnippets: [
-      'const url = argv.find((arg) => arg.startsWith("ember://"))',
+      'const url = argv.find((arg) => arg.startsWith("lime://"))',
       "handle_deep_link",
       "handle_open_deep_link",
     ],
@@ -6073,7 +7077,7 @@ const checks = [
       '"send_connect_callback"',
       '"list_relay_providers"',
       '"refresh_relay_registry"',
-      "window.__EMBER_ELECTRON__ === true",
+      "window.__LIME_ELECTRON__ === true",
       "window.electronAPI?.deepLink?.getCurrent",
       "await window.electronAPI.deepLink.getCurrent()",
       'args: ["--use-mock-keychain", ".", options.deepLinkUrl]',
@@ -6105,10 +7109,10 @@ const checks = [
       "XDG_DATA_HOME: xdgDataHome",
       "APPDATA: appData",
       "LOCALAPPDATA: localAppData",
-      "EMBER_ASTER_ROOT: asterRoot",
+      "LIME_AGENT_RUNTIME_ROOT: agentRoot",
       "ELECTRON_E2E_USER_DATA_DIR: tmpUserDataDir",
       'args: ["--use-mock-keychain", ".", options.deepLinkUrl]',
-      "EMBER_ELECTRON_E2E",
+      "LIME_ELECTRON_E2E",
       "callbackNetworkDeliveryVerified: false",
       "await clickConfirm(page)",
       "waitForSaveEvidence(page, options)",
@@ -6150,7 +7154,7 @@ const checks = [
       '"send_connect_callback"',
       '"list_relay_providers"',
       '"refresh_relay_registry"',
-      "window.__EMBER_ELECTRON__ === true",
+      "window.__LIME_ELECTRON__ === true",
       "window.electronAPI?.deepLink?.getCurrent",
       "await window.electronAPI.deepLink.getCurrent()",
       "websiteOpenBannerVisible",
@@ -6163,10 +7167,10 @@ const checks = [
       "XDG_DATA_HOME: xdgDataHome",
       "APPDATA: appData",
       "LOCALAPPDATA: localAppData",
-      "EMBER_ASTER_ROOT: asterRoot",
+      "LIME_AGENT_RUNTIME_ROOT: agentRoot",
       "ELECTRON_E2E_USER_DATA_DIR: tmpUserDataDir",
       'args: ["--use-mock-keychain", ".", options.deepLinkUrl]',
-      "EMBER_ELECTRON_E2E",
+      "LIME_ELECTRON_E2E",
     ],
     absentSnippets: [
       "invokeViaHttp",
@@ -6178,6 +7182,50 @@ const checks = [
       "invokeMockOnly",
       "saveConnectRelayApiKey",
       "sendConnectCallback",
+    ],
+  },
+  {
+    name: "Agent runtime tool surface page smoke uses App Server current runtime methods",
+    file: "scripts/agent-runtime/tool-surface-page-smoke.mjs",
+    snippets: [
+      'const APP_SERVER_HANDLE_JSON_LINES_COMMAND = "app_server_handle_json_lines"',
+      'const APP_SERVER_METHOD_AGENT_SESSION_START = "agentSession/start"',
+      'const APP_SERVER_METHOD_AGENT_SESSION_UPDATE = "agentSession/update"',
+      'const APP_SERVER_METHOD_AGENT_SESSION_READ = "agentSession/read"',
+      'const APP_SERVER_METHOD_AGENT_SESSION_LIST = "agentSession/list"',
+      "const APP_SERVER_METHOD_AGENT_SESSION_TURN_START =",
+      '"agentSession/turn/start"',
+      "const APP_SERVER_METHOD_AGENT_SESSION_ACTION_RESPOND =",
+      '"agentSession/action/respond"',
+      "const APP_SERVER_METHOD_AGENT_SESSION_FILE_CHECKPOINT_LIST =",
+      '"agentSession/fileCheckpoint/list"',
+      "const APP_SERVER_METHOD_AGENT_SESSION_FILE_CHECKPOINT_GET =",
+      '"agentSession/fileCheckpoint/get"',
+      "const APP_SERVER_METHOD_AGENT_SESSION_FILE_CHECKPOINT_DIFF =",
+      '"agentSession/fileCheckpoint/diff"',
+      "const APP_SERVER_METHOD_AGENT_SESSION_FILE_CHECKPOINT_RESTORE =",
+      '"agentSession/fileCheckpoint/restore"',
+      "FORBIDDEN_AGENT_RUNTIME_CURRENT_METHOD_COMMANDS",
+      "legacy_agent_runtime_current_method_command",
+      "hasAppServerMethodCount(",
+      "APP_SERVER_METHOD_AGENT_SESSION_TURN_START",
+      "APP_SERVER_METHOD_AGENT_SESSION_ACTION_RESPOND",
+      "APP_SERVER_METHOD_AGENT_SESSION_TOOL_INVENTORY_READ",
+      "APP_SERVER_METHOD_AGENT_SESSION_FILE_CHECKPOINT_RESTORE",
+      "findForbiddenAgentRuntimeCurrentMethodCommands(finalDiagnostics)",
+    ],
+    absentSnippets: [
+      'command === "agent_runtime_get_thread_read"',
+      'command === "agent_runtime_submit_turn"',
+      'command === "agent_runtime_respond_action"',
+      'command === "agent_runtime_create_session"',
+      'command === "agent_runtime_update_session"',
+      'command === "agent_runtime_list_file_checkpoints"',
+      'command === "agent_runtime_diff_file_checkpoint"',
+      'command === "agent_runtime_restore_file_checkpoint"',
+      '"agent_runtime_get_thread_read")',
+      '"agent_runtime_submit_turn")',
+      '"agent_runtime_respond_action")',
     ],
   },
   {
@@ -6202,9 +7250,9 @@ const checks = [
       "APP_SERVER_METHOD_AGENT_SESSION_FILE_CHECKPOINT_LIST",
       "APP_SERVER_METHOD_AGENT_SESSION_FILE_CHECKPOINT_DIFF",
       "APP_SERVER_METHOD_EVIDENCE_EXPORT",
-      "hostOptions: {",
-      "asterChatRequest",
-      "provider_config: fixture.provider.providerConfig",
+      "function buildRuntimeRequest({",
+      "runtimeRequest,",
+      "providerConfig: fixture.provider.providerConfig",
       "usesAppServerJsonRpcSubmitTurn",
       "usesAppServerSessionRead",
       "usesAppServerEvidenceExport",
@@ -6221,6 +7269,11 @@ const checks = [
       '"agent_runtime_diff_file_checkpoint"',
       "usesCurrentRuntimeSubmitTurn",
       "usesFileCheckpointCompat",
+      "turnConfig",
+      "turn_config",
+      "agentChatRequest",
+      "agent_chat_request",
+      "hostOptions",
     ],
   },
   {
@@ -6230,9 +7283,11 @@ const checks = [
       "export function publishAgentRuntimeEvent",
       "localRuntimeEventListeners",
       "listenLocalAgentRuntimeEvent(",
-      "handler({ payload })",
+      "projectAgentRuntimeSequenceGatePayloads(",
+      "handler({ payload: projectedPayload })",
       "const unlistenLocal = listenLocalAgentRuntimeEvent(",
-      "const unlistenBridge = await listen<TPayload>(eventName, handler)",
+      "const bridgeHandler: AgentRuntimeEventHandler<TPayload> = (event) => {",
+      "const unlistenBridge = await listen(",
       "unlistenLocal();",
       "unlistenBridge();",
     ],
@@ -6242,9 +7297,11 @@ const checks = [
     file: "src/lib/api/agentRuntimeEvents.test.ts",
     snippets: [
       "应把本地发布的 App Server runtime 事件投递给现有 listener",
-      'publishAgentRuntimeEvent("aster_stream_message-1"',
+      'publishAgentRuntimeEvent("agent_stream_message-1"',
       'type: "text_delta"',
       "App Server delta",
+      "应在 Lime runtime event 网关阻断未配对的 App Server tool.result",
+      "tool-orphan",
       "unlisten();",
     ],
   },
@@ -6254,17 +7311,23 @@ const checks = [
     snippets: [
       "currentTurnEventName?: string | null",
       "const normalizedCurrentTurnEventName = currentTurnEventName?.trim() || null",
-      "function shouldRefreshReadModelForTurnEvent(payload: unknown): boolean",
+      "function resolveRefreshRequestForTurnEventPayload(",
+      "function preferRuntimeRefreshRequest(",
+      "deferredRuntimeRefreshRequestRef",
       'case "action_required":',
       'case "action_resolved":',
       'case "artifact_snapshot":',
-      'case "done":',
-      'case "final_done":',
       'case "runtime_status":',
+      'case "turn_completed":',
+      'case "turn_canceled":',
+      'case "turn_failed":',
       "runtime.listenToTurnEvents(",
       "normalizedCurrentTurnEventName",
-      "!shouldRefreshReadModelForTurnEvent(event.payload)",
-      "void refreshSessionDetail(sessionId)",
+      "!refreshRequest",
+      "refreshSessionDetail(targetSessionId, request)",
+      "RUNTIME_SYNC_REFRESH_REQUESTS.sendSettled",
+      "RUNTIME_SYNC_REFRESH_REQUESTS.event",
+      "RUNTIME_SYNC_REFRESH_REQUESTS.terminalEvent",
     ],
   },
   {
@@ -6293,11 +7356,14 @@ const checks = [
       "createThreadClient",
       "listenAgentRuntimeEvent(name, handler)",
       "APP_SERVER_METHOD_AGENT_SESSION_EVENT",
-      'currentTurnEventName: "aster_stream_assistant-1"',
+      'currentTurnEventName: "agent_stream_assistant-1"',
       'type: "runtime_status"',
       'type: "text_delta"',
-      'type: "turn.done"',
-      'expect(refreshSessionDetail).toHaveBeenCalledWith("session-1")',
+      'type: "turn.completed"',
+      'type: "turn.failed"',
+      'type: "turn.canceled"',
+      'terminalRefreshRequest("runtimeSync.event")',
+      'runtimeSyncRefreshRequest("runtimeSync.sendSettled")',
       "expect(refreshSessionDetail).not.toHaveBeenCalled()",
     ],
   },
@@ -6325,7 +7391,7 @@ const checks = [
     name: "Renderer Agent task runtime tests lock turn.completed first-token waiting state",
     file: "src/components/agent/chat/utils/agentTaskRuntime.test.ts",
     snippets: [
-      "turn_completed 早于 final_done 时不应把等待首个输出的助手草稿标记为已完成",
+      "turn_completed 没有可见输出时不应把等待首个输出的助手草稿标记为已完成",
       'phase: "routing"',
       'status: "completed" as const',
       'expect(taskModel?.status).toBe("running")',
@@ -6334,12 +7400,73 @@ const checks = [
     ],
   },
   {
+    name: "Renderer Agent stream handler treats TurnItem lifecycle as tool card source",
+    files: [
+      "src/components/agent/chat/hooks/agentStreamRuntimeHandler.ts",
+      "src/components/agent/chat/hooks/agentStreamRuntimeHandlerActions.ts",
+      "src/components/agent/chat/hooks/agentStreamRuntimeLifecycleEvents.ts",
+      "src/components/agent/chat/hooks/agentStreamLegacyToolEventGate.ts",
+      "src/components/agent/chat/hooks/agentStreamToolItemMessageSync.ts",
+    ],
+    snippets: [
+      "function shouldLetLegacyToolEventUpdateMessageLayer(",
+      "function syncMessageToolCallFromThreadItem(",
+      "function isItemLifecycleToolItem(",
+      'metadata?.source !== "legacy_tool_event"',
+      "return !isItemLifecycleToolItem(item);",
+      "return false;",
+      "getThreadItems?: () => readonly AgentThreadItem[]",
+      "getThreadItems?.() as",
+      'case "item_completed":',
+      "syncMessageToolCallFromThreadItem({",
+      "shouldUpdateLegacyToolMessageLayer(data)",
+      "if (!shouldUpdateMessageLayer) {",
+      "handleToolEndEvent({",
+    ],
+  },
+  {
+    name: "Renderer MessageList gates legacy message.toolCalls behind missing process timeline",
+    files: [
+      "src/components/agent/chat/components/messageListItemProjection.ts",
+      "src/components/agent/chat/components/messageListItemProjection.unit.test.ts",
+      "src/components/agent/chat/components/messageListItemProjection.legacyTools.unit.test.ts",
+    ],
+    snippets: [
+      "const hasProcessTimelineItems = hasTimelineProcessItems(rawTimelineItems)",
+      "const shouldAllowLegacyToolCallsProcess =",
+      "message.toolCalls",
+      "timeline 已有工具 item 时不应再把 legacy message.toolCalls 作为第二套过程源",
+      "无 timeline 时应继续允许 legacy message.toolCalls 作为兼容过程源",
+      "turn_summary",
+      "timeline 过程项未生成 tool_use part 时仍应禁用 legacy message.toolCalls",
+    ],
+    normalizedSnippets: [
+      'constshouldAllowLegacyToolCallsProcess=message.role==="assistant"&&includeInlineProcessFlow&&!hasProcessTimelineItems;',
+      "constconversationToolCalls=shouldAllowLegacyToolCallsProcess?message.toolCalls:undefined;",
+      "preserveToolUseParts:!hasProcessTimelineItems,",
+    ],
+  },
+  {
+    name: "Renderer Agent stream handler tests item terminal sync over legacy tool cards",
+    file: "src/components/agent/chat/hooks/agentStreamRuntimeHandler.unit.test.ts",
+    snippets: [
+      "item_completed 应把已有 legacy 工具卡同步为完成态",
+      'type: "item_completed"',
+      'type: "tool_call"',
+      'source: "item_lifecycle"',
+      "getThreadItems: () => threadItems",
+      'status: "completed"',
+      'output: "权威评测摘要"',
+    ],
+  },
+  {
     name: "Renderer Agent chat passes active stream event into runtime sync",
-    file: "src/components/agent/chat/hooks/useAsterAgentChat.ts",
+    file: "src/components/agent/chat/hooks/useAgentChat.ts",
     snippets: [
       "const currentStreamingEventNameRef = useRef<string | null>(null)",
       "currentTurnEventName: currentStreamingEventNameRef.current",
       "refreshSessionDetail: session.refreshSessionDetail",
+      "getThreadItems: () => session.threadItems",
     ],
   },
   {
@@ -6545,7 +7672,7 @@ const checks = [
   },
   {
     name: "Renderer artifact snapshot metadata carries App Server artifact/read scope",
-    file: "src/components/agent/chat/hooks/agentStreamEventProcessor.ts",
+    file: "src/components/agent/chat/hooks/agentStreamEventProcessorAuxiliary.ts",
     snippets: [
       "activeSessionId,",
       "sessionId: activeSessionId",
@@ -6859,13 +7986,15 @@ const checks = [
       "...resolveRuntimeBackendLaunchOptions(defaultBackendMode)",
       'const APP_SERVER_TURN_START_METHOD = "agentSession/turn/start"',
       "APP_SERVER_BACKEND_TIMEOUT_GRACE_MS",
-      "resolveAppServerRequestTimeoutMs(proxiedMessage.message.method)",
       "process.env.APP_SERVER_BACKEND_TIMEOUT_MS",
       "process.env.APP_SERVER_BACKEND_COMMAND?.trim()",
       "parseBackendArgs(process.env.APP_SERVER_BACKEND_ARGS)",
       "parsePositiveInteger(",
       'normalized === "mock"',
       "throw new Error(",
+    ],
+    normalizedSnippets: [
+      "resolveAppServerRequestTimeoutMs(proxiedMessage.message.method,request.timeoutMs,)",
     ],
     absentSnippets: ['backendMode: "mock"', 'backendMode: "unavailable",'],
   },
@@ -7008,17 +8137,39 @@ const checks = [
     ],
   },
   {
-    name: "Rust runtime options expose host-local and queue metadata",
+    name: "RuntimeCore owns single active turn instead of relying on renderer queue flag",
+    files: [
+      "ember-rs/crates/app-server-protocol/src/jsonrpc_lite.rs",
+      "ember-rs/crates/app-server/src/runtime.rs",
+      "ember-rs/crates/app-server/src/runtime/tests/queue.rs",
+      "ember-rs/crates/app-server/src/runtime/tests/sessions.rs",
+      "ember-rs/crates/app-server/src/lib.rs",
+    ],
+    snippets: [
+      "pub const TURN_ALREADY_ACTIVE",
+      "TurnAlreadyActive",
+      "turn already active",
+      "second_active_turn_without_queue_fails_closed",
+      "turn_start_rejects_parallel_active_turn_without_queue_flag",
+    ],
+  },
+  {
+    name: "Rust runtime options expose Turn envelope and typed RuntimeRequest",
     files: rustProtocolFiles,
     snippets: [
       "pub struct RuntimeOptions",
       "pub event_name: Option<String>",
+      "pub queued_turn_id: Option<String>",
+      "pub runtime_request: Option<RuntimeRequest>",
+      "pub expected_output: Option<serde_json::Value>",
+      "pub structured_output: Option<StructuredOutputContract>",
+      "pub output_schema: Option<serde_json::Value>",
+      "pub struct RuntimeRequest",
       "pub provider_preference: Option<String>",
       "pub model_preference: Option<String>",
       "pub metadata: Option<serde_json::Value>",
-      "pub queued_turn_id: Option<String>",
-      "pub host_options: Option<serde_json::Value>",
     ],
+    absentSnippets: ["pub host_options: Option<serde_json::Value>"],
   },
   {
     name: "TypeScript turn start params mirror Rust wire fields",
@@ -7036,12 +8187,13 @@ const checks = [
     snippets: [
       "export type RuntimeOptions = {",
       "eventName?: string",
-      "providerPreference?: string",
-      "modelPreference?: string",
-      "metadata?: unknown",
       "queuedTurnId?: string",
-      "hostOptions?: unknown",
+      "runtimeRequest?: RuntimeRequest",
+      "expectedOutput?: unknown",
+      "structuredOutput?: StructuredOutputContract",
+      "outputSchema?: unknown",
     ],
+    absentSnippets: ["hostOptions?: unknown"],
   },
   {
     name: "TypeScript request builder test locks caller supplied turnId",
@@ -7051,7 +8203,7 @@ const checks = [
       'assert.equal(turn.params.turnId, "turn_external")',
       "assert.equal(turn.params.queueIfBusy, true)",
       "assert.equal(turn.params.skipPreSubmitResume, true)",
-      'assert.equal(turn.params.runtimeOptions.hostOptions.adapter, "desktop")',
+      'assert.equal(turn.params.runtimeOptions.capabilityId, "draft.write")',
     ],
   },
   {
@@ -7089,12 +8241,42 @@ const checks = [
       "project events into their own renderer state",
     ],
   },
+  {
+    name: "Runtime client readThread stays on canonical thread/read",
+    files: [
+      "packages/app-server-client/src/agent-runtime.ts",
+      "packages/agent-runtime-client/src/runtimeClient.ts",
+      "packages/agent-runtime-client/src/sessionGateway.ts",
+    ],
+    snippets: ["connection.readThread", "gateway.readThread"],
+    absentSnippets: ["readSession", '"agentSession/read"'],
+  },
+  {
+    name: "Runtime client root exports canonical thread read types only",
+    file: "packages/agent-runtime-client/src/index.ts",
+    snippets: ["type ThreadReadParams", "type ThreadReadResponse"],
+    absentSnippets: ["AgentSessionReadParams", "AgentSessionReadResponse"],
+  },
+  {
+    name: "Queued promotion decisions do not read legacy session truth",
+    files: [
+      "src/components/agent/chat/hooks/agentStreamFlowControl.ts",
+      "src/components/agent/chat/hooks/useAgentStream.ts",
+      "src/components/agent/chat/projection/chatRuntimeQueueControlProjection.ts",
+    ],
+    snippets: [
+      "getThreadQueueControl(canonicalThreadId)",
+      "threadId: threadRead?.thread_id",
+      "queuedTurnIdsBeforePromote.has(queuedTurnId.trim())",
+    ],
+    absentSnippets: ["readSession", "getSessionReadModel("],
+  },
 ];
 
 const failures = [];
 
 for (const check of checks) {
-  const files = check.files ?? [check.file];
+  const files = expandContractFiles(check.files ?? [check.file]);
   const location = files.join(", ");
   const existingFiles = files.filter((file) =>
     fs.existsSync(path.join(repoRoot, file)),
@@ -7112,14 +8294,15 @@ for (const check of checks) {
   const content = existingFiles
     .map((file) => fs.readFileSync(path.join(repoRoot, file), "utf8"))
     .join("\n");
+  const requiredContent = requiredContractContent(existingFiles, content);
   for (const snippet of check.snippets) {
-    if (!content.includes(snippet)) {
+    if (!contractContentIncludes(requiredContent, snippet)) {
       failures.push(
         `${check.name}: missing ${JSON.stringify(snippet)} in ${location}`,
       );
     }
   }
-  const normalizedContent = normalizeContractSnippet(content);
+  const normalizedContent = normalizeContractSnippet(requiredContent);
   for (const snippet of check.normalizedSnippets ?? []) {
     if (!normalizedContent.includes(normalizeContractSnippet(snippet))) {
       failures.push(
@@ -7147,13 +8330,30 @@ for (const check of checks) {
   }
 }
 
-checkLegacySessionCompatContracts();
+checkRetiredAgentRuntimeSessionFacadeSurface();
 checkAgentRuntimeThinGatewayContracts();
-checkAgentAppUiRuntimeLifecycleContracts();
+checkPluginUiRuntimeLifecycleContracts();
+checkRetiredAgentRuntimeMockFiles();
+checkRetiredAgentRuntimeCommandManifestFiles();
+checkRetiredAgentRuntimeAdapterFiles();
+checkRetiredAgentRuntimeLegacyQueueSurface();
 checkRetiredSkillExecutionSurfaceFiles();
-checkMcpRuntimeCurrentContracts();
+checkRetiredAgentRuntimeToolInventoryMockFiles();
+checkRetiredAgentRuntimeEvidenceExportFacadeSurface();
+checkRetiredAgentRuntimeThreadReadFacadeSurface();
+checkRetiredAgentRuntimeSubmitTurnFacadeSurface();
+checkRetiredAgentRuntimeInterruptTurnFacadeSurface();
+checkRetiredAgentRuntimeRespondActionFacadeSurface();
+checkActiveAipromptsDoNotPromoteRetiredAgentRuntimeCommands();
+checkScriptsDoNotCallRetiredAgentRuntimeCommands();
+checkMcpRuntimeCurrentContracts({ repoRoot, failures });
+checkWorkspaceRightSurfaceCurrentContracts({ repoRoot, failures });
 checkKnowledgeBuilderRuntimeCurrentContracts();
 checkRetiredAppServerAgentBackendCrate();
+checkRetiredRuntimeCoreMapperSurface();
+checkRetiredAgentRuntimeClientShells();
+checkRetiredToolWireSurface();
+checkCanonicalRendererSequenceGate();
 checkAgentUiPackageCanonicalNaming();
 
 if (failures.length > 0) {
@@ -7164,7 +8364,7 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`[app-server-client-contract] ok (${checks.length + 6} checks)`);
+console.log(`[app-server-client-contract] ok (${checks.length + 12} checks)`);
 
 function checkAgentUiPackageCanonicalNaming() {
   const packageManifestFiles = fs
@@ -7206,287 +8406,6 @@ function checkAgentUiPackageCanonicalNaming() {
   }
 }
 
-function checkMcpRuntimeCurrentContracts() {
-  const requiredByFile = new Map([
-    [
-      "ember-rs/crates/app-server-protocol/src/protocol/v0/method_names.rs",
-      [
-        'pub const METHOD_MCP_SERVER_CREATE: &str = "mcpServer/create"',
-        'pub const METHOD_MCP_SERVER_UPDATE: &str = "mcpServer/update"',
-        'pub const METHOD_MCP_SERVER_DELETE: &str = "mcpServer/delete"',
-        'pub const METHOD_MCP_SERVER_ENABLED_SET: &str = "mcpServer/enabled/set"',
-        'pub const METHOD_MCP_SERVER_IMPORT_FROM_APP: &str = "mcpServer/importFromApp"',
-        'pub const METHOD_MCP_SERVER_SYNC_ALL_TO_LIVE: &str = "mcpServer/syncAllToLive"',
-        'pub const METHOD_MCP_SERVER_START: &str = "mcpServer/start"',
-        'pub const METHOD_MCP_SERVER_STOP: &str = "mcpServer/stop"',
-        'pub const METHOD_MCP_TOOL_LIST_FOR_CONTEXT: &str = "mcpTool/listForContext"',
-        'pub const METHOD_MCP_TOOL_SEARCH: &str = "mcpTool/search"',
-        'pub const METHOD_MCP_TOOL_CALL: &str = "mcpTool/call"',
-        'pub const METHOD_MCP_TOOL_CALL_WITH_CALLER: &str = "mcpTool/callWithCaller"',
-        'pub const METHOD_MCP_PROMPT_GET: &str = "mcpPrompt/get"',
-        'pub const METHOD_MCP_RESOURCE_READ: &str = "mcpResource/read"',
-      ],
-    ],
-    [
-      "ember-rs/crates/app-server-protocol/src/protocol/v0/mcp.rs",
-      [
-        "pub struct McpServerCreateParams",
-        "pub struct McpServerUpdateParams",
-        "pub struct McpServerDeleteParams",
-        "pub struct McpServerEnabledSetParams",
-        "pub struct McpServerImportFromAppParams",
-        "pub struct McpServerImportFromAppResponse",
-        "pub struct McpToolCallParams",
-        "pub struct McpToolCallResponse",
-        "pub struct McpPromptGetParams",
-        "pub struct McpResourceReadParams",
-      ],
-    ],
-    [
-      "ember-rs/crates/app-server/src/runtime.rs",
-      [
-        "pub async fn create_mcp_server(",
-        "pub async fn update_mcp_server(",
-        "pub async fn delete_mcp_server(",
-        "pub async fn set_mcp_server_enabled(",
-        "pub async fn import_mcp_servers_from_app(",
-        "pub async fn sync_all_mcp_servers_to_live(",
-        "pub async fn call_mcp_tool(",
-        "pub async fn call_mcp_tool_with_caller(",
-        "pub async fn get_mcp_prompt(",
-        "pub async fn read_mcp_resource(",
-        "self.app_data_source.create_mcp_server(params).await",
-        "self.app_data_source.update_mcp_server(params).await",
-        "self.app_data_source.delete_mcp_server(params).await",
-        "self.app_data_source.set_mcp_server_enabled(params).await",
-        ".import_mcp_servers_from_app(params)",
-        "self.app_data_source.sync_all_mcp_servers_to_live().await",
-        "self.app_data_source.call_mcp_tool(params).await",
-        "self.app_data_source.call_mcp_tool_with_caller(params).await",
-        "self.app_data_source.get_mcp_prompt(params).await",
-        "self.app_data_source.read_mcp_resource(params).await",
-      ],
-    ],
-    [
-      [
-        "ember-rs/crates/app-server/src/local_data_source.rs",
-        "ember-rs/crates/app-server/src/local_data_source/mcp.rs",
-      ],
-      [
-        "mcp_manager: McpManagerState",
-        "McpClientManager::new(None)",
-        "fn create_mcp_server(",
-        "McpService::add(db, server)",
-        "fn update_mcp_server(",
-        "McpService::update(db, server)",
-        "fn delete_mcp_server(",
-        "McpService::delete(db, &params.id)",
-        "fn set_mcp_server_enabled(",
-        "McpService::toggle_enabled(",
-        "fn import_mcp_servers_from_app(",
-        "McpService::import_from_app(db, &params.app_type)",
-        "fn sync_all_mcp_servers_to_live(",
-        "McpService::sync_all_to_live(db)",
-        "async fn call_mcp_tool(",
-        "async fn call_mcp_tool_with_caller(",
-        ".call_tool(&params.tool_name, params.arguments)",
-        ".call_tool_with_caller(",
-        ".get_prompt(&params.name, params.arguments)",
-        ".read_resource(&params.uri)",
-      ],
-    ],
-    [
-      [
-        "ember-rs/crates/app-server/src/processor/mod.rs",
-        "ember-rs/crates/app-server/src/processor/mcp.rs",
-      ],
-      [
-        "METHOD_MCP_SERVER_CREATE => self.handle_mcp_server_create_impl(params).await",
-        "METHOD_MCP_SERVER_UPDATE => self.handle_mcp_server_update_impl(params).await",
-        "METHOD_MCP_SERVER_DELETE => self.handle_mcp_server_delete_impl(params).await",
-        "METHOD_MCP_SERVER_ENABLED_SET => self.handle_mcp_server_enabled_set_impl(params).await",
-        "METHOD_MCP_SERVER_IMPORT_FROM_APP =>",
-        "METHOD_MCP_SERVER_SYNC_ALL_TO_LIVE =>",
-        "self.handle_mcp_server_sync_all_to_live_impl().await",
-        "METHOD_MCP_TOOL_CALL => self.handle_mcp_tool_call_impl(params).await",
-        "METHOD_MCP_TOOL_CALL_WITH_CALLER =>",
-        "METHOD_MCP_PROMPT_GET => self.handle_mcp_prompt_get_impl(params).await",
-        "METHOD_MCP_RESOURCE_READ => self.handle_mcp_resource_read_impl(params).await",
-        "let params: McpServerCreateParams = parse_params(params)?",
-        "let params: McpServerUpdateParams = parse_params(params)?",
-        "let params: McpServerDeleteParams = parse_params(params)?",
-        "let params: McpServerEnabledSetParams = parse_params(params)?",
-        "let params: McpServerImportFromAppParams = parse_params(params)?",
-        "let params: McpToolCallParams = parse_params(params)?",
-        "let params: McpPromptGetParams = parse_params(params)?",
-        "let params: McpResourceReadParams = parse_params(params)?",
-      ],
-    ],
-    [
-      "packages/app-server-client/src/protocol.ts",
-      [
-        'export const METHOD_MCP_SERVER_CREATE = "mcpServer/create"',
-        'export const METHOD_MCP_SERVER_UPDATE = "mcpServer/update"',
-        'export const METHOD_MCP_SERVER_DELETE = "mcpServer/delete"',
-        'export const METHOD_MCP_SERVER_ENABLED_SET = "mcpServer/enabled/set"',
-        'export const METHOD_MCP_SERVER_IMPORT_FROM_APP = "mcpServer/importFromApp"',
-        'export const METHOD_MCP_SERVER_SYNC_ALL_TO_LIVE = "mcpServer/syncAllToLive"',
-        'export const METHOD_MCP_TOOL_CALL = "mcpTool/call"',
-        'export const METHOD_MCP_TOOL_CALL_WITH_CALLER = "mcpTool/callWithCaller"',
-        'export const METHOD_MCP_PROMPT_GET = "mcpPrompt/get"',
-        'export const METHOD_MCP_RESOURCE_READ = "mcpResource/read"',
-        "export type McpServerCreateParams",
-        "export type McpServerUpdateParams",
-        "export type McpServerDeleteParams",
-        "export type McpServerEnabledSetParams",
-        "export type McpServerImportFromAppParams",
-        "export type McpServerImportFromAppResponse",
-        "export type McpToolCallParams",
-        "export type McpToolCallResponse",
-        "export type McpPromptGetParams",
-        "export type McpResourceReadParams",
-      ],
-    ],
-    [
-      "packages/app-server-client/src/index.ts",
-      [
-        "createMcpServer(params: McpServerCreateParams): JsonRpcRequest",
-        "updateMcpServer(params: McpServerUpdateParams): JsonRpcRequest",
-        "deleteMcpServer(params: McpServerDeleteParams): JsonRpcRequest",
-        "setMcpServerEnabled(params: McpServerEnabledSetParams): JsonRpcRequest",
-        "importMcpServersFromApp(",
-        "syncAllMcpServersToLive(): JsonRpcRequest",
-        "callMcpTool(params: McpToolCallParams): JsonRpcRequest",
-        "callMcpToolWithCaller(",
-        "getMcpPrompt(params: McpPromptGetParams): JsonRpcRequest",
-        "readMcpResource(params: McpResourceReadParams): JsonRpcRequest",
-      ],
-    ],
-    [
-      "src/lib/api/mcp.ts",
-      [
-        'import { AppServerClient } from "@/lib/api/appServer"',
-        "METHOD_MCP_SERVER_CREATE",
-        "METHOD_MCP_SERVER_UPDATE",
-        "METHOD_MCP_SERVER_DELETE",
-        "METHOD_MCP_SERVER_ENABLED_SET",
-        "METHOD_MCP_SERVER_IMPORT_FROM_APP",
-        "METHOD_MCP_SERVER_SYNC_ALL_TO_LIVE",
-        "METHOD_MCP_TOOL_CALL",
-        "METHOD_MCP_TOOL_CALL_WITH_CALLER",
-        "METHOD_MCP_PROMPT_GET",
-        "METHOD_MCP_RESOURCE_READ",
-        "requestMcpAppServer",
-        "addServer: (server: McpServer): Promise<void> =>",
-        "updateServer: (server: McpServer): Promise<void> =>",
-        "deleteServer: (id: string): Promise<void> =>",
-        "toggleServer: (",
-        "importFromApp: (appType: string): Promise<number> =>",
-        "syncAllToLive: (): Promise<void> =>",
-      ],
-    ],
-    [
-      "src/lib/api/mcp.test.ts",
-      [
-        "appServerRequestMock",
-        '"mcpServer/create"',
-        '"mcpServer/update"',
-        '"mcpServer/delete"',
-        '"mcpServer/enabled/set"',
-        '"mcpServer/importFromApp"',
-        '"mcpServer/syncAllToLive"',
-        '"mcpTool/call"',
-        '"mcpTool/callWithCaller"',
-        '"mcpPrompt/get"',
-        '"mcpResource/read"',
-        "expect(safeInvoke).not.toHaveBeenCalled()",
-      ],
-    ],
-    [
-      "src/lib/api/mcp.failClosed.test.ts",
-      [
-        "App Server unavailable",
-        '"mcpServer/create"',
-        '"mcpServer/update"',
-        '"mcpServer/delete"',
-        '"mcpServer/enabled/set"',
-        '"mcpServer/importFromApp"',
-        '"mcpServer/syncAllToLive"',
-        '"mcpTool/call"',
-        '"mcpPrompt/get"',
-        '"mcpResource/read"',
-        "expect(safeInvoke).not.toHaveBeenCalled()",
-      ],
-    ],
-  ]);
-
-  for (const [relativePath, snippets] of requiredByFile.entries()) {
-    const paths = Array.isArray(relativePath) ? relativePath : [relativePath];
-    const content = paths
-      .map((item) => fs.readFileSync(path.join(repoRoot, item), "utf8"))
-      .join("\n");
-    const location = paths.join(", ");
-    for (const snippet of snippets) {
-      if (!content.includes(snippet)) {
-        failures.push(
-          `MCP runtime current contract: missing ${JSON.stringify(
-            snippet,
-          )} in ${location}`,
-        );
-      }
-    }
-  }
-
-  const rendererGateway = fs.readFileSync(
-    path.join(repoRoot, "src/lib/api/mcp.ts"),
-    "utf8",
-  );
-  const forbiddenRendererSnippets = [
-    "safeInvoke",
-    '"mcp_call_tool"',
-    '"mcp_call_tool_with_caller"',
-    '"mcp_get_prompt"',
-    '"mcp_read_resource"',
-    '"mcp_list_tools_for_context"',
-    '"mcp_search_tools"',
-    '"mcp_start_server"',
-    '"mcp_stop_server"',
-    '"add_mcp_server"',
-    '"update_mcp_server"',
-    '"delete_mcp_server"',
-    '"toggle_mcp_server"',
-    '"import_mcp_from_app"',
-    '"sync_all_mcp_to_live"',
-  ];
-  for (const snippet of forbiddenRendererSnippets) {
-    if (rendererGateway.includes(snippet)) {
-      failures.push(
-        `MCP runtime renderer gateway must not use legacy command path: forbidden ${JSON.stringify(
-          snippet,
-        )}`,
-      );
-    }
-  }
-
-  const appServerCurrentContent = [
-    "ember-rs/crates/app-server/src/runtime.rs",
-    "ember-rs/crates/app-server/src/local_data_source.rs",
-    "ember-rs/crates/app-server/src/processor/mod.rs",
-    "ember-rs/crates/app-server/src/processor/mcp.rs",
-  ]
-    .map((file) => fs.readFileSync(path.join(repoRoot, file), "utf8"))
-    .join("\n");
-  for (const snippet of ["mcp_cmd", "ember-rs/src/commands"]) {
-    if (appServerCurrentContent.includes(snippet)) {
-      failures.push(
-        `MCP runtime App Server current path must not reference legacy command cleanup area: forbidden ${JSON.stringify(
-          snippet,
-        )}`,
-      );
-    }
-  }
-}
-
 function checkKnowledgeBuilderRuntimeCurrentContracts() {
   const currentFiles = [
     "ember-rs/crates/app-server/src/runtime.rs",
@@ -7519,6 +8438,430 @@ function checkRetiredAppServerAgentBackendCrate() {
     failures.push(
       `retired App Server agent backend crate must stay deleted: ${retiredCratePath}`,
     );
+  }
+}
+
+function checkRetiredRuntimeCoreMapperSurface() {
+  const retiredPaths = [
+    "ember-rs/crates/runtime-core/src/llm_protocol/mapper",
+    "ember-rs/crates/runtime-core/src/llm_protocol/types.rs",
+    "ember-rs/crates/runtime-core/src/llm_protocol/events.rs",
+    "ember-rs/crates/runtime-core/src/llm_protocol/tests.rs",
+    "ember-rs/crates/model-provider/src/lowering/anthropic_messages.rs",
+    "ember-rs/crates/model-provider/src/lowering/gemini.rs",
+    "ember-rs/crates/model-provider/src/lowering/ollama_chat.rs",
+    "ember-rs/crates/model-provider/src/lowering/openai_chat.rs",
+    "ember-rs/crates/model-provider/src/lowering/openai_responses.rs",
+  ];
+  for (const relativePath of retiredPaths) {
+    if (fs.existsSync(path.join(repoRoot, relativePath))) {
+      failures.push(
+        `retired provider dual-algebra path must stay deleted: ${relativePath}`,
+      );
+    }
+  }
+
+  const protocolFiles = [
+    "ember-rs/crates/runtime-core/src/llm_protocol.rs",
+    "ember-rs/crates/runtime-core/src/lib.rs",
+  ];
+  for (const relativePath of protocolFiles) {
+    const content = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+    for (const snippet of [
+      "mod mapper",
+      "pub use mapper",
+      "build_provider_wire_request",
+      "runtime_event_from_llm_event",
+      "ProviderWireRequest",
+      "LlmRuntimeEvent",
+    ]) {
+      if (content.includes(snippet)) {
+        failures.push(
+          `retired runtime-core mapper export must stay absent: ${relativePath} contains ${JSON.stringify(snippet)}`,
+        );
+      }
+    }
+  }
+
+  const loweringRoot = path.join(
+    repoRoot,
+    "ember-rs/crates/model-provider/src/lowering",
+  );
+  for (const relativePath of walkSourceFiles(loweringRoot)) {
+    if (!relativePath.endsWith(".rs")) {
+      continue;
+    }
+    const content = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+    for (const snippet of [
+      "LlmRequest",
+      "ProviderWireRequest",
+      "build_provider_wire_request",
+      "build_responses_image_generation_wire_request",
+    ]) {
+      if (content.includes(snippet)) {
+        failures.push(
+          `retired provider dual algebra must stay absent: ${relativePath} contains ${JSON.stringify(snippet)}`,
+        );
+      }
+    }
+  }
+}
+
+function checkRetiredToolWireSurface() {
+  const retiredPaths = [
+    "ember-rs/crates/agent/src/agent_tools/workspace_patch_runtime_adapter.rs",
+    "ember-rs/crates/agent/src/agent_tools/tool_lifecycle.rs",
+    "ember-rs/crates/agent/src/agent_tools/tool_orchestrator.rs",
+    "ember-rs/crates/tool-runtime/src/tool_batch.rs",
+    "ember-rs/crates/agent/src/tool_output_truncation.rs",
+    "ember-rs/crates/app-server/src/runtime/tests/external_events/actions.rs",
+    "ember-rs/crates/app-server/src/runtime/tests/external_events/owner_terminal.rs",
+    "ember-rs/crates/app-server/src/runtime/tests/external_events/tool_lifecycle.rs",
+    "ember-rs/crates/app-server/src/backend_event.rs",
+    "ember-rs/crates/tool-runtime/src/collab_agent.rs",
+    "ember-rs/crates/tool-runtime/src/collab_agent/execution.rs",
+    "ember-rs/crates/tool-runtime/src/collab_agent/execution_tests.rs",
+    "ember-rs/crates/tool-runtime/src/collab_agent/projection.rs",
+    "ember-rs/crates/tool-runtime/src/collab_agent/tests.rs",
+    "ember-rs/crates/tool-runtime/src/collab_agent/validation.rs",
+  ];
+  for (const relativePath of retiredPaths) {
+    if (fs.existsSync(path.join(repoRoot, relativePath))) {
+      failures.push(`retired raw tool wire must stay deleted: ${relativePath}`);
+    }
+  }
+
+  for (const relativePath of [
+    "ember-rs/crates/app-server/src/runtime/event_store.rs",
+    "ember-rs/crates/app-server/src/runtime/tests/external_events/canonical_tool_items.rs",
+  ]) {
+    const content = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+    if (!content.includes('"tool_end"')) {
+      failures.push(
+        `retired tool_end alias must stay fail-closed: ${relativePath} has no explicit guard`,
+      );
+    }
+  }
+
+  const currentFiles = [
+    {
+      path: "ember-rs/crates/app-server/src/runtime/event_store.rs",
+      forbidden: [
+        '"tool.started" =>',
+        '"tool.result" =>',
+        '"tool.failed" =>',
+        "is_imported_tool_wire_payload",
+      ],
+    },
+    {
+      path: "ember-rs/crates/app-server/src/lib.rs",
+      forbidden: ["mod backend_event;", "runtime_event_type_from_backend_type"],
+    },
+    {
+      path: "ember-rs/crates/core/src/agent/types.rs",
+      forbidden: [
+        "pub enum StreamEvent {",
+        "pub struct ToolExecutionResult {",
+        "pub struct StreamResult {",
+      ],
+    },
+    {
+      path: "ember-rs/crates/app-server/src/runtime/projection_item_events.rs",
+      forbidden: ['"tool.started"', '"tool.result"', '"tool.failed"'],
+    },
+    {
+      path: "ember-rs/crates/app-server/src/runtime/tests/external_events/canonical_tool_items.rs",
+      forbidden: [
+        "append_external_runtime_events_allows_explicit_import_tool_compat",
+      ],
+    },
+    {
+      path: "ember-rs/crates/app-server/src/runtime_backend/tool_events.rs",
+      forbidden: ['"tool.args"', "runtime_tool_args_event_payload"],
+    },
+    {
+      path: "ember-rs/crates/app-server/src/runtime/tool_item_projection.rs",
+      forbidden: [
+        "LegacyToolEvent",
+        "legacy_tool_event_from_event",
+        "apply_legacy_tool_event",
+        "find_legacy_match_for_current",
+        "find_legacy_index",
+        "from_legacy_event",
+        "merge_legacy_event",
+        "has_current_item",
+        '"tool.started"',
+        '"tool.result"',
+        '"tool.failed"',
+      ],
+    },
+    {
+      path: "ember-rs/crates/app-server/src/runtime/tool_item_projection/extract.rs",
+      forbidden: [
+        "LegacyToolEvent",
+        "legacy_tool_event_from_event",
+        "legacy_tool_id",
+        "is_imported_legacy_tool_event",
+        "normalize_tool_name_for_id",
+        '"tool.started"',
+        '"tool.result"',
+        '"tool.failed"',
+      ],
+    },
+    {
+      path: "ember-rs/crates/app-server/src/runtime/output_refs.rs",
+      forbidden: [
+        "largest_legacy_tool_output",
+        "nested_result_output",
+        "nested_runtime_event_result_output",
+        "truncate_result_output_field",
+        "truncate_runtime_event_result_output_field",
+      ],
+    },
+    {
+      path: "ember-rs/crates/app-server/src/runtime/thread_item_projection.rs",
+      forbidden: ['"tool.started"', '"tool.result"', '"tool.failed"'],
+    },
+    {
+      path: "ember-rs/crates/app-server/src/runtime/tests/coding_events/output_snapshots.rs",
+      forbidden: [
+        '"tool.started"',
+        '"tool.result"',
+        '"tool.failed"',
+        '"tool_end"',
+      ],
+    },
+    {
+      path: "ember-rs/crates/agent/src/agent_tools/mod.rs",
+      forbidden: ["pub mod tool_orchestrator;", "mod tool_lifecycle;"],
+    },
+    {
+      path: "ember-rs/crates/agent/src/lib.rs",
+      forbidden: ["mod tool_output_truncation;"],
+    },
+    {
+      path: "ember-rs/crates/agent/src/protocol.rs",
+      forbidden: ["ToolStart {", "ToolEnd {"],
+    },
+    {
+      path: "ember-rs/crates/tool-runtime/src/lib.rs",
+      forbidden: ["pub mod tool_batch;", "pub mod collab_agent;"],
+    },
+    {
+      path: "ember-rs/crates/agent/src/agent_tools/catalog.rs",
+      forbidden: [
+        'name: "Agent",',
+        'name: "SendMessage",',
+        'name: "TeamCreate",',
+        'name: "TeamDelete",',
+        'name: "ListPeers",',
+        '=> "Agent"',
+        '=> "SendMessage"',
+        '=> "TeamCreate"',
+        '=> "TeamDelete"',
+        '=> "ListPeers"',
+      ],
+    },
+    {
+      path: "ember-rs/crates/core/src/tool_calling.rs",
+      forbidden: [
+        'canonical_name: "Agent",',
+        'canonical_name: "SendMessage",',
+        'canonical_name: "TeamCreate",',
+        'canonical_name: "TeamDelete",',
+        'canonical_name: "ListPeers",',
+      ],
+    },
+    {
+      path: "ember-rs/crates/tool-runtime/src/turn_tool_surface.rs",
+      forbidden: [
+        "SUBAGENT_TEAMMATE_ALLOWED_TOOL_NAMES",
+        "SUBAGENT_ALLOWED_NATIVE_TOOL_NAMES",
+        "SUBAGENT_ALLOWED_COORDINATION_TOOL_NAMES",
+        "runtime_turn_tool_exposure_allows_tool_name(",
+      ],
+    },
+  ];
+  for (const currentFile of currentFiles) {
+    const content = fs.readFileSync(
+      path.join(repoRoot, currentFile.path),
+      "utf8",
+    );
+    for (const snippet of currentFile.forbidden) {
+      if (content.includes(snippet)) {
+        failures.push(
+          `retired raw tool wire export must stay absent: ${currentFile.path} contains ${JSON.stringify(snippet)}`,
+        );
+      }
+    }
+  }
+
+  const nativeOverlayProduction = fs
+    .readFileSync(
+      path.join(repoRoot, "ember-rs/crates/tool-runtime/src/native_overlay.rs"),
+      "utf8",
+    )
+    .split("#[cfg(test)]", 1)[0];
+  for (const retiredName of [
+    "Agent",
+    "SendMessage",
+    "TeamCreate",
+    "TeamDelete",
+    "ListPeers",
+  ]) {
+    if (nativeOverlayProduction.includes(`"${retiredName}"`)) {
+      failures.push(
+        `retired Team tool must stay out of the native registry allowlist: ${retiredName}`,
+      );
+    }
+  }
+
+  for (const bridgeSurface of [
+    {
+      path: "ember-rs/crates/tool-runtime/src/mcp_connection.rs",
+      forbidden: [
+        "async fn list_resources(",
+        "async fn read_resource(",
+        "async fn list_prompts(",
+        "async fn get_prompt(",
+        "fn get_info(",
+      ],
+    },
+    {
+      path: "ember-rs/crates/tool-runtime/src/mcp_connection/registry.rs",
+      forbidden: [
+        "pub struct McpConnectionSummary",
+        "pub async fn supports_resources(",
+        "pub async fn summaries(",
+        "pub async fn dispatch(",
+        "pub async fn list_prompts(",
+        "pub async fn get_prompt(",
+      ],
+    },
+    {
+      path: "ember-rs/crates/mcp/src/bridge_client.rs",
+      forbidden: [
+        "pub fn server_info(",
+        "pub async fn list_resources(",
+        "pub async fn read_resource(",
+        "pub async fn list_prompts(",
+        "pub async fn get_prompt(",
+      ],
+    },
+    {
+      path: "ember-rs/crates/agent/src/mcp_bridge.rs",
+      forbidden: [
+        "async fn list_resources(",
+        "async fn read_resource(",
+        "async fn list_prompts(",
+        "async fn get_prompt(",
+        "fn get_info(",
+      ],
+    },
+  ]) {
+    const content = fs.readFileSync(
+      path.join(repoRoot, bridgeSurface.path),
+      "utf8",
+    );
+    for (const snippet of bridgeSurface.forbidden) {
+      if (content.includes(snippet)) {
+        failures.push(
+          `MCP sampling-step bridge must not own live management surface: ${bridgeSurface.path} contains ${JSON.stringify(snippet)}`,
+        );
+      }
+    }
+  }
+
+  const mcpClientHandler = fs.readFileSync(
+    path.join(repoRoot, "ember-rs/crates/mcp/src/client.rs"),
+    "utf8",
+  );
+  if (mcpClientHandler.includes("enable_sampling()")) {
+    failures.push(
+      "MCP client must not advertise sampling without a typed createMessage owner: ember-rs/crates/mcp/src/client.rs contains enable_sampling()",
+    );
+  }
+
+  const canonicalToolConsumerFiles = [
+    "ember-rs/crates/app-server/src/runtime/provider_history.rs",
+    "ember-rs/crates/app-server/src/runtime/context_compaction.rs",
+    "ember-rs/crates/app-server/src/runtime/output_refs.rs",
+    "ember-rs/crates/app-server/src/runtime/evidence_provider/coding.rs",
+    "ember-rs/crates/app-server/src/runtime/evidence_provider/observability.rs",
+    "ember-rs/crates/app-server/src/runtime/evidence_provider/browser/action_index.rs",
+    ...collectRustFiles(
+      "ember-rs/crates/app-server/src/runtime/evidence_provider/browser/action_index",
+    ),
+    "ember-rs/crates/app-server/src/runtime/evidence_provider/browser/file_artifacts.rs",
+    "ember-rs/crates/app-server/src/runtime/thread_item_projection/media_result.rs",
+    "ember-rs/crates/app-server/src/runtime/thread_item_projection/coding_items.rs",
+    "ember-rs/crates/app-server/src/runtime/thread_item_projection/control_items.rs",
+    "ember-rs/crates/app-server/src/runtime/thread_item_projection/helpers.rs",
+    "ember-rs/crates/app-server/src/runtime/thread_item_projection/materializer.rs",
+    ...collectRustFiles(
+      "ember-rs/crates/app-server/src/runtime/thread_item_projection/materializer",
+    ),
+  ];
+  for (const relativePath of canonicalToolConsumerFiles) {
+    const content = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+    const productionContent = content.split("#[cfg(test)]", 1)[0];
+    for (const retiredEventType of [
+      '"tool.started"',
+      '"tool.result"',
+      '"tool.failed"',
+      '"tool.completed"',
+    ]) {
+      if (productionContent.includes(retiredEventType)) {
+        failures.push(
+          `canonical Tool consumer must not parse retired lifecycle: ${relativePath} contains ${retiredEventType}`,
+        );
+      }
+    }
+  }
+}
+
+function checkRetiredAgentRuntimeClientShells() {
+  for (const relativePath of [
+    "src/lib/api/agentRuntime.ts",
+    "src/lib/api/agentRuntime.d.ts",
+    "src/lib/api/agentRuntime/index.ts",
+    "src/lib/api/agentRuntime/index.d.ts",
+    "src/lib/api/agentRuntime/types.ts",
+    "src/lib/api/agentRuntime/types.d.ts",
+    "src/lib/api/agentRuntime/mediaClient.ts",
+    "src/lib/api/agentRuntime/mediaClient.d.ts",
+    "src/lib/api/agentRuntime/subagentClient.ts",
+    "src/lib/api/agentRuntime/subagentClient.d.ts",
+  ]) {
+    if (fs.existsSync(path.join(repoRoot, relativePath))) {
+      failures.push(
+        `retired Agent Runtime client shell or root barrel must stay deleted: ${relativePath}`,
+      );
+    }
+  }
+}
+
+function checkCanonicalRendererSequenceGate() {
+  const relativePath = "src/lib/api/agentRuntime/eventSequenceGate.ts";
+  const content = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+  for (const snippet of ["AgentRuntimeEventPipeline", "processSync("]) {
+    if (!content.includes(snippet)) {
+      failures.push(
+        `canonical renderer sequence gate missing ${JSON.stringify(snippet)} in ${relativePath}`,
+      );
+    }
+  }
+  for (const snippet of [
+    "AgentRuntimeEventAdapter",
+    "withEvent",
+    "currentCompatibilityAdapter",
+    "currentToolCompletedFanoutAdapter",
+  ]) {
+    if (content.includes(snippet)) {
+      failures.push(
+        `canonical renderer sequence gate must not restore raw lifecycle adaptation: ${relativePath} contains ${JSON.stringify(snippet)}`,
+      );
+    }
   }
 }
 
@@ -7570,21 +8913,21 @@ function isAgentRuntimeGatewaySource(relativePath) {
   );
 }
 
-function checkAgentAppUiRuntimeLifecycleContracts() {
-  const relativePath = "src/lib/api/agentApps.ts";
+function checkPluginUiRuntimeLifecycleContracts() {
+  const relativePath = "src/lib/api/plugins.ts";
   const content = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
-  for (const spec of agentAppUiRuntimeLifecycleSpecs) {
+  for (const spec of pluginUiRuntimeLifecycleSpecs) {
     const functionBody = extractFunctionBlock(content, spec.functionName);
     if (!functionBody) {
       failures.push(
-        `agentAppUiRuntime lifecycle: ${relativePath} missing function ${spec.functionName}`,
+        `pluginUiRuntime lifecycle: ${relativePath} missing function ${spec.functionName}`,
       );
       continue;
     }
     for (const snippet of spec.requiredSnippets) {
       if (!functionBody.includes(snippet)) {
         failures.push(
-          `agentAppUiRuntime lifecycle: ${spec.functionName} missing ${JSON.stringify(
+          `pluginUiRuntime lifecycle: ${spec.functionName} missing ${JSON.stringify(
             snippet,
           )}`,
         );
@@ -7593,10 +8936,10 @@ function checkAgentAppUiRuntimeLifecycleContracts() {
     for (const {
       snippet,
       reason,
-    } of agentAppUiRuntimeLifecycleForbiddenSnippets) {
+    } of pluginUiRuntimeLifecycleForbiddenSnippets) {
       if (functionBody.includes(snippet)) {
         failures.push(
-          `agentAppUiRuntime lifecycle: ${spec.functionName} forbidden ${JSON.stringify(
+          `pluginUiRuntime lifecycle: ${spec.functionName} forbidden ${JSON.stringify(
             snippet,
           )}; ${reason}`,
         );
@@ -7632,142 +8975,20 @@ function extractFunctionBlock(content, functionName) {
   return "";
 }
 
-function checkLegacySessionCompatContracts() {
-  const schema = JSON.parse(
-    fs.readFileSync(
-      path.join(repoRoot, "src/lib/governance/agentRuntimeCommandSchema.json"),
-      "utf8",
-    ),
-  );
-  const schemaEntries = new Map(
-    (schema.commands ?? []).map((entry) => [entry.command, entry]),
-  );
-  const generatedManifest = fs.readFileSync(
-    path.join(
-      repoRoot,
-      "src/lib/api/agentRuntime/commandManifest.generated.ts",
-    ),
-    "utf8",
-  );
-  const generatedDeclaration = fs.readFileSync(
-    path.join(
-      repoRoot,
-      "src/lib/api/agentRuntime/commandManifest.generated.d.ts",
-    ),
-    "utf8",
-  );
-
-  for (const spec of legacySessionCompatCommandSpecs) {
-    const schemaEntry = schemaEntries.get(spec.command);
-    if (!schemaEntry) {
-      failures.push(`legacy session command schema: missing ${spec.command}`);
+function checkRetiredAgentRuntimeSessionFacadeSurface() {
+  for (const file of retiredAgentRuntimeSessionFacadeProductionFiles) {
+    const absolutePath = path.join(repoRoot, file);
+    if (!fs.existsSync(absolutePath)) {
+      failures.push(
+        `retired session facade surface guard: missing expected production file ${file}`,
+      );
       continue;
     }
-    if (schemaEntry.domain !== "session") {
-      failures.push(
-        `legacy session command schema: ${spec.command} domain must stay session`,
-      );
-    }
-    if (schemaEntry.lifecycle !== "compat") {
-      failures.push(
-        `legacy session command schema: ${spec.command} lifecycle must stay compat`,
-      );
-    }
-    if (schemaEntry.mockStrategy !== "bridge-only") {
-      failures.push(
-        `legacy session command schema: ${spec.command} mockStrategy must stay bridge-only`,
-      );
-    }
-
-    const manifestBlock = descriptorBlock(
-      generatedManifest,
-      `key: "${spec.key}",`,
-    );
-    if (!manifestBlock) {
-      failures.push(
-        `legacy session command manifest: missing descriptor ${spec.key}`,
-      );
-    } else {
-      assertBlockIncludes(
-        manifestBlock,
-        `command: AGENT_RUNTIME_COMMANDS.${spec.key}`,
-        `legacy session command manifest: ${spec.key} command reference`,
-      );
-      assertBlockIncludes(
-        manifestBlock,
-        'domain: "session"',
-        `legacy session command manifest: ${spec.key} domain`,
-      );
-      assertBlockIncludes(
-        manifestBlock,
-        'lifecycle: "compat"',
-        `legacy session command manifest: ${spec.key} lifecycle`,
-      );
-      assertBlockIncludes(
-        manifestBlock,
-        'mockStrategy: "bridge-only"',
-        `legacy session command manifest: ${spec.key} mockStrategy`,
-      );
-      assertBlockExcludes(
-        manifestBlock,
-        'lifecycle: "current"',
-        `legacy session command manifest: ${spec.key} must not be current`,
-      );
-    }
-
-    const declarationBlock = descriptorBlock(
-      generatedDeclaration,
-      `readonly key: "${spec.key}";`,
-    );
-    if (!declarationBlock) {
-      failures.push(
-        `legacy session command declaration: missing descriptor ${spec.key}`,
-      );
-    } else {
-      assertBlockIncludes(
-        declarationBlock,
-        `readonly command: "${spec.command}";`,
-        `legacy session command declaration: ${spec.key} command literal`,
-      );
-      assertBlockIncludes(
-        declarationBlock,
-        'readonly domain: "session";',
-        `legacy session command declaration: ${spec.key} domain`,
-      );
-      assertBlockIncludes(
-        declarationBlock,
-        'readonly lifecycle: "compat";',
-        `legacy session command declaration: ${spec.key} lifecycle`,
-      );
-      assertBlockIncludes(
-        declarationBlock,
-        'readonly mockStrategy: "bridge-only";',
-        `legacy session command declaration: ${spec.key} mockStrategy`,
-      );
-      assertBlockExcludes(
-        declarationBlock,
-        'readonly lifecycle: "current";',
-        `legacy session command declaration: ${spec.key} must not be current`,
-      );
-    }
-  }
-
-  const retiredDeleteSessionSnippets = [
-    "AGENT_RUNTIME_COMMANDS.deleteSession",
-    'key: "deleteSession"',
-    'readonly key: "deleteSession";',
-    '"agent_runtime_delete_session"',
-  ];
-  const retiredDeleteSessionSources = [
-    ["agent runtime command schema", JSON.stringify(schema)],
-    ["agent runtime generated manifest", generatedManifest],
-    ["agent runtime generated declaration", generatedDeclaration],
-  ];
-  for (const [sourceName, content] of retiredDeleteSessionSources) {
-    for (const snippet of retiredDeleteSessionSnippets) {
+    const content = fs.readFileSync(absolutePath, "utf8");
+    for (const snippet of retiredAgentRuntimeSessionFacadeSnippets) {
       if (content.includes(snippet)) {
         failures.push(
-          `retired delete session command surface: ${sourceName} must not contain ${JSON.stringify(
+          `retired session facade surface: ${file} must not contain ${JSON.stringify(
             snippet,
           )}`,
         );
@@ -7784,6 +9005,309 @@ function checkRetiredSkillExecutionSurfaceFiles() {
       );
     }
   }
+}
+
+function checkRetiredAgentRuntimeMockFiles() {
+  for (const file of retiredAgentRuntimeMockFiles) {
+    if (fs.existsSync(path.join(repoRoot, file))) {
+      failures.push(
+        `retired Agent Runtime mock file must stay deleted: ${file}`,
+      );
+    }
+  }
+}
+
+function checkRetiredAgentRuntimeCommandManifestFiles() {
+  for (const file of retiredAgentRuntimeCommandManifestFiles) {
+    if (fs.existsSync(path.join(repoRoot, file))) {
+      failures.push(
+        `retired Agent Runtime command manifest surface must stay deleted: ${file}`,
+      );
+    }
+  }
+}
+
+function checkRetiredAgentRuntimeAdapterFiles() {
+  for (const file of retiredAgentRuntimeAdapterFiles) {
+    if (fs.existsSync(path.join(repoRoot, file))) {
+      failures.push(`retired Agent runtime adapter must stay deleted: ${file}`);
+    }
+  }
+}
+
+function checkRetiredAgentRuntimeLegacyQueueSurface() {
+  for (const file of retiredAgentRuntimeLegacyQueueFiles) {
+    if (fs.existsSync(path.join(repoRoot, file))) {
+      failures.push(
+        `retired Agent Runtime legacy queue file must stay deleted: ${file}`,
+      );
+    }
+  }
+
+  for (const file of retiredAgentRuntimeLegacyQueueSurfaceFiles) {
+    const absolutePath = path.join(repoRoot, file);
+    if (!fs.existsSync(absolutePath)) {
+      failures.push(
+        `retired Agent Runtime legacy queue guard: missing expected file ${file}`,
+      );
+      continue;
+    }
+    const content = fs.readFileSync(absolutePath, "utf8");
+    for (const snippet of retiredAgentRuntimeLegacyQueueSnippets) {
+      if (content.includes(snippet)) {
+        failures.push(
+          `retired Agent Runtime legacy queue surface: ${file} must not contain ${JSON.stringify(
+            snippet,
+          )}`,
+        );
+      }
+    }
+  }
+}
+
+function checkRetiredAgentRuntimeToolInventoryMockFiles() {
+  for (const file of retiredAgentRuntimeToolInventoryMockFiles) {
+    if (fs.existsSync(path.join(repoRoot, file))) {
+      failures.push(
+        `retired Agent Runtime tool inventory mock must stay deleted: ${file}`,
+      );
+    }
+  }
+}
+
+function checkRetiredAgentRuntimeEvidenceExportFacadeSurface() {
+  for (const file of retiredAgentRuntimeEvidenceExportFacadeProductionFiles) {
+    const absolutePath = path.join(repoRoot, file);
+    if (!fs.existsSync(absolutePath)) {
+      failures.push(
+        `retired evidence export facade surface guard: missing expected production file ${file}`,
+      );
+      continue;
+    }
+    const content = fs.readFileSync(absolutePath, "utf8");
+    for (const snippet of retiredAgentRuntimeEvidenceExportFacadeSnippets) {
+      if (content.includes(snippet)) {
+        failures.push(
+          `retired evidence export facade surface: ${file} must not contain ${JSON.stringify(
+            snippet,
+          )}`,
+        );
+      }
+    }
+  }
+}
+
+function checkRetiredAgentRuntimeThreadReadFacadeSurface() {
+  for (const file of retiredAgentRuntimeThreadReadFacadeProductionFiles) {
+    const absolutePath = path.join(repoRoot, file);
+    if (!fs.existsSync(absolutePath)) {
+      failures.push(
+        `retired thread read facade surface guard: missing expected production file ${file}`,
+      );
+      continue;
+    }
+    const content = fs.readFileSync(absolutePath, "utf8");
+    for (const snippet of retiredAgentRuntimeThreadReadFacadeSnippets) {
+      if (content.includes(snippet)) {
+        failures.push(
+          `retired thread read facade surface: ${file} must not contain ${JSON.stringify(
+            snippet,
+          )}`,
+        );
+      }
+    }
+  }
+}
+
+function checkRetiredAgentRuntimeSubmitTurnFacadeSurface() {
+  for (const file of retiredAgentRuntimeSubmitTurnFacadeProductionFiles) {
+    const absolutePath = path.join(repoRoot, file);
+    if (!fs.existsSync(absolutePath)) {
+      failures.push(
+        `retired submit turn facade surface guard: missing expected production file ${file}`,
+      );
+      continue;
+    }
+    const content = fs.readFileSync(absolutePath, "utf8");
+    for (const snippet of retiredAgentRuntimeSubmitTurnFacadeSnippets) {
+      if (content.includes(snippet)) {
+        failures.push(
+          `retired submit turn facade surface: ${file} must not contain ${JSON.stringify(
+            snippet,
+          )}`,
+        );
+      }
+    }
+  }
+}
+
+function checkRetiredAgentRuntimeInterruptTurnFacadeSurface() {
+  for (const file of retiredAgentRuntimeInterruptTurnFacadeProductionFiles) {
+    const absolutePath = path.join(repoRoot, file);
+    if (!fs.existsSync(absolutePath)) {
+      failures.push(
+        `retired interrupt turn facade surface guard: missing expected production file ${file}`,
+      );
+      continue;
+    }
+    const content = fs.readFileSync(absolutePath, "utf8");
+    for (const snippet of retiredAgentRuntimeInterruptTurnFacadeSnippets) {
+      if (content.includes(snippet)) {
+        failures.push(
+          `retired interrupt turn facade surface: ${file} must not contain ${JSON.stringify(
+            snippet,
+          )}`,
+        );
+      }
+    }
+  }
+}
+
+function checkRetiredAgentRuntimeRespondActionFacadeSurface() {
+  for (const file of retiredAgentRuntimeRespondActionFacadeProductionFiles) {
+    const absolutePath = path.join(repoRoot, file);
+    if (!fs.existsSync(absolutePath)) {
+      failures.push(
+        `retired respond action facade surface guard: missing expected production file ${file}`,
+      );
+      continue;
+    }
+    const content = fs.readFileSync(absolutePath, "utf8");
+    for (const snippet of retiredAgentRuntimeRespondActionFacadeSnippets) {
+      if (content.includes(snippet)) {
+        failures.push(
+          `retired respond action facade surface: ${file} must not contain ${JSON.stringify(
+            snippet,
+          )}`,
+        );
+      }
+    }
+  }
+}
+
+function checkActiveAipromptsDoNotPromoteRetiredAgentRuntimeCommands() {
+  for (const file of activeAgentRuntimeMarkdownFiles) {
+    const absolutePath = path.join(repoRoot, file);
+    if (!fs.existsSync(absolutePath)) {
+      failures.push(
+        `active markdown retired agent_runtime guard: missing expected file ${file}`,
+      );
+      continue;
+    }
+
+    const lines = fs.readFileSync(absolutePath, "utf8").split(/\r?\n/u);
+    lines.forEach((line, index) => {
+      if (!/agent_runtime_[A-Za-z0-9_*]+/u.test(line)) {
+        return;
+      }
+      if (allowedRetiredAgentRuntimeDocContextPattern.test(line)) {
+        return;
+      }
+      failures.push(
+        `active markdown retired agent_runtime guard: ${file}:${index + 1} must mark agent_runtime_* as retired/guard/history/migration-only, got ${JSON.stringify(
+          line.trim(),
+        )}`,
+      );
+    });
+
+    lines.forEach((line, index) => {
+      if (!/agent_runtime_[A-Za-z0-9_*]+/u.test(line)) {
+        return;
+      }
+      if (!forbiddenAgentRuntimeCurrentDocContextPattern.test(line)) {
+        return;
+      }
+      if (allowedRetiredAgentRuntimeDocContextPattern.test(line)) {
+        return;
+      }
+      failures.push(
+        `active markdown retired agent_runtime current wording: ${file}:${index + 1} must not describe agent_runtime_* as current, got ${JSON.stringify(
+          line.trim(),
+        )}`,
+      );
+    });
+  }
+}
+
+function collectMarkdownFiles(relativeRoot) {
+  const root = path.join(repoRoot, relativeRoot);
+  if (!fs.existsSync(root)) {
+    return [];
+  }
+  const files = [];
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const absolutePath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      if (
+        entry.name === "node_modules" ||
+        entry.name === "dist" ||
+        entry.name === "target"
+      ) {
+        continue;
+      }
+      files.push(
+        ...collectMarkdownFiles(
+          path.relative(repoRoot, absolutePath).replaceAll("\\", "/"),
+        ),
+      );
+      continue;
+    }
+    if (!entry.isFile() || !entry.name.endsWith(".md")) {
+      continue;
+    }
+    files.push(path.relative(repoRoot, absolutePath).replaceAll("\\", "/"));
+  }
+  return files.sort();
+}
+
+function checkScriptsDoNotCallRetiredAgentRuntimeCommands() {
+  const scriptsRoot = path.join(repoRoot, "scripts");
+  for (const relativePath of walkScriptFiles(scriptsRoot)) {
+    const content = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+    for (const pattern of retiredAgentRuntimeScriptCallPatterns) {
+      const match = pattern.exec(content);
+      if (match) {
+        failures.push(
+          `retired agent_runtime script call guard: ${relativePath} must not call retired agent_runtime_* command via ${JSON.stringify(
+            match[0],
+          )}; keep legacy names only as negative guards or history evidence`,
+        );
+      }
+    }
+  }
+}
+
+function walkScriptFiles(root) {
+  if (!fs.existsSync(root)) {
+    return [];
+  }
+  const files = [];
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const absolutePath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      if (
+        entry.name === "node_modules" ||
+        entry.name === "dist" ||
+        entry.name === "target"
+      ) {
+        continue;
+      }
+      files.push(...walkScriptFiles(absolutePath));
+      continue;
+    }
+    if (!entry.isFile()) {
+      continue;
+    }
+    const relativePath = path.relative(repoRoot, absolutePath);
+    if (!/\.(?:cjs|js|mjs)$/u.test(relativePath)) {
+      continue;
+    }
+    if (/\.(?:test|spec)\.(?:cjs|js|mjs)$/u.test(relativePath)) {
+      continue;
+    }
+    files.push(relativePath.replaceAll("\\", "/"));
+  }
+  return files.sort();
 }
 
 function descriptorBlock(content, marker) {

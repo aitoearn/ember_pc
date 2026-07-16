@@ -1,8 +1,13 @@
+import { parseAIResponse } from "@/components/workspace/a2ui/parser";
 import type { AgentThreadItem } from "../types";
 import type { AgentThreadOrderedBlock } from "../utils/agentThreadGrouping";
 import { isHiddenConversationArtifactPath } from "../utils/internalArtifactVisibility";
 import { isRuntimePermissionConfirmationWaitMessage } from "../utils/runtimeActionConfirmation";
-import { isThinkingTimelineItem } from "./timeline-utils";
+import {
+  isThinkingTimelineItem,
+  resolveThinkingDisplayText,
+  resolveTurnSummaryDisplayText,
+} from "./timeline-utils";
 
 export type TimelineBlockEmphasis = "active" | "default" | "quiet";
 
@@ -53,6 +58,25 @@ export function resolveTimelineBlockEmphasis(params: {
   return params.block.status === "completed" ? "quiet" : "default";
 }
 
+export function hasStructuredThinkingInlinePreview(
+  item: AgentThreadItem,
+): boolean {
+  if (item.type !== "reasoning" && item.type !== "turn_summary") {
+    return false;
+  }
+
+  const displayText =
+    item.type === "reasoning"
+      ? resolveThinkingDisplayText(item)
+      : resolveTurnSummaryDisplayText(item);
+  if (!displayText.trim()) {
+    return false;
+  }
+
+  const parsed = parseAIResponse(displayText, false);
+  return Boolean(parsed.hasA2UI || parsed.hasPending);
+}
+
 export function buildTimelineBlockRenderPlan(params: {
   block: AgentThreadOrderedBlock;
   isExpanded: boolean;
@@ -86,19 +110,30 @@ export function buildTimelineBlockRenderPlan(params: {
       : null;
   const shouldRenderActiveSingleThinkingInline =
     Boolean(singleThinkingItem) && block.status === "in_progress";
+  const shouldRenderStructuredSingleThinkingInline =
+    Boolean(singleThinkingItem) &&
+    singleThinkingItem?.type === "reasoning" &&
+    hasStructuredThinkingInlinePreview(singleThinkingItem);
+  const shouldKeepCompletedSingleReasoningInShell =
+    Boolean(singleThinkingItem) &&
+    singleThinkingItem?.type === "reasoning" &&
+    block.status === "completed" &&
+    !shouldRenderStructuredSingleThinkingInline;
   const shouldSummarizeSingleThinkingInline =
     Boolean(singleThinkingItem) &&
-    (singleThinkingItem?.type === "reasoning" ||
-      singleThinkingItem?.type === "turn_summary") &&
+    singleThinkingItem?.type === "turn_summary" &&
     !shouldRenderActiveSingleThinkingInline &&
     !hasStructuredThinkingInlinePreview(singleThinkingItem);
   const shouldRenderSingleItemInline =
     block.items.length === 1 &&
     !shouldSummarizeSingleThinkingInline &&
-    (!deferCompletedSingleDetails ||
-      preferInlineDetails ||
-      block.status !== "completed" ||
-      hasFocusedItem);
+    (shouldRenderActiveSingleThinkingInline ||
+      shouldRenderStructuredSingleThinkingInline ||
+      (!shouldKeepCompletedSingleReasoningInShell &&
+        (!deferCompletedSingleDetails ||
+          preferInlineDetails ||
+          block.status !== "completed" ||
+          hasFocusedItem)));
   const shouldRenderGroupedToolRows =
     block.kind === "process" && block.items.length > 1;
   const shouldMaterializeDetailEntries =

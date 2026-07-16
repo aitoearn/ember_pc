@@ -23,47 +23,47 @@ export function stripSkillFrontmatter(content: string): string {
 const skillMarkdownComponents: Components = {
   h1({ children }) {
     return (
-      <h1 className="mb-6 mt-1 text-2xl font-semibold leading-tight text-[color:var(--ember-text-strong)]">
+      <h1 className="mb-6 mt-1 text-2xl font-semibold leading-tight text-[color:var(--lime-text-strong)]">
         {children}
       </h1>
     );
   },
   h2({ children }) {
     return (
-      <h2 className="mb-4 mt-9 border-b border-[color:var(--ember-surface-border)] pb-2 text-xl font-semibold leading-tight text-[color:var(--ember-text-strong)]">
+      <h2 className="mb-4 mt-9 border-b border-[color:var(--lime-surface-border)] pb-2 text-xl font-semibold leading-tight text-[color:var(--lime-text-strong)]">
         {children}
       </h2>
     );
   },
   h3({ children }) {
     return (
-      <h3 className="mb-3 mt-7 text-base font-semibold leading-6 text-[color:var(--ember-text-strong)]">
+      <h3 className="mb-3 mt-7 text-base font-semibold leading-6 text-[color:var(--lime-text-strong)]">
         {children}
       </h3>
     );
   },
   h4({ children }) {
     return (
-      <h4 className="mb-2 mt-5 text-sm font-semibold leading-6 text-[color:var(--ember-text-strong)]">
+      <h4 className="mb-2 mt-5 text-sm font-semibold leading-6 text-[color:var(--lime-text-strong)]">
         {children}
       </h4>
     );
   },
   p({ children }) {
     return (
-      <p className="my-4 leading-7 text-[color:var(--ember-text)]">{children}</p>
+      <p className="my-4 leading-7 text-[color:var(--lime-text)]">{children}</p>
     );
   },
   ul({ children }) {
     return (
-      <ul className="my-4 list-disc space-y-2 pl-6 leading-7 text-[color:var(--ember-text)]">
+      <ul className="my-4 list-disc space-y-2 pl-6 leading-7 text-[color:var(--lime-text)]">
         {children}
       </ul>
     );
   },
   ol({ children }) {
     return (
-      <ol className="my-4 list-decimal space-y-2 pl-6 leading-7 text-[color:var(--ember-text)]">
+      <ol className="my-4 list-decimal space-y-2 pl-6 leading-7 text-[color:var(--lime-text)]">
         {children}
       </ol>
     );
@@ -73,25 +73,25 @@ const skillMarkdownComponents: Components = {
   },
   blockquote({ children }) {
     return (
-      <blockquote className="my-5 border-l-2 border-[color:var(--ember-surface-border-strong)] bg-[color:var(--ember-surface-soft)] py-1 pl-5 pr-4 italic leading-7 text-[color:var(--ember-text)]">
+      <blockquote className="my-5 border-l-2 border-[color:var(--lime-surface-border-strong)] bg-[color:var(--lime-surface-soft)] py-1 pl-5 pr-4 italic leading-7 text-[color:var(--lime-text)]">
         {children}
       </blockquote>
     );
   },
   strong({ children }) {
     return (
-      <strong className="font-semibold text-[color:var(--ember-text-strong)]">
+      <strong className="font-semibold text-[color:var(--lime-text-strong)]">
         {children}
       </strong>
     );
   },
   em({ children }) {
-    return <em className="italic text-[color:var(--ember-text)]">{children}</em>;
+    return <em className="italic text-[color:var(--lime-text)]">{children}</em>;
   },
   code({ className, children }) {
     return (
       <code
-        className={`rounded-md bg-[color:var(--ember-surface-soft)] px-1.5 py-0.5 font-mono text-[0.86em] text-[color:var(--ember-text-strong)] ${className ?? ""}`}
+        className={`rounded-md bg-[color:var(--lime-surface-soft)] px-1.5 py-0.5 font-mono text-[0.86em] text-[color:var(--lime-text-strong)] ${className ?? ""}`}
       >
         {children}
       </code>
@@ -99,15 +99,15 @@ const skillMarkdownComponents: Components = {
   },
   pre({ children }) {
     return (
-      <pre className="my-5 overflow-auto rounded-lg border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface-soft)] p-4 font-mono text-sm leading-6 text-[color:var(--ember-text-strong)] [&_code]:bg-transparent [&_code]:p-0">
+      <pre className="my-5 overflow-auto rounded-lg border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface-soft)] p-4 font-mono text-sm leading-6 text-[color:var(--lime-text-strong)] [&_code]:bg-transparent [&_code]:p-0">
         {children}
       </pre>
     );
   },
   table({ children }) {
     return (
-      <div className="my-5 overflow-x-auto rounded-lg border border-[color:var(--ember-surface-border)]">
-        <table className="min-w-full border-collapse text-left text-sm leading-6 text-[color:var(--ember-text)]">
+      <div className="my-5 overflow-x-auto rounded-lg border border-[color:var(--lime-surface-border)]">
+        <table className="min-w-full border-collapse text-left text-sm leading-6 text-[color:var(--lime-text)]">
           {children}
         </table>
       </div>
@@ -115,14 +115,14 @@ const skillMarkdownComponents: Components = {
   },
   th({ children }) {
     return (
-      <th className="border-b border-r border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface-soft)] px-3 py-2 font-semibold text-[color:var(--ember-text-strong)] last:border-r-0">
+      <th className="border-b border-r border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface-soft)] px-3 py-2 font-semibold text-[color:var(--lime-text-strong)] last:border-r-0">
         {children}
       </th>
     );
   },
   td({ children }) {
     return (
-      <td className="border-b border-r border-[color:var(--ember-surface-border)] px-3 py-2 align-top last:border-r-0">
+      <td className="border-b border-r border-[color:var(--lime-surface-border)] px-3 py-2 align-top last:border-r-0">
         {children}
       </td>
     );
@@ -161,14 +161,14 @@ const skillMarkdownComponents: Components = {
   },
   hr() {
     return (
-      <hr className="my-8 border-0 border-t border-[color:var(--ember-surface-border)]" />
+      <hr className="my-8 border-0 border-t border-[color:var(--lime-surface-border)]" />
     );
   },
   img({ alt, src }) {
     return (
       <img
         alt={alt ?? ""}
-        className="my-5 max-w-full rounded-lg border border-[color:var(--ember-surface-border)]"
+        className="my-5 max-w-full rounded-lg border border-[color:var(--lime-surface-border)]"
         src={src}
       />
     );

@@ -5,7 +5,7 @@
 #![allow(dead_code)]
 
 use chrono::{DateTime, Duration, Utc};
-use ember_core::ProviderType;
+use lime_core::ProviderType;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};

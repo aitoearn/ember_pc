@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const { mockClearLogs, mockGetLogs, mockGetPersistedLogsTail } = vi.hoisted(
   () => ({
@@ -93,7 +93,7 @@ beforeEach(async () => {
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
   vi.clearAllMocks();
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
   vi.spyOn(window, "setInterval").mockReturnValue(
     undefined as unknown as ReturnType<typeof window.setInterval>,
   );
@@ -118,7 +118,7 @@ afterEach(async () => {
 
   vi.clearAllMocks();
   vi.restoreAllMocks();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("ChannelLogTailPanel", () => {

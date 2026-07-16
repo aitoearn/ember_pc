@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type {
   AgentRuntimeEvidenceBrowserActionIndex,
-  AgentRuntimeEvidenceEmberCorePolicyIndex,
+  AgentRuntimeEvidenceLimeCorePolicyIndex,
   AgentRuntimeEvidencePack,
   AgentRuntimeReplayCase,
   AgentRuntimeReviewDecisionTemplate,
-} from "@/lib/api/agentRuntime";
+} from "@/lib/api/agentRuntime/evidenceTypes";
 
 import {
   buildBrowserReplayArtifact,
@@ -13,8 +13,9 @@ import {
   buildReplayPromotionCommand,
   buildReplayPromotionContext,
   buildReplayTrendCommand,
-  collectEmberCorePolicyMissingInputs,
-  collectEmberCorePolicyRefKeys,
+  collectLimeCorePolicyMissingInputs,
+  collectLimeCorePolicyRefKeys,
+  filterBrowserActionIndexItems,
   formatAnalysisArtifactKindLabel,
   formatBrowserActionArtifactKindLabel,
   formatBrowserActionStatusLabel,
@@ -23,10 +24,10 @@ import {
   formatHandoffArtifactKindLabel,
   formatHandoffStatusLabel,
   formatIsoDateTime,
-  formatEmberCorePolicyDecisionLabel,
-  formatEmberCorePolicyInputSourceLabel,
-  formatEmberCorePolicyInputStatusLabel,
-  formatEmberCorePolicyStatusLabel,
+  formatLimeCorePolicyDecisionLabel,
+  formatLimeCorePolicyInputSourceLabel,
+  formatLimeCorePolicyInputStatusLabel,
+  formatLimeCorePolicyStatusLabel,
   formatPermissionConfirmationStatusLabel,
   formatReplayArtifactKindLabel,
   formatReviewDecisionArtifactKindLabel,
@@ -38,7 +39,7 @@ import {
   quoteShellArg,
   resolveReviewDecisionRegressionFacts,
   slugifyHarnessCase,
-  summarizeEmberCorePolicyDecision,
+  summarizeLimeCorePolicyDecision,
   uniqueNonEmptyStrings,
 } from "./harnessEvidenceViewModel";
 
@@ -88,10 +89,10 @@ describe("harnessEvidenceViewModel", () => {
     expect(formatBrowserActionArtifactKindLabel()).toBe("未知产物");
   });
 
-  it("应汇总 EmberCore policy 引用、缺失输入和决策展示", () => {
-    const index: AgentRuntimeEvidenceEmberCorePolicyIndex = {
+  it("应汇总 LimeCore policy 引用、缺失输入和决策展示", () => {
+    const index: AgentRuntimeEvidenceLimeCorePolicyIndex = {
       snapshot_count: 2,
-      ref_keys: [" embercore.project ", "embercore.project"],
+      ref_keys: [" limecore.project ", "limecore.project"],
       missing_inputs: [" token ", ""],
       pending_hit_refs: [],
       policy_value_hit_count: 0,
@@ -103,50 +104,50 @@ describe("harnessEvidenceViewModel", () => {
       ],
       items: [
         {
-          refs: ["embercore.user", " embercore.project "],
+          refs: ["limecore.user", " limecore.project "],
           missing_inputs: [" token ", "profile"],
-          unresolved_refs: [" embercore.missing "],
+          unresolved_refs: [" limecore.missing "],
         },
       ],
     };
 
-    expect(formatEmberCorePolicyInputStatusLabel("declared_only")).toBe(
+    expect(formatLimeCorePolicyInputStatusLabel("declared_only")).toBe(
       "仅声明",
     );
-    expect(formatEmberCorePolicyInputStatusLabel(" custom ")).toBe("custom");
-    expect(formatEmberCorePolicyInputStatusLabel()).toBe("未知");
-    expect(formatEmberCorePolicyInputSourceLabel("embercore_pending")).toBe(
-      "等待 EmberCore",
+    expect(formatLimeCorePolicyInputStatusLabel(" custom ")).toBe("custom");
+    expect(formatLimeCorePolicyInputStatusLabel()).toBe("未知");
+    expect(formatLimeCorePolicyInputSourceLabel("limecore_pending")).toBe(
+      "等待 LimeCore",
     );
-    expect(formatEmberCorePolicyInputSourceLabel(" custom_source ")).toBe(
+    expect(formatLimeCorePolicyInputSourceLabel(" custom_source ")).toBe(
       "custom_source",
     );
-    expect(formatEmberCorePolicyInputSourceLabel()).toBe("未知来源");
+    expect(formatLimeCorePolicyInputSourceLabel()).toBe("未知来源");
 
     expect(uniqueNonEmptyStrings([" a ", "", undefined, "a", "b"])).toEqual([
       "a",
       "b",
     ]);
-    expect(collectEmberCorePolicyRefKeys(index)).toEqual([
-      "embercore.project",
-      "embercore.user",
+    expect(collectLimeCorePolicyRefKeys(index)).toEqual([
+      "limecore.project",
+      "limecore.user",
     ]);
-    expect(collectEmberCorePolicyMissingInputs(index)).toEqual([
+    expect(collectLimeCorePolicyMissingInputs(index)).toEqual([
       "token",
       "profile",
-      "embercore.missing",
+      "limecore.missing",
     ]);
-    expect(summarizeEmberCorePolicyDecision(index)).toBe(
+    expect(summarizeLimeCorePolicyDecision(index)).toBe(
       "本地允许 2 / 需要确认 1",
     );
     expect(
-      summarizeEmberCorePolicyDecision({
+      summarizeLimeCorePolicyDecision({
         ...index,
         decision_counts: [{ decision: "deny", count: 1 }],
       }),
     ).toBe("已阻断");
     expect(
-      summarizeEmberCorePolicyDecision({
+      summarizeLimeCorePolicyDecision({
         ...index,
         decision_counts: [{ decision: " ", count: 1 }],
       }),
@@ -305,6 +306,9 @@ describe("harnessEvidenceViewModel", () => {
       observation_count: 1,
       screenshot_count: 1,
       last_url: "https://example.test",
+      thread_ids: ["thread-1"],
+      turn_ids: ["turn-1"],
+      content_ids: ["content-browser-1"],
       session_ids: ["browser-session-1"],
       target_ids: ["target-1"],
       profile_keys: ["profile-1"],
@@ -312,18 +316,33 @@ describe("harnessEvidenceViewModel", () => {
       artifact_kind_counts: [],
       action_counts: [],
       backend_counts: [],
+      executor_counts: [{ executor: "mcp__lime-browser", count: 1 }],
       items: [
         {
           artifact_kind: "browser_snapshot",
           tool_name: "browser_navigate",
           action: "navigate",
+          action_id: "browser-action-1",
           status: "completed",
           success: true,
           session_id: "browser-session-1",
           target_id: "target-1",
+          tab_id: "target-1",
           profile_key: "profile-1",
           backend: "playwright",
           request_id: "request-1",
+          confirmation_request_id: "browser-confirm-1",
+          control_mode: "human",
+          lifecycle_state: "human_controlling",
+          human_reason: "browser_action_requires_confirmation",
+          thread_id: "thread-1",
+          turn_id: "turn-1",
+          content_id: "content-browser-1",
+          executor: "mcp__lime-browser",
+          evidence_refs: [
+            "browser_session:browser-session-1",
+            "browser_action:browser-session-1:browser-action-1",
+          ],
           last_url: "https://example.test",
           title: "Example",
           entry_source: "runtime",
@@ -352,11 +371,29 @@ describe("harnessEvidenceViewModel", () => {
           sessionCount: 1,
           observationCount: 1,
           screenshotCount: 1,
+          threadIds: ["thread-1"],
+          turnIds: ["turn-1"],
+          contentIds: ["content-browser-1"],
+          executorCounts: [{ executor: "mcp__lime-browser", count: 1 }],
           items: [
             {
               artifactKind: "browser_snapshot",
               toolName: "browser_navigate",
               action: "navigate",
+              actionId: "browser-action-1",
+              threadId: "thread-1",
+              turnId: "turn-1",
+              contentId: "content-browser-1",
+              executor: "mcp__lime-browser",
+              tabId: "target-1",
+              confirmationRequestId: "browser-confirm-1",
+              controlMode: "human",
+              lifecycleState: "human_controlling",
+              humanReason: "browser_action_requires_confirmation",
+              evidenceRefs: [
+                "browser_session:browser-session-1",
+                "browser_action:browser-session-1:browser-action-1",
+              ],
               success: true,
               observationAvailable: true,
               screenshotAvailable: true,
@@ -369,21 +406,78 @@ describe("harnessEvidenceViewModel", () => {
     expect(artifact.updatedAt).toBe(Date.parse(evidencePack.exported_at));
   });
 
-  it("应格式化 EmberCore policy 状态和决策", () => {
-    expect(formatEmberCorePolicyStatusLabel("local_defaults_evaluated")).toBe(
+  it("应按 thread / turn / content / executor 查询浏览器 action trace", () => {
+    const index: AgentRuntimeEvidenceBrowserActionIndex = {
+      action_count: 2,
+      session_count: 1,
+      observation_count: 2,
+      screenshot_count: 1,
+      thread_ids: ["thread-1", "thread-2"],
+      turn_ids: ["turn-1", "turn-2"],
+      content_ids: ["content-1", "content-2"],
+      session_ids: ["browser-session-1"],
+      target_ids: ["target-1"],
+      profile_keys: ["profile-1"],
+      status_counts: [],
+      artifact_kind_counts: [],
+      action_counts: [],
+      backend_counts: [],
+      executor_counts: [
+        { executor: "mcp__lime-browser", count: 1 },
+        { executor: "human", count: 1 },
+      ],
+      items: [
+        {
+          action_id: "browser-action-1",
+          thread_id: "thread-1",
+          turn_id: "turn-1",
+          content_id: "content-1",
+          executor: "mcp__lime-browser",
+        },
+        {
+          action_id: "browser-action-2",
+          thread_id: "thread-2",
+          turn_id: "turn-2",
+          content_id: "content-2",
+          executor: "human",
+        },
+      ],
+    };
+
+    expect(
+      filterBrowserActionIndexItems(index, { threadId: "thread-1" }).map(
+        (item) => item.action_id,
+      ),
+    ).toEqual(["browser-action-1"]);
+    expect(
+      filterBrowserActionIndexItems(index, {
+        turnId: "turn-2",
+        executor: "human",
+      }).map((item) => item.action_id),
+    ).toEqual(["browser-action-2"]);
+    expect(
+      filterBrowserActionIndexItems(index, {
+        contentId: "content-1",
+        executor: "human",
+      }),
+    ).toEqual([]);
+  });
+
+  it("应格式化 LimeCore policy 状态和决策", () => {
+    expect(formatLimeCorePolicyStatusLabel("local_defaults_evaluated")).toBe(
       "本地默认已评估",
     );
-    expect(formatEmberCorePolicyStatusLabel("refs_declared")).toBe("已声明引用");
-    expect(formatEmberCorePolicyStatusLabel("not_evaluated")).toBe("尚未评估");
-    expect(formatEmberCorePolicyStatusLabel(" custom ")).toBe("custom");
-    expect(formatEmberCorePolicyStatusLabel()).toBe("未知状态");
+    expect(formatLimeCorePolicyStatusLabel("refs_declared")).toBe("已声明引用");
+    expect(formatLimeCorePolicyStatusLabel("not_evaluated")).toBe("尚未评估");
+    expect(formatLimeCorePolicyStatusLabel(" custom ")).toBe("custom");
+    expect(formatLimeCorePolicyStatusLabel()).toBe("未知状态");
 
-    expect(formatEmberCorePolicyDecisionLabel("allow")).toBe("本地允许");
-    expect(formatEmberCorePolicyDecisionLabel("ask")).toBe("需要确认");
-    expect(formatEmberCorePolicyDecisionLabel("deny")).toBe("已阻断");
-    expect(formatEmberCorePolicyDecisionLabel("not_evaluated")).toBe("未评估");
-    expect(formatEmberCorePolicyDecisionLabel(" custom ")).toBe("custom");
-    expect(formatEmberCorePolicyDecisionLabel()).toBe("未知决策");
+    expect(formatLimeCorePolicyDecisionLabel("allow")).toBe("本地允许");
+    expect(formatLimeCorePolicyDecisionLabel("ask")).toBe("需要确认");
+    expect(formatLimeCorePolicyDecisionLabel("deny")).toBe("已阻断");
+    expect(formatLimeCorePolicyDecisionLabel("not_evaluated")).toBe("未评估");
+    expect(formatLimeCorePolicyDecisionLabel(" custom ")).toBe("custom");
+    expect(formatLimeCorePolicyDecisionLabel()).toBe("未知决策");
   });
 
   it("应格式化人工审核决策展示标签", () => {

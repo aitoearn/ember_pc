@@ -1,18 +1,33 @@
 import { createHash } from "node:crypto";
+import { execFile } from "node:child_process";
 import {
   chmod,
   copyFile,
   mkdir,
   readFile,
+  rm,
   stat,
   writeFile,
 } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { promisify } from "node:util";
 import {
   appServerBinaryName,
   resolveDevAppServerBinary,
 } from "./electron-dev-sidecar.mjs";
+import {
+  ensureMacBinaryRpath,
+  resolveRuntimeLibrarySource,
+  resolveSherpaOnnxSysVersion,
+  resolveSherpaRuntimePlan,
+} from "../prepare-sherpa-onnx-runtime.mjs";
+
+const execFileAsync = promisify(execFile);
+const MACOS_LAUNCH_BLOCKING_XATTRS = [
+  "com.apple.quarantine",
+  "com.apple.provenance",
+];
 
 export const APP_SERVER_RELEASE_MANIFEST_NAME = "app-server.release.json";
 export const APP_SERVER_PROTOCOL_VERSION = "appserver.v0";
@@ -92,11 +107,9 @@ export async function prepareElectronAppServerAssets({
   outputRoot = electronAppServerResourcesRoot(repoRoot),
   platform = process.platform,
   arch = process.arch,
-  sourceBinary = resolveDevAppServerBinary({
-    repoRoot,
-    platform,
-    forceBuild: true,
-  }),
+  sourceBinary,
+  resolveBinary = resolveDevAppServerBinary,
+  env = process.env,
   readPackageJson = readJsonFile,
   copy = copyFile,
   makeDir = mkdir,
@@ -104,6 +117,9 @@ export async function prepareElectronAppServerAssets({
   getStat = stat,
   changeMode = chmod,
   sha256File = hashFile,
+  clearLaunchBlockingXattrs = clearMacLaunchBlockingXattrs,
+  prepareRuntimeBinary = ensureElectronAppServerRuntimeBinary,
+  copyRuntimeLibraries = copyElectronAppServerRuntimeLibraries,
 } = {}) {
   const packageJson = await readPackageJson(path.resolve(repoRoot, "package.json"));
   const version = requiredValue(packageJson.version, "package version");
@@ -113,11 +129,37 @@ export async function prepareElectronAppServerAssets({
     arch,
   });
   const manifestPath = electronAppServerManifestPath({ outputRoot });
+  const resolvedSourceBinary = path.resolve(
+    sourceBinary ??
+      resolveBinary({
+        repoRoot,
+        platform,
+        forceBuild: true,
+        env: withoutAppServerBin(env),
+      }),
+  );
+  if (resolvedSourceBinary === destination) {
+    throw new Error(
+      `Electron app-server asset source must not equal packaged destination: ${destination}`,
+    );
+  }
 
   await makeDir(path.dirname(destination), { recursive: true });
-  await copy(path.resolve(sourceBinary), destination);
-  const sourceStat = await getStat(path.resolve(sourceBinary));
+  await rm(destination, { force: true });
+  await copy(resolvedSourceBinary, destination);
+  await clearLaunchBlockingXattrs(destination, platform);
+  const sourceStat = await getStat(resolvedSourceBinary);
   await changeMode(destination, sourceStat.mode);
+  prepareRuntimeBinary({ binaryPath: destination, platform });
+  const runtimeLibraries = await copyRuntimeLibraries({
+    repoRoot,
+    platform,
+    arch,
+    sourceBinary: resolvedSourceBinary,
+    destinationDirectory: path.dirname(destination),
+    copy,
+    makeDir,
+  });
 
   const manifest = await buildElectronAppServerReleaseManifest({
     binaryPath: destination,
@@ -128,11 +170,125 @@ export async function prepareElectronAppServerAssets({
   await write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
   return {
-    sourceBinary: path.resolve(sourceBinary),
+    sourceBinary: resolvedSourceBinary,
     binaryPath: destination,
     manifestPath,
     manifest,
+    runtimeLibraries,
   };
+}
+
+export function resolveElectronAppServerSherpaTargetTriple({
+  platform = process.platform,
+  arch = process.arch,
+} = {}) {
+  if (platform === "darwin" && arch === "arm64") {
+    return "aarch64-apple-darwin";
+  }
+  if (platform === "darwin" && arch === "x64") {
+    return "x86_64-apple-darwin";
+  }
+  if (platform === "win32") {
+    return "x86_64-pc-windows-msvc";
+  }
+  return null;
+}
+
+export async function copyElectronAppServerRuntimeLibraries({
+  repoRoot = process.cwd(),
+  platform = process.platform,
+  arch = process.arch,
+  sourceBinary,
+  destinationDirectory,
+  readCargoLock = readFile,
+  copy = copyFile,
+  makeDir = mkdir,
+  exists = existsSync,
+  resolvePlan = resolveSherpaRuntimePlan,
+  resolveLibrary = resolveRuntimeLibrarySource,
+  targetTriple = resolveElectronAppServerSherpaTargetTriple({ platform, arch }),
+} = {}) {
+  if (!targetTriple) {
+    return [];
+  }
+
+  const normalizedDestinationDirectory = path.resolve(
+    requiredValue(destinationDirectory, "destinationDirectory"),
+  );
+  const cargoLockPath = path.resolve(repoRoot, "ember-rs", "Cargo.lock");
+  const version = resolveSherpaOnnxSysVersion(
+    String(await readCargoLock(cargoLockPath, "utf8")),
+  );
+  const plan = resolvePlan({ repoRoot, targetTriple, version });
+  const runtimeLibraries = resolveElectronAppServerRuntimeLibrarySources({
+    plan,
+    platform,
+    sourceBinary,
+    exists,
+    resolveLibrary,
+  });
+
+  await makeDir(normalizedDestinationDirectory, { recursive: true });
+  const copied = [];
+  for (const library of runtimeLibraries) {
+    const destinationPath = path.join(
+      normalizedDestinationDirectory,
+      library.name,
+    );
+    if (path.resolve(library.sourcePath) !== path.resolve(destinationPath)) {
+      await copy(library.sourcePath, destinationPath);
+    }
+    copied.push({
+      ...library,
+      destinationPath,
+    });
+  }
+  return copied;
+}
+
+export function resolveElectronAppServerRuntimeLibrarySources({
+  plan,
+  platform = process.platform,
+  sourceBinary,
+  exists = existsSync,
+  resolveLibrary = resolveRuntimeLibrarySource,
+} = {}) {
+  const requiredLibraries = plan?.libs ?? [];
+  const optionalLibraries = optionalSherpaRuntimeLibraries(platform).filter(
+    (name) => !requiredLibraries.includes(name),
+  );
+  const resolved = [];
+
+  for (const name of requiredLibraries) {
+    const sourcePath = resolvePackagedRuntimeLibrarySource({
+      plan,
+      name,
+      sourceBinary,
+      exists,
+      resolveLibrary,
+    });
+    if (!sourcePath) {
+      throw new Error(
+        `Expected app-server runtime library missing for ${plan.targetTriple}: ${name}`,
+      );
+    }
+    resolved.push({ name, sourcePath, required: true });
+  }
+
+  for (const name of optionalLibraries) {
+    const sourcePath = resolvePackagedRuntimeLibrarySource({
+      plan,
+      name,
+      sourceBinary,
+      exists,
+      resolveLibrary,
+    });
+    if (sourcePath) {
+      resolved.push({ name, sourcePath, required: false });
+    }
+  }
+
+  return resolved;
 }
 
 export function resolveElectronAppServerRuntimeEnv({
@@ -144,17 +300,31 @@ export function resolveElectronAppServerRuntimeEnv({
   }),
   exists = existsSync,
   resolveBinary = resolveDevAppServerBinary,
+  prepareRuntimeBinary = ensureElectronAppServerRuntimeBinary,
 } = {}) {
   const envBinary = env.APP_SERVER_BIN?.trim();
   if (envBinary) {
+    prepareRuntimeBinary({ binaryPath: envBinary, platform });
     return { APP_SERVER_BIN: envBinary };
   }
   if (exists(manifestPath)) {
     return {};
   }
+  const appServerBin = resolveBinary({ env, repoRoot, platform });
+  prepareRuntimeBinary({ binaryPath: appServerBin, platform });
   return {
-    APP_SERVER_BIN: resolveBinary({ env, repoRoot, platform }),
+    APP_SERVER_BIN: appServerBin,
   };
+}
+
+export function ensureElectronAppServerRuntimeBinary({
+  binaryPath,
+  platform = process.platform,
+} = {}) {
+  if (!binaryPath) {
+    return;
+  }
+  ensureMacBinaryRpath(binaryPath, { platform });
 }
 
 async function hashFile(filePath) {
@@ -166,10 +336,61 @@ async function readJsonFile(filePath) {
   return JSON.parse(await readFile(filePath, "utf8"));
 }
 
+async function clearMacLaunchBlockingXattrs(filePath, platform) {
+  if (platform !== "darwin") {
+    return;
+  }
+
+  for (const attribute of MACOS_LAUNCH_BLOCKING_XATTRS) {
+    try {
+      await execFileAsync("xattr", ["-d", attribute, filePath]);
+    } catch (error) {
+      const stderr = String(error?.stderr || "");
+      if (stderr.includes("No such xattr") || stderr.includes("No such file")) {
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
 function requiredValue(value, name) {
   const normalized = String(value || "").trim();
   if (!normalized) {
     throw new Error(`${name} is required`);
   }
   return normalized;
+}
+
+function withoutAppServerBin(env) {
+  const nextEnv = { ...env };
+  delete nextEnv.APP_SERVER_BIN;
+  return nextEnv;
+}
+
+function resolvePackagedRuntimeLibrarySource({
+  plan,
+  name,
+  sourceBinary,
+  exists,
+  resolveLibrary,
+}) {
+  const sourceBinaryPath = String(sourceBinary || "").trim();
+  if (sourceBinaryPath) {
+    const adjacentPath = path.join(path.dirname(path.resolve(sourceBinaryPath)), name);
+    if (exists(adjacentPath)) {
+      return adjacentPath;
+    }
+  }
+  return resolveLibrary(plan, name);
+}
+
+function optionalSherpaRuntimeLibraries(platform) {
+  if (platform === "darwin") {
+    return ["libsherpa-onnx-cxx-api.dylib"];
+  }
+  if (platform === "win32") {
+    return ["sherpa-onnx-cxx-api.dll"];
+  }
+  return [];
 }

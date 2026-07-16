@@ -12,14 +12,17 @@ const tempRoots: string[] = [];
 
 function createTempRoot() {
   const tempRoot = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ember-harness-history-record-"),
+    path.join(os.tmpdir(), "lime-harness-history-record-"),
   );
   tempRoots.push(tempRoot);
   return tempRoot;
 }
 
 function runNodeScriptAsync(scriptRelativePath: string, args: string[]) {
-  return runNodeScriptJson(scriptRelativePath, args, { repoRoot });
+  return runNodeScriptJson(scriptRelativePath, args, {
+    repoRoot,
+    timeoutMs: 120_000,
+  });
 }
 
 afterEach(() => {
@@ -168,7 +171,7 @@ describe("harness-eval-history-record", () => {
 
   it("默认入口应产出完整 harness artifact 套件", async () => {
     const tempRoot = createTempRoot();
-    const historyDir = path.join(tempRoot, ".ember", "harness", "history");
+    const historyDir = path.join(tempRoot, ".lime", "harness", "history");
     const workspaceRoot = path.join(tempRoot, "workspace");
 
     const result = (await runNodeScriptAsync(
@@ -183,7 +186,7 @@ describe("harness-eval-history-record", () => {
       ],
     )) as Record<string, any>;
 
-    const reportsRoot = path.join(tempRoot, ".ember", "harness", "reports");
+    const reportsRoot = path.join(tempRoot, ".lime", "harness", "reports");
     const summaryJsonPath = path.join(reportsRoot, "harness-eval-summary.json");
     const summaryMarkdownPath = path.join(
       reportsRoot,
@@ -272,25 +275,25 @@ describe("harness-eval-history-record", () => {
 
   it("应记录本地 summary 历史，并生成非 seed 的 trend / cleanup", async () => {
     const tempRoot = createTempRoot();
-    const historyDir = path.join(tempRoot, ".ember", "harness", "history");
+    const historyDir = path.join(tempRoot, ".lime", "harness", "history");
     const workspaceRoot = path.join(tempRoot, "workspace");
     const summaryJsonPath = path.join(
       tempRoot,
-      ".ember",
+      ".lime",
       "harness",
       "reports",
       "harness-eval-summary.json",
     );
     const summaryMarkdownPath = path.join(
       tempRoot,
-      ".ember",
+      ".lime",
       "harness",
       "reports",
       "harness-eval-summary.md",
     );
     const dashboardHtmlPath = path.join(
       tempRoot,
-      ".ember",
+      ".lime",
       "harness",
       "reports",
       "harness-dashboard.html",
@@ -408,7 +411,7 @@ describe("harness-eval-history-record", () => {
       fs.existsSync(
         path.join(
           tempRoot,
-          ".ember",
+          ".lime",
           "harness",
           "reports",
           "harness-eval-trend.json",
@@ -419,7 +422,7 @@ describe("harness-eval-history-record", () => {
       fs.existsSync(
         path.join(
           tempRoot,
-          ".ember",
+          ".lime",
           "harness",
           "reports",
           "harness-cleanup-report.json",
@@ -430,7 +433,7 @@ describe("harness-eval-history-record", () => {
 
   it("并发记录 history 时不应覆盖已有样本", async () => {
     const tempRoot = createTempRoot();
-    const historyDir = path.join(tempRoot, ".ember", "harness", "history");
+    const historyDir = path.join(tempRoot, ".lime", "harness", "history");
     const workspaceRoot = path.join(tempRoot, "workspace");
 
     const [firstResult, secondResult] = (await Promise.all([

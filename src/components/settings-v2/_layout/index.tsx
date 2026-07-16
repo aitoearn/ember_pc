@@ -19,7 +19,13 @@ import { useTranslation } from "react-i18next";
 import styled from "styled-components";
 import { SettingsSidebar } from "./SettingsSidebar";
 import { SettingsTabs } from "@/types/settings";
-import { Page, PageParams, type SettingsProviderView } from "@/types/page";
+import {
+  Page,
+  PageParams,
+  type ExecutionPolicyFocusContext,
+  type ProviderSettingsFocusContext,
+  type SettingsProviderView,
+} from "@/types/page";
 import { buildHomeAgentParams } from "@/lib/workspace/navigation";
 import { shouldReserveMacWindowControls } from "@/lib/windowControls";
 import { SettingsHomePage } from "../home";
@@ -58,11 +64,6 @@ const AboutSection = lazy(() =>
     default: module.AboutSection,
   })),
 );
-const HotkeysSettings = lazy(() =>
-  import("../general/hotkeys").then((module) => ({
-    default: module.HotkeysSettings,
-  })),
-);
 const MediaServicesSettings = lazy(() =>
   import("../agent/media-services").then((module) => ({
     default: module.MediaServicesSettings,
@@ -98,6 +99,11 @@ const EnvironmentSettings = lazy(() =>
     default: module.EnvironmentSettings,
   })),
 );
+const ExecutionPolicySettings = lazy(() =>
+  import("../system/execution-policy").then((module) => ({
+    default: module.ExecutionPolicySettings,
+  })),
+);
 const WebSearchSettings = lazy(() =>
   import("../system/web-search").then((module) => ({
     default: module.WebSearchSettings,
@@ -113,7 +119,7 @@ const LayoutContainer = styled.div`
   display: flex;
   flex: 1;
   min-height: 0;
-  background: var(--ember-app-bg, hsl(var(--background)));
+  background: var(--lime-app-bg, hsl(var(--background)));
 
   @media (max-width: 1200px) {
     flex-direction: column;
@@ -128,8 +134,8 @@ const HeaderBar = styled.div<{ $reserveWindowControls: boolean }>`
   min-height: 86px;
   padding: ${({ $reserveWindowControls }) =>
     $reserveWindowControls ? "34px 24px 14px 0" : "24px 24px 14px 0"};
-  border-bottom: 1px solid var(--ember-surface-border, hsl(var(--border)));
-  background: var(--ember-app-bg, hsl(var(--background)));
+  border-bottom: 1px solid var(--lime-surface-border, hsl(var(--border)));
+  background: var(--lime-app-bg, hsl(var(--background)));
 
   @media (max-width: 1200px) {
     grid-template-columns: minmax(0, 1fr);
@@ -156,10 +162,10 @@ const HeaderHomeButton = styled.button`
   gap: 8px;
   min-height: 36px;
   padding: 0 14px;
-  border: 1px solid var(--ember-surface-border, hsl(var(--border)));
+  border: 1px solid var(--lime-surface-border, hsl(var(--border)));
   border-radius: 999px;
-  background: var(--ember-surface, hsl(var(--card)));
-  color: var(--ember-text-muted, hsl(var(--muted-foreground)));
+  background: var(--lime-surface, hsl(var(--card)));
+  color: var(--lime-text-muted, hsl(var(--muted-foreground)));
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
@@ -172,11 +178,11 @@ const HeaderHomeButton = styled.button`
 
   &:hover {
     border-color: var(
-      --ember-surface-border-strong,
+      --lime-surface-border-strong,
       hsl(var(--foreground) / 0.18)
     );
-    background: var(--ember-surface-hover, hsl(var(--accent)));
-    color: var(--ember-text-strong, hsl(var(--foreground)));
+    background: var(--lime-surface-hover, hsl(var(--accent)));
+    color: var(--lime-text-strong, hsl(var(--foreground)));
   }
 
   &:active {
@@ -202,7 +208,7 @@ const ContentContainer = styled.main`
   overflow-y: auto;
   padding: 24px 32px;
   background: var(
-    --ember-stage-surface-soft,
+    --lime-stage-surface-soft,
     linear-gradient(
       180deg,
       rgba(248, 250, 252, 0.96) 0%,
@@ -248,12 +254,12 @@ const ContentAtmosphere = styled.div`
   background:
     radial-gradient(
       circle at 8% 0%,
-      var(--ember-home-glow-primary, rgba(16, 185, 129, 0.1)) 0%,
+      var(--lime-home-glow-primary, rgba(16, 185, 129, 0.1)) 0%,
       rgba(16, 185, 129, 0) 34%
     ),
     radial-gradient(
       circle at 92% 4%,
-      var(--ember-home-glow-secondary, rgba(56, 189, 248, 0.1)) 0%,
+      var(--lime-home-glow-secondary, rgba(56, 189, 248, 0.1)) 0%,
       rgba(56, 189, 248, 0) 30%
     );
 
@@ -261,12 +267,12 @@ const ContentAtmosphere = styled.div`
     background:
       radial-gradient(
         circle at 10% 0%,
-        var(--ember-home-glow-primary, rgba(16, 185, 129, 0.08)) 0%,
+        var(--lime-home-glow-primary, rgba(16, 185, 129, 0.08)) 0%,
         rgba(16, 185, 129, 0) 36%
       ),
       radial-gradient(
         circle at 92% 2%,
-        var(--ember-home-glow-secondary, rgba(56, 189, 248, 0.08)) 0%,
+        var(--lime-home-glow-secondary, rgba(56, 189, 248, 0.08)) 0%,
         rgba(56, 189, 248, 0) 32%
       );
   }
@@ -317,7 +323,6 @@ const ACTIVE_SETTINGS_TABS = new Set<SettingsTabs>([
   SettingsTabs.Profile,
   SettingsTabs.Stats,
   SettingsTabs.Appearance,
-  SettingsTabs.Hotkeys,
   SettingsTabs.Memory,
   SettingsTabs.ArchivedConversations,
   SettingsTabs.Providers,
@@ -325,6 +330,7 @@ const ACTIVE_SETTINGS_TABS = new Set<SettingsTabs>([
   SettingsTabs.McpServer,
   SettingsTabs.WebSearch,
   SettingsTabs.Environment,
+  SettingsTabs.ExecutionPolicy,
   SettingsTabs.ChromeRelay,
   SettingsTabs.Automation,
   SettingsTabs.Developer,
@@ -354,8 +360,6 @@ function preloadSettingsTab(tab: SettingsTabs): Promise<unknown> | null {
       return import("../account/stats");
     case SettingsTabs.Appearance:
       return import("../general/appearance");
-    case SettingsTabs.Hotkeys:
-      return import("../general/hotkeys");
     case SettingsTabs.Memory:
       return import("../general/memory");
     case SettingsTabs.ArchivedConversations:
@@ -370,6 +374,8 @@ function preloadSettingsTab(tab: SettingsTabs): Promise<unknown> | null {
       return import("../system/web-search");
     case SettingsTabs.Environment:
       return import("../system/environment");
+    case SettingsTabs.ExecutionPolicy:
+      return import("../system/execution-policy");
     case SettingsTabs.ChromeRelay:
       return import("../system/chrome-relay");
     case SettingsTabs.Automation:
@@ -399,6 +405,8 @@ function renderSettingsContent(
   onTabPrefetch?: (tab: SettingsTabs) => void,
   onNavigate?: (page: Page, params?: PageParams) => void,
   initialProviderView?: SettingsProviderView,
+  initialProviderFocus?: ProviderSettingsFocusContext | null,
+  initialExecutionPolicyFocus?: ExecutionPolicyFocusContext | null,
   activeDeveloperLabTab: "developer" | "experimental" = "developer",
 ): ReactNode {
   const hasManagedAccountProfile = Boolean(resolveOemCloudRuntimeContext());
@@ -436,12 +444,6 @@ function renderSettingsContent(
         t("settings.layout.loading.appearance"),
       );
 
-    case SettingsTabs.Hotkeys:
-      return withSettingsContentFallback(
-        <HotkeysSettings />,
-        t("settings.layout.loading.hotkeys"),
-      );
-
     case SettingsTabs.Memory:
       return withSettingsContentFallback(
         <MemorySettings />,
@@ -457,7 +459,10 @@ function renderSettingsContent(
     // 智能体组
     case SettingsTabs.Providers:
       return withSettingsContentFallback(
-        <CloudProviderSettings initialView={initialProviderView} />,
+        <CloudProviderSettings
+          initialView={initialProviderView}
+          initialFocus={initialProviderFocus}
+        />,
         t("settings.layout.loading.providers"),
       );
 
@@ -484,6 +489,12 @@ function renderSettingsContent(
       return withSettingsContentFallback(
         <EnvironmentSettings />,
         t("settings.layout.loading.environment"),
+      );
+
+    case SettingsTabs.ExecutionPolicy:
+      return withSettingsContentFallback(
+        <ExecutionPolicySettings focus={initialExecutionPolicyFocus ?? null} />,
+        t("settings.layout.loading.executionPolicy"),
       );
 
     case SettingsTabs.ChromeRelay:
@@ -529,6 +540,8 @@ interface SettingsLayoutV2Props {
   onNavigate?: (page: Page, params?: PageParams) => void;
   initialTab?: SettingsTabs;
   initialProviderView?: SettingsProviderView;
+  initialProviderFocus?: ProviderSettingsFocusContext | null;
+  initialExecutionPolicyFocus?: ExecutionPolicyFocusContext | null;
 }
 
 const WIDE_CONTENT_TABS = ACTIVE_SETTINGS_TABS;
@@ -544,6 +557,8 @@ export function SettingsLayoutV2({
   onNavigate,
   initialTab,
   initialProviderView,
+  initialProviderFocus,
+  initialExecutionPolicyFocus,
 }: SettingsLayoutV2Props) {
   const { t } = useTranslation("settings");
   const [activeTab, setActiveTab] = useState<SettingsTabs>(
@@ -595,17 +610,19 @@ export function SettingsLayoutV2({
   }, [initialTab]);
 
   useEffect(() => {
-    if (!initialTab && !initialProviderView) {
+    if (!initialTab && !initialProviderView && !initialProviderFocus) {
       return;
     }
 
     if ((initialTab ?? SettingsTabs.Providers) === SettingsTabs.Providers) {
-      setActiveProviderView(initialProviderView);
+      setActiveProviderView(
+        initialProviderView ?? (initialProviderFocus ? "settings" : undefined),
+      );
       return;
     }
 
     setActiveProviderView(undefined);
-  }, [initialProviderView, initialTab]);
+  }, [initialProviderFocus, initialProviderView, initialTab]);
 
   useEffect(() => {
     contentContainerRef.current?.scrollTo?.({ top: 0, behavior: "auto" });
@@ -615,7 +632,7 @@ export function SettingsLayoutV2({
     <>
       {/* 设置内容 */}
       <HeaderBar
-        className="ember-settings-theme-scope"
+        className="lime-settings-theme-scope"
         $reserveWindowControls={reserveWindowControls}
         data-testid="settings-top-header"
         data-window-controls-reserved={String(reserveWindowControls)}
@@ -630,7 +647,7 @@ export function SettingsLayoutV2({
           {t("settings.layout.action.backHome")}
         </HeaderHomeButton>
       </HeaderBar>
-      <LayoutContainer className="ember-settings-theme-scope">
+      <LayoutContainer className="lime-settings-theme-scope">
         <SettingsSidebar
           activeTab={activeTab}
           onTabChange={handleTabChange}
@@ -646,6 +663,8 @@ export function SettingsLayoutV2({
               handleTabPrefetch,
               onNavigate,
               activeProviderView,
+              initialProviderFocus,
+              initialExecutionPolicyFocus,
               activeDeveloperLabTab,
             )}
           </ContentWrapper>

@@ -155,11 +155,11 @@ function expectNoLegacyAgentUiCommandGatewayReference(content, label) {
 describe("Electron current testing docs guard", () => {
   it("does not recommend retired dev host as a current GUI startup path", () => {
     const requiredDocs = [
-      "docs/testing/skills-e2e-testing.md",
-      "docs/tests/ember-agent-qc-rollout-plan.md",
+      "internal/testing/skills-e2e-testing.md",
+      "internal/tests/lime-agent-qc-rollout-plan.md",
     ];
     const optionalDocs = [
-      ".codex/skills/ember-playwright-e2e/references/playwright-e2e.md",
+      ".codex/skills/lime-playwright-e2e/references/playwright-e2e.md",
     ];
     const docs = [
       ...requiredDocs,
@@ -171,7 +171,7 @@ describe("Electron current testing docs guard", () => {
     }
 
     const qcloopOperations = readFile(
-      "docs/tests/ember-agent-qc-qcloop-operations.md",
+      "internal/tests/lime-agent-qc-qcloop-operations.md",
     );
     const currentStartupSection = sectionBetween(
       qcloopOperations,
@@ -181,7 +181,7 @@ describe("Electron current testing docs guard", () => {
 
     expectNoRetiredGuiStartupReference(
       currentStartupSection,
-      "docs/tests/ember-agent-qc-qcloop-operations.md#qcloop-server-startup",
+      "internal/tests/lime-agent-qc-qcloop-operations.md#qcloop-server-startup",
     );
   });
 
@@ -207,7 +207,7 @@ describe("Electron current testing docs guard", () => {
   });
 
   it("keeps internal testing entrypoints on Electron and App Server current", () => {
-    const testingIndex = readFile("docs/test/README.md");
+    const testingIndex = readFile("internal/test/README.md");
     expect(testingIndex).toContain(
       "Electron Desktop Host + App Server JSON-RPC",
     );
@@ -215,20 +215,22 @@ describe("Electron current testing docs guard", () => {
     expect(testingIndex).toContain("src/lib/desktop-host/");
     expect(testingIndex).toContain("smoke:electron");
     expect(testingIndex).toContain("verify:gui-smoke");
-    expect(testingIndex).toContain("测试用例需要全面更新事实源");
-    expect(testingIndex).toContain("不得作为新功能可交付证据");
+    expect(testingIndex).toContain(
+      "Gate A Renderer 证据与真实 Electron Gate B fixture",
+    );
+    expect(testingIndex).toContain("生产路径不得使用其 mock 作为 fallback");
 
-    const p0Scenarios = readFile("docs/tests/agent-qc-p0-scenarios.md");
+    const p0Scenarios = readFile("internal/tests/agent-qc-p0-scenarios.md");
     expect(p0Scenarios).toContain("npm run test:contracts");
     expect(p0Scenarios).toContain("npm run verify:gui-smoke");
     expect(p0Scenarios).toContain("release / GUI startup smoke");
     expectNoRetiredGuiStartupReference(
       p0Scenarios,
-      "docs/tests/agent-qc-p0-scenarios.md",
+      "internal/tests/agent-qc-p0-scenarios.md",
     );
 
     const autonomousMatrix = readFile(
-      "docs/tests/ember-agent-autonomous-test-execution-matrix.md",
+      "internal/tests/lime-agent-autonomous-test-execution-matrix.md",
     );
     expect(autonomousMatrix).toContain("Electron dev host");
     expect(autonomousMatrix).toContain("npm run test:contracts");
@@ -237,7 +239,7 @@ describe("Electron current testing docs guard", () => {
   });
 
   it("keeps E2E and testing strategy current sections on Electron evidence", () => {
-    const e2eGuide = readFile("docs/test/e2e-tests.md");
+    const e2eGuide = readFile("internal/test/e2e-tests.md");
     const e2eCurrentSection = sectionBetween(
       e2eGuide,
       "### current",
@@ -249,10 +251,10 @@ describe("Electron current testing docs guard", () => {
     expect(e2eCurrentSection).toContain("Electron GUI");
     expectNoRetiredGuiStartupReference(
       e2eCurrentSection,
-      "docs/test/e2e-tests.md#current",
+      "internal/test/e2e-tests.md#current",
     );
 
-    const testingStrategy = readFile("docs/test/testing-strategy-2026.md");
+    const testingStrategy = readFile("internal/test/testing-strategy-2026.md");
     const strategyCurrentSection = sectionBetween(
       testingStrategy,
       "### current",
@@ -267,41 +269,41 @@ describe("Electron current testing docs guard", () => {
     expect(strategyCurrentSection).toContain("npm run verify:gui-smoke");
     expectNoRetiredGuiStartupReference(
       strategyCurrentSection,
-      "docs/test/testing-strategy-2026.md#current",
+      "internal/test/testing-strategy-2026.md#current",
     );
   });
 
   it("keeps high-weight current guidance free of retired host examples", () => {
     const currentGuides = [
       "AGENTS.md",
-      "docs/aiprompts/README.md",
-      "docs/aiprompts/commands.md",
-      "docs/aiprompts/governance.md",
-      "docs/aiprompts/hooks.md",
-      "docs/aiprompts/mcp.md",
-      "docs/aiprompts/overview.md",
-      "docs/aiprompts/performance-profiling.md",
-      "docs/aiprompts/playwright-e2e.md",
-      "docs/aiprompts/quality-workflow.md",
-      "docs/aiprompts/workspace.md",
+      "internal/aiprompts/README.md",
+      "internal/aiprompts/commands.md",
+      "internal/aiprompts/governance.md",
+      "internal/aiprompts/hooks.md",
+      "internal/aiprompts/mcp.md",
+      "internal/aiprompts/overview.md",
+      "internal/aiprompts/performance-profiling.md",
+      "internal/aiprompts/playwright-e2e.md",
+      "internal/aiprompts/quality-workflow.md",
+      "internal/aiprompts/workspace.md",
       ...existingFiles([
-        ".codex/skills/ember-command-boundary/SKILL.md",
-        ".codex/skills/ember-governance/SKILL.md",
-        ".codex/skills/ember-quality-workflow/SKILL.md",
-        ".codex/skills/ember-playwright-e2e/SKILL.md",
+        ".codex/skills/lime-command-boundary/SKILL.md",
+        ".codex/skills/lime-governance/SKILL.md",
+        ".codex/skills/lime-quality-workflow/SKILL.md",
+        ".codex/skills/lime-playwright-e2e/SKILL.md",
       ]),
-      "docs/roadmap/appserver/README.md",
-      "docs/roadmap/appserver/architecture.md",
-      "docs/roadmap/appserver/consumer-integration.md",
-      "docs/roadmap/appserver/flowcharts.md",
-      "docs/roadmap/appserver/frontend-electron-migration.md",
-      "docs/roadmap/appserver/frontend-integration-matrix.md",
-      "docs/roadmap/appserver/implementation-plan.md",
-      "docs/roadmap/appserver/prd.md",
-      "docs/roadmap/appserver/protocol.md",
-      "docs/roadmap/appserver/release-updater.md",
-      "docs/roadmap/appserver/sequences.md",
-      "docs/roadmap/appserver/service-extraction.md",
+      "internal/roadmap/appserver/README.md",
+      "internal/roadmap/appserver/architecture.md",
+      "internal/roadmap/appserver/consumer-integration.md",
+      "internal/roadmap/appserver/flowcharts.md",
+      "internal/roadmap/appserver/frontend-electron-migration.md",
+      "internal/roadmap/appserver/frontend-integration-matrix.md",
+      "internal/roadmap/appserver/implementation-plan.md",
+      "internal/roadmap/appserver/prd.md",
+      "internal/roadmap/appserver/protocol.md",
+      "internal/roadmap/appserver/release-updater.md",
+      "internal/roadmap/appserver/sequences.md",
+      "internal/roadmap/appserver/service-extraction.md",
       "index.html",
     ];
 
@@ -311,7 +313,7 @@ describe("Electron current testing docs guard", () => {
   });
 
   it("documents the codex-rs reference boundary without treating Codex CLI as Codex App UI", () => {
-    const roadmap = readFile("docs/roadmap/appserver/README.md");
+    const roadmap = readFile("internal/roadmap/appserver/README.md");
     expect(roadmap).toContain("/Users/coso/Documents/dev/rust/codex");
     expect(roadmap).toContain("codex-rs");
     expect(roadmap).toContain("Codex CLI");
@@ -319,7 +321,7 @@ describe("Electron current testing docs guard", () => {
     expect(roadmap).toContain("不得把它当作 Codex App UI");
     expect(roadmap).toContain("Electron shell、托盘、Dock、updater");
 
-    const architecture = readFile("docs/roadmap/appserver/architecture.md");
+    const architecture = readFile("internal/roadmap/appserver/architecture.md");
     expect(architecture).toContain("Codex CLI");
     expect(architecture).toContain("Codex CLI 版本代码");
     expect(architecture).toContain("codex-rs");
@@ -327,7 +329,7 @@ describe("Electron current testing docs guard", () => {
     expect(architecture).toContain("不参考 Codex App UI 或桌面壳实现");
 
     const implementationPlan = readFile(
-      "docs/roadmap/appserver/implementation-plan.md",
+      "internal/roadmap/appserver/implementation-plan.md",
     );
     expect(implementationPlan).toContain("Codex CLI");
     expect(implementationPlan).toContain("codex-rs");
@@ -337,7 +339,7 @@ describe("Electron current testing docs guard", () => {
     );
 
     const execPlan = readFile(
-      "docs/exec-plans/app-server-implementation-plan.md",
+      "internal/exec-plans/app-server-implementation-plan.md",
     );
     const referenceScope = sectionBetween(
       execPlan,
@@ -356,9 +358,9 @@ describe("Electron current testing docs guard", () => {
 
   it("blocks positive Codex App UI or desktop shell references in current docs", () => {
     const scannedFiles = [
-      ...listMarkdownFiles("docs/roadmap/appserver"),
-      ...listMarkdownFiles("docs/aiprompts"),
-      "docs/exec-plans/app-server-implementation-plan.md",
+      ...listMarkdownFiles("internal/roadmap/appserver"),
+      ...listMarkdownFiles("internal/aiprompts"),
+      "internal/exec-plans/app-server-implementation-plan.md",
       "scripts/electron/current-docs-guard.test.mjs",
     ];
 
@@ -369,14 +371,14 @@ describe("Electron current testing docs guard", () => {
 
   it("keeps Electron release and updater docs aligned with current packaging", () => {
     const releaseUpdater = readFile(
-      "docs/roadmap/appserver/release-updater.md",
+      "internal/roadmap/appserver/release-updater.md",
     );
     expect(releaseUpdater).toContain("forge.config.mjs");
     expect(releaseUpdater).toContain("Electron Forge");
     expect(releaseUpdater).toContain("electron/updateHost.ts");
     expect(releaseUpdater).toContain("Electron 内置 `autoUpdater`");
     expect(releaseUpdater).toContain("ElectronUpdateHost");
-    expect(releaseUpdater).toContain("EMBER_ELECTRON_UPDATES_URL");
+    expect(releaseUpdater).toContain("LIME_ELECTRON_UPDATES_URL");
     expect(releaseUpdater).toContain("RELEASES.json");
     expect(releaseUpdater).toContain("RELEASES");
     expect(releaseUpdater).toContain(".nupkg");
@@ -389,16 +391,16 @@ describe("Electron current testing docs guard", () => {
     expect(releaseUpdater).toContain("darwin-x64");
     expect(releaseUpdater).toContain("win32-x64");
     expect(releaseUpdater).toContain("Cloudflare R2");
-    expect(releaseUpdater).toContain("EMBER_ELECTRON_SIGN");
-    expect(releaseUpdater).toContain("EMBER_MACOS_KEYCHAIN");
+    expect(releaseUpdater).toContain("LIME_ELECTRON_SIGN");
+    expect(releaseUpdater).toContain("LIME_MACOS_KEYCHAIN");
     expect(releaseUpdater).toContain("APPLE_APP_SPECIFIC_PASSWORD");
     expect(releaseUpdater).toContain("WINDOWS_SIGNING_CERTIFICATE");
-    expect(releaseUpdater).toContain("EMBER_WINDOWS_SIGNING_CERTIFICATE_FILE");
+    expect(releaseUpdater).toContain("LIME_WINDOWS_SIGNING_CERTIFICATE_FILE");
     expect(releaseUpdater).toContain(
-      "EMBER_WINDOWS_SIGNING_CERTIFICATE_PASSWORD",
+      "LIME_WINDOWS_SIGNING_CERTIFICATE_PASSWORD",
     );
     expect(releaseUpdater).toContain(
-      "EMBER_WINDOWS_SQUIRREL_REMOTE_RELEASES_URL",
+      "LIME_WINDOWS_SQUIRREL_REMOTE_RELEASES_URL",
     );
     expect(releaseUpdater).toContain("可选但成对");
     expect(releaseUpdater).toContain("unsigned Forge Squirrel installer");
@@ -407,16 +409,16 @@ describe("Electron current testing docs guard", () => {
     expect(releaseUpdater).toContain("不从 Codex App UI 推断");
     expectNoRetiredCurrentHostReference(
       releaseUpdater,
-      "docs/roadmap/appserver/release-updater.md",
+      "internal/roadmap/appserver/release-updater.md",
     );
 
     const forgeConfig = readFile("forge.config.mjs");
     expect(forgeConfig).toContain('const APP_ID = "com.embercloud.ember"');
-    expect(forgeConfig).toContain('const PRODUCT_NAME = "Ember"');
-    expect(forgeConfig).toContain("EMBER_ELECTRON_FORGE_OUT_DIR");
+    expect(forgeConfig).toContain('const PRODUCT_NAME = "Lime"');
+    expect(forgeConfig).toContain("LIME_ELECTRON_FORGE_OUT_DIR");
     expect(forgeConfig).toContain("macUpdateManifestBaseUrl");
     expect(forgeConfig).toContain("remoteReleases");
-    expect(forgeConfig).toContain("EMBER_ELECTRON_UPDATES_URL");
+    expect(forgeConfig).toContain("LIME_ELECTRON_UPDATES_URL");
     expect(forgeConfig).toContain("app-server.release.json");
     expect(forgeConfig).toContain("dist-electron/app-server");
     expect(forgeConfig).toContain("new MakerDMG");
@@ -425,8 +427,8 @@ describe("Electron current testing docs guard", () => {
     expect(forgeConfig).toContain("SQUIRREL_PACKAGE_NAME");
     expect(forgeConfig).toContain("certificateFile");
     expect(forgeConfig).toContain("certificatePassword");
-    expect(forgeConfig).toContain("EMBER_WINDOWS_SIGNING_CERTIFICATE_FILE");
-    expect(forgeConfig).toContain("EMBER_WINDOWS_SQUIRREL_REMOTE_RELEASES_URL");
+    expect(forgeConfig).toContain("LIME_WINDOWS_SIGNING_CERTIFICATE_FILE");
+    expect(forgeConfig).toContain("LIME_WINDOWS_SQUIRREL_REMOTE_RELEASES_URL");
 
     const electronRuntime = readFile("electron/electronRuntime.ts");
     expect(electronRuntime).toContain(
@@ -443,9 +445,9 @@ describe("Electron current testing docs guard", () => {
       'serverType: process.platform === "darwin" ? "json" : "default"',
     );
     expect(updateHost).toContain("RELEASES.json");
-    expect(updateHost).toContain("EMBER_UPDATES_BASE_URL");
-    expect(updateHost).toContain("EMBER_ELECTRON_UPDATES_URL");
-    expect(updateHost).toContain("EMBER_ELECTRON_ENABLE_DEV_UPDATER");
+    expect(updateHost).toContain("LIME_UPDATES_BASE_URL");
+    expect(updateHost).toContain("LIME_ELECTRON_UPDATES_URL");
+    expect(updateHost).toContain("LIME_ELECTRON_ENABLE_DEV_UPDATER");
     expect(updateHost).toContain("check_for_updates");
     expect(updateHost).toContain("download_update");
     expect(updateHost).toContain("start_update_install_session");
@@ -456,12 +458,12 @@ describe("Electron current testing docs guard", () => {
     expect(releaseWorkflow).toContain("platform: macos-15-intel");
     expect(releaseWorkflow).toContain("platform: windows-2022");
     expect(releaseWorkflow).toContain("npx electron-forge make");
-    expect(releaseWorkflow).toContain("EMBER_ELECTRON_UPDATES_URL");
+    expect(releaseWorkflow).toContain("LIME_ELECTRON_UPDATES_URL");
     expect(releaseWorkflow).toContain(
       "Validate Electron macOS signing secrets",
     );
-    expect(releaseWorkflow).toContain("EMBER_ELECTRON_SIGN");
-    expect(releaseWorkflow).toContain("EMBER_MACOS_KEYCHAIN");
+    expect(releaseWorkflow).toContain("LIME_ELECTRON_SIGN");
+    expect(releaseWorkflow).toContain("LIME_MACOS_KEYCHAIN");
     expect(releaseWorkflow).toContain("APPLE_APP_SPECIFIC_PASSWORD");
     expect(releaseWorkflow).toContain("APPLE_SIGNING_IDENTITY");
     expect(releaseWorkflow).toContain("KEYCHAIN_PASSWORD");
@@ -478,7 +480,7 @@ describe("Electron current testing docs guard", () => {
     expect(releaseWorkflow).toContain(
       "Incomplete Electron Windows signing secrets",
     );
-    expect(releaseWorkflow).toContain("EMBER_WINDOWS_SIGNING_CERTIFICATE_FILE");
+    expect(releaseWorkflow).toContain("LIME_WINDOWS_SIGNING_CERTIFICATE_FILE");
     expect(releaseWorkflow).toContain(
       "Publish Electron updater assets to Cloudflare R2",
     );
@@ -523,8 +525,8 @@ describe("Electron current testing docs guard", () => {
     expect(localFeedMake).toContain("electron-forge.js");
     expect(localFeedMake).toContain(".tmp");
     expect(localFeedMake).toContain("electron-forge-local-feed");
-    expect(localFeedMake).toContain("EMBER_ELECTRON_FORGE_OUT_DIR");
-    expect(localFeedMake).toContain("EMBER_ELECTRON_UPDATES_URL");
+    expect(localFeedMake).toContain("LIME_ELECTRON_FORGE_OUT_DIR");
+    expect(localFeedMake).toContain("LIME_ELECTRON_UPDATES_URL");
     expect(localFeedMake).toContain("RELEASES.json");
     expect(localFeedMake).toContain("--targets");
     expect(localFeedMake).toContain("zip");
@@ -558,7 +560,7 @@ describe("Electron current testing docs guard", () => {
 
   it("keeps Electron frontend host docs as current contract, not a future migration", () => {
     const frontendHost = readFile(
-      "docs/roadmap/appserver/frontend-electron-migration.md",
+      "internal/roadmap/appserver/frontend-electron-migration.md",
     );
     expect(frontendHost).toContain("Electron Desktop Host Current");
     expect(frontendHost).toContain("已经由 Electron 全面接管");
@@ -570,27 +572,27 @@ describe("Electron current testing docs guard", () => {
     expect(frontendHost).toContain("Electron 只负责 Desktop Host bridge");
     expect(frontendHost).toContain("不是第二套后端");
     expect(frontendHost).toContain("不是 Agent runtime adapter");
-    expect(frontendHost).toContain("Ember 不参考 Codex App UI 或桌面壳实现");
+    expect(frontendHost).toContain("Lime 不参考 Codex App UI 或桌面壳实现");
     expect(frontendHost).toContain("生产路径不能靠 mock 成功");
     expect(frontendHost).toContain("npm run verify:gui-smoke");
     expectNoRetiredCurrentHostReference(
       frontendHost,
-      "docs/roadmap/appserver/frontend-electron-migration.md",
+      "internal/roadmap/appserver/frontend-electron-migration.md",
     );
 
-    const roadmap = readFile("docs/roadmap/appserver/README.md");
+    const roadmap = readFile("internal/roadmap/appserver/README.md");
     expect(roadmap).toContain("Electron Desktop Host current 契约");
-    expect(roadmap).not.toContain("Ember 前端切换到 Electron Desktop Host");
+    expect(roadmap).not.toContain("Lime 前端切换到 Electron Desktop Host");
   });
 
   it("keeps AgentUI docs on Electron and App Server command gateway", () => {
     const agentUiDocs = [
-      "docs/roadmap/agentui/README.md",
-      "docs/roadmap/agentui/ember-agentui-target-architecture.md",
-      "docs/roadmap/agentui/lime-agentui-code-map.md",
-      "docs/roadmap/agentui/ember-agentui-backend-coordination.md",
-      "docs/roadmap/agentui/ember-agentui-implementation-roadmap.md",
-      "docs/roadmap/agentui/conversation-projection-implementation-plan.md",
+      "internal/roadmap/agentui/README.md",
+      "internal/roadmap/agentui/lime-agentui-target-architecture.md",
+      "internal/roadmap/agentui/lime-agentui-code-map.md",
+      "internal/roadmap/agentui/lime-agentui-backend-coordination.md",
+      "internal/roadmap/agentui/lime-agentui-implementation-roadmap.md",
+      "internal/roadmap/agentui/conversation-projection-implementation-plan.md",
     ];
 
     for (const filePath of agentUiDocs) {
@@ -600,7 +602,7 @@ describe("Electron current testing docs guard", () => {
     }
 
     const targetArchitecture = readFile(
-      "docs/roadmap/agentui/ember-agentui-target-architecture.md",
+      "internal/roadmap/agentui/lime-agentui-target-architecture.md",
     );
     expect(targetArchitecture).toContain(
       "Electron Desktop Host bridge / App Server JSON-RPC",
@@ -608,19 +610,50 @@ describe("Electron current testing docs guard", () => {
     expect(targetArchitecture).toContain("CommandGateway --> RuntimeQueue");
 
     const codeMap = readFile(
-      "docs/roadmap/agentui/lime-agentui-code-map.md",
+      "internal/roadmap/agentui/lime-agentui-code-map.md",
     );
     expect(codeMap).toContain("## 5. Command Gateway 层");
     expect(codeMap).toContain("App Server");
     expect(codeMap).toContain("Electron Desktop Host");
     expectNoLegacyAgentUiCommandGatewayReference(
       codeMap,
-      "docs/roadmap/agentui/lime-agentui-code-map.md",
+      "internal/roadmap/agentui/lime-agentui-code-map.md",
     );
   });
 
+  it("keeps i18n app metadata workflow on Electron Forge current sources", () => {
+    const evaluation = readFile(
+      "internal/roadmap/i18n/app-metadata-workflow-evaluation.md",
+    );
+    expect(evaluation).toContain("forge.config.mjs");
+    expect(evaluation).toContain("当前 Electron 发布元数据事实源");
+    expect(evaluation).toContain("Electron Forge / 平台发布链路");
+    expect(evaluation).toContain("已按 `dead` release / metadata surface 下线");
+    expect(evaluation).toContain(
+      "不是 current app metadata、installer、release、updater、签名或版本同步事实源",
+    );
+    expect(evaluation).toContain("不能作为 i18n evidence 输入回流");
+    expect(evaluation).not.toContain("Tauri file association");
+    expect(evaluation).not.toContain("真实 Tauri");
+    expect(evaluation).not.toContain("手工复制多份 Tauri 配置");
+
+    const progress = readFile(
+      "internal/roadmap/i18n/implementation-progress.md",
+    );
+    const currentSection = sectionBetween(
+      progress,
+      "## 2026-05-27：P0-P4 全路线图 readiness 审计",
+      "\n## 2026-05-27：P4 Chrome extension standard locale decision 收口",
+    );
+    expect(currentSection).toContain("Electron Forge / installer 配置");
+    expect(currentSection).toContain("forge.config.mjs");
+    expect(currentSection).toContain("Electron Forge 配置");
+    expect(currentSection).not.toContain("真实 Tauri");
+    expect(currentSection).not.toContain("tauri.conf");
+  });
+
   it("keeps App Server protocol aligned with codex-rs initialize and in-process boundaries", () => {
-    const protocol = readFile("docs/roadmap/appserver/protocol.md");
+    const protocol = readFile("internal/roadmap/appserver/protocol.md");
     expect(protocol).toContain("JSON-RPC-like");
     expect(protocol).toContain('不要求也不发送 `"jsonrpc":"2.0"` header');
     expect(protocol).toContain("experimentalApi");
@@ -630,18 +663,18 @@ describe("Electron current testing docs guard", () => {
     expect(protocol).not.toMatch(/"experimental"\s*:/);
 
     const consumerIntegration = readFile(
-      "docs/roadmap/appserver/consumer-integration.md",
+      "internal/roadmap/appserver/consumer-integration.md",
     );
     expect(consumerIntegration).toContain("experimentalApi");
     expect(consumerIntegration).toContain("optOutNotificationMethods");
     expect(consumerIntegration).not.toContain("eventMethods");
 
-    const architecture = readFile("docs/roadmap/appserver/architecture.md");
+    const architecture = readFile("internal/roadmap/appserver/architecture.md");
     expect(architecture).toContain("不引入第二响应合同");
     expect(architecture).toContain("App Server JSON-RPC result envelope");
 
     const frontendMatrix = readFile(
-      "docs/roadmap/appserver/frontend-integration-matrix.md",
+      "internal/roadmap/appserver/frontend-integration-matrix.md",
     );
     expect(frontendMatrix).toContain("不得引入第二响应合同");
     expect(frontendMatrix).toContain("不得引入第二响应合同、第二 read model");

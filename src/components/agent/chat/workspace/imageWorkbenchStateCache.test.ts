@@ -30,8 +30,8 @@ function createImageWorkbenchState(
         createdAt,
         hookImageIds: [`${taskId}:hook:1`],
         applyTarget: null,
-        taskFilePath: `.ember/tasks/image_generate/${taskId}.json`,
-        artifactPath: `.ember/tasks/image_generate/${taskId}.json`,
+        taskFilePath: `.lime/tasks/image_generate/${taskId}.json`,
+        artifactPath: `.lime/tasks/image_generate/${taskId}.json`,
       },
     ],
     outputs: [
@@ -261,7 +261,7 @@ describe("imageWorkbenchStateCache", () => {
         expectedImageCount: 9,
         layoutHint: "storyboard_3x3",
         taskFilePath:
-          ".ember/tasks/image_generate/task-image-message-preview-1.json",
+          ".lime/tasks/image_generate/task-image-message-preview-1.json",
       },
     };
 
@@ -277,5 +277,39 @@ describe("imageWorkbenchStateCache", () => {
       }),
     );
     expect(isSessionImageWorkbenchStateMeaningful(state)).toBe(true);
+  });
+
+  it("应把没有输出的已完成历史预览恢复为运行中状态", () => {
+    const message: Message = {
+      id: "assistant-image-preview-2",
+      role: "assistant",
+      content:
+        "好啊，用 Nanobanana Pro 给你生成一张从花城汇看广州塔的春天照片，先获取下工具参数，马上生成",
+      timestamp: new Date("2026-04-24T00:00:00.000Z"),
+      imageWorkbenchPreview: {
+        taskId: "task-image-message-preview-2",
+        prompt: "从花城汇看广州塔的春天照片",
+        mode: "generate",
+        status: "complete",
+        phase: "succeeded",
+        imageUrl: null,
+        previewImages: [],
+        expectedImageCount: 1,
+        taskFilePath:
+          ".lime/tasks/image_generate/task-image-message-preview-2.json",
+      },
+    };
+
+    const state = buildSessionImageWorkbenchStateFromMessages([message]);
+
+    expect(state.tasks).toHaveLength(1);
+    expect(state.tasks[0]).toEqual(
+      expect.objectContaining({
+        id: "task-image-message-preview-2",
+        status: "running",
+        expectedCount: 1,
+      }),
+    );
+    expect(state.outputs).toHaveLength(0);
   });
 });

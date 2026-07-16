@@ -315,12 +315,9 @@ function getFilesToVerify(config: Config): string[] {
     const selfExcludedFiles = new Set(['scripts/ai-code-verify.ts'])
 
     // 获取 git 暂存的文件
-    const output = execSync(
-      'git -c core.quotepath=false diff --cached --name-only --diff-filter=ACM',
-      {
-        encoding: 'utf-8',
-      },
-    ).trim()
+    const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
+      encoding: 'utf-8',
+    }).trim()
 
     if (!output) {
       return []

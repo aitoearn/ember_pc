@@ -12,7 +12,7 @@ import {
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ember-i18n-p4-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lime-i18n-p4-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -26,9 +26,9 @@ function writeJson(root: string, relativePath: string, value: unknown): void {
 function writeReadyEvidence(root: string): void {
   writeJson(
     root,
-    "docs/roadmap/i18n/evidence/chrome-extension-workflow-inventory.json",
+    "internal/roadmap/i18n/evidence/chrome-extension-workflow-inventory.json",
     {
-      schemaVersion: "ember.i18n.chromeExtensionWorkflowReport.v1",
+      schemaVersion: "lime.i18n.chromeExtensionWorkflowReport.v1",
       summary: {
         installI18nLocaleDriftCount: 0,
         optionsLanguageDriftCount: 0,
@@ -38,9 +38,9 @@ function writeReadyEvidence(root: string): void {
         terminologyPresentCount: 5,
       },
       terminology: [
-        { present: true, term: "Ember Browser Bridge" },
-        { present: true, term: "Ember Browser Connector" },
-        { present: true, term: "Ember Agent" },
+        { present: true, term: "Lime Browser Bridge" },
+        { present: true, term: "Lime Browser Connector" },
+        { present: true, term: "Lime Agent" },
         { present: true, term: "Browser Connection" },
         { present: true, term: "Relay" },
       ],
@@ -48,12 +48,12 @@ function writeReadyEvidence(root: string): void {
   );
   writeJson(
     root,
-    "docs/roadmap/i18n/evidence/release-docs-workflow-inventory.json",
+    "internal/roadmap/i18n/evidence/release-docs-workflow-inventory.json",
     {
       releaseDocsTranslationQueue: {
         workflowStatus: "ready",
       },
-      schemaVersion: "ember.i18n.releaseDocsWorkflowReport.v1",
+      schemaVersion: "lime.i18n.releaseDocsWorkflowReport.v1",
       summary: {
         docsUnscopedContentSourceFileCount: 0,
         hasBilingualRootReadme: true,
@@ -73,9 +73,9 @@ function writeReadyEvidence(root: string): void {
   );
   writeJson(
     root,
-    "docs/roadmap/i18n/evidence/rtl-readiness-inventory.json",
+    "internal/roadmap/i18n/evidence/rtl-readiness-inventory.json",
     {
-      schemaVersion: "ember.i18n.rtlReadinessReport.v1",
+      schemaVersion: "lime.i18n.rtlReadinessReport.v1",
       summary: {
         highRiskFileCount: 23,
         missingPlaywrightSmokeEvidence: false,
@@ -88,9 +88,9 @@ function writeReadyEvidence(root: string): void {
   );
   writeJson(
     root,
-    "docs/roadmap/i18n/evidence/app-metadata-workflow-inventory.json",
+    "internal/roadmap/i18n/evidence/app-metadata-workflow-inventory.json",
     {
-      schemaVersion: "ember.i18n.appMetadataWorkflowReport.v1",
+      schemaVersion: "lime.i18n.appMetadataWorkflowReport.v1",
       summary: {
         appMetadataLocaleBuildManifestReady: true,
         hasAppMetadataLocaleBuildManifest: true,
@@ -118,7 +118,7 @@ describe("i18n P4 readiness report", () => {
 
     const report = analyzeI18nP4ReadinessReport({ repoRoot: root });
 
-    expect(report.schemaVersion).toBe("ember.i18n.p4ReadinessReport.v1");
+    expect(report.schemaVersion).toBe("lime.i18n.p4ReadinessReport.v1");
     expect(report.summary).toEqual({
       acceptanceFailedCount: 0,
       acceptancePassedCount: 3,
@@ -152,7 +152,7 @@ describe("i18n P4 readiness report", () => {
     );
     expect(JSON.parse(formatI18nP4ReadinessReport(report, "json"))).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.p4ReadinessReport.v1",
+        schemaVersion: "lime.i18n.p4ReadinessReport.v1",
       }),
     );
   });
@@ -162,9 +162,9 @@ describe("i18n P4 readiness report", () => {
     writeReadyEvidence(root);
     writeJson(
       root,
-      "docs/roadmap/i18n/evidence/chrome-extension-workflow-inventory.json",
+      "internal/roadmap/i18n/evidence/chrome-extension-workflow-inventory.json",
       {
-        schemaVersion: "ember.i18n.chromeExtensionWorkflowReport.v1",
+        schemaVersion: "lime.i18n.chromeExtensionWorkflowReport.v1",
         summary: {
           installI18nLocaleDriftCount: 0,
           optionsLanguageDriftCount: 0,
@@ -172,9 +172,9 @@ describe("i18n P4 readiness report", () => {
           terminologyPresentCount: 5,
         },
         terminology: [
-          { present: true, term: "Ember Browser Bridge" },
-          { present: true, term: "Ember Browser Connector" },
-          { present: true, term: "Ember Agent" },
+          { present: true, term: "Lime Browser Bridge" },
+          { present: true, term: "Lime Browser Connector" },
+          { present: true, term: "Lime Agent" },
           { present: true, term: "Browser Connection" },
           { present: true, term: "Relay" },
         ],
@@ -182,12 +182,12 @@ describe("i18n P4 readiness report", () => {
     );
     writeJson(
       root,
-      "docs/roadmap/i18n/evidence/release-docs-workflow-inventory.json",
+      "internal/roadmap/i18n/evidence/release-docs-workflow-inventory.json",
       {
         releaseDocsTranslationQueue: {
           workflowStatus: "blocked",
         },
-        schemaVersion: "ember.i18n.releaseDocsWorkflowReport.v1",
+        schemaVersion: "lime.i18n.releaseDocsWorkflowReport.v1",
         summary: {
           docsUnscopedContentSourceFileCount: 1,
           hasBilingualRootReadme: true,
@@ -226,9 +226,9 @@ describe("i18n P4 readiness report", () => {
     writeReadyEvidence(root);
     writeJson(
       root,
-      "docs/roadmap/i18n/evidence/app-metadata-workflow-inventory.json",
+      "internal/roadmap/i18n/evidence/app-metadata-workflow-inventory.json",
       {
-        schemaVersion: "ember.i18n.appMetadataWorkflowReport.v1",
+        schemaVersion: "lime.i18n.appMetadataWorkflowReport.v1",
         summary: {
           appMetadataLocaleBuildManifestReady: false,
           hasAppMetadataLocaleBuildManifest: true,
@@ -270,7 +270,7 @@ describe("i18n P4 readiness report", () => {
     expect(writeSpy).not.toHaveBeenCalled();
     expect(JSON.parse(fs.readFileSync(outFile, "utf8"))).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.p4ReadinessReport.v1",
+        schemaVersion: "lime.i18n.p4ReadinessReport.v1",
         summary: expect.objectContaining({
           overallStatus: "ready",
         }),

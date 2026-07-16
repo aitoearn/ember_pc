@@ -11,7 +11,7 @@ import {
   getAutomationJobs,
   type AutomationJobRecord,
 } from "@/lib/api/automation";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { recordServiceSkillAutomationLink } from "./automationLinkStorage";
 import { recordServiceSkillUsage } from "./storage";
 import { useServiceSkills } from "./useServiceSkills";
@@ -126,7 +126,7 @@ function buildCloudCatalog(): SkillCatalog {
       {
         ...seeded.items[1]!,
         id: "cloud-video-dubbing",
-        title: "性能测试",
+        title: "视频配音",
         summary: "围绕参考视频与文案整理一版本地可继续加工的配音稿。",
         executionLocation: "client_default",
         defaultExecutorBinding: "agent_turn",
@@ -255,7 +255,7 @@ async function flushEffects(times = 3) {
 
 describe("useServiceSkills", () => {
   beforeEach(async () => {
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
     (
       globalThis as typeof globalThis & {
         IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -267,11 +267,61 @@ describe("useServiceSkills", () => {
 
   afterEach(() => {
     window.localStorage.clear();
-    delete window.__EMBER_OEM_CLOUD__;
-    delete window.__EMBER_SESSION_TOKEN__;
+    delete window.__LIME_OEM_CLOUD__;
+    delete window.__LIME_SESSION_TOKEN__;
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     vi.useRealTimers();
+  });
+
+  it("autoLoad 关闭时默认不读取服务技能目录", async () => {
+    window.__LIME_OEM_CLOUD__ = {
+      baseUrl: "https://oem.example.com",
+      tenantId: "tenant-demo",
+    };
+    window.__LIME_SESSION_TOKEN__ = "session-token-demo";
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const harness = mountHook({ autoLoad: false });
+
+    try {
+      await flushEffects(4);
+
+      expect(harness.getValue().isLoading).toBe(false);
+      expect(harness.getValue().skills).toEqual([]);
+      expect(harness.getValue().groups).toEqual([]);
+      expect(harness.getValue().catalogMeta).toBeNull();
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(getAutomationJobs).not.toHaveBeenCalled();
+    } finally {
+      harness.unmount();
+    }
+  });
+
+  it("autoLoad 关闭后应由显式 refresh 按需加载服务技能目录", async () => {
+    const harness = mountHook({ autoLoad: false });
+
+    try {
+      await flushEffects();
+      expect(harness.getValue().skills).toEqual([]);
+
+      await act(async () => {
+        await harness.getValue().refresh();
+      });
+      await flushEffects();
+
+      expect(harness.getValue().skills.length).toBeGreaterThan(0);
+      expect(harness.getValue().catalogMeta).toEqual(
+        expect.objectContaining({
+          tenantId: "local-seeded",
+          sourceLabel: "起步做法",
+          isSeeded: true,
+        }),
+      );
+    } finally {
+      harness.unmount();
+    }
   });
 
   it("目录更新事件后应刷新技能列表并保留分组元数据", async () => {
@@ -396,11 +446,11 @@ describe("useServiceSkills", () => {
   });
 
   it("有 OEM 会话时应先显示本地目录再后台刷新远端技能目录", async () => {
-    window.__EMBER_OEM_CLOUD__ = {
+    window.__LIME_OEM_CLOUD__ = {
       baseUrl: "https://oem.example.com",
       tenantId: "tenant-demo",
     };
-    window.__EMBER_SESSION_TOKEN__ = "session-token-demo";
+    window.__LIME_SESSION_TOKEN__ = "session-token-demo";
 
     const responseDeferred = createDeferred<{
       ok: boolean;

@@ -164,7 +164,7 @@ describe("CanvasPanel", () => {
         content: "<!doctype html><html><body><h1>样板预览</h1></body></html>",
         language: "html",
         filename: "prototype.html",
-        sourcePath: "/tmp/ember/prototype.html",
+        sourcePath: "/tmp/lime/prototype.html",
         isEditing: false,
       },
       onClose: vi.fn(),
@@ -174,10 +174,10 @@ describe("CanvasPanel", () => {
 
     const iframe = container.querySelector("iframe");
     expect(resolveLocalFilePreviewUrl).toHaveBeenCalledWith(
-      "/tmp/ember/prototype.html",
+      "/tmp/lime/prototype.html",
     );
     expect(iframe?.getAttribute("src")).toBe(
-      "asset://local//tmp/ember/prototype.html",
+      "asset://local//tmp/lime/prototype.html",
     );
     expect(iframe?.getAttribute("srcdoc")).toBeNull();
 
@@ -191,7 +191,7 @@ describe("CanvasPanel", () => {
     });
 
     expect(openHtmlPreviewWindow).toHaveBeenCalledWith(
-      "/tmp/ember/prototype.html",
+      "/tmp/lime/prototype.html",
       { title: "prototype.html" },
     );
     expect(openPathWithDefaultApp).not.toHaveBeenCalled();
@@ -207,7 +207,7 @@ describe("CanvasPanel", () => {
         content: "<!doctype html><html><body><h1>浏览器预览</h1></body></html>",
         language: "html",
         filename: "prototype.html",
-        sourcePath: "/tmp/ember/prototype.html",
+        sourcePath: "/tmp/lime/prototype.html",
         isEditing: false,
       },
       onClose: vi.fn(),
@@ -217,7 +217,7 @@ describe("CanvasPanel", () => {
 
     const iframe = container.querySelector("iframe");
     expect(resolveLocalFilePreviewUrl).toHaveBeenCalledWith(
-      "/tmp/ember/prototype.html",
+      "/tmp/lime/prototype.html",
     );
     expect(iframe?.getAttribute("src")).toBeNull();
     expect(iframe?.getAttribute("srcdoc")).toContain("浏览器预览");
@@ -233,7 +233,7 @@ describe("CanvasPanel", () => {
         filename: "prototype.html",
         isEditing: false,
       },
-      baseFilePath: "/tmp/ember/from-base.html",
+      baseFilePath: "/tmp/lime/from-base.html",
       onClose: vi.fn(),
       onContentChange: vi.fn(),
       chrome: "embedded",
@@ -241,10 +241,10 @@ describe("CanvasPanel", () => {
 
     const iframe = container.querySelector("iframe");
     expect(resolveLocalFilePreviewUrl).toHaveBeenCalledWith(
-      "/tmp/ember/from-base.html",
+      "/tmp/lime/from-base.html",
     );
     expect(iframe?.getAttribute("src")).toBe(
-      "asset://local//tmp/ember/from-base.html",
+      "asset://local//tmp/lime/from-base.html",
     );
   });
 
@@ -257,7 +257,7 @@ describe("CanvasPanel", () => {
         content: "<!doctype html><html><body><h1>样板预览</h1></body></html>",
         language: "html",
         filename: "prototype.html",
-        sourcePath: "/tmp/ember/prototype.html",
+        sourcePath: "/tmp/lime/prototype.html",
         isEditing: false,
       },
       onClose: vi.fn(),
@@ -275,7 +275,7 @@ describe("CanvasPanel", () => {
     });
 
     expect(openPathWithDefaultApp).toHaveBeenCalledWith(
-      "/tmp/ember/prototype.html",
+      "/tmp/lime/prototype.html",
     );
   });
 });

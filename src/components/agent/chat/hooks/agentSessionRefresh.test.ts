@@ -1,13 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 import type { MutableRefObject } from "react";
-import type { AsterSessionDetail } from "@/lib/api/agentRuntime";
+import type { AgentSessionDetail } from "@/lib/api/agentRuntime/sessionTypes";
 import {
   createAgentSessionReadModelSnapshot,
   refreshAgentSessionDetailState,
   refreshAgentSessionReadModelState,
+  resolveDefaultAgentSessionDetailMergeMode,
 } from "./agentSessionRefresh";
 
 describe("agentSessionRefresh", () => {
+  it("默认 detail merge mode 应只用于历史 hydrate 兜底", () => {
+    expect(resolveDefaultAgentSessionDetailMergeMode()).toBe("history_hydrate");
+  });
+
   it("应把 thread_read 归一成可消费快照", () => {
     const snapshot = createAgentSessionReadModelSnapshot({
       thread_id: "thread-1",
@@ -45,7 +50,7 @@ describe("agentSessionRefresh", () => {
   it("刷新 detail 时应应用 detail 并把 legacy executionStrategy 归一后同步", async () => {
     const applySessionDetail = vi.fn();
     const markSynced = vi.fn();
-    const detail: AsterSessionDetail = {
+    const detail: AgentSessionDetail = {
       id: "session-1",
       messages: [],
       created_at: 1,
@@ -64,11 +69,14 @@ describe("agentSessionRefresh", () => {
         } as MutableRefObject<string | null>,
         applySessionDetail,
         markSessionExecutionStrategySynced: markSynced,
+        source: "runtimeSync.event",
+        detailMergeMode: "terminal_reconcile",
       }),
     ).resolves.toBe(true);
 
     expect(getSession).toHaveBeenCalledWith("session-1", {
       historyLimit: 40,
+      source: "runtimeSync.event",
     });
     expect(applySessionDetail).toHaveBeenCalledWith(
       "session-1",
@@ -78,6 +86,7 @@ describe("agentSessionRefresh", () => {
       }),
       {
         preserveExecutionStrategyOnMissingDetail: true,
+        detailMergeMode: "terminal_reconcile",
       },
     );
     expect(markSynced).toHaveBeenCalledWith("session-1", "react");
@@ -88,7 +97,7 @@ describe("agentSessionRefresh", () => {
     const markSynced = vi.fn();
     const persistSessionAccessMode = vi.fn();
     const setAccessModeState = vi.fn();
-    const detail: AsterSessionDetail = {
+    const detail: AgentSessionDetail = {
       id: "session-1",
       messages: [],
       created_at: 1,

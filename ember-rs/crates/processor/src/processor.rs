@@ -13,12 +13,12 @@
 //! 6. 插件后置钩子 (PluginPostStep)
 //! 7. 统计记录 (TelemetryStep)
 
-pub use ember_core::processor::RequestContext;
+pub use lime_core::processor::RequestContext;
 
-use ember_core::plugin::PluginManager;
-use ember_core::router::{ModelMapper, Router};
-use ember_core::ProviderType;
-use ember_infra::{Failover, Injector, Retrier, StatsAggregator, TimeoutController, TokenTracker};
+use lime_core::plugin::PluginManager;
+use lime_core::router::{ModelMapper, Router};
+use lime_core::ProviderType;
+use lime_infra::{Failover, Injector, Retrier, StatsAggregator, TimeoutController, TokenTracker};
 use parking_lot::RwLock as ParkingLotRwLock;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -48,7 +48,7 @@ pub struct RequestProcessor {
     /// 热重载协调锁（避免配置更新期间请求读取不一致的配置）
     pub reload_lock: Arc<RwLock<()>>,
     /// 提示路由器
-    pub hint_router: Arc<RwLock<ember_core::router::HintRouter>>,
+    pub hint_router: Arc<RwLock<lime_core::router::HintRouter>>,
     /// 对话修剪器
     pub conversation_trimmer: Arc<crate::conversation_manager::ConversationTrimmer>,
 }
@@ -77,7 +77,7 @@ impl RequestProcessor {
             stats,
             tokens,
             reload_lock: Arc::new(RwLock::new(())),
-            hint_router: Arc::new(RwLock::new(ember_core::router::HintRouter::default())),
+            hint_router: Arc::new(RwLock::new(lime_core::router::HintRouter::default())),
             conversation_trimmer: Arc::new(crate::conversation_manager::ConversationTrimmer::new(
                 crate::conversation_manager::TrimConfig::default(),
             )),
@@ -97,7 +97,7 @@ impl RequestProcessor {
             stats: Arc::new(ParkingLotRwLock::new(StatsAggregator::with_defaults())),
             tokens: Arc::new(ParkingLotRwLock::new(TokenTracker::with_defaults())),
             reload_lock: Arc::new(RwLock::new(())),
-            hint_router: Arc::new(RwLock::new(ember_core::router::HintRouter::default())),
+            hint_router: Arc::new(RwLock::new(lime_core::router::HintRouter::default())),
             conversation_trimmer: Arc::new(crate::conversation_manager::ConversationTrimmer::new(
                 crate::conversation_manager::TrimConfig::default(),
             )),
@@ -129,7 +129,7 @@ impl RequestProcessor {
             stats,
             tokens,
             reload_lock: Arc::new(RwLock::new(())),
-            hint_router: Arc::new(RwLock::new(ember_core::router::HintRouter::default())),
+            hint_router: Arc::new(RwLock::new(lime_core::router::HintRouter::default())),
             conversation_trimmer: Arc::new(crate::conversation_manager::ConversationTrimmer::new(
                 crate::conversation_manager::TrimConfig::default(),
             )),

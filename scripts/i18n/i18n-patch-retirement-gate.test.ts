@@ -8,7 +8,7 @@ import { runCli } from "./i18n-patch-retirement-gate.mjs";
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ember-i18n-patch-gate-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lime-i18n-patch-gate-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -37,8 +37,8 @@ describe("i18n patch retirement gate", () => {
       ],
       recentRuns: [],
       retirementCandidate: true,
-      schemaVersion: "ember.i18n.patchMetricsReport.v1",
-      sourcePath: ".ember/i18n/patch-metrics.json",
+      schemaVersion: "lime.i18n.patchMetricsReport.v1",
+      sourcePath: ".lime/i18n/patch-metrics.json",
       status: "no-hit",
       summary: {
         averagePatchTimeMs: 0,
@@ -56,7 +56,7 @@ describe("i18n patch retirement gate", () => {
       thresholds: {},
     });
     const legacyReportPath = writeJson(root, "legacy-report.json", {
-      repoRoot: "/Users/coso/Documents/dev/ai/aitoearn/ember_pc",
+      repoRoot: "/Users/coso/Documents/dev/ai/aiclientproxy/lime",
       summary: {
         classificationDriftCandidates: [],
         runtimeSourceCount: 1,
@@ -92,7 +92,7 @@ describe("i18n patch retirement gate", () => {
       schemaVersion: string;
     };
 
-    expect(report.schemaVersion).toBe("ember.i18n.patchRetirementGate.v1");
+    expect(report.schemaVersion).toBe("lime.i18n.patchRetirementGate.v1");
     expect(report.retirementReady).toBe(true);
     expect(report.advisoryIssues).toEqual([]);
     expect(report.gateIssues).toEqual([]);
@@ -110,8 +110,8 @@ describe("i18n patch retirement gate", () => {
       ],
       recentRuns: [],
       retirementCandidate: false,
-      schemaVersion: "ember.i18n.patchMetricsReport.v1",
-      sourcePath: ".ember/i18n/patch-metrics.json",
+      schemaVersion: "lime.i18n.patchMetricsReport.v1",
+      sourcePath: ".lime/i18n/patch-metrics.json",
       status: "active-patch",
       summary: {
         averagePatchTimeMs: 1,

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Skill } from "@/lib/api/skills";
 import type { ServiceSkillHomeItem } from "@/components/agent/chat/service-skills/types";
-import type { CodexSlashCommandDefinition } from "../commands";
+import type { SlashCommandDefinition } from "../commands";
 import type {
   BuiltinInputCommand,
   RuntimeSceneSlashCommand,
@@ -55,9 +55,9 @@ function createBuiltinCommand(
 }
 
 function createSlashCommand(
-  overrides: Partial<CodexSlashCommandDefinition> &
-    Pick<CodexSlashCommandDefinition, "key" | "commandPrefix" | "kind">,
-): CodexSlashCommandDefinition {
+  overrides: Partial<SlashCommandDefinition> &
+    Pick<SlashCommandDefinition, "key" | "commandPrefix" | "kind">,
+): SlashCommandDefinition {
   return {
     commandName: overrides.key,
     label: overrides.key,
@@ -125,7 +125,7 @@ function buildEmptyParams() {
   return {
     mentionQuery: "",
     builtinCommands: [] as BuiltinInputCommand[],
-    slashCommands: [] as CodexSlashCommandDefinition[],
+    slashCommands: [] as SlashCommandDefinition[],
     sceneCommands: [] as RuntimeSceneSlashCommand[],
     mentionServiceSkills: [],
     serviceSkillGroups: [],
@@ -167,7 +167,7 @@ describe("buildInputCapabilitySections", () => {
         createBuiltinCommand({
           key: "writing_runtime",
           label: "写作",
-          commandPrefix: "@写作",
+          commandPrefix: "@文案",
         }),
         createBuiltinCommand({
           key: "publish_runtime",
@@ -186,7 +186,7 @@ describe("buildInputCapabilitySections", () => {
       sections
         .find((section) => section.heading === "生成 / 表达")
         ?.items.map((item) => item.title),
-    ).toEqual(expect.arrayContaining(["@Nanobanana Pro", "@写作"]));
+    ).toEqual(expect.arrayContaining(["@Nanobanana Pro", "@文案"]));
   });
 
   it("slash 空查询应先收成先拿结果与工作台操作，不默认展开提示命令和状态帮助", () => {
@@ -233,7 +233,7 @@ describe("buildInputCapabilitySections", () => {
     expect(headings).not.toContain("提示命令");
     expect(headings).not.toContain("状态 / 帮助");
     expect(headings).not.toContain("快捷操作");
-    expect(headings).not.toContain("Ember 命令");
+    expect(headings).not.toContain("Lime 命令");
 
     const workspaceSection = sections.find(
       (section) => section.heading === "工作台操作",

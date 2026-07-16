@@ -1,5 +1,9 @@
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 function itemById(audit) {
-  return new Map((audit.items || []).map((item) => [item.id, item]));
+  return new Map(asArray(audit?.items).map((item) => [item.id, item]));
 }
 
 function allPassed(items, ids) {
@@ -39,6 +43,54 @@ function ownerProtocolStatus(items, processOwner) {
     : "pass";
 }
 
+function ownerProtocolGap(items, processOwner) {
+  if (processOwner?.verdict?.status === "busy") {
+    return "raw process owner 仍 busy，不能启动完整 verify:local 或 full GUI P0。";
+  }
+  if (!hasOwnerProtocolEvidence(items, processOwner)) {
+    return (
+      processOwner?.verdict?.summary ||
+      "qcloop / GUI owner / raw process owner 只读取证不完整。"
+    );
+  }
+  return "";
+}
+
+function buildMissingAuditAgentQcObjectiveChecklist({
+  auditPath = ".lime/qc/objective-completion-audit-current.json",
+  reason = "missing",
+  detail = "",
+  generatedAt = new Date().toISOString(),
+} = {}) {
+  const isInvalidJson = reason === "invalid-json";
+  const gap = isInvalidJson
+    ? `completion audit sidecar 无法解析：${auditPath}${detail ? `；${detail}` : ""}。先重新运行 npm run agent-qc:audit -- --format json --output ${auditPath}。`
+    : `缺少 completion audit sidecar：${auditPath}。先运行 npm run agent-qc:audit -- --format json --output ${auditPath}。`;
+  const checklist = [
+    {
+      requirement: "读取 objective completion audit sidecar",
+      artifacts: [auditPath, "npm run agent-qc:audit"],
+      evidence: isInvalidJson ? "invalid-json" : "missing",
+      status: "fail",
+      gap,
+    },
+  ];
+  return {
+    schemaVersion: "v1",
+    generatedAt,
+    objective: "实现 Agent QC / 测试体系整体目标，并以真实证据证明可发布",
+    status: "incomplete",
+    passedCount: 0,
+    totalCount: checklist.length,
+    blockers: checklist.map((item) => ({
+      requirement: item.requirement,
+      status: item.status,
+      gap: item.gap,
+    })),
+    checklist,
+  };
+}
+
 function buildAgentQcObjectiveChecklist({
   audit,
   processOwner,
@@ -61,12 +113,12 @@ function buildAgentQcObjectiveChecklist({
   ];
   const checklist = [
     {
-      requirement: "在 docs/tests 下增加并维护 Agent/AI 测试标准文档",
+      requirement: "在 internal/tests 下增加并维护 Agent/AI 测试标准文档",
       artifacts: [
-        "docs/tests/README.md",
-        "docs/tests/agent-ops-qc.md",
-        "docs/tests/ai-agent-testing-guide.md",
-        "docs/tests/ember-agent-autonomous-testing-plan.md",
+        "internal/tests/README.md",
+        "internal/tests/agent-ops-qc.md",
+        "internal/tests/ai-agent-testing-guide.md",
+        "internal/tests/lime-agent-autonomous-testing-plan.md",
       ],
       evidence: items.get("docs-tests-standard")?.evidence || "",
       status: items.get("docs-tests-standard")?.passed ? "pass" : "fail",
@@ -76,9 +128,9 @@ function buildAgentQcObjectiveChecklist({
       requirement:
         "提供 P0 scenario manifest、GUI flow manifest、Evidence Pack schema",
       artifacts: [
-        "docs/test/agent-qc-scenarios.manifest.json",
-        "docs/test/agent-qc-gui-flows.manifest.json",
-        "docs/test/agent-qc-evidence.schema.json",
+        "internal/test/agent-qc-scenarios.manifest.json",
+        "internal/test/agent-qc-gui-flows.manifest.json",
+        "internal/test/agent-qc-evidence.schema.json",
       ],
       evidence: manifestIds
         .map((id) => items.get(id)?.evidence)
@@ -95,7 +147,7 @@ function buildAgentQcObjectiveChecklist({
         "scripts/agent-qc/payload-coverage.mjs",
         "scripts/agent-qc/export-evidence.mjs",
         "scripts/agent-qc/release-summary.mjs",
-        "docs/tests/ember-agent-qc-evidence-contract.md",
+        "internal/tests/lime-agent-qc-evidence-contract.md",
       ],
       evidence: evidenceFor(items, qcloopToolingIds),
       status: allPassed(items, qcloopToolingIds) ? "pass" : "fail",
@@ -109,22 +161,19 @@ function buildAgentQcObjectiveChecklist({
         "scripts/agent-qc/gui-owner-check.mjs",
         "scripts/agent-qc/process-owner-check.mjs",
         "scripts/lib/agent-qc-process-owner-core.mjs",
-        "docs/tests/ember-agent-qc-qcloop-operations.md",
-        ".ember/qc/stale-raw-gui-owner-intervention-request.json",
+        "internal/tests/lime-agent-qc-qcloop-operations.md",
+        ".lime/qc/stale-raw-gui-owner-intervention-request.json",
       ],
       evidence: `guiOwner=${guiOwner?.verdict?.status}; processOwner=${processOwner?.verdict?.status}; ${processOwner?.verdict?.summary || ""}; ownerIntervention=${processOwner?.ownerIntervention?.status}`,
       status: ownerProtocolStatus(items, processOwner),
-      gap:
-        processOwner?.verdict?.status === "busy"
-          ? "raw process owner 仍 busy，不能启动完整 verify:local 或 full GUI P0。"
-          : "",
+      gap: ownerProtocolGap(items, processOwner),
     },
     {
       requirement:
-        "官方 .ember/qc/agent-qc-evidence.json 必须是真实 8/8 P0 pass Evidence Pack",
+        "官方 .lime/qc/agent-qc-evidence.json 必须是真实 8/8 P0 pass Evidence Pack",
       artifacts: [
-        ".ember/qc/agent-qc-evidence.json",
-        "docs/test/agent-qc-scenarios.manifest.json",
+        ".lime/qc/agent-qc-evidence.json",
+        "internal/test/agent-qc-scenarios.manifest.json",
       ],
       evidence: items.get("real-qcloop-evidence")?.evidence || "",
       status: items.get("real-qcloop-evidence")?.passed ? "pass" : "fail",
@@ -132,14 +181,14 @@ function buildAgentQcObjectiveChecklist({
     },
     {
       requirement: "仓库统一门禁 npm run verify:local 必须通过",
-      artifacts: [".ember/qc/verify-local-current.json", "npm run verify:local"],
+      artifacts: [".lime/qc/verify-local-current.json", "npm run verify:local"],
       evidence: items.get("local-verify-gate")?.evidence || "",
       status: items.get("local-verify-gate")?.passed ? "pass" : "fail",
       gap: items.get("local-verify-gate")?.gap || "",
     },
     {
       requirement:
-        "在 Ember 仓库内不执行未授权 git commit / push / tag / release",
+        "在 Lime 仓库内不执行未授权 git commit / push / tag / release",
       artifacts: ["git status", "user guardrail"],
       evidence:
         "本轮未执行 git commit / push / tag / release；工作树存在其他并发进程产生的 unrelated 修改，未触碰。",
@@ -199,5 +248,6 @@ function renderAgentQcObjectiveChecklistMarkdown(result) {
 
 export {
   buildAgentQcObjectiveChecklist,
+  buildMissingAuditAgentQcObjectiveChecklist,
   renderAgentQcObjectiveChecklistMarkdown,
 };

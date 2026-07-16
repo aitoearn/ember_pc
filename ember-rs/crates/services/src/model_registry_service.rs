@@ -5,18 +5,19 @@
 //! 旧的本地模型资源目录已下线；模型列表以 Provider 实时接口和用户
 //! 显式配置的 `custom_models` 为准。
 
-use aster::providers::canonical::{maybe_get_canonical_model, CanonicalModel};
-use ember_core::api_host_utils::{
+use lime_core::api_host_utils::{
     is_openai_responses_compatible_host, normalize_openai_model_discovery_host,
 };
-use ember_core::database::dao::api_key_provider::{infer_managed_runtime_spec, ApiProviderType};
-use ember_core::database::DbConnection;
-use ember_core::models::model_registry::{
+use lime_core::database::dao::api_key_provider::{infer_managed_runtime_spec, ApiProviderType};
+use lime_core::database::DbConnection;
+use lime_core::image_generation_matcher::is_likely_image_generation_search_text;
+use lime_core::models::model_registry::{
     EnhancedModelMetadata, ModelAliasSource, ModelCapabilities, ModelDeploymentSource, ModelLimits,
     ModelManagementPlane, ModelModality, ModelReasoningEffortLevel, ModelReasoningEffortSource,
     ModelReasoningEffortSupport, ModelRuntimeFeature, ModelSource, ModelStatus, ModelSyncState,
     ModelTaskFamily, ModelTier, ProviderAliasConfig, UserModelPreference,
 };
+use model_provider::canonical::{maybe_get_canonical_model, CanonicalModel};
 use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -25,8 +26,12 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use url::form_urlencoded;
 
-const EMBER_TENANT_HEADER: &str = "X-Ember-Tenant-ID";
-const EMBER_TENANT_PARAM: &str = "ember_tenant_id";
+mod managed_model_fetch_access;
+mod runtime_metadata;
+pub use runtime_metadata::{ProviderModelRegistryMetadata, ProviderModelRegistryMetadataSource};
+
+const LIME_TENANT_HEADER: &str = "X-Lime-Tenant-ID";
+const LIME_TENANT_PARAM: &str = "lime_tenant_id";
 const PROVIDER_MODELS_CACHE_KEY_PREFIX: &str = "provider_models_fetch_cache:";
 const PROVIDER_MODELS_CACHE_TTL_SECONDS: i64 = 10 * 24 * 60 * 60;
 const XIAOMI_MODEL_FETCH_HOST_KEYWORDS: &[&str] = &["xiaomimimo.com"];
@@ -768,22 +773,9 @@ fn infer_vision_capability(
             "speech",
             "audio",
             "moderation",
-            "imagen",
-            "dall-e",
-            "dalle",
-            "stable diffusion",
-            "stable-diffusion",
-            "sdxl",
-            "sd3",
-            "midjourney",
-            "image generation",
-            "image-generation",
-            "image-gen",
-            "image-preview",
-            "flux",
-            "nano-banana",
         ],
-    ) {
+    ) || is_likely_image_generation_search_text(&text)
+    {
         return false;
     }
 
@@ -849,37 +841,13 @@ fn infer_image_generation_capability(
     output_modalities: &[ModelModality],
 ) -> bool {
     output_modalities.contains(&ModelModality::Image)
-        || text_contains_any(
-            &build_search_text(&[
-                Some(model_id.to_string()),
-                family.map(ToString::to_string),
-                description.map(ToString::to_string),
-                provider_model_id.map(ToString::to_string),
-                canonical_model_id.map(ToString::to_string),
-            ]),
-            &[
-                "gpt-image",
-                "gpt-images",
-                "imagen",
-                "dall-e",
-                "dalle",
-                "stable diffusion",
-                "stable-diffusion",
-                "sdxl",
-                "sd3",
-                "midjourney",
-                "image generation",
-                "image-generation",
-                "image-gen",
-                "image-preview",
-                "flux",
-                "nano-banana",
-                "recraft",
-                "ideogram",
-                "seedream",
-                "cogview",
-            ],
-        )
+        || is_likely_image_generation_search_text(&build_search_text(&[
+            Some(model_id.to_string()),
+            family.map(ToString::to_string),
+            description.map(ToString::to_string),
+            provider_model_id.map(ToString::to_string),
+            canonical_model_id.map(ToString::to_string),
+        ]))
         || (input_modalities.contains(&ModelModality::Image)
             && output_modalities.contains(&ModelModality::Image))
 }
@@ -1225,7 +1193,7 @@ fn infer_deployment_source(
     }
     if text_contains_any(
         &text,
-        &["ember-hub", "ember hub", "oem", "partner-hub", "partner hub"],
+        &["lime-hub", "lime hub", "oem", "partner-hub", "partner hub"],
     ) {
         return ModelDeploymentSource::OemCloud;
     }
@@ -2018,7 +1986,7 @@ impl ModelRegistryService {
                     error: Some("Mimo / xiaomimimo Anthropic 兼容入口不提供标准 /models 枚举。".to_string()),
                     request_url: None,
                     diagnostic_hint: Some(
-                        "请在 Provider 模型列表中填写当前服务商实际可用的模型 ID；Ember 不再内置固定模型名作为兜底。"
+                        "请在 Provider 模型列表中填写当前服务商实际可用的模型 ID；Lime 不再内置固定模型名作为兜底。"
                             .to_string(),
                     ),
                     error_kind: Some(ModelFetchErrorKind::Other),
@@ -2141,7 +2109,7 @@ impl ModelRegistryService {
                 error: Some("当前 Responses 兼容入口未提供标准 /models 接口。".to_string()),
                 request_url: None,
                 diagnostic_hint: Some(
-                    "当前 Base URL 走 `/responses` 主链，Ember 不再探测 `/v1/models`；请先在 Provider 中填写 gpt-images-2 或其他图片模型。"
+                    "当前 Base URL 走 `/responses` 主链，Lime 不再探测 `/v1/models`；请先在 Provider 中填写 gpt-images-2 或其他图片模型。"
                         .to_string(),
                 ),
                 error_kind: Some(ModelFetchErrorKind::NotFound),
@@ -2224,6 +2192,12 @@ impl ModelRegistryService {
             normalized_provider_id.as_str(),
             "ollama" | "lmstudio" | "gpustack" | "ovms"
         ) {
+            return true;
+        }
+
+        if managed_model_fetch_access::is_lime_managed_api_host(api_host)
+            && Self::lime_tenant_id_from_api_host(api_host).is_some()
+        {
             return true;
         }
 
@@ -2359,7 +2333,7 @@ impl ModelRegistryService {
             .to_string()
     }
 
-    fn normalize_ember_tenant_id(value: &str) -> Option<String> {
+    fn normalize_lime_tenant_id(value: &str) -> Option<String> {
         let tenant_id = value.trim();
         if tenant_id.is_empty() {
             return None;
@@ -2371,22 +2345,22 @@ impl ModelRegistryService {
             .then(|| tenant_id.to_string())
     }
 
-    fn parse_ember_tenant_id_from_pairs(value: &str) -> Option<String> {
+    fn parse_lime_tenant_id_from_pairs(value: &str) -> Option<String> {
         form_urlencoded::parse(value.as_bytes()).find_map(|(key, value)| {
-            (key == EMBER_TENANT_PARAM)
-                .then(|| Self::normalize_ember_tenant_id(&value))
+            (key == LIME_TENANT_PARAM)
+                .then(|| Self::normalize_lime_tenant_id(&value))
                 .flatten()
         })
     }
 
-    fn ember_tenant_id_from_api_host(api_host: &str) -> Option<String> {
+    fn lime_tenant_id_from_api_host(api_host: &str) -> Option<String> {
         let url = Self::parse_api_host_url(api_host)?;
 
         url.query()
-            .and_then(Self::parse_ember_tenant_id_from_pairs)
+            .and_then(Self::parse_lime_tenant_id_from_pairs)
             .or_else(|| {
                 url.fragment()
-                    .and_then(Self::parse_ember_tenant_id_from_pairs)
+                    .and_then(Self::parse_lime_tenant_id_from_pairs)
             })
     }
 
@@ -2510,7 +2484,7 @@ impl ModelRegistryService {
             && normalized_host.trim_end_matches('/') != original_host.trim_end_matches('/')
         {
             return Some(format!(
-                "当前 API Host 看起来是具体接口地址而不是基础地址。Ember 已自动回退到 `{api_url}` 尝试模型枚举；如果上游本身不提供 `/models`，请改填基础 API Host，或直接在 Provider 中填写自定义模型。"
+                "当前 API Host 看起来是具体接口地址而不是基础地址。Lime 已自动回退到 `{api_url}` 尝试模型枚举；如果上游本身不提供 `/models`，请改填基础 API Host，或直接在 Provider 中填写自定义模型。"
             ));
         }
 
@@ -2616,8 +2590,8 @@ impl ModelRegistryService {
         for (name, value) in runtime_spec.extra_headers {
             headers.push(((*name).to_string(), (*value).to_string()));
         }
-        if let Some(tenant_id) = Self::ember_tenant_id_from_api_host(normalized_host) {
-            headers.push((EMBER_TENANT_HEADER.to_string(), tenant_id));
+        if let Some(tenant_id) = Self::lime_tenant_id_from_api_host(normalized_host) {
+            headers.push((LIME_TENANT_HEADER.to_string(), tenant_id));
         }
 
         Ok(PreparedModelFetchRequest {
@@ -3179,6 +3153,14 @@ impl ModelRegistryService {
         .with_source(ModelSource::Custom)
     }
 
+    pub fn build_declared_model_metadata(
+        &self,
+        provider_id: &str,
+        model_id: &str,
+    ) -> EnhancedModelMetadata {
+        self.build_provider_declared_model(model_id, provider_id, chrono::Utc::now().timestamp())
+    }
+
     fn build_declared_models(
         &self,
         provider_id: &str,
@@ -3475,11 +3457,11 @@ mod tests {
     use super::{
         infer_model_capabilities, infer_model_taxonomy, infer_vision_capability,
         ModelFetchErrorKind, ModelFetchProtocol, ModelFetchSource, ModelRegistryService,
-        ModelTaxonomyInput, EMBER_TENANT_HEADER, PROVIDER_MODELS_CACHE_TTL_SECONDS,
+        ModelTaxonomyInput, LIME_TENANT_HEADER, PROVIDER_MODELS_CACHE_TTL_SECONDS,
     };
-    use ember_core::database::dao::api_key_provider::ApiProviderType;
-    use ember_core::database::DbConnection;
-    use ember_core::models::model_registry::{
+    use lime_core::database::dao::api_key_provider::ApiProviderType;
+    use lime_core::database::DbConnection;
+    use lime_core::models::model_registry::{
         EnhancedModelMetadata, ModelCapabilities, ModelModality, ModelReasoningEffortLevel,
         ModelReasoningEffortSource, ModelRuntimeFeature, ModelSource, ModelTaskFamily,
     };
@@ -3595,6 +3577,71 @@ mod tests {
         assert!(name_taxonomy
             .task_families
             .contains(&ModelTaskFamily::VisionUnderstanding));
+    }
+
+    #[test]
+    fn test_infer_model_taxonomy_uses_shared_image_generation_matcher_shape() {
+        let agnes_taxonomy = infer_model_taxonomy(ModelTaxonomyInput {
+            model_id: "agnes-image-2.1-flash",
+            provider_id: Some("openai-compatible"),
+            family: None,
+            description: None,
+            capabilities: None,
+            explicit_task_families: &[],
+            explicit_input_modalities: &[],
+            explicit_output_modalities: &[],
+            explicit_runtime_features: &[],
+            explicit_deployment_source: None,
+            explicit_management_plane: None,
+            provider_model_id: Some("agnes-image-2.1-flash"),
+            canonical_model_id: None,
+            explicit_alias_source: None,
+            canonical_model: None,
+        });
+        let image_input_modalities = vec![ModelModality::Text, ModelModality::Image];
+        let text_output_modalities = vec![ModelModality::Text];
+        let vision_taxonomy = infer_model_taxonomy(ModelTaxonomyInput {
+            model_id: "provider-image-input-chat",
+            provider_id: Some("custom-provider"),
+            family: None,
+            description: None,
+            capabilities: None,
+            explicit_task_families: &[],
+            explicit_input_modalities: &image_input_modalities,
+            explicit_output_modalities: &text_output_modalities,
+            explicit_runtime_features: &[],
+            explicit_deployment_source: None,
+            explicit_management_plane: None,
+            provider_model_id: Some("provider-image-input-chat"),
+            canonical_model_id: None,
+            explicit_alias_source: None,
+            canonical_model: None,
+        });
+
+        assert!(agnes_taxonomy
+            .task_families
+            .contains(&ModelTaskFamily::ImageGeneration));
+        assert!(!agnes_taxonomy
+            .task_families
+            .contains(&ModelTaskFamily::VisionUnderstanding));
+        assert!(vision_taxonomy
+            .task_families
+            .contains(&ModelTaskFamily::VisionUnderstanding));
+        assert!(!vision_taxonomy
+            .task_families
+            .contains(&ModelTaskFamily::ImageGeneration));
+    }
+
+    #[test]
+    fn test_model_registry_service_does_not_restore_local_image_generation_matchers() {
+        let source = include_str!("model_registry_service.rs");
+        let looks_like_marker = ["fn looks_like_", "image_generation_text"].concat();
+        let bounded_token_marker = ["fn contains_", "bounded_token"].concat();
+        let keywords_marker = ["IMAGE_MODEL", "_KEYWORDS"].concat();
+
+        assert!(!source.contains(&looks_like_marker));
+        assert!(!source.contains(&bounded_token_marker));
+        assert!(!source.contains(&keywords_marker));
     }
 
     #[test]
@@ -3971,32 +4018,32 @@ mod tests {
     }
 
     #[test]
-    fn test_prepare_model_fetch_request_adds_ember_tenant_header_from_fragment() {
+    fn test_prepare_model_fetch_request_adds_lime_tenant_header_from_fragment() {
         let request = ModelRegistryService::prepare_model_fetch_request(
-            "ember-hub",
-            "https://llm.emberai.run#ember_tenant_id=tenant-0001",
-            "sk-ember-test",
+            "lime-hub",
+            "https://llm.limeai.run#lime_tenant_id=tenant-0001",
+            "sk-lime-test",
             Some(ApiProviderType::Openai),
         )
-        .expect("prepare Ember model fetch request");
+        .expect("prepare Lime model fetch request");
 
-        assert_eq!(request.url, "https://llm.emberai.run/v1/models");
+        assert_eq!(request.url, "https://llm.limeai.run/v1/models");
         assert!(request
             .headers
             .iter()
-            .any(|(name, value)| { name == "Authorization" && value == "Bearer sk-ember-test" }));
+            .any(|(name, value)| { name == "Authorization" && value == "Bearer sk-lime-test" }));
         assert!(request
             .headers
             .iter()
-            .any(|(name, value)| { name == EMBER_TENANT_HEADER && value == "tenant-0001" }));
+            .any(|(name, value)| { name == LIME_TENANT_HEADER && value == "tenant-0001" }));
     }
 
     #[test]
-    fn test_build_models_api_hint_ignores_ember_tenant_fragment() {
+    fn test_build_models_api_hint_ignores_lime_tenant_fragment() {
         let hint = ModelRegistryService::build_models_api_hint(
-            "ember-hub",
-            "https://llm.emberai.run#ember_tenant_id=tenant-0001",
-            "https://llm.emberai.run/v1/models",
+            "lime-hub",
+            "https://llm.limeai.run#lime_tenant_id=tenant-0001",
+            "https://llm.limeai.run/v1/models",
         );
 
         assert_eq!(hint, None);
@@ -4094,10 +4141,10 @@ mod tests {
         assert_eq!(result.models[0].source, ModelSource::Custom);
         assert!(result.models[0]
             .task_families
-            .contains(&ember_core::models::model_registry::ModelTaskFamily::ImageGeneration));
+            .contains(&lime_core::models::model_registry::ModelTaskFamily::ImageGeneration));
         assert!(result.models[0]
             .runtime_features
-            .contains(&ember_core::models::model_registry::ModelRuntimeFeature::ImagesApi));
+            .contains(&lime_core::models::model_registry::ModelRuntimeFeature::ImagesApi));
         assert!(result
             .diagnostic_hint
             .as_deref()
@@ -4324,13 +4371,13 @@ mod tests {
     #[test]
     fn test_provider_models_cache_key_keeps_tenant_scope() {
         let tenant_a_key = ModelRegistryService::provider_models_cache_key(
-            "ember-hub",
-            "https://llm.emberai.run#ember_tenant_id=tenant-a",
+            "lime-hub",
+            "https://llm.limeai.run#lime_tenant_id=tenant-a",
             Some(ApiProviderType::Openai),
         );
         let tenant_b_key = ModelRegistryService::provider_models_cache_key(
-            "ember-hub",
-            "https://llm.emberai.run#ember_tenant_id=tenant-b",
+            "lime-hub",
+            "https://llm.limeai.run#lime_tenant_id=tenant-b",
             Some(ApiProviderType::Openai),
         );
 
@@ -4563,6 +4610,16 @@ mod tests {
         assert!(!ModelRegistryService::requires_api_key_for_model_fetch(
             "lmstudio",
             "http://127.0.0.1:1234/v1",
+            ApiProviderType::Openai
+        ));
+        assert!(!ModelRegistryService::requires_api_key_for_model_fetch(
+            "lime-hub",
+            "https://llm.limeai.run#lime_tenant_id=tenant-0001",
+            ApiProviderType::Openai
+        ));
+        assert!(ModelRegistryService::requires_api_key_for_model_fetch(
+            "lime-hub",
+            "https://llm.limeai.run",
             ApiProviderType::Openai
         ));
     }

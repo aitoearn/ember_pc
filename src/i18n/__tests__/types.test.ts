@@ -1,5 +1,8 @@
 import i18n from "i18next";
 import { describe, expect, it } from "vitest";
+import commonResources from "../resources/zh-CN/common.json";
+
+type CommonResourceKey = keyof typeof commonResources;
 
 function assertI18nKeyTypes() {
   i18n.t("common.save", { ns: "common" });
@@ -8,7 +11,7 @@ function assertI18nKeyTypes() {
   i18n.t("common.app.loadingPage", { ns: "common" });
   i18n.t("common.splashScreen.slogan", { ns: "common" });
   i18n.t("common.splashScreen.subtitle", { ns: "common" });
-  i18n.t("common.startupLoading.title", { ns: "common", brand: "Ember" });
+  i18n.t("common.startupLoading.title", { ns: "common", brand: "Lime" });
   i18n.t("common.startupLoading.description", { ns: "common" });
   i18n.t("common.confirmDialog.title", { ns: "common" });
   i18n.t("common.projectSelector.placeholder.project", { ns: "common" });
@@ -37,7 +40,7 @@ function assertI18nKeyTypes() {
   i18n.t("common.deepLink.referral.claimFailed.fallback", { ns: "common" });
   i18n.t("common.deepLink.oauth.success.description", {
     ns: "common",
-    providerName: "Ember Hub",
+    providerName: "Lime Hub",
   });
   i18n.t("common.deepLink.payment.returned.title", { ns: "common" });
   i18n.t("common.app.startup.windows.blockingTitle", { ns: "common" });
@@ -58,8 +61,8 @@ function assertI18nKeyTypes() {
   i18n.t("common.oemCloudAccess.label.accessMode.session", {
     ns: "common",
   });
-  i18n.t("common.oemEmberHubProviderSync.managedKeyAlias", { ns: "common" });
-  i18n.t("common.oemEmberHubProviderSync.cloudTokenName", { ns: "common" });
+  i18n.t("common.oemLimeHubProviderSync.managedKeyAlias", { ns: "common" });
+  i18n.t("common.oemLimeHubProviderSync.cloudTokenName", { ns: "common" });
   i18n.t("common.modelSelector.header.title", { ns: "common" });
   i18n.t("common.modelSelector.header.themeFilter", {
     ns: "common",
@@ -104,7 +107,6 @@ function assertI18nKeyTypes() {
     ns: "agent",
     count: 1024,
   });
-  i18n.t("agentChat.toolCall.logs.title", { ns: "agent" });
   i18n.t("agentChat.toolCall.commandSummary.title", { ns: "agent" });
   i18n.t("agentChat.toolCall.commandSummary.command", { ns: "agent" });
   i18n.t("agentChat.toolCall.commandSummary.cwd", { ns: "agent" });
@@ -180,6 +182,9 @@ function assertI18nKeyTypes() {
   i18n.t("agentChat.decisionPanel.permissionRequestTitle", { ns: "agent" });
   i18n.t("agentChat.decisionPanel.assistantWantsUse", { ns: "agent" });
   i18n.t("agentChat.decisionPanel.unknownTool", { ns: "agent" });
+  i18n.t("agentChat.decisionPanel.permission.inputbarOnlyHint", {
+    ns: "agent",
+  });
   i18n.t("agentChat.decisionPanel.action.submitting", { ns: "agent" });
   i18n.t("agentChat.decisionPanel.action.submit", { ns: "agent" });
   i18n.t("agentChat.decisionPanel.action.cancelling", { ns: "agent" });
@@ -187,9 +192,6 @@ function assertI18nKeyTypes() {
   i18n.t("agentChat.decisionPanel.action.recording", { ns: "agent" });
   i18n.t("agentChat.decisionPanel.action.recordAnswer", { ns: "agent" });
   i18n.t("agentChat.decisionPanel.action.submitAnswer", { ns: "agent" });
-  i18n.t("agentChat.decisionPanel.action.processing", { ns: "agent" });
-  i18n.t("agentChat.decisionPanel.action.allow", { ns: "agent" });
-  i18n.t("agentChat.decisionPanel.action.deny", { ns: "agent" });
   i18n.t("agentChat.decisionPanel.runtimePermission.title", { ns: "agent" });
   i18n.t("agentChat.decisionPanel.runtimePermission.description", {
     ns: "agent",
@@ -203,13 +205,30 @@ function assertI18nKeyTypes() {
   i18n.t("agentChat.decisionPanel.runtimePermission.deniedDescription", {
     ns: "agent",
   });
+  i18n.t("agentChat.decisionPanel.permission.resultLabel", { ns: "agent" });
+  i18n.t("agentChat.decisionPanel.permission.result.allowed", { ns: "agent" });
+  i18n.t("agentChat.decisionPanel.permission.result.denied", { ns: "agent" });
+  i18n.t("agentChat.decisionPanel.permission.result.importedReadOnly", {
+    ns: "agent",
+  });
+  i18n.t("agentChat.decisionPanel.permission.importedReadOnlyTitle", {
+    ns: "agent",
+  });
+  i18n.t("agentChat.decisionPanel.permission.importedReadOnlyRecordLabel", {
+    ns: "agent",
+  });
+  i18n.t("agentChat.decisionPanel.permission.importedReadOnlyRecordValue", {
+    ns: "agent",
+  });
+  i18n.t("agentChat.decisionPanel.permission.importedReadOnlyDescription", {
+    ns: "agent",
+  });
   i18n.t("agentChat.messageList.history.windowSummaryRestored", {
     ns: "agent",
     loaded: "40",
     hidden: "30",
   });
   i18n.t("agentChat.messageList.taskCenterEmpty.title", { ns: "agent" });
-  i18n.t("agentChat.messageList.empty.defaultTitle", { ns: "agent" });
   i18n.t("agentChat.serviceSkills.badge.recent", { ns: "agent" });
   i18n.t("agentChat.serviceSkills.badge.browserAssist", { ns: "agent" });
   i18n.t("agentChat.serviceSkills.badge.readyMade", { ns: "agent" });
@@ -220,7 +239,6 @@ function assertI18nKeyTypes() {
   i18n.t("agentExperts.title", { ns: "agent" });
   i18n.t("agentExperts.info.sections.workflow", { ns: "agent" });
   i18n.t("agentExperts.info.boundary.soul", { ns: "agent" });
-  i18n.t("agentExperts.chat.banner", { ns: "agent", title: "合同审阅" });
   i18n.t("agentExperts.chat.runtimePrompt", {
     ns: "agent",
     title: "合同审阅",
@@ -243,7 +261,7 @@ function assertI18nKeyTypes() {
   i18n.t("agentChat.home.composer.guideHelpClose", { ns: "agent" });
   i18n.t("agentChat.home.composer.guideHelpCloseWithLabel", {
     ns: "agent",
-    label: "Ember guide help",
+    label: "Lime guide help",
   });
   i18n.t("agentChat.home.composer.advancedSettings.label", { ns: "agent" });
   i18n.t("agentChat.home.composer.advancedSettings.expand", { ns: "agent" });
@@ -376,8 +394,16 @@ function assertI18nKeyTypes() {
   i18n.t("agentChat.inputbar.plusMenu.attachKnowledge", { ns: "agent" });
   i18n.t("agentChat.inputbar.plusMenu.planMode", { ns: "agent" });
   i18n.t("agentChat.inputbar.plusMenu.objective", { ns: "agent" });
+  i18n.t("agentChat.inputbar.plusMenu.plugins", { ns: "agent" });
   i18n.t("agentChat.inputbar.plusMenu.skills", { ns: "agent" });
   i18n.t("agentChat.inputbar.plusMenu.unavailable", { ns: "agent" });
+  i18n.t("agentChat.inputbar.pluginChip.empty", { ns: "agent" });
+  i18n.t("agentChat.inputbar.pluginChip.remove", {
+    ns: "agent",
+    name: "内容工厂",
+  });
+  i18n.t("agentChat.inputbar.pluginChip.selectorTitle", { ns: "agent" });
+  i18n.t("agentChat.inputbar.pluginChip.unavailable", { ns: "agent" });
   i18n.t("agentChat.inputbar.composer.workspacePlaceholder.waiting", {
     ns: "agent",
   });
@@ -490,9 +516,6 @@ function assertI18nKeyTypes() {
   i18n.t("agentChat.home.starter.rowLabel", { ns: "agent" });
   i18n.t("agentChat.home.starter.guideHelp.label", { ns: "agent" });
   i18n.t("agentChat.home.starter.ppt.prompt", { ns: "agent" });
-  i18n.t("agentChat.home.inputSuggestion.meetingNotes.label", {
-    ns: "agent",
-  });
   i18n.t("agentChat.home.guide.longTermPlan.title", { ns: "agent" });
   i18n.t("agentChat.home.guideCards.label", { ns: "agent" });
   i18n.t("agentChat.home.gallery.title", { ns: "agent" });
@@ -577,7 +600,7 @@ function assertI18nKeyTypes() {
     ns: "agent",
     count: 2,
   });
-  i18n.t("sceneAppExecutionSummary.followup.action.saveInspiration", {
+  i18n.t("sceneAppExecutionSummary.followup.action.saveAsSkill", {
     ns: "agent",
   });
   i18n.t("generalWorkbench.workflow.current.title", { ns: "agent" });
@@ -655,15 +678,6 @@ function assertI18nKeyTypes() {
   });
   i18n.t("generalWorkbench.context.modal.add.uploadAria", { ns: "agent" });
   i18n.t("generalWorkbench.context.modal.text.placeholder", { ns: "agent" });
-  i18n.t("skills.workspace.curatedTask.suggestion.referenceBadge", {
-    ns: "agent",
-    countLabel: "2",
-  });
-  i18n.t("skills.workspace.curatedTask.suggestion.action.start", {
-    ns: "agent",
-  });
-  i18n.t("memoryLibrary.title", { ns: "agent" });
-  i18n.t("memoryLibrary.points.title", { ns: "agent" });
   i18n.t("skills.workspace.managedJob.created", {
     ns: "agent",
     name: "Daily Review",
@@ -717,7 +731,7 @@ function assertI18nKeyTypes() {
     ns: "agent",
     countLabel: "2",
   });
-  i18n.t("agentChat.searchResultPreview.previewAria", {
+  i18n.t("agentChat.searchResultPreview.openAria", {
     ns: "agent",
     title: "Example",
   });
@@ -775,26 +789,6 @@ function assertI18nKeyTypes() {
     ns: "agent",
     severity: "High",
   });
-  i18n.t("agentChat.teamWorkspace.liveRuntime.title.statusChanged", {
-    ns: "agent",
-  });
-  i18n.t("agentChat.teamWorkspace.liveRuntime.detail.toolProcessing", {
-    ns: "agent",
-    target: "current step",
-  });
-  i18n.t("agentChat.teamWorkspace.liveRuntime.lifecycle.turnFailed.detail", {
-    ns: "agent",
-  });
-  i18n.t("agentChat.teamWorkspace.liveRuntime.status.retry", { ns: "agent" });
-  i18n.t("agentChat.teamWorkspace.runtimeStatus.completed", { ns: "agent" });
-  i18n.t("agentChat.teamWorkspace.control.resume.resumedOne", { ns: "agent" });
-  i18n.t("agentChat.teamWorkspace.control.wait.enteredStatusOne", {
-    ns: "agent",
-    status: "Completed",
-  });
-  i18n.t("agentChat.teamWorkspace.control.sendInput.emptyError", {
-    ns: "agent",
-  });
   i18n.t("navigation.sidebar.items.homeGeneral", { ns: "navigation" });
   i18n.t(
     "workspace.browserExistingSession.presentation.status.attached.label",
@@ -835,9 +829,6 @@ function assertI18nKeyTypes() {
     ns: "workspace",
   });
   i18n.t("workspace.video.sidebar.intro.title", { ns: "workspace" });
-  i18n.t("workspace.video.sidebar.helper.parameterPace.content", {
-    ns: "workspace",
-  });
   i18n.t("workspace.video.sidebar.reference.start.title", { ns: "workspace" });
   i18n.t("workspace.video.sidebar.reference.empty.action", {
     ns: "workspace",
@@ -859,12 +850,6 @@ function assertI18nKeyTypes() {
     ns: "workspace",
   });
   i18n.t("workspace.document.editor.slashCommand.prompt.imageUrl", {
-    ns: "workspace",
-  });
-  i18n.t("workspace.runtimeAgentsGuide.action.initialize", {
-    ns: "workspace",
-  });
-  i18n.t("workspace.runtimeAgentsGuide.initialized.title", {
     ns: "workspace",
   });
   i18n.t("workspace.artifactToolbar.type.code", { ns: "workspace" });
@@ -921,6 +906,24 @@ function assertI18nKeyTypes() {
     ns: "workspace",
   });
   i18n.t("workspace.resourceManager.unsupported.title", {
+    ns: "workspace",
+  });
+  i18n.t("workspace.artifactRenderer.previewFallback.systemOpen.title", {
+    ns: "workspace",
+  });
+  i18n.t("workspace.artifactRenderer.previewFallback.unsupported.detail", {
+    ns: "workspace",
+  });
+  i18n.t("workspace.artifactRenderer.previewSource.source.url", {
+    ns: "workspace",
+  });
+  i18n.t("workspace.artifactRenderer.previewSource.source.databaseRecord", {
+    ns: "workspace",
+  });
+  i18n.t("workspace.artifactRenderer.previewSource.source.app", {
+    ns: "workspace",
+  });
+  i18n.t("workspace.artifactRenderer.previewSource.empty", {
     ns: "workspace",
   });
   i18n.t("workspace.resourceManager.unsupported.mimeType", {
@@ -1020,7 +1023,7 @@ function assertI18nKeyTypes() {
     count: 2,
   });
   i18n.t("settings.appearance.hero.title", { ns: "settings" });
-  i18n.t("settings.appearance.colorScheme.options.ember-classic.label", {
+  i18n.t("settings.appearance.colorScheme.options.lime-classic.label", {
     ns: "settings",
   });
   i18n.t("settings.appearance.language.title", { ns: "settings" });
@@ -1062,16 +1065,14 @@ function assertI18nKeyTypes() {
   i18n.t("settings.hotkeys.catalog.scene.global.title", { ns: "settings" });
   i18n.t("settings.memory.title", { ns: "settings" });
   i18n.t("settings.memory.soul.title", { ns: "settings" });
+  i18n.t("settings.memory.soul.styleProfile.title", { ns: "settings" });
   i18n.t("settings.memory.soul.import.warning.projectRules", {
     ns: "settings",
   });
   i18n.t("settings.memory.embedding.provider.ollama.label", {
     ns: "settings",
   });
-  i18n.t("settings.memory.embedding.status.indexedValue", {
-    ns: "settings",
-    count: 12,
-  });
+  i18n.t("settings.memory.embedding.status.configured", { ns: "settings" });
   i18n.t("settings.memory.embedding.providerSelect.description", {
     ns: "settings",
   });
@@ -1439,8 +1440,9 @@ function assertI18nKeyTypes() {
   });
   i18n.t("errors.crashRecovery.moduleImportFailure.prefix", { ns: "errors" });
 
-  // @ts-expect-error i18next key 必须来自已迁移的 zh-CN source resource。
-  i18n.t("common.__missing__", { ns: "common" });
+  // @ts-expect-error common namespace key 必须来自已迁移的 zh-CN source resource。
+  const missingCommonKey: CommonResourceKey = "common.__missing__";
+  void missingCommonKey;
 }
 
 describe("i18n type binding", () => {

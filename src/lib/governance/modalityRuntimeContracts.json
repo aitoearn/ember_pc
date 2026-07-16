@@ -1,7 +1,7 @@
 {
   "version": 1,
   "status": "current",
-  "owner": "docs/roadmap/warp/contract-schema.md",
+  "owner": "internal/roadmap/warp/contract-schema.md",
   "contracts": [
     {
       "contract_key": "image_generation",
@@ -28,13 +28,13 @@
       "permission_profile_keys": [
         "write_artifacts",
         "media_upload",
-        "ask_user_question"
+        "request_user_input"
       ],
       "routing_slot": "image_generation_model",
       "executor_binding": {
-        "executor_kind": "skill",
-        "binding_key": "image_generate",
-        "current_path": "Agent turn -> Skill(image_generate) -> image task artifact",
+        "executor_kind": "workflow",
+        "binding_key": "image_command",
+        "current_path": "Agent turn -> App Server ImageCommandWorkflow -> image task artifact",
         "supports_progress": true,
         "supports_cancel": true,
         "supports_resume": false,
@@ -55,7 +55,7 @@
         "executor_invoked",
         "artifact_written"
       ],
-      "embercore_policy_refs": [
+      "limecore_policy_refs": [
         "model_catalog",
         "provider_offer",
         "tenant_feature_flags"
@@ -66,22 +66,22 @@
       ],
       "detour_policy": {
         "allowed": [
-          "ask_user_question",
-          "catalog_declared_model_bound_image_skill_launch"
+          "request_user_input",
+          "catalog_declared_model_bound_image_command"
         ],
         "denied": [
           "free_bash",
-          "web_search_before_skill",
+          "web_search_before_image_workflow",
           "unregistered_frontend_direct_task_creation"
         ]
       },
-      "owner_surface": "agent_runtime",
+      "owner_surface": "app_server_runtime",
       "bound_entries": [
         {
           "entry_key": "at_image_command",
           "entry_kind": "command",
           "display_name": "@配图 / @image / /image / @Vision 1",
-          "launch_metadata_path": "harness.image_skill_launch.image_task",
+          "launch_metadata_path": "harness.image_command_intent.image_task",
           "entry_source": "at_image_command",
           "default_input_mapping": [
             "user_text",
@@ -97,7 +97,7 @@
           "entry_key": "at_poster_command",
           "entry_kind": "command",
           "display_name": "@海报 / @Flyer 3",
-          "launch_metadata_path": "harness.image_skill_launch.image_task",
+          "launch_metadata_path": "harness.image_command_intent.image_task",
           "entry_source": "at_poster_command",
           "default_input_mapping": [
             "user_text",
@@ -113,7 +113,7 @@
           "entry_key": "at_image_edit_command",
           "entry_kind": "command",
           "display_name": "@修图",
-          "launch_metadata_path": "harness.image_skill_launch.image_task",
+          "launch_metadata_path": "harness.image_command_intent.image_task",
           "entry_source": "at_image_command",
           "default_input_mapping": [
             "user_text",
@@ -130,7 +130,7 @@
           "entry_key": "at_image_variation_command",
           "entry_kind": "command",
           "display_name": "@重绘",
-          "launch_metadata_path": "harness.image_skill_launch.image_task",
+          "launch_metadata_path": "harness.image_command_intent.image_task",
           "entry_source": "at_image_command",
           "default_input_mapping": [
             "user_text",
@@ -147,7 +147,7 @@
           "entry_key": "at_storyboard_command",
           "entry_kind": "command",
           "display_name": "@分镜",
-          "launch_metadata_path": "harness.image_skill_launch.image_task",
+          "launch_metadata_path": "harness.image_command_intent.image_task",
           "entry_source": "at_image_command",
           "default_input_mapping": [
             "user_text",
@@ -162,8 +162,8 @@
         {
           "entry_key": "at_model_bound_image_command",
           "entry_kind": "command",
-          "display_name": "用户或 Ember Cloud 目录声明的图片模型 @命令",
-          "launch_metadata_path": "harness.image_skill_launch.image_task",
+          "display_name": "用户或 Lime Cloud 目录声明的图片模型 @命令",
+          "launch_metadata_path": "harness.image_command_intent.image_task",
           "entry_source": "at_model_bound_image_command",
           "default_input_mapping": [
             "user_text",
@@ -181,7 +181,7 @@
           "entry_key": "document_inline_image_action",
           "entry_kind": "button_action",
           "display_name": "文稿正文配图",
-          "launch_metadata_path": "harness.image_skill_launch.image_task",
+          "launch_metadata_path": "harness.image_command_intent.image_task",
           "entry_source": "at_image_command",
           "default_input_mapping": [
             "selected_text",
@@ -197,7 +197,7 @@
           "entry_key": "image_workbench_followup_action",
           "entry_kind": "button_action",
           "display_name": "图片工作台续做",
-          "launch_metadata_path": "harness.image_skill_launch.image_task",
+          "launch_metadata_path": "harness.image_command_intent.image_task",
           "entry_source": "at_image_command",
           "default_input_mapping": [
             "selected_image_output",
@@ -232,7 +232,7 @@
       "permission_profile_keys": [
         "browser_control",
         "web_search",
-        "ask_user_question"
+        "request_user_input"
       ],
       "routing_slot": "browser_reasoning_model",
       "executor_binding": {
@@ -260,13 +260,13 @@
         "browser_observation_recorded",
         "artifact_written"
       ],
-      "embercore_policy_refs": ["tenant_feature_flags", "gateway_policy"],
+      "limecore_policy_refs": ["tenant_feature_flags", "gateway_policy"],
       "fallback_policy": [
         "ask_on_high_risk_action",
         "block_on_browser_control_denied"
       ],
       "detour_policy": {
-        "allowed": ["ask_user_question", "web_search_after_user_approval"],
+        "allowed": ["request_user_input", "web_search_after_user_approval"],
         "denied": [
           "web_search_as_browser_substitute",
           "free_bash",
@@ -377,7 +377,7 @@
       "permission_profile_keys": [
         "read_files",
         "write_artifacts",
-        "ask_user_question"
+        "request_user_input"
       ],
       "routing_slot": "base_model",
       "executor_binding": {
@@ -404,13 +404,13 @@
         "executor_invoked",
         "artifact_written"
       ],
-      "embercore_policy_refs": ["tenant_feature_flags"],
+      "limecore_policy_refs": ["tenant_feature_flags"],
       "fallback_policy": [
         "ask_on_file_permission_missing",
         "block_on_file_unavailable"
       ],
       "detour_policy": {
-        "allowed": ["ask_user_question"],
+        "allowed": ["request_user_input"],
         "denied": ["frontend_direct_pdf_parse", "generic_chat_summary_only"]
       },
       "owner_surface": "agent_runtime",
@@ -436,7 +436,7 @@
     },
     {
       "contract_key": "voice_generation",
-      "lifecycle": "current",
+      "lifecycle": "compat",
       "modality": "audio",
       "runtime_identity": [
         "session_id",
@@ -456,33 +456,20 @@
         "write_artifacts",
         "media_upload",
         "service_api_call",
-        "ask_user_question"
+        "request_user_input"
       ],
       "routing_slot": "voice_generation_model",
-      "executor_binding": {
-        "executor_kind": "service_skill",
-        "binding_key": "voice_runtime",
-        "current_path": "Runtime contract -> local ServiceSkill -> audio artifact",
-        "supports_progress": true,
-        "supports_cancel": true,
-        "supports_resume": false,
-        "supports_artifact": true,
-        "failure_mapping": [
-          "permission_denied",
-          "capability_gap",
-          "executor_error"
-        ]
-      },
+      "route_execution_status": "metadata_only",
+      "route_execution_exit_condition": "audio worker or RuntimeCore provider protocol mapper consumes ResolvedModelRoute and writes model_route_execution for voice_generation",
       "truth_source": ["audio_task_artifact", "runtime_timeline_event"],
       "artifact_kinds": ["audio_task", "audio_output"],
       "viewer_surface": ["audio_player"],
       "evidence_events": [
         "runtime_identity_bound",
         "execution_profile_decision",
-        "executor_invoked",
         "artifact_written"
       ],
-      "embercore_policy_refs": [
+      "limecore_policy_refs": [
         "client_scenes",
         "tenant_feature_flags",
         "provider_offer"
@@ -492,7 +479,7 @@
         "block_on_media_upload_denied"
       ],
       "detour_policy": {
-        "allowed": ["ask_user_question"],
+        "allowed": ["request_user_input"],
         "denied": [
           "legacy_tts_test_command",
           "cloud_run_without_explicit_scene"
@@ -543,7 +530,7 @@
         "write_artifacts",
         "media_upload",
         "service_api_call",
-        "ask_user_question"
+        "request_user_input"
       ],
       "routing_slot": "audio_transcription_model",
       "executor_binding": {
@@ -570,7 +557,7 @@
         "executor_invoked",
         "artifact_written"
       ],
-      "embercore_policy_refs": [
+      "limecore_policy_refs": [
         "model_catalog",
         "provider_offer",
         "tenant_feature_flags"
@@ -580,7 +567,7 @@
         "block_on_no_audio_transcription_model"
       ],
       "detour_policy": {
-        "allowed": ["ask_user_question"],
+        "allowed": ["request_user_input"],
         "denied": [
           "frontend_direct_asr",
           "generic_file_transcript",
@@ -632,7 +619,7 @@
       "permission_profile_keys": [
         "web_search",
         "write_artifacts",
-        "ask_user_question"
+        "request_user_input"
       ],
       "routing_slot": "report_generation_model",
       "executor_binding": {
@@ -659,7 +646,7 @@
         "web_search_performed",
         "artifact_written"
       ],
-      "embercore_policy_refs": [
+      "limecore_policy_refs": [
         "gateway_policy",
         "tenant_feature_flags",
         "model_catalog"
@@ -669,7 +656,7 @@
         "block_on_source_unavailable"
       ],
       "detour_policy": {
-        "allowed": ["ask_user_question", "web_search"],
+        "allowed": ["request_user_input", "web_search"],
         "denied": [
           "model_memory_only_answer",
           "local_file_search_before_research_skill"
@@ -778,7 +765,7 @@
       "permission_profile_keys": [
         "read_files",
         "write_artifacts",
-        "ask_user_question"
+        "request_user_input"
       ],
       "routing_slot": "base_model",
       "executor_binding": {
@@ -805,14 +792,14 @@
         "executor_invoked",
         "artifact_written"
       ],
-      "embercore_policy_refs": ["tenant_feature_flags", "model_catalog"],
+      "limecore_policy_refs": ["tenant_feature_flags", "model_catalog"],
       "fallback_policy": [
         "ask_on_missing_source",
         "ask_on_file_permission_missing",
         "block_on_file_unavailable"
       ],
       "detour_policy": {
-        "allowed": ["ask_user_question", "local_file_read_when_explicit_path"],
+        "allowed": ["request_user_input", "local_file_read_when_explicit_path"],
         "denied": [
           "frontend_direct_text_transform",
           "tool_search_before_text_transform_skill",

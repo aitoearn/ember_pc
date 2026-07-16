@@ -301,7 +301,7 @@ describe("ImConfigPage", () => {
     await flushEffects();
 
     expect(
-      document.body.querySelector(".ember-workbench-theme-scope"),
+      document.body.querySelector(".lime-workbench-theme-scope"),
     ).not.toBeNull();
 
     const text = document.body.textContent ?? "";
@@ -322,7 +322,7 @@ describe("ImConfigPage", () => {
     await flushEffects();
 
     expect(getBodyText()).not.toContain(
-      "把 Telegram、飞书、微信接进 Ember，让消息接收、回复和结果投递继续留在熟悉客户端；接入检查放在各自配置里，日志和运行检查按需展开。",
+      "把 Telegram、飞书、微信接进 Lime，让消息接收、回复和结果投递继续留在熟悉客户端；接入检查放在各自配置里，日志和运行检查按需展开。",
     );
     expect(getBodyText()).not.toContain(
       "接入日志和运行检查都在这里，平时不用一直展开。",
@@ -330,7 +330,7 @@ describe("ImConfigPage", () => {
 
     const introTip = await hoverTip("消息渠道说明");
     expect(getBodyText()).toContain(
-      "把 Telegram、飞书、微信接进 Ember，让消息接收、回复和结果投递继续留在熟悉客户端；接入检查放在各自配置里，日志和运行检查按需展开。",
+      "把 Telegram、飞书、微信接进 Lime，让消息接收、回复和结果投递继续留在熟悉客户端；接入检查放在各自配置里，日志和运行检查按需展开。",
     );
     await leaveTip(introTip);
 
@@ -349,7 +349,7 @@ describe("ImConfigPage", () => {
     await flushEffects();
 
     expect(
-      document.body.querySelector('[role="dialog"].ember-workbench-theme-scope'),
+      document.body.querySelector('[role="dialog"].lime-workbench-theme-scope'),
     ).not.toBeNull();
     expect(document.body.textContent).toContain("Telegram 配置");
     expect(document.body.textContent).toContain("机器人 Token");

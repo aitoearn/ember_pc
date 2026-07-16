@@ -53,13 +53,13 @@ ${body}
   };
 
   const existingSiteAdapterRunners =
-    window.__EMBER_SITE_ADAPTER_RUNNERS__ &&
-    typeof window.__EMBER_SITE_ADAPTER_RUNNERS__ === "object" &&
-    !Array.isArray(window.__EMBER_SITE_ADAPTER_RUNNERS__)
-      ? window.__EMBER_SITE_ADAPTER_RUNNERS__
+    window.__LIME_SITE_ADAPTER_RUNNERS__ &&
+    typeof window.__LIME_SITE_ADAPTER_RUNNERS__ === "object" &&
+    !Array.isArray(window.__LIME_SITE_ADAPTER_RUNNERS__)
+      ? window.__LIME_SITE_ADAPTER_RUNNERS__
       : {};
 
-  window.__EMBER_SITE_ADAPTER_RUNNERS__ = {
+  window.__LIME_SITE_ADAPTER_RUNNERS__ = {
     ...generatedSiteAdapterRunners,
     ...existingSiteAdapterRunners,
   };

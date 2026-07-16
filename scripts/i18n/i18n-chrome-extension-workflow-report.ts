@@ -86,9 +86,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "../..");
 const TERMINOLOGY_TERMS = [
-  "Ember Browser Bridge",
-  "Ember Browser Connector",
-  "Ember Agent",
+  "Lime Browser Bridge",
+  "Lime Browser Connector",
+  "Lime Agent",
   "Browser Connection",
   "Relay",
 ] as const;
@@ -439,7 +439,7 @@ export function analyzeChromeExtensionWorkflowReport(
 ): ChromeExtensionWorkflowReport {
   const repoRoot = path.resolve(options.repoRoot || REPO_ROOT);
   const extensionRoot = path.resolve(
-    options.extensionRoot || path.join(repoRoot, "extensions", "ember-chrome"),
+    options.extensionRoot || path.join(repoRoot, "extensions", "lime-chrome"),
   );
   const manifest = readManifest(path.join(extensionRoot, "manifest.json"));
   const localesDir = path.join(extensionRoot, "_locales");
@@ -529,7 +529,7 @@ export function analyzeChromeExtensionWorkflowReport(
     },
     pages,
     repoRoot,
-    schemaVersion: "ember.i18n.chromeExtensionWorkflowReport.v1",
+    schemaVersion: "lime.i18n.chromeExtensionWorkflowReport.v1",
     summary: {
       dataI18nAttributeCount,
       htmlPageCount: pages.length,

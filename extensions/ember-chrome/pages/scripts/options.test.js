@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 function buildOptionsDom() {
   document.body.innerHTML = `
-    <h1 data-i18n="page_title_text">Ember Browser Bridge</h1>
+    <h1 data-i18n="page_title_text">Lime Browser Bridge</h1>
     <label>
       <span data-i18n="language_label">Language</span>
       <select id="language-select">
@@ -138,11 +138,11 @@ describe("extension options status", () => {
     expect(statusCard?.dataset.state).toBe("unconfigured");
     expect(statusLabel?.textContent).toBe("Setup Required");
     expect(statusDetail?.textContent).toContain(
-      "Export the connector from Ember",
+      "Export the connector from Lime",
     );
     expect(statusMeta?.textContent).toContain("config missing");
     expect(tabStats?.textContent).toContain(
-      "Load the exported Ember Browser Connector folder",
+      "Load the exported Lime Browser Connector folder",
     );
     expect(relayToggle?.checked).toBe(true);
   });
@@ -160,7 +160,7 @@ describe("extension options status", () => {
 
     expect(document.documentElement.lang).toBe("zh");
     expect(document.body.textContent).toContain("语言");
-    expect(document.body.textContent).toContain("Ember 浏览器桥接");
+    expect(document.body.textContent).toContain("Lime 浏览器桥接");
     expect(document.getElementById("status-label")?.textContent).toBe(
       "需要配置",
     );

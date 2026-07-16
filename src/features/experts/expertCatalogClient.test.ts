@@ -7,7 +7,7 @@ import {
 import { getSeededExpertCatalog } from "./seededExpertCatalog";
 import type { ExpertCatalog } from "./types";
 
-const EXPERT_CATALOG_CACHE_STORAGE_KEY = "ember:expert-catalog-cache:v1";
+const EXPERT_CATALOG_CACHE_STORAGE_KEY = "lime:expert-catalog-cache:v1";
 
 function buildRemoteCatalog(): ExpertCatalog {
   const catalog = getSeededExpertCatalog();
@@ -33,16 +33,16 @@ function buildEmptyRemoteCatalog(): ExpertCatalog {
 describe("expertCatalogClient", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_OEM_CLOUD__;
-    delete window.__EMBER_SESSION_TOKEN__;
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_OEM_CLOUD__;
+    delete window.__LIME_SESSION_TOKEN__;
   });
 
   afterEach(() => {
     window.localStorage.clear();
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_OEM_CLOUD__;
-    delete window.__EMBER_SESSION_TOKEN__;
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_OEM_CLOUD__;
+    delete window.__LIME_SESSION_TOKEN__;
     vi.unstubAllGlobals();
   });
 
@@ -68,12 +68,12 @@ describe("expertCatalogClient", () => {
     expect(readCachedExpertCatalog()).toBeNull();
   });
 
-  it("存在 OEM 会话时应从 EmberCore 刷新并缓存专家目录", async () => {
-    window.__EMBER_OEM_CLOUD__ = {
+  it("存在 OEM 会话时应从 LimeCore 刷新并缓存专家目录", async () => {
+    window.__LIME_OEM_CLOUD__ = {
       baseUrl: "https://oem.example.com",
       tenantId: "tenant-demo",
     };
-    window.__EMBER_SESSION_TOKEN__ = "session-token-demo";
+    window.__LIME_SESSION_TOKEN__ = "session-token-demo";
 
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -105,11 +105,11 @@ describe("expertCatalogClient", () => {
 
   it("远端返回空专家目录时应保留可用缓存", async () => {
     saveCachedExpertCatalog(buildRemoteCatalog());
-    window.__EMBER_OEM_CLOUD__ = {
+    window.__LIME_OEM_CLOUD__ = {
       baseUrl: "https://oem.example.com",
       tenantId: "tenant-demo",
     };
-    window.__EMBER_SESSION_TOKEN__ = "session-token-demo";
+    window.__LIME_SESSION_TOKEN__ = "session-token-demo";
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => ({
@@ -132,11 +132,11 @@ describe("expertCatalogClient", () => {
   });
 
   it("远端返回空专家目录且没有缓存时应回退 seeded", async () => {
-    window.__EMBER_OEM_CLOUD__ = {
+    window.__LIME_OEM_CLOUD__ = {
       baseUrl: "https://oem.example.com",
       tenantId: "tenant-demo",
     };
-    window.__EMBER_SESSION_TOKEN__ = "session-token-demo";
+    window.__LIME_SESSION_TOKEN__ = "session-token-demo";
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => ({
@@ -158,11 +158,11 @@ describe("expertCatalogClient", () => {
 
   it("远端刷新失败时应回退到上次缓存而不是直接丢回 seeded", async () => {
     saveCachedExpertCatalog(buildRemoteCatalog());
-    window.__EMBER_OEM_CLOUD__ = {
+    window.__LIME_OEM_CLOUD__ = {
       baseUrl: "https://oem.example.com",
       tenantId: "tenant-demo",
     };
-    window.__EMBER_SESSION_TOKEN__ = "session-token-demo";
+    window.__LIME_SESSION_TOKEN__ = "session-token-demo";
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => ({

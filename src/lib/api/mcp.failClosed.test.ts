@@ -22,7 +22,7 @@ const server: McpServer = {
     command: "node",
     args: ["server.js"],
   },
-  enabled_ember: true,
+  enabled_lime: true,
   enabled_claude: false,
   enabled_codex: true,
   enabled_gemini: false,
@@ -127,6 +127,7 @@ describe("mcp App Server current API fail-closed", () => {
     const cases: Array<[string, () => Promise<unknown>]> = [
       ["mcpServer/start", () => mcpApi.startServer("docs")],
       ["mcpServer/stop", () => mcpApi.stopServer("docs")],
+      ["mcpServer/oauth/login", () => mcpApi.loginOAuthServer("docs")],
       [
         "mcpTool/listForContext",
         () => mcpApi.listToolsForContext("assistant", true),
@@ -138,12 +139,20 @@ describe("mcp App Server current API fail-closed", () => {
         () =>
           mcpApi.callToolWithCaller(
             "mcp__docs__search",
-            { q: "ember" },
+            { q: "lime" },
             "assistant",
           ),
       ],
-      ["mcpPrompt/get", () => mcpApi.getPrompt("summarize", {})],
-      ["mcpResource/read", () => mcpApi.readResource("docs://readme")],
+      ["mcpPrompt/get", () => mcpApi.getPrompt("docs", "summarize", {})],
+      ["mcpResource/read", () => mcpApi.readResource("docs", "docs://readme")],
+      [
+        "mcpResource/subscribe",
+        () => mcpApi.subscribeResource("docs", "docs://readme"),
+      ],
+      [
+        "mcpResource/unsubscribe",
+        () => mcpApi.unsubscribeResource("docs", "docs://readme"),
+      ],
     ];
 
     for (const [method, action] of cases) {
@@ -171,6 +180,21 @@ describe("mcp App Server current API fail-closed", () => {
     expect(safeInvoke).not.toHaveBeenCalled();
   });
 
+  it("MCP OAuth login 收到 malformed current 响应时应 fail closed", async () => {
+    mockAppServerResult({ authorization_url: "http://127.0.0.1/callback" });
+
+    await expect(mcpApi.loginOAuthServer("docs")).rejects.toThrow(
+      "mcpServer/oauth/login did not return OAuth login response",
+    );
+    expect(appServerRequestMock).toHaveBeenLastCalledWith(
+      "mcpServer/oauth/login",
+      {
+        name: "docs",
+      },
+    );
+    expect(safeInvoke).not.toHaveBeenCalled();
+  });
+
   it("MCP runtime usage 收到 malformed current 响应时应 fail closed", async () => {
     const cases: Array<[unknown, () => Promise<unknown>, string]> = [
       [
@@ -185,13 +209,23 @@ describe("mcp App Server current API fail-closed", () => {
       ],
       [
         { messages: [{ role: "user", content: { type: "text" } }] },
-        () => mcpApi.getPrompt("summarize", {}),
+        () => mcpApi.getPrompt("docs", "summarize", {}),
         "mcpPrompt/get did not return prompt result",
       ],
       [
         { mime_type: "text/plain", text: "README" },
-        () => mcpApi.readResource("docs://readme"),
+        () => mcpApi.readResource("docs", "docs://readme"),
         "mcpResource/read did not return resource content",
+      ],
+      [
+        { ok: true },
+        () => mcpApi.subscribeResource("docs", "docs://readme"),
+        "mcpResource/subscribe did not return empty result",
+      ],
+      [
+        { ok: true },
+        () => mcpApi.unsubscribeResource("docs", "docs://readme"),
+        "mcpResource/unsubscribe did not return empty result",
       ],
     ];
 
@@ -200,6 +234,119 @@ describe("mcp App Server current API fail-closed", () => {
 
       await expect(action()).rejects.toThrow(message);
     }
+    expect(safeInvoke).not.toHaveBeenCalled();
+  });
+
+  it("MCP prepare requests 应拒绝非 candidate、未知方法和 malformed params", async () => {
+    await expect(
+      mcpApi.executePrepareRequests([
+        {
+          method: "mcpServer/start",
+          params: { name: "docs" },
+          status: "completed",
+        },
+      ]),
+    ).rejects.toThrow("MCP prepare request must be candidate");
+
+    await expect(
+      mcpApi.executePrepareRequests([
+        {
+          method: "mcpServer/delete",
+          params: { id: "docs" },
+          status: "candidate",
+        },
+      ]),
+    ).rejects.toThrow(
+      "Unsupported MCP prepare request method: mcpServer/delete",
+    );
+
+    await expect(
+      mcpApi.executePrepareRequests([
+        {
+          method: "mcpServer/start",
+          params: {},
+          status: "candidate",
+        },
+      ]),
+    ).rejects.toThrow("mcpServer/start prepare params require name");
+
+    expect(appServerRequestMock).not.toHaveBeenCalled();
+    expect(safeInvoke).not.toHaveBeenCalled();
+  });
+
+  it("MCP call proof requests 应拒绝非 candidate、未知方法、malformed params 和工具错误", async () => {
+    await expect(
+      mcpApi.executeCallProofRequests([
+        {
+          method: "mcpTool/callWithCaller",
+          params: {
+            toolName: "mcp__docs__search",
+            caller: "plugin:docs-plugin",
+            arguments: { q: "lime" },
+          },
+          status: "completed",
+        },
+      ]),
+    ).rejects.toThrow("MCP call proof request must be candidate");
+
+    await expect(
+      mcpApi.executeCallProofRequests([
+        {
+          method: "mcpTool/call",
+          params: {
+            toolName: "mcp__docs__search",
+            arguments: { q: "lime" },
+          },
+          status: "candidate",
+        },
+      ]),
+    ).rejects.toThrow(
+      "Unsupported MCP call proof request method: mcpTool/call",
+    );
+
+    await expect(
+      mcpApi.executeCallProofRequests([
+        {
+          method: "mcpTool/callWithCaller",
+          params: {
+            toolName: "mcp__docs__search",
+            caller: "plugin:docs-plugin",
+            arguments: "lime",
+          },
+          status: "candidate",
+        },
+      ]),
+    ).rejects.toThrow(
+      "mcpTool/callWithCaller prepare params require arguments object",
+    );
+
+    mockAppServerResult({
+      content: [{ type: "text", text: "failed" }],
+      is_error: true,
+    });
+    await expect(
+      mcpApi.executeCallProofRequests([
+        {
+          method: "mcpTool/callWithCaller",
+          params: {
+            toolName: "mcp__docs__search",
+            caller: "plugin:docs-plugin",
+            arguments: { q: "lime" },
+          },
+          status: "candidate",
+        },
+      ]),
+    ).rejects.toThrow("MCP call proof returned tool error");
+
+    expect(appServerRequestMock).toHaveBeenCalledTimes(1);
+    expect(appServerRequestMock).toHaveBeenLastCalledWith(
+      "mcpTool/callWithCaller",
+      {
+        toolName: "mcp__docs__search",
+        arguments: { q: "lime" },
+        caller: "plugin:docs-plugin",
+      },
+    );
     expect(safeInvoke).not.toHaveBeenCalled();
   });
 });

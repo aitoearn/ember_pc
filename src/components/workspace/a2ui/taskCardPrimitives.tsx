@@ -51,7 +51,7 @@ export function A2UITaskCardShell({
             ? A2UI_TASK_CARD_TOKENS.shellCompactPadding
             : A2UI_TASK_CARD_TOKENS.shellDefaultPadding,
         preview &&
-          "[&_.a2ui-container_button]:pointer-events-none [&_.a2ui-container_input]:pointer-events-none [&_.a2ui-container_textarea]:pointer-events-none [&_.a2ui-container_input]:bg-[color:var(--ember-surface-muted)] [&_.a2ui-container_textarea]:bg-[color:var(--ember-surface-muted)] [&_.a2ui-container_button]:opacity-70",
+          "[&_.a2ui-container_button]:pointer-events-none [&_.a2ui-container_input]:pointer-events-none [&_.a2ui-container_textarea]:pointer-events-none [&_.a2ui-container_input]:bg-[color:var(--lime-surface-muted)] [&_.a2ui-container_textarea]:bg-[color:var(--lime-surface-muted)] [&_.a2ui-container_button]:opacity-70",
         className,
       )}
       data-testid={testId}
@@ -102,7 +102,7 @@ export function A2UITaskCardHeader({
       <div className="min-w-0 space-y-0.5">
         <div
           className={cn(
-            "font-semibold tracking-tight text-[color:var(--ember-text-strong)]",
+            "font-semibold tracking-tight text-[color:var(--lime-text-strong)]",
             compact && surface === "embedded"
               ? "text-[14px] leading-5"
               : compact
@@ -114,7 +114,7 @@ export function A2UITaskCardHeader({
         </div>
         <div
           className={cn(
-            "text-[color:var(--ember-text-muted)]",
+            "text-[color:var(--lime-text-muted)]",
             compact && surface === "embedded"
               ? "text-[12px] leading-4"
               : compact
@@ -183,7 +183,7 @@ export function A2UITaskCardLoadingBody({
           : A2UI_TASK_CARD_TOKENS.loadingPanelDefaultPadding,
       )}
     >
-      <Loader2 className="h-4 w-4 animate-spin text-[color:var(--ember-text-muted)]" />
+      <Loader2 className="h-4 w-4 animate-spin text-[color:var(--lime-text-muted)]" />
       <span>{text}</span>
     </div>
   );

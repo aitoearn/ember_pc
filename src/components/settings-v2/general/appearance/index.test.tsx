@@ -5,8 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mockGetConfig = vi.fn();
 const mockSaveConfig = vi.fn();
 const mockSetLanguage = vi.fn();
-const mockSetSoundEnabled = vi.fn();
-const mockPlayToolcallSound = vi.fn();
 
 vi.mock("@/lib/api/appConfig", () => ({
   getConfig: () => mockGetConfig(),
@@ -19,18 +17,10 @@ vi.mock("@/i18n/legacy-patch/I18nPatchProvider", () => ({
   }),
 }));
 
-vi.mock("@/contexts/useSoundContext", () => ({
-  useSoundContext: () => ({
-    soundEnabled: true,
-    setSoundEnabled: mockSetSoundEnabled,
-    playToolcallSound: mockPlayToolcallSound,
-  }),
-}));
-
 import { AppearanceSettings } from "./index";
-import { changeEmberLocale } from "@/i18n/createI18n";
-import { EMBER_COLOR_SCHEME_STORAGE_KEY } from "@/lib/appearance/colorSchemes";
-import { EMBER_THEME_STORAGE_KEY } from "@/lib/appearance/themeMode";
+import { changeLimeLocale } from "@/i18n/createI18n";
+import { LIME_COLOR_SCHEME_STORAGE_KEY } from "@/lib/appearance/colorSchemes";
+import { LIME_THEME_STORAGE_KEY } from "@/lib/appearance/themeMode";
 
 interface RenderResult {
   container: HTMLDivElement;
@@ -82,25 +72,31 @@ function getBodyText() {
   return document.body.textContent ?? "";
 }
 
-async function hoverTip(ariaLabel: string) {
-  const trigger = document.body.querySelector(
-    `button[aria-label='${ariaLabel}']`,
+function queryTipButton(ariaLabel: string): HTMLButtonElement | null {
+  return (
+    Array.from(
+      document.body.querySelectorAll<HTMLButtonElement>("button[aria-label]"),
+    ).find((button) => button.getAttribute("aria-label") === ariaLabel) ?? null
   );
-  expect(trigger).toBeInstanceOf(HTMLButtonElement);
-
-  await act(async () => {
-    trigger?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-    await Promise.resolve();
-  });
-
-  return trigger as HTMLButtonElement;
 }
 
-async function leaveTip(trigger: HTMLButtonElement | null) {
-  await act(async () => {
-    trigger?.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
-    await Promise.resolve();
+function expectTipContentOnHover(ariaLabel: string, content: string) {
+  const button = queryTipButton(ariaLabel);
+
+  expect(button).not.toBeNull();
+  expect(getBodyText()).not.toContain(content);
+
+  act(() => {
+    button?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
   });
+
+  expect(getBodyText()).toContain(content);
+
+  act(() => {
+    button?.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+  });
+
+  expect(getBodyText()).not.toContain(content);
 }
 
 beforeEach(async () => {
@@ -126,11 +122,11 @@ beforeEach(async () => {
 
   localStorage.clear();
   document.documentElement.classList.remove("dark");
-  document.documentElement.removeAttribute("data-ember-theme");
-  document.documentElement.removeAttribute("data-ember-theme-effective");
-  document.documentElement.removeAttribute("data-ember-color-scheme");
+  document.documentElement.removeAttribute("data-lime-theme");
+  document.documentElement.removeAttribute("data-lime-theme-effective");
+  document.documentElement.removeAttribute("data-lime-color-scheme");
   document.documentElement.removeAttribute("style");
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   mockGetConfig.mockResolvedValue(createMockConfig());
   mockSaveConfig.mockResolvedValue(undefined);
 });
@@ -139,8 +135,6 @@ afterEach(() => {
   mockGetConfig.mockReset();
   mockSaveConfig.mockReset();
   mockSetLanguage.mockReset();
-  mockSetSoundEnabled.mockReset();
-  mockPlayToolcallSound.mockReset();
 
   while (mounted.length > 0) {
     const target = mounted.pop();
@@ -154,9 +148,9 @@ afterEach(() => {
     target.container.remove();
   }
 
-  document.documentElement.removeAttribute("data-ember-color-scheme");
-  document.documentElement.removeAttribute("data-ember-theme");
-  document.documentElement.removeAttribute("data-ember-theme-effective");
+  document.documentElement.removeAttribute("data-lime-color-scheme");
+  document.documentElement.removeAttribute("data-lime-theme");
+  document.documentElement.removeAttribute("data-lime-theme-effective");
   document.documentElement.classList.remove("dark");
   document.documentElement.removeAttribute("style");
   document.documentElement.removeAttribute("lang");
@@ -173,23 +167,23 @@ describe("AppearanceSettings", () => {
 
     expect(text).toContain("外观");
     expect(text).toContain(
-      "管理主题、界面语言、回复语言、提示音效和推荐行为。",
+      "管理主题、界面语言、回复语言和推荐行为。",
     );
     expect(text).toContain("主题：跟随系统");
-    expect(text).toContain("配色：熠测");
+    expect(text).toContain("配色：墨绿");
     expect(text).toContain("界面：简体中文");
     expect(text).toContain("回复：自动判断");
-    expect(text).toContain("提示音效：已开启");
+    expect(text).not.toContain("提示音效");
     expect(text).toContain("基础外观");
     expect(text).toContain("主题模式");
     expect(text).toContain("色彩方案");
     expect(text).toContain("随机");
-    expect(text).toContain("熠测");
+    expect(text).toContain("墨绿");
     expect(text).toContain("自然");
     expect(text).toContain("海洋");
     expect(text).toContain("复古");
     expect(text).toContain("霓虹");
-    expect(text).toContain("柠黄");
+    expect(text).toContain("青柠");
     expect(text).toContain("黄昏");
     expect(text).toContain("极简");
     expect(text).toContain("活力");
@@ -209,7 +203,7 @@ describe("AppearanceSettings", () => {
   });
 
   it("应通过 settings namespace 渲染英文外观 chrome", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     mockGetConfig.mockResolvedValue({
       ...createMockConfig(),
       language: "en-US",
@@ -220,10 +214,10 @@ describe("AppearanceSettings", () => {
 
     expect(text).toContain("Appearance");
     expect(text).toContain("Theme: System");
-    expect(text).toContain("Palette: Ember");
+    expect(text).toContain("Palette: Graphite Green");
     expect(text).toContain("UI: English");
     expect(text).toContain("Reply: Auto");
-    expect(text).toContain("Sound cues: On");
+    expect(text).not.toContain("Sound cues");
     expect(text).toContain("Base Appearance");
     expect(text).toContain("Theme Mode");
     expect(text).toContain("Color Palette");
@@ -341,14 +335,14 @@ describe("AppearanceSettings", () => {
       await Promise.resolve();
     });
 
-    expect(localStorage.getItem(EMBER_COLOR_SCHEME_STORAGE_KEY)).toBe(
-      "ember-luxury",
+    expect(localStorage.getItem(LIME_COLOR_SCHEME_STORAGE_KEY)).toBe(
+      "lime-luxury",
     );
-    expect(document.documentElement.dataset.emberColorScheme).toBe(
-      "ember-luxury",
+    expect(document.documentElement.dataset.limeColorScheme).toBe(
+      "lime-luxury",
     );
     expect(
-      document.documentElement.style.getPropertyValue("--ember-chrome-rail"),
+      document.documentElement.style.getPropertyValue("--lime-chrome-rail"),
     ).toBe("#f4efe2");
     expect(container.textContent ?? "").toContain("配色：奢华");
   });
@@ -369,11 +363,11 @@ describe("AppearanceSettings", () => {
         await Promise.resolve();
       });
 
-      expect(localStorage.getItem(EMBER_COLOR_SCHEME_STORAGE_KEY)).toBe(
-        "ember-forest",
+      expect(localStorage.getItem(LIME_COLOR_SCHEME_STORAGE_KEY)).toBe(
+        "lime-forest",
       );
-      expect(document.documentElement.dataset.emberColorScheme).toBe(
-        "ember-forest",
+      expect(document.documentElement.dataset.limeColorScheme).toBe(
+        "lime-forest",
       );
       expect(container.textContent ?? "").toContain("配色：自然");
     } finally {
@@ -394,48 +388,37 @@ describe("AppearanceSettings", () => {
       await Promise.resolve();
     });
 
-    expect(localStorage.getItem(EMBER_THEME_STORAGE_KEY)).toBe("dark");
+    expect(localStorage.getItem(LIME_THEME_STORAGE_KEY)).toBe("dark");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
-    expect(document.documentElement.dataset.emberTheme).toBe("dark");
-    expect(document.documentElement.dataset.emberThemeEffective).toBe("dark");
+    expect(document.documentElement.dataset.limeTheme).toBe("dark");
+    expect(document.documentElement.dataset.limeThemeEffective).toBe("dark");
     expect(
-      document.documentElement.style.getPropertyValue("--ember-app-bg"),
+      document.documentElement.style.getPropertyValue("--lime-app-bg"),
     ).toBe("#0b1120");
     expect(container.textContent ?? "").toContain("主题：深色");
   });
 
-  it("应把首屏和基础外观说明收进 tips", async () => {
+  it("首屏和基础外观说明只在 tip 交互时展示", async () => {
     await renderPage();
 
     expect(getBodyText()).not.toContain(
-      "管理主题、界面语言、回复语言、提示音效，以及推荐问题的上下文带入方式。",
+      "管理主题、界面语言、回复语言，以及推荐问题的上下文带入方式。",
     );
     expect(getBodyText()).not.toContain(
-      "先确定全局主题、界面语言和声音反馈，再统一工作区里的视觉节奏。",
+      "先确定全局主题、界面语言和回复语言，再统一工作区里的视觉节奏。",
     );
-
-    const heroTip = await hoverTip("外观设置总览说明");
-    expect(getBodyText()).toContain(
-      "管理主题、界面语言、回复语言、提示音效，以及推荐问题的上下文带入方式。",
+    expectTipContentOnHover(
+      "外观设置总览说明",
+      "管理主题、界面语言、回复语言，以及推荐问题的上下文带入方式。",
     );
-    await leaveTip(heroTip);
-
-    const sectionTip = await hoverTip("基础外观说明");
-    expect(getBodyText()).toContain(
-      "先确定全局主题、界面语言和声音反馈，再统一工作区里的视觉节奏。",
+    expectTipContentOnHover(
+      "基础外观说明",
+      "先确定全局主题、界面语言和回复语言，再统一工作区里的视觉节奏。",
     );
-    await leaveTip(sectionTip);
-
-    const languageTip = await hoverTip("界面语言说明");
-    expect(getBodyText()).toContain(
-      "只切换界面显示语言；不影响回复语言、浏览器站点语言或内容产物目标语言。",
-    );
-    await leaveTip(languageTip);
-
-    const responseLanguageTip = await hoverTip("回复语言说明");
-    expect(getBodyText()).toContain(
+    expect(queryTipButton("界面语言说明")).not.toBeNull();
+    expectTipContentOnHover(
+      "回复语言说明",
       "控制对话默认回复语言；不影响界面语言、浏览器站点语言或内容产物目标语言。",
     );
-    await leaveTip(responseLanguageTip);
   });
 });

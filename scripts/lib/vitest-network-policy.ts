@@ -1,7 +1,7 @@
 import process from "node:process";
 
-export const LIVE_PROVIDER_SMOKE_ENV = "EMBER_ALLOW_LIVE_PROVIDER_SMOKE";
-export const REAL_API_TEST_ENV = "EMBER_REAL_API_TEST";
+export const LIVE_PROVIDER_SMOKE_ENV = "LIME_ALLOW_LIVE_PROVIDER_SMOKE";
+export const REAL_API_TEST_ENV = "LIME_REAL_API_TEST";
 
 const LOCAL_HTTP_HOSTS = new Set([
   "localhost",

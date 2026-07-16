@@ -6,14 +6,15 @@ import process from "node:process";
 
 import {
   buildAgentQcObjectiveChecklist,
+  buildMissingAuditAgentQcObjectiveChecklist,
   renderAgentQcObjectiveChecklistMarkdown,
 } from "../lib/agent-qc-objective-checklist-core.mjs";
 
 function parseArgs(argv) {
   const result = {
-    auditPath: ".ember/qc/objective-completion-audit-current.json",
-    processOwnerPath: ".ember/qc/gui-process-owner-current.json",
-    guiOwnerPath: ".ember/qc/gui-owner-current.json",
+    auditPath: ".lime/qc/objective-completion-audit-current.json",
+    processOwnerPath: ".lime/qc/gui-process-owner-current.json",
+    guiOwnerPath: ".lime/qc/gui-owner-current.json",
     format: "markdown",
     outputPath: "",
     check: false,
@@ -59,16 +60,16 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Agent QC Objective Checklist
+Lime Agent QC Objective Checklist
 
 用法:
-  npm run agent-qc:objective-checklist -- --format json --output ./.ember/qc/objective-completion-checklist-current.json
+  npm run agent-qc:objective-checklist -- --format json --output ./.lime/qc/objective-completion-checklist-current.json
   node scripts/agent-qc/objective-checklist.mjs --check
 
 选项:
-  --audit PATH          completion audit JSON，默认 .ember/qc/objective-completion-audit-current.json
-  --process-owner PATH  raw process owner JSON，默认 .ember/qc/gui-process-owner-current.json
-  --gui-owner PATH      GUI owner JSON，默认 .ember/qc/gui-owner-current.json
+  --audit PATH          completion audit JSON，默认 .lime/qc/objective-completion-audit-current.json
+  --process-owner PATH  raw process owner JSON，默认 .lime/qc/gui-process-owner-current.json
+  --gui-owner PATH      GUI owner JSON，默认 .lime/qc/gui-owner-current.json
   --format FMT          markdown | json，默认 markdown
   --output PATH         写入文件；默认 stdout
   --check               checklist 未 complete 时非 0 退出
@@ -80,6 +81,48 @@ function readJson(filePath) {
   return JSON.parse(
     fs.readFileSync(path.resolve(process.cwd(), filePath), "utf8"),
   );
+}
+
+function readJsonResult(filePath) {
+  const resolvedPath = path.resolve(process.cwd(), filePath);
+  if (!fs.existsSync(resolvedPath)) {
+    return { ok: false, reason: "missing", value: null, error: "" };
+  }
+  try {
+    return { ok: true, reason: "", value: readJson(filePath), error: "" };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: "invalid-json",
+      value: null,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function fallbackProcessOwner(readResult, filePath) {
+  if (readResult.ok) {
+    return readResult.value;
+  }
+  return {
+    verdict: {
+      status: "missing",
+      summary: `缺少 raw process owner sidecar：${filePath}`,
+    },
+    ownerIntervention: { status: "missing" },
+  };
+}
+
+function fallbackGuiOwner(readResult, filePath) {
+  if (readResult.ok) {
+    return readResult.value;
+  }
+  return {
+    verdict: {
+      status: "missing",
+      summary: `缺少 GUI owner sidecar：${filePath}`,
+    },
+  };
 }
 
 function writeOutput(outputPath, content) {
@@ -98,11 +141,23 @@ function main() {
     printHelp();
     return;
   }
-  const result = buildAgentQcObjectiveChecklist({
-    audit: readJson(options.auditPath),
-    processOwner: readJson(options.processOwnerPath),
-    guiOwner: readJson(options.guiOwnerPath),
-  });
+  const auditReadResult = readJsonResult(options.auditPath);
+  const processOwnerReadResult = readJsonResult(options.processOwnerPath);
+  const guiOwnerReadResult = readJsonResult(options.guiOwnerPath);
+  const result = auditReadResult.ok
+    ? buildAgentQcObjectiveChecklist({
+        audit: auditReadResult.value,
+        processOwner: fallbackProcessOwner(
+          processOwnerReadResult,
+          options.processOwnerPath,
+        ),
+        guiOwner: fallbackGuiOwner(guiOwnerReadResult, options.guiOwnerPath),
+      })
+    : buildMissingAuditAgentQcObjectiveChecklist({
+        auditPath: options.auditPath,
+        reason: auditReadResult.reason,
+        detail: auditReadResult.error,
+      });
   const content =
     options.format === "json"
       ? `${JSON.stringify(result, null, 2)}\n`

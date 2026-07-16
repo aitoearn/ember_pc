@@ -1,4 +1,4 @@
-import type { ManagedObjectiveStatus } from "@/lib/api/agentRuntime";
+import type { ManagedObjectiveStatus } from "@/lib/api/agentRuntime/sessionTypes";
 
 export type ManagedObjectiveAction =
   | "clear"
@@ -59,6 +59,12 @@ export const MANAGED_OBJECTIVE_COPY = {
   formObjectiveLabel: "agentChat.managedObjective.form.objectiveLabel",
   formObjectivePlaceholder:
     "agentChat.managedObjective.form.objectivePlaceholder",
+  inlineCancel: "agentChat.managedObjective.inline.cancel",
+  inlineDialogTitleEdit: "agentChat.managedObjective.inline.dialogTitle.edit",
+  inlineEdit: "agentChat.managedObjective.inline.edit",
+  inlineSave: "agentChat.managedObjective.inline.save",
+  inlineStatusBlocked: "agentChat.managedObjective.inline.status.blocked",
+  inlineStatusPaused: "agentChat.managedObjective.inline.status.paused",
   runtimeBusy: "agentChat.managedObjective.runtimeBusy",
   title: "agentChat.managedObjective.title",
   toastCleared: "agentChat.managedObjective.toast.cleared",

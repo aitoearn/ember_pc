@@ -9,7 +9,7 @@ const tempRoots: string[] = [];
 
 function createTempRoot() {
   const tempRoot = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ember-harness-repo-fixtures-"),
+    path.join(os.tmpdir(), "lime-harness-repo-fixtures-"),
   );
   tempRoots.push(tempRoot);
   return tempRoot;
@@ -44,7 +44,7 @@ describe("Harness repo fixtures", () => {
       "--format",
       "json",
       "--manifest",
-      "docs/test/harness-evals.manifest.json",
+      "internal/test/harness-evals.manifest.json",
       "--workspace-root",
       workspaceRoot,
       "--no-strict",

@@ -15,7 +15,7 @@ use axum::{
     response::IntoResponse,
 };
 use futures::{SinkExt, StreamExt};
-use ember_core::LogStore;
+use lime_core::LogStore;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -38,10 +38,9 @@ impl WsHandlerState {
         config: WsConfig,
         api_key: String,
         logs: Arc<RwLock<LogStore>>,
-        db: Option<ember_core::database::DbConnection>,
-        scheduler: Option<ember_agent::LimeScheduler>,
+        db: Option<lime_core::database::DbConnection>,
     ) -> Self {
-        let rpc_state = RpcHandlerState::new(db, scheduler, logs.clone());
+        let rpc_state = RpcHandlerState::new(db, logs.clone());
         Self {
             manager: Arc::new(WsConnectionManager::new(config)),
             api_key,

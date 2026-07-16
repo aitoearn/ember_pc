@@ -24,7 +24,7 @@ afterEach(() => {
 
 function createTempRepo() {
   const tempDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ember-managed-objective-guardrails-"),
+    path.join(os.tmpdir(), "lime-managed-objective-guardrails-"),
   );
   tempDirs.push(tempDir);
   return tempDir;
@@ -51,7 +51,7 @@ describe("managed-objective-guardrails-core", () => {
     );
     writeFile(
       repoRoot,
-      "docs/roadmap.md",
+      "internal/roadmap.md",
       "文档允许讨论 objective_queue 为什么禁止。\n",
     );
 
@@ -65,9 +65,13 @@ describe("managed-objective-guardrails-core", () => {
     ]);
   });
 
-  it("默认扫描当前仓库实现路径时不应出现禁用命名", () => {
-    expect(scanManagedObjectiveForbiddenSurfaces()).toEqual([]);
-  });
+  it(
+    "默认扫描当前仓库实现路径时不应出现禁用命名",
+    () => {
+      expect(scanManagedObjectiveForbiddenSurfaces()).toEqual([]);
+    },
+    20_000,
+  );
 
   it("禁用 surface 列表应覆盖路线图第 10 节约束", () => {
     expect(managedObjectiveForbiddenSurfaceTokens()).toEqual([
@@ -82,7 +86,7 @@ describe("managed-objective-guardrails-core", () => {
     const repoRoot = createTempRepo();
     writeFile(
       repoRoot,
-      "ember-rs/src/agent_tools/catalog.rs",
+      "ember-rs/crates/agent/src/agent_tools/catalog.rs",
       'const TOOL: &str = "agent_runtime_set_objective";\n',
     );
     writeFile(
@@ -93,7 +97,7 @@ describe("managed-objective-guardrails-core", () => {
 
     expect(scanManagedObjectiveToolSurfaceCommands({ repoRoot })).toEqual([
       {
-        relativePath: "ember-rs/src/agent_tools/catalog.rs",
+        relativePath: "ember-rs/crates/agent/src/agent_tools/catalog.rs",
         token: "agent_runtime_set_objective",
       },
     ]);

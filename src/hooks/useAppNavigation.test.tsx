@@ -1,10 +1,13 @@
 import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildClawAgentParams } from "@/lib/workspace/navigation";
+import {
+  buildClawAgentParams,
+  buildHomeAgentParams,
+} from "@/lib/workspace/navigation";
 import { useAppNavigation } from "./useAppNavigation";
 
-const NAVIGATION_RESTORE_STORAGE_KEY = "ember.appNavigation.restore.v1";
+const NAVIGATION_RESTORE_STORAGE_KEY = "lime.appNavigation.restore.v1";
 
 interface ProbeProps {
   onReady: (value: ReturnType<typeof useAppNavigation>) => void;
@@ -134,24 +137,24 @@ describe("useAppNavigation", () => {
     expect(latestNavigation?.pageParams).toEqual({});
   });
 
-  it("agent-app-lab 跳转应保留页面参数", async () => {
+  it("plugin-lab 跳转应保留页面参数", async () => {
     await renderProbe();
 
     await act(async () => {
-      latestNavigation?.handleNavigate("agent-app-lab", { source: "fixture" });
+      latestNavigation?.handleNavigate("plugin-lab", { source: "fixture" });
     });
 
-    expect(latestNavigation?.currentPage).toBe("agent-app-lab");
+    expect(latestNavigation?.currentPage).toBe("plugin-lab");
     expect(latestNavigation?.pageParams).toEqual({
       source: "fixture",
     });
   });
 
-  it("agent-app 跳转应写入可恢复的最小页面状态", async () => {
+  it("plugin 跳转应写入可恢复的最小页面状态", async () => {
     await renderProbe();
 
     await act(async () => {
-      latestNavigation?.handleNavigate("agent-app", {
+      latestNavigation?.handleNavigate("plugin", {
         appId: "content-factory-app",
         entryKey: "content_factory",
         launchRequestKey: 42,
@@ -159,7 +162,7 @@ describe("useAppNavigation", () => {
     });
     await flushEffects();
 
-    expect(latestNavigation?.currentPage).toBe("agent-app");
+    expect(latestNavigation?.currentPage).toBe("plugin");
     expect(latestNavigation?.pageParams).toEqual({
       appId: "content-factory-app",
       entryKey: "content_factory",
@@ -170,7 +173,7 @@ describe("useAppNavigation", () => {
         window.sessionStorage.getItem(NAVIGATION_RESTORE_STORAGE_KEY) ?? "{}",
       ),
     ).toEqual({
-      page: "agent-app",
+      page: "plugin",
       params: {
         appId: "content-factory-app",
         entryKey: "content_factory",
@@ -179,11 +182,78 @@ describe("useAppNavigation", () => {
     });
   });
 
-  it("重新挂载时应恢复 agent-app 页面和白名单参数", async () => {
+  it("agent 历史会话跳转应写入可恢复的最小页面状态", async () => {
+    await renderProbe();
+
+    await act(async () => {
+      latestNavigation?.handleNavigate(
+        "agent",
+        buildClawAgentParams({
+          projectId: "project-history",
+          initialSessionId: "session-history",
+          initialUserPrompt: "这条 prompt 不应被 reload 恢复",
+        }),
+      );
+    });
+    await flushEffects();
+
+    expect(
+      JSON.parse(
+        window.sessionStorage.getItem(NAVIGATION_RESTORE_STORAGE_KEY) ?? "{}",
+      ),
+    ).toEqual({
+      page: "agent",
+      params: {
+        agentEntry: "claw",
+        immersiveHome: false,
+        initialSessionId: "session-history",
+        lockTheme: false,
+        projectId: "project-history",
+        theme: "general",
+      },
+    });
+
+    await remountProbe();
+
+    expect(latestNavigation?.currentPage).toBe("agent");
+    expect(latestNavigation?.pageParams).toEqual({
+      agentEntry: "claw",
+      immersiveHome: false,
+      initialSessionId: "session-history",
+      lockTheme: false,
+      projectId: "project-history",
+      theme: "general",
+    });
+  });
+
+  it("agent 新建首页跳转不应写入 reload 恢复状态", async () => {
+    await renderProbe();
+
+    await act(async () => {
+      latestNavigation?.handleNavigate("plugin", {
+        appId: "content-factory-app",
+      });
+    });
+    await flushEffects();
+    expect(
+      window.sessionStorage.getItem(NAVIGATION_RESTORE_STORAGE_KEY),
+    ).not.toBe(null);
+
+    await act(async () => {
+      latestNavigation?.handleNavigate("agent", buildHomeAgentParams());
+    });
+    await flushEffects();
+
+    expect(window.sessionStorage.getItem(NAVIGATION_RESTORE_STORAGE_KEY)).toBe(
+      null,
+    );
+  });
+
+  it("重新挂载时应恢复 plugin 页面和白名单参数", async () => {
     window.sessionStorage.setItem(
       NAVIGATION_RESTORE_STORAGE_KEY,
       JSON.stringify({
-        page: "agent-app",
+        page: "plugin",
         params: {
           appId: "content-factory-app",
           entryKey: "content_factory",
@@ -195,8 +265,8 @@ describe("useAppNavigation", () => {
 
     await renderProbe();
 
-    expect(latestNavigation?.currentPage).toBe("agent-app");
-    expect(latestNavigation?.requestedPage).toBe("agent-app");
+    expect(latestNavigation?.currentPage).toBe("plugin");
+    expect(latestNavigation?.requestedPage).toBe("plugin");
     expect(latestNavigation?.navigationRequestId).toBe(0);
     expect(latestNavigation?.isNavigating).toBe(false);
     expect(latestNavigation?.pageParams).toEqual({
@@ -207,7 +277,7 @@ describe("useAppNavigation", () => {
 
     await remountProbe();
 
-    expect(latestNavigation?.currentPage).toBe("agent-app");
+    expect(latestNavigation?.currentPage).toBe("plugin");
     expect(latestNavigation?.pageParams).toEqual({
       appId: "content-factory-app",
       entryKey: "content_factory",
@@ -236,11 +306,11 @@ describe("useAppNavigation", () => {
     );
   });
 
-  it("离开 agent-app 时应清理恢复状态", async () => {
+  it("离开 plugin 时应清理恢复状态", async () => {
     await renderProbe();
 
     await act(async () => {
-      latestNavigation?.handleNavigate("agent-app", {
+      latestNavigation?.handleNavigate("plugin", {
         appId: "content-factory-app",
         entryKey: "content_factory",
       });
@@ -267,21 +337,75 @@ describe("useAppNavigation", () => {
     await renderProbe();
 
     await act(async () => {
-      latestNavigation?.handleNavigate("agent-app-lab", { source: "fixture" });
+      latestNavigation?.handleNavigate("plugin-lab", { source: "fixture" });
     });
     await flushEffects();
 
     const readyCallsAfterFirstNavigation = readyCallCount;
 
     await act(async () => {
-      latestNavigation?.handleNavigate("agent-app-lab", { source: "fixture" });
+      latestNavigation?.handleNavigate("plugin-lab", { source: "fixture" });
     });
     await flushEffects();
 
     expect(readyCallCount).toBe(readyCallsAfterFirstNavigation);
-    expect(latestNavigation?.currentPage).toBe("agent-app-lab");
+    expect(latestNavigation?.currentPage).toBe("plugin-lab");
     expect(latestNavigation?.pageParams).toEqual({
       source: "fixture",
+    });
+  });
+
+  it("同页同语义参数即使字段顺序不同也不应再次更新导航状态", async () => {
+    await renderProbe();
+
+    await act(async () => {
+      latestNavigation?.handleNavigate("agent", {
+        agentEntry: "claw",
+        projectId: "project-stable",
+        theme: "general",
+        initialRequestMetadata: {
+          harness: {
+            beta: 2,
+            alpha: 1,
+          },
+        },
+      });
+    });
+    await flushEffects();
+
+    const readyCallsAfterFirstNavigation = readyCallCount;
+    const requestIdAfterFirstNavigation = latestNavigation?.navigationRequestId;
+
+    await act(async () => {
+      latestNavigation?.handleNavigate("agent", {
+        initialRequestMetadata: {
+          harness: {
+            alpha: 1,
+            beta: 2,
+          },
+        },
+        theme: "general",
+        projectId: "project-stable",
+        agentEntry: "claw",
+      });
+    });
+    await flushEffects();
+
+    expect(readyCallCount).toBe(readyCallsAfterFirstNavigation);
+    expect(latestNavigation?.navigationRequestId).toBe(
+      requestIdAfterFirstNavigation,
+    );
+    expect(latestNavigation?.currentPage).toBe("agent");
+    expect(latestNavigation?.pageParams).toMatchObject({
+      agentEntry: "claw",
+      projectId: "project-stable",
+      theme: "general",
+      initialRequestMetadata: {
+        harness: {
+          beta: 2,
+          alpha: 1,
+        },
+      },
     });
   });
 
@@ -290,12 +414,12 @@ describe("useAppNavigation", () => {
 
     await act(async () => {
       latestNavigation?.handleNavigate("automation");
-      latestNavigation?.handleNavigate("agent-app-lab", { source: "fixture" });
+      latestNavigation?.handleNavigate("plugin-lab", { source: "fixture" });
     });
     await flushEffects();
 
-    expect(latestNavigation?.currentPage).toBe("agent-app-lab");
-    expect(latestNavigation?.requestedPage).toBe("agent-app-lab");
+    expect(latestNavigation?.currentPage).toBe("plugin-lab");
+    expect(latestNavigation?.requestedPage).toBe("plugin-lab");
     expect(latestNavigation?.pageParams).toEqual({
       source: "fixture",
     });

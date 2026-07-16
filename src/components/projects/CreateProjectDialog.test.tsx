@@ -10,7 +10,7 @@ import {
   setupReactActEnvironment,
   type MountedRoot,
 } from "@/components/workspace/hooks/testUtils";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { CreateProjectDialog } from "./CreateProjectDialog";
 
 const {
@@ -58,7 +58,7 @@ const mountedRoots: MountedRoot[] = [];
 
 describe("CreateProjectDialog", () => {
   beforeEach(async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     mockGetWorkspaceProjectsRoot.mockResolvedValue("/tmp/workspace");
     mockResolveProjectRootPath.mockImplementation(
       async (name: string, parentRootPath = "/tmp/workspace") =>
@@ -70,7 +70,7 @@ describe("CreateProjectDialog", () => {
   afterEach(async () => {
     cleanupMountedRoots(mountedRoots);
     vi.clearAllMocks();
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
   });
 
   it("uses a compact project creation form", async () => {

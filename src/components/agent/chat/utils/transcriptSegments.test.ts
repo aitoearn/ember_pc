@@ -8,13 +8,13 @@ describe("transcriptSegments", () => {
   it("应从 verbose JSON transcript 中解析时间轴和说话人", () => {
     const parsed = parseTranscriptContent(
       JSON.stringify({
-        text: "主持人：欢迎来到 Ember。\n嘉宾：我们聊多模态运行合同。",
+        text: "主持人：欢迎来到 Lime。\n嘉宾：我们聊多模态运行合同。",
         segments: [
           {
             start: 0,
             end: 2.4,
             speaker: "host",
-            text: "欢迎来到 Ember。",
+            text: "欢迎来到 Lime。",
           },
           {
             start: 2.4,
@@ -27,7 +27,7 @@ describe("transcriptSegments", () => {
     );
 
     expect(parsed.text).toBe(
-      "主持人：欢迎来到 Ember。\n嘉宾：我们聊多模态运行合同。",
+      "主持人：欢迎来到 Lime。\n嘉宾：我们聊多模态运行合同。",
     );
     expect(parsed.segments).toMatchObject([
       {
@@ -35,7 +35,7 @@ describe("transcriptSegments", () => {
         startMs: 0,
         endMs: 2400,
         speaker: "host",
-        text: "欢迎来到 Ember。",
+        text: "欢迎来到 Lime。",
       },
       {
         index: 2,
@@ -54,7 +54,7 @@ describe("transcriptSegments", () => {
     const parsed = parseTranscriptContent(`WEBVTT
 
 00:00:01.000 --> 00:00:03.500
-<v 主持人>欢迎来到 Ember 访谈。</v>
+<v 主持人>欢迎来到 Lime 访谈。</v>
 
 00:00:04,000 --> 00:00:06,000
 嘉宾: 这次我们讲转写 viewer。
@@ -66,7 +66,7 @@ describe("transcriptSegments", () => {
         startMs: 1000,
         endMs: 3500,
         speaker: "主持人",
-        text: "欢迎来到 Ember 访谈。",
+        text: "欢迎来到 Lime 访谈。",
       },
       {
         index: 2,

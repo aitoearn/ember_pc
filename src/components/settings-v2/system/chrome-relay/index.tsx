@@ -111,9 +111,9 @@ const ENGINE_DEFINITIONS: Record<SearchEngine, EngineDefinition> = {
   google: {
     id: "google",
     settingsUrl: "https://www.google.com/preferences?hl=zh-CN",
-    assistUrl: "https://www.google.com/search?q=ember+browser+assist",
-    bridgeTestUrl: "https://www.google.com/search?q=ember",
-    backendTestUrl: "https://www.google.com/search?q=ember+browser+backend",
+    assistUrl: "https://www.google.com/search?q=lime+browser+assist",
+    bridgeTestUrl: "https://www.google.com/search?q=lime",
+    backendTestUrl: "https://www.google.com/search?q=lime+browser+backend",
     profileKey: "search_google",
   },
   xiaohongshu: {
@@ -127,8 +127,8 @@ const ENGINE_DEFINITIONS: Record<SearchEngine, EngineDefinition> = {
 };
 
 const BACKEND_OPTIONS: BrowserBackendType[] = [
-  "aster_compat",
-  "ember_extension_bridge",
+  "current",
+  "lime_extension_bridge",
   "cdp_direct",
 ];
 
@@ -1081,9 +1081,9 @@ export function ChromeRelaySettings() {
   const getBackendLabel = useCallback(
     (backend: BrowserBackendType) => {
       switch (backend) {
-        case "aster_compat":
-          return t("settings.chromeRelay.main.backend.asterCompat.label");
-        case "ember_extension_bridge":
+        case "current":
+          return t("settings.chromeRelay.main.backend.agentCompat.label");
+        case "lime_extension_bridge":
           return t("settings.chromeRelay.main.backend.extensionBridge.label");
         case "cdp_direct":
           return t("settings.chromeRelay.main.backend.cdpDirect.label");
@@ -1094,9 +1094,9 @@ export function ChromeRelaySettings() {
   const getBackendDescription = useCallback(
     (backend: BrowserBackendType) => {
       switch (backend) {
-        case "aster_compat":
-          return t("settings.chromeRelay.main.backend.asterCompat.description");
-        case "ember_extension_bridge":
+        case "current":
+          return t("settings.chromeRelay.main.backend.agentCompat.description");
+        case "lime_extension_bridge":
           return t(
             "settings.chromeRelay.main.backend.extensionBridge.description",
           );
@@ -1553,7 +1553,7 @@ export function ChromeRelaySettings() {
                 "settings.chromeRelay.main.backendPolicy.nativeHost.configuredLabel",
               )}
               :{" "}
-              {backendsStatus?.aster_native_host_configured
+              {backendsStatus?.agent_native_host_configured
                 ? t(
                     "settings.chromeRelay.main.backendPolicy.nativeHost.configured",
                   )
@@ -1566,7 +1566,7 @@ export function ChromeRelaySettings() {
                 "settings.chromeRelay.main.backendPolicy.nativeHost.platformSupportedLabel",
               )}
               :{" "}
-              {backendsStatus?.aster_native_host_supported
+              {backendsStatus?.agent_native_host_supported
                 ? t("settings.chromeRelay.main.backendPolicy.nativeHost.yes")
                 : t("settings.chromeRelay.main.backendPolicy.nativeHost.no")}
             </p>

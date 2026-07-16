@@ -80,7 +80,7 @@ function buildProjection(
     requiresArtifactOrEvidence: true,
     lastAuditSummary:
       "decision=completed; evidence pack and artifact refs look satisfied",
-    lastEvidencePackRef: ".ember/harness/job-objective-1/evidence",
+    lastEvidencePackRef: ".lime/harness/job-objective-1/evidence",
     lastArtifactRefs: ["content-posts/daily.md"],
     blockerReason: null,
     ...overrides,

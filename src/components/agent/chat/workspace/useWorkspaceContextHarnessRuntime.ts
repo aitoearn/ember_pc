@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ProjectMemory } from "@/lib/api/memory";
+import type { ProjectMemory } from "@/lib/api/projectMemory";
 import type { ThemeType } from "@/lib/workspace/workbenchContract";
 import type { Message } from "../types";
 import { useThemeContextWorkspace } from "../hooks";
@@ -9,10 +9,11 @@ import {
   savePersistedBoolean,
 } from "./generalWorkbenchHelpers";
 
-const HARNESS_PANEL_VISIBILITY_KEY = "ember.chat.harness-panel.visible.v1";
+const HARNESS_PANEL_VISIBILITY_KEY = "lime.chat.harness-panel.visible.v1";
 
 interface UseWorkspaceContextHarnessRuntimeParams {
   enabled: boolean;
+  prefetchEnabled?: boolean;
   projectId?: string;
   activeTheme: string;
   messages: Message[];
@@ -29,6 +30,7 @@ interface UseWorkspaceContextHarnessRuntimeParams {
 
 export function useWorkspaceContextHarnessRuntime({
   enabled,
+  prefetchEnabled = true,
   projectId,
   activeTheme,
   messages,
@@ -54,6 +56,8 @@ export function useWorkspaceContextHarnessRuntime({
   }, [harnessPanelVisible]);
 
   const contextWorkspace = useThemeContextWorkspace({
+    enabled,
+    prefetchEnabled,
     projectId,
     activeTheme,
     messages,

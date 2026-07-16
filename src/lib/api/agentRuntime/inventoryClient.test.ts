@@ -19,9 +19,9 @@ const emptyToolInventory = {
     catalog_compat_total: 0,
     catalog_deprecated_total: 0,
     default_allowed_total: 0,
-    registry_total: 0,
-    registry_visible_total: 0,
-    registry_catalog_unmapped_total: 0,
+    native_total: 0,
+    native_visible_total: 0,
+    native_catalog_unmapped_total: 0,
     extension_surface_total: 0,
     extension_mcp_bridge_total: 0,
     extension_runtime_total: 0,
@@ -32,7 +32,7 @@ const emptyToolInventory = {
     mcp_tool_visible_total: 0,
   },
   catalog_tools: [],
-  registry_tools: [],
+  native_tools: [],
   extension_surfaces: [],
   extension_tools: [],
   mcp_tools: [],
@@ -66,8 +66,7 @@ describe("agentRuntime inventoryClient", () => {
         },
       }),
     };
-    const invokeCommand = vi.fn();
-    const client = createInventoryClient({ appServerClient, invokeCommand });
+    const client = createInventoryClient({ appServerClient });
 
     await expect(
       client.listWorkspaceSkillBindings({
@@ -90,15 +89,13 @@ describe("agentRuntime inventoryClient", () => {
         workbench: true,
       },
     );
-    expect(invokeCommand).not.toHaveBeenCalled();
   });
 
   it("workspace skill bindings 缺少 workspaceRoot 时应 fail closed", async () => {
     const appServerClient = {
       request: vi.fn(),
     };
-    const invokeCommand = vi.fn();
-    const client = createInventoryClient({ appServerClient, invokeCommand });
+    const client = createInventoryClient({ appServerClient });
 
     await expect(
       client.listWorkspaceSkillBindings({ workspaceRoot: "   " }),
@@ -107,12 +104,17 @@ describe("agentRuntime inventoryClient", () => {
     );
 
     expect(appServerClient.request).not.toHaveBeenCalled();
-    expect(invokeCommand).not.toHaveBeenCalled();
   });
 
-  it("tool inventory 暂保 compat command，避免用 capability/list 伪装完整库存", async () => {
-    const invokeCommand = vi.fn().mockResolvedValueOnce(emptyToolInventory);
-    const client = createInventoryClient({ invokeCommand });
+  it("tool inventory 应通过 App Server current method 读取完整库存", async () => {
+    const appServerClient = {
+      request: vi.fn().mockResolvedValueOnce({
+        result: {
+          inventory: emptyToolInventory,
+        },
+      }),
+    };
+    const client = createInventoryClient({ appServerClient });
 
     await expect(
       client.getAgentRuntimeToolInventory({
@@ -122,17 +124,15 @@ describe("agentRuntime inventoryClient", () => {
     ).resolves.toMatchObject({
       counts: {
         catalog_total: 0,
-        registry_total: 0,
+        native_total: 0,
       },
     });
 
-    expect(invokeCommand).toHaveBeenCalledWith(
-      "agent_runtime_get_tool_inventory",
+    expect(appServerClient.request).toHaveBeenCalledWith(
+      "agentSession/toolInventory/read",
       {
-        request: {
-          caller: "assistant",
-          workbench: true,
-        },
+        caller: "assistant",
+        workbench: true,
       },
     );
   });
@@ -162,7 +162,7 @@ describe("agentRuntime inventoryClient", () => {
           execution_sandbox_profile_source: "catalog",
         },
       ],
-      registry_tools: [
+      native_tools: [
         {
           name: "site_run_adapter",
           description: "Run site adapter",
@@ -171,6 +171,7 @@ describe("agentRuntime inventoryClient", () => {
           allowed_callers: ["assistant"],
           tags: ["site"],
           input_examples_count: 1,
+          has_output_schema: false,
           caller_allowed: true,
           visible_in_context: true,
         },
@@ -185,6 +186,7 @@ describe("agentRuntime inventoryClient", () => {
           allowed_callers: ["assistant"],
           tags: ["site"],
           input_examples_count: 1,
+          has_output_schema: false,
           caller_allowed: true,
           visible_in_context: true,
         },
@@ -223,55 +225,168 @@ describe("agentRuntime inventoryClient", () => {
           allowed_callers: ["assistant"],
           tags: [],
           input_examples_count: 0,
+          has_output_schema: true,
           caller_allowed: true,
           visible_in_context: true,
         },
       ],
     };
-    const invokeCommand = vi.fn().mockResolvedValueOnce(inventory);
-    const client = createInventoryClient({ invokeCommand });
+    const appServerClient = {
+      request: vi.fn().mockResolvedValueOnce({
+        result: {
+          inventory,
+        },
+      }),
+    };
+    const client = createInventoryClient({ appServerClient });
 
     await expect(client.getAgentRuntimeToolInventory()).resolves.toEqual(
       inventory,
     );
   });
 
-  it("tool inventory 收到错误返回形态时应 fail closed", async () => {
-    const invokeCommand = vi
-      .fn()
-      .mockResolvedValueOnce({ success: true })
-      .mockResolvedValueOnce({
-        ...emptyToolInventory,
-        counts: { catalog_total: 0 },
-      })
-      .mockResolvedValueOnce({
-        ...emptyToolInventory,
-        registry_tools: [{ name: "site_run_adapter" }],
-      })
-      .mockResolvedValueOnce({
-        ...emptyToolInventory,
-        runtime_tools: [{ name: "site_run_adapter" }],
-      })
-      .mockResolvedValueOnce({
-        ...emptyToolInventory,
-        mcp_tools: [{ name: "search" }],
-      });
-    const client = createInventoryClient({ invokeCommand });
+  it("tool inventory 应接受 plugin MCP target contract", async () => {
+    const inventory = {
+      ...emptyToolInventory,
+      plugin_mcp_targets: [
+        {
+          pluginId: "docs-plugin",
+          serverId: "context7",
+          toolKey: "context7/resolve-library-id",
+          provider: "mcp",
+          required: true,
+          caller: "plugin:docs-plugin",
+          expectedToolName: "mcp__context7__resolve-library-id",
+          runtimeStatus: "server_stopped",
+          prepareStatus: "start_required",
+          serverAvailable: true,
+          serverRunning: false,
+          toolAvailable: false,
+          resolvedToolName: null,
+          toolListRequest: {
+            caller: "plugin:docs-plugin",
+            includeDeferred: true,
+          },
+          callProofRequest: null,
+          prepareRequests: [
+            {
+              method: "mcpServer/start",
+              params: {
+                name: "context7",
+              },
+              reason: "server_stopped",
+              status: "candidate",
+            },
+          ],
+        },
+      ],
+    };
+    const appServerClient = {
+      request: vi.fn().mockResolvedValueOnce({
+        result: {
+          inventory,
+        },
+      }),
+    };
+    const client = createInventoryClient({ appServerClient });
+
+    await expect(client.getAgentRuntimeToolInventory()).resolves.toEqual(
+      inventory,
+    );
+  });
+
+  it("tool inventory 收到 malformed plugin MCP target 时应 fail closed", async () => {
+    const appServerClient = {
+      request: vi.fn().mockResolvedValueOnce({
+        result: {
+          inventory: {
+            ...emptyToolInventory,
+            plugin_mcp_targets: [
+              {
+                pluginId: "docs-plugin",
+                serverId: "context7",
+                toolKey: "context7/resolve-library-id",
+                provider: "mcp",
+                caller: "plugin:docs-plugin",
+                expectedToolName: "mcp__context7__resolve-library-id",
+                runtimeStatus: "server_stopped",
+                prepareStatus: "start_required",
+                serverAvailable: true,
+                serverRunning: false,
+                toolAvailable: false,
+                toolListRequest: {
+                  caller: "plugin:docs-plugin",
+                  includeDeferred: true,
+                },
+                callProofRequest: null,
+                prepareRequests: [],
+              },
+            ],
+          },
+        },
+      }),
+    };
+    const client = createInventoryClient({ appServerClient });
 
     await expect(client.getAgentRuntimeToolInventory()).rejects.toThrow(
-      "agent_runtime_get_tool_inventory did not return tool inventory",
+      "App Server agentSession/toolInventory/read did not return tool inventory",
+    );
+  });
+
+  it("tool inventory 收到错误返回形态时应 fail closed", async () => {
+    const appServerClient = {
+      request: vi
+        .fn()
+        .mockResolvedValueOnce({ result: { inventory: { success: true } } })
+        .mockResolvedValueOnce({
+          result: {
+            inventory: {
+              ...emptyToolInventory,
+              counts: { catalog_total: 0 },
+            },
+          },
+        })
+        .mockResolvedValueOnce({
+          result: {
+            inventory: {
+              ...emptyToolInventory,
+              native_tools: [{ name: "site_run_adapter" }],
+            },
+          },
+        })
+        .mockResolvedValueOnce({
+          result: {
+            inventory: {
+              ...emptyToolInventory,
+              runtime_tools: [{ name: "site_run_adapter" }],
+            },
+          },
+        })
+        .mockResolvedValueOnce({
+          result: {
+            inventory: {
+              ...emptyToolInventory,
+              mcp_tools: [{ name: "search" }],
+            },
+          },
+        }),
+    };
+    const client = createInventoryClient({ appServerClient });
+
+    await expect(client.getAgentRuntimeToolInventory()).rejects.toThrow(
+      "App Server agentSession/toolInventory/read did not return tool inventory",
     );
     await expect(client.getAgentRuntimeToolInventory()).rejects.toThrow(
-      "agent_runtime_get_tool_inventory did not return tool inventory",
+      "App Server agentSession/toolInventory/read did not return tool inventory",
     );
     await expect(client.getAgentRuntimeToolInventory()).rejects.toThrow(
-      "agent_runtime_get_tool_inventory did not return tool inventory",
+      "App Server agentSession/toolInventory/read did not return tool inventory",
     );
     await expect(client.getAgentRuntimeToolInventory()).rejects.toThrow(
-      "agent_runtime_get_tool_inventory did not return tool inventory",
+      "App Server agentSession/toolInventory/read did not return tool inventory",
     );
     await expect(client.getAgentRuntimeToolInventory()).rejects.toThrow(
-      "agent_runtime_get_tool_inventory did not return tool inventory",
+      "App Server agentSession/toolInventory/read did not return tool inventory",
     );
   });
 });

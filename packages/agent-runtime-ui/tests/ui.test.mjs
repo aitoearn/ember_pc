@@ -13,12 +13,16 @@ import {
 } from "@embercloud/agent-runtime-projection";
 
 import {
+  AgentWorkbenchSurface,
+  AgentWorkbenchTaskCard,
   AgentTimeline,
   AgentUiProjectionView,
   ArtifactRefList,
   EvidenceRefList,
+  McpSurface,
   RuntimeFactsPanel,
   SubagentsView,
+  ToolCallSurface,
 } from "../dist/index.js";
 
 test("AgentTimeline renders user and assistant messages", () => {
@@ -102,6 +106,283 @@ test("RuntimeFactsPanel renders action button and fact counts", () => {
   assert.match(markup, /data-action-decision="reject"/);
 });
 
+test("AgentWorkbenchTaskCard renders standard task capsule", () => {
+  const markup = renderToStaticMarkup(
+    React.createElement(AgentWorkbenchTaskCard, {
+      view: {
+        taskTitle: "内容协作",
+        statusLabel: "协作中",
+        sourceCount: 2,
+        toolCount: 1,
+        pendingActionCount: 0,
+        artifactCount: 1,
+        evidenceCount: 1,
+        taskCount: 0,
+        hasRuntimeFacts: true,
+        shouldShowRuntimePanel: true,
+        checkpoints: [
+          { id: "input", title: "读取需求与输入源", state: "done", count: 2 },
+          { id: "artifact", title: "生成可审核草稿", state: "active", count: 1 },
+        ],
+      },
+      labels: {
+        sourceLabel: "输入源",
+        artifactLabel: "交付物",
+        taskLabel: "当前任务",
+        statusLabel: "状态",
+        checkpointLabel: "进度",
+      },
+    }),
+  );
+
+  assert.match(markup, /agent-workbench-task-card/);
+  assert.match(markup, /内容协作/);
+  assert.match(markup, /读取需求与输入源/);
+  assert.match(markup, /data-checkpoint-state="active"/);
+});
+
+test("AgentWorkbenchSurface renders full controlled workbench shell", () => {
+  const state = projectAgentUiState({
+    executionEvents: [
+      {
+        id: "evt-tool",
+        kind: "tool",
+        status: "completed",
+        eventClass: "tool.result",
+        title: "读取资料",
+        toolCallId: "tool-1",
+        payload: {
+          toolName: "web_search",
+          toolFamily: "webSearch",
+          outputPreview: "检索完成",
+        },
+        artifactRefs: ["artifact-1"],
+        evidenceRefs: ["evidence-1"],
+        sequence: 1,
+        createdAt: "2026-06-07T00:00:00.000Z",
+      },
+    ],
+    sourceCount: 2,
+  });
+  const markup = renderToStaticMarkup(
+    React.createElement(AgentWorkbenchSurface, {
+      view: {
+        taskTitle: "内容协作",
+        statusLabel: "协作中",
+        sourceCount: 2,
+        toolCount: 1,
+        pendingActionCount: 0,
+        artifactCount: 1,
+        evidenceCount: 1,
+        taskCount: 0,
+        hasRuntimeFacts: true,
+        shouldShowRuntimePanel: true,
+        checkpoints: [
+          { id: "input", title: "读取需求与输入源", state: "done", count: 2 },
+          { id: "artifact", title: "生成可审核草稿", state: "active", count: 1 },
+        ],
+      },
+      state,
+      messages: [
+        { id: "m1", role: "user", content: "生成主图 Prompt", createdAt: "2026-06-07T00:00:00.000Z" },
+      ],
+      toolbar: React.createElement("button", { type: "button" }, "工具栏"),
+      composer: React.createElement("textarea", { defaultValue: "继续修改" }),
+      labels: {
+        sourceLabel: "输入源",
+        artifactLabel: "交付物",
+        runtimeLabel: "运行事实",
+        messagePartsAriaLabel: "协作对话",
+      },
+    }),
+  );
+
+  assert.match(markup, /agent-workbench-surface/);
+  assert.match(markup, /工具栏/);
+  assert.match(markup, /内容协作/);
+  assert.match(markup, /读取需求与输入源/);
+  assert.match(markup, /生成主图 Prompt/);
+  assert.match(markup, /agent-workbench-runtime-panel open/);
+  assert.match(markup, /运行事实/);
+  assert.match(markup, /agent-tool-calls/);
+  assert.match(markup, /data-tool-family="webSearch"/);
+  assert.match(markup, /继续修改/);
+});
+
+test("AgentWorkbenchSurface exposes Subagents collaboration facts for non-timeline surfaces", () => {
+  const state = projectAgentUiState({
+    executionEvents: [
+      {
+        id: "evt-subagent-running",
+        kind: "handoff",
+        status: "running",
+        eventClass: "agent.changed",
+        title: "Research subtask running",
+        threadId: "thread-parent",
+        subagentId: "subagent-research",
+        sequence: 1,
+        createdAt: "2026-06-12T00:00:00.000Z",
+        payload: {
+          collaborationFacts: {
+            source: "app_server_replay",
+            surface: "collaboration",
+            collaborationSurface: "team_roster",
+            collaborationPhase: "acting",
+            collaborationKind: "subagent_activity",
+            profileId: "cheeky_sassy_executor",
+            packId: "stylepack.cheeky_sassy_executor.v1",
+            toneVariant: "cheeky_sassy",
+          },
+          collaborationSurface: "team_roster",
+          collaborationPhase: "acting",
+          styleLevel: "L1",
+          riskLevel: "normal",
+          profileId: "cheeky_sassy_executor",
+          packId: "stylepack.cheeky_sassy_executor.v1",
+          toneVariant: "cheeky_sassy",
+        },
+      },
+    ],
+    sourceCount: 1,
+  });
+  const markup = renderToStaticMarkup(
+    React.createElement(AgentWorkbenchSurface, {
+      view: {
+        taskTitle: "Research",
+        statusLabel: "Running",
+        sourceCount: 1,
+        toolCount: 0,
+        pendingActionCount: 0,
+        artifactCount: 0,
+        evidenceCount: 0,
+        taskCount: 1,
+        hasRuntimeFacts: true,
+        shouldShowRuntimePanel: true,
+        checkpoints: [
+          { id: "input", title: "Input", state: "done", count: 1 },
+        ],
+      },
+      state,
+      labels: {
+        runtimeLabel: "Runtime facts",
+      },
+    }),
+  );
+
+  assert.match(markup, /agent-workbench-runtime-panel open/);
+  assert.match(markup, /agent-subagents/);
+  assert.match(markup, /data-collaboration-facts="yes"/);
+  assert.match(markup, /data-collaboration-surface="team_roster"/);
+  assert.match(markup, /data-collaboration-phase="acting"/);
+  assert.match(markup, /data-collaboration-kind="subagent_activity"/);
+  assert.match(markup, /data-collaboration-source="app_server_replay"/);
+  assert.match(markup, /data-soul-style-level="L1"/);
+  assert.match(markup, /data-soul-risk-level="normal"/);
+  assert.match(markup, /data-soul-tone-variant="cheeky_sassy"/);
+  assert.match(markup, /data-soul-profile-id="cheeky_sassy_executor"/);
+  assert.match(markup, /data-soul-pack-id="stylepack.cheeky_sassy_executor.v1"/);
+});
+
+test("ToolCallSurface and McpSurface render standard tool and MCP contracts", () => {
+  const state = projectAgentUiState({
+    executionEvents: [
+      {
+        id: "evt-mcp-search-start",
+        kind: "tool",
+        status: "running",
+        eventClass: "tool.started",
+        title: "搜索代码",
+        toolCallId: "tool-mcp-search",
+        payload: {
+          toolName: "mcp__github__search_code",
+          toolFamily: "mcp",
+          mcpServer: "github",
+          inputSummary: "query: AgentUiProjectionView",
+        },
+        sequence: 1,
+        createdAt: "2026-06-07T00:00:00.000Z",
+      },
+      {
+        id: "evt-mcp-search-end",
+        kind: "tool",
+        status: "completed",
+        eventClass: "tool.result",
+        title: "搜索代码完成",
+        toolCallId: "tool-mcp-search",
+        payload: {
+          toolName: "mcp__github__search_code",
+          toolFamily: "mcp",
+          mcpServer: "github",
+          outputPreview: "找到 4 个文件",
+        },
+        artifactRefs: ["artifact-search-result"],
+        evidenceRefs: ["evidence-search-source"],
+        sequence: 2,
+        createdAt: "2026-06-07T00:00:01.000Z",
+      },
+      {
+        id: "evt-mcp-mutation",
+        kind: "tool",
+        status: "blocked",
+        eventClass: "tool.failed",
+        title: "创建 Issue 需要授权",
+        toolCallId: "tool-mcp-mutation",
+        payload: {
+          toolName: "mcp__github__create_issue",
+          toolFamily: "mcp",
+          mcpServer: "github",
+          errorPreview: "缺少 GitHub 授权",
+        },
+        sequence: 3,
+        createdAt: "2026-06-07T00:00:02.000Z",
+      },
+    ],
+    sourceCount: 1,
+  });
+
+  const markup = renderToStaticMarkup(
+    React.createElement(
+      React.Fragment,
+      null,
+      React.createElement(ToolCallSurface, {
+        surface: state.toolCalls,
+        ariaLabel: "工具调用",
+        toolStatusLabel: (status) => `状态:${status}`,
+      }),
+      React.createElement(McpSurface, {
+        surface: state.mcp,
+        ariaLabel: "MCP 调用",
+        serversAriaLabel: "MCP 服务",
+        toolsAriaLabel: "MCP 工具",
+        operationLabel: (operation) => `操作:${operation}`,
+        statusLabel: (status) => `状态:${status}`,
+      }),
+    ),
+  );
+
+  assert.match(markup, /工具调用/);
+  assert.match(markup, /MCP 调用/);
+  assert.match(markup, /MCP 服务/);
+  assert.match(markup, /MCP 工具/);
+  assert.match(markup, /agent-tool-calls/);
+  assert.match(markup, /data-tool-call-count="2"/);
+  assert.match(markup, /data-tool-name="mcp__github__search_code"/);
+  assert.match(markup, /data-tool-family="mcp"/);
+  assert.match(markup, /data-mcp-server="github"/);
+  assert.match(markup, /data-mcp-operation="search"/);
+  assert.match(markup, /data-mcp-operation="mutation"/);
+  assert.match(markup, /data-mcp-tool-count="2"/);
+  assert.match(markup, /data-failed-mcp-tool-count="1"/);
+  assert.match(markup, /artifact-search-result/);
+  assert.match(markup, /找到 4 个文件/);
+  assert.match(markup, /缺少 GitHub 授权/);
+});
+
+test("ToolCallSurface and McpSurface are exported from the package entry point", () => {
+  assert.equal(typeof ToolCallSurface, "function");
+  assert.equal(typeof McpSurface, "function");
+});
+
 test("RuntimeFactsPanel accepts host-provided labels", () => {
   const actionEvent = {
     id: "evt-action",
@@ -177,7 +458,7 @@ test("AgentUiProjectionView renders standard projection surfaces", () => {
         detail: "正在生成",
         runId: "run-1",
         sequence: 1,
-        payload: { messageId: "msg-1", text: "你好，Ember" },
+        payload: { messageId: "msg-1", text: "你好，Lime" },
         createdAt: "2026-06-07T00:00:00.000Z",
       },
       {
@@ -216,10 +497,11 @@ test("AgentUiProjectionView renders standard projection surfaces", () => {
 
   assert.match(markup, /agent-ui-projection/);
   assert.match(markup, /Message parts/);
-  assert.match(markup, /你好，Ember/);
+  assert.match(markup, /你好，Lime/);
   assert.match(markup, /Process timeline/);
   assert.match(markup, /agent-process-entry completed/);
   assert.match(markup, /Tool calls/);
+  assert.match(markup, /agent-tool-calls/);
   assert.match(markup, /Action required/);
   assert.match(markup, /需要确认/);
   assert.match(markup, /Open model settings/);
@@ -238,7 +520,7 @@ test("AgentUiProjectionView accepts host-provided labels", () => {
         title: "模型输出",
         runId: "run-1",
         sequence: 1,
-        payload: { messageId: "msg-1", text: "你好，Ember" },
+        payload: { messageId: "msg-1", text: "你好，Lime" },
         createdAt: "2026-06-07T00:00:00.000Z",
       },
       {
@@ -319,6 +601,9 @@ test("AgentUiProjectionView renders subagent handoff fixture graph", () => {
   assert.match(markup, /data-subagent-id="subagent_fixture_researcher"/);
   assert.match(markup, /data-delegation-action="handoff"/);
   assert.match(markup, /Research subagent started/);
+  assert.match(markup, /Research notes and review evidence are ready/);
+  assert.match(markup, /Research update posted/);
+  assert.match(markup, /Research notes attached/);
   assert.match(markup, /data-source-event-id="evt_handoff_requested"/);
 });
 
@@ -372,11 +657,31 @@ test("ArtifactRefList and EvidenceRefList expose stable DOM contracts", () => {
   assert.match(markup, /Evidence evidence-1/);
 });
 
+test("ArtifactRefList and EvidenceRefList make selectable ref cards interactive", () => {
+  const markup = renderToStaticMarkup(
+    React.createElement(
+      React.Fragment,
+      null,
+      React.createElement(ArtifactRefList, {
+        refs: [{ id: "artifact-1", sourceEventId: "evt-artifact" }],
+        onSelectRef: () => {},
+      }),
+      React.createElement(EvidenceRefList, {
+        refs: [{ id: "evidence-1", sourceEventId: "evt-evidence" }],
+        onSelectRef: () => {},
+      }),
+    ),
+  );
+
+  assert.match(markup, /<button type="button" class="agent-ref-card"/);
+  assert.match(markup, /class="agent-ref-action"/);
+});
+
 test("SubagentsView renders threads, delegations, and activities from projection state", () => {
   const replay = replayAgentUiFixture(getAgentUiFixture("subagent-handoff"));
   const markup = renderToStaticMarkup(
     React.createElement(SubagentsView, {
-      state: replay.state,
+      model: replay.state.subagents,
       labels: {
         subagentsAriaLabel: "子代理",
         subagentThreadsAriaLabel: "子代理线程",
@@ -392,9 +697,11 @@ test("SubagentsView renders threads, delegations, and activities from projection
   assert.match(markup, /活动记录/);
   assert.match(markup, /data-subagent-count="1"/);
   assert.match(markup, /data-delegation-count="2"/);
-  assert.match(markup, /data-activity-count="4"/);
+  assert.match(markup, /data-activity-count="10"/);
   assert.match(markup, /data-thread-id="subagent_fixture_researcher"/);
   assert.match(markup, /data-delegation-action="spawn"/);
   assert.match(markup, /data-delegation-action="handoff"/);
+  assert.match(markup, /data-activity-kind="review"/);
   assert.match(markup, /data-activity-kind="handoff"/);
+  assert.match(markup, /Research notes and review evidence are ready/);
 });

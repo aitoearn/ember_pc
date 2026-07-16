@@ -2,7 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { HarnessVerificationSummarySection } from "./HarnessVerificationSummarySection";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const mountedRoots: Array<{ container: HTMLDivElement; root: Root }> = [];
 
@@ -48,7 +48,7 @@ describe("HarnessVerificationSummarySection", () => {
         IS_REACT_ACT_ENVIRONMENT?: boolean;
       }
     ).IS_REACT_ACT_ENVIRONMENT = true;
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
   });
 
   afterEach(async () => {
@@ -63,7 +63,7 @@ describe("HarnessVerificationSummarySection", () => {
       mounted.container.remove();
     }
     document.body.innerHTML = "";
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
   });
 
   it("uses agent namespace resources for verification section chrome", () => {

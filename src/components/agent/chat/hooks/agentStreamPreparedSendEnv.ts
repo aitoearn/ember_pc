@@ -1,10 +1,10 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { AgentThreadItem, AgentThreadTurn } from "@/lib/api/agentProtocol";
 import type {
-  AsterExecutionStrategy,
-  AsterSessionExecutionRuntime,
-  QueuedTurnSnapshot,
-} from "@/lib/api/agentRuntime";
+  AgentExecutionStrategy,
+  AgentSessionExecutionRuntime,
+} from "@/lib/api/agentExecutionRuntime";
+import type { QueuedTurnSnapshot } from "@/lib/api/queuedTurn";
 import type {
   SessionModelPreference,
   WorkspacePathMissingState,
@@ -14,6 +14,7 @@ import type { AgentAccessMode } from "./agentChatStorage";
 import type { ActiveStreamState } from "./agentStreamSubmissionLifecycle";
 import type { ActionRequired, Message } from "../types";
 import type { ChatToolPreferences } from "../utils/chatToolPreferences";
+import type { SoulInteractionCopy } from "@/lib/soul/interactionCopy";
 
 export type AppendThinkingToPartsFn = (
   parts: NonNullable<Message["contentParts"]>,
@@ -23,6 +24,7 @@ export type AppendThinkingToPartsFn = (
 export interface AgentStreamPreparedSendEnv {
   runtime: AgentRuntimeAdapter;
   ensureSession: (options?: {
+    targetSessionId?: string;
     skipSessionRestore?: boolean;
     skipSessionStartHooks?: boolean;
   }) => Promise<string | null>;
@@ -30,8 +32,10 @@ export interface AgentStreamPreparedSendEnv {
     sessionId: string,
     requestStartedAt: number,
     promptText: string,
+    options?: { requireTerminal?: boolean; turnId?: string | null },
   ) => Promise<boolean>;
-  executionStrategy: AsterExecutionStrategy;
+  refreshSessionReadModel: (targetSessionId?: string) => Promise<boolean>;
+  executionStrategy: AgentExecutionStrategy;
   accessMode: AgentAccessMode;
   providerTypeRef: MutableRefObject<string>;
   modelRef: MutableRefObject<string>;
@@ -41,13 +45,13 @@ export interface AgentStreamPreparedSendEnv {
   isThreadBusy: () => boolean;
   hasPendingPreparedSubmit: () => boolean;
   runPreparedSubmit: <T>(task: () => Promise<T>) => Promise<T>;
-  getRequiredWorkspaceId: () => string;
+  getWorkspaceIdForSubmit: () => string | undefined;
   getSyncedSessionModelPreference: (
     sessionId: string,
   ) => SessionModelPreference | null;
   getSyncedSessionExecutionStrategy: (
     sessionId: string,
-  ) => AsterExecutionStrategy | null;
+  ) => AgentExecutionStrategy | null;
   getSyncedSessionRecentPreferences?: (
     sessionId: string,
   ) => ChatToolPreferences | null;
@@ -59,15 +63,18 @@ export interface AgentStreamPreparedSendEnv {
     fileName: string,
     context?: import("../types").WriteArtifactContext,
   ) => void;
-  executionRuntime?: AsterSessionExecutionRuntime | null;
+  executionRuntime?: AgentSessionExecutionRuntime | null;
+  clawTraceEnabled: boolean;
+  soulCopy?: SoulInteractionCopy;
   setActiveStream: (nextActive: ActiveStreamState | null) => void;
   clearActiveStreamIfMatch: (eventName: string) => boolean;
   setMessages: Dispatch<SetStateAction<Message[]>>;
+  getThreadItems?: () => readonly AgentThreadItem[];
   setThreadItems: Dispatch<SetStateAction<AgentThreadItem[]>>;
   setThreadTurns: Dispatch<SetStateAction<AgentThreadTurn[]>>;
   setCurrentTurnId: Dispatch<SetStateAction<string | null>>;
   setExecutionRuntime: Dispatch<
-    SetStateAction<AsterSessionExecutionRuntime | null>
+    SetStateAction<AgentSessionExecutionRuntime | null>
   >;
   setQueuedTurns: Dispatch<SetStateAction<QueuedTurnSnapshot[]>>;
   setPendingActions: Dispatch<SetStateAction<ActionRequired[]>>;
@@ -75,8 +82,6 @@ export interface AgentStreamPreparedSendEnv {
     SetStateAction<WorkspacePathMissingState | null>
   >;
   setIsSending: Dispatch<SetStateAction<boolean>>;
-  playToolcallSound: () => void;
-  playTypewriterSound: () => void;
   appendThinkingToParts: AppendThinkingToPartsFn;
 }
 

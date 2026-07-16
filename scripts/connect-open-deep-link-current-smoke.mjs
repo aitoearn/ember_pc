@@ -13,14 +13,14 @@ const DEFAULTS = {
   intervalMs: 250,
   evidenceDir: path.join(
     process.cwd(),
-    ".ember",
+    ".lime",
     "qc",
     "gui-evidence",
     "connect-open-deep-link-current",
   ),
   prefix: "connect-open-deep-link-current",
   deepLinkUrl:
-    "ember://open?kind=prompt&slug=gemini-longform-master&source=website&v=1",
+    "lime://open?kind=prompt&slug=gemini-longform-master&source=website&v=1",
   appUrl: "",
 };
 
@@ -45,7 +45,7 @@ function printHelp() {
 Connect Open Deep Link Current Smoke
 
 用途:
-  启动真实 Electron Desktop Host，把 ember://open URL 作为首启参数交给
+  启动真实 Electron Desktop Host，把 lime://open URL 作为首启参数交给
   Electron main，验证官网入口经 preload deepLink bridge、前端 connect 网关
   与 App Server JSON-RPC current 主链解析，并落到 Agent 官网入口页面状态。
 
@@ -57,7 +57,7 @@ Connect Open Deep Link Current Smoke
   --deep-link-url <url>   默认使用已映射 prompt open，不安装 Skill、不写真实用户数据
   --timeout-ms <ms>       总超时，默认 120000
   --interval-ms <ms>      轮询间隔，默认 250
-  --evidence-dir <path>   证据目录，默认 .ember/qc/gui-evidence/connect-open-deep-link-current
+  --evidence-dir <path>   证据目录，默认 .lime/qc/gui-evidence/connect-open-deep-link-current
   --prefix <name>         证据文件前缀，默认 connect-open-deep-link-current
   -h, --help              显示帮助
 `);
@@ -110,8 +110,8 @@ function parseArgs(argv) {
   if (!Number.isFinite(options.intervalMs) || options.intervalMs < 100) {
     throw new Error("--interval-ms 必须是 >= 100 的数字");
   }
-  if (!options.deepLinkUrl.startsWith("ember://open")) {
-    throw new Error("--deep-link-url 必须是 ember://open URL");
+  if (!options.deepLinkUrl.startsWith("lime://open")) {
+    throw new Error("--deep-link-url 必须是 lime://open URL");
   }
   if (!options.evidenceDir || !options.prefix) {
     throw new Error("--evidence-dir / --prefix 均不能为空");
@@ -288,12 +288,12 @@ async function waitForRendererReady(page, options) {
     const snapshot = await evaluatePageSnapshot(page, () => {
       return {
         url: window.location.href,
-        electron: window.__EMBER_ELECTRON__ === true,
+        electron: window.__LIME_ELECTRON__ === true,
         hasDeepLinkBridge:
           typeof window.electronAPI?.deepLink?.getCurrent === "function" &&
           typeof window.electronAPI?.deepLink?.onOpenUrl === "function",
         startupVisible: Boolean(
-          document.querySelector("[data-ember-startup-shell]"),
+          document.querySelector("[data-lime-startup-shell]"),
         ),
       };
     });
@@ -320,7 +320,7 @@ async function waitForOpenDeepLinkEvidence(page, options) {
     const snapshot = await evaluatePageSnapshot(page, async () => {
       const bodyText = document.body?.innerText || "";
       const traceRaw = window.localStorage.getItem(
-        "ember_invoke_trace_buffer_v1",
+        "lime_invoke_trace_buffer_v1",
       );
       const pendingDeepLinks = window.electronAPI?.deepLink?.getCurrent
         ? await window.electronAPI.deepLink.getCurrent()
@@ -364,7 +364,7 @@ async function waitForOpenDeepLinkEvidence(page, options) {
     await sleep(options.intervalMs);
   }
   throw new Error(
-    `ember://open 官网入口 current 证据未完成: ${sanitizeText(
+    `lime://open 官网入口 current 证据未完成: ${sanitizeText(
       JSON.stringify(lastSnapshot),
     )}`,
   );
@@ -384,13 +384,13 @@ function buildIsolatedRuntimeEnv(tmpRoot) {
   const xdgDataHome = ensureDir(path.join(tmpRoot, "xdg-data"));
   const appData = ensureDir(path.join(tmpRoot, "appdata"));
   const localAppData = ensureDir(path.join(tmpRoot, "local-appdata"));
-  const asterRoot = ensureDir(path.join(tmpRoot, "aster"));
+  const agentRoot = ensureDir(path.join(tmpRoot, "agent"));
   return {
     HOME: home,
     XDG_DATA_HOME: xdgDataHome,
     APPDATA: appData,
     LOCALAPPDATA: localAppData,
-    EMBER_ASTER_ROOT: asterRoot,
+    LIME_AGENT_RUNTIME_ROOT: agentRoot,
   };
 }
 
@@ -458,9 +458,9 @@ async function run() {
         ...appServerEnv,
         ...isolatedRuntimeEnv,
         ELECTRON_E2E_USER_DATA_DIR: tmpUserDataDir,
-        EMBER_ELECTRON_E2E: "1",
-        EMBER_ELECTRON_BRAND_DEV_APP: "0",
-        EMBER_ELECTRON_CLEAR_RENDERER_CACHE: "0",
+        LIME_ELECTRON_E2E: "1",
+        LIME_ELECTRON_BRAND_DEV_APP: "0",
+        LIME_ELECTRON_CLEAR_RENDERER_CACHE: "0",
         ...(options.appUrl ? { VITE_DEV_SERVER_URL: options.appUrl } : {}),
       },
       timeout: options.timeoutMs,
@@ -515,7 +515,7 @@ async function run() {
       "未观察到官网入口 banner 或预填提示词",
     );
     assert(summary.websiteSessionVisible, "未观察到官网入口会话标题");
-    assert(!summary.connectDialogVisible, "ember://open 不应打开 Connect 弹窗");
+    assert(!summary.connectDialogVisible, "lime://open 不应打开 Connect 弹窗");
     assert(
       summary.appServerHandleJsonLinesSeen,
       "未观察到 app_server_handle_json_lines",

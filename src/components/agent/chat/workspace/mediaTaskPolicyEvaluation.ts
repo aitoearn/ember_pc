@@ -1,10 +1,10 @@
-import type { MediaTaskModalityRuntimeContractIndexEntry } from "@/lib/api/mediaTasks";
-import { getEmberI18n } from "@/i18n/createI18n";
+import type { MediaTaskModalityRuntimeContractIndexEntry } from "@/lib/api/agentRuntime/mediaTaskTypes";
+import { getLimeI18n } from "@/i18n/createI18n";
 
-const LIMECORE_POLICY_META_PREFIX = "EmberCore";
+const LIMECORE_POLICY_META_PREFIX = "LimeCore";
 const MAX_VISIBLE_REFS = 3;
 
-export interface EmberCorePolicyEvaluationMetaInput {
+export interface LimeCorePolicyEvaluationMetaInput {
   evaluationStatus?: string | null;
   evaluationDecision?: string | null;
   blockingRefs?: string[] | null;
@@ -33,10 +33,10 @@ function formatRefs(refs: string[]): string {
     : visibleRefs.join(" / ");
 }
 
-export function buildEmberCorePolicyEvaluationMetaItem(
-  input: EmberCorePolicyEvaluationMetaInput,
+export function buildLimeCorePolicyEvaluationMetaItem(
+  input: LimeCorePolicyEvaluationMetaInput,
 ): string | null {
-  const i18n = getEmberI18n();
+  const i18n = getLimeI18n();
   const t = i18n.t.bind(i18n);
   const status = input.evaluationStatus?.trim().toLowerCase();
   const decision = input.evaluationDecision?.trim().toLowerCase();
@@ -91,14 +91,14 @@ export function buildEmberCorePolicyEvaluationMetaItem(
 function buildPolicyEvaluationMetaItem(
   entry: MediaTaskModalityRuntimeContractIndexEntry,
 ): string | null {
-  return buildEmberCorePolicyEvaluationMetaItem({
-    evaluationStatus: entry.embercore_policy_evaluation_status,
-    evaluationDecision: entry.embercore_policy_evaluation_decision,
-    blockingRefs: entry.embercore_policy_evaluation_blocking_refs,
-    askRefs: entry.embercore_policy_evaluation_ask_refs,
-    pendingRefs: entry.embercore_policy_evaluation_pending_refs,
-    missingInputs: entry.embercore_policy_missing_inputs,
-    pendingHitRefs: entry.embercore_policy_pending_hit_refs,
+  return buildLimeCorePolicyEvaluationMetaItem({
+    evaluationStatus: entry.limecore_policy_evaluation_status,
+    evaluationDecision: entry.limecore_policy_evaluation_decision,
+    blockingRefs: entry.limecore_policy_evaluation_blocking_refs,
+    askRefs: entry.limecore_policy_evaluation_ask_refs,
+    pendingRefs: entry.limecore_policy_evaluation_pending_refs,
+    missingInputs: entry.limecore_policy_missing_inputs,
+    pendingHitRefs: entry.limecore_policy_pending_hit_refs,
   });
 }
 

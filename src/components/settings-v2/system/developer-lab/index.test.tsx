@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const { mockDeveloperSettings, mockExperimentalSettings } = vi.hoisted(() => ({
   mockDeveloperSettings: vi.fn(),
@@ -55,7 +55,7 @@ beforeEach(async () => {
 
   mockDeveloperSettings.mockReset();
   mockExperimentalSettings.mockReset();
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 afterEach(async () => {
@@ -71,7 +71,7 @@ afterEach(async () => {
     current.container.remove();
   }
 
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("DeveloperLabSettings", () => {

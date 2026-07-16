@@ -39,7 +39,7 @@ describe("skillCatalog pure catalog projection", () => {
       catalog.items.find((item) => item.id === "account-performance-tracking"),
     ).toEqual(
       expect.objectContaining({
-        title: "稳定性测试",
+        title: "账号增长跟踪",
       }),
     );
     expect(
@@ -49,8 +49,8 @@ describe("skillCatalog pure catalog projection", () => {
         defaultExecutorBinding: "native_skill",
         skillBundle: expect.objectContaining({
           metadata: expect.objectContaining({
-            Ember_knowledge_pack_type: "personal-profile",
-            Ember_knowledge_family: "persona",
+            Lime_knowledge_pack_type: "personal-profile",
+            Lime_knowledge_family: "persona",
           }),
         }),
       }),
@@ -64,8 +64,8 @@ describe("skillCatalog pure catalog projection", () => {
         defaultExecutorBinding: "native_skill",
         skillBundle: expect.objectContaining({
           metadata: expect.objectContaining({
-            Ember_knowledge_pack_type: "brand-persona",
-            Ember_knowledge_family: "persona",
+            Lime_knowledge_pack_type: "brand-persona",
+            Lime_knowledge_family: "persona",
           }),
         }),
       }),
@@ -79,8 +79,8 @@ describe("skillCatalog pure catalog projection", () => {
         defaultExecutorBinding: "native_skill",
         skillBundle: expect.objectContaining({
           metadata: expect.objectContaining({
-            Ember_knowledge_pack_type: "content-operations",
-            Ember_knowledge_family: "data",
+            Lime_knowledge_pack_type: "content-operations",
+            Lime_knowledge_family: "data",
           }),
         }),
       }),
@@ -94,8 +94,8 @@ describe("skillCatalog pure catalog projection", () => {
         defaultExecutorBinding: "native_skill",
         skillBundle: expect.objectContaining({
           metadata: expect.objectContaining({
-            Ember_knowledge_pack_type: "brand-product",
-            Ember_knowledge_family: "data",
+            Lime_knowledge_pack_type: "brand-product",
+            Lime_knowledge_family: "data",
           }),
         }),
       }),
@@ -474,7 +474,7 @@ describe("skillCatalog pure catalog projection", () => {
     });
   });
 
-  it("服务端 Ember Cloud 下发的图片模型命令应保持为标准图片命令入口", () => {
+  it("服务端 Lime Cloud 下发的图片模型命令应保持为标准图片命令入口", () => {
     const seeded = getSeededSkillCatalog();
     const catalog = parseSkillCatalog({
       ...seeded,
@@ -498,7 +498,7 @@ describe("skillCatalog pure catalog projection", () => {
               model_bound_image_task: "true",
               provider_id: "fal",
               model_id: "fal-ai/nano-banana-2",
-              bindingSource: "ember_cloud",
+              bindingSource: "lime_cloud",
             },
           },
           render_contract: {
@@ -519,7 +519,7 @@ describe("skillCatalog pure catalog projection", () => {
       commandKey: "image_model_nano_banana_2_cloud",
       binding: {
         requestDefaults: expect.objectContaining({
-          bindingSource: "ember_cloud",
+          bindingSource: "lime_cloud",
         }),
       },
     });

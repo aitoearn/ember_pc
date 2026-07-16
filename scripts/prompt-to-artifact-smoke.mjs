@@ -342,7 +342,7 @@ async function prepareWorkspace(options) {
     return { workspaceRoot: options.workspaceRoot, createdTemp: false };
   }
   const workspaceRoot = await fs.mkdtemp(
-    path.join(os.tmpdir(), "ember-prompt-artifact-p5-"),
+    path.join(os.tmpdir(), "lime-prompt-artifact-p5-"),
   );
   return { workspaceRoot, createdTemp: true };
 }

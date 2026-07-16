@@ -150,6 +150,58 @@ describe("ProviderSetting", () => {
     expect(byTestId(container, "provider-api-key-save-button")).not.toBeNull();
   });
 
+  it("运行诊断缺少 API Key 时应在服务商页展示恢复提示", async () => {
+    const container = renderSetting(
+      createProvider({ api_key_count: 0, api_keys: [] }),
+      {
+        focus: {
+          providerId: "deepseek",
+          modelId: "deepseek-chat",
+          reasonCode: "missing_enabled_api_key",
+          recoveryAction: "add_enabled_api_key",
+        },
+      },
+    );
+    await flushEffects();
+
+    const banner = byTestId<HTMLElement>(container, "provider-focus-banner");
+    expect(banner).not.toBeNull();
+    expect(banner?.textContent ?? "").toContain("补齐 API 密钥后可继续运行");
+    expect(banner?.textContent ?? "").toContain("missing_enabled_api_key");
+    expect(byTestId(container, "provider-api-key-input")).not.toBeNull();
+  });
+
+  it("运行诊断缺少模型时应允许一键加入模型优先级", async () => {
+    const onUpdate = vi.fn().mockResolvedValue(undefined);
+    const container = renderSetting(createProvider(), {
+      focus: {
+        providerId: "deepseek",
+        modelId: "deepseek-coder-large",
+        reasonCode: "model_not_enabled",
+      },
+      onUpdate,
+    });
+    await flushEffects();
+
+    const button = byTestId<HTMLButtonElement>(
+      container,
+      "provider-focus-add-model-button",
+    );
+    expect(button).not.toBeNull();
+    expect(container.textContent ?? "").toContain("补齐模型后可继续运行");
+    expect(container.textContent ?? "").toContain("deepseek-coder-large");
+
+    await act(async () => {
+      button?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onUpdate).toHaveBeenCalledWith("deepseek", {
+      custom_models: ["deepseek-chat", "deepseek-coder-large"],
+    });
+  });
+
   it("获取 API Key 链接应走 Desktop Host 外链网关", async () => {
     const container = renderSetting(createProvider());
     await flushEffects();
@@ -293,12 +345,12 @@ describe("ProviderSetting", () => {
     expect(container.textContent ?? "").toContain("聊天试跑通过 · 96ms");
   });
 
-  it("Ember Hub 未登录时应展示登录提示，不展示模型配置表单", async () => {
+  it("Lime Hub 未登录时应展示登录提示，不展示模型配置表单", async () => {
     const onLogin = vi.fn();
     const container = renderSetting(
       createProvider({
-        id: "ember-hub",
-        name: "Ember Cloud",
+        id: "lime-hub",
+        name: "Lime 云端",
         custom_models: [],
         api_keys: [],
         api_key_count: 0,
@@ -311,10 +363,10 @@ describe("ProviderSetting", () => {
     await flushEffects();
 
     expect(byTestId(container, "provider-login-required")).not.toBeNull();
-    expect(container.textContent ?? "").toContain("Ember Cloud");
+    expect(container.textContent ?? "").toContain("Lime 云端");
     expect(container.textContent ?? "").toContain("需要登录");
     expect(container.textContent ?? "").toContain(
-      "登录后会自动同步 Ember Hub 的可用模型",
+      "登录后会自动同步 Lime Hub 的可用模型",
     );
     expect(container.textContent ?? "").not.toContain("模型优先级");
     expect(container.textContent ?? "").not.toContain("从接口获取");
@@ -439,6 +491,65 @@ describe("ProviderSetting", () => {
           providerId: "airgate-openai-images",
           model: "gpt-images-2",
           executorMode: "responses_image_generation",
+        }),
+      },
+    });
+  });
+
+  it("OpenAI 兼容中转图片模型行应能创建本地 @命令绑定", async () => {
+    const container = renderSetting(
+      createProvider({
+        id: "agnes",
+        name: "agnes",
+        type: "openai",
+        api_host: "https://agnes.example.test/v1",
+        custom_models: ["agnes-image-2.1-flash"],
+      }),
+    );
+    await flushEffects();
+
+    const createButton = byTestId<HTMLButtonElement>(
+      container,
+      "create-image-command-button",
+    );
+    expect(createButton).not.toBeNull();
+
+    await act(async () => {
+      createButton?.click();
+      await Promise.resolve();
+    });
+
+    const input = byTestId<HTMLInputElement>(
+      container,
+      "image-command-trigger-input",
+    );
+    expect(input?.value).toBe("@Agnes Image 2.1 Flash");
+
+    await act(async () => {
+      byTestId<HTMLButtonElement>(
+        container,
+        "image-command-save-button",
+      )?.click();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent ?? "").toContain(
+      "已创建 @Agnes Image 2.1 Flash",
+    );
+    expect(
+      findModelBoundImageCommandEntryForModel(
+        getCurrentSkillCatalogSnapshot(),
+        "agnes",
+        "agnes-image-2.1-flash",
+      ),
+    ).toMatchObject({
+      commandKey: "image_model_agnes_image_2_1_flash",
+      binding: {
+        requestDefaults: expect.objectContaining({
+          modelBoundImageTask: "true",
+          providerId: "agnes",
+          model: "agnes-image-2.1-flash",
+          executorMode: "images_api",
         }),
       },
     });
@@ -845,8 +956,8 @@ describe("ProviderSetting", () => {
         requireChatReady: true,
       }),
     );
-    expect(container.textContent ?? "").toContain(
-      "当前模型通道返回了计费或额度类错误，请检查该 Provider/模型通道的计费、配额或授权状态，或切换到其他可用模型后重试。",
+    expect(container.textContent ?? "").toMatch(
+      /当前模型通道返回了计费或额度类错误|The current model channel returned a billing or quota error/,
     );
     expect(container.textContent ?? "").not.toContain("Insufficient Balance");
   });

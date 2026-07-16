@@ -1,6 +1,6 @@
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { AgentRuntimeFileCheckpointRestoreResult } from "@/lib/api/agentRuntime";
+import type { AgentRuntimeFileCheckpointRestoreResult } from "@/lib/api/agentRuntime/sessionTypes";
 import {
   createFileCheckpointDetail,
   createFileCheckpointListResult,
@@ -23,7 +23,7 @@ describe("AgentThreadReliabilityPanel", () => {
           latest_checkpoint: {
             checkpoint_id: "artifact-document:req-1",
             turn_id: "turn-9",
-            path: ".ember/artifacts/thread-file/demo.artifact.json",
+            path: ".lime/artifacts/thread-file/demo.artifact.json",
             source: "artifact_document_service",
             updated_at: "2026-04-15T09:08:00Z",
             version_no: 7,
@@ -39,7 +39,7 @@ describe("AgentThreadReliabilityPanel", () => {
 
     expect(container.textContent).toContain("最近文件快照");
     expect(container.textContent).toContain(
-      ".ember/artifacts/thread-file/demo.artifact.json",
+      ".lime/artifacts/thread-file/demo.artifact.json",
     );
     expect(container.textContent).toContain("共 2 个");
     expect(container.textContent).toContain("v7");
@@ -107,7 +107,7 @@ describe("AgentThreadReliabilityPanel", () => {
     );
     expect(document.body.textContent).toContain("artifact-document:req-2:v7");
     expect(document.body.textContent).toContain(
-      ".ember/artifacts/thread-file/persistence-map.artifact.json",
+      ".lime/artifacts/thread-file/persistence-map.artifact.json",
     );
     expect(document.body.textContent).not.toContain("live_path");
     expect(document.body.textContent).not.toContain("snapshot_path");
@@ -129,7 +129,7 @@ describe("AgentThreadReliabilityPanel", () => {
     expect(restoreAgentRuntimeFileCheckpointMock).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain("确认恢复快照");
     expect(document.body.textContent).toContain(
-      "目标文件：.ember/artifacts/thread-file/persistence-map.artifact.json",
+      "目标文件：.lime/artifacts/thread-file/persistence-map.artifact.json",
     );
     expect(document.body.textContent).toContain(
       "恢复会覆盖当前文件内容，请先确认上方 diff 与版本信息。",
@@ -154,10 +154,10 @@ describe("AgentThreadReliabilityPanel", () => {
       create_backup: true,
     });
     expect(document.body.textContent).toContain(
-      "已恢复 .ember/artifacts/thread-file/persistence-map.artifact.json",
+      "已恢复 .lime/artifacts/thread-file/persistence-map.artifact.json",
     );
     expect(document.body.textContent).toContain(
-      "恢复前备份：.ember/file-checkpoint-backups/20260416T091200Z/.ember/artifacts/thread-file/persistence-map.artifact.json",
+      "恢复前备份：.lime/file-checkpoint-backups/20260416T091200Z/.lime/artifacts/thread-file/persistence-map.artifact.json",
     );
     confirmSpy.mockRestore();
 
@@ -197,7 +197,7 @@ describe("AgentThreadReliabilityPanel", () => {
           checkpoint: detail.checkpoint,
           live_path: detail.live_path,
           snapshot_path: detail.snapshot_path,
-          backup_path: `.ember/file-checkpoint-backups/batch/${detail.live_path}`,
+          backup_path: `.lime/file-checkpoint-backups/batch/${detail.live_path}`,
           restored_at: "2026-04-16T09:14:00Z",
         } satisfies AgentRuntimeFileCheckpointRestoreResult;
       },
@@ -261,10 +261,10 @@ describe("AgentThreadReliabilityPanel", () => {
     expect(document.body.textContent).toContain("确认批量回滚");
     expect(document.body.textContent).toContain("将回滚的文件");
     expect(document.body.textContent).toContain(
-      ".ember/artifacts/thread-file/persistence-map.artifact.json",
+      ".lime/artifacts/thread-file/persistence-map.artifact.json",
     );
     expect(document.body.textContent).toContain(
-      ".ember/artifacts/thread-file/replay.artifact.json",
+      ".lime/artifacts/thread-file/replay.artifact.json",
     );
     expect(document.body.textContent).toContain(
       "批量回滚会覆盖这些文件的当前内容",
@@ -300,7 +300,7 @@ describe("AgentThreadReliabilityPanel", () => {
     );
     expect(document.body.textContent).toContain("已回滚");
     expect(document.body.textContent).toContain(
-      "恢复前备份：.ember/file-checkpoint-backups/batch/.ember/artifacts/thread-file/replay.artifact.json",
+      "恢复前备份：.lime/file-checkpoint-backups/batch/.lime/artifacts/thread-file/replay.artifact.json",
     );
   });
 

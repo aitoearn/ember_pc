@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import type { AgentRuntimeUpdateSessionRequest } from "@/lib/api/agentRuntime/types";
+import type { AgentRuntimeUpdateSessionRequest } from "@/lib/api/agentRuntime/requestTypes";
 import type { Artifact } from "@/lib/artifact/types";
 import {
   normalizeArtifactProtocolPath,
@@ -8,9 +8,9 @@ import {
 import type { TaskCenterTabItem } from "../components/TaskCenterTabStrip";
 import type { Message, MessagePreviewTarget } from "../types";
 import { isHiddenInternalArtifactPath } from "../utils/internalArtifactVisibility";
-import { asRecord } from "./browserAssistArtifact";
 import { shouldAutoSelectGeneralArtifact } from "./generalArtifactAutoSelection";
 import { doesWorkspaceFileCandidateMatch } from "./workspaceFilePathMatch";
+import { normalizeProjectId } from "../utils/topicProjectResolution";
 
 export const GENERAL_BROWSER_ASSIST_PROFILE_KEY = "general_browser_assist";
 export const BLANK_HOME_DEFERRED_LOAD_MS = 18_000;
@@ -20,18 +20,14 @@ export const SESSION_ENTRY_AUXILIARY_DEFERRED_LOAD_MS = 45_000;
 export const SESSION_RECENT_METADATA_BACKGROUND_SYNC_DELAY_MS = 12_000;
 export const SESSION_RECENT_METADATA_NAVIGATION_DEFER_MS = 45_000;
 export const SESSION_RECENT_METADATA_BACKGROUND_SYNC_IDLE_TIMEOUT_MS = 20_000;
-export const BROWSER_WORKSPACE_HOME_HINT_STORAGE_KEY =
-  "ember.agent.browser-workspace-home-hint-shown";
 
 export const FILE_MANAGER_NAV_COLLAPSE_BREAKPOINT_PX = 1180;
-export const APP_SIDEBAR_COLLAPSE_EVENT = "ember:app-sidebar-collapse";
-export const BROWSER_WORKSPACE_HOME_HINT_MESSAGE = "在这里切换或新建工作区";
-export const BROWSER_WORKSPACE_HOME_HINT_AUTO_HIDE_MS = 5_500;
-export const TASK_CENTER_DRAFT_SESSION_WARMUP_DELAY_MS = 120;
+export const APP_SIDEBAR_COLLAPSE_EVENT = "lime:app-sidebar-collapse";
+export const TASK_CENTER_DRAFT_SESSION_WARMUP_DELAY_MS = 1;
 export const NOOP_SET_CHAT_MESSAGES: Dispatch<SetStateAction<Message[]>> = () =>
   undefined;
 
-const FILE_MANAGER_SIDEBAR_OPEN_STORAGE_KEY = "ember.file-manager.sidebar-open";
+const FILE_MANAGER_SIDEBAR_OPEN_STORAGE_KEY = "lime.file-manager.sidebar-open";
 const TASK_CENTER_DRAFT_TAB_PREFIX = "task-draft";
 
 export interface TaskCenterDraftTab {
@@ -47,7 +43,10 @@ interface ResolveTaskCenterHomeSurfaceStateParams {
   draftSurfaceActive: boolean;
   shouldSuppressDraftContent: boolean;
   sessionSwitchPending: boolean;
+  hasInitialSessionRoute?: boolean;
   hasConversationActivity: boolean;
+  hasCurrentSessionActivity?: boolean;
+  isHomeSessionBackgroundRecovery?: boolean;
   sessionId?: string | null;
   embeddedHomeSessionIds: ReadonlySet<string>;
   isAutoRestoringSession: boolean;
@@ -69,7 +68,7 @@ export interface SessionRecentMetadataSyncOptions {
 
 export type SessionRecentMetadataPatch = Pick<
   AgentRuntimeUpdateSessionRequest,
-  "recent_preferences" | "recent_team_selection"
+  "recent_preferences"
 >;
 
 export interface PendingSessionRecentMetadataSync {
@@ -78,6 +77,12 @@ export interface PendingSessionRecentMetadataSync {
   cancel: (() => void) | null;
   resolvers: Array<() => void>;
   rejecters: Array<(error: unknown) => void>;
+}
+
+export function resolveRuntimeWorkspaceId(
+  projectId: string | null | undefined,
+): string {
+  return normalizeProjectId(projectId) ?? "";
 }
 
 export function areStringArraysEqual(
@@ -90,39 +95,6 @@ export function areStringArraysEqual(
   return left.every((item, index) => item === right[index]);
 }
 
-export function mergeExpertSkillRefsIntoRequestMetadata(
-  metadata: Record<string, unknown> | null | undefined,
-  skillRefs: string[] | null,
-): Record<string, unknown> | null {
-  if (!metadata || !skillRefs) {
-    return metadata ?? null;
-  }
-
-  const root: Record<string, unknown> = { ...metadata };
-  const expert = asRecord(root.expert);
-  const harness = asRecord(root.harness);
-  const harnessExpert = asRecord(harness?.expert);
-
-  if (expert) {
-    root.expert = {
-      ...expert,
-      skillRefs: [...skillRefs],
-    };
-  }
-
-  if (harness || harnessExpert) {
-    root.harness = {
-      ...(harness ?? {}),
-      expert: {
-        ...(harnessExpert ?? {}),
-        skill_refs: [...skillRefs],
-      },
-    };
-  }
-
-  return root;
-}
-
 export function isTransientWorkspaceBridgeError(message: string): boolean {
   const normalized = message.toLowerCase();
   return (
@@ -133,6 +105,26 @@ export function isTransientWorkspaceBridgeError(message: string): boolean {
     normalized.includes("bridge health check failed") ||
     normalized.includes("bridge cooldown active")
   );
+}
+
+export function shouldAutoRecoverWorkspacePathMissing(
+  project:
+    | {
+        workspaceType?: string | null;
+      }
+    | null
+    | undefined,
+  workspacePathMissing: unknown,
+): boolean {
+  if (
+    !workspacePathMissing ||
+    typeof workspacePathMissing !== "object" ||
+    Array.isArray(workspacePathMissing)
+  ) {
+    return false;
+  }
+
+  return project?.workspaceType === "temporary";
 }
 
 export function loadFileManagerSidebarOpen(): boolean {
@@ -188,12 +180,148 @@ export function resolveTaskCenterDraftSendTitle(text: string): string {
   return normalized.length > preview.length ? `${preview}...` : preview;
 }
 
+export function isTaskCenterDraftSendPendingForLayout({
+  hasDraftSendRequest,
+  hasDisplayMessages,
+  isSending,
+  queuedTurnCount,
+}: {
+  hasDraftSendRequest: boolean;
+  hasDisplayMessages: boolean;
+  isSending: boolean;
+  queuedTurnCount: number;
+}): boolean {
+  if (!hasDraftSendRequest) {
+    return false;
+  }
+
+  return !hasDisplayMessages || isSending || queuedTurnCount > 0;
+}
+
+export function shouldBuildFullThreadTimeline({
+  harnessPanelVisible,
+  layoutMode,
+}: {
+  harnessPanelVisible: boolean;
+  layoutMode: string;
+}): boolean {
+  return layoutMode !== "chat" || harnessPanelVisible;
+}
+
+export function resolveHarnessRuntimeVisible({
+  harnessPanelVisible,
+  rightSurfaceActive,
+}: {
+  harnessPanelVisible: boolean;
+  rightSurfaceActive?: string | null;
+}): boolean {
+  return harnessPanelVisible || rightSurfaceActive === "harness";
+}
+
+export function shouldAutoRefreshWorkspaceRightSurfacePending({
+  sessionId,
+  workspaceId,
+  workspaceRoot,
+  sceneIsSending,
+  sceneIsPreparingSend,
+  sceneLayoutMode,
+  taskCenterHomeHotpathActive = false,
+  manualRightSurfaceActive,
+  pluginActivationActive,
+}: {
+  sessionId?: string | null;
+  workspaceId?: string | null;
+  workspaceRoot?: string | null;
+  sceneIsSending: boolean;
+  sceneIsPreparingSend: boolean;
+  sceneLayoutMode: string;
+  taskCenterHomeHotpathActive?: boolean;
+  manualRightSurfaceActive: boolean;
+  pluginActivationActive: boolean;
+}): boolean {
+  const hasPendingListScope = Boolean(
+    sessionId?.trim() || workspaceId?.trim() || workspaceRoot?.trim(),
+  );
+  if (taskCenterHomeHotpathActive || sceneIsSending || sceneIsPreparingSend) {
+    return false;
+  }
+
+  return (
+    hasPendingListScope ||
+    sceneLayoutMode !== "chat" ||
+    manualRightSurfaceActive ||
+    pluginActivationActive
+  );
+}
+
+export function shouldAutoInitWorkspaceSessionFiles({
+  sessionId,
+  isSending,
+  currentTurnId,
+  queuedTurnCount,
+  draftSendInFlight = false,
+}: {
+  sessionId?: string | null;
+  isSending: boolean;
+  currentTurnId?: string | null;
+  queuedTurnCount: number;
+  draftSendInFlight?: boolean;
+}): boolean {
+  if (!sessionId?.trim()) {
+    return false;
+  }
+
+  return (
+    !draftSendInFlight && !isSending && !currentTurnId && queuedTurnCount === 0
+  );
+}
+
+export function shouldPauseTaskCenterInitialSessionNavigation({
+  agentEntry,
+  draftSurfaceActive,
+  activeDraftTabId,
+  draftTabCount,
+  hasHomeHotpathPending,
+}: {
+  agentEntry?: string | null;
+  draftSurfaceActive: boolean;
+  activeDraftTabId?: string | null;
+  draftTabCount: number;
+  hasHomeHotpathPending: boolean;
+}): boolean {
+  if (agentEntry !== "claw" && agentEntry !== "new-task") {
+    return false;
+  }
+
+  return (
+    draftSurfaceActive ||
+    Boolean(activeDraftTabId) ||
+    draftTabCount > 0 ||
+    hasHomeHotpathPending
+  );
+}
+
+export function shouldSuppressTaskCenterDraftContentForLayout({
+  draftSurfaceActive,
+  draftSendInFlight,
+  hasVisibleSessionActivity,
+}: {
+  draftSurfaceActive: boolean;
+  draftSendInFlight: boolean;
+  hasVisibleSessionActivity: boolean;
+}): boolean {
+  return draftSurfaceActive && !draftSendInFlight && !hasVisibleSessionActivity;
+}
+
 export function resolveTaskCenterHomeSurfaceState({
   agentEntry,
   draftSurfaceActive,
   shouldSuppressDraftContent,
   sessionSwitchPending,
+  hasInitialSessionRoute = false,
   hasConversationActivity,
+  hasCurrentSessionActivity = hasConversationActivity,
+  isHomeSessionBackgroundRecovery = false,
   sessionId,
   embeddedHomeSessionIds,
   isAutoRestoringSession,
@@ -202,22 +330,39 @@ export function resolveTaskCenterHomeSurfaceState({
   const hasEmbeddedHomeSession = Boolean(
     sessionId && embeddedHomeSessionIds.has(sessionId),
   );
+  const shouldProtectInitialSessionRoute =
+    hasInitialSessionRoute && !draftSurfaceActive;
   const shouldRenderEmbeddedHome = Boolean(
     agentEntry === "claw" &&
-      !sessionSwitchPending &&
-      !hasConversationActivity &&
-      (draftSurfaceActive || hasEmbeddedHomeSession),
+    !sessionSwitchPending &&
+    !shouldProtectInitialSessionRoute &&
+    !hasConversationActivity &&
+    !hasCurrentSessionActivity &&
+    (draftSurfaceActive || hasEmbeddedHomeSession),
   );
+  const isSessionRestorePending =
+    isAutoRestoringSession || isSessionHydrating || sessionSwitchPending;
+  const shouldHideBackgroundSessionContent =
+    isHomeSessionBackgroundRecovery && !hasInitialSessionRoute;
+  const shouldKeepDraftHomeShell =
+    shouldSuppressDraftContent &&
+    !sessionSwitchPending &&
+    !shouldProtectInitialSessionRoute &&
+    !hasCurrentSessionActivity;
   const shouldHideCurrentSessionContent =
-    sessionSwitchPending || shouldSuppressDraftContent;
+    sessionSwitchPending ||
+    shouldHideBackgroundSessionContent ||
+    (shouldSuppressDraftContent &&
+      !shouldProtectInitialSessionRoute &&
+      !hasCurrentSessionActivity);
 
   return {
     shouldRenderEmbeddedHome,
     shouldHideCurrentSessionContent,
-    isRestoringSession:
-      !shouldSuppressDraftContent &&
-      (isAutoRestoringSession || isSessionHydrating || sessionSwitchPending),
-    sceneSessionId: shouldHideCurrentSessionContent ? null : (sessionId ?? null),
+    isRestoringSession: isSessionRestorePending && !shouldKeepDraftHomeShell,
+    sceneSessionId: shouldHideCurrentSessionContent
+      ? null
+      : (sessionId ?? null),
   };
 }
 
@@ -232,15 +377,15 @@ export function scheduleAfterNextPaint(callback: () => void): () => void {
     return () => window.clearTimeout(timeoutId);
   }
 
-  let secondFrameId: number | null = null;
+  let timeoutId: number | null = null;
   const firstFrameId = window.requestAnimationFrame(() => {
-    secondFrameId = window.requestAnimationFrame(callback);
+    timeoutId = window.setTimeout(callback, 0);
   });
 
   return () => {
     window.cancelAnimationFrame(firstFrameId);
-    if (secondFrameId !== null) {
-      window.cancelAnimationFrame(secondFrameId);
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
     }
   };
 }

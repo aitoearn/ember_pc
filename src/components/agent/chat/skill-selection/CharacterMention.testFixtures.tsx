@@ -4,9 +4,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, vi } from "vitest";
 import { CharacterMention } from "./CharacterMention";
-import type { Character } from "@/lib/api/memory";
+import type { Character } from "@/lib/api/projectMemory";
 import type { Skill } from "@/lib/api/skills";
-import type { UnifiedMemory } from "@/lib/api/unifiedMemory";
 import {
   clearSkillCatalogCache,
   getSeededSkillCatalog,
@@ -18,18 +17,18 @@ import type {
 } from "@/components/agent/chat/service-skills/types";
 import type { InputCapabilitySelection } from "./inputCapabilitySelection";
 import type { CuratedTaskReferenceEntry } from "../utils/curatedTaskReferenceSelection";
-import { changeEmberLocale } from "@/i18n/createI18n";
-
+import { changeLimeLocale } from "@/i18n/createI18n";
+import type {
+  InputbarPluginCapability,
+  InputbarPluginSelectionOptions,
+  InputbarPluginSkillCapability,
+} from "../components/Inputbar/pluginInputCapability";
 
 const hoistedMocks = vi.hoisted(() => ({
   mockListServiceSkills: vi.fn(),
-  mockListUnifiedMemories: vi.fn<() => Promise<UnifiedMemory[]>>(
-    async () => [],
-  ),
 }));
 
 export const mockListServiceSkills = hoistedMocks.mockListServiceSkills;
-export const mockListUnifiedMemories = hoistedMocks.mockListUnifiedMemories;
 
 vi.mock("sonner", () => ({
   toast: {
@@ -46,10 +45,6 @@ vi.mock("@/lib/api/serviceSkills", async (importOriginal) => {
     listServiceSkills: () => hoistedMocks.mockListServiceSkills(),
   };
 });
-
-vi.mock("@/lib/api/unifiedMemory", () => ({
-  listUnifiedMemories: hoistedMocks.mockListUnifiedMemories,
-}));
 
 vi.mock("@/components/ui/popover", () => {
   const Popover = ({
@@ -108,9 +103,14 @@ vi.mock("@/components/ui/popover", () => {
 vi.mock("@/components/ui/command", () => {
   const Command = React.forwardRef<
     HTMLDivElement,
-    React.HTMLAttributes<HTMLDivElement>
-  >(({ children, ...props }, ref) => (
-    <div ref={ref} {...props}>
+    React.HTMLAttributes<HTMLDivElement> & { shouldFilter?: boolean }
+  >(({ children, shouldFilter = true, ...props }, ref) => (
+    <div
+      ref={ref}
+      data-testid="mention-command-root"
+      data-should-filter={String(shouldFilter)}
+      {...props}
+    >
       {children}
     </div>
   ));
@@ -152,11 +152,21 @@ vi.mock("@/components/ui/command", () => {
   const CommandItem = ({
     children,
     onSelect,
+    disabled,
   }: {
     children: React.ReactNode;
     onSelect?: () => void;
+    disabled?: boolean;
   }) => (
-    <button type="button" onClick={() => onSelect?.()}>
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => {
+        if (!disabled) {
+          onSelect?.();
+        }
+      }}
+    >
       {children}
     </button>
   );
@@ -261,7 +271,7 @@ vi.mock("@/components/ui/dialog", () => ({
 const mountedRoots: Array<{ root: Root; container: HTMLDivElement }> = [];
 
 beforeEach(async () => {
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 
   (
     globalThis as typeof globalThis & {
@@ -288,7 +298,6 @@ afterEach(() => {
 
 beforeEach(() => {
   mockListServiceSkills.mockResolvedValue([]);
-  mockListUnifiedMemories.mockResolvedValue([]);
 });
 
 export interface HarnessProps {
@@ -302,6 +311,12 @@ export interface HarnessProps {
   onSelectInputCapability?: (
     capability: InputCapabilitySelection,
     options?: { replayText?: string },
+  ) => void;
+  pluginSuggestions?: readonly InputbarPluginCapability[];
+  onSelectPlugin?: (
+    plugin: InputbarPluginCapability,
+    skill?: InputbarPluginSkillCapability,
+    options?: InputbarPluginSelectionOptions,
   ) => void;
   projectId?: string | null;
   sessionId?: string | null;
@@ -319,6 +334,8 @@ const Harness: React.FC<HarnessProps> = ({
   onNavigateToSettings,
   onChangeSpy,
   onSelectInputCapability,
+  pluginSuggestions = [],
+  onSelectPlugin,
   projectId = null,
   sessionId = null,
   defaultCuratedTaskReferenceMemoryIds = [],
@@ -354,6 +371,8 @@ const Harness: React.FC<HarnessProps> = ({
           }
         }}
         onSelectInputCapability={onSelectInputCapability}
+        pluginSuggestions={pluginSuggestions}
+        onSelectPlugin={onSelectPlugin}
         projectId={projectId}
         sessionId={sessionId}
         defaultCuratedTaskReferenceMemoryIds={
@@ -460,7 +479,10 @@ export async function typeMentionAndWait(
   });
 }
 
-export async function typeSlashAndWait(textarea: HTMLTextAreaElement, value = "/") {
+export async function typeSlashAndWait(
+  textarea: HTMLTextAreaElement,
+  value = "/",
+) {
   await act(async () => {
     await import("./CharacterMentionPanel");
   });

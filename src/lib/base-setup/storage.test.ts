@@ -18,7 +18,7 @@ function buildBaseSetupPackage(): BaseSetupPackage {
       {
         id: "storage-bundle",
         source: "remote",
-        pathOrUri: "ember://bundles/storage",
+        pathOrUri: "lime://bundles/storage",
         kind: "skill_bundle",
       },
     ],

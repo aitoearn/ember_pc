@@ -2,9 +2,9 @@ const NON_USER_FACING_AGENT_SESSION_ID_PREFIXES = [
   "title-gen-",
   "persona-gen-",
   "knowledge-builder-session-",
-  "__ember_theme_context_search__-",
+  "__lime_theme_context_search__-",
   "persisted-usage-",
-  "agent-app-runtime-",
+  "plugin-runtime-",
 ];
 
 export function isAuxiliaryAgentSessionId(sessionId?: string | null): boolean {

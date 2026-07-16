@@ -59,20 +59,14 @@ describe("ModelProviderList helpers", () => {
     expect(isProviderVisibleInEnabledModelList(unconfigured)).toBe(false);
   });
 
-  it("Ember Hub 不应出现在 AI 服务商设置列表", () => {
-    const emberHub = createProvider({
-      id: "ember-hub",
-      name: "Ember Hub",
+  it("显式打开 OEM 登录提示时，应展示未登录 Lime Hub 但不标为默认模型", () => {
+    const limeHub = createProvider({
+      id: "lime-hub",
+      name: "Lime Hub",
       sort_order: 0,
       custom_models: [],
       api_keys: [],
       api_key_count: 0,
-    });
-    const configuredHub = createProvider({
-      id: "ember-hub",
-      name: "Ember Hub",
-      sort_order: 0,
-      custom_models: ["gpt-5.2-pro"],
     });
     const deepseek = createProvider({
       id: "deepseek",
@@ -80,20 +74,33 @@ describe("ModelProviderList helpers", () => {
       sort_order: 1,
     });
 
-    expect(isProviderVisibleInEnabledModelList(emberHub)).toBe(false);
-    expect(isProviderVisibleInEnabledModelList(configuredHub)).toBe(false);
+    expect(isProviderVisibleInEnabledModelList(limeHub)).toBe(false);
+    expect(
+      isProviderVisibleInEnabledModelList(limeHub, {
+        exposeOemLoginPrompt: true,
+      }),
+    ).toBe(true);
 
-    const items = buildEnabledModelItems([emberHub, configuredHub, deepseek]);
+    const items = buildEnabledModelItems([limeHub, deepseek], {
+      exposeOemLoginPrompt: true,
+    });
 
-    expect(items.map((item) => item.id)).toEqual(["deepseek"]);
+    expect(items.map((item) => [item.id, item.status, item.isDefault])).toEqual(
+      [
+        ["lime-hub", "login_required", false],
+        ["deepseek", "ready", true],
+      ],
+    );
   });
 
-  it("按 sort_order 排序", () => {
+  it("按 sort_order 排序并将首项标记为默认", () => {
     const first = createProvider({ id: "a", name: "A", sort_order: 1 });
     const second = createProvider({ id: "b", name: "B", sort_order: 2 });
 
     const items = buildEnabledModelItems([second, first]);
 
     expect(items.map((item) => item.id)).toEqual(["a", "b"]);
+    expect(items[0].isDefault).toBe(true);
+    expect(items[1].isDefault).toBe(false);
   });
 });

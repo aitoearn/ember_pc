@@ -1,7 +1,7 @@
-export const OEM_CLOUD_PAYMENT_RETURN_EVENT = "ember:oem-cloud-payment-return";
+export const OEM_CLOUD_PAYMENT_RETURN_EVENT = "lime:oem-cloud-payment-return";
 
 const OEM_CLOUD_PAYMENT_RETURN_STORAGE_KEY =
-  "ember:oem-cloud-payment-return:last";
+  "lime:oem-cloud-payment-return:last";
 const OEM_CLOUD_PAYMENT_RETURN_MAX_AGE_MS = 30 * 60 * 1000;
 
 export type OemCloudPaymentReturnKind =
@@ -82,7 +82,7 @@ function toPaymentReturnDetail(
 export function buildOemCloudPaymentReturnUrl(
   input: BuildOemCloudPaymentReturnUrlInput,
 ): string {
-  const url = new URL("ember://payment/return");
+  const url = new URL("lime://payment/return");
   url.searchParams.set("tenantId", input.tenantId);
   url.searchParams.set("orderId", input.orderId);
   url.searchParams.set("kind", input.kind);
@@ -116,7 +116,7 @@ export function parseOemCloudPaymentReturnUrl(
     const parsed = new URL(value);
     const normalizedPath = parsed.pathname.replace(/\/+$/, "") || "/";
     if (
-      parsed.protocol !== "ember:" ||
+      parsed.protocol !== "lime:" ||
       parsed.hostname !== "payment" ||
       normalizedPath !== "/return"
     ) {

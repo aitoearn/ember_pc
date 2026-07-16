@@ -28,11 +28,11 @@ const GuideButton = styled.button`
   justify-content: center;
   gap: 0.52rem;
   border-radius: 18px;
-  border: 1px solid var(--ember-surface-border, rgba(226, 232, 240, 0.92));
+  border: 1px solid var(--lime-surface-border, rgba(226, 232, 240, 0.92));
   background: color-mix(
     in srgb,
-    var(--ember-surface, #fff) 90%,
-    var(--ember-surface-soft, #f4f8f2) 10%
+    var(--lime-surface, #fff) 90%,
+    var(--lime-surface-soft, #f4f8f2) 10%
   );
   padding: 1rem 1.1rem;
   text-align: left;
@@ -45,14 +45,14 @@ const GuideButton = styled.button`
 
   &:hover {
     transform: translateY(-1px);
-    border-color: var(--ember-surface-border-strong, rgba(148, 163, 184, 0.72));
+    border-color: var(--lime-surface-border-strong, rgba(148, 163, 184, 0.72));
     box-shadow: 0 14px 30px rgba(15, 23, 42, 0.07);
   }
 
   &:focus-visible {
-    border-color: var(--ember-composer-border-focus, rgba(74, 222, 128, 0.7));
+    border-color: var(--lime-composer-border-focus, rgba(74, 222, 128, 0.7));
     box-shadow:
-      0 0 0 3px var(--ember-focus-ring, rgba(74, 222, 128, 0.18)),
+      0 0 0 3px var(--lime-focus-ring, rgba(74, 222, 128, 0.18)),
       0 14px 30px rgba(15, 23, 42, 0.07);
   }
 `;
@@ -65,7 +65,7 @@ const GuideCopy = styled.span`
 `;
 
 const GuideTitle = styled.span`
-  color: var(--ember-text-strong, rgb(15 23 42));
+  color: var(--lime-text-strong, rgb(15 23 42));
   font-size: 15px;
   font-weight: 780;
   line-height: 1.28;
@@ -74,7 +74,7 @@ const GuideTitle = styled.span`
 const GuideSummary = styled.span`
   display: -webkit-box;
   overflow: hidden;
-  color: var(--ember-text-muted, rgb(100 116 139));
+  color: var(--lime-text-muted, rgb(100 116 139));
   font-size: 12px;
   font-weight: 520;
   line-height: 1.45;

@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-const DEFAULT_MANIFEST_PATH = "docs/test/harness-evals.manifest.json";
+const DEFAULT_MANIFEST_PATH = "internal/test/harness-evals.manifest.json";
 const REVIEW_DECISION_JSON_CANDIDATES = [
   "review-decision.json",
   "../review/review-decision.json",
@@ -94,7 +94,7 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Harness Eval Runner
+Lime Harness Eval Runner
 
 用法:
   node scripts/harness/eval-runner.mjs
@@ -103,7 +103,7 @@ Ember Harness Eval Runner
   node scripts/harness/eval-runner.mjs --output-json "./tmp/harness-eval-summary.json" --output-markdown "./tmp/harness-eval-summary.md"
 
 选项:
-  --manifest PATH        指定 manifest，默认 docs/test/harness-evals.manifest.json
+  --manifest PATH        指定 manifest，默认 internal/test/harness-evals.manifest.json
   --workspace-root PATH  指定工作区根目录，默认当前目录
   --format FMT           控制标准输出格式：text | json | markdown
   --output-json PATH     将 JSON 摘要写入指定路径
@@ -772,7 +772,7 @@ function expandSuiteCases(suiteConfig, defaults, repoRoot, workspaceRoot) {
     if (source === "workspace_replay_discovery") {
       const discoveryRoot = resolvePath(
         workspaceRoot,
-        String(caseConfig.root ?? ".ember/harness/sessions"),
+        String(caseConfig.root ?? ".lime/harness/sessions"),
       );
       const replayDirectories = listReplayDirectories(discoveryRoot);
 
@@ -934,7 +934,7 @@ function buildSummary(manifest, suites, options) {
 
   return {
     manifestVersion: String(manifest.manifestVersion ?? "unknown"),
-    title: String(manifest.title ?? "Ember Harness Eval Summary"),
+    title: String(manifest.title ?? "Lime Harness Eval Summary"),
     generatedAt: new Date().toISOString(),
     repoRoot: process.cwd(),
     workspaceRoot: path.resolve(options.workspaceRoot),
@@ -1116,7 +1116,7 @@ function renderText(summary) {
 
 function renderMarkdown(summary) {
   const lines = [
-    "# Ember Harness Eval Summary",
+    "# Lime Harness Eval Summary",
     "",
     `- 生成时间：${summary.generatedAt}`,
     `- manifest：${summary.title} (${summary.manifestVersion})`,

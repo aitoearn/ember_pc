@@ -5,13 +5,13 @@ import {
 } from "@/lib/webview-api";
 
 const SITE_ADAPTER_CATALOG_BOOTSTRAP_EVENT =
-  "ember:site-adapter-catalog-bootstrap";
-const SITE_ADAPTER_CATALOG_CHANGED_EVENT = "ember:site-adapter-catalog-changed";
+  "lime:site-adapter-catalog-bootstrap";
+const SITE_ADAPTER_CATALOG_CHANGED_EVENT = "lime:site-adapter-catalog-changed";
 
 declare global {
   interface Window {
-    __EMBER_BOOTSTRAP__?: unknown;
-    __EMBER_SITE_ADAPTER_CATALOG__?: unknown;
+    __LIME_BOOTSTRAP__?: unknown;
+    __LIME_SITE_ADAPTER_CATALOG__?: unknown;
   }
 }
 
@@ -109,16 +109,16 @@ export async function applyInitialSiteAdapterCatalogBootstrap(): Promise<SiteAda
     return null;
   }
 
-  if (window.__EMBER_SITE_ADAPTER_CATALOG__ !== undefined) {
+  if (window.__LIME_SITE_ADAPTER_CATALOG__ !== undefined) {
     const directCatalog = await syncSiteAdapterCatalogFromBootstrapPayload({
-      siteAdapterCatalog: window.__EMBER_SITE_ADAPTER_CATALOG__,
+      siteAdapterCatalog: window.__LIME_SITE_ADAPTER_CATALOG__,
     });
     if (directCatalog) {
       return directCatalog;
     }
   }
 
-  return syncSiteAdapterCatalogFromBootstrapPayload(window.__EMBER_BOOTSTRAP__);
+  return syncSiteAdapterCatalogFromBootstrapPayload(window.__LIME_BOOTSTRAP__);
 }
 
 export function emitSiteAdapterCatalogBootstrap(payload: unknown): void {

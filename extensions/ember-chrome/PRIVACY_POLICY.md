@@ -1,14 +1,14 @@
-# Ember Browser Bridge Privacy Policy
+# Lime Browser Bridge Privacy Policy
 
 Last updated: 2026-04-13
 
 ## Overview
 
-Ember Browser Bridge is a companion Chrome extension for the Ember desktop application. Its purpose is to connect your current Chrome tabs to a Ember runtime that you configure, so Ember can read page context and perform browser actions on your behalf.
+Lime Browser Bridge is a companion Chrome extension for the Lime desktop application. Its purpose is to connect your current Chrome tabs to a Lime runtime that you configure, so Lime can read page context and perform browser actions on your behalf.
 
 ## What Data The Extension Processes
 
-Depending on the actions you trigger in Ember, the extension may process:
+Depending on the actions you trigger in Lime, the extension may process:
 
 - the title and URL of the active tab
 - page content extracted from the current webpage
@@ -21,16 +21,16 @@ Depending on the actions you trigger in Ember, the extension may process:
 
 The extension uses this data only to provide the browser bridge functionality, including:
 
-- connecting Chrome to your Ember runtime
-- reading the current page when you ask Ember to inspect it
-- performing browser actions you trigger through Ember
+- connecting Chrome to your Lime runtime
+- reading the current page when you ask Lime to inspect it
+- performing browser actions you trigger through Lime
 - restoring connection status and recent bridge state locally in the extension UI
 
 ## Where Data Is Sent
 
-The extension sends processed page data only to the Ember runtime endpoint that you configure.
+The extension sends processed page data only to the Lime runtime endpoint that you configure.
 
-- By default, Ember is typically configured to run locally, for example `ws://127.0.0.1:8999`.
+- By default, Lime is typically configured to run locally, for example `ws://127.0.0.1:8999`.
 - The extension does not include advertising SDKs, analytics trackers, or third-party telemetry services.
 - The extension does not sell your data.
 
@@ -54,12 +54,12 @@ The extension requests the following permissions to provide its single purpose:
 
 - `debugger`: required for DevTools Protocol based actions such as screenshots, coordinate click, raw input, and page inspection
 - `tabs`, `tabGroups`, `windows`, `activeTab`: required to inspect and control the current Chrome tabs and window context
-- `scripting`: required to inject scripts on demand into pages the user asks Ember to inspect or control
+- `scripting`: required to inject scripts on demand into pages the user asks Lime to inspect or control
 - `storage`: required to save local configuration and status
 - `clipboardRead`: required only when the user chooses to paste exported connection settings into the extension
 - `alarms`: required for MV3 keepalive and reconnect behavior
 - `notifications`: required to show local relay error notifications
-- `<all_urls>` host permission: required because users may ask Ember to work with arbitrary regular webpages in their current session
+- `<all_urls>` host permission: required because users may ask Lime to work with arbitrary regular webpages in their current session
 
 The extension does not operate on restricted Chrome internal pages such as `chrome://`.
 
@@ -69,12 +69,12 @@ The extension does not sell personal information and does not share data with ad
 
 Data is shared only with:
 
-- the Ember runtime endpoint configured by the user
+- the Lime runtime endpoint configured by the user
 - websites the user already visits when the requested action requires normal page loading or page-origin requests
 
 ## Your Choices
 
-You control whether the extension is enabled and which Ember runtime it connects to.
+You control whether the extension is enabled and which Lime runtime it connects to.
 
 You can:
 
@@ -87,6 +87,6 @@ You can:
 
 Project repository:
 
-- `https://github.com/aitoearn/ember_pc`
+- `https://github.com/aiclientproxy/lime`
 
 If you publish this policy via GitHub, use the public repository URL for this file in the Chrome Web Store listing.

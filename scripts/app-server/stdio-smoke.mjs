@@ -42,7 +42,7 @@ async function main() {
     },
     {
       clientInfo: {
-        name: "ember_stdio_smoke",
+        name: "lime_stdio_smoke",
         version: "1.60.0",
       },
       capabilities: {

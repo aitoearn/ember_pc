@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const { mockGetConfig, mockSaveConfig } = vi.hoisted(() => ({
   mockGetConfig: vi.fn(),
@@ -197,7 +197,7 @@ beforeEach(async () => {
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 
   Object.defineProperty(window.navigator, "userAgent", {
     configurable: true,
@@ -275,7 +275,7 @@ afterEach(async () => {
   }
 
   vi.clearAllMocks();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("ExperimentalSettings", () => {
@@ -344,7 +344,7 @@ describe("ExperimentalSettings", () => {
       "Keeps only the config bit and does not switch the execution path yet.",
     );
     expect(text).toContain(
-      "When enabled, Ember only writes the config and does not change the browser execution path.",
+      "When enabled, Lime only writes the config and does not change the browser execution path.",
     );
     expect(text).not.toContain("现阶段浏览器业务仍走 Bridge / CDP 主线");
 

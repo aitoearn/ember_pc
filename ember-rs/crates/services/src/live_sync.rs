@@ -1,12 +1,12 @@
-use ember_core::models::{AppType, Provider};
+use lime_core::models::{AppType, Provider};
 use serde_json::{json, Value};
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 
-/// Ember 管理的环境变量块标记
-const ENV_BLOCK_START: &str = "# >>> Ember Claude Config >>>";
-const ENV_BLOCK_END: &str = "# <<< Ember Claude Config <<<";
+/// Lime 管理的环境变量块标记
+const ENV_BLOCK_START: &str = "# >>> Lime Claude Config >>>";
+const ENV_BLOCK_END: &str = "# <<< Lime Claude Config <<<";
 
 /// 原子写入 JSON 文件，防止配置损坏
 /// 参考 cc-switch 的实现：使用临时文件 + 重命名的原子操作
@@ -75,7 +75,7 @@ pub(crate) fn create_backup(
 
 fn should_create_backup() -> bool {
     if cfg!(target_os = "windows") {
-        return ember_core::env_compat::var(&["EMBER_FORCE_BACKUP", "PROXYCAST_FORCE_BACKUP"])
+        return lime_core::env_compat::var(&["LIME_FORCE_BACKUP", "PROXYCAST_FORCE_BACKUP"])
             .map(|value| {
                 let value = value.to_lowercase();
                 value == "1" || value == "true" || value == "yes"
@@ -217,26 +217,26 @@ pub fn write_env_to_shell_config(
         String::new()
     };
 
-    // 移除旧的 Ember 配置块
+    // 移除旧的 Lime 配置块
     let mut new_content = String::new();
-    let mut in_ember_block = false;
+    let mut in_lime_block = false;
 
     for line in existing_content.lines() {
         if line.trim() == ENV_BLOCK_START {
-            in_ember_block = true;
+            in_lime_block = true;
             continue;
         }
         if line.trim() == ENV_BLOCK_END {
-            in_ember_block = false;
+            in_lime_block = false;
             continue;
         }
-        if !in_ember_block {
+        if !in_lime_block {
             new_content.push_str(line);
             new_content.push('\n');
         }
     }
 
-    // 添加新的 Ember 配置块
+    // 添加新的 Lime 配置块
     if !env_vars.is_empty() {
         // 确保前面有空行
         if !new_content.ends_with("\n\n") && !new_content.is_empty() {
@@ -245,7 +245,7 @@ pub fn write_env_to_shell_config(
 
         new_content.push_str(ENV_BLOCK_START);
         new_content.push('\n');
-        new_content.push_str("# Ember managed Claude Code configuration\n");
+        new_content.push_str("# Lime managed Claude Code configuration\n");
         new_content.push_str("# Do not edit this block manually\n");
 
         for (key, value) in env_vars {
@@ -284,7 +284,7 @@ pub fn get_app_config_path(app_type: &AppType) -> Option<PathBuf> {
         AppType::Claude => Some(home.join(".claude").join("settings.json")),
         AppType::Codex => Some(home.join(".codex")),
         AppType::Gemini => Some(home.join(".gemini")),
-        AppType::Ember => None,
+        AppType::Lime => None,
     }
 }
 
@@ -297,7 +297,7 @@ pub fn sync_to_live(
         AppType::Claude => sync_claude_settings(provider),
         AppType::Codex => sync_codex_config(provider),
         AppType::Gemini => sync_gemini_config(provider),
-        AppType::Ember => Ok(()),
+        AppType::Lime => Ok(()),
     }
 }
 
@@ -583,7 +583,7 @@ pub fn read_live_settings(
                 "config": config
             }))
         }
-        AppType::Ember => Ok(json!({})),
+        AppType::Lime => Ok(json!({})),
     }
 }
 

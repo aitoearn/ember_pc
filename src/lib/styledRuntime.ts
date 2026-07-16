@@ -47,8 +47,8 @@ interface StyledRuntimeSnapshot {
   sidebarBorderRightWidth: string | null;
 }
 
-const STYLED_FALLBACK_ATTR = "data-ember-sc-fallback";
-const STYLED_RUNTIME_SIGNATURE_ATTR = "data-ember-sc-signature";
+const STYLED_FALLBACK_ATTR = "data-lime-sc-fallback";
+const STYLED_RUNTIME_SIGNATURE_ATTR = "data-lime-sc-signature";
 
 function buildStyledTagSignature(text: string): string {
   return `${text.length}:${text.slice(0, 64)}:${text.slice(-32)}`;

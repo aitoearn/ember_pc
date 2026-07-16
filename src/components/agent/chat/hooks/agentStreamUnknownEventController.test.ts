@@ -13,7 +13,7 @@ describe("agentStreamUnknownEventController", () => {
         eventType: "runtime_projection_bootstrap",
       }),
     ).toBe(
-      "[AsterChat] 收到未识别的运行时事件，已保留流活跃态: event-a · runtime_projection_bootstrap",
+      "[AgentChat] 收到未识别的运行时事件，已保留流活跃态: event-a · runtime_projection_bootstrap",
     );
   });
 
@@ -38,7 +38,7 @@ describe("agentStreamUnknownEventController", () => {
       eventType: "runtime_projection_bootstrap",
       shouldWarn: true,
       warningMessage:
-        "[AsterChat] 收到未识别的运行时事件，已保留流活跃态: event-a · runtime_projection_bootstrap",
+        "[AgentChat] 收到未识别的运行时事件，已保留流活跃态: event-a · runtime_projection_bootstrap",
     });
 
     expect(
@@ -54,16 +54,54 @@ describe("agentStreamUnknownEventController", () => {
     });
   });
 
-  it("应把 Ember AgentRuntime Profile 事件作为已知旁路事实静默处理", () => {
+  it("应把 Lime AgentRuntime Profile 事件作为已知旁路事实静默处理", () => {
     expect(
       resolveAgentStreamUnknownEventPlan({
         eventName: "event-a",
         eventType: "turn.submitted",
-        schemaVersion: "ember-profile-0.4.0",
+        schemaVersion: "lime-profile-0.4.0",
         warnedEventTypes: new Set(),
       }),
     ).toEqual({
       eventType: "turn.submitted",
+      shouldWarn: false,
+      warningMessage: null,
+    });
+  });
+
+  it("应把 App Server current 生命周期旁路事件静默处理", () => {
+    expect(
+      resolveAgentStreamUnknownEventPlan({
+        eventName: "event-a",
+        eventType: "turn_accepted",
+        warnedEventTypes: new Set(),
+      }),
+    ).toEqual({
+      eventType: "turn_accepted",
+      shouldWarn: false,
+      warningMessage: null,
+    });
+
+    expect(
+      resolveAgentStreamUnknownEventPlan({
+        eventName: "event-a",
+        eventType: "turn.accepted",
+        warnedEventTypes: new Set(),
+      }),
+    ).toEqual({
+      eventType: "turn.accepted",
+      shouldWarn: false,
+      warningMessage: null,
+    });
+
+    expect(
+      resolveAgentStreamUnknownEventPlan({
+        eventName: "event-a",
+        eventType: "runtime_event",
+        warnedEventTypes: new Set(),
+      }),
+    ).toEqual({
+      eventType: "runtime_event",
       shouldWarn: false,
       warningMessage: null,
     });

@@ -37,6 +37,9 @@ describe("generalAgentPrompt", () => {
     expect(prompt).toContain("Subagents：已开启");
     expect(prompt).toContain("统一使用 WebSearch");
     expect(prompt).toContain("不要混用 search/search_query/ToolSearch");
+    expect(prompt).toContain("不要通过前端关键词、固定模板或别名改写强制搜索");
+    expect(prompt).not.toContain("只有在以下场景才主动联网核实");
+    expect(prompt).not.toMatch(/3-4\s+组 WebSearch/);
     expect(prompt).toContain("1 个当前最关键的问题");
     expect(prompt).toContain("合理假设补齐");
     expect(prompt).toContain("每轮最多只保留 1 个最关键问题");
@@ -58,7 +61,7 @@ describe("generalAgentPrompt", () => {
     expect(prompt).toContain("当前主题：通用对话");
     expect(prompt).toContain("优先处理需求澄清");
     expect(prompt).toContain("不要一上来就走重链路");
-    expect(prompt).toContain("3-4 组 WebSearch 扩搜");
+    expect(prompt).toContain("必要扩搜");
   });
 
   it("通用主题 Prompt 仍应强调执行升级与任务分工边界", () => {
@@ -88,7 +91,7 @@ describe("generalAgentPrompt", () => {
     expect(prompt).toContain("<proposed_plan>");
   });
 
-  it("启用 Browser Assist 时应强制网页任务走 Ember 浏览器会话", () => {
+  it("启用 Browser Assist 时应强制网页任务走 Lime 浏览器会话", () => {
     const prompt = buildGeneralAgentSystemPrompt("general", {
       harness: {
         browserAssistEnabled: true,
@@ -107,8 +110,8 @@ describe("generalAgentPrompt", () => {
     expect(prompt).toContain("service_skill_launch");
     expect(prompt).toContain("对话内 A2UI");
     expect(prompt).toContain("站点技能启动上下文");
-    expect(prompt).toContain("ember_site_run");
-    expect(prompt).toContain("mcp__ember-browser__browser_navigate");
+    expect(prompt).toContain("lime_site_run");
+    expect(prompt).toContain("mcp__lime-browser__browser_navigate");
     expect(prompt).toContain("严格 JSON 对象");
     expect(prompt).toContain("attached_session_required");
   });
@@ -134,7 +137,7 @@ describe("generalAgentPrompt", () => {
     expect(compactPrompt).toContain("当前日期：2026年3月12日");
     expect(compactPrompt).toContain("能直接回答就直接回答");
     expect(compactPrompt).toContain("WebSearch");
-    expect(compactPrompt).toContain("ember_site_run");
+    expect(compactPrompt).toContain("lime_site_run");
     expect(compactPrompt).toContain("Playwright code");
     expect(compactPrompt).toContain("general_browser_assist");
     expect(compactPrompt).toContain("输出契约");

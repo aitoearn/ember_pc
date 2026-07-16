@@ -6,6 +6,8 @@ import {
   APP_SERVER_METHOD_AGENT_SESSION_COMPACT,
   APP_SERVER_METHOD_AGENT_SESSION_EVENT,
   APP_SERVER_METHOD_AGENT_SESSION_LIST,
+  APP_SERVER_METHOD_AGENT_SESSION_MEDIA_READ,
+  APP_SERVER_METHOD_CANCEL_REQUEST,
   APP_SERVER_METHOD_AGENT_SESSION_OBJECTIVE_CLEAR,
   APP_SERVER_METHOD_AGENT_SESSION_OBJECTIVE_READ,
   APP_SERVER_METHOD_AGENT_SESSION_OBJECTIVE_SET,
@@ -14,13 +16,20 @@ import {
   APP_SERVER_METHOD_AGENT_SESSION_QUEUED_TURN_REMOVE,
   APP_SERVER_METHOD_AGENT_SESSION_THREAD_RESUME,
   APP_SERVER_METHOD_AGENT_SESSION_UPDATE,
+  APP_SERVER_METHOD_AGENT_SESSION_RUNTIME_EVENTS_APPEND,
   APP_SERVER_METHOD_AGENT_SESSION_TURN_CANCEL,
   APP_SERVER_METHOD_AGENT_SESSION_TURN_START,
+  APP_SERVER_METHOD_THREAD_LIST,
+  APP_SERVER_METHOD_THREAD_READ,
   APP_SERVER_METHOD_ARTIFACT_READ,
   APP_SERVER_METHOD_CAPABILITY_LIST,
   APP_SERVER_METHOD_EVIDENCE_EXPORT,
+  APP_SERVER_METHOD_EXECUTION_PROCESS_DRAIN_OUTPUT,
+  APP_SERVER_METHOD_EXECUTION_PROCESS_INTERRUPT,
+  APP_SERVER_METHOD_EXECUTION_PROCESS_START,
   APP_SERVER_METHOD_FILE_SYSTEM_LIST_DIRECTORY,
   APP_SERVER_METHOD_FILE_SYSTEM_READ_FILE_PREVIEW,
+  APP_SERVER_METHOD_PROJECT_GIT_DIFF,
   APP_SERVER_METHOD_GATEWAY_CHANNEL_START,
   APP_SERVER_METHOD_GATEWAY_TUNNEL_CLOUDFLARED_DETECT,
   APP_SERVER_METHOD_GATEWAY_TUNNEL_CLOUDFLARED_INSTALL,
@@ -34,6 +43,9 @@ import {
   APP_SERVER_METHOD_DIAGNOSTICS_LOG_STORAGE_READ,
   APP_SERVER_METHOD_DIAGNOSTICS_SERVER_READ,
   APP_SERVER_METHOD_DIAGNOSTICS_SUPPORT_BUNDLE_EXPORT,
+  APP_SERVER_METHOD_DIAGNOSTICS_TRACE_EXPORT,
+  APP_SERVER_METHOD_DIAGNOSTICS_TRACE_LIST,
+  APP_SERVER_METHOD_DIAGNOSTICS_TRACE_READ,
   APP_SERVER_METHOD_DIAGNOSTICS_WINDOWS_STARTUP_READ,
   APP_SERVER_METHOD_INITIALIZED,
   APP_SERVER_METHOD_INITIALIZE,
@@ -45,11 +57,18 @@ import {
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_AUDIO_CREATE,
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_CANCEL,
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_GET,
+  APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_IMAGE_COMPLETE,
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_IMAGE_CREATE,
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_LIST,
+  APP_SERVER_METHOD_WORKFLOW_READ,
   APP_SERVER_METHOD_WECHAT_CHANNEL_RUNTIME_MODEL_SET,
+  APP_SERVER_METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CONSUME,
+  APP_SERVER_METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_DISMISS,
+  APP_SERVER_METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_LIST,
+  APP_SERVER_METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST,
   APP_SERVER_PROTOCOL_VERSION,
   AppServerClient,
+  AppServerRequestAbortedError,
   AppServerRpcError,
   createAppServerRequest,
   decodeAppServerMessage,
@@ -68,6 +87,93 @@ function line(value: unknown): string {
 describe("App Server API", () => {
   beforeEach(() => {
     vi.mocked(safeInvoke).mockReset();
+  });
+
+  it("readThread 应通过 canonical thread/read typed method", async () => {
+    vi.mocked(safeInvoke).mockResolvedValueOnce({
+      lines: [
+        line({
+          id: 1,
+          result: {
+            thread: {
+              archived: false,
+              createdAtMs: 100,
+              sessionId: "session-1",
+              status: { type: "active" },
+              threadId: "thread-1",
+              turns: [],
+              turnsView: "full",
+              updatedAtMs: 200,
+            },
+          },
+        }),
+      ],
+    });
+
+    const client = new AppServerClient();
+    const result = await client.readThread({
+      threadId: "thread-1",
+      turnsView: "full",
+    });
+
+    expect(vi.mocked(safeInvoke)).toHaveBeenCalledWith(
+      "app_server_handle_json_lines",
+      expect.objectContaining({
+        request: expect.objectContaining({
+          lines: [
+            expect.stringContaining(
+              `"method":"${APP_SERVER_METHOD_THREAD_READ}"`,
+            ),
+          ],
+        }),
+      }),
+    );
+    expect(result.result.thread.threadId).toBe("thread-1");
+  });
+
+  it("listThreads 应通过 canonical thread/list typed method", async () => {
+    vi.mocked(safeInvoke).mockResolvedValueOnce({
+      lines: [
+        line({
+          id: 1,
+          result: {
+            data: [
+              {
+                archived: false,
+                createdAtMs: 100,
+                parentThreadId: "thread-parent",
+                sessionId: "session-child",
+                status: { type: "idle" },
+                threadId: "thread-child",
+                turns: [],
+                turnsView: "summary",
+                updatedAtMs: 200,
+              },
+            ],
+          },
+        }),
+      ],
+    });
+
+    const client = new AppServerClient();
+    const result = await client.listThreads({
+      limit: 100,
+      turnsView: "summary",
+    });
+
+    expect(vi.mocked(safeInvoke)).toHaveBeenCalledWith(
+      "app_server_handle_json_lines",
+      expect.objectContaining({
+        request: expect.objectContaining({
+          lines: [
+            expect.stringContaining(
+              `"method":"${APP_SERVER_METHOD_THREAD_LIST}"`,
+            ),
+          ],
+        }),
+      }),
+    );
+    expect(result.result.data[0]?.parentThreadId).toBe("thread-parent");
   });
 
   it("initialize 应通过 App Server JSON-RPC 命令完成握手", async () => {
@@ -179,22 +285,202 @@ describe("App Server API", () => {
 
     expect(result.result.capabilities[0].id).toBe("session.draft.write");
     expect(result.result.nextCursor).toBe("1");
-    expect(safeInvoke).toHaveBeenCalledWith("app_server_handle_json_lines", {
-      request: {
+    expect(safeInvoke).toHaveBeenNthCalledWith(
+      1,
+      "app_server_handle_json_lines",
+      {
+        request: {
+          lines: [
+            line({
+              id: 3,
+              method: APP_SERVER_METHOD_CAPABILITY_LIST,
+              params: {
+                appId: "content-studio",
+                workspaceId: "default",
+                sessionId: "session-1",
+                limit: 1,
+              },
+            }),
+          ],
+        },
+      },
+    );
+  });
+
+  it("workspaceRightSurface methods 应通过 App Server JSON-RPC 调度右侧 surface", async () => {
+    const pending = {
+      requestId: "right-surface:req-1",
+      workspaceId: "workspace-1",
+      workspaceRoot: "/workspace/project",
+      sessionId: "session-1",
+      surfaceKind: "objectCanvas",
+      origin: "mcpTool",
+      priority: "normal",
+      status: "pending",
+      requestedAt: "2026-06-23T00:00:00.000Z",
+    };
+    vi.mocked(safeInvoke)
+      .mockResolvedValueOnce({
         lines: [
           line({
-            id: 3,
-            method: APP_SERVER_METHOD_CAPABILITY_LIST,
-            params: {
-              appId: "content-studio",
-              workspaceId: "default",
-              sessionId: "session-1",
-              limit: 1,
+            id: 4,
+            result: {
+              status: "pending",
+              requestId: pending.requestId,
+              pending,
             },
           }),
         ],
-      },
+      })
+      .mockResolvedValueOnce({
+        lines: [
+          line({
+            id: 5,
+            result: {
+              pending: [pending],
+            },
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        lines: [
+          line({
+            id: 6,
+            result: {
+              status: "consumed",
+              consumedRequestIds: [pending.requestId],
+              missingRequestIds: ["right-surface:missing"],
+            },
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        lines: [
+          line({
+            id: 7,
+            result: {
+              status: "dismissed",
+              dismissedRequestIds: [pending.requestId],
+              missingRequestIds: ["right-surface:gone"],
+            },
+          }),
+        ],
+      });
+
+    const client = new AppServerClient({ initialRequestId: 4 });
+    const requestResult = await client.requestWorkspaceRightSurface({
+      workspaceId: "workspace-1",
+      workspaceRoot: "/workspace/project",
+      sessionId: "session-1",
+      surfaceKind: "objectCanvas",
+      origin: "mcpTool",
+      reason: "browser assist candidate",
     });
+    const listResult = await client.listWorkspaceRightSurfacePending({
+      workspaceId: "workspace-1",
+      surfaceKind: "objectCanvas",
+    });
+    const consumeResult = await client.consumeWorkspaceRightSurfacePending({
+      requestId: pending.requestId,
+      requestIds: ["right-surface:missing"],
+    });
+    const dismissResult = await client.dismissWorkspaceRightSurfacePending({
+      requestId: pending.requestId,
+      requestIds: ["right-surface:gone"],
+      reason: "user_closed_surface",
+    });
+
+    expect(requestResult.result.requestId).toBe("right-surface:req-1");
+    expect(listResult.result.pending).toHaveLength(1);
+    expect(consumeResult.result.consumedRequestIds).toEqual([
+      "right-surface:req-1",
+    ]);
+    expect(consumeResult.result.missingRequestIds).toEqual([
+      "right-surface:missing",
+    ]);
+    expect(dismissResult.result.dismissedRequestIds).toEqual([
+      "right-surface:req-1",
+    ]);
+    expect(dismissResult.result.missingRequestIds).toEqual([
+      "right-surface:gone",
+    ]);
+    expect(safeInvoke).toHaveBeenNthCalledWith(
+      1,
+      "app_server_handle_json_lines",
+      {
+        request: {
+          lines: [
+            line({
+              id: 4,
+              method: APP_SERVER_METHOD_WORKSPACE_RIGHT_SURFACE_REQUEST,
+              params: {
+                workspaceId: "workspace-1",
+                workspaceRoot: "/workspace/project",
+                sessionId: "session-1",
+                surfaceKind: "objectCanvas",
+                origin: "mcpTool",
+                reason: "browser assist candidate",
+              },
+            }),
+          ],
+        },
+      },
+    );
+    expect(safeInvoke).toHaveBeenNthCalledWith(
+      2,
+      "app_server_handle_json_lines",
+      {
+        request: {
+          lines: [
+            line({
+              id: 5,
+              method: APP_SERVER_METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_LIST,
+              params: {
+                workspaceId: "workspace-1",
+                surfaceKind: "objectCanvas",
+              },
+            }),
+          ],
+        },
+      },
+    );
+    expect(safeInvoke).toHaveBeenNthCalledWith(
+      3,
+      "app_server_handle_json_lines",
+      {
+        request: {
+          lines: [
+            line({
+              id: 6,
+              method: APP_SERVER_METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CONSUME,
+              params: {
+                requestId: pending.requestId,
+                requestIds: ["right-surface:missing"],
+              },
+            }),
+          ],
+        },
+      },
+    );
+    expect(safeInvoke).toHaveBeenNthCalledWith(
+      4,
+      "app_server_handle_json_lines",
+      {
+        request: {
+          lines: [
+            line({
+              id: 7,
+              method: APP_SERVER_METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_DISMISS,
+              params: {
+                requestId: pending.requestId,
+                requestIds: ["right-surface:gone"],
+                reason: "user_closed_surface",
+              },
+            }),
+          ],
+        },
+      },
+    );
   });
 
   it("listSessions 应通过 App Server JSON-RPC agentSession/list", async () => {
@@ -376,6 +662,224 @@ describe("App Server API", () => {
               artifactRef: "artifact-report",
               includeContent: true,
               limit: 1,
+            },
+          }),
+        ],
+      },
+    });
+  });
+
+  it("readAgentSessionMedia 应通过 App Server JSON-RPC 读取已知 sidecar media", async () => {
+    vi.mocked(safeInvoke).mockResolvedValueOnce({
+      lines: [
+        line({
+          id: 6,
+          result: {
+            sessionId: "session-media",
+            uri: "sidecar://media/demo",
+            mimeType: "image/png",
+            bytes: 4,
+            totalBytes: 4,
+            offset: 0,
+            length: 4,
+            contentRange: "bytes 0-3/4",
+            hasMore: false,
+            sha256: "sha256:demo",
+            contentBase64: "iVBORw==",
+            sidecarRef: {
+              ref: "sidecar://media/demo",
+              kind: "media",
+              relativePath: "sessions/session-media/media/demo.png",
+            },
+          },
+        }),
+      ],
+    });
+
+    const client = new AppServerClient({ initialRequestId: 6 });
+    const result = await client.readAgentSessionMedia({
+      sessionId: "session-media",
+      uri: "sidecar://media/demo",
+      maxBytes: 1024,
+    });
+
+    expect(result.result.contentBase64).toBe("iVBORw==");
+    expect(result.result.contentRange).toBe("bytes 0-3/4");
+    expect(result.result.hasMore).toBe(false);
+    expect(result.result.sidecarRef).toMatchObject({
+      ref: "sidecar://media/demo",
+      kind: "media",
+    });
+    expect(safeInvoke).toHaveBeenNthCalledWith(
+      1,
+      "app_server_handle_json_lines",
+      {
+        request: {
+          lines: [
+            line({
+              id: 6,
+              method: APP_SERVER_METHOD_AGENT_SESSION_MEDIA_READ,
+              params: {
+                sessionId: "session-media",
+                uri: "sidecar://media/demo",
+                maxBytes: 1024,
+              },
+            }),
+          ],
+        },
+      },
+    );
+  });
+
+  it("readAgentSessionMedia abort 后应拒绝并忽略迟到 bridge 结果", async () => {
+    let resolveSafeInvoke!: (value: unknown) => void;
+    const pendingSafeInvoke = new Promise((resolve) => {
+      resolveSafeInvoke = resolve;
+    });
+    vi.mocked(safeInvoke).mockReturnValueOnce(
+      pendingSafeInvoke as ReturnType<typeof safeInvoke>,
+    );
+    const abortController = new AbortController();
+
+    const client = new AppServerClient({ initialRequestId: 6 });
+    const result = client.readAgentSessionMedia(
+      {
+        sessionId: "session-media",
+        uri: "sidecar://media/demo",
+        maxBytes: 1024,
+      },
+      { signal: abortController.signal },
+    );
+
+    abortController.abort("preview superseded");
+
+    await expect(result).rejects.toMatchObject({
+      name: "AppServerRequestAbortedError",
+      method: APP_SERVER_METHOD_AGENT_SESSION_MEDIA_READ,
+      requestId: 6,
+      reason: "preview superseded",
+    });
+    await expect(result).rejects.toBeInstanceOf(AppServerRequestAbortedError);
+    expect(safeInvoke).toHaveBeenCalledWith("app_server_handle_json_lines", {
+      request: {
+        lines: [
+          line({
+            id: 6,
+            method: APP_SERVER_METHOD_AGENT_SESSION_MEDIA_READ,
+            params: {
+              sessionId: "session-media",
+              uri: "sidecar://media/demo",
+              maxBytes: 1024,
+            },
+          }),
+        ],
+      },
+    });
+    expect(safeInvoke).toHaveBeenNthCalledWith(
+      2,
+      "app_server_handle_json_lines",
+      {
+        request: {
+          lines: [
+            line({
+              method: APP_SERVER_METHOD_CANCEL_REQUEST,
+              params: { id: 6 },
+            }),
+          ],
+        },
+      },
+    );
+
+    resolveSafeInvoke({
+      lines: [
+        line({
+          id: 6,
+          result: {
+            sessionId: "session-media",
+            uri: "sidecar://media/demo",
+            mimeType: "image/png",
+            bytes: 4,
+            totalBytes: 4,
+            offset: 0,
+            length: 4,
+            contentRange: "bytes 0-3/4",
+            hasMore: false,
+            sha256: "sha256:demo",
+            contentBase64: "iVBORw==",
+            sidecarRef: {
+              ref: "sidecar://media/demo",
+              kind: "media",
+              relativePath: "sessions/session-media/media/demo.png",
+            },
+          },
+        }),
+      ],
+    });
+    await Promise.resolve();
+  });
+
+  it("appendAgentSessionRuntimeEvents 应通过 App Server current method 写入 runtime event", async () => {
+    vi.mocked(safeInvoke).mockResolvedValueOnce({
+      lines: [
+        line({
+          id: 6,
+          result: {
+            events: [
+              {
+                eventId: "evt-runtime-1",
+                sessionId: "session-1",
+                turnId: "turn-1",
+                sequence: 8,
+                type: "artifact.snapshot",
+                payload: {
+                  artifact: {
+                    artifactId: "artifact-document-1",
+                  },
+                },
+                timestamp: "2026-06-24T00:00:00.000Z",
+              },
+            ],
+          },
+        }),
+      ],
+    });
+
+    const client = new AppServerClient({ initialRequestId: 6 });
+    const result = await client.appendAgentSessionRuntimeEvents({
+      sessionId: "session-1",
+      turnId: "turn-1",
+      runtimeEvents: [
+        {
+          type: "artifact.snapshot",
+          payload: {
+            artifact: {
+              artifactId: "artifact-document-1",
+            },
+          },
+        },
+      ],
+    });
+
+    expect(result.result.events?.[0]?.eventId).toBe("evt-runtime-1");
+    expect(safeInvoke).toHaveBeenCalledWith("app_server_handle_json_lines", {
+      request: {
+        lines: [
+          line({
+            id: 6,
+            method: APP_SERVER_METHOD_AGENT_SESSION_RUNTIME_EVENTS_APPEND,
+            params: {
+              sessionId: "session-1",
+              turnId: "turn-1",
+              runtimeEvents: [
+                {
+                  type: "artifact.snapshot",
+                  payload: {
+                    artifact: {
+                      artifactId: "artifact-document-1",
+                    },
+                  },
+                },
+              ],
             },
           }),
         ],
@@ -581,7 +1085,7 @@ describe("App Server API", () => {
             id: 7,
             result: {
               path: "/workspace/README.md",
-              content: "# Ember",
+              content: "# Lime",
               isBinary: false,
               size: 6,
               error: null,
@@ -598,7 +1102,7 @@ describe("App Server API", () => {
     });
 
     expect(listing.result.entries[0].name).toBe("README.md");
-    expect(preview.result.content).toBe("# Ember");
+    expect(preview.result.content).toBe("# Lime");
     expect(safeInvoke).toHaveBeenNthCalledWith(
       1,
       "app_server_handle_json_lines",
@@ -629,6 +1133,212 @@ describe("App Server API", () => {
                 path: "/workspace/README.md",
                 maxSize: 1024,
               },
+            }),
+          ],
+        },
+      },
+    );
+  });
+
+  it("readProjectGitDiff 应通过 App Server JSON-RPC 读取 Git diff", async () => {
+    vi.mocked(safeInvoke).mockResolvedValueOnce({
+      lines: [
+        line({
+          id: 8,
+          result: {
+            rootPath: "/workspace",
+            repositoryRoot: "/workspace",
+            hasGitRepository: true,
+            currentRef: "main",
+            comparisonBaseRef: "origin/main",
+            patch: "diff --git a/README.md b/README.md\n+hello",
+            uncommittedFileCount: 1,
+          },
+        }),
+      ],
+    });
+
+    const client = new AppServerClient({ initialRequestId: 8 });
+    const diff = await client.readProjectGitDiff({
+      rootPath: "/workspace",
+      contextLines: 5,
+      base: "branch",
+    });
+
+    expect(diff.result.patch).toContain("diff --git");
+    expect(diff.result.currentRef).toBe("main");
+    expect(diff.result.comparisonBaseRef).toBe("origin/main");
+    expect(safeInvoke).toHaveBeenCalledWith("app_server_handle_json_lines", {
+      request: {
+        lines: [
+          line({
+            id: 8,
+            method: APP_SERVER_METHOD_PROJECT_GIT_DIFF,
+            params: {
+              rootPath: "/workspace",
+              contextLines: 5,
+              base: "branch",
+            },
+          }),
+        ],
+      },
+    });
+  });
+
+  it("execution process 控制面应通过 App Server JSON-RPC current methods", async () => {
+    vi.mocked(safeInvoke)
+      .mockResolvedValueOnce({
+        lines: [
+          line({
+            id: 10,
+            result: {
+              snapshot: {
+                processId: "process-1",
+                toolId: "tool-1",
+                toolName: "Bash",
+                status: "running",
+                exitCode: null,
+                elapsedMs: 0,
+                outputBytes: 0,
+                outputOmittedBytes: 0,
+                outputTruncated: false,
+                retainedOutput: "",
+                failure: null,
+              },
+            },
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        lines: [
+          line({
+            id: 11,
+            result: {
+              snapshot: {
+                processId: "process-1",
+                toolId: "tool-1",
+                toolName: "Bash",
+                status: "interrupted",
+                exitCode: null,
+                elapsedMs: 12,
+                outputBytes: 0,
+                outputOmittedBytes: 0,
+                outputTruncated: false,
+                retainedOutput: "",
+                failure: null,
+              },
+            },
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        lines: [
+          line({
+            id: 12,
+            result: {
+              deltas: [
+                {
+                  processId: "process-1",
+                  toolId: "tool-1",
+                  sequence: 1,
+                  kind: "stdout",
+                  delta: "ok",
+                  bytes: 2,
+                  omittedBytes: 0,
+                  truncated: false,
+                },
+              ],
+            },
+          }),
+        ],
+      });
+
+    const client = new AppServerClient({ initialRequestId: 10 });
+
+    await expect(
+      client.startExecutionProcess({
+        processId: "process-1",
+        toolId: "tool-1",
+        toolName: "Bash",
+        command: ["sh", "-c", "npm test"],
+        workingDirectory: "/workspace",
+        approvalPolicy: "never",
+        sandboxPolicy: "danger-full-access",
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          snapshot: expect.objectContaining({ processId: "process-1" }),
+        }),
+      }),
+    );
+    await expect(
+      client.interruptExecutionProcess({ processId: "process-1" }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          snapshot: expect.objectContaining({ status: "interrupted" }),
+        }),
+      }),
+    );
+    await expect(
+      client.drainExecutionProcessOutput({ processId: "process-1", limit: 16 }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          deltas: [expect.objectContaining({ delta: "ok" })],
+        }),
+      }),
+    );
+
+    expect(safeInvoke).toHaveBeenNthCalledWith(
+      1,
+      "app_server_handle_json_lines",
+      {
+        request: {
+          lines: [
+            line({
+              id: 10,
+              method: APP_SERVER_METHOD_EXECUTION_PROCESS_START,
+              params: {
+                processId: "process-1",
+                toolId: "tool-1",
+                toolName: "Bash",
+                command: ["sh", "-c", "npm test"],
+                workingDirectory: "/workspace",
+                approvalPolicy: "never",
+                sandboxPolicy: "danger-full-access",
+              },
+            }),
+          ],
+        },
+      },
+    );
+    expect(safeInvoke).toHaveBeenNthCalledWith(
+      2,
+      "app_server_handle_json_lines",
+      {
+        request: {
+          lines: [
+            line({
+              id: 11,
+              method: APP_SERVER_METHOD_EXECUTION_PROCESS_INTERRUPT,
+              params: { processId: "process-1" },
+            }),
+          ],
+        },
+      },
+    );
+    expect(safeInvoke).toHaveBeenNthCalledWith(
+      3,
+      "app_server_handle_json_lines",
+      {
+        request: {
+          lines: [
+            line({
+              id: 12,
+              method: APP_SERVER_METHOD_EXECUTION_PROCESS_DRAIN_OUTPUT,
+              params: { processId: "process-1", limit: 16 },
             }),
           ],
         },
@@ -685,9 +1395,9 @@ describe("App Server API", () => {
             ],
             exportedAt: "2026-06-05T00:00:02.000Z",
             evidencePack: {
-              packRelativeRoot: ".ember/harness/sessions/session-1/evidence",
+              packRelativeRoot: ".lime/harness/sessions/session-1/evidence",
               packAbsoluteRoot:
-                "/workspace/.ember/harness/sessions/session-1/evidence",
+                "/workspace/.lime/harness/sessions/session-1/evidence",
               exportedAt: "2026-06-05T00:00:03.000Z",
               threadStatus: "running",
               latestTurnStatus: "accepted",
@@ -708,7 +1418,7 @@ describe("App Server API", () => {
                   kind: "summary",
                   title: "Evidence Summary",
                   relativePath:
-                    ".ember/harness/sessions/session-1/evidence/summary.md",
+                    ".lime/harness/sessions/session-1/evidence/summary.md",
                   bytes: 128,
                 },
               ],
@@ -804,9 +1514,6 @@ describe("App Server API", () => {
       },
       runtimeOptions: {
         stream: true,
-        hostOptions: {
-          adapter: "desktop",
-        },
       },
       queueIfBusy: true,
       skipPreSubmitResume: true,
@@ -831,12 +1538,47 @@ describe("App Server API", () => {
               },
               runtimeOptions: {
                 stream: true,
-                hostOptions: {
-                  adapter: "desktop",
-                },
               },
               queueIfBusy: true,
               skipPreSubmitResume: true,
+            },
+          }),
+        ],
+      },
+    });
+  });
+
+  it("readWorkflow 应走 App Server current workflow/read 方法", async () => {
+    vi.mocked(safeInvoke).mockResolvedValueOnce({
+      lines: [
+        line({
+          id: 11,
+          result: {
+            sessionId: "session-1",
+            workflow: {
+              threadId: "thread-1",
+              workflowRuns: [],
+              workflowSteps: [],
+              actions: [],
+              updatedAt: "2026-07-04T00:00:00.000Z",
+            },
+          },
+        }),
+      ],
+    });
+
+    const client = new AppServerClient({ initialRequestId: 11 });
+    const result = await client.readWorkflow({ sessionId: "session-1" });
+
+    expect(result.result.workflow.workflowRuns).toEqual([]);
+    expect(safeInvoke).toHaveBeenCalledWith("app_server_handle_json_lines", {
+      request: {
+        lines: [
+          line({
+            id: 11,
+            method: APP_SERVER_METHOD_WORKFLOW_READ,
+            params: {
+              sessionId: "session-1",
             },
           }),
         ],
@@ -1227,7 +1969,7 @@ describe("App Server API", () => {
           line({
             id: 14,
             result: {
-              bundlePath: "/tmp/Ember-Support.zip",
+              bundlePath: "/tmp/Lime-Support.zip",
               outputDirectory: "/tmp",
               generatedAt: "2026-06-09T00:00:00Z",
               platform: "darwin",
@@ -1302,6 +2044,103 @@ describe("App Server API", () => {
             },
           }),
         ],
+      })
+      .mockResolvedValueOnce({
+        lines: [
+          line({
+            id: 17,
+            result: {
+              available: true,
+              traces: [
+                {
+                  sessionId: "session-a",
+                  traceId: "trace-a",
+                  path: "sessions/session_session-a/trace_trace-a.jsonl",
+                  sizeBytes: 128,
+                  eventCount: 2,
+                },
+              ],
+              redaction: {
+                mode: "summary_only",
+                rawAgentEventPayload: false,
+                promptText: false,
+                providerPayload: false,
+              },
+            },
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        lines: [
+          line({
+            id: 18,
+            result: {
+              available: true,
+              trace: {
+                sessionId: "session-a",
+                traceId: "trace-a",
+                path: "sessions/session_session-a/trace_trace-a.jsonl",
+                sizeBytes: 128,
+                eventCount: 2,
+              },
+              events: [
+                {
+                  schemaVersion: 1,
+                  seq: 1,
+                  wallTimeUnixMs: 1_780_000_000_000,
+                  traceId: "trace-a",
+                  sessionId: "session-a",
+                  eventId: "evt-a",
+                  eventSequence: 1,
+                  eventType: "message.delta",
+                  checkpoint: "app_server.message_delta.emitted",
+                  metrics: { text_chars: 4 },
+                  redaction: {
+                    mode: "summary_only",
+                    rawAgentEventPayload: false,
+                    promptText: false,
+                    providerPayload: false,
+                  },
+                },
+              ],
+              redaction: {
+                mode: "summary_only",
+                rawAgentEventPayload: false,
+                promptText: false,
+                providerPayload: false,
+              },
+            },
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        lines: [
+          line({
+            id: 19,
+            result: {
+              available: true,
+              exported: true,
+              trace: {
+                sessionId: "session-a",
+                traceId: "trace-a",
+                path: "sessions/session_session-a/trace_trace-a.jsonl",
+                sizeBytes: 128,
+                eventCount: 2,
+              },
+              bundlePath: "/tmp/claw-trace-session-a-trace-a.zip",
+              outputDirectory: "/tmp",
+              generatedAt: "2026-06-27T00:00:00.000Z",
+              includedSections: ["trace/events.jsonl"],
+              omittedSections: ["prompt text"],
+              redaction: {
+                mode: "summary_only",
+                rawAgentEventPayload: false,
+                promptText: false,
+                providerPayload: false,
+              },
+            },
+          }),
+        ],
       });
 
     const client = new AppServerClient({ initialRequestId: 9 });
@@ -1328,7 +2167,7 @@ describe("App Server API", () => {
       result: { currentLogExists: true },
     });
     await expect(client.exportSupportBundle()).resolves.toMatchObject({
-      result: { bundlePath: "/tmp/Ember-Support.zip" },
+      result: { bundlePath: "/tmp/Lime-Support.zip" },
     });
     await expect(client.readServerDiagnostics()).resolves.toMatchObject({
       result: { running: true },
@@ -1338,6 +2177,39 @@ describe("App Server API", () => {
         result: { platform: "darwin" },
       },
     );
+    await expect(
+      client.listDiagnosticsTraces({ sessionId: "session-a", limit: 5 }),
+    ).resolves.toMatchObject({
+      result: {
+        traces: [expect.objectContaining({ traceId: "trace-a" })],
+      },
+    });
+    await expect(
+      client.readDiagnosticsTrace({
+        sessionId: "session-a",
+        traceId: "trace-a",
+        maxEvents: 20,
+      }),
+    ).resolves.toMatchObject({
+      result: {
+        events: [
+          expect.objectContaining({
+            checkpoint: "app_server.message_delta.emitted",
+          }),
+        ],
+      },
+    });
+    await expect(
+      client.exportDiagnosticsTrace({
+        sessionId: "session-a",
+        traceId: "trace-a",
+      }),
+    ).resolves.toMatchObject({
+      result: {
+        exported: true,
+        bundlePath: "/tmp/claw-trace-session-a-trace-a.zip",
+      },
+    });
 
     expect(safeInvoke).toHaveBeenNthCalledWith(
       1,
@@ -1459,6 +2331,58 @@ describe("App Server API", () => {
         },
       },
     );
+    expect(safeInvoke).toHaveBeenNthCalledWith(
+      9,
+      "app_server_handle_json_lines",
+      {
+        request: {
+          lines: [
+            line({
+              id: 17,
+              method: APP_SERVER_METHOD_DIAGNOSTICS_TRACE_LIST,
+              params: { sessionId: "session-a", limit: 5 },
+            }),
+          ],
+        },
+      },
+    );
+    expect(safeInvoke).toHaveBeenNthCalledWith(
+      10,
+      "app_server_handle_json_lines",
+      {
+        request: {
+          lines: [
+            line({
+              id: 18,
+              method: APP_SERVER_METHOD_DIAGNOSTICS_TRACE_READ,
+              params: {
+                sessionId: "session-a",
+                traceId: "trace-a",
+                maxEvents: 20,
+              },
+            }),
+          ],
+        },
+      },
+    );
+    expect(safeInvoke).toHaveBeenNthCalledWith(
+      11,
+      "app_server_handle_json_lines",
+      {
+        request: {
+          lines: [
+            line({
+              id: 19,
+              method: APP_SERVER_METHOD_DIAGNOSTICS_TRACE_EXPORT,
+              params: {
+                sessionId: "session-a",
+                traceId: "trace-a",
+              },
+            }),
+          ],
+        },
+      },
+    );
   });
 
   it("media task artifact helpers 应通过 App Server JSON-RPC current methods", async () => {
@@ -1474,12 +2398,12 @@ describe("App Server API", () => {
               task_family: "image",
               status: "pending_submit",
               normalized_status: "pending",
-              path: ".ember/tasks/image_generate/task-image-1.json",
+              path: ".lime/tasks/image_generate/task-image-1.json",
               absolute_path:
-                "/workspace/.ember/tasks/image_generate/task-image-1.json",
-              artifact_path: ".ember/tasks/image_generate/task-image-1.json",
+                "/workspace/.lime/tasks/image_generate/task-image-1.json",
+              artifact_path: ".lime/tasks/image_generate/task-image-1.json",
               absolute_artifact_path:
-                "/workspace/.ember/tasks/image_generate/task-image-1.json",
+                "/workspace/.lime/tasks/image_generate/task-image-1.json",
               reused_existing: false,
               record: {},
             },
@@ -1497,12 +2421,12 @@ describe("App Server API", () => {
               task_family: "audio",
               status: "pending_submit",
               normalized_status: "pending",
-              path: ".ember/tasks/audio_generate/task-audio-1.json",
+              path: ".lime/tasks/audio_generate/task-audio-1.json",
               absolute_path:
-                "/workspace/.ember/tasks/audio_generate/task-audio-1.json",
-              artifact_path: ".ember/tasks/audio_generate/task-audio-1.json",
+                "/workspace/.lime/tasks/audio_generate/task-audio-1.json",
+              artifact_path: ".lime/tasks/audio_generate/task-audio-1.json",
               absolute_artifact_path:
-                "/workspace/.ember/tasks/audio_generate/task-audio-1.json",
+                "/workspace/.lime/tasks/audio_generate/task-audio-1.json",
               reused_existing: false,
               record: {},
             },
@@ -1520,12 +2444,12 @@ describe("App Server API", () => {
               task_family: "audio",
               status: "succeeded",
               normalized_status: "succeeded",
-              path: ".ember/tasks/audio_generate/task-audio-1.json",
+              path: ".lime/tasks/audio_generate/task-audio-1.json",
               absolute_path:
-                "/workspace/.ember/tasks/audio_generate/task-audio-1.json",
-              artifact_path: ".ember/tasks/audio_generate/task-audio-1.json",
+                "/workspace/.lime/tasks/audio_generate/task-audio-1.json",
+              artifact_path: ".lime/tasks/audio_generate/task-audio-1.json",
               absolute_artifact_path:
-                "/workspace/.ember/tasks/audio_generate/task-audio-1.json",
+                "/workspace/.lime/tasks/audio_generate/task-audio-1.json",
               reused_existing: false,
               record: {},
             },
@@ -1541,14 +2465,14 @@ describe("App Server API", () => {
               task_id: "task-image-1",
               task_type: "image_generate",
               task_family: "image",
-              status: "pending_submit",
-              normalized_status: "pending",
-              path: ".ember/tasks/image_generate/task-image-1.json",
+              status: "succeeded",
+              normalized_status: "succeeded",
+              path: ".lime/tasks/image_generate/task-image-1.json",
               absolute_path:
-                "/workspace/.ember/tasks/image_generate/task-image-1.json",
-              artifact_path: ".ember/tasks/image_generate/task-image-1.json",
+                "/workspace/.lime/tasks/image_generate/task-image-1.json",
+              artifact_path: ".lime/tasks/image_generate/task-image-1.json",
               absolute_artifact_path:
-                "/workspace/.ember/tasks/image_generate/task-image-1.json",
+                "/workspace/.lime/tasks/image_generate/task-image-1.json",
               reused_existing: false,
               record: {},
             },
@@ -1561,8 +2485,31 @@ describe("App Server API", () => {
             id: 17,
             result: {
               success: true,
+              task_id: "task-image-1",
+              task_type: "image_generate",
+              task_family: "image",
+              status: "pending_submit",
+              normalized_status: "pending",
+              path: ".lime/tasks/image_generate/task-image-1.json",
+              absolute_path:
+                "/workspace/.lime/tasks/image_generate/task-image-1.json",
+              artifact_path: ".lime/tasks/image_generate/task-image-1.json",
+              absolute_artifact_path:
+                "/workspace/.lime/tasks/image_generate/task-image-1.json",
+              reused_existing: false,
+              record: {},
+            },
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        lines: [
+          line({
+            id: 18,
+            result: {
+              success: true,
               workspace_root: "/workspace",
-              artifact_root: "/workspace/.ember/tasks",
+              artifact_root: "/workspace/.lime/tasks",
               filters: { task_family: "image", limit: 10 },
               total: 1,
               modality_runtime_contracts: {},
@@ -1574,7 +2521,7 @@ describe("App Server API", () => {
       .mockResolvedValueOnce({
         lines: [
           line({
-            id: 18,
+            id: 19,
             result: {
               success: true,
               task_id: "task-image-1",
@@ -1582,12 +2529,12 @@ describe("App Server API", () => {
               task_family: "image",
               status: "cancelled",
               normalized_status: "cancelled",
-              path: ".ember/tasks/image_generate/task-image-1.json",
+              path: ".lime/tasks/image_generate/task-image-1.json",
               absolute_path:
-                "/workspace/.ember/tasks/image_generate/task-image-1.json",
-              artifact_path: ".ember/tasks/image_generate/task-image-1.json",
+                "/workspace/.lime/tasks/image_generate/task-image-1.json",
+              artifact_path: ".lime/tasks/image_generate/task-image-1.json",
               absolute_artifact_path:
-                "/workspace/.ember/tasks/image_generate/task-image-1.json",
+                "/workspace/.lime/tasks/image_generate/task-image-1.json",
               reused_existing: false,
               record: {},
             },
@@ -1608,7 +2555,17 @@ describe("App Server API", () => {
     const audioCompleteRequest = {
       projectRootPath: "/workspace",
       taskRef: "task-audio-1",
-      audioPath: ".ember/runtime/audio/task-audio-1.mp3",
+      audioPath: ".lime/runtime/audio/task-audio-1.mp3",
+    };
+    const imageCompleteRequest = {
+      projectRootPath: "/workspace",
+      taskRef: "task-image-1",
+      images: [
+        {
+          url: "file:///workspace/.lime/runtime/images/task-image-1.png",
+          revisedPrompt: "未来感青柠实验室",
+        },
+      ],
     };
     const lookupRequest = {
       projectRootPath: "/workspace",
@@ -1632,6 +2589,11 @@ describe("App Server API", () => {
     });
     await expect(
       client.completeAudioMediaTaskArtifact(audioCompleteRequest),
+    ).resolves.toMatchObject({
+      result: { normalized_status: "succeeded" },
+    });
+    await expect(
+      client.completeImageMediaTaskArtifact(imageCompleteRequest),
     ).resolves.toMatchObject({
       result: { normalized_status: "succeeded" },
     });
@@ -1663,9 +2625,14 @@ describe("App Server API", () => {
         APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_AUDIO_COMPLETE,
         audioCompleteRequest,
       ],
-      [16, APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_GET, lookupRequest],
-      [17, APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_LIST, listRequest],
-      [18, APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_CANCEL, lookupRequest],
+      [
+        16,
+        APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_IMAGE_COMPLETE,
+        imageCompleteRequest,
+      ],
+      [17, APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_GET, lookupRequest],
+      [18, APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_LIST, listRequest],
+      [19, APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_CANCEL, lookupRequest],
     ] as const;
 
     expectedCalls.forEach(([id, method, params], index) => {
@@ -1791,6 +2758,62 @@ describe("App Server API", () => {
     ]);
     expect(safeInvoke).toHaveBeenCalledWith("app_server_drain_events", {
       request: { limit: 5 },
+    });
+  });
+
+  it("drainEvents 应透传 includeRecent 读取最近镜像 notification", async () => {
+    vi.mocked(safeInvoke).mockResolvedValueOnce({
+      lines: [
+        line({
+          method: APP_SERVER_METHOD_AGENT_SESSION_EVENT,
+          params: {
+            event: {
+              eventId: "evt-recent-1",
+              sequence: 4,
+              sessionId: "session-1",
+              type: "media.read.chunk",
+              timestamp: "2026-06-04T00:00:02Z",
+              payload: {
+                streamId: "media-read-stream-1",
+                chunkIndex: 1,
+                done: false,
+                chunk: {
+                  sessionId: "session-1",
+                  uri: "sidecar://media/image-1",
+                  bytes: 1,
+                  totalBytes: 3,
+                  offset: 0,
+                  length: 1,
+                  contentRange: "bytes 0-0/3",
+                  hasMore: true,
+                  contentBase64: "YQ==",
+                },
+              },
+            },
+          },
+        }),
+      ],
+    });
+
+    const client = new AppServerClient();
+    const messages = await client.drainEvents({
+      includeRecent: true,
+      limit: 20,
+    });
+
+    expect(messages).toEqual([
+      {
+        method: APP_SERVER_METHOD_AGENT_SESSION_EVENT,
+        params: {
+          event: expect.objectContaining({
+            eventId: "evt-recent-1",
+            type: "media.read.chunk",
+          }),
+        },
+      },
+    ]);
+    expect(safeInvoke).toHaveBeenCalledWith("app_server_drain_events", {
+      request: { includeRecent: true, limit: 20 },
     });
   });
 
@@ -2029,7 +3052,7 @@ describe("App Server API", () => {
             result: {
               result: {
                 ok: true,
-                tunnelName: "ember",
+                tunnelName: "lime",
                 message: "created",
               },
               status: {
@@ -2106,8 +3129,8 @@ describe("App Server API", () => {
             result: {
               channel: "feishu",
               webhookPath: "/feishu/default",
-              publicBaseUrl: "https://ember.example.com",
-              webhookUrl: "https://ember.example.com/feishu/default",
+              publicBaseUrl: "https://lime.example.com",
+              webhookUrl: "https://lime.example.com/feishu/default",
               persisted: true,
             },
           }),
@@ -2119,7 +3142,7 @@ describe("App Server API", () => {
     await client.detectGatewayTunnelCloudflared();
     await client.installGatewayTunnelCloudflared({ confirm: true });
     await client.createGatewayTunnel({
-      tunnelName: "ember",
+      tunnelName: "lime",
       dnsName: "bot.example.com",
       persist: true,
     });
@@ -2141,7 +3164,7 @@ describe("App Server API", () => {
       [
         APP_SERVER_METHOD_GATEWAY_TUNNEL_CREATE,
         {
-          tunnelName: "ember",
+          tunnelName: "lime",
           dnsName: "bot.example.com",
           persist: true,
         },

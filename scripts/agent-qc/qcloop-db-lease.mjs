@@ -8,13 +8,13 @@ import process from "node:process";
 function parseArgs(argv) {
   const result = {
     checkTerminal: false,
-    dbPath: ".ember/qc/qcloop-isolated-worker-preflight.db",
+    dbPath: ".lime/qc/qcloop-isolated-worker-preflight.db",
     format: "summary",
     help: false,
     jobId: "",
     markdownOutputPath: "",
     outputPath: "",
-    processOwnerPath: ".ember/qc/gui-process-owner-current.json",
+    processOwnerPath: ".lime/qc/gui-process-owner-current.json",
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -62,16 +62,16 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Agent QC qcloop DB Lease Snapshot
+Lime Agent QC qcloop DB Lease Snapshot
 
 用法:
   npm run agent-qc:qcloop-db-lease -- --job-id <qcloop-job-id>
-  node scripts/agent-qc/qcloop-db-lease.mjs --db ./.ember/qc/qcloop-isolated-worker-preflight.db --job-id <id> --format json --output ./.ember/qc/qcloop-db-lease-current.json
+  node scripts/agent-qc/qcloop-db-lease.mjs --db ./.lime/qc/qcloop-isolated-worker-preflight.db --job-id <id> --format json --output ./.lime/qc/qcloop-db-lease-current.json
 
 选项:
-  --db PATH                  qcloop SQLite DB，默认 .ember/qc/qcloop-isolated-worker-preflight.db
+  --db PATH                  qcloop SQLite DB，默认 .lime/qc/qcloop-isolated-worker-preflight.db
   --job-id ID                qcloop job id，必填
-  --process-owner PATH       raw process owner sidecar，默认 .ember/qc/gui-process-owner-current.json
+  --process-owner PATH       raw process owner sidecar，默认 .lime/qc/gui-process-owner-current.json
   --format FMT               summary | json，默认 summary
   --output PATH              写入文件；默认 stdout
   --markdown-output PATH     额外写入 Markdown 摘要
@@ -199,7 +199,7 @@ function createDbLeaseReport({
       "do not kill / pause / interrupt stale worker without owner confirmation",
       "do not modify qcloop SQLite DB",
       "do not start another full GUI P0 batch while GUI owner is blocked",
-      "do not overwrite .ember/qc/agent-qc-evidence.json before a real 8/8 P0 pass",
+      "do not overwrite .lime/qc/agent-qc-evidence.json before a real 8/8 P0 pass",
     ],
   };
 }

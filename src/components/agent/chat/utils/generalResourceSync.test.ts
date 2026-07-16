@@ -53,12 +53,12 @@ describe("generalResourceSync", () => {
     expect(inferGeneralChatResourceMaterialType("script.ts")).toBe("document");
     expect(
       inferGeneralChatResourceMaterialType(
-        ".ember/tasks/image_generate/task-image-1.json",
+        ".lime/tasks/image_generate/task-image-1.json",
       ),
     ).toBeNull();
     expect(
       inferGeneralChatResourceMaterialType(
-        "/workspace/demo/.ember/tasks/image_generate/task-image-1.json",
+        "/workspace/demo/.lime/tasks/image_generate/task-image-1.json",
       ),
     ).toBeNull();
     expect(inferGeneralChatResourceMaterialType("   ")).toBeNull();

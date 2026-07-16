@@ -38,10 +38,6 @@ vi.mock("./components/settings-v2/system/chrome-relay/guide-window", () => ({
   ),
 }));
 
-vi.mock("./components/ui/sonner", () => ({
-  Toaster: () => <div data-testid="toaster" />,
-}));
-
 vi.mock("./components/layout/AppCrashBoundary", () => ({
   AppCrashBoundary: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
@@ -96,11 +92,12 @@ describe("RootRouter", () => {
     const { container } = await renderRootRouter("/");
 
     expect(container.textContent).toContain("主应用");
+    expect(container.querySelector('[data-sonner-toaster]')).toBeNull();
   });
 
   it("Windows 独立窗口从 index.html 入口启动时应映射到连接器引导页", async () => {
     const { container } = await renderRootRouter(
-      "/index.html?ember_window=browser-connector-guide&mode=cdp",
+      "/index.html?lime_window=browser-connector-guide&mode=cdp",
     );
 
     expect(
@@ -110,11 +107,33 @@ describe("RootRouter", () => {
 
   it("独立更新窗口从 index.html 入口启动时应映射到更新提醒页", async () => {
     const { container } = await renderRootRouter(
-      "/index.html?ember_window=update-notification&latest=1.58.0",
+      "/index.html?lime_window=update-notification&latest=1.58.0",
     );
 
     expect(
       container.querySelector('[data-testid="update-notification-page"]'),
     ).not.toBeNull();
+  });
+
+  it("独立资源管理器窗口从 index.html 入口启动时应映射到资源管理器页", async () => {
+    const { container } = await renderRootRouter(
+      "/index.html?lime_window=resource-manager&session=resource-session-1",
+    );
+
+    expect(
+      container.querySelector('[data-testid="resource-manager-page"]'),
+    ).not.toBeNull();
+    expect(container.querySelector('[data-testid="main-app"]')).toBeNull();
+  });
+
+  it("打包后的文件路径 index.html 入口也应映射到更新提醒页", async () => {
+    const { container } = await renderRootRouter(
+      "/Applications/Lime.app/Contents/Resources/app.asar/dist/index.html?lime_window=update-notification&latest=1.58.0",
+    );
+
+    expect(
+      container.querySelector('[data-testid="update-notification-page"]'),
+    ).not.toBeNull();
+    expect(container.querySelector('[data-testid="main-app"]')).toBeNull();
   });
 });

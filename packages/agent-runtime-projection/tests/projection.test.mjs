@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { getAgentUiFixture } from "../../agent-ui-contracts/dist/index.js";
 import {
   buildAgentUiActionRequiredEvent,
   buildAgentUiActionResolvedEvent,
@@ -20,7 +21,6 @@ import {
   buildAgentUiThreadItemBase,
   buildAgentUiThreadItemEvent,
   buildAgentUiThreadItemSubagentActivityEvent,
-  buildAgentUiThreadItemSubagentWorkerNotificationEvent,
   buildAgentUiToolEndEvent,
   buildAgentUiToolEndEvents,
   buildAgentUiToolInputDeltaEvent,
@@ -38,14 +38,14 @@ import {
   indexAgentUiProjectionEvents,
   isAgentUiTaskUpdateToolName,
   isAgentInputSourceRecoveryEvent,
-  isSubagentTerminalStatus,
   metadataKeys,
   normalizeAgentUiProjectionToolName,
   normalizeProjectionIdList,
   normalizeRuntimePhaseFromRuntimeStatusPhase,
   normalizeRuntimeStatusFromRuntimePhase,
-  normalizeSubagentRuntimeStatus,
   projectAgentUiState,
+  projectAgentUiMcpSurface,
+  projectAgentUiToolSurface,
   projectAgentUiStateFromSessionSnapshot,
   projectAgentRuntimeReadModel,
   readNumberField,
@@ -64,20 +64,85 @@ import {
   resolveAgentUiThreadItemPhase,
   resolveAgentUiThreadItemSubagentRuntimeStatus,
   resolveAgentUiThreadItemToolResultType,
-  resolveSubagentStatusControl,
-  resolveSubagentStatusPhase,
-  resolveTeamTopology,
   buildTeamRuntimeFacts,
-  buildSubagentRuntimeFacts,
-  buildWorkerUsageProjection,
   buildRoutingDecisionPayload,
   extractArtifactRefs,
+  projectCodingWorkbenchViewFromEvents,
   summarizeAgentUiProjectionEvents,
   summarizeAgentUiSubagentsProjectionEvents,
   summarizeAgentUiSubagentsSurfaceLanes,
   summarizeAgentUiSubagentsSurfaces,
   truncateText,
 } from "../dist/index.js";
+
+test("projectAgentUiState exposes standard tool call and MCP surfaces", () => {
+  const state = projectAgentUiState({
+    executionEvents: [
+      {
+        id: "evt-tool-start",
+        kind: "tool",
+        status: "running",
+        eventClass: "tool.started",
+        title: "MCP 搜索开始",
+        toolCallId: "tool-mcp-search",
+        payload: {
+          toolName: "mcp__github__search_code",
+          inputSummary: '{"query":"agent runtime"}',
+          mcpServer: "github",
+        },
+        createdAt: "2026-06-07T00:00:00.000Z",
+      },
+      {
+        id: "evt-tool-result",
+        kind: "tool",
+        status: "completed",
+        eventClass: "tool.result",
+        title: "MCP 搜索完成",
+        detail: "找到 2 条结果",
+        toolCallId: "tool-mcp-search",
+        artifactRefs: ["artifact-search-result"],
+        evidenceRefs: ["evidence-search-source"],
+        payload: {
+          toolName: "mcp__github__search_code",
+          outputPreview: "找到 2 条结果",
+          mcpServer: "github",
+        },
+        createdAt: "2026-06-07T00:00:01.000Z",
+      },
+      {
+        id: "evt-tool-mutation",
+        kind: "tool",
+        status: "completed",
+        eventClass: "tool.result",
+        title: "创建 issue",
+        toolCallId: "tool-mcp-mutation",
+        payload: {
+          toolName: "mcp__github__create_issue",
+          outputPreview: "已创建 issue",
+        },
+        createdAt: "2026-06-07T00:00:02.000Z",
+      },
+    ],
+  });
+
+  assert.equal(state.toolCalls.calls.length, 2);
+  assert.equal(state.toolCalls.byFamily.mcp, 2);
+  assert.deepEqual(state.toolCalls.completedCallIds, [
+    "tool-mcp-search",
+    "tool-mcp-mutation",
+  ]);
+  assert.equal(state.mcp.hasMcp, true);
+  assert.equal(state.mcp.servers[0].id, "github");
+  assert.deepEqual(
+    state.mcp.tools.map((tool) => [tool.toolName, tool.operationKind]),
+    [
+      ["search_code", "search"],
+      ["create_issue", "mutation"],
+    ],
+  );
+  assert.deepEqual(state.mcp.tools[0].artifactRefs, ["artifact-search-result"]);
+  assert.deepEqual(state.mcp.tools[0].evidenceRefs, ["evidence-search-source"]);
+});
 
 test("projectAgentRuntimeReadModel projects actions, evidence and artifacts", () => {
   const actionEvent = {
@@ -152,34 +217,195 @@ test("projectAgentRuntimeReadModel projects multiple HITL controls as standard a
   );
 });
 
-test("projectAgentRuntimeReadModel marks resolved actions", () => {
-  const model = projectAgentRuntimeReadModel({
+test("projectCodingWorkbenchViewFromEvents consumes current thread read model coding facts", () => {
+  const view = projectCodingWorkbenchViewFromEvents({
     executionEvents: [
       {
-        id: "evt-action",
-        kind: "action",
-        status: "pending",
-        eventClass: "action.required",
-        title: "需要配置模型",
-        actionId: "action-1",
-        payload: { actionKind: "configure-text-model" },
+        id: "evt-turn",
+        kind: "state",
+        status: "running",
+        eventClass: "turn.started",
+        title: "开始执行",
+        turnId: "turn-1",
         createdAt: "2026-06-07T00:00:00.000Z",
       },
-      {
-        id: "evt-resolved",
-        kind: "action",
-        status: "completed",
-        eventClass: "action.resolved",
-        title: "已处理",
-        actionId: "action-1",
-        createdAt: "2026-06-07T00:00:01.000Z",
-      },
     ],
+    codingReadModel: {
+      thread_id: "thread-1",
+      active_turn_id: "turn-1",
+      active_command_id: "command-install",
+      active_test_run_id: "test-unit",
+      change_summary: {
+        changed_file_count: 1,
+        changed_files: ["src/App.tsx"],
+        patch_count: 1,
+        running_patch_count: 1,
+        source_event_ids: ["evt-file-app", "evt-patch-app"],
+      },
+      commands: [
+        {
+          command_id: "command-install",
+          status: "running",
+          command: "bash -lc 'npm test'",
+          canonical_command: "npm test",
+          command_summary: "npm test",
+          command_argv: ["npm", "test"],
+          command_argv_source: "argv",
+          cwd: "app",
+          process_id: "process-command-install",
+          execution_process_status: "running",
+          execution_process_control_status: "registered",
+          execution_surface: "live_process",
+          stdin_writable: true,
+          output_bytes: 13,
+          output_omitted_bytes: 0,
+          output_truncated: false,
+          stdout_bytes: 13,
+          stderr_bytes: 0,
+          output_refs: ["output://command-install"],
+          output_preview: "running tests",
+        },
+      ],
+      tests: [
+        {
+          test_run_id: "test-unit",
+          status: "running",
+          command_id: "command-install",
+          canonical_command: "npm test",
+          command_summary: "npm test",
+          suite: "unit",
+          passed: 8,
+          failed: 0,
+        },
+      ],
+      pending_requests: [
+        {
+          id: "action-approve-command",
+          turn_id: "turn-1",
+          request_type: "approval",
+          status: "pending",
+          title: "确认执行命令",
+        },
+      ],
+    },
   });
 
-  assert.equal(model.pendingActions.length, 0);
-  assert.equal(model.events[0].resolved, true);
-  assert.equal(model.events[0].displayStatusKey, "agent.status.actionResolved");
+  assert.equal(view.mainObject.id, "turn-1");
+  assert.equal(view.mainObject.activeCommandId, "command-install");
+  assert.equal(view.mainObject.activeTestRunId, "test-unit");
+  assert.equal(view.commands[0].title, "npm test");
+  assert.equal(view.commands[0].command, "bash -lc 'npm test'");
+  assert.equal(view.commands[0].canonicalCommand, "npm test");
+  assert.deepEqual(view.commands[0].commandArgv, ["npm", "test"]);
+  assert.equal(view.commands[0].processId, "process-command-install");
+  assert.equal(view.commands[0].executionProcessStatus, "running");
+  assert.equal(view.commands[0].executionProcessControlStatus, "registered");
+  assert.equal(view.commands[0].executionSurface, "live_process");
+  assert.equal(view.commands[0].stdinWritable, true);
+  assert.equal(view.commands[0].outputBytes, 13);
+  assert.equal(view.commands[0].outputOmittedBytes, 0);
+  assert.equal(view.commands[0].outputTruncated, false);
+  assert.equal(view.commands[0].stdoutBytes, 13);
+  assert.equal(view.commands[0].stderrBytes, 0);
+  assert.equal(view.commands[0].preview, "running tests");
+  assert.equal(view.changeSummary?.changedFileCount, 1);
+  assert.deepEqual(view.changeSummary?.changedFiles, ["src/App.tsx"]);
+  assert.equal(view.changeSummary?.runningPatchCount, 1);
+  assert.equal(view.tests[0].commandSummary, "npm test");
+  assert.equal(view.tests[0].suite, "unit");
+  assert.equal(view.actions.length, 1);
+  assert.equal(view.actions[0].actionId, "action-approve-command");
+  assert.equal(view.ui.preferredTab, "outputs");
+});
+
+test("projectCodingWorkbenchViewFromEvents consumes current read model artifacts as file changes", () => {
+  const view = projectCodingWorkbenchViewFromEvents({
+    executionEvents: [],
+    codingReadModel: {
+      thread_id: "thread-1",
+      active_turn_id: "turn-1",
+      artifacts: [
+        {
+          artifactRef: "artifact-src-app",
+          eventId: "evt-file-app",
+          sequence: 2,
+          turnId: "turn-1",
+          path: "src/App.tsx",
+          title: "App.tsx",
+          kind: "code_file",
+          status: "completed",
+          metadata: {
+            previewText: "updated app component",
+            checkpointRef: "checkpoint-src-app",
+            diffRef: "diff-src-app",
+          },
+        },
+        {
+          artifactRef: "output-command",
+          eventId: "evt-output",
+          kind: "tool_output",
+          status: "completed",
+        },
+      ],
+    },
+  });
+
+  assert.equal(view.files.length, 1);
+  assert.equal(view.files[0].path, "src/App.tsx");
+  assert.equal(view.changes.length, 1);
+  assert.deepEqual(view.changes[0], {
+    id: "evt-file-app",
+    path: "src/App.tsx",
+    status: "completed",
+    changeKind: "modified",
+    artifactRefs: ["artifact-src-app"],
+    checkpointRef: "checkpoint-src-app",
+    diffRef: "diff-src-app",
+    preview: "updated app component",
+    sourceEventId: "evt-file-app",
+  });
+  assert.equal(view.ui.preferredTab, "changes");
+});
+
+test("projectAgentRuntimeReadModel marks action terminal events as resolved", () => {
+  for (const eventClass of [
+    "action.resolved",
+    "action.cancelled",
+    "action.canceled",
+    "action.expired",
+  ]) {
+    const model = projectAgentRuntimeReadModel({
+      executionEvents: [
+        {
+          id: `evt-action-${eventClass}`,
+          kind: "action",
+          status: "pending",
+          eventClass: "action.required",
+          title: "需要配置模型",
+          actionId: "action-1",
+          payload: { actionKind: "configure-text-model" },
+          createdAt: "2026-06-07T00:00:00.000Z",
+        },
+        {
+          id: `evt-terminal-${eventClass}`,
+          kind: "action",
+          status: "completed",
+          eventClass,
+          title: "已处理",
+          actionId: "action-1",
+          createdAt: "2026-06-07T00:00:01.000Z",
+        },
+      ],
+    });
+
+    assert.equal(model.pendingActions.length, 0, eventClass);
+    assert.equal(model.events[0].resolved, true, eventClass);
+    assert.equal(
+      model.events[0].displayStatusKey,
+      "agent.status.actionResolved",
+      eventClass,
+    );
+  }
 });
 
 test("projectAgentUiState exposes standard message, timeline and graph projections", () => {
@@ -543,7 +769,11 @@ test("projectAgentUiStateFromSessionSnapshot upgrades legacy transcript plus rea
   assert.equal(state.hydration.eventCount, 2);
   assert.equal(state.readModel.sourceCount, 2);
   assert.deepEqual(
-    state.messages.map((message) => [message.messageId, message.role, message.text]),
+    state.messages.map((message) => [
+      message.messageId,
+      message.role,
+      message.text,
+    ]),
     [
       ["message-user", "user", "请生成小红书标题"],
       ["message-assistant", "assistant", "已生成 5 个标题候选"],
@@ -551,11 +781,19 @@ test("projectAgentUiStateFromSessionSnapshot upgrades legacy transcript plus rea
   );
   assert.deepEqual(state.messages[1].refs, ["artifact-1", "evidence-1"]);
   assert.deepEqual(
-    state.artifacts.map((artifact) => [artifact.id, artifact.path, artifact.preview]),
+    state.artifacts.map((artifact) => [
+      artifact.id,
+      artifact.path,
+      artifact.preview,
+    ]),
     [["artifact-1", "drafts/outline.md", "文章大纲"]],
   );
   assert.deepEqual(
-    state.evidence.map((evidence) => [evidence.id, evidence.path, evidence.preview]),
+    state.evidence.map((evidence) => [
+      evidence.id,
+      evidence.path,
+      evidence.preview,
+    ]),
     [["evidence-1", "evidence/input-source", "输入源摘要"]],
   );
 });
@@ -573,11 +811,536 @@ test("createAgentUiProjector applies events idempotently", () => {
   };
 
   projector.apply(event);
-  projector.apply(event);
+  const stateAfterFirstApply = projector.getState();
+  const stateAfterDuplicateApply = projector.apply(event);
 
+  assert.equal(stateAfterDuplicateApply, stateAfterFirstApply);
   assert.equal(projector.getState().hydration.eventCount, 1);
   assert.equal(projector.getState().messages.length, 1);
   assert.equal(projector.reset().hydration.status, "idle");
+});
+
+test("createAgentUiProjector incremental apply matches batch projection", () => {
+  const fixture = getAgentUiFixture("subagent-handoff");
+  const projector = createAgentUiProjector({ sourceCount: 3 });
+
+  for (const event of fixture.events) {
+    projector.apply(event);
+  }
+
+  assert.deepEqual(
+    projector.getState(),
+    projectAgentUiState({
+      executionEvents: fixture.events,
+      sourceCount: 3,
+    }),
+  );
+});
+
+test("createAgentUiProjector incremental apply updates resolved actions", () => {
+  const executionEvents = [
+    {
+      id: "evt-started",
+      kind: "state",
+      status: "running",
+      eventClass: "turn.started",
+      title: "开始执行",
+      turnId: "turn-1",
+      createdAt: "2026-06-07T00:00:00.000Z",
+    },
+    {
+      id: "evt-action",
+      kind: "action",
+      status: "pending",
+      eventClass: "action.required",
+      title: "需要确认",
+      actionId: "action-1",
+      payload: { controls: ["approve", "reject"] },
+      createdAt: "2026-06-07T00:00:01.000Z",
+    },
+    {
+      id: "evt-resolved",
+      kind: "action",
+      status: "completed",
+      eventClass: "action.resolved",
+      title: "已确认",
+      actionId: "action-1",
+      createdAt: "2026-06-07T00:00:02.000Z",
+    },
+    {
+      id: "evt-completed",
+      kind: "state",
+      status: "completed",
+      eventClass: "turn.completed",
+      title: "完成",
+      turnId: "turn-1",
+      createdAt: "2026-06-07T00:00:03.000Z",
+    },
+  ];
+  const projector = createAgentUiProjector();
+
+  for (const event of executionEvents) {
+    projector.apply(event);
+  }
+
+  const state = projector.getState();
+  assert.deepEqual(state, projectAgentUiState({ executionEvents }));
+  assert.equal(state.runtime.status, "completed");
+  assert.equal(state.readModel.pendingActions.length, 0);
+  assert.equal(state.readModel.events[1].resolved, true);
+  assert.equal(
+    state.readModel.events[1].displayStatusKey,
+    "agent.status.actionResolved",
+  );
+});
+
+test("createAgentUiProjector incremental apply updates canceled actions", () => {
+  const executionEvents = [
+    {
+      id: "evt-started",
+      kind: "state",
+      status: "running",
+      eventClass: "turn.started",
+      title: "开始执行",
+      turnId: "turn-1",
+      createdAt: "2026-06-07T00:00:00.000Z",
+    },
+    {
+      id: "evt-action",
+      kind: "action",
+      status: "pending",
+      eventClass: "action.required",
+      title: "需要确认",
+      actionId: "action-1",
+      payload: { controls: ["approve", "reject"] },
+      createdAt: "2026-06-07T00:00:01.000Z",
+    },
+    {
+      id: "evt-canceled",
+      kind: "action",
+      status: "completed",
+      eventClass: "action.canceled",
+      title: "已取消",
+      actionId: "action-1",
+      createdAt: "2026-06-07T00:00:02.000Z",
+    },
+  ];
+  const projector = createAgentUiProjector();
+
+  for (const event of executionEvents) {
+    projector.apply(event);
+  }
+
+  const state = projector.getState();
+  assert.deepEqual(state, projectAgentUiState({ executionEvents }));
+  assert.equal(state.readModel.pendingActions.length, 0);
+  assert.equal(state.readModel.events[1].resolved, true);
+  assert.equal(
+    state.readModel.events[1].displayStatusKey,
+    "agent.status.actionResolved",
+  );
+});
+
+test("state.delta patches projection and read model in batch and incremental paths", () => {
+  const executionEvents = [
+    {
+      id: "evt-subagent-start",
+      kind: "handoff",
+      status: "running",
+      eventClass: "agent.spawned",
+      title: "启动研究子代理",
+      runtimeId: "runtime-1",
+      threadId: "thread-parent",
+      subagentId: "subagent-1",
+      taskId: "task-1",
+      sequence: 1,
+      createdAt: "2026-06-12T00:00:00.000Z",
+    },
+    {
+      id: "evt-projection-delta",
+      kind: "state",
+      status: "completed",
+      eventClass: "state.delta",
+      title: "修复子代理派生状态",
+      runtimeId: "runtime-1",
+      threadId: "thread-parent",
+      sequence: 2,
+      payload: {
+        target: "projection.subagents",
+        ops: [
+          {
+            op: "replace",
+            path: "/threads/0/status",
+            value: "completed",
+          },
+          {
+            op: "add",
+            path: "/threads/0/summary",
+            value: "已完成资料整理",
+          },
+        ],
+      },
+      createdAt: "2026-06-12T00:00:01.000Z",
+    },
+    {
+      id: "evt-read-model-delta",
+      kind: "state",
+      status: "completed",
+      eventClass: "state.delta",
+      title: "修复 read model task refs",
+      runtimeId: "runtime-1",
+      threadId: "thread-parent",
+      sequence: 3,
+      payload: {
+        target: "readModel",
+        patch: [
+          {
+            op: "add",
+            path: "/taskRefs/-",
+            value: "repair-task-1",
+          },
+          {
+            op: "test",
+            path: "/taskRefs/1",
+            value: "repair-task-1",
+          },
+        ],
+      },
+      createdAt: "2026-06-12T00:00:02.000Z",
+    },
+    {
+      id: "evt-model-after-delta",
+      kind: "model",
+      status: "completed",
+      eventClass: "model.completed",
+      title: "完成输出",
+      payload: { messageId: "msg-1", text: "完成" },
+      sequence: 4,
+      createdAt: "2026-06-12T00:00:03.000Z",
+    },
+  ];
+  const projector = createAgentUiProjector();
+
+  for (const event of executionEvents) {
+    projector.apply(event);
+  }
+
+  const incrementalState = projector.getState();
+  const batchState = projectAgentUiState({ executionEvents });
+
+  assert.deepEqual(incrementalState, batchState);
+  assert.equal(batchState.subagents.threads[0].status, "completed");
+  assert.equal(batchState.subagents.threads[0].summary, "已完成资料整理");
+  assert.deepEqual(batchState.subagents.activeThreadIds, []);
+  assert.deepEqual(batchState.subagents.completedThreadIds, ["subagent-1"]);
+  assert.deepEqual(batchState.readModel.taskRefs, ["task-1", "repair-task-1"]);
+  assert.equal(batchState.hydration.status, "live");
+  assert.equal(batchState.hydration.eventCount, 4);
+});
+
+test("state.delta supports nested payload and item alias target", () => {
+  const state = projectAgentUiState({
+    executionEvents: [
+      {
+        id: "evt-artifact",
+        kind: "draft",
+        status: "completed",
+        eventClass: "artifact.changed",
+        title: "生成草稿",
+        runtimeId: "runtime-1",
+        artifactRefs: ["artifact-1"],
+        sequence: 1,
+        createdAt: "2026-06-12T00:00:00.000Z",
+      },
+      {
+        id: "evt-delta",
+        kind: "state",
+        status: "completed",
+        eventClass: "state.delta",
+        title: "补 artifact preview",
+        runtimeId: "runtime-1",
+        sequence: 2,
+        payload: {
+          stateDelta: {
+            schemaVersion: "lime-runtime-state-delta/v0.1",
+            runtimeId: "runtime-1",
+            sequence: 2,
+            target: "projection.artifacts",
+            patch: [
+              {
+                op: "add",
+                path: "/items/0/preview",
+                value: "修复后的预览",
+              },
+            ],
+            createdAt: "2026-06-12T00:00:01.000Z",
+          },
+        },
+        createdAt: "2026-06-12T00:00:01.000Z",
+      },
+    ],
+  });
+
+  assert.equal(state.artifacts[0].preview, "修复后的预览");
+});
+
+test("state.delta recomputes subagent terminal thread ids after patch", () => {
+  const state = projectAgentUiState({
+    executionEvents: [
+      {
+        id: "evt-subagent-start",
+        kind: "handoff",
+        status: "running",
+        eventClass: "agent.spawned",
+        title: "启动研究子代理",
+        runtimeId: "runtime-1",
+        threadId: "thread-parent",
+        subagentId: "subagent-1",
+        taskId: "task-1",
+        sequence: 1,
+        createdAt: "2026-06-12T00:00:00.000Z",
+      },
+      {
+        id: "evt-projection-delta",
+        kind: "state",
+        status: "completed",
+        eventClass: "state.delta",
+        title: "修复子代理关闭态",
+        runtimeId: "runtime-1",
+        threadId: "thread-parent",
+        sequence: 2,
+        payload: {
+          target: "projection.subagents",
+          patch: [
+            {
+              op: "replace",
+              path: "/threads/0/status",
+              value: "closed",
+            },
+          ],
+        },
+        createdAt: "2026-06-12T00:00:01.000Z",
+      },
+    ],
+  });
+
+  assert.deepEqual(state.subagents.activeThreadIds, []);
+  assert.deepEqual(state.subagents.completedThreadIds, []);
+  assert.deepEqual(state.subagents.failedThreadIds, ["subagent-1"]);
+});
+
+test("state.delta failure marks projection stale without mutating target state", () => {
+  const executionEvents = [
+    {
+      id: "evt-model",
+      kind: "model",
+      status: "completed",
+      eventClass: "model.completed",
+      title: "完成",
+      payload: { messageId: "msg-1", text: "完成" },
+      sequence: 1,
+      createdAt: "2026-06-12T00:00:00.000Z",
+    },
+    {
+      id: "evt-bad-delta",
+      kind: "state",
+      status: "completed",
+      eventClass: "state.delta",
+      title: "非法 patch",
+      runtimeId: "runtime-1",
+      sequence: 2,
+      payload: {
+        target: "projection.messages",
+        patch: [
+          {
+            op: "replace",
+            path: "/9/text",
+            value: "不应写入",
+          },
+        ],
+      },
+      createdAt: "2026-06-12T00:00:01.000Z",
+    },
+  ];
+  const state = projectAgentUiState({ executionEvents });
+
+  assert.equal(state.messages[0].text, "完成");
+  assert.equal(state.hydration.status, "stale");
+  assert.equal(state.hydration.eventCount, 2);
+  assert.equal(state.diagnostics.at(-1).id, "state-delta:evt-bad-delta");
+  assert.equal(state.diagnostics.at(-1).status, "failed");
+  assert.match(
+    state.diagnostics.at(-1).detail,
+    /Array index out of range|Path does not exist/,
+  );
+});
+
+test("state.delta cannot patch runtime fact projections", () => {
+  const state = projectAgentUiState({
+    executionEvents: [
+      {
+        id: "evt-action",
+        kind: "action",
+        status: "pending",
+        eventClass: "action.required",
+        title: "需要确认",
+        actionId: "action-1",
+        sequence: 1,
+        createdAt: "2026-06-12T00:00:00.000Z",
+      },
+      {
+        id: "evt-delta",
+        kind: "state",
+        status: "completed",
+        eventClass: "state.delta",
+        title: "非法修改 action fact",
+        runtimeId: "runtime-1",
+        sequence: 2,
+        payload: {
+          target: "readModel.pendingActions",
+          patch: [
+            {
+              op: "remove",
+              path: "/0",
+            },
+          ],
+        },
+        createdAt: "2026-06-12T00:00:01.000Z",
+      },
+    ],
+  });
+
+  assert.equal(state.readModel.pendingActions.length, 1);
+  assert.equal(state.hydration.status, "stale");
+  assert.equal(state.diagnostics.at(-1).id, "state-delta:evt-delta");
+  assert.match(state.diagnostics.at(-1).detail, /pending action facts/);
+});
+
+test("state.delta does not override newer runtime facts for the same projection area", () => {
+  const state = projectAgentUiState({
+    executionEvents: [
+      {
+        id: "evt-subagent-start",
+        kind: "handoff",
+        status: "running",
+        eventClass: "agent.spawned",
+        title: "启动研究子代理",
+        runtimeId: "runtime-1",
+        threadId: "thread-parent",
+        subagentId: "subagent-1",
+        taskId: "task-1",
+        sequence: 1,
+        createdAt: "2026-06-12T00:00:00.000Z",
+      },
+      {
+        id: "evt-stale-delta",
+        kind: "state",
+        status: "completed",
+        eventClass: "state.delta",
+        title: "过期的子代理修复",
+        runtimeId: "runtime-1",
+        threadId: "thread-parent",
+        sequence: 2,
+        payload: {
+          target: "projection.subagents",
+          patch: [
+            {
+              op: "replace",
+              path: "/threads/0/status",
+              value: "completed",
+            },
+          ],
+        },
+        createdAt: "2026-06-12T00:00:01.000Z",
+      },
+      {
+        id: "evt-subagent-running-again",
+        kind: "handoff",
+        status: "running",
+        eventClass: "subagent.progress",
+        title: "子代理仍在运行",
+        runtimeId: "runtime-1",
+        threadId: "thread-parent",
+        subagentId: "subagent-1",
+        taskId: "task-1",
+        sequence: 3,
+        createdAt: "2026-06-12T00:00:02.000Z",
+      },
+    ],
+  });
+
+  assert.equal(state.subagents.threads[0].status, "running");
+  assert.deepEqual(state.subagents.activeThreadIds, ["subagent-1"]);
+  assert.deepEqual(state.subagents.completedThreadIds, []);
+});
+
+test("state.delta treats channel messages as newer subagent projection facts", () => {
+  const state = projectAgentUiState({
+    executionEvents: [
+      {
+        id: "evt-subagent-start",
+        kind: "handoff",
+        status: "running",
+        eventClass: "agent.spawned",
+        title: "启动研究子代理",
+        runtimeId: "runtime-1",
+        threadId: "thread-parent",
+        subagentId: "subagent-1",
+        taskId: "task-1",
+        sequence: 1,
+        createdAt: "2026-06-12T00:00:00.000Z",
+      },
+      {
+        id: "evt-stale-delta",
+        kind: "state",
+        status: "completed",
+        eventClass: "state.delta",
+        title: "过期的子代理修复",
+        runtimeId: "runtime-1",
+        threadId: "thread-parent",
+        sequence: 2,
+        payload: {
+          target: "projection.subagents",
+          patch: [
+            {
+              op: "replace",
+              path: "/threads/0/summary",
+              value: "不应覆盖真实 channel 更新",
+            },
+          ],
+        },
+        createdAt: "2026-06-12T00:00:01.000Z",
+      },
+      {
+        id: "evt-channel-message",
+        kind: "handoff",
+        status: "running",
+        eventClass: "channel.message",
+        title: "子代理发来进展",
+        runtimeId: "runtime-1",
+        threadId: "thread-parent",
+        taskId: "task-1",
+        sequence: 3,
+        payload: {
+          targetThreadId: "subagent-1",
+          summary: "真实 channel 更新",
+        },
+        createdAt: "2026-06-12T00:00:02.000Z",
+      },
+    ],
+  });
+
+  assert.equal(state.subagents.threads[0].summary, "真实 channel 更新");
+  assert.deepEqual(
+    state.subagents.activities.map((activity) => [
+      activity.sourceEventId,
+      activity.kind,
+    ]),
+    [
+      ["evt-subagent-start", "started"],
+      ["evt-channel-message", "interacted"],
+    ],
+  );
 });
 
 test("Agent UI projection event selectors index host-neutral events", () => {
@@ -715,7 +1478,7 @@ test("Agent UI projection summaries classify host-neutral event groups", () => {
     },
     {
       type: "agent.changed",
-      sourceType: "team_formation_projection",
+      sourceType: "item_completed",
       sequence: 5,
       sessionId: "session-summary",
       agentId: "agent-1",
@@ -744,18 +1507,19 @@ test("Agent UI projection summaries classify host-neutral event groups", () => {
 test("Agent UI subagents summaries group surfaces and lanes", () => {
   const events = [
     {
-      type: "team.changed",
-      sourceType: "runtime_status",
+      type: "agent.changed",
+      sourceType: "item_completed",
       sequence: 1,
       sessionId: "session-team",
-      owner: "team",
-      scope: "team",
+      agentId: "agent-roster",
+      owner: "agent",
+      scope: "agent",
       phase: "acting",
       surface: "team_roster",
     },
     {
       type: "agent.spawned",
-      sourceType: "team_formation_projection",
+      sourceType: "item_completed",
       sequence: 2,
       sessionId: "session-team",
       agentId: "agent-1",
@@ -767,7 +1531,7 @@ test("Agent UI subagents summaries group surfaces and lanes", () => {
     },
     {
       type: "worker.notification",
-      sourceType: "team_formation_projection",
+      sourceType: "item_completed",
       sequence: 3,
       sessionId: "session-team",
       agentId: "agent-1",
@@ -911,7 +1675,7 @@ test("projection envelope helpers normalize base fields and sequence", () => {
       timestamp: "2026-06-07T00:00:00.000Z",
       sessionId: " session-1 ",
       threadId: " thread-1 ",
-      runId: "agent_subagent_stream:run-1",
+      runId: "run-1",
       turnId: " turn-1 ",
       messageId: " ",
       taskId: "task-1",
@@ -923,7 +1687,7 @@ test("projection envelope helpers normalize base fields and sequence", () => {
     timestamp: "2026-06-07T00:00:00.000Z",
     sessionId: "session-1",
     threadId: "thread-1",
-    runId: "agent_subagent_stream:run-1",
+    runId: "run-1",
     turnId: "turn-1",
     messageId: undefined,
     taskId: "task-1",
@@ -1071,11 +1835,11 @@ test("queue event helpers build standard queue and steer task events", () => {
   assert.equal(added[0].persistence, "snapshot");
   assert.equal(added[0].control, "queue");
   assert.equal(added[0].runtimeStatus, "queued");
-  assert.equal(added[0].queuedTurnCount, 1);
+  assert.equal(added[0].queuedTurnCount, 2);
   assert.deepEqual(added[0].payload, {
     runtimeEntity: "agent_turn",
     queueEvent: "queue_added",
-    queuedTurnCount: 1,
+    queuedTurnCount: 2,
     queuedTurnId: "queued-1",
     position: 1,
     messagePreview: "下一轮",
@@ -1092,6 +1856,7 @@ test("queue event helpers build standard queue and steer task events", () => {
   assert.equal(added[1].persistence, "snapshot");
   assert.equal(added[1].control, "steer");
   assert.equal(added[1].runtimeStatus, "queued");
+  assert.equal(added[1].queuedTurnCount, 2);
   assert.deepEqual(added[1].payload, {
     runtimeEntity: "agent_turn",
     taskEvent: "steer_intent",
@@ -1227,7 +1992,7 @@ test("action projection helpers build standard HITL events", () => {
       data: {
         decision_kind: "plan_approval_response",
         target_session_id: "child-session-1",
-        plan_file: ".ember/plans/child-session-1.md",
+        plan_file: ".lime/plans/child-session-1.md",
         plan_id: "plan-1",
         awaiting_leader_approval: true,
       },
@@ -1250,7 +2015,7 @@ test("action projection helpers build standard HITL events", () => {
     feedbackPreview: "需要修改",
     permissionMode: "ask",
     targetSessionId: "child-session-1",
-    planFile: ".ember/plans/child-session-1.md",
+    planFile: ".lime/plans/child-session-1.md",
     planId: "plan-1",
     awaitingLeaderApproval: true,
     responseMetadataKeys: [
@@ -1493,6 +2258,19 @@ test("tool event helpers build standard tool lifecycle events", () => {
         total: 4,
         metadata: {
           notification_kind: "mcp_progress",
+          soul_lifecycle: {
+            surface: "tool_lifecycle",
+            phase: "tool_progress",
+            styleLevel: "L1",
+            riskLevel: "high",
+            profileId: "calm_professional_partner",
+            packId: "com.lime.soul.calm-professional-partner",
+          },
+          tool_process_facts: {
+            status: "progress",
+            toolCallId: "tool-1",
+            riskLevel: "high",
+          },
         },
       },
     },
@@ -1505,10 +2283,33 @@ test("tool event helpers build standard tool lifecycle events", () => {
     messagePreview: "正在处理第 2 项",
     progress: 2,
     total: 4,
-    metadataKeys: ["notification_kind"],
+    metadataKeys: ["notification_kind", "soul_lifecycle", "tool_process_facts"],
+    soulLifecycle: {
+      surface: "tool_lifecycle",
+      phase: "tool_progress",
+      styleLevel: "L1",
+      riskLevel: "high",
+      profileId: "calm_professional_partner",
+      packId: "com.lime.soul.calm-professional-partner",
+    },
+    toolProcessFacts: {
+      status: "progress",
+      toolCallId: "tool-1",
+      riskLevel: "high",
+    },
+    soulSurface: "tool_lifecycle",
+    soulPhase: "tool_progress",
+    styleLevel: "L1",
+    riskLevel: "high",
+    profileId: "calm_professional_partner",
+    packId: "com.lime.soul.calm-professional-partner",
   });
   assert.deepEqual(progress.refs, {
-    diagnosticKeys: ["notification_kind"],
+    diagnosticKeys: [
+      "notification_kind",
+      "soul_lifecycle",
+      "tool_process_facts",
+    ],
   });
 
   const outputDelta = buildAgentUiToolOutputDeltaEvent(
@@ -1518,6 +2319,12 @@ test("tool event helpers build standard tool lifecycle events", () => {
       outputKind: "log",
       metadata: {
         notification_kind: "mcp_log",
+        tool_process_summary: {
+          completed: {
+            key: "toolCall.processSummary.generic.completed",
+          },
+        },
+        risk_level: "normal",
       },
     },
     context,
@@ -1528,10 +2335,16 @@ test("tool event helpers build standard tool lifecycle events", () => {
     outputKind: "log",
     deltaPreview: "partial output",
     deltaLength: 14,
-    metadataKeys: ["notification_kind"],
+    metadataKeys: ["notification_kind", "risk_level", "tool_process_summary"],
+    toolProcessSummary: {
+      completed: {
+        key: "toolCall.processSummary.generic.completed",
+      },
+    },
+    riskLevel: "normal",
   });
   assert.deepEqual(outputDelta.refs, {
-    diagnosticKeys: ["notification_kind"],
+    diagnosticKeys: ["notification_kind", "risk_level", "tool_process_summary"],
   });
 
   const inputDelta = buildAgentUiToolInputDeltaEvent(
@@ -1681,10 +2494,10 @@ test("runtime lifecycle helpers build standard run events", () => {
   });
 
   const finished = buildAgentUiRunFinishedEvent(
-    { sourceType: "final_done" },
+    { sourceType: "turn_completed" },
     context,
   );
-  assert.equal(finished.sourceType, "final_done");
+  assert.equal(finished.sourceType, "turn_completed");
   assert.equal(finished.type, "run.finished");
   assert.equal(finished.phase, "completed");
   assert.equal(finished.persistence, "archive");
@@ -1799,8 +2612,20 @@ test("thread item helpers build standard projection events", () => {
     "answer",
   );
   assert.equal(
-    resolveAgentUiThreadItemSubagentRuntimeStatus({ status: "in_progress" }),
+    resolveAgentUiThreadItemSubagentRuntimeStatus({ status_label: "started" }),
     "running",
+  );
+  assert.equal(
+    resolveAgentUiThreadItemSubagentRuntimeStatus({
+      status_label: "interacted",
+    }),
+    "running",
+  );
+  assert.equal(
+    resolveAgentUiThreadItemSubagentRuntimeStatus({
+      status_label: "interrupted",
+    }),
+    "cancelled",
   );
 
   const userInputAction = buildAgentUiThreadItemEvent(
@@ -1861,14 +2686,14 @@ test("thread item helpers build standard projection events", () => {
   });
 
   const subagentActivity = buildAgentUiThreadItemEvent(
-    "item_updated",
+    "item_completed",
     {
       id: "worker-1",
       thread_id: "thread-1",
       turn_id: "turn-1",
       type: "subagent_activity",
-      status: "in_progress",
-      status_label: "执行中",
+      status: "completed",
+      status_label: "started",
       title: "整理资料",
       role: "researcher",
       model: "model-a",
@@ -1890,71 +2715,28 @@ test("thread item helpers build standard projection events", () => {
   assert.equal(subagentActivity?.topology, "coordinator_team");
   assert.deepEqual(subagentActivity?.payload, {
     runtimeEntity: "subagent_turn",
-    statusLabel: "执行中",
+    statusLabel: "started",
     title: "整理资料",
     role: "researcher",
     model: "model-a",
     childSessionId: "child-session-1",
   });
-  assert.equal(
-    buildAgentUiThreadItemSubagentWorkerNotificationEvent(
-      "item_updated",
-      {
-        id: "worker-1",
-        thread_id: "thread-1",
-        turn_id: "turn-1",
-        type: "subagent_activity",
-        status: "in_progress",
-      },
-      context,
-    ),
-    null,
+  const interruptedSubagentActivity = buildAgentUiThreadItemEvent(
+    "item_completed",
+    {
+      id: "worker-2",
+      thread_id: "thread-1",
+      turn_id: "turn-1",
+      type: "subagent_activity",
+      status: "completed",
+      status_label: "interrupted",
+      session_id: "child-session-1",
+    },
+    context,
   );
-
-  const completedWorkerNotification =
-    buildAgentUiThreadItemSubagentWorkerNotificationEvent(
-      "item_completed",
-      {
-        id: "worker-1",
-        thread_id: "thread-1",
-        turn_id: "turn-1",
-        type: "subagent_activity",
-        status: "completed",
-        status_label: "已完成",
-        title: "整理资料",
-        summary: "已完成资料整理",
-        role: "researcher",
-        model: "model-a",
-        session_id: "child-session-1",
-      },
-      context,
-    );
-  assert.equal(completedWorkerNotification?.type, "worker.notification");
-  assert.equal(completedWorkerNotification?.taskId, "child-session-1");
-  assert.equal(completedWorkerNotification?.agentId, "child-session-1");
-  assert.equal(completedWorkerNotification?.workerNotificationId, "worker-1");
-  assert.equal(
-    completedWorkerNotification?.transcriptRef,
-    "thread-1:turn-1:worker-1",
-  );
-  assert.equal(completedWorkerNotification?.owner, "agent");
-  assert.equal(completedWorkerNotification?.phase, "completed");
-  assert.equal(
-    completedWorkerNotification?.surface,
-    "worker_notifications",
-  );
-  assert.equal(completedWorkerNotification?.runtimeEntity, "subagent_turn");
-  assert.equal(completedWorkerNotification?.runtimeStatus, "completed");
-  assert.deepEqual(completedWorkerNotification?.payload, {
-    runtimeEntity: "subagent_turn",
-    notificationKind: "worker_result",
-    statusLabel: "已完成",
-    title: "整理资料",
-    summaryPreview: "已完成资料整理",
-    role: "researcher",
-    model: "model-a",
-    childSessionId: "child-session-1",
-  });
+  assert.equal(interruptedSubagentActivity?.phase, "interrupted");
+  assert.equal(interruptedSubagentActivity?.runtimeStatus, "cancelled");
+  assert.equal(interruptedSubagentActivity?.latestTurnStatus, "cancelled");
   assert.equal(
     buildAgentUiThreadItemSubagentActivityEvent(
       "item_completed",
@@ -1969,6 +2751,49 @@ test("thread item helpers build standard projection events", () => {
     ),
     null,
   );
+
+  const agentMessageWithMedia = buildAgentUiThreadItemEvent(
+    "item_updated",
+    {
+      id: "message-1",
+      thread_id: "thread-1",
+      turn_id: "turn-1",
+      type: "agent_message",
+      status: "in_progress",
+      text: "已生成预览",
+      contentParts: [
+        { type: "text", text: "已生成预览" },
+        {
+          type: "media",
+          kind: "image",
+          caption: "结果图",
+          reference: {
+            uri: "sidecar://media/image-1",
+            mime_type: "image/png",
+          },
+        },
+        {
+          type: "media",
+          kind: "image",
+          reference: {
+            uri: "data:image/png;base64,abcd",
+            mime_type: "image/png",
+          },
+        },
+      ],
+    },
+    context,
+  );
+  assert.equal(agentMessageWithMedia?.type, "text.delta");
+  assert.equal(agentMessageWithMedia?.owner, "model");
+  assert.equal(agentMessageWithMedia?.surface, "conversation");
+  assert.deepEqual(agentMessageWithMedia?.payload, {
+    textLength: 5,
+    preview: "已生成预览",
+    contentPartCount: 3,
+    mediaKinds: ["image"],
+    referenceUris: ["sidecar://media/image-1"],
+  });
 
   const reasoning = buildAgentUiThreadItemEvent(
     "item_completed",
@@ -2023,7 +2848,10 @@ test("thread item helpers build standard projection events", () => {
     metadataKeys: ["artifact_id", "artifact_path"],
   });
 
-  assert.equal(normalizeAgentUiProjectionToolName("Task-Update Tool"), "taskupdatetool");
+  assert.equal(
+    normalizeAgentUiProjectionToolName("Task-Update Tool"),
+    "taskupdatetool",
+  );
   assert.equal(isAgentUiTaskUpdateToolName("TaskUpdateTool"), true);
   assert.deepEqual(
     extractAgentUiTaskOwnerChangeProjection({
@@ -2248,11 +3076,6 @@ test("runtime fact helpers normalize shared Agent UI status semantics", () => {
     normalizeRuntimePhaseFromRuntimeStatusPhase("routing"),
     "routing",
   );
-  assert.equal(normalizeSubagentRuntimeStatus("cancelled"), "cancelled");
-  assert.equal(resolveSubagentStatusPhase("running"), "acting");
-  assert.equal(resolveSubagentStatusControl("running"), "stop");
-  assert.equal(isSubagentTerminalStatus("completed"), true);
-
   const teamFacts = buildTeamRuntimeFacts({
     concurrency_phase: "running",
     concurrency_budget: 3,
@@ -2266,32 +3089,4 @@ test("runtime fact helpers normalize shared Agent UI status semantics", () => {
   assert.equal(teamFacts.teamQueuedCount, 1);
   assert.equal(teamFacts.queuedTurnCount, 1);
   assert.equal(teamFacts.providerConcurrencyGroup, "provider-a");
-  assert.equal(resolveTeamTopology(teamFacts), "parallel_workers");
-
-  const subagentFacts = buildSubagentRuntimeFacts({
-    status: "running",
-    latest_turn_status: "completed",
-    queued_turn_count: 2,
-  });
-  assert.equal(subagentFacts.runtimeEntity, "subagent_turn");
-  assert.equal(subagentFacts.runtimeStatus, "running");
-  assert.equal(subagentFacts.latestTurnStatus, "completed");
-  assert.equal(subagentFacts.queuedTurnCount, 2);
-
-  assert.deepEqual(
-    buildWorkerUsageProjection({
-      input_tokens: 10,
-      output_tokens: 5,
-      cached_input_tokens: 3,
-      cache_creation_input_tokens: 2,
-    }),
-    {
-      inputTokens: 10,
-      outputTokens: 5,
-      cachedInputTokens: 3,
-      cacheCreationInputTokens: 2,
-      totalTokens: 15,
-    },
-  );
-  assert.equal(buildWorkerUsageProjection(undefined), undefined);
 });

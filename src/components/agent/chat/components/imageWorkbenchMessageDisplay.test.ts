@@ -22,7 +22,7 @@ function createImageMessage(overrides: Partial<Message> = {}): Message {
 }
 
 describe("imageWorkbenchMessageDisplay", () => {
-  it("图片任务协议正文应被移出可见正文，但执行过程应折叠保留", () => {
+  it("图片任务协议正文应被移出可见正文，但预览态过程仍可见", () => {
     const message = createImageMessage({
       contentParts: [
         { type: "thinking", text: "先确认青柠插画风格。" },
@@ -31,7 +31,7 @@ describe("imageWorkbenchMessageDisplay", () => {
           type: "tool_use",
           toolCall: {
             id: "tool-image-1",
-            name: "ember_create_image_generation_task",
+            name: "lime_create_image_generation_task",
             arguments: JSON.stringify({ prompt: "青柠插画" }),
             status: "completed",
             startTime: new Date("2026-05-14T08:00:01.000Z"),
@@ -42,7 +42,7 @@ describe("imageWorkbenchMessageDisplay", () => {
       toolCalls: [
         {
           id: "tool-image-1",
-          name: "ember_create_image_generation_task",
+          name: "lime_create_image_generation_task",
           arguments: JSON.stringify({ prompt: "青柠插画" }),
           status: "completed",
           startTime: new Date("2026-05-14T08:00:01.000Z"),
@@ -54,36 +54,88 @@ describe("imageWorkbenchMessageDisplay", () => {
     const displayState = resolveImageWorkbenchMessageDisplayState({
       message,
       rawDisplayContent: message.content,
-      thinkingContent: "先确认青柠插画风格。",
     });
     const processState = resolveImageWorkbenchProcessDisplayState({
       message,
       sanitizedContentParts: message.contentParts,
       shouldDeferMessageDetails: false,
+      shouldFoldSuppressedProcessFlow:
+        displayState.shouldFoldSuppressedProcessFlow,
       shouldSuppressImageProcessFlow: displayState.shouldSuppressProcessFlow,
     });
     const rendererState = resolveImageWorkbenchRendererProcessState({
       actionContent: "",
-      imageWorkbenchThinkingContent: displayState.thinkingContent,
       message,
       rendererActionRequests: undefined,
       rendererContentParts: processState.displayContentParts,
-      rendererThinkingContent: undefined,
       rendererToolCalls: message.toolCalls,
       shouldSuppressRendererProcessFlow:
         processState.shouldSuppressRendererProcessFlow,
     });
 
     expect(displayState.visibleRawDisplayContent).toBe("");
-    expect(processState.shouldFoldSuppressedProcessFlow).toBe(true);
+    expect(processState.shouldFoldSuppressedProcessFlow).toBe(false);
     expect(processState.shouldSuppressRendererProcessFlow).toBe(false);
-    expect(processState.displayContentParts?.map((part) => part.type)).toEqual([
-      "thinking",
-      "tool_use",
-    ]);
+    expect(processState.displayContentParts).toBeUndefined();
+    expect(rendererState.shouldRenderInlineProcess).toBe(false);
+    expect(rendererState.contentParts).toBeUndefined();
+    expect(rendererState.toolCalls).toBeUndefined();
+  });
+
+  it("图片任务已有自然正文时只把正文交给 renderer，内部思考和工具不外显", () => {
+    const message = createImageMessage({
+      content: "好啊，我按花城汇视角来生成广州塔春天照片。",
+      contentParts: [
+        { type: "thinking", text: "先判断花城汇视角和春天元素。" },
+        { type: "text", text: "好啊，我按花城汇视角来生成广州塔春天照片。" },
+        {
+          type: "tool_use",
+          toolCall: {
+            id: "tool-image-natural-1",
+            name: "lime_create_image_generation_task",
+            arguments: JSON.stringify({ prompt: "广州塔春天照片" }),
+            status: "completed",
+            startTime: new Date("2026-05-14T08:00:01.000Z"),
+            endTime: new Date("2026-05-14T08:00:02.000Z"),
+          },
+        },
+      ],
+      toolCalls: [
+        {
+          id: "tool-image-natural-1",
+          name: "lime_create_image_generation_task",
+          arguments: JSON.stringify({ prompt: "广州塔春天照片" }),
+          status: "completed",
+          startTime: new Date("2026-05-14T08:00:01.000Z"),
+          endTime: new Date("2026-05-14T08:00:02.000Z"),
+        },
+      ],
+    });
+    const displayState = resolveImageWorkbenchMessageDisplayState({
+      message,
+      rawDisplayContent: message.content,
+    });
+    const processState = resolveImageWorkbenchProcessDisplayState({
+      message,
+      sanitizedContentParts: message.contentParts,
+      shouldDeferMessageDetails: false,
+      shouldFoldSuppressedProcessFlow:
+        displayState.shouldFoldSuppressedProcessFlow,
+      shouldSuppressImageProcessFlow: displayState.shouldSuppressProcessFlow,
+    });
+    const rendererState = resolveImageWorkbenchRendererProcessState({
+      actionContent: message.content,
+      message,
+      rendererContentParts: processState.displayContentParts,
+      rendererToolCalls: message.toolCalls,
+      shouldSuppressRendererProcessFlow:
+        processState.shouldSuppressRendererProcessFlow,
+    });
+
+    expect(displayState.visibleRawDisplayContent).toBe(message.content);
     expect(rendererState.shouldRenderInlineProcess).toBe(true);
-    expect(rendererState.thinkingContent).toBe("先确认青柠插画风格。");
-    expect(rendererState.toolCalls?.[0]?.id).toBe("tool-image-1");
+    expect(rendererState.contentParts?.map((part) => part.type)).toEqual(["text"]);
+    expect(rendererState.toolCalls).toBeUndefined();
   });
 
   it("只有旧提交摘要且没有过程时，应只保留图片轻卡入口", () => {
@@ -96,11 +148,12 @@ describe("imageWorkbenchMessageDisplay", () => {
       message,
       sanitizedContentParts: undefined,
       shouldDeferMessageDetails: false,
+      shouldFoldSuppressedProcessFlow:
+        displayState.shouldFoldSuppressedProcessFlow,
       shouldSuppressImageProcessFlow: displayState.shouldSuppressProcessFlow,
     });
     const rendererState = resolveImageWorkbenchRendererProcessState({
       actionContent: "",
-      imageWorkbenchThinkingContent: displayState.thinkingContent,
       message,
       rendererContentParts: processState.displayContentParts,
       shouldSuppressRendererProcessFlow:
@@ -109,7 +162,7 @@ describe("imageWorkbenchMessageDisplay", () => {
 
     expect(displayState.visibleRawDisplayContent).toBe("");
     expect(processState.shouldFoldSuppressedProcessFlow).toBe(false);
-    expect(processState.shouldSuppressRendererProcessFlow).toBe(true);
+    expect(processState.shouldSuppressRendererProcessFlow).toBe(false);
     expect(rendererState.shouldRenderInlineProcess).toBe(false);
   });
 
@@ -119,7 +172,7 @@ describe("imageWorkbenchMessageDisplay", () => {
         "好的，马上用漫画风格来生成！",
         "",
         "看来这个请求没有完成。",
-        "-32603: -32002: ember_create_image_generation_task",
+        "-32603: -32002: lime_create_image_generation_task",
       ].join("\n"),
       imageWorkbenchPreview: {
         taskId: "task-image-failed-1",
@@ -131,12 +184,10 @@ describe("imageWorkbenchMessageDisplay", () => {
     const displayState = resolveImageWorkbenchMessageDisplayState({
       message,
       rawDisplayContent: message.content,
-      thinkingContent: "先按用户描述准备画面。",
     });
 
     expect(displayState.visibleRawDisplayContent).toBe("");
-    expect(displayState.hasLeadContent).toBe(true);
-    expect(displayState.thinkingContent).toBe("先按用户描述准备画面。");
+    expect(displayState.hasLeadContent).toBe(false);
     expect(displayState.shouldSuppressAssistantText).toBe(true);
   });
 

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { cwd } from "node:process";
 import { describe, expect, it } from "vitest";
+import { readAppServerApiSources } from "../../test/appServerApiSources";
 
 const FRONTEND_MATERIAL_FACADE_COMMANDS = [
   "list_materials",
@@ -69,8 +70,8 @@ describe("Materials current App Server boundary", () => {
 
   it("App Server protocol / client 应声明 projectMaterial current 方法", () => {
     const appServerSources = [
-      readRepoFile("src/lib/api/appServer.ts"),
-      readRepoFile("packages/app-server-client/src/protocol.ts"),
+      readAppServerApiSources(),
+      readRepoFile("packages/app-server-client/src/generated/protocol-types.ts"),
       readRepoFile("packages/app-server-client/src/index.ts"),
       readRepoFile(
         "ember-rs/crates/app-server-protocol/src/protocol/v0/method_names.rs",
@@ -78,7 +79,8 @@ describe("Materials current App Server boundary", () => {
       readRepoFile(
         "ember-rs/crates/app-server-protocol/src/protocol/v0/project_materials.rs",
       ),
-      readRepoFile("ember-rs/crates/app-server/src/processor.rs"),
+      readRepoFile("ember-rs/crates/app-server/src/processor/mod.rs"),
+      readRepoFile("ember-rs/crates/app-server/src/processor/project.rs"),
       readRepoFile("ember-rs/crates/app-server/src/runtime.rs"),
       readRepoFile(
         "ember-rs/crates/app-server/src/local_data_source/project_materials.rs",

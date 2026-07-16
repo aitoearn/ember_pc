@@ -2,6 +2,7 @@ import type {
   AgentEvent,
   AgentEventRuntimeStatus,
   AgentEventTaskProfileResolved,
+  AgentEventTurnCanceled,
   AgentEventTurnCompleted,
   AgentEventTurnFailed,
   AgentEventTurnStarted,
@@ -12,6 +13,7 @@ import type {
 } from "@embercloud/agent-ui-contracts";
 import {
   buildAgentUiModelChangeEvent,
+  buildAgentUiRunCanceledEvent,
   buildAgentUiRunFailedEvent,
   buildAgentUiRunFinishedEvent,
   buildAgentUiRunStartedEvent,
@@ -20,7 +22,54 @@ import {
   buildAgentUiThreadStartedEvent,
 } from "@embercloud/agent-runtime-projection";
 import { buildPermissionChangedEvent } from "./permissionProjection";
-import { buildTeamChangedFromRuntimeStatusEvent } from "./subagentStatusProjection";
+
+type AgentEventRuntimeLifecycle = Extract<
+  AgentEvent,
+  {
+    type:
+      | "thread_started"
+      | "turn_started"
+      | "turn_completed"
+      | "turn_canceled"
+      | "turn_failed"
+      | "error"
+      | "runtime_status"
+      | "model_change"
+      | "model_effective"
+      | "task_profile_resolved";
+  }
+>;
+
+export function buildRuntimeLifecycleEvents(
+  event: AgentEventRuntimeLifecycle,
+  context: AgentUiProjectionContext,
+): AgentUiProjectionEvent[] {
+  switch (event.type) {
+    case "thread_started":
+      return [buildThreadStartedEvent(event, context)];
+    case "turn_started":
+      return [buildTurnStartedEvent(event, context)];
+    case "turn_completed":
+      return [buildRunFinishedEvent(event, context)];
+    case "turn_canceled":
+      return [buildRunCanceledEvent(event, context)];
+    case "turn_failed":
+    case "error":
+      return [buildRunFailedEvent(event, context)];
+    case "runtime_status":
+      return buildRuntimeStatusEvents(event, context);
+    case "model_change":
+      return [buildModelChangeEvent(event, context)];
+    case "model_effective":
+      return [buildModelEffectiveEvent(event, context)];
+    case "task_profile_resolved":
+      return [buildTaskProfileResolvedEvent(event, context)];
+    default: {
+      const exhaustive: never = event;
+      return exhaustive;
+    }
+  }
+}
 
 export function buildThreadStartedEvent(
   event: Extract<AgentEvent, { type: "thread_started" }>,
@@ -52,12 +101,17 @@ export function buildTurnStartedEvent(
 }
 
 export function buildRunFinishedEvent(
-  event:
-    | AgentEventTurnCompleted
-    | Extract<AgentEvent, { type: "done" | "final_done" }>,
+  event: AgentEventTurnCompleted,
   context: AgentUiProjectionContext,
 ): AgentUiProjectionEvent {
   return buildAgentUiRunFinishedEvent({ sourceType: event.type }, context);
+}
+
+export function buildRunCanceledEvent(
+  event: AgentEventTurnCanceled,
+  context: AgentUiProjectionContext,
+): AgentUiProjectionEvent {
+  return buildAgentUiRunCanceledEvent({ sourceType: event.type }, context);
 }
 
 export function buildRunFailedEvent(
@@ -91,7 +145,6 @@ export function buildRuntimeStatusEvents(
       context,
     ),
     buildPermissionChangedEvent(event, context),
-    buildTeamChangedFromRuntimeStatusEvent(event, context),
   ].filter((projectionEvent): projectionEvent is AgentUiProjectionEvent =>
     Boolean(projectionEvent),
   );
@@ -109,6 +162,40 @@ export function buildModelChangeEvent(
     },
     context,
   );
+}
+
+export function buildModelEffectiveEvent(
+  event: Extract<AgentEvent, { type: "model_effective" }>,
+  context: AgentUiProjectionContext,
+): AgentUiProjectionEvent {
+  return buildAgentUiModelChangeEvent(
+    {
+      sourceType: event.type,
+      model: modelNameFromEffectiveEvent(event),
+      mode: event.serviceModelSlot || "effective",
+    },
+    context,
+  );
+}
+
+function modelNameFromEffectiveEvent(
+  event: Extract<AgentEvent, { type: "model_effective" }>,
+): string {
+  return (
+    event.modelName ||
+    modelIdFromValue(event.modelRef) ||
+    modelIdFromValue(event.model) ||
+    ""
+  );
+}
+
+function modelIdFromValue(value: unknown): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return "";
+  }
+  const record = value as Record<string, unknown>;
+  const modelId = record.modelId ?? record.model_id ?? record.model;
+  return typeof modelId === "string" ? modelId : "";
 }
 
 export function buildTaskProfileResolvedEvent(

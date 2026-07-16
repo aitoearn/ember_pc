@@ -1,4 +1,4 @@
-import type { AgentRuntimeToolInventory } from "@/lib/api/agentRuntime";
+import type { AgentRuntimeToolInventory } from "@/lib/api/agentRuntime/toolInventoryTypes";
 
 const WEB_SEARCH_TOOL_NAMES = ["WebSearch", "web_search"] as const;
 const SUBAGENT_CORE_TOOL_NAMES = ["Agent", "SendMessage"] as const;
@@ -7,22 +7,12 @@ const SUBAGENT_TEAM_TOOL_NAMES = [
   "TeamDelete",
   "ListPeers",
 ] as const;
-const TASK_TOOL_NAMES = [
-  "TaskCreate",
-  "TaskGet",
-  "TaskList",
-  "TaskUpdate",
-  "TaskOutput",
-  "TaskStop",
-] as const;
+const PLAN_TOOL_NAMES = ["update_plan"] as const;
 
-type RuntimeToolAvailabilitySource =
-  | "runtime_tools"
-  | "registry_tools"
-  | "none";
+type RuntimeToolAvailabilitySource = "runtime_tools" | "native_tools" | "none";
 
 export const RUNTIME_TOOL_AVAILABILITY_OVERRIDE_STORAGE_KEY =
-  "ember:debug:runtime-tool-availability:v1";
+  "lime:debug:runtime-tool-availability:v1";
 
 export interface RuntimeToolAvailability {
   source: RuntimeToolAvailabilitySource;
@@ -33,17 +23,17 @@ export interface RuntimeToolAvailability {
   subagentCore: boolean;
   subagentTeamTools: boolean;
   subagentRuntime: boolean;
-  taskRuntime: boolean;
+  planRuntime: boolean;
   missingSubagentCoreTools: string[];
   missingSubagentTeamTools: string[];
-  missingTaskTools: string[];
+  missingPlanTools: string[];
 }
 
 function isRuntimeToolAvailabilitySource(
   value: unknown,
 ): value is RuntimeToolAvailabilitySource {
   return (
-    value === "runtime_tools" || value === "registry_tools" || value === "none"
+    value === "runtime_tools" || value === "native_tools" || value === "none"
   );
 }
 
@@ -105,8 +95,8 @@ function readRuntimeToolAvailabilityOverride(): Partial<RuntimeToolAvailability>
     if (typeof parsed.subagentRuntime === "boolean") {
       override.subagentRuntime = parsed.subagentRuntime;
     }
-    if (typeof parsed.taskRuntime === "boolean") {
-      override.taskRuntime = parsed.taskRuntime;
+    if (typeof parsed.planRuntime === "boolean") {
+      override.planRuntime = parsed.planRuntime;
     }
 
     const missingSubagentCoreTools = normalizeStringList(
@@ -123,9 +113,9 @@ function readRuntimeToolAvailabilityOverride(): Partial<RuntimeToolAvailability>
       override.missingSubagentTeamTools = missingSubagentTeamTools;
     }
 
-    const missingTaskTools = normalizeStringList(parsed.missingTaskTools);
-    if (missingTaskTools) {
-      override.missingTaskTools = missingTaskTools;
+    const missingPlanTools = normalizeStringList(parsed.missingPlanTools);
+    if (missingPlanTools) {
+      override.missingPlanTools = missingPlanTools;
     }
 
     return Object.keys(override).length > 0 ? override : null;
@@ -149,7 +139,7 @@ function applyRuntimeToolAvailabilityOverride(
       override.missingSubagentCoreTools ?? base.missingSubagentCoreTools,
     missingSubagentTeamTools:
       override.missingSubagentTeamTools ?? base.missingSubagentTeamTools,
-    missingTaskTools: override.missingTaskTools ?? base.missingTaskTools,
+    missingPlanTools: override.missingPlanTools ?? base.missingPlanTools,
   };
 }
 
@@ -173,12 +163,12 @@ function collectRuntimeToolNames(
     };
   }
 
-  const registryTools = toolInventory?.registry_tools || [];
-  if (registryTools.length > 0) {
+  const nativeTools = toolInventory?.native_tools || [];
+  if (nativeTools.length > 0) {
     return {
-      source: "registry_tools",
+      source: "native_tools",
       toolNames: new Set(
-        registryTools.map((entry) => normalizeToolName(entry.name)),
+        nativeTools.map((entry) => normalizeToolName(entry.name)),
       ),
     };
   }
@@ -210,13 +200,13 @@ export function deriveRuntimeToolAvailability(
     toolNames,
     SUBAGENT_TEAM_TOOL_NAMES,
   );
-  const missingTaskTools = missingToolNames(toolNames, TASK_TOOL_NAMES);
+  const missingPlanTools = missingToolNames(toolNames, PLAN_TOOL_NAMES);
   const webSearch =
     missingToolNames(toolNames, WEB_SEARCH_TOOL_NAMES).length <
     WEB_SEARCH_TOOL_NAMES.length;
   const subagentCore = missingSubagentCoreTools.length === 0;
   const subagentTeamTools = missingSubagentTeamTools.length === 0;
-  const taskRuntime = missingTaskTools.length === 0;
+  const planRuntime = missingPlanTools.length === 0;
   const agentInitialized = Boolean(toolInventory?.agent_initialized);
 
   return applyRuntimeToolAvailabilityOverride({
@@ -228,9 +218,9 @@ export function deriveRuntimeToolAvailability(
     subagentCore,
     subagentTeamTools,
     subagentRuntime: subagentCore && subagentTeamTools,
-    taskRuntime,
+    planRuntime,
     missingSubagentCoreTools,
     missingSubagentTeamTools,
-    missingTaskTools,
+    missingPlanTools,
   });
 }

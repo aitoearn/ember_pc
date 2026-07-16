@@ -7,8 +7,8 @@ use chrono::DateTime;
 use chrono::NaiveDateTime;
 use chrono::Utc;
 use flate2::read::GzDecoder;
-use ember_core::app_paths;
-use ember_core::database;
+use lime_core::app_paths;
+use lime_core::database;
 use std::fs;
 use std::io::Read;
 use std::io::Write;
@@ -19,9 +19,10 @@ use std::time::UNIX_EPOCH;
 mod support_bundle;
 
 pub(crate) use support_bundle::export_support_bundle;
+pub(crate) use support_bundle::export_support_bundle_with_trace_root;
 
 pub(super) fn current_log_path() -> Result<PathBuf, String> {
-    Ok(app_paths::resolve_logs_dir()?.join("ember.log"))
+    Ok(app_paths::resolve_logs_dir()?.join("lime.log"))
 }
 
 fn parse_persisted_log_line(line: &str) -> Option<LogEntry> {
@@ -243,7 +244,7 @@ pub(crate) fn read_log_storage_diagnostics() -> Result<LogStorageDiagnosticsResp
 }
 
 pub(super) fn legacy_data_dir_guess() -> Option<PathBuf> {
-    dirs::home_dir().map(|home| home.join(".ember"))
+    dirs::home_dir().map(|home| home.join(".lime"))
 }
 
 fn path_to_string(path: Option<PathBuf>) -> Option<String> {
@@ -369,7 +370,7 @@ pub(crate) fn read_windows_startup_diagnostics() -> Result<WindowsStartupDiagnos
     Ok(WindowsStartupDiagnosticsResponse {
         platform: std::env::consts::OS.to_string(),
         app_data_dir: path_to_string(app_data_dir),
-        legacy_ember_dir: path_to_string(legacy_data_dir),
+        legacy_lime_dir: path_to_string(legacy_data_dir),
         db_path: path_to_string(db_path),
         webview2_version: None,
         current_exe: path_to_string(current_exe),
@@ -466,8 +467,8 @@ mod tests {
     #[test]
     fn log_helpers_read_tail_and_clear_persisted_artifacts() {
         let temp = TempDir::new().expect("temp dir");
-        let log_path = temp.path().join("ember.log");
-        let rotated_path = temp.path().join("ember.log.20260313-010000");
+        let log_path = temp.path().join("lime.log");
+        let rotated_path = temp.path().join("lime.log.20260313-010000");
         let raw_response_path = temp.path().join("raw_response_request-1.txt");
         fs::write(
             &rotated_path,

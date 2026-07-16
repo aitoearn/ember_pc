@@ -20,7 +20,6 @@ AI Agent 聊天页面，承接新建任务与生成两种入口。当前工作�
 | 文件                             | 说明                                                                   |
 | -------------------------------- | ---------------------------------------------------------------------- |
 | `ChatNavbar.tsx`                 | 顶部导航栏（模型选择、设置等）                                         |
-| `ChatSidebar.tsx`                | 旧会话侧栏组件，已退出 WorkspaceShell 主路径，仅保留为 legacy/test-only |
 | `MessageList.tsx`                | 消息列表组件                                                           |
 | `Inputbar.tsx`                   | 输入栏组件                                                             |
 | `EmptyState.tsx`                 | 空状态引导（主题选择、模式选择）                                       |
@@ -31,7 +30,7 @@ AI Agent 聊天页面，承接新建任务与生成两种入口。当前工作�
 
 | 文件                   | 说明                                                                 |
 | ---------------------- | -------------------------------------------------------------------- |
-| `useAsterAgentChat.ts` | 现役 Aster 聊天主 Hook                                               |
+| `useAgentChat.ts` | 现役 Agent 聊天主 Hook                                               |
 | `index.ts`             | `useAgentChatUnified` 统一入口与 Hook 导出，旧 `useAgentChat` 已删除 |
 
 ## 核心功能

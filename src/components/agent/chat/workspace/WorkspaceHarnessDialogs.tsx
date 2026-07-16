@@ -13,16 +13,12 @@ import {
   type HarnessFileChangeReviewSummary,
 } from "../components/HarnessStatusPanel";
 import { countFailedHarnessOutputSignals } from "../utils/harnessOutputSignals";
-import type { TeamMemorySnapshot } from "@/lib/teamMemorySync";
 
 type HarnessPanelBaseProps = Pick<
   ComponentProps<typeof HarnessStatusPanel>,
   | "harnessState"
   | "environment"
-  | "childSubagentSessions"
-  | "selectedTeamLabel"
-  | "selectedTeamSummary"
-  | "selectedTeamRoles"
+  | "canonicalChildren"
   | "threadRead"
   | "turns"
   | "threadItems"
@@ -38,13 +34,18 @@ type HarnessPanelBaseProps = Pick<
   | "onPromoteQueuedTurn"
   | "onObjectiveChanged"
   | "onOpenMemoryWorkbench"
+  | "onManageProviders"
+  | "onOpenExecutionPolicySettings"
   | "messages"
-  | "teamMemorySnapshot"
   | "diagnosticRuntimeContext"
   | "toolInventory"
   | "toolInventoryLoading"
   | "toolInventoryError"
   | "onRefreshToolInventory"
+  | "mcpPrepareCandidateCount"
+  | "mcpPrepareLoading"
+  | "mcpPrepareError"
+  | "onPrepareMcpTargets"
   | "onOpenSubagentSession"
   | "onLoadFilePreview"
   | "onOpenFile"
@@ -90,9 +91,7 @@ function openHarnessSection(target: CodeWorkbenchGuideTarget): void {
     return;
   }
 
-  const section = document.querySelector(
-    `[data-harness-section="${target}"]`,
-  );
+  const section = document.querySelector(`[data-harness-section="${target}"]`);
   section?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -109,13 +108,13 @@ function renderCodeWorkbenchGuide({
     return null;
   }
 
-  const metrics = resolveCodeWorkbenchGuideMetrics(
-    panelBaseProps.harnessState,
-  );
+  const metrics = resolveCodeWorkbenchGuideMetrics(panelBaseProps.harnessState);
 
   return (
     <CodeWorkbenchGuide
-      pendingApprovalsCount={panelBaseProps.harnessState.pendingApprovals.length}
+      pendingApprovalsCount={
+        panelBaseProps.harnessState.pendingApprovals.length
+      }
       activeWriteCount={panelBaseProps.harnessState.activeFileWrites.length}
       outputSignalCount={panelBaseProps.harnessState.outputSignals.length}
       failedOutputSignalCount={countFailedHarnessOutputSignals(
@@ -137,7 +136,9 @@ function hasRuntimeWorkbenchSignals({
 }: {
   harnessState: HarnessPanelBaseProps["harnessState"];
   fileCheckpointSummary:
-    | NonNullable<HarnessPanelBaseProps["threadRead"]>["file_checkpoint_summary"]
+    | NonNullable<
+        HarnessPanelBaseProps["threadRead"]
+      >["file_checkpoint_summary"]
     | null
     | undefined;
 }): boolean {
@@ -159,9 +160,11 @@ function renderCodeReviewSummaryPanel({
 }: {
   panelBaseProps: HarnessPanelBaseProps;
   hasRuntimeWorkbenchSignals: boolean;
-  fileCheckpointSummary: NonNullable<
-    HarnessPanelBaseProps["threadRead"]
-  >["file_checkpoint_summary"] | null;
+  fileCheckpointSummary:
+    | NonNullable<
+        HarnessPanelBaseProps["threadRead"]
+      >["file_checkpoint_summary"]
+    | null;
   fileChangeReviewSummary?: HarnessFileChangeReviewSummary | null;
   onOpenFileCheckpoints?: () => void;
   onSubmitCodeFixPrompt?: (prompt: string) => void | Promise<void>;
@@ -182,22 +185,15 @@ function renderCodeReviewSummaryPanel({
   );
 }
 
-interface GeneralWorkbenchHarnessDialogSectionProps extends HarnessPanelBaseProps {
-  enabled: boolean;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  teamMemorySnapshot?: TeamMemorySnapshot | null;
+interface UseGeneralWorkbenchHarnessSurfaceParams {
+  panelBaseProps: HarnessPanelBaseProps;
   onSubmitCodeFixPrompt?: (prompt: string) => void | Promise<void>;
 }
 
-export function GeneralWorkbenchHarnessDialogSection({
-  enabled,
-  open,
-  onOpenChange,
-  teamMemorySnapshot = null,
+function useGeneralWorkbenchHarnessSurface({
+  panelBaseProps,
   onSubmitCodeFixPrompt,
-  ...panelBaseProps
-}: GeneralWorkbenchHarnessDialogSectionProps) {
+}: UseGeneralWorkbenchHarnessSurfaceParams) {
   const [fileCheckpointDialogOpen, setFileCheckpointDialogOpen] =
     useState(false);
   const diagnosticSessionId =
@@ -206,8 +202,7 @@ export function GeneralWorkbenchHarnessDialogSection({
     panelBaseProps.diagnosticRuntimeContext?.workingDir?.trim() || "";
   const fileCheckpointSummary =
     panelBaseProps.threadRead?.file_checkpoint_summary || null;
-  const latestFileCheckpoint =
-    fileCheckpointSummary?.latest_checkpoint || null;
+  const latestFileCheckpoint = fileCheckpointSummary?.latest_checkpoint || null;
   const shouldShowRuntimeWorkbench = hasRuntimeWorkbenchSignals({
     harnessState: panelBaseProps.harnessState,
     fileCheckpointSummary,
@@ -222,7 +217,9 @@ export function GeneralWorkbenchHarnessDialogSection({
     : undefined;
   const leadContent =
     codeWorkbenchGuide || shouldShowRuntimeWorkbench
-      ? ({ fileChangeReviewSummary }: {
+      ? ({
+          fileChangeReviewSummary,
+        }: {
           fileChangeReviewSummary: HarnessFileChangeReviewSummary;
         }) => (
           <div className="space-y-3">
@@ -239,28 +236,61 @@ export function GeneralWorkbenchHarnessDialogSection({
         )
       : undefined;
 
+  return {
+    diagnosticSessionId,
+    diagnosticWorkingDir,
+    fileCheckpointDialogOpen,
+    latestFileCheckpoint,
+    leadContent,
+    openFileCheckpoints,
+    setFileCheckpointDialogOpen,
+  };
+}
+
+interface GeneralWorkbenchHarnessSurfaceSectionProps extends HarnessPanelBaseProps {
+  enabled: boolean;
+  onSubmitCodeFixPrompt?: (prompt: string) => void | Promise<void>;
+}
+
+export function GeneralWorkbenchHarnessSurfaceSection({
+  enabled,
+  onSubmitCodeFixPrompt,
+  ...panelBaseProps
+}: GeneralWorkbenchHarnessSurfaceSectionProps) {
+  const { t } = useTranslation("agent");
+  const {
+    diagnosticSessionId,
+    diagnosticWorkingDir,
+    fileCheckpointDialogOpen,
+    latestFileCheckpoint,
+    leadContent,
+    openFileCheckpoints,
+    setFileCheckpointDialogOpen,
+  } = useGeneralWorkbenchHarnessSurface({
+    panelBaseProps,
+    onSubmitCodeFixPrompt,
+  });
+
   if (!enabled) {
     return null;
   }
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          maxWidth="max-w-7xl"
-          className="ember-workbench-theme-scope ember-workbench-surface-scope flex h-[90vh] max-h-[90vh] flex-col overflow-hidden border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface)] p-0 text-[color:var(--ember-text)]"
-          draggable={true}
-          dragHandleSelector='[data-harness-drag-handle="true"]'
-        >
-          <HarnessStatusPanel
-            {...panelBaseProps}
-            layout="dialog"
-            teamMemorySnapshot={teamMemorySnapshot}
-            onOpenFileCheckpoints={openFileCheckpoints}
-            leadContent={leadContent}
-          />
-        </DialogContent>
-      </Dialog>
+      <div
+        className="lime-workbench-theme-scope lime-workbench-surface-scope flex h-full min-h-0 flex-col overflow-hidden bg-[color:var(--lime-surface)] text-[color:var(--lime-text)]"
+        data-testid="general-workbench-harness-surface"
+      >
+        <HarnessStatusPanel
+          {...panelBaseProps}
+          layout="dialog"
+          onOpenFileCheckpoints={openFileCheckpoints}
+          leadContent={leadContent}
+          title={t("agentChat.workspaceHarnessDialog.title")}
+          description={t("agentChat.workspaceHarnessDialog.description")}
+          toggleLabel={t("agentChat.workspaceHarnessDialog.toggleLabel")}
+        />
+      </div>
 
       {diagnosticSessionId ? (
         <AgentThreadFileCheckpointDialog
@@ -288,16 +318,9 @@ interface GeneralWorkbenchDialogSectionProps extends HarnessPanelBaseProps {
   executionRuntime: ComponentProps<
     typeof AgentRuntimeStrip
   >["executionRuntime"];
-  isExecutionRuntimeActive: ComponentProps<
-    typeof AgentRuntimeStrip
-  >["isExecutionRuntimeActive"];
   runtimeStatusTitle: ComponentProps<
     typeof AgentRuntimeStrip
   >["runtimeStatusTitle"];
-  selectedTeamRoleCount: ComponentProps<
-    typeof AgentRuntimeStrip
-  >["selectedTeamRoleCount"];
-  teamMemorySnapshot?: TeamMemorySnapshot | null;
   onSubmitCodeFixPrompt?: (prompt: string) => void | Promise<void>;
 }
 
@@ -310,10 +333,7 @@ export function GeneralWorkbenchDialogSection({
   runtimeToolAvailability,
   isSending,
   executionRuntime,
-  isExecutionRuntimeActive,
   runtimeStatusTitle,
-  selectedTeamRoleCount,
-  teamMemorySnapshot = null,
   onSubmitCodeFixPrompt,
   ...panelBaseProps
 }: GeneralWorkbenchDialogSectionProps) {
@@ -326,8 +346,7 @@ export function GeneralWorkbenchDialogSection({
     panelBaseProps.diagnosticRuntimeContext?.workingDir?.trim() || "";
   const fileCheckpointSummary =
     panelBaseProps.threadRead?.file_checkpoint_summary || null;
-  const latestFileCheckpoint =
-    fileCheckpointSummary?.latest_checkpoint || null;
+  const latestFileCheckpoint = fileCheckpointSummary?.latest_checkpoint || null;
   const shouldShowRuntimeWorkbench = hasRuntimeWorkbenchSignals({
     harnessState: panelBaseProps.harnessState,
     fileCheckpointSummary,
@@ -350,14 +369,13 @@ export function GeneralWorkbenchDialogSection({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           maxWidth="max-w-6xl"
-          className="ember-workbench-theme-scope ember-workbench-surface-scope flex h-[90vh] max-h-[90vh] flex-col overflow-hidden border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface)] p-0 text-[color:var(--ember-text)]"
+          className="lime-workbench-theme-scope lime-workbench-surface-scope flex h-[90vh] max-h-[90vh] flex-col overflow-hidden border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface)] p-0 text-[color:var(--lime-text)]"
           draggable={true}
           dragHandleSelector='[data-harness-drag-handle="true"]'
         >
           <HarnessStatusPanel
             {...panelBaseProps}
             layout="dialog"
-            teamMemorySnapshot={teamMemorySnapshot}
             onOpenFileCheckpoints={openFileCheckpoints}
             title={t("agentChat.workspaceHarnessDialog.title")}
             description={t("agentChat.workspaceHarnessDialog.description")}
@@ -378,15 +396,11 @@ export function GeneralWorkbenchDialogSection({
                   toolPreferences={toolPreferences}
                   runtimeToolAvailability={runtimeToolAvailability}
                   harnessState={panelBaseProps.harnessState}
-                  childSubagentSessions={panelBaseProps.childSubagentSessions}
+                  canonicalChildren={panelBaseProps.canonicalChildren}
                   variant="embedded"
                   isSending={isSending}
                   executionRuntime={executionRuntime}
-                  isExecutionRuntimeActive={isExecutionRuntimeActive}
                   runtimeStatusTitle={runtimeStatusTitle}
-                  selectedTeamLabel={panelBaseProps.selectedTeamLabel}
-                  selectedTeamSummary={panelBaseProps.selectedTeamSummary}
-                  selectedTeamRoleCount={selectedTeamRoleCount}
                   fileCheckpointSummary={fileCheckpointSummary}
                   onOpenFileCheckpoints={openFileCheckpoints}
                 />

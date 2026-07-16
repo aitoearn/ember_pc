@@ -14,20 +14,27 @@ import {
 } from "@/components/ui/popover";
 import { formatNumber } from "@/i18n/format";
 import { cn } from "@/lib/utils";
-import type { SearchResultPreviewItem } from "../utils/searchResultPreview";
+import {
+  formatSearchResultSourceLabel,
+  type SearchResultPreviewItem,
+} from "../utils/searchResultPreview";
 
 function SearchResultHoverCard({
   item,
-  onOpenUrl,
+  onOpenItem,
   popoverSide = "right",
   popoverAlign = "start",
 }: {
   item: SearchResultPreviewItem;
-  onOpenUrl: (url: string) => void | Promise<void>;
+  onOpenItem: (item: SearchResultPreviewItem) => void | Promise<void>;
   popoverSide?: "top" | "right" | "bottom" | "left";
   popoverAlign?: "start" | "center" | "end";
 }) {
   const { t } = useTranslation("agent");
+  const sourceLabel = useMemo(
+    () => formatSearchResultSourceLabel(item),
+    [item],
+  );
   const [open, setOpen] = useState(false);
   const closeTimerRef = useRef<number | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -114,7 +121,7 @@ function SearchResultHoverCard({
         <button
           ref={triggerRef}
           type="button"
-          aria-label={t("agentChat.searchResultPreview.previewAria", {
+          aria-label={t("agentChat.searchResultPreview.openAria", {
             title: item.title,
           })}
           className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition-colors hover:bg-slate-50"
@@ -122,7 +129,7 @@ function SearchResultHoverCard({
           onMouseLeave={handleScheduleClose}
           onFocus={handleOpenPreview}
           onBlur={handleScheduleClose}
-          onClick={() => void onOpenUrl(item.url)}
+          onClick={() => void onOpenItem(item)}
         >
           <div className="flex items-start gap-3">
             <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-slate-300" />
@@ -132,7 +139,7 @@ function SearchResultHoverCard({
               </div>
               <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Globe className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{item.hostname}</span>
+                <span className="truncate">{sourceLabel}</span>
               </div>
             </div>
             <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -161,7 +168,7 @@ function SearchResultHoverCard({
               </div>
               <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Globe className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{item.hostname}</span>
+                <span className="truncate">{sourceLabel}</span>
               </div>
             </div>
           </div>
@@ -171,7 +178,7 @@ function SearchResultHoverCard({
           <button
             type="button"
             className="flex w-full items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 py-2 text-left text-xs text-primary transition-colors hover:bg-muted/60"
-            onClick={() => void onOpenUrl(item.url)}
+            onClick={() => void onOpenItem(item)}
           >
             <span className="truncate">{item.url}</span>
             <ExternalLink className="h-3.5 w-3.5 shrink-0" />
@@ -185,21 +192,34 @@ function SearchResultHoverCard({
 export function SearchResultPreviewList({
   items,
   onOpenUrl,
+  onOpenItem,
   popoverSide = "right",
   popoverAlign = "start",
   className,
   collapsedCount = 4,
+  variant = "card",
 }: {
   items: SearchResultPreviewItem[];
-  onOpenUrl: (url: string) => void | Promise<void>;
+  onOpenUrl?: (url: string) => void | Promise<void>;
+  onOpenItem?: (item: SearchResultPreviewItem) => void | Promise<void>;
   popoverSide?: "top" | "right" | "bottom" | "left";
   popoverAlign?: "start" | "center" | "end";
   className?: string;
   collapsedCount?: number;
+  variant?: "card" | "inline";
 }) {
   const { i18n, t } = useTranslation("agent");
   const locale = i18n.language;
   const [expanded, setExpanded] = useState(false);
+  const handleOpenItem = useCallback(
+    (item: SearchResultPreviewItem) => {
+      if (onOpenItem) {
+        return onOpenItem(item);
+      }
+      return onOpenUrl?.(item.url);
+    },
+    [onOpenItem, onOpenUrl],
+  );
   const identityKey = useMemo(
     () => items.map((item) => item.id).join("|"),
     [items],
@@ -219,20 +239,49 @@ export function SearchResultPreviewList({
   const hiddenCount = items.length - visibleItems.length;
 
   return (
-    <div className={cn("space-y-2", className)}>
-      {visibleItems.map((item) => (
-        <SearchResultHoverCard
-          key={item.id}
-          item={item}
-          onOpenUrl={onOpenUrl}
-          popoverSide={popoverSide}
-          popoverAlign={popoverAlign}
-        />
-      ))}
+    <div className={cn(variant === "inline" ? "space-y-1" : "space-y-2", className)}>
+      {visibleItems.map((item) =>
+        variant === "inline" ? (
+          <button
+            key={item.id}
+            type="button"
+            className="block w-full rounded-md px-1.5 py-1 text-left transition-colors hover:bg-slate-50"
+            onClick={() => void handleOpenItem(item)}
+            aria-label={t("agentChat.searchResultPreview.openAria", {
+              title: item.title,
+            })}
+          >
+            <span className="flex min-w-0 items-start gap-2">
+              <Globe className="mt-1 h-3 w-3 shrink-0 text-slate-400" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs leading-5 text-slate-700">
+                  {item.title}
+                </span>
+                <span className="block truncate text-[11px] leading-4 text-slate-400">
+                  {formatSearchResultSourceLabel(item)}
+                </span>
+              </span>
+            </span>
+          </button>
+        ) : (
+          <SearchResultHoverCard
+            key={item.id}
+            item={item}
+            onOpenItem={handleOpenItem}
+            popoverSide={popoverSide}
+            popoverAlign={popoverAlign}
+          />
+        ),
+      )}
       {shouldCollapse ? (
         <button
           type="button"
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          className={cn(
+            "flex w-full items-center justify-center gap-2 text-xs transition-colors",
+            variant === "inline"
+              ? "rounded-md px-2 py-1 text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+              : "rounded-xl border border-dashed border-border bg-muted/30 px-3 py-2 text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+          )}
           onClick={() => setExpanded((prev) => !prev)}
           aria-label={
             expanded

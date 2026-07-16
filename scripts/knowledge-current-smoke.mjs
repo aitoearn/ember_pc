@@ -15,7 +15,7 @@ const DEFAULTS = {
   workingDir: process.cwd(),
   evidenceDir: path.join(
     process.cwd(),
-    ".ember",
+    ".lime",
     "qc",
     "gui-evidence",
     "knowledge-current",
@@ -27,8 +27,8 @@ const DEFAULTS = {
 const APP_SERVER_HANDLE_JSON_LINES_COMMAND = "app_server_handle_json_lines";
 const REQUIRED_APP_SERVER_METHODS = ["knowledgePack/list"];
 const LEGACY_KNOWLEDGE_LIST_COMMANDS = ["knowledge_list_packs"];
-const APP_SIDEBAR_COLLAPSED_STORAGE_KEY = "ember.app-sidebar.collapsed";
-const KNOWLEDGE_WORKING_DIR_STORAGE_KEY = "ember.knowledge.working-dir";
+const APP_SIDEBAR_COLLAPSED_STORAGE_KEY = "lime.app-sidebar.collapsed";
+const KNOWLEDGE_WORKING_DIR_STORAGE_KEY = "lime.knowledge.working-dir";
 
 function printHelp() {
   console.log(`
@@ -48,7 +48,7 @@ Knowledge Current Smoke
   --timeout-ms <ms>      总超时，默认 120000
   --interval-ms <ms>     健康检查轮询间隔，默认 1000
   --working-dir <path>   项目资料工作目录，默认当前仓库根
-  --evidence-dir <path>  证据目录，默认 .ember/qc/gui-evidence/knowledge-current
+  --evidence-dir <path>  证据目录，默认 .lime/qc/gui-evidence/knowledge-current
   --prefix <name>        证据文件前缀，默认 knowledge-current
   --headed               使用有界面 Chrome
   -h, --help             显示帮助
@@ -414,7 +414,7 @@ async function openKnowledgePage(page, options) {
   await clickKnowledgeNav(page, options);
   await page.waitForFunction(
     () =>
-      /让 Ember 记住这个项目|Project Knowledge|Project Materials/i.test(
+      /让 Lime 记住这个项目|Project Knowledge|Project Materials/i.test(
         document.body.textContent ?? "",
       ),
     { timeout: options.timeoutMs },
@@ -554,7 +554,7 @@ async function run() {
 
     const bodyText = await page.locator("body").innerText();
     summary.knowledgePageMounted =
-      /让 Ember 记住这个项目|Project Knowledge|Project Materials/i.test(
+      /让 Lime 记住这个项目|Project Knowledge|Project Materials/i.test(
         bodyText,
       );
     summary.knowledgeCatalogMounted =

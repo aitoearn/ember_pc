@@ -1,4 +1,4 @@
-import { getEmberI18n } from "@/i18n/createI18n";
+import { getLimeI18n } from "@/i18n/createI18n";
 import type {
   OpenResourceManagerInput,
   ResourceManagerItemInput,
@@ -90,7 +90,7 @@ function resolveSelectedPreviewIndex(
 function resolvePreviewSourceLabel(
   preview: MessageImageWorkbenchPreview,
 ): string {
-  const i18n = getEmberI18n();
+  const i18n = getLimeI18n();
   switch (preview.mode) {
     case "edit":
       return i18n.t("agentChat.imageWorkbenchPreview.tool.editing", {

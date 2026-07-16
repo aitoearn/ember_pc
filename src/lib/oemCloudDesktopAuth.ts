@@ -11,7 +11,7 @@ import { syncSkillCatalogFromBootstrapPayload } from "@/lib/skillCatalogBootstra
 import { syncServiceSkillCatalogFromBootstrapPayload } from "@/lib/serviceSkillCatalogBootstrap";
 import { syncSiteAdapterCatalogFromBootstrapPayload } from "@/lib/siteAdapterCatalogBootstrap";
 
-export const OEM_CLOUD_OAUTH_COMPLETED_EVENT = "ember:oem-cloud-oauth-completed";
+export const OEM_CLOUD_OAUTH_COMPLETED_EVENT = "lime:oem-cloud-oauth-completed";
 
 export interface OemCloudDesktopOAuthCallbackPayload {
   tenantId: string | null;
@@ -58,11 +58,11 @@ function setWindowSessionToken(token: string | null): void {
   }
 
   if (!token) {
-    delete window.__EMBER_SESSION_TOKEN__;
+    delete window.__LIME_SESSION_TOKEN__;
     return;
   }
 
-  window.__EMBER_SESSION_TOKEN__ = token;
+  window.__LIME_SESSION_TOKEN__ = token;
 }
 
 function setWindowRuntimeTenantId(tenantId: string | null): void {
@@ -70,18 +70,18 @@ function setWindowRuntimeTenantId(tenantId: string | null): void {
     return;
   }
 
-  const currentRuntime = isRecord(window.__EMBER_OEM_CLOUD__)
-    ? window.__EMBER_OEM_CLOUD__
+  const currentRuntime = isRecord(window.__LIME_OEM_CLOUD__)
+    ? window.__LIME_OEM_CLOUD__
     : {};
 
   if (!tenantId) {
-    window.__EMBER_OEM_CLOUD__ = {
+    window.__LIME_OEM_CLOUD__ = {
       ...currentRuntime,
     };
     return;
   }
 
-  window.__EMBER_OEM_CLOUD__ = {
+  window.__LIME_OEM_CLOUD__ = {
     ...currentRuntime,
     tenantId,
   };
@@ -96,15 +96,15 @@ function restoreWindowOauthContext(previous: {
   }
 
   if (previous.runtime === undefined) {
-    delete window.__EMBER_OEM_CLOUD__;
+    delete window.__LIME_OEM_CLOUD__;
   } else {
-    window.__EMBER_OEM_CLOUD__ = previous.runtime;
+    window.__LIME_OEM_CLOUD__ = previous.runtime;
   }
 
   if (previous.sessionToken === undefined) {
-    delete window.__EMBER_SESSION_TOKEN__;
+    delete window.__LIME_SESSION_TOKEN__;
   } else {
-    window.__EMBER_SESSION_TOKEN__ = previous.sessionToken;
+    window.__LIME_SESSION_TOKEN__ = previous.sessionToken;
   }
 }
 
@@ -115,7 +115,7 @@ export function parseOemCloudDesktopOAuthCallbackUrl(
     const parsed = new URL(value);
     const normalizedPath = parsed.pathname.replace(/\/+$/, "") || "/";
     if (
-      parsed.protocol !== "ember:" ||
+      parsed.protocol !== "lime:" ||
       parsed.hostname !== "oauth" ||
       normalizedPath !== "/callback"
     ) {
@@ -167,8 +167,8 @@ export async function completeOemCloudDesktopOAuthLogin(
           sessionToken: undefined,
         }
       : {
-          runtime: window.__EMBER_OEM_CLOUD__,
-          sessionToken: window.__EMBER_SESSION_TOKEN__,
+          runtime: window.__LIME_OEM_CLOUD__,
+          sessionToken: window.__LIME_SESSION_TOKEN__,
         };
 
   setWindowRuntimeTenantId(payload.tenantId);

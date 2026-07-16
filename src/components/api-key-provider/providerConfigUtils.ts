@@ -13,12 +13,14 @@ import type { EnhancedModelMetadata } from "@/lib/types/modelRegistry";
 
 export const SENSENOVA_OPENAI_COMPATIBLE_API_HOST =
   "https://api.sensenova.cn/compatible-mode/v2";
+export const AGNES_OPENAI_COMPATIBLE_API_HOST =
+  "https://apihub.agnes-ai.com/v1";
 
 /** 支持的 Provider 类型列表 */
 export const PROVIDER_TYPE_OPTIONS: { value: ProviderType; label: string }[] = [
   { value: "openai", label: "OpenAI 兼容" },
   { value: "openai-response", label: "OpenAI Responses API" },
-  { value: "codex", label: "Codex CLI" },
+  { value: "codex", label: "本地 CLI" },
   { value: "anthropic", label: "Anthropic" },
   { value: "anthropic-compatible", label: "Anthropic 兼容" },
   { value: "gemini", label: "Gemini" },
@@ -55,11 +57,11 @@ export const PROVIDER_TYPE_FIELDS: Record<ProviderType, string[]> = {
 
 const SPECIAL_PROVIDER_PROTOCOL_HINTS: Partial<Record<ProviderType, string>> = {
   codex:
-    "Codex 保留 Ember 的专属协议与模型别名能力，会继续使用独立的 Codex 模型映射与鉴权链路。",
+    "本地 CLI 保留专属协议与模型别名能力，会继续使用独立的模型映射与鉴权链路。",
   anthropic:
     "Anthropic 继续使用原生协议，不会被收敛到普通 OpenAI 兼容请求格式。",
   "anthropic-compatible":
-    "Anthropic 兼容用于接入实现 Anthropic wire format 的第三方服务，会沿用 Anthropic 请求结构与模型映射。Ember 会自动识别已知官方 Anthropic 兼容端点（如 GLM / Z.AI / Kimi / MiniMax / Alibaba / MiMo）；未知端点默认回退为仅显式缓存。",
+    "Anthropic 兼容用于接入实现 Anthropic wire format 的第三方服务，会沿用 Anthropic 请求结构与模型映射。Lime 会自动识别已知官方 Anthropic 兼容端点（如 GLM / Z.AI / Kimi / MiniMax / Alibaba / MiMo）；未知端点默认回退为仅显式缓存。",
   gemini:
     "Gemini 保留原生协议能力与专属模型映射，不按普通 OpenAI 兼容 Provider 处理。",
 };
@@ -272,6 +274,13 @@ export function normalizeKnownProviderApiHost(value: string): string {
 
     if (hostname === "platform.sensenova.cn" && pathname.startsWith("/docs")) {
       return SENSENOVA_OPENAI_COMPATIBLE_API_HOST;
+    }
+
+    if (
+      (hostname === "agnes-ai.com" || hostname === "wiki.agnes-ai.com") &&
+      pathname.includes("/docs/agnes-image-21-flash")
+    ) {
+      return AGNES_OPENAI_COMPATIBLE_API_HOST;
     }
 
     if (

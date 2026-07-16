@@ -3,7 +3,7 @@
 //! Novita AI 提供 OpenAI 兼容的 HTTP 端点，通过 Bearer Token 认证。
 //! 环境变量 `NOVITA_API_KEY` 可用作 API Key 的回退来源。
 
-use ember_core::models::openai::ChatCompletionRequest;
+use lime_core::models::openai::ChatCompletionRequest;
 use reqwest::Client;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};

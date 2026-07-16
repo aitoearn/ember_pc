@@ -26,7 +26,7 @@ export function createDefaultLayeredDesignSubjectMattingWorker(): Worker {
   }
 
   return new Worker(new URL("./subjectMatting.worker.ts", import.meta.url), {
-    name: "ember-layered-design-subject-matting",
+    name: "lime-layered-design-subject-matting",
     type: "module",
   });
 }

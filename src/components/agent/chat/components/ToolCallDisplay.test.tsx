@@ -3,6 +3,49 @@ import { describe, expect, it } from "vitest";
 import { renderTool, renderToolList } from "./ToolCallDisplay.testFixtures";
 
 describe("ToolCallDisplay", () => {
+  it("工具行应消费 Soul lifecycle descriptor metadata", () => {
+    const { container } = renderTool({
+      id: "tool-soul-lifecycle-display-1",
+      name: "WebSearch",
+      arguments: JSON.stringify({ query: "Lime Soul lifecycle" }),
+      status: "running",
+      metadata: {
+        soul_lifecycle: {
+          surface: "tool_lifecycle",
+          phase: "before_tool",
+          status: "running",
+          styleLevel: "L1",
+          riskLevel: "normal",
+          toneVariant: "cheeky_sassy",
+          profileId: "cheeky_sassy_executor",
+          packId: "com.lime.soul.cheeky-sassy-executor",
+        },
+        soul_surface: "tool_lifecycle",
+        soul_phase: "before_tool",
+        style_level: "L1",
+        risk_level: "normal",
+        tone_variant: "cheeky_sassy",
+        profile_id: "cheeky_sassy_executor",
+        pack_id: "com.lime.soul.cheeky-sassy-executor",
+      },
+      startTime: new Date("2026-07-06T12:00:00.000Z"),
+    });
+
+    const row = container.querySelector('[data-testid="tool-call-row"]');
+    expect(row?.getAttribute("data-soul-lifecycle")).toBe("yes");
+    expect(row?.getAttribute("data-soul-surface")).toBe("tool_lifecycle");
+    expect(row?.getAttribute("data-soul-phase")).toBe("before_tool");
+    expect(row?.getAttribute("data-soul-style-level")).toBe("L1");
+    expect(row?.getAttribute("data-soul-risk-level")).toBe("normal");
+    expect(row?.getAttribute("data-soul-tone-variant")).toBe("cheeky_sassy");
+    expect(row?.getAttribute("data-soul-profile-id")).toBe(
+      "cheeky_sassy_executor",
+    );
+    expect(row?.getAttribute("data-soul-pack-id")).toBe(
+      "com.lime.soul.cheeky-sassy-executor",
+    );
+  });
+
   it("WebSearch 工具结果应在 AI 对话区展示搜索列表并支持悬浮预览", async () => {
     const { container } = renderTool({
       id: "tool-search-1",
@@ -37,7 +80,7 @@ describe("ToolCallDisplay", () => {
     expect(document.body.textContent).toContain("查看文本详情");
 
     const firstSearchResult = document.body.querySelector(
-      '[aria-label="预览搜索结果：Xinhua world news summary at 0030 GMT, March 13"]',
+      '[aria-label="打开搜索结果：Xinhua world news summary at 0030 GMT, March 13"]',
     ) as HTMLButtonElement | null;
 
     await act(async () => {
@@ -170,6 +213,100 @@ describe("ToolCallDisplay", () => {
     expect(container.textContent).toContain("已调用 MCP 工具 修复工具渲染");
     expect(container.textContent).not.toContain("MCP 搜索");
     expect(container.textContent).not.toContain("MCP 读取");
+  });
+
+  it("完整工具卡应隐藏非命令工具的协议诊断包络", () => {
+    const { container } = renderTool({
+      id: "tool-protocol-envelope-1",
+      name: "mcp__github__create_issue",
+      arguments: JSON.stringify({ title: "修复工具渲染" }),
+      status: "completed",
+      result: {
+        success: true,
+        output: JSON.stringify({
+          request_metadata: {
+            event: "agentSession/turn/start",
+            session_id: "session-1",
+          },
+          diagnostics: {
+            projection: "tool_result_projection",
+            ok: true,
+          },
+          metadata: {
+            durationMs: 12,
+          },
+        }),
+      },
+      startTime: new Date("2026-06-21T12:00:00.000Z"),
+      endTime: new Date("2026-06-21T12:00:01.000Z"),
+    });
+
+    act(() => {
+      const expandButton = container.querySelector(
+        'button[title="查看结果"]',
+      ) as HTMLButtonElement | null;
+      expandButton?.click();
+    });
+
+    expect(
+      container.querySelector('[data-testid="tool-call-rendered-result"]'),
+    ).not.toBeNull();
+    expect(container.textContent).toContain("已调用 MCP 工具");
+    expect(container.textContent).not.toContain("request_metadata");
+    expect(container.textContent).not.toContain("agentSession/turn/start");
+    expect(container.textContent).not.toContain("tool_result_projection");
+    expect(container.textContent).not.toContain("durationMs");
+  });
+
+  it("MCP 工具只有协议包络输出时应展示 structuredContent 正文", () => {
+    const { container } = renderTool({
+      id: "tool-mcp-structured-content-1",
+      name: "mcp__docs__diagnostic_probe",
+      arguments: JSON.stringify({ query: "MCP structured content" }),
+      status: "completed",
+      result: {
+        success: true,
+        output: JSON.stringify({
+          request_metadata: {
+            projection: "mcp_tool_result_projection",
+            trace_id: "trace-structured-content",
+          },
+          diagnostics: {
+            elapsed_ms: 12,
+            raw_transport_payload: "doc-hidden-envelope",
+          },
+          content: [
+            {
+              type: "text",
+              text: "control-plane envelope only; user answer is stored in structuredContent",
+            },
+          ],
+        }),
+        structuredContent: {
+          answer: "MCP 结构化答案已进入 GUI",
+          ids: ["doc-1"],
+        },
+      },
+      startTime: new Date("2026-06-21T13:00:00.000Z"),
+      endTime: new Date("2026-06-21T13:00:01.000Z"),
+    });
+
+    act(() => {
+      const expandButton = container.querySelector(
+        'button[title="查看结果"]',
+      ) as HTMLButtonElement | null;
+      expandButton?.click();
+    });
+
+    expect(
+      container.querySelector('[data-testid="tool-call-rendered-result"]'),
+    ).not.toBeNull();
+    expect(container.textContent).toContain("MCP 结构化答案已进入 GUI");
+    expect(container.textContent).toContain("doc-1");
+    expect(container.textContent).not.toContain("control-plane envelope only");
+    expect(container.textContent).not.toContain("request_metadata");
+    expect(container.textContent).not.toContain("doc-hidden-envelope");
+    expect(container.textContent).not.toContain("mcp_tool_result_projection");
   });
 
   it("连续多次 WebSearch 应在对话区按搜索批次分组展示", () => {

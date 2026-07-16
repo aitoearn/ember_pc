@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { BuiltinCommandBadge } from "../components/BuiltinCommandBadge";
+import { InputbarPluginBadge } from "../components/InputbarPluginBadge";
 import { RuntimeSceneBadge } from "../components/RuntimeSceneBadge";
 import { CuratedTaskBadge } from "../../../skill-selection/CuratedTaskBadge";
 import { SkillBadge } from "../../../skill-selection/SkillBadge";
@@ -36,6 +37,7 @@ import {
 } from "../../../skill-selection/inputCapabilitySelection";
 import type { InputbarKnowledgePackSelection } from "../types";
 import type { InputbarSendHandler } from "../inputbarSendPayload";
+import type { InterruptedInputRestoreRequest } from "../../../hooks/agentStreamInputRestoreTypes";
 import type { AgentInitialInputCapabilityParams } from "@/types/page";
 import {
   buildCuratedTaskLaunchPrompt,
@@ -56,7 +58,17 @@ import {
 import { toast } from "sonner";
 import { buildInputbarControllerCopy } from "./inputbarControllerCopy";
 import { buildInputbarWorkflowStateCopy } from "../inputbarWorkflowCopy";
+import { logAgentDebug } from "@/lib/agentDebug";
 import type { ModelReasoningEffortLevel } from "@/lib/types/modelRegistry";
+import {
+  applyInputbarPluginSelection,
+  removeInputbarPluginSelection,
+  resolveInputbarPluginDisplayName,
+  type InputbarPluginCapability,
+  type InputbarPluginSelection,
+  type InputbarPluginSelectionOptions,
+  type InputbarPluginSkillCapability,
+} from "../pluginInputCapability";
 
 interface UseInputbarControllerParams {
   input: string;
@@ -79,13 +91,17 @@ interface UseInputbarControllerParams {
   workflowSteps?: WorkflowStep[];
   workflowRunState?: "idle" | "auto_running" | "await_user_decision";
   knowledgePackSelection?: InputbarKnowledgePackSelection | null;
+  onKnowledgePacksNeeded?: () => void;
   onStartKnowledgeOrganize?: () => void;
   onManageKnowledgePacks?: () => void;
+  pluginSuggestions?: InputbarPluginCapability[];
   projectId?: string | null;
   sessionId?: string | null;
   pathReferences?: MessagePathReference[];
   onAddPathReferences?: (references: MessagePathReference[]) => void;
   onClearPathReferences?: () => void;
+  inputRestoreRequest?: InterruptedInputRestoreRequest | null;
+  onInputRestoreRequestHandled?: (requestId: string) => void;
 }
 
 export function useInputbarController({
@@ -109,13 +125,17 @@ export function useInputbarController({
   workflowSteps = [],
   workflowRunState,
   knowledgePackSelection,
+  onKnowledgePacksNeeded,
   onStartKnowledgeOrganize,
   onManageKnowledgePacks,
+  pluginSuggestions = [],
   projectId = null,
   sessionId = null,
   pathReferences = [],
   onAddPathReferences,
   onClearPathReferences,
+  inputRestoreRequest = null,
+  onInputRestoreRequestHandled,
   skills,
   serviceSkills,
   serviceSkillGroups,
@@ -133,6 +153,8 @@ export function useInputbarController({
   );
   const [activeCapability, setActiveCapability] =
     useState<InputCapabilitySelection | null>(null);
+  const [activePluginSelection, setActivePluginSelection] =
+    useState<InputbarPluginSelection | null>(null);
   const [knowledgeHubOpenRequestKey, setKnowledgeHubOpenRequestKey] =
     useState(0);
   const [editingCuratedTaskCapability, setEditingCuratedTaskCapability] =
@@ -143,6 +165,8 @@ export function useInputbarController({
   const [curatedTaskEditorPrefillHint, setCuratedTaskEditorPrefillHint] =
     useState<string | null>(null);
   const handledInitialInputCapabilitySignatureRef = useRef("");
+  const pluginSelectionInputSyncedRef = useRef(false);
+  const inputRestoreEpochRef = useRef(0);
   const {
     pendingImages,
     fileInputRef,
@@ -152,6 +176,7 @@ export function useInputbarController({
     handleDrop: handleImageDrop,
     handleRemoveImage,
     clearPendingImages,
+    replacePendingImages,
     openFileDialog,
   } = useImageAttachments();
   const handleDrop = useCallback(
@@ -224,10 +249,12 @@ export function useInputbarController({
       onManageKnowledgePacks?.();
       return;
     }
+    onKnowledgePacksNeeded?.();
     setKnowledgeHubOpenRequestKey((current) => current + 1);
   }, [
     activeBuiltinCommand?.key,
     knowledgePackSelection,
+    onKnowledgePacksNeeded,
     onManageKnowledgePacks,
     onStartKnowledgeOrganize,
   ]);
@@ -242,6 +269,49 @@ export function useInputbarController({
       route,
     });
   }, [initialInputCapability]);
+
+  useEffect(() => {
+    if (!inputRestoreRequest) {
+      return;
+    }
+
+    inputRestoreEpochRef.current += 1;
+    const restoreEpoch = inputRestoreEpochRef.current;
+    const { draft, requestId } = inputRestoreRequest;
+    const restoredPathReferences = [...(draft.pathReferences ?? [])];
+    logAgentDebug("Inputbar", "inputRestoreRequest.apply", {
+      draftImageCount: draft.images?.length ?? 0,
+      draftPathReferenceCount: restoredPathReferences.length,
+      draftTextLength: draft.text.trim().length,
+      hasCapabilityRoute: Boolean(draft.inputCapabilityRoute),
+      requestId,
+      restoreEpoch,
+    });
+    setInput(draft.text);
+    replacePendingImages([...(draft.images ?? [])]);
+    onClearPathReferences?.();
+    if (restoredPathReferences.length > 0) {
+      onAddPathReferences?.(restoredPathReferences);
+    }
+    setActivePluginSelection(null);
+    setActiveCapability(
+      draft.inputCapabilityRoute
+        ? resolveInputCapabilitySelectionFromRoute({
+            route: draft.inputCapabilityRoute,
+            skills,
+          })
+        : null,
+    );
+    onInputRestoreRequestHandled?.(requestId);
+  }, [
+    inputRestoreRequest,
+    onAddPathReferences,
+    onClearPathReferences,
+    onInputRestoreRequestHandled,
+    replacePendingImages,
+    setInput,
+    skills,
+  ]);
 
   useEffect(() => {
     if (!initialInputCapabilitySignature) {
@@ -300,11 +370,7 @@ export function useInputbarController({
     skills,
   ]);
 
-  const {
-    activeTools,
-    handleToolClick,
-    isFullscreen,
-  } = useInputbarToolState({
+  const { activeTools, handleToolClick, isFullscreen } = useInputbarToolState({
     toolStates,
     onToolStatesChange,
     openFileDialog,
@@ -327,13 +393,16 @@ export function useInputbarController({
     pendingImages,
     pathReferences,
     activeCapability,
+    activePluginSelection,
     knowledgePackSelection,
     activeTools,
+    projectId,
     sessionId,
     onSend,
     clearPendingImages,
     clearPathReferences: onClearPathReferences,
     clearActiveCapability: () => setActiveCapability(null),
+    getInputRestoreEpoch: () => inputRestoreEpochRef.current,
   });
 
   const inputAdapter = useInputbarAdapter({
@@ -371,14 +440,56 @@ export function useInputbarController({
     copy: workflowCopy,
   });
 
+  useEffect(() => {
+    if (!activePluginSelection) {
+      pluginSelectionInputSyncedRef.current = false;
+      return;
+    }
+    if (activePluginSelection.preserveInput) {
+      pluginSelectionInputSyncedRef.current = false;
+      return;
+    }
+    const inputText = input.trimStart();
+    const trigger = activePluginSelection.trigger.trim();
+    if (inputText === trigger || inputText.startsWith(`${trigger} `)) {
+      pluginSelectionInputSyncedRef.current = true;
+      return;
+    }
+    if (!pluginSelectionInputSyncedRef.current) {
+      return;
+    }
+    pluginSelectionInputSyncedRef.current = false;
+    setActivePluginSelection(null);
+  }, [activePluginSelection, input]);
+
   const topExtra =
     activeSkill ||
     activeBuiltinCommand ||
     activeRuntimeScene ||
-    activeCuratedTask
+    activeCuratedTask ||
+    activePluginSelection
       ? React.createElement(
           React.Fragment,
           null,
+          activePluginSelection
+            ? React.createElement(InputbarPluginBadge, {
+                selection: activePluginSelection,
+                removeLabel: t("agentChat.inputbar.pluginChip.remove", {
+                  name: resolveInputbarPluginDisplayName(
+                    activePluginSelection.plugin,
+                  ),
+                }),
+                onClear: () => {
+                  setInput(
+                    removeInputbarPluginSelection({
+                      input,
+                      selection: activePluginSelection,
+                    }),
+                  );
+                  setActivePluginSelection(null);
+                },
+              })
+            : null,
           activeBuiltinCommand
             ? React.createElement(BuiltinCommandBadge, {
                 command: activeBuiltinCommand,
@@ -549,6 +660,29 @@ export function useInputbarController({
     setActiveCapability(null);
     onSelectServiceSkill?.(skill);
   };
+  const handleSelectPlugin = (
+    plugin: InputbarPluginCapability,
+    skill?: InputbarPluginSkillCapability,
+    options?: InputbarPluginSelectionOptions,
+  ) => {
+    const blocked =
+      plugin.disabled ||
+      (plugin.blockerCodes?.length ?? 0) > 0 ||
+      skill?.disabled ||
+      (skill?.blockerCodes?.length ?? 0) > 0;
+    if (blocked) {
+      return;
+    }
+    const selection = applyInputbarPluginSelection({
+      input: options?.inputOverride ?? input,
+      plugin,
+      skill,
+      preserveInput: options?.preserveInputOverride === true,
+    });
+    pluginSelectionInputSyncedRef.current = false;
+    setInput(selection.text);
+    setActivePluginSelection(selection);
+  };
   const handleSelectInputCapability = (
     capability: InputCapabilitySelection,
   ) => {
@@ -561,6 +695,7 @@ export function useInputbarController({
         if (!knowledgePackSelection && !onStartKnowledgeOrganize) {
           onManageKnowledgePacks?.();
         } else {
+          onKnowledgePacksNeeded?.();
           setKnowledgeHubOpenRequestKey((current) => current + 1);
         }
         setActiveCapability(null);
@@ -610,6 +745,9 @@ export function useInputbarController({
     inputAdapter,
     topExtra,
     dialogLayer,
+    pluginSuggestions,
+    activePluginSelection,
+    handleSelectPlugin,
     workflowQuickActions,
     workflowQueueItems,
     workflowActiveItem,

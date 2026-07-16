@@ -159,7 +159,7 @@ function normalizePositiveNumber(value, fallback) {
 
 function printHelp() {
   console.log(`
-Ember 治理图谱生成器
+Lime 治理图谱生成器
 
 用法:
   npm run governance:graph
@@ -1088,7 +1088,7 @@ function renderHtml(report) {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ember 治理图谱</title>
+    <title>Lime 治理图谱</title>
     <style>
       :root {
         color-scheme: light;
@@ -1517,7 +1517,7 @@ function renderHtml(report) {
     <div class="page">
       <section class="hero">
         <div>
-          <h1>Ember 治理图谱</h1>
+          <h1>Lime 治理图谱</h1>
           <p>
             文件 / 页面级依赖图 + 治理标签 + 疑似失效信号。状态只来自
             <code>governance/surfaces.yml</code> 与现有治理规则；自动脚本只补 signals 与 overlay。

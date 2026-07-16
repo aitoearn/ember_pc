@@ -54,7 +54,7 @@ function writeJson(filePath, value) {
 
 function createFixture() {
   const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ember-i18next-cli-parity-"),
+    path.join(os.tmpdir(), "lime-i18next-cli-parity-"),
   );
   const resourcesRoot = path.join(root, "src", "i18n", "resources");
 
@@ -287,7 +287,7 @@ function main() {
   };
   const detectTranslations = runDetectTranslations(fixture.resourcesRoot);
   const report = {
-    schemaVersion: "ember.i18n.i18nextCliParityBenchmark.v1",
+    schemaVersion: "lime.i18n.i18nextCliParityBenchmark.v1",
     cliVersion: options.cliVersion,
     environment: {
       node: process.version,
@@ -308,7 +308,7 @@ function main() {
       i18nextCli: i18nextCliCommands,
     },
     decision: {
-      current: "保留 Ember 自研 i18n 治理脚本为 current。",
+      current: "保留 Lime 自研 i18n 治理脚本为 current。",
       next: "只有在官方 CLI 对动态 key 保护、unused family 分桶和 Patch retirement gate 具备等价覆盖后，再评估替换最薄的 i18n:check 层。",
     },
   };

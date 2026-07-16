@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { safeInvoke } from "@/lib/dev-bridge";
-import type { MediaTaskModalityRuntimeContractIndex } from "./mediaTasks";
+import type { MediaTaskModalityRuntimeContractIndex } from "./agentRuntime/mediaTaskTypes";
 import {
   cancelMediaTaskArtifact,
   createVideoGenerationTaskArtifact,
@@ -26,10 +26,10 @@ const EMPTY_MODALITY_RUNTIME_CONTRACT_INDEX: MediaTaskModalityRuntimeContractInd
     contract_keys: [],
     execution_profile_keys: [],
     executor_adapter_keys: [],
-    embercore_policy_refs: [],
-    embercore_policy_snapshot_count: 0,
-    embercore_policy_snapshot_statuses: [],
-    embercore_policy_decisions: [],
+    limecore_policy_refs: [],
+    limecore_policy_snapshot_count: 0,
+    limecore_policy_snapshot_statuses: [],
+    limecore_policy_decisions: [],
     blocked_count: 0,
     routing_outcomes: [],
     model_registry_assessment_count: 0,
@@ -58,10 +58,10 @@ function buildVideoTask(overrides: Record<string, unknown> = {}) {
       typeof overrides.normalized_status === "string"
         ? overrides.normalized_status
         : "pending",
-    path: `.ember/tasks/video_generate/${taskId}.json`,
-    absolute_path: `/workspace/.ember/tasks/video_generate/${taskId}.json`,
-    artifact_path: `.ember/tasks/video_generate/${taskId}.json`,
-    absolute_artifact_path: `/workspace/.ember/tasks/video_generate/${taskId}.json`,
+    path: `.lime/tasks/video_generate/${taskId}.json`,
+    absolute_path: `/workspace/.lime/tasks/video_generate/${taskId}.json`,
+    artifact_path: `.lime/tasks/video_generate/${taskId}.json`,
+    absolute_artifact_path: `/workspace/.lime/tasks/video_generate/${taskId}.json`,
     reused_existing: false,
     record: {
       task_id: taskId,
@@ -136,7 +136,7 @@ describe("videoGeneration API", () => {
     vi.mocked(listMediaTaskArtifacts).mockResolvedValueOnce({
       success: true,
       workspace_root: "/workspace",
-      artifact_root: "/workspace/.ember/tasks",
+      artifact_root: "/workspace/.lime/tasks",
       filters: {
         task_family: "video",
         task_type: "video_generate",

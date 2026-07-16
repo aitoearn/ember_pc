@@ -15,7 +15,6 @@ export async function submitAgentStreamUserInput(
   const { preparedSend, env } = options;
   const {
     assistantMsg,
-    runtimeStatusPresentation,
     assistantMsgId,
     userMsgId,
     userMsg,
@@ -31,10 +30,13 @@ export async function submitAgentStreamUserInput(
     webSearch,
     searchMode,
     thinking,
+    explicitToolPreferences,
     autoContinue,
     systemPrompt,
     requestMetadata,
     assistantDraft,
+    targetSessionId,
+    submittedDraft,
     skipSessionRestore,
     skipSessionStartHooks,
     skipPreSubmitResume,
@@ -49,9 +51,11 @@ export async function submitAgentStreamUserInput(
     userMsg,
     content,
     expectingQueue,
-    runtimeStatusPresentation,
+    submittedDraft,
     initialThreadId:
-      env.sessionIdRef.current || `local-thread:${assistantMsgId}`,
+      targetSessionId ||
+      env.sessionIdRef.current ||
+      `local-thread:${assistantMsgId}`,
     listenerMapRef: env.listenerMapRef,
     setActiveStream: env.setActiveStream,
     setMessages: env.setMessages,
@@ -76,7 +80,7 @@ export async function submitAgentStreamUserInput(
     clearOptimisticTurn,
     disposeListener,
     upsertQueuedTurn,
-    removeQueuedTurnState,
+    removeQueuedTurnsFromProjection,
     removeQueuedDraftMessages,
     markOptimisticFailure,
     registerListener,
@@ -88,8 +92,9 @@ export async function submitAgentStreamUserInput(
       runtime: env.runtime,
       ensureSession: env.ensureSession,
       attemptSilentTurnRecovery: env.attemptSilentTurnRecovery,
+      refreshSessionReadModel: env.refreshSessionReadModel,
       sessionIdRef: env.sessionIdRef,
-      getRequiredWorkspaceId: env.getRequiredWorkspaceId,
+      getWorkspaceIdForSubmit: env.getWorkspaceIdForSubmit,
       getSyncedSessionExecutionStrategy: env.getSyncedSessionExecutionStrategy,
       getSyncedSessionRecentPreferences: env.getSyncedSessionRecentPreferences,
       effectiveAccessMode: env.accessMode,
@@ -105,10 +110,12 @@ export async function submitAgentStreamUserInput(
       webSearch,
       searchMode,
       thinking,
+      explicitToolPreferences,
       autoContinue,
       systemPrompt,
       requestMetadata,
       assistantDraft,
+      targetSessionId,
       skipSessionRestore,
       skipSessionStartHooks,
       skipPreSubmitResume,
@@ -136,21 +143,19 @@ export async function submitAgentStreamUserInput(
         removeQueuedDraftMessages,
         clearActiveStreamIfMatch: env.clearActiveStreamIfMatch,
         upsertQueuedTurn,
-        removeQueuedTurnState,
+        removeQueuedTurnsFromProjection,
         registerListener,
-      },
-      sounds: {
-        playToolcallSound: env.playToolcallSound,
-        playTypewriterSound: env.playTypewriterSound,
       },
       appendThinkingToParts: env.appendThinkingToParts,
       setMessages: env.setMessages,
       setIsSending: env.setIsSending,
       setPendingActions: env.setPendingActions,
+      getThreadItems: env.getThreadItems,
       setThreadItems: env.setThreadItems,
       setThreadTurns: env.setThreadTurns,
       setCurrentTurnId: env.setCurrentTurnId,
       setExecutionRuntime: env.setExecutionRuntime,
+      soulCopy: env.soulCopy,
     });
   } catch (error) {
     handleAgentStreamSubmitFailure({
@@ -168,8 +173,8 @@ export async function submitAgentStreamUserInput(
       setIsSending: env.setIsSending,
       clearActiveStreamIfMatch: env.clearActiveStreamIfMatch,
       disposeListener,
-      removeQueuedTurnState,
       markOptimisticFailure,
+      soulCopy: env.soulCopy,
     });
   }
 }

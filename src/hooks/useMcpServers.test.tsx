@@ -68,7 +68,7 @@ function createServer(overrides: Partial<McpServer> = {}): McpServer {
       command: "node",
       args: ["mcp-server.js"],
     },
-    enabled_ember: true,
+    enabled_lime: true,
     enabled_claude: false,
     enabled_codex: true,
     enabled_gemini: false,

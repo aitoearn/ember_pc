@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
   buildCrashRecoveryReloadUrl,
   finalizeCrashRecoveryAutoReload,
@@ -90,7 +90,7 @@ function renderPanel(error: Error | null) {
 describe("CrashRecoveryPanel", () => {
   beforeEach(async () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
   });
 
   afterEach(async () => {
@@ -107,7 +107,7 @@ describe("CrashRecoveryPanel", () => {
 
     vi.clearAllMocks();
     vi.unstubAllGlobals();
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
   });
 
   it("应识别模块脚本导入失败错误", () => {
@@ -148,14 +148,14 @@ describe("CrashRecoveryPanel", () => {
   it("应为强制刷新资源构造带缓存刷新参数的地址", () => {
     expect(
       buildCrashRecoveryReloadUrl("http://127.0.0.1:1420/settings", "123456"),
-    ).toBe("http://127.0.0.1:1420/settings?__ember_resource_reload=123456");
+    ).toBe("http://127.0.0.1:1420/settings?__lime_resource_reload=123456");
 
     const reloadUrl = buildCrashRecoveryReloadUrl(
       "http://127.0.0.1:1420/settings?tab=providers",
       "654321",
     );
     expect(reloadUrl).toContain("tab=providers");
-    expect(reloadUrl).toContain("__ember_resource_reload=654321");
+    expect(reloadUrl).toContain("__lime_resource_reload=654321");
   });
 
   it("应在同一页面同一版本下只允许自动强制刷新一次", () => {
@@ -183,7 +183,7 @@ describe("CrashRecoveryPanel", () => {
       storage,
     );
 
-    expect(firstReloadUrl).toContain("__ember_resource_reload=");
+    expect(firstReloadUrl).toContain("__lime_resource_reload=");
     expect(secondReloadUrl).toBeNull();
   });
 
@@ -207,7 +207,7 @@ describe("CrashRecoveryPanel", () => {
       storage,
     );
 
-    expect(reloadUrl).toContain("__ember_resource_reload=");
+    expect(reloadUrl).toContain("__lime_resource_reload=");
     finalizeModuleImportAutoReload(reloadUrl!, "1.19.0", storage, {
       replaceState,
     });
@@ -223,7 +223,7 @@ describe("CrashRecoveryPanel", () => {
         "1.19.0",
         storage,
       ),
-    ).toContain("__ember_resource_reload=");
+    ).toContain("__lime_resource_reload=");
   });
 
   it("成功启动后应同时移除 React hook 自动刷新标记", () => {
@@ -246,7 +246,7 @@ describe("CrashRecoveryPanel", () => {
       storage,
     );
 
-    expect(reloadUrl).toContain("__ember_resource_reload=");
+    expect(reloadUrl).toContain("__lime_resource_reload=");
     expect(
       prepareReactFastRefreshHookAutoReload(
         "http://127.0.0.1:1420/?tab=agent",
@@ -270,7 +270,7 @@ describe("CrashRecoveryPanel", () => {
         "1.38.0",
         storage,
       ),
-    ).toContain("__ember_resource_reload=");
+    ).toContain("__lime_resource_reload=");
   });
 
   it("普通恢复模式应通过 errors namespace 渲染英文外壳", () => {

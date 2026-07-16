@@ -58,7 +58,7 @@ function buildBaseSetupPackage() {
       {
         id: "bootstrap-bundle",
         source: "remote",
-        path_or_uri: "ember://bundles/bootstrap",
+        path_or_uri: "lime://bundles/bootstrap",
         kind: "skill_bundle",
       },
     ],
@@ -173,15 +173,15 @@ describe("skillCatalogBootstrap", () => {
   beforeEach(() => {
     window.localStorage.clear();
     clearSkillCatalogCache();
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_SKILL_CATALOG__;
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_SKILL_CATALOG__;
   });
 
   afterEach(() => {
     window.localStorage.clear();
     clearSkillCatalogCache();
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_SKILL_CATALOG__;
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_SKILL_CATALOG__;
   });
 
   it("应支持从 bootstrap 包装层提取 skill catalog", () => {
@@ -232,10 +232,14 @@ describe("skillCatalogBootstrap", () => {
     ).toEqual(
       expect.objectContaining({
         title: "Bootstrap 配音入口",
-        binding: {
+        binding: expect.objectContaining({
           skillId: "bootstrap-service",
           executionKind: "agent_turn",
-        },
+          skillLocator: expect.objectContaining({
+            source: "catalog",
+            name: "voice_runtime",
+          }),
+        }),
       }),
     );
   });
@@ -266,10 +270,10 @@ describe("skillCatalogBootstrap", () => {
 
   it("启动时应在专用全局快照无效时回退读取 bootstrap payload", async () => {
     const catalog = buildRemoteCatalog();
-    window.__EMBER_SKILL_CATALOG__ = {
+    window.__LIME_SKILL_CATALOG__ = {
       invalid: true,
     };
-    window.__EMBER_BOOTSTRAP__ = {
+    window.__LIME_BOOTSTRAP__ = {
       skillCatalog: catalog,
     };
 
@@ -287,7 +291,7 @@ describe("skillCatalogBootstrap", () => {
 
     try {
       window.dispatchEvent(
-        new CustomEvent("ember:skill-catalog-bootstrap", {
+        new CustomEvent("lime:skill-catalog-bootstrap", {
           detail: {
             skillCatalog: catalog,
           },

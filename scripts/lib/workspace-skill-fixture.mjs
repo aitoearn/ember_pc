@@ -55,7 +55,7 @@ export async function writeWorkspaceSkillFixture({
     throw new Error("workspace skill fixture requires SKILL.md");
   }
 
-  await fs.mkdir(path.join(skillRoot, ".ember"), { recursive: true });
+  await fs.mkdir(path.join(skillRoot, ".lime"), { recursive: true });
   for (const file of files) {
     const relativePath = safeSkillRelativePath(file?.relativePath);
     const target = path.join(skillRoot, relativePath);
@@ -70,7 +70,7 @@ export async function writeWorkspaceSkillFixture({
     registeredSkillDirectory: skillRoot,
   };
   await fs.writeFile(
-    path.join(skillRoot, ".ember", "registration.json"),
+    path.join(skillRoot, ".lime", "registration.json"),
     `${JSON.stringify(registrationPayload, null, 2)}\n`,
     "utf8",
   );

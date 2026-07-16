@@ -1,10 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import {
-  MessageListContainer,
-  MessageListFrame,
-} from "../styles";
+import { MessageListContainer, MessageListFrame } from "../styles";
 import type { AgentStreamTextOverlaySnapshot } from "../hooks/agentStreamTextOverlayStore";
 import type { Message } from "../types";
 import { MessageListItem } from "./MessageListItem";
@@ -13,7 +10,6 @@ import type {
   MessageListRenderGroup,
 } from "./MessageList.types";
 import {
-  DefaultConversationEmptyState,
   HistoryWindow,
   PersistedHistoryWindow,
   RestoringSessionEmptyState,
@@ -29,13 +25,14 @@ import {
 } from "./useMessageListScrollController";
 import { useMessageListTelemetry } from "./useMessageListTelemetry";
 import { useMessageListTimelineState } from "./useMessageListTimelineState";
+import { CONVERSATION_CONTENT_MAX_WIDTH } from "../styles/conversationLayoutTokens";
 
 const MessageListInner: React.FC<MessageListProps> = ({
   sessionId = null,
   messages,
   leadingContent,
   trailingContent,
-  emptyStateVariant = "default",
+  emptyStateVariant = "none",
   turns = [],
   threadItems = [],
   currentTurnId = null,
@@ -43,11 +40,11 @@ const MessageListInner: React.FC<MessageListProps> = ({
   pendingActions = [],
   submittedActionsInFlight = [],
   queuedTurns = [],
-  childSubagentSessions = [],
+  canonicalChildren = [],
   sessionHistoryWindow = null,
   onLoadFullHistory,
   isSending = false,
-  assistantLabel = "Ember",
+  assistantLabel = "Lime",
   onQuoteMessage,
   onEditMessage,
   onA2UISubmit,
@@ -57,11 +54,11 @@ const MessageListInner: React.FC<MessageListProps> = ({
   onWriteFile,
   onFileClick,
   onOpenArtifactFromTimeline,
+  onOpenUrlPreview,
   onOpenSavedSiteContent,
   onArtifactClick,
   onOpenMessagePreview,
   onSaveMessageAsSkill,
-  onSaveMessageAsInspiration,
   onSaveMessageAsKnowledge,
   onOpenSubagentSession,
   onPermissionResponse,
@@ -101,7 +98,7 @@ const MessageListInner: React.FC<MessageListProps> = ({
   });
   const timelineState = useMessageListTimelineState({
     activePendingA2UISource,
-    childSubagentSessions,
+    canonicalChildren,
     currentTurnId,
     expandedHistoricalTimelineKeys,
     focusedTimelineItemId,
@@ -131,8 +128,7 @@ const MessageListInner: React.FC<MessageListProps> = ({
   const promptCacheNotice = useMessageListPromptCacheNotice({
     lastAssistantMessage: timelineState.lastAssistantMessage,
     providerType,
-    restoredPromptCacheNoticeReady:
-      renderWindow.restoredPromptCacheNoticeReady,
+    restoredPromptCacheNoticeReady: renderWindow.restoredPromptCacheNoticeReady,
   });
 
   useMessageListAutoScroll({
@@ -166,7 +162,8 @@ const MessageListInner: React.FC<MessageListProps> = ({
     persistedHiddenHistoryCount: renderWindow.persistedHiddenHistoryCount,
     renderedMessages: renderWindow.renderedMessages,
     renderedThreadItemsCount: timelineState.renderedThreadItems.length,
-    renderedThreadItemsMeasurement: timelineState.renderedThreadItemsMeasurement,
+    renderedThreadItemsMeasurement:
+      timelineState.renderedThreadItemsMeasurement,
     renderedTurnsCount: timelineState.renderedTurns.length,
     renderGroups: timelineState.renderGroups,
     renderGroupsMeasurement: timelineState.renderGroupsMeasurement,
@@ -176,7 +173,8 @@ const MessageListInner: React.FC<MessageListProps> = ({
       timelineState.shouldDeferTailRuntimeStatusLine,
     shouldDeferThreadItemsScan: timelineState.shouldDeferThreadItemsScan,
     threadRead,
-    timelineByMessageIdMeasurement: timelineState.timelineByMessageIdMeasurement,
+    timelineByMessageIdMeasurement:
+      timelineState.timelineByMessageIdMeasurement,
     turnsCount: turns.length,
     visibleMessagesCount: renderWindow.visibleMessages.length,
   });
@@ -218,16 +216,19 @@ const MessageListInner: React.FC<MessageListProps> = ({
     });
   }, []);
 
-  const handleCopy = useCallback(async (content: string, id: string) => {
-    try {
-      await navigator.clipboard.writeText(content);
-      setCopiedId(id);
-      toast.success(t("agentChat.messageList.toast.copySuccess"));
-      setTimeout(() => setCopiedId(null), 2000);
-    } catch {
-      toast.error(t("agentChat.messageList.toast.copyFailed"));
-    }
-  }, [t]);
+  const handleCopy = useCallback(
+    async (content: string, id: string) => {
+      try {
+        await navigator.clipboard.writeText(content);
+        setCopiedId(id);
+        toast.success(t("agentChat.messageList.toast.copySuccess"));
+        setTimeout(() => setCopiedId(null), 2000);
+      } catch {
+        toast.error(t("agentChat.messageList.toast.copyFailed"));
+      }
+    },
+    [t],
+  );
 
   const renderMessageItem = useCallback(
     (
@@ -288,13 +289,13 @@ const MessageListInner: React.FC<MessageListProps> = ({
         onFileClick={onFileClick}
         onInterruptCurrentTurn={onInterruptCurrentTurn}
         onOpenArtifactFromTimeline={onOpenArtifactFromTimeline}
+        onOpenUrlPreview={onOpenUrlPreview}
         onEditMessage={onEditMessage}
         onOpenMessagePreview={onOpenMessagePreview}
         onOpenSavedSiteContent={onOpenSavedSiteContent}
         onOpenSubagentSession={onOpenSubagentSession}
         onPermissionResponse={onPermissionResponse}
         onQuoteMessage={onQuoteMessage}
-        onSaveMessageAsInspiration={onSaveMessageAsInspiration}
         onSaveMessageAsKnowledge={onSaveMessageAsKnowledge}
         onSaveMessageAsSkill={onSaveMessageAsSkill}
         onWriteFile={onWriteFile}
@@ -325,12 +326,12 @@ const MessageListInner: React.FC<MessageListProps> = ({
       onFileClick,
       onInterruptCurrentTurn,
       onOpenArtifactFromTimeline,
+      onOpenUrlPreview,
       onOpenMessagePreview,
       onOpenSavedSiteContent,
       onOpenSubagentSession,
       onPermissionResponse,
       onQuoteMessage,
-      onSaveMessageAsInspiration,
       onSaveMessageAsKnowledge,
       onSaveMessageAsSkill,
       onWriteFile,
@@ -362,8 +363,9 @@ const MessageListInner: React.FC<MessageListProps> = ({
       >
         <div
           data-testid="message-list-column"
+          style={{ maxWidth: CONVERSATION_CONTENT_MAX_WIDTH }}
           className={[
-            "mx-auto flex min-h-full w-full max-w-[1040px] flex-col gap-4 py-4",
+            "mx-auto flex min-h-full w-full flex-col gap-4 py-4",
             compactLeadingSpacing ? "pl-2.5 pr-3" : "pl-4 pr-4",
             "justify-start",
           ].join(" ")}
@@ -401,16 +403,29 @@ const MessageListInner: React.FC<MessageListProps> = ({
               <RestoringSessionEmptyState />
             ) : isTaskCenterEmptyState ? (
               <TaskCenterEmptyState />
-            ) : (
-              <DefaultConversationEmptyState />
-            ))}
+            ) : null)}
 
           {timelineState.renderGroups.map((group, groupIndex) => {
+            const groupRuntimeTurnId =
+              group.timeline?.turn?.id ||
+              group.messages.find((message) => message.runtimeTurnId)
+                ?.runtimeTurnId ||
+              "";
+            const groupRuntimeTurnStatus =
+              group.timeline?.turn?.status ||
+              timelineState.renderedTurns.find(
+                (turn) => turn.id === groupRuntimeTurnId,
+              )?.status ||
+              "";
             return (
               <section
                 key={group.id}
                 data-testid="message-turn-group"
                 data-group-index={groupIndex + 1}
+                data-runtime-turn-id={groupRuntimeTurnId}
+                data-runtime-turn-status={groupRuntimeTurnStatus}
+                data-last-assistant-message-id={group.lastAssistantId || ""}
+                data-timeline-message-id={group.timelineMessageId || ""}
                 className="py-2"
               >
                 <div className="space-y-1">

@@ -260,9 +260,9 @@ const SECTION_TABS_CLASS_NAME =
 const SECTION_TAB_TRIGGER_CLASS_NAME =
   "rounded-[14px] px-3 py-2 text-sm font-medium text-slate-600 transition data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm";
 const ACTIVE_SUBPAGE_BUTTON_CLASS =
-  "border-emerald-200 bg-[image:var(--ember-home-card-surface-strong)] text-slate-800 shadow-sm shadow-emerald-950/10";
+  "border-emerald-200 bg-[image:var(--lime-home-card-surface-strong)] text-slate-800 shadow-sm shadow-emerald-950/10";
 const PRIMARY_ACTION_BUTTON_CLASS =
-  "flex items-center gap-1.5 rounded-full border border-emerald-200 bg-[image:var(--ember-primary-gradient)] px-4 py-2 text-sm font-medium text-white shadow-sm shadow-emerald-950/15 transition hover:opacity-95 disabled:opacity-50";
+  "flex items-center gap-1.5 rounded-full border border-emerald-200 bg-[image:var(--lime-primary-gradient)] px-4 py-2 text-sm font-medium text-white shadow-sm shadow-emerald-950/15 transition hover:opacity-95 disabled:opacity-50";
 
 interface SurfacePanelProps {
   icon: LucideIcon;
@@ -308,7 +308,7 @@ function SurfacePanel({
 
 function LoadingSkeleton() {
   return (
-    <div className="ember-workbench-theme-scope space-y-6 pb-8">
+    <div className="lime-workbench-theme-scope space-y-6 pb-8">
       <div className="h-[108px] animate-pulse rounded-[26px] border border-slate-200/80 bg-white" />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.16fr)_minmax(320px,0.84fr)]">
         <div className="space-y-6">
@@ -716,7 +716,7 @@ function GatewayTunnelPanel({
             onChange={(event) =>
               patchCloudflare({ tunnel_name: event.target.value || undefined })
             }
-            placeholder="ember-gateway"
+            placeholder="lime-gateway"
             className="h-9 w-full rounded-md border bg-background px-3 text-sm"
           />
         </label>
@@ -2608,7 +2608,7 @@ export function ChannelsDebugWorkbench({
   const currentScopeLabel = SUB_PAGE_LABELS[activeSubPage];
 
   return (
-    <div className={cn("ember-workbench-theme-scope space-y-6 pb-8", className)}>
+    <div className={cn("lime-workbench-theme-scope space-y-6 pb-8", className)}>
       {message && (
         <div
           className={cn(

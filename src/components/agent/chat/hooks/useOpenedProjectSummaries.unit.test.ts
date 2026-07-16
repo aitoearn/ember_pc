@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildOpenedProjectIdOrder } from "./useOpenedProjectSummaries";
+import {
+  buildOpenedProjectIdOrder,
+  compactOpenedProjectSummaries,
+  shouldResolveOpenedProject,
+} from "./useOpenedProjectSummaries";
 
 describe("buildOpenedProjectIdOrder", () => {
   it("应保留已打开项目顺序，点击已有项目时不重新排序", () => {
@@ -25,5 +29,69 @@ describe("buildOpenedProjectIdOrder", () => {
         " project-a ",
       ),
     ).toEqual(["project-a", "project-b"]);
+  });
+});
+
+describe("compactOpenedProjectSummaries", () => {
+  it("应过滤没有目录且名称等于 UUID 的占位项目", () => {
+    const placeholderId = "240ed157-3e7a-456c-a2c2-a05d499f5991";
+
+    expect(
+      compactOpenedProjectSummaries(
+        [placeholderId, "project-real"],
+        {
+          [placeholderId]: {
+            id: placeholderId,
+            name: placeholderId,
+            rootPath: null,
+          },
+          "project-real": {
+            id: "project-real",
+            name: "真实项目",
+            rootPath: "/workspace/real",
+          },
+        },
+        null,
+      ),
+    ).toEqual([
+      {
+        id: "project-real",
+        name: "真实项目",
+        rootPath: "/workspace/real",
+      },
+    ]);
+  });
+
+  it("当前项目即使暂时只有 UUID 占位，也应保留用于会话范围查询", () => {
+    const placeholderId = "240ed157-3e7a-456c-a2c2-a05d499f5991";
+
+    expect(
+      compactOpenedProjectSummaries(
+        [placeholderId],
+        {},
+        {
+          id: placeholderId,
+          name: placeholderId,
+          rootPath: null,
+        },
+      ),
+    ).toEqual([
+      {
+        id: placeholderId,
+        name: placeholderId,
+        rootPath: null,
+      },
+    ]);
+  });
+});
+
+describe("shouldResolveOpenedProject", () => {
+  it("已解析为空的项目不应继续触发重复查询", () => {
+    expect(
+      shouldResolveOpenedProject("missing-project", {
+        "missing-project": null,
+      }),
+    ).toBe(false);
+    expect(shouldResolveOpenedProject("new-project", {})).toBe(true);
   });
 });

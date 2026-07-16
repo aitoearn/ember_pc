@@ -61,15 +61,15 @@ const EntryButton = styled.button<{ $active?: boolean }>`
   border: 1px solid
     ${({ $active }) =>
       $active
-        ? "var(--ember-brand-soft-border, #bbf7d0)"
+        ? "var(--lime-brand-soft-border, #bbf7d0)"
         : "var(--sidebar-card-border, #e2f0e2)"};
   border-radius: 10px;
   background: ${({ $active }) =>
     $active
-      ? "var(--ember-brand-soft, #ecfdf5)"
-      : "var(--ember-surface, #ffffff)"};
+      ? "var(--lime-brand-soft, #ecfdf5)"
+      : "var(--lime-surface, #ffffff)"};
   color: ${({ $active }) =>
-    $active ? "var(--ember-brand-strong, #166534)" : "var(--sidebar-muted)"};
+    $active ? "var(--lime-brand-strong, #166534)" : "var(--sidebar-muted)"};
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -81,9 +81,9 @@ const EntryButton = styled.button<{ $active?: boolean }>`
     color 0.16s ease;
 
   &:hover {
-    border-color: var(--ember-brand-soft-border, #bbf7d0);
-    background: var(--ember-brand-soft, #ecfdf5);
-    color: var(--ember-brand-strong, #166534);
+    border-color: var(--lime-brand-soft-border, #bbf7d0);
+    background: var(--lime-brand-soft, #ecfdf5);
+    color: var(--lime-brand-strong, #166534);
   }
 
   svg {
@@ -99,8 +99,8 @@ const EntryButton = styled.button<{ $active?: boolean }>`
     width: 6px;
     height: 6px;
     border-radius: 999px;
-    background: var(--ember-warning, #f59e0b);
-    box-shadow: 0 0 0 2px var(--ember-surface, #ffffff);
+    background: var(--lime-warning, #f59e0b);
+    box-shadow: 0 0 0 2px var(--lime-surface, #ffffff);
   }
 `;
 
@@ -129,7 +129,7 @@ export function AppUpdateEntry({
   useEffect(() => {
     let disposed = false;
 
-    void checkForUpdates()
+    void checkForUpdates({ automatic: true })
       .then((result) => {
         if (!disposed) {
           setVersionInfo(result);

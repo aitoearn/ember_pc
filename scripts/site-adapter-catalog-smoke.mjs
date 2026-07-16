@@ -14,7 +14,7 @@ const INVOKE_RETRY_DELAY_MS = 1_000;
 
 function printHelp() {
   console.log(`
-Ember Site Adapter Legacy Guard Smoke
+Lime Site Adapter Legacy Guard Smoke
 
 用途:
   验证旧 Site Adapter 命令不再作为 current 成功证据。

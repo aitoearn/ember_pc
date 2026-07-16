@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, Clock3, FolderOpen, RefreshCw, RotateCcw } from "lucide-react";
+import {
+  Archive,
+  Clock3,
+  FolderOpen,
+  RefreshCw,
+  RotateCcw,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import {
   listAgentRuntimeSessions,
   updateAgentRuntimeSession,
-  type AsterSessionInfo,
-} from "@/lib/api/agentRuntime";
+} from "@/lib/api/agentRuntime/sessionClient";
+import type { AgentSessionInfo } from "@/lib/api/agentRuntime/sessionTypes";
 import { formatDate } from "@/i18n/format";
 import { cn } from "@/lib/utils";
 import { resolveSidebarSessionTitle } from "@/components/app-sidebar/sidebarSessionFormatting";
@@ -39,7 +45,7 @@ function formatSessionDate(
   });
 }
 
-function resolveWorkspaceLabel(session: AsterSessionInfo): string | null {
+function resolveWorkspaceLabel(session: AgentSessionInfo): string | null {
   const workspaceId = session.workspace_id?.trim();
   if (workspaceId) {
     return workspaceId;
@@ -56,7 +62,7 @@ function resolveWorkspaceLabel(session: AsterSessionInfo): string | null {
 
 export function ArchivedConversationsSettings() {
   const { t, i18n } = useTranslation("settings");
-  const [sessions, setSessions] = useState<AsterSessionInfo[]>([]);
+  const [sessions, setSessions] = useState<AgentSessionInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [restoringSessionId, setRestoringSessionId] = useState<string | null>(
@@ -85,14 +91,13 @@ export function ArchivedConversationsSettings() {
         archivedOnly: true,
         limit: ARCHIVED_CONVERSATIONS_PAGE_SIZE,
       });
-      setSessions(nextSessions.filter((session) => Boolean(session.archived_at)));
+      setSessions(
+        nextSessions.filter((session) => Boolean(session.archived_at)),
+      );
     } catch (loadError) {
       console.error("加载已归档对话失败:", loadError);
       setError(
-        t(
-          "settings.archivedConversations.error.load",
-          "加载已归档对话失败",
-        ),
+        t("settings.archivedConversations.error.load", "加载已归档对话失败"),
       );
       setSessions([]);
     } finally {
@@ -105,7 +110,7 @@ export function ArchivedConversationsSettings() {
   }, [loadArchivedSessions]);
 
   const handleRestore = useCallback(
-    async (session: AsterSessionInfo) => {
+    async (session: AgentSessionInfo) => {
       setRestoringSessionId(session.id);
       try {
         await updateAgentRuntimeSession({
@@ -246,6 +251,8 @@ export function ArchivedConversationsSettings() {
                 <article
                   key={session.id}
                   className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+                  data-testid="settings-archived-conversation"
+                  data-session-id={session.id}
                 >
                   <div className="min-w-0 space-y-2">
                     <h3 className="truncate text-sm font-semibold text-slate-900">
@@ -291,8 +298,12 @@ export function ArchivedConversationsSettings() {
                     className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-default disabled:opacity-60"
                     disabled={restoring}
                     onClick={() => void handleRestore(session)}
+                    data-testid="settings-archived-conversation-restore"
+                    data-session-id={session.id}
                   >
-                    <RotateCcw className={cn("h-4 w-4", restoring && "animate-spin")} />
+                    <RotateCcw
+                      className={cn("h-4 w-4", restoring && "animate-spin")}
+                    />
                     {restoring
                       ? t(
                           "settings.archivedConversations.action.restoring",

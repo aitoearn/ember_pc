@@ -1,8 +1,8 @@
-import type { AgentRuntimeToolInventory } from "@/lib/api/agentRuntime";
+import type { AgentRuntimeToolInventory } from "@/lib/api/agentRuntime/toolInventoryTypes";
 import type { RuntimeToolAvailability } from "../utils/runtimeToolAvailability";
 import { HarnessCatalogToolInventoryList } from "./HarnessCatalogToolInventoryList";
 import { HarnessExtensionToolInventorySections } from "./HarnessExtensionToolInventorySections";
-import { HarnessRegistryToolInventoryList } from "./HarnessRegistryToolInventoryList";
+import { HarnessNativeToolInventoryList } from "./HarnessNativeToolInventoryList";
 import { HarnessRuntimeToolInventoryList } from "./HarnessRuntimeToolInventoryList";
 import {
   HarnessStatusSection as Section,
@@ -28,6 +28,10 @@ interface HarnessToolInventorySectionProps {
     node: HTMLElement | null,
   ) => void;
   onRefreshToolInventory?: () => void;
+  mcpPrepareCandidateCount: number;
+  mcpPrepareLoading: boolean;
+  mcpPrepareError: string | null;
+  onPrepareMcpTargets?: () => void | Promise<void>;
   toolInventorySourceStats: ToolInventorySourceStats;
   toolInventoryWarnings: AgentRuntimeToolInventory["warnings"];
   runtimeToolAvailability: RuntimeToolAvailability;
@@ -39,10 +43,13 @@ interface HarnessToolInventorySectionProps {
   filteredCatalogTools: AgentRuntimeToolInventory["catalog_tools"];
   toolInventoryFilter: ToolInventoryFilterValue;
   setToolInventoryFilter: (value: ToolInventoryFilterValue) => void;
-  toolInventoryRegistryTools: AgentRuntimeToolInventory["registry_tools"];
+  toolInventoryNativeTools: AgentRuntimeToolInventory["native_tools"];
   toolInventoryExtensionSurfaces: AgentRuntimeToolInventory["extension_surfaces"];
   toolInventoryExtensionTools: AgentRuntimeToolInventory["extension_tools"];
   toolInventoryMcpTools: AgentRuntimeToolInventory["mcp_tools"];
+  toolInventoryPluginMcpTargets: NonNullable<
+    AgentRuntimeToolInventory["plugin_mcp_targets"]
+  >;
 }
 
 export function HarnessToolInventorySection({
@@ -54,6 +61,10 @@ export function HarnessToolInventorySection({
   runtimeToolTotal,
   registerSectionRef,
   onRefreshToolInventory,
+  mcpPrepareCandidateCount,
+  mcpPrepareLoading,
+  mcpPrepareError,
+  onPrepareMcpTargets,
   toolInventorySourceStats,
   toolInventoryWarnings,
   runtimeToolAvailability,
@@ -63,10 +74,11 @@ export function HarnessToolInventorySection({
   filteredCatalogTools,
   toolInventoryFilter,
   setToolInventoryFilter,
-  toolInventoryRegistryTools,
+  toolInventoryNativeTools,
   toolInventoryExtensionSurfaces,
   toolInventoryExtensionTools,
   toolInventoryMcpTools,
+  toolInventoryPluginMcpTargets,
 }: HarnessToolInventorySectionProps) {
   if (!hasToolInventorySection) {
     return null;
@@ -95,6 +107,10 @@ export function HarnessToolInventorySection({
           runtimeToolVisibleTotal={runtimeToolVisibleTotal}
           runtimeToolTotal={runtimeToolTotal}
           onRefreshToolInventory={onRefreshToolInventory}
+          mcpPrepareCandidateCount={mcpPrepareCandidateCount}
+          mcpPrepareLoading={mcpPrepareLoading}
+          mcpPrepareError={mcpPrepareError}
+          onPrepareMcpTargets={onPrepareMcpTargets}
           toolInventorySourceStats={toolInventorySourceStats}
           toolInventoryWarnings={toolInventoryWarnings}
           runtimeToolAvailability={runtimeToolAvailability}
@@ -114,13 +130,14 @@ export function HarnessToolInventorySection({
               toolInventoryFilter={toolInventoryFilter}
               setToolInventoryFilter={setToolInventoryFilter}
             />
-            <HarnessRegistryToolInventoryList
-              toolInventoryRegistryTools={toolInventoryRegistryTools}
+            <HarnessNativeToolInventoryList
+              toolInventoryNativeTools={toolInventoryNativeTools}
             />
             <HarnessExtensionToolInventorySections
               toolInventoryExtensionSurfaces={toolInventoryExtensionSurfaces}
               toolInventoryExtensionTools={toolInventoryExtensionTools}
               toolInventoryMcpTools={toolInventoryMcpTools}
+              toolInventoryPluginMcpTargets={toolInventoryPluginMcpTargets}
             />
           </>
         ) : !toolInventoryLoading && !toolInventoryError ? (

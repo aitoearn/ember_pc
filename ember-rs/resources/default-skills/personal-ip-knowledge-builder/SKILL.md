@@ -5,17 +5,17 @@ license: Apache-2.0
 allowed-tools: list_directory, read_file
 compatibility: Agent Knowledge >=0.6.0
 metadata:
-  ember_version: 1.0.1
-  ember_execution_mode: prompt
-  ember_surface: workbench
-  ember_category: knowledge
-  Ember_skill_bundle_version: "1.0.1"
-  Ember_knowledge_builder: "true"
-  Ember_knowledge_pack_type: "personal-profile"
-  Ember_knowledge_template: "personal-ip"
-  Ember_knowledge_family: "persona"
-  Ember_agent_knowledge_profile: "document-first"
-  Ember_agent_knowledge_runtime_mode: "persona"
+  lime_version: 1.0.1
+  lime_execution_mode: prompt
+  lime_surface: workbench
+  lime_category: knowledge
+  Lime_skill_bundle_version: "1.0.1"
+  Lime_knowledge_builder: "true"
+  Lime_knowledge_pack_type: "personal-profile"
+  Lime_knowledge_template: "personal-ip"
+  Lime_knowledge_family: "persona"
+  Lime_agent_knowledge_profile: "document-first"
+  Lime_agent_knowledge_runtime_mode: "persona"
 ---
 
 # 个人 IP 知识库生成器
@@ -53,9 +53,9 @@ Agent Knowledge 负责“知识产物长什么样、如何安全进入上下文�
 7. 生成完整 Markdown，结尾必须包含“智能体应用指南”。
 8. 用 `references/quality-checklist.md` 自检，必要时补一节“待补充信息清单”。
 
-## Ember Runtime Binding 契约
+## Lime Runtime Binding 契约
 
-当 Ember 通过 App Server `knowledgePack/compile` runtime binding 调用本 Skill 时，输入输出必须保持下面的最小契约。
+当 Lime 通过 App Server `knowledgePack/compile` runtime binding 调用本 Skill 时，输入输出必须保持下面的最小契约。
 
 ### 输入
 
@@ -86,8 +86,8 @@ provenance:
 固定规则：
 
 1. 不输出独立于 KnowledgePack 的新目录结构；`documents/<packName>.md` 是主文档唯一写回目标。
-2. 不直接改写 `KNOWLEDGE.md`；由 Ember 写入 `metadata.producedBy`、`runtime.mode` 和状态。
-3. 不把模板复制进 Ember 代码；模板、访谈问题和质量检查表继续留在本 Skill 的 `references/`。
+2. 不直接改写 `KNOWLEDGE.md`；由 Lime 写入 `metadata.producedBy`、`runtime.mode` 和状态。
+3. 不把模板复制进 Lime 代码；模板、访谈问题和质量检查表继续留在本 Skill 的 `references/`。
 4. 不在运行时回答阶段执行；仅在用户导入、重新整理或维护 pack 时调用。
 
 ## 输出规则
@@ -101,16 +101,16 @@ provenance:
 
 ## 推荐产物结构
 
-在 Agent Knowledge v0.6.0 / Ember 中，优先写回：
+在 Agent Knowledge v0.6.0 / Lime 中，优先写回：
 
 ```text
 <pack-name>/
-  KNOWLEDGE.md                 # 由 Ember 维护 metadata
+  KNOWLEDGE.md                 # 由 Lime 维护 metadata
   documents/<pack-name>.md     # 本 Skill 生成的主文档
-  runs/compile-*.json          # 由 Ember 记录本次整理 provenance
+  runs/compile-*.json          # 由 Lime 记录本次整理 provenance
 ```
 
-如果用户在普通对话中只要求一份独立文档，也可以输出单一 Markdown 作为临时交付；进入 Ember KnowledgePack 时必须回到上述 `document-first` 结构。
+如果用户在普通对话中只要求一份独立文档，也可以输出单一 Markdown 作为临时交付；进入 Lime KnowledgePack 时必须回到上述 `document-first` 结构。
 
 不再默认拆成：
 

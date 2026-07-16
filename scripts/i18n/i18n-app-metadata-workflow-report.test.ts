@@ -12,7 +12,7 @@ import {
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ember-i18n-app-metadata-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lime-i18n-app-metadata-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -25,7 +25,7 @@ function writeFile(root: string, relativePath: string, content: string): void {
 
 function forgeConfigFixture(): string {
   return [
-    'const PRODUCT_NAME = "Ember";',
+    'const PRODUCT_NAME = "Lime";',
     'const APP_ID = "com.embercloud.ember";',
     'const RELEASE_OUTPUT_DIR = "release-electron";',
     "",
@@ -33,7 +33,7 @@ function forgeConfigFixture(): string {
     "  packagerConfig: {",
     "    protocols: [",
     "      {",
-    '        schemes: ["ember"],',
+    '        schemes: ["lime"],',
     "      },",
     "    ],",
     "  },",
@@ -57,10 +57,10 @@ describe("i18n app metadata workflow report", () => {
       "package.json",
       JSON.stringify(
         {
-          name: "ember",
+          name: "lime",
           version: "1.47.0",
           description: "AI content workspace for Chinese creators.",
-          keywords: ["ai", "ember"],
+          keywords: ["ai", "lime"],
         },
         null,
         2,
@@ -74,21 +74,21 @@ describe("i18n app metadata workflow report", () => {
         'version = "1.47.0"',
         "",
         "[package]",
-        'name = "ember"',
+        'name = "lime"',
         'version = "1.47.0"',
         'description = "AI API Proxy Desktop App"',
-        'homepage = "https://github.com/aitoearn/ember_pc"',
+        'homepage = "https://github.com/aiclientproxy/lime"',
       ].join("\n"),
     );
     writeFile(root, "forge.config.mjs", forgeConfigFixture());
     writeFile(
       root,
-      "ember-rs/capabilities/agent-app-shell.json",
+      "ember-rs/capabilities/plugin-shell.json",
       JSON.stringify(
         {
-          identifier: "agent-app-shell",
+          identifier: "plugin-shell",
           description:
-            "Agent App 独立 Shell 只允许使用 Desktop Host IPC 调用宿主封装能力。",
+            "Plugin 独立 Shell 只允许使用 Desktop Host IPC 调用宿主封装能力。",
         },
         null,
         2,
@@ -96,10 +96,10 @@ describe("i18n app metadata workflow report", () => {
     );
     writeFile(
       root,
-      "docs/roadmap/i18n/evidence/app-metadata-locale-build-manifest.json",
+      "internal/roadmap/i18n/evidence/app-metadata-locale-build-manifest.json",
       JSON.stringify(
         {
-          schemaVersion: "ember.i18n.appMetadataLocaleBuildManifest.v1",
+          schemaVersion: "lime.i18n.appMetadataLocaleBuildManifest.v1",
           scope: {
             generatedConfigEmissionAllowed: false,
             manifestGenerationAllowed: true,
@@ -116,10 +116,10 @@ describe("i18n app metadata workflow report", () => {
     );
     writeFile(
       root,
-      "docs/roadmap/i18n/app-metadata-translation-scope.json",
+      "internal/roadmap/i18n/app-metadata-translation-scope.json",
       JSON.stringify(
         {
-          schemaVersion: "ember.i18n.appMetadataTranslationScope.v1",
+          schemaVersion: "lime.i18n.appMetadataTranslationScope.v1",
           sourceLocale: "zh-CN",
           targetLocales: ["en-US"],
           workflowStatus: "ready",
@@ -182,7 +182,7 @@ describe("i18n app metadata workflow report", () => {
               priority: "source-only",
             },
             {
-              path: "ember-rs/capabilities/agent-app-shell.json",
+              path: "ember-rs/capabilities/plugin-shell.json",
               field: "description",
               localization: "internal-source-only",
               priority: "source-only",
@@ -196,7 +196,7 @@ describe("i18n app metadata workflow report", () => {
 
     const report = analyzeAppMetadataWorkflowReport({ repoRoot: root });
 
-    expect(report.schemaVersion).toBe("ember.i18n.appMetadataWorkflowReport.v1");
+    expect(report.schemaVersion).toBe("lime.i18n.appMetadataWorkflowReport.v1");
     expect(report.summary.hasInstallerLocalizationWorkflow).toBe(true);
     expect(report.summary.hasAppMetadataLocaleBuildManifest).toBe(true);
     expect(report.summary.appMetadataLocaleBuildManifestReady).toBe(true);
@@ -215,7 +215,7 @@ describe("i18n app metadata workflow report", () => {
         itemCount: 10,
         owner: "release",
         requiredBeforeMultilingualReleaseCount: 1,
-        schemaVersion: "ember.i18n.appMetadataTranslationScope.v1",
+        schemaVersion: "lime.i18n.appMetadataTranslationScope.v1",
         sourceLocale: "zh-CN",
         sourceOnlyFieldCount: 6,
         stableFieldCount: 3,
@@ -229,7 +229,7 @@ describe("i18n app metadata workflow report", () => {
         exists: true,
         generatedConfigEmissionAllowed: false,
         manifestGenerationAllowed: true,
-        schemaVersion: "ember.i18n.appMetadataLocaleBuildManifest.v1",
+        schemaVersion: "lime.i18n.appMetadataLocaleBuildManifest.v1",
         workflowStatus: "ready",
       }),
     );
@@ -239,9 +239,9 @@ describe("i18n app metadata workflow report", () => {
         unscopedMetadataFields: [],
       }),
     );
-    expect(report.electronForgeConfig.productName).toBe("Ember");
+    expect(report.electronForgeConfig.productName).toBe("Lime");
     expect(report.electronForgeConfig.appId).toBe("com.embercloud.ember");
-    expect(report.electronForgeConfig.deepLinkSchemes).toEqual(["ember"]);
+    expect(report.electronForgeConfig.deepLinkSchemes).toEqual(["lime"]);
     expect(report.electronForgeConfig.macTargets).toEqual(["dmg", "zip"]);
     expect(report.electronForgeConfig.winTargets).toEqual(["squirrel"]);
     expect(formatAppMetadataWorkflowReport(report, "text")).toContain(
@@ -249,7 +249,7 @@ describe("i18n app metadata workflow report", () => {
     );
     expect(JSON.parse(formatAppMetadataWorkflowReport(report, "json"))).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.appMetadataWorkflowReport.v1",
+        schemaVersion: "lime.i18n.appMetadataWorkflowReport.v1",
       }),
     );
   });
@@ -262,7 +262,7 @@ describe("i18n app metadata workflow report", () => {
       "package.json",
       JSON.stringify(
         {
-          name: "ember",
+          name: "lime",
           version: "1.47.0",
           description: "AI content workspace for Chinese creators.",
         },
@@ -273,20 +273,20 @@ describe("i18n app metadata workflow report", () => {
     writeFile(
       root,
       "ember-rs/Cargo.toml",
-      '[package]\nname = "ember"\nversion = "1.47.0"\n',
+      '[package]\nname = "lime"\nversion = "1.47.0"\n',
     );
     writeFile(root, "forge.config.mjs", forgeConfigFixture());
     writeFile(
       root,
-      "ember-rs/capabilities/agent-app-shell.json",
-      JSON.stringify({ identifier: "agent-app-shell" }, null, 2),
+      "ember-rs/capabilities/plugin-shell.json",
+      JSON.stringify({ identifier: "plugin-shell" }, null, 2),
     );
     writeFile(
       root,
-      "docs/roadmap/i18n/app-metadata-translation-scope.json",
+      "internal/roadmap/i18n/app-metadata-translation-scope.json",
       JSON.stringify(
         {
-          schemaVersion: "ember.i18n.appMetadataTranslationScope.v1",
+          schemaVersion: "lime.i18n.appMetadataTranslationScope.v1",
           sourceLocale: "zh-CN",
           targetLocales: ["en-US"],
           workflowStatus: "not-started",
@@ -338,18 +338,18 @@ describe("i18n app metadata workflow report", () => {
     writeFile(
       root,
       "package.json",
-      JSON.stringify({ name: "ember", version: "1.47.0" }, null, 2),
+      JSON.stringify({ name: "lime", version: "1.47.0" }, null, 2),
     );
     writeFile(
       root,
       "ember-rs/Cargo.toml",
-      '[package]\nname = "ember"\nversion = "1.47.0"\n',
+      '[package]\nname = "lime"\nversion = "1.47.0"\n',
     );
     writeFile(root, "forge.config.mjs", forgeConfigFixture());
     writeFile(
       root,
-      "ember-rs/capabilities/agent-app-shell.json",
-      JSON.stringify({ identifier: "agent-app-shell" }, null, 2),
+      "ember-rs/capabilities/plugin-shell.json",
+      JSON.stringify({ identifier: "plugin-shell" }, null, 2),
     );
 
     const outFile = path.join(root, "report.json");
@@ -370,7 +370,7 @@ describe("i18n app metadata workflow report", () => {
     expect(writeSpy).not.toHaveBeenCalled();
     expect(JSON.parse(fs.readFileSync(outFile, "utf8"))).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.appMetadataWorkflowReport.v1",
+        schemaVersion: "lime.i18n.appMetadataWorkflowReport.v1",
       }),
     );
   });

@@ -190,10 +190,10 @@ export function BrowserRuntimeWorkspace(props: BrowserRuntimeWorkspaceProps) {
   }
 
   const rootClassName = standalone
-    ? "ember-workbench-theme-scope min-h-screen bg-[color:var(--ember-app-bg)] p-6 space-y-4"
+    ? "min-h-screen bg-background p-6 space-y-4"
     : embedded
-      ? "ember-workbench-theme-scope relative flex h-full min-h-0 flex-col bg-[color:var(--ember-app-bg)]"
-      : "ember-workbench-theme-scope space-y-4";
+      ? "relative flex h-full min-h-0 flex-col bg-background"
+      : "space-y-4";
   const messageClassName = embedded
     ? `absolute left-3 right-3 top-3 z-20 rounded-xl border px-3 py-2.5 text-sm shadow-lg shadow-slate-950/10 backdrop-blur ${
         message?.type === "error"

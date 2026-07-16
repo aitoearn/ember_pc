@@ -5,7 +5,7 @@ import {
   type MutableRefObject,
   type SetStateAction,
 } from "react";
-import type { Character } from "@/lib/api/memory";
+import type { Character } from "@/lib/api/projectMemory";
 import { scheduleMinimumDelayIdleTask } from "@/lib/utils/scheduleMinimumDelayIdleTask";
 import type { Topic } from "../hooks/agentChatShared";
 import { loadPersistedSessionWorkspaceId } from "../hooks/agentProjectStorage";
@@ -16,6 +16,7 @@ import {
 import {
   clearTaskCenterLocalSessionOverrideForTopic,
   clearTaskCenterTransitionTopicForTopic,
+  isTaskCenterTopicSwitchSuccess,
   resolveTaskCenterTopicClosePlan,
   resolveTaskCenterTopicSwitchOptions,
   rollbackTaskCenterOpenTabMapForFailedSwitch,
@@ -26,7 +27,6 @@ import {
 } from "../utils/taskCenterTabs";
 import { resolveTaskCenterDraftClosePlan } from "./taskCenterDraftTabs";
 import { normalizeProjectId } from "../utils/topicProjectResolution";
-import { rememberInitialSessionNavigationStart } from "./useWorkspaceInitialSessionNavigation";
 import type { TaskCenterDraftSendRequest } from "../homePendingPreview";
 
 type AgentEntry = "new-task" | "claw";
@@ -134,15 +134,15 @@ export function useTaskCenterTopicNavigationRuntime({
     ) => {
       const topic = topicById.get(topicId);
       const topicWorkspaceId = normalizeProjectId(
-        topic?.workspaceId ??
-          loadPersistedSessionWorkspaceId(topicId) ??
-          taskCenterWorkspaceId,
+        topic?.workspaceId ?? loadPersistedSessionWorkspaceId(topicId),
       );
+      const isDetachedTopic = !topicWorkspaceId;
       const shouldResume =
         options?.preferResume === true || shouldResumeTaskSession(topic);
       const switchOptions = resolveTaskCenterTopicSwitchOptions({
         shouldResume,
         forceRefresh: options?.forceRefresh,
+        allowDetachedSession: isDetachedTopic,
       });
       const wasOpenInTaskCenter =
         taskCenterOpenTabIdsRef.current.includes(topicId);
@@ -185,9 +185,10 @@ export function useTaskCenterTopicNavigationRuntime({
       }
 
       taskCenterDraftSurfaceActiveRef.current = false;
+      clearTaskCenterEmbeddedHomeSession(topicId);
       resetLocalImageWorkbenchSessionScope();
       setTaskCenterTransitionTopicId(topicId);
-      setTaskCenterDetachedTopicId(null);
+      setTaskCenterDetachedTopicId(isDetachedTopic ? topicId : null);
       setActiveTaskCenterDraftTabId(null);
       clearEntryPendingA2UI();
       if (options?.replaceOpenTabs === true) {
@@ -196,14 +197,13 @@ export function useTaskCenterTopicNavigationRuntime({
         upsertTaskCenterOpenTab(topicId, topicWorkspaceId);
       }
       markTaskCenterLocalSessionOverride(topicId);
-      rememberInitialSessionNavigationStart(topicId);
       const switchResult = await switchTopic(topicId, switchOptions);
       if (switchResult === "busy") {
         scheduleMinimumDelayIdleTask(
           () => {
             void switchTopic(topicId, switchOptions)
               .then((retryResult) => {
-                if (retryResult !== "success" && retryResult !== "deferred") {
+                if (!isTaskCenterTopicSwitchSuccess(retryResult)) {
                   rollbackPendingOpen();
                 }
               })
@@ -218,7 +218,7 @@ export function useTaskCenterTopicNavigationRuntime({
         );
         return;
       }
-      if (switchResult !== "success" && switchResult !== "deferred") {
+      if (!isTaskCenterTopicSwitchSuccess(switchResult)) {
         rollbackPendingOpen();
         return;
       }
@@ -233,6 +233,7 @@ export function useTaskCenterTopicNavigationRuntime({
       activeTaskCenterDraftTabIdRef,
       agentEntry,
       clearEntryPendingA2UI,
+      clearTaskCenterEmbeddedHomeSession,
       markTaskCenterLocalSessionOverride,
       messagesLength,
       replaceTaskCenterOpenTabs,
@@ -246,7 +247,6 @@ export function useTaskCenterTopicNavigationRuntime({
       taskCenterDetachedTopicId,
       taskCenterDraftSurfaceActiveRef,
       taskCenterOpenTabIdsRef,
-      taskCenterWorkspaceId,
       topicById,
       upsertTaskCenterOpenTab,
     ],

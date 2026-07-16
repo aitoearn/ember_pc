@@ -1,16 +1,29 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "properties": {
+    "activeTurnId": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
     "archivedAt": {
       "type": [
         "null",
         "string"
       ]
     },
+    "businessObjectRefMetadata": true,
     "createdAt": {
       "type": "string"
     },
     "executionStrategy": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "latestTurnStatus": {
       "type": [
         "null",
         "string"
@@ -24,6 +37,12 @@
     "model": {
       "type": "string"
     },
+    "queuedTurnCount": {
+      "default": 0,
+      "format": "uint",
+      "minimum": 0,
+      "type": "integer"
+    },
     "sessionId": {
       "type": "string"
     },
@@ -32,6 +51,10 @@
         "null",
         "string"
       ]
+    },
+    "threadStatus": {
+      "default": "",
+      "type": "string"
     },
     "title": {
       "type": [

@@ -106,7 +106,7 @@ describe("siteToolResultSummary", () => {
     expect(hasMeaningfulSiteToolResultSignal(undefined)).toBe(false);
   });
 
-  it("应将 legacy 项目目录展示规范到 ember 主路径", () => {
+  it("应将 legacy 项目目录展示规范到 lime 主路径", () => {
     expect(
       normalizeSiteToolResultSummary({
         tool_family: "site",
@@ -116,6 +116,6 @@ describe("siteToolResultSummary", () => {
           project_root_path: "/Users/coso/.proxycast/projects/default",
         },
       })?.savedContent?.projectRootPath,
-    ).toBe("/Users/coso/Library/Application Support/ember/projects/default");
+    ).toBe("/Users/coso/Library/Application Support/lime/projects/default");
   });
 });

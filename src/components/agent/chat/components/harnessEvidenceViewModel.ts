@@ -2,12 +2,12 @@ import type {
   AgentRuntimeAnalysisHandoff,
   AgentRuntimeEvidenceBrowserActionIndex,
   AgentRuntimeEvidenceBrowserActionItem,
-  AgentRuntimeEvidenceEmberCorePolicyIndex,
+  AgentRuntimeEvidenceLimeCorePolicyIndex,
   AgentRuntimeEvidencePack,
   AgentRuntimeHandoffBundle,
   AgentRuntimeReplayCase,
   AgentRuntimeReviewDecisionTemplate,
-} from "@/lib/api/agentRuntime";
+} from "@/lib/api/agentRuntime/evidenceTypes";
 import type { Artifact } from "@/lib/artifact/types";
 
 export interface ReviewDecisionRegressionFacts {
@@ -197,7 +197,7 @@ export function formatBrowserActionArtifactKindLabel(kind?: string): string {
   }
 }
 
-export function formatEmberCorePolicyInputStatusLabel(value?: string): string {
+export function formatLimeCorePolicyInputStatusLabel(value?: string): string {
   switch (value?.trim()) {
     case "declared_only":
       return "仅声明";
@@ -206,10 +206,10 @@ export function formatEmberCorePolicyInputStatusLabel(value?: string): string {
   }
 }
 
-export function formatEmberCorePolicyInputSourceLabel(value?: string): string {
+export function formatLimeCorePolicyInputSourceLabel(value?: string): string {
   switch (value?.trim()) {
-    case "embercore_pending":
-      return "等待 EmberCore";
+    case "limecore_pending":
+      return "等待 LimeCore";
     default:
       return value?.trim() || "未知来源";
   }
@@ -227,8 +227,8 @@ export function uniqueNonEmptyStrings(
   );
 }
 
-export function collectEmberCorePolicyRefKeys(
-  index: AgentRuntimeEvidenceEmberCorePolicyIndex,
+export function collectLimeCorePolicyRefKeys(
+  index: AgentRuntimeEvidenceLimeCorePolicyIndex,
 ): string[] {
   return uniqueNonEmptyStrings([
     ...index.ref_keys,
@@ -236,8 +236,8 @@ export function collectEmberCorePolicyRefKeys(
   ]);
 }
 
-export function collectEmberCorePolicyMissingInputs(
-  index: AgentRuntimeEvidenceEmberCorePolicyIndex,
+export function collectLimeCorePolicyMissingInputs(
+  index: AgentRuntimeEvidenceLimeCorePolicyIndex,
 ): string[] {
   return uniqueNonEmptyStrings([
     ...(index.missing_inputs ?? []),
@@ -246,8 +246,8 @@ export function collectEmberCorePolicyMissingInputs(
   ]);
 }
 
-export function summarizeEmberCorePolicyDecision(
-  index: AgentRuntimeEvidenceEmberCorePolicyIndex,
+export function summarizeLimeCorePolicyDecision(
+  index: AgentRuntimeEvidenceLimeCorePolicyIndex,
 ): string {
   const decisionCounts = index.decision_counts.filter((entry) =>
     entry.decision.trim(),
@@ -256,12 +256,12 @@ export function summarizeEmberCorePolicyDecision(
     return "未评估";
   }
   if (decisionCounts.length === 1) {
-    return formatEmberCorePolicyDecisionLabel(decisionCounts[0].decision);
+    return formatLimeCorePolicyDecisionLabel(decisionCounts[0].decision);
   }
   return decisionCounts
     .map(
       (entry) =>
-        `${formatEmberCorePolicyDecisionLabel(entry.decision)} ${entry.count}`,
+        `${formatLimeCorePolicyDecisionLabel(entry.decision)} ${entry.count}`,
     )
     .join(" / ");
 }
@@ -396,6 +396,49 @@ export function formatBrowserActionStatusLabel(
   }
 }
 
+export interface BrowserActionIndexQuery {
+  threadId?: string;
+  turnId?: string;
+  contentId?: string;
+  executor?: string;
+}
+
+export function filterBrowserActionIndexItems(
+  index: AgentRuntimeEvidenceBrowserActionIndex,
+  query: BrowserActionIndexQuery,
+): AgentRuntimeEvidenceBrowserActionItem[] {
+  const normalizedQuery = {
+    threadId: query.threadId?.trim(),
+    turnId: query.turnId?.trim(),
+    contentId: query.contentId?.trim(),
+    executor: query.executor?.trim(),
+  };
+  return index.items.filter((item) => {
+    if (
+      normalizedQuery.threadId &&
+      item.thread_id !== normalizedQuery.threadId
+    ) {
+      return false;
+    }
+    if (normalizedQuery.turnId && item.turn_id !== normalizedQuery.turnId) {
+      return false;
+    }
+    if (
+      normalizedQuery.contentId &&
+      item.content_id !== normalizedQuery.contentId
+    ) {
+      return false;
+    }
+    if (
+      normalizedQuery.executor &&
+      item.executor !== normalizedQuery.executor
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
 export function buildBrowserReplayArtifact(
   evidencePack: AgentRuntimeEvidencePack,
   index: AgentRuntimeEvidenceBrowserActionIndex,
@@ -414,20 +457,35 @@ export function buildBrowserReplayArtifact(
         observationCount: index.observation_count,
         screenshotCount: index.screenshot_count,
         lastUrl: index.last_url,
+        threadIds: index.thread_ids,
+        turnIds: index.turn_ids,
+        contentIds: index.content_ids,
         sessionIds: index.session_ids,
         targetIds: index.target_ids,
         profileKeys: index.profile_keys,
+        executorCounts: index.executor_counts,
         items: index.items.map((item) => ({
           artifactKind: item.artifact_kind,
           toolName: item.tool_name,
           action: item.action,
+          actionId: item.action_id,
           status: item.status,
           success: item.success,
           sessionId: item.session_id,
           targetId: item.target_id,
+          tabId: item.tab_id,
           profileKey: item.profile_key,
           backend: item.backend,
           requestId: item.request_id,
+          confirmationRequestId: item.confirmation_request_id,
+          controlMode: item.control_mode,
+          lifecycleState: item.lifecycle_state,
+          humanReason: item.human_reason,
+          threadId: item.thread_id,
+          turnId: item.turn_id,
+          contentId: item.content_id,
+          executor: item.executor,
+          evidenceRefs: item.evidence_refs,
           lastUrl: item.last_url,
           title: item.title,
           entrySource: item.entry_source,
@@ -449,7 +507,7 @@ export function buildBrowserReplayArtifact(
   };
 }
 
-export function formatEmberCorePolicyStatusLabel(value?: string): string {
+export function formatLimeCorePolicyStatusLabel(value?: string): string {
   switch (value?.trim()) {
     case "local_defaults_evaluated":
       return "本地默认已评估";
@@ -462,7 +520,7 @@ export function formatEmberCorePolicyStatusLabel(value?: string): string {
   }
 }
 
-export function formatEmberCorePolicyDecisionLabel(value?: string): string {
+export function formatLimeCorePolicyDecisionLabel(value?: string): string {
   switch (value?.trim()) {
     case "allow":
       return "本地允许";
@@ -507,9 +565,7 @@ export function formatReviewDecisionStatusLabel(status?: string): string {
   }
 }
 
-export function formatReviewDecisionRiskLevelLabel(
-  riskLevel?: string,
-): string {
+export function formatReviewDecisionRiskLevelLabel(riskLevel?: string): string {
   switch (riskLevel?.trim()) {
     case "low":
       return "低";

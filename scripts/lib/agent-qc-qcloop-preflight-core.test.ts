@@ -5,8 +5,8 @@ import { buildQCLoopPreflightReport } from "./agent-qc-qcloop-preflight-core.mjs
 describe("agent-qc-qcloop-preflight-core", () => {
   it("基础环境通过时应返回 pass", () => {
     const report = buildQCLoopPreflightReport({
-      cwd: "/repo/ember",
-      expectedCwd: "/repo/ember",
+      cwd: "/repo/lime",
+      expectedCwd: "/repo/lime",
       tmpWritable: true,
     });
 
@@ -17,7 +17,7 @@ describe("agent-qc-qcloop-preflight-core", () => {
   it("cwd 不匹配时应返回 blocked", () => {
     const report = buildQCLoopPreflightReport({
       cwd: "/repo/qcloop",
-      expectedCwd: "/repo/ember",
+      expectedCwd: "/repo/lime",
       tmpWritable: true,
     });
 
@@ -27,7 +27,7 @@ describe("agent-qc-qcloop-preflight-core", () => {
 
   it("DevBridge 不可访问时应返回 blocked", () => {
     const report = buildQCLoopPreflightReport({
-      cwd: "/repo/ember",
+      cwd: "/repo/lime",
       tmpWritable: true,
       devBridge: {
         ok: false,

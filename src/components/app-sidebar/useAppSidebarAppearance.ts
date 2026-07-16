@@ -1,44 +1,44 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  EMBER_COLOR_SCHEME_CHANGED_EVENT,
-  EMBER_COLOR_SCHEMES,
-  EMBER_COLOR_SCHEME_STORAGE_KEY,
-  applyEmberColorScheme,
-  getEmberColorScheme,
-  loadEmberColorSchemeId,
-  persistEmberColorScheme,
-  type EmberColorSchemeChangedEventDetail,
-  type EmberColorSchemeId,
+  LIME_COLOR_SCHEME_CHANGED_EVENT,
+  LIME_COLOR_SCHEMES,
+  LIME_COLOR_SCHEME_STORAGE_KEY,
+  applyLimeColorScheme,
+  getLimeColorScheme,
+  loadLimeColorSchemeId,
+  persistLimeColorScheme,
+  type LimeColorSchemeChangedEventDetail,
+  type LimeColorSchemeId,
 } from "@/lib/appearance/colorSchemes";
 import {
-  EMBER_THEME_CHANGED_EVENT,
-  EMBER_THEME_MODE_OPTIONS,
-  EMBER_THEME_STORAGE_KEY,
-  applyEmberThemeMode,
-  getEffectiveEmberThemeMode,
-  loadEmberThemeMode,
-  persistEmberThemeMode,
-  type EmberEffectiveThemeMode,
-  type EmberThemeChangedEventDetail,
-  type EmberThemeMode,
+  LIME_THEME_CHANGED_EVENT,
+  LIME_THEME_MODE_OPTIONS,
+  LIME_THEME_STORAGE_KEY,
+  applyLimeThemeMode,
+  getEffectiveLimeThemeMode,
+  loadLimeThemeMode,
+  persistLimeThemeMode,
+  type LimeEffectiveThemeMode,
+  type LimeThemeChangedEventDetail,
+  type LimeThemeMode,
 } from "@/lib/appearance/themeMode";
 
 export function useAppSidebarAppearance() {
   const { t } = useTranslation("navigation");
   const [themeState, setThemeState] = useState<{
-    themeMode: EmberThemeMode;
-    effectiveThemeMode: EmberEffectiveThemeMode;
+    themeMode: LimeThemeMode;
+    effectiveThemeMode: LimeEffectiveThemeMode;
   }>(() => {
     const themeMode =
-      typeof window === "undefined" ? "system" : loadEmberThemeMode();
+      typeof window === "undefined" ? "system" : loadLimeThemeMode();
     return {
       themeMode,
-      effectiveThemeMode: getEffectiveEmberThemeMode(themeMode),
+      effectiveThemeMode: getEffectiveLimeThemeMode(themeMode),
     };
   });
-  const [colorSchemeId, setColorSchemeId] = useState<EmberColorSchemeId>(() =>
-    typeof window === "undefined" ? "ember-classic" : loadEmberColorSchemeId(),
+  const [colorSchemeId, setColorSchemeId] = useState<LimeColorSchemeId>(() =>
+    typeof window === "undefined" ? "lime-classic" : loadLimeColorSchemeId(),
   );
   const [appearancePopoverOpen, setAppearancePopoverOpen] = useState(false);
   const appearanceControlRef = useRef<HTMLDivElement | null>(null);
@@ -49,36 +49,36 @@ export function useAppSidebarAppearance() {
     }
 
     const syncThemeFromStorage = () => {
-      const themeMode = loadEmberThemeMode();
-      const effectiveThemeMode = applyEmberThemeMode(themeMode);
+      const themeMode = loadLimeThemeMode();
+      const effectiveThemeMode = applyLimeThemeMode(themeMode);
       setThemeState({ themeMode, effectiveThemeMode });
     };
 
     const syncColorSchemeFromStorage = () => {
-      const nextColorSchemeId = loadEmberColorSchemeId();
-      applyEmberColorScheme(nextColorSchemeId);
+      const nextColorSchemeId = loadLimeColorSchemeId();
+      applyLimeColorScheme(nextColorSchemeId);
       setColorSchemeId(nextColorSchemeId);
     };
 
     const handleThemeChanged = (event: Event) => {
-      const detail = (event as CustomEvent<EmberThemeChangedEventDetail>).detail;
-      const themeMode = detail?.themeMode ?? loadEmberThemeMode();
+      const detail = (event as CustomEvent<LimeThemeChangedEventDetail>).detail;
+      const themeMode = detail?.themeMode ?? loadLimeThemeMode();
       const effectiveThemeMode =
-        detail?.effectiveThemeMode ?? getEffectiveEmberThemeMode(themeMode);
+        detail?.effectiveThemeMode ?? getEffectiveLimeThemeMode(themeMode);
       setThemeState({ themeMode, effectiveThemeMode });
     };
 
     const handleColorSchemeChanged = (event: Event) => {
-      const detail = (event as CustomEvent<EmberColorSchemeChangedEventDetail>)
+      const detail = (event as CustomEvent<LimeColorSchemeChangedEventDetail>)
         .detail;
-      setColorSchemeId(detail?.colorSchemeId ?? loadEmberColorSchemeId());
+      setColorSchemeId(detail?.colorSchemeId ?? loadLimeColorSchemeId());
     };
 
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === null || event.key === EMBER_THEME_STORAGE_KEY) {
+      if (event.key === null || event.key === LIME_THEME_STORAGE_KEY) {
         syncThemeFromStorage();
       }
-      if (event.key === null || event.key === EMBER_COLOR_SCHEME_STORAGE_KEY) {
+      if (event.key === null || event.key === LIME_COLOR_SCHEME_STORAGE_KEY) {
         syncColorSchemeFromStorage();
       }
     };
@@ -92,7 +92,7 @@ export function useAppSidebarAppearance() {
           return current;
         }
 
-        const effectiveThemeMode = applyEmberThemeMode("system");
+        const effectiveThemeMode = applyLimeThemeMode("system");
         return {
           themeMode: "system",
           effectiveThemeMode,
@@ -103,18 +103,18 @@ export function useAppSidebarAppearance() {
     syncThemeFromStorage();
     syncColorSchemeFromStorage();
 
-    window.addEventListener(EMBER_THEME_CHANGED_EVENT, handleThemeChanged);
+    window.addEventListener(LIME_THEME_CHANGED_EVENT, handleThemeChanged);
     window.addEventListener(
-      EMBER_COLOR_SCHEME_CHANGED_EVENT,
+      LIME_COLOR_SCHEME_CHANGED_EVENT,
       handleColorSchemeChanged,
     );
     window.addEventListener("storage", handleStorageChange);
     systemThemeQuery?.addEventListener("change", handleSystemThemeChange);
 
     return () => {
-      window.removeEventListener(EMBER_THEME_CHANGED_EVENT, handleThemeChanged);
+      window.removeEventListener(LIME_THEME_CHANGED_EVENT, handleThemeChanged);
       window.removeEventListener(
-        EMBER_COLOR_SCHEME_CHANGED_EVENT,
+        LIME_COLOR_SCHEME_CHANGED_EVENT,
         handleColorSchemeChanged,
       );
       window.removeEventListener("storage", handleStorageChange);
@@ -154,33 +154,33 @@ export function useAppSidebarAppearance() {
     };
   }, [appearancePopoverOpen]);
 
-  const handleThemeModeChange = useCallback((nextThemeMode: EmberThemeMode) => {
-    const themeMode = persistEmberThemeMode(nextThemeMode);
+  const handleThemeModeChange = useCallback((nextThemeMode: LimeThemeMode) => {
+    const themeMode = persistLimeThemeMode(nextThemeMode);
     setThemeState({
       themeMode,
-      effectiveThemeMode: getEffectiveEmberThemeMode(themeMode),
+      effectiveThemeMode: getEffectiveLimeThemeMode(themeMode),
     });
   }, []);
 
   const handleColorSchemeChange = useCallback(
-    (nextColorSchemeId: EmberColorSchemeId) => {
-      const resolvedColorSchemeId = persistEmberColorScheme(nextColorSchemeId);
+    (nextColorSchemeId: LimeColorSchemeId) => {
+      const resolvedColorSchemeId = persistLimeColorScheme(nextColorSchemeId);
       setColorSchemeId(resolvedColorSchemeId);
     },
     [],
   );
 
   const handleRandomColorScheme = useCallback(() => {
-    const candidates = EMBER_COLOR_SCHEMES.filter(
+    const candidates = LIME_COLOR_SCHEMES.filter(
       (scheme) => scheme.id !== colorSchemeId,
     );
     const nextScheme =
       candidates[Math.floor(Math.random() * candidates.length)] ??
-      EMBER_COLOR_SCHEMES[0];
+      LIME_COLOR_SCHEMES[0];
     handleColorSchemeChange(nextScheme.id);
   }, [colorSchemeId, handleColorSchemeChange]);
 
-  const currentColorScheme = getEmberColorScheme(colorSchemeId);
+  const currentColorScheme = getLimeColorScheme(colorSchemeId);
   const appearanceThemeCopy = {
     light: {
       label: t("navigation.sidebar.appearance.theme.light.label", "浅色"),
@@ -203,124 +203,124 @@ export function useAppSidebarAppearance() {
         "自动同步系统外观。",
       ),
     },
-  } satisfies Record<EmberThemeMode, { label: string; description: string }>;
+  } satisfies Record<LimeThemeMode, { label: string; description: string }>;
   const appearanceColorSchemeCopy = {
-    "ember-classic": {
+    "lime-classic": {
       label: t(
-        "navigation.sidebar.appearance.colorScheme.emberClassic.label",
+        "navigation.sidebar.appearance.colorScheme.limeClassic.label",
         "墨绿",
       ),
       description: t(
-        "navigation.sidebar.appearance.colorScheme.emberClassic.description",
+        "navigation.sidebar.appearance.colorScheme.limeClassic.description",
         "经典深绿，温暖米色背景。",
       ),
     },
-    "ember-forest": {
+    "lime-forest": {
       label: t(
-        "navigation.sidebar.appearance.colorScheme.emberForest.label",
+        "navigation.sidebar.appearance.colorScheme.limeForest.label",
         "自然",
       ),
       description: t(
-        "navigation.sidebar.appearance.colorScheme.emberForest.description",
+        "navigation.sidebar.appearance.colorScheme.limeForest.description",
         "舒适放松的清新自然风。",
       ),
     },
-    "ember-ocean": {
+    "lime-ocean": {
       label: t(
-        "navigation.sidebar.appearance.colorScheme.emberOcean.label",
+        "navigation.sidebar.appearance.colorScheme.limeOcean.label",
         "海洋",
       ),
       description: t(
-        "navigation.sidebar.appearance.colorScheme.emberOcean.description",
+        "navigation.sidebar.appearance.colorScheme.limeOcean.description",
         "沉静专业的蓝色调。",
       ),
     },
-    "ember-sand": {
+    "lime-sand": {
       label: t(
-        "navigation.sidebar.appearance.colorScheme.emberSand.label",
+        "navigation.sidebar.appearance.colorScheme.limeSand.label",
         "复古",
       ),
       description: t(
-        "navigation.sidebar.appearance.colorScheme.emberSand.description",
+        "navigation.sidebar.appearance.colorScheme.limeSand.description",
         "温暖怀旧的琥珀色调。",
       ),
     },
-    "ember-neon": {
+    "lime-neon": {
       label: t(
-        "navigation.sidebar.appearance.colorScheme.emberNeon.label",
+        "navigation.sidebar.appearance.colorScheme.limeNeon.label",
         "霓虹",
       ),
       description: t(
-        "navigation.sidebar.appearance.colorScheme.emberNeon.description",
+        "navigation.sidebar.appearance.colorScheme.limeNeon.description",
         "赛博明亮的粉紫色调。",
       ),
     },
-    "ember-citron": {
+    "lime-citron": {
       label: t(
-        "navigation.sidebar.appearance.colorScheme.emberCitron.label",
-        "柠黄",
+        "navigation.sidebar.appearance.colorScheme.limeCitron.label",
+        "青柠",
       ),
       description: t(
-        "navigation.sidebar.appearance.colorScheme.emberCitron.description",
+        "navigation.sidebar.appearance.colorScheme.limeCitron.description",
         "活力清新的黄绿配紫。",
       ),
     },
-    "ember-dusk": {
+    "lime-dusk": {
       label: t(
-        "navigation.sidebar.appearance.colorScheme.emberDusk.label",
+        "navigation.sidebar.appearance.colorScheme.limeDusk.label",
         "黄昏",
       ),
       description: t(
-        "navigation.sidebar.appearance.colorScheme.emberDusk.description",
+        "navigation.sidebar.appearance.colorScheme.limeDusk.description",
         "柔和温暖的暮色调。",
       ),
     },
-    "ember-minimal": {
+    "lime-minimal": {
       label: t(
-        "navigation.sidebar.appearance.colorScheme.emberMinimal.label",
+        "navigation.sidebar.appearance.colorScheme.limeMinimal.label",
         "极简",
       ),
       description: t(
-        "navigation.sidebar.appearance.colorScheme.emberMinimal.description",
+        "navigation.sidebar.appearance.colorScheme.limeMinimal.description",
         "清晰专业的深蓝商务风。",
       ),
     },
-    "ember-vivid": {
+    "lime-vivid": {
       label: t(
-        "navigation.sidebar.appearance.colorScheme.emberVivid.label",
+        "navigation.sidebar.appearance.colorScheme.limeVivid.label",
         "活力",
       ),
       description: t(
-        "navigation.sidebar.appearance.colorScheme.emberVivid.description",
+        "navigation.sidebar.appearance.colorScheme.limeVivid.description",
         "时尚有冲击力的现代科技风。",
       ),
     },
-    "ember-literary": {
+    "lime-literary": {
       label: t(
-        "navigation.sidebar.appearance.colorScheme.emberLiterary.label",
+        "navigation.sidebar.appearance.colorScheme.limeLiterary.label",
         "文艺",
       ),
       description: t(
-        "navigation.sidebar.appearance.colorScheme.emberLiterary.description",
+        "navigation.sidebar.appearance.colorScheme.limeLiterary.description",
         "宁静高雅的灰蓝文艺风。",
       ),
     },
-    "ember-luxury": {
+    "lime-luxury": {
       label: t(
-        "navigation.sidebar.appearance.colorScheme.emberLuxury.label",
+        "navigation.sidebar.appearance.colorScheme.limeLuxury.label",
         "奢华",
       ),
       description: t(
-        "navigation.sidebar.appearance.colorScheme.emberLuxury.description",
+        "navigation.sidebar.appearance.colorScheme.limeLuxury.description",
         "尊贵权威的黑金商务风。",
       ),
     },
-  } satisfies Record<EmberColorSchemeId, { label: string; description: string }>;
-  const appearanceThemeOptions = EMBER_THEME_MODE_OPTIONS.map((option) => ({
+  } satisfies Record<LimeColorSchemeId, { label: string; description: string }>;
+  const appearanceThemeOptions = LIME_THEME_MODE_OPTIONS.map((option) => ({
     ...option,
     ...appearanceThemeCopy[option.id],
   }));
-  const appearanceColorSchemes = EMBER_COLOR_SCHEMES.map((scheme) => ({
+  const appearanceColorSchemes = LIME_COLOR_SCHEMES.map((scheme) => ({
     ...scheme,
     ...appearanceColorSchemeCopy[scheme.id],
   }));

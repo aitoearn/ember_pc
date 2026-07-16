@@ -173,7 +173,7 @@ export interface SkillDownloadInstallRequest extends Record<string, unknown> {
   downloadUrl: string;
 }
 
-export type AppType = "claude" | "codex" | "gemini" | "ember";
+export type AppType = "claude" | "codex" | "gemini" | "lime";
 
 export const SKILL_PACKAGE_OPEN_EVENT = "skill-package://open";
 
@@ -476,7 +476,7 @@ function isSkillPackageFileAssociationApplyResult(
 }
 
 export const skillsApi = {
-  async getLocal(app: AppType = "ember"): Promise<Skill[]> {
+  async getLocal(app: AppType = "lime"): Promise<Skill[]> {
     const result = await requestSkillAppServer<unknown>(
       METHOD_SKILL_MANAGEMENT_LIST,
       {
@@ -490,7 +490,7 @@ export const skillsApi = {
   },
 
   async getAll(
-    app: AppType = "ember",
+    app: AppType = "lime",
     options?: { refreshRemote?: boolean },
   ): Promise<Skill[]> {
     const result = await requestSkillAppServer<unknown>(
@@ -504,7 +504,7 @@ export const skillsApi = {
     return normalizeSkills(result.skills);
   },
 
-  async install(directory: string, app: AppType = "ember"): Promise<boolean> {
+  async install(directory: string, app: AppType = "lime"): Promise<boolean> {
     const result = await requestSkillAppServer<unknown>(
       METHOD_SKILL_MANAGEMENT_INSTALL,
       { app, directory } satisfies SkillManagementInstallParams,
@@ -513,7 +513,7 @@ export const skillsApi = {
     return true;
   },
 
-  async uninstall(directory: string, app: AppType = "ember"): Promise<boolean> {
+  async uninstall(directory: string, app: AppType = "lime"): Promise<boolean> {
     const result = await requestSkillAppServer<unknown>(
       METHOD_SKILL_MANAGEMENT_UNINSTALL,
       { app, directory } satisfies SkillManagementUninstallParams,
@@ -559,14 +559,14 @@ export const skillsApi = {
   },
 
   /**
-   * 获取已安装的 Ember Skills 目录列表
+   * 获取已安装的 Lime Skills 目录列表
    *
-   * 扫描 Ember 可发现的 provider Skills 根目录，返回包含 SKILL.md 的子目录名列表。
-   * 这些 Skills 将被传递给 aster 用于 AI Agent 功能。
+   * 扫描 Lime 可发现的 provider Skills 根目录，返回包含 SKILL.md 的子目录名列表。
+   * 这些 Skills 将被传递给 agent 用于 AI Agent 功能。
    *
    * @returns 已安装的 Skill 目录名列表
    */
-  async getInstalledEmberSkills(): Promise<string[]> {
+  async getInstalledLimeSkills(): Promise<string[]> {
     const result = await requestSkillAppServer<unknown>(
       METHOD_SKILL_INSTALLED_DIRECTORIES_LIST,
       {},
@@ -587,7 +587,7 @@ export const skillsApi = {
    */
   async inspectLocalSkill(
     directory: string,
-    app: AppType = "ember",
+    app: AppType = "lime",
   ): Promise<SkillInspection> {
     const result = await requestSkillAppServer<unknown>(
       METHOD_SKILL_LOCAL_INSPECT,
@@ -599,7 +599,7 @@ export const skillsApi = {
 
   async inspectLocalSkillDetail(
     directory: string,
-    app: AppType = "ember",
+    app: AppType = "lime",
   ): Promise<LocalSkillDetailInspectionResult> {
     const result =
       await requestSkillAppServer<LocalSkillDetailInspectionResult>(
@@ -618,7 +618,7 @@ export const skillsApi = {
 
   async revealLocalSkill(
     directory: string,
-    app: AppType = "ember",
+    app: AppType = "lime",
   ): Promise<boolean> {
     const normalizedDirectory = directory.trim();
     const result = await requestSkillAppServer<unknown>(
@@ -646,7 +646,7 @@ export const skillsApi = {
   async renameLocalSkill(
     directory: string,
     newDirectory: string,
-    app: AppType = "ember",
+    app: AppType = "lime",
   ): Promise<ImportedSkillResult> {
     const result = await requestSkillAppServer<ImportedSkillResult>(
       METHOD_SKILL_LOCAL_RENAME,
@@ -663,7 +663,7 @@ export const skillsApi = {
   async replaceLocalSkillPackage(
     directory: string,
     sourcePath: string,
-    app: AppType = "ember",
+    app: AppType = "lime",
   ): Promise<SkillMarketplaceInstallResult> {
     const result = await requestSkillAppServer<SkillMarketplaceInstallResult>(
       METHOD_SKILL_PACKAGE_LOCAL_REPLACE,
@@ -685,7 +685,7 @@ export const skillsApi = {
 
   async createSkillScaffold(
     request: CreateSkillScaffoldRequest,
-    app: AppType = "ember",
+    app: AppType = "lime",
   ): Promise<SkillInspection> {
     const result = await requestSkillAppServer<unknown>(
       METHOD_SKILL_LOCAL_SCAFFOLD_CREATE,
@@ -700,7 +700,7 @@ export const skillsApi = {
 
   async importLocalSkill(
     sourcePath: string,
-    app: AppType = "ember",
+    app: AppType = "lime",
   ): Promise<ImportedSkillResult> {
     const result = await requestSkillAppServer<ImportedSkillResult>(
       METHOD_SKILL_LOCAL_IMPORT,
@@ -715,7 +715,7 @@ export const skillsApi = {
 
   async inspectLocalSkillPackage(
     sourcePath: string,
-    app: AppType = "ember",
+    app: AppType = "lime",
   ): Promise<LocalSkillPackageInspectionResult> {
     const result =
       await requestSkillAppServer<LocalSkillPackageInspectionResult>(
@@ -734,7 +734,7 @@ export const skillsApi = {
 
   async installLocalSkillPackage(
     sourcePath: string,
-    app: AppType = "ember",
+    app: AppType = "lime",
   ): Promise<SkillMarketplaceInstallResult> {
     const result = await requestSkillAppServer<SkillMarketplaceInstallResult>(
       METHOD_SKILL_PACKAGE_LOCAL_INSTALL,
@@ -784,7 +784,7 @@ export const skillsApi = {
   async exportLocalSkillPackage(
     directory: string,
     targetPath: string,
-    app: AppType = "ember",
+    app: AppType = "lime",
   ): Promise<SkillPackageExportResult> {
     const result = await requestSkillAppServer<SkillPackageExportResult>(
       METHOD_SKILL_PACKAGE_EXPORT,
@@ -796,7 +796,7 @@ export const skillsApi = {
 
   async installMarketplaceBundle(
     bundle: SkillMarketplaceBundle,
-    app: AppType = "ember",
+    app: AppType = "lime",
   ): Promise<SkillMarketplaceInstallResult> {
     const result = await requestSkillAppServer<SkillMarketplaceInstallResult>(
       METHOD_SKILL_MARKETPLACE_INSTALL,
@@ -823,7 +823,7 @@ export const skillsApi = {
 
   async installFromDownloadUrl(
     request: SkillDownloadInstallRequest,
-    app: AppType = "ember",
+    app: AppType = "lime",
   ): Promise<SkillMarketplaceInstallResult> {
     const result = await requestSkillAppServer<SkillMarketplaceInstallResult>(
       METHOD_SKILL_PACKAGE_DOWNLOAD_INSTALL,

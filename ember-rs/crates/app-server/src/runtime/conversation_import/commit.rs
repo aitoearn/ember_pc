@@ -1,0 +1,565 @@
+use super::codex::{self, events::CodexRolloutEvent, CodexTimelineItem};
+use super::import_status;
+use super::provenance::{self, ImportProvenance};
+use crate::runtime::{new_id, timestamp};
+use crate::{RuntimeCore, RuntimeCoreError};
+use app_server_protocol::{
+    AgentAttachment, AgentInput, AgentSessionStartParams, AgentSessionStatus, AgentTurn,
+    AgentTurnStatus, BusinessObjectRef, ConversationImportSourceClient,
+    ConversationImportSourceProvenance, ConversationImportThreadCommitParams,
+    ConversationImportThreadCommitResponse, ConversationImportThreadStatus,
+};
+use serde_json::json;
+
+const DEFAULT_IMPORT_APP_ID: &str = "content-studio";
+
+pub(super) fn commit_conversation_import_thread(
+    core: &RuntimeCore,
+    params: ConversationImportThreadCommitParams,
+) -> Result<ConversationImportThreadCommitResponse, RuntimeCoreError> {
+    if !params.confirmed {
+        return Err(RuntimeCoreError::Backend(
+            "conversation import commit requires explicit user confirmation".to_string(),
+        ));
+    }
+
+    commit_codex_thread(core, params)
+}
+
+fn commit_codex_thread(
+    core: &RuntimeCore,
+    params: ConversationImportThreadCommitParams,
+) -> Result<ConversationImportThreadCommitResponse, RuntimeCoreError> {
+    let source_root = codex::resolve_home(params.source_root.as_deref()).ok_or_else(|| {
+        RuntimeCoreError::Backend("unable to resolve source home directory".to_string())
+    })?;
+    if !source_root.is_dir() {
+        return Err(RuntimeCoreError::Backend(
+            "source home directory does not exist".to_string(),
+        ));
+    }
+
+    let (source_path, indexed_thread) = resolve_source_path(&source_root, &params)?;
+    let mut preview = codex::parse_rollout_for_import(&source_path)?;
+    if let Some(indexed_thread) = indexed_thread {
+        codex::merge_indexed_thread_metadata(&mut preview.thread, indexed_thread);
+    }
+    preview.thread.source_path = Some(codex::path_to_string(&source_path));
+    preview.thread.import_status = ConversationImportThreadStatus::Imported;
+
+    let turns = history_turns(&preview.timeline);
+    if turns.is_empty() {
+        return Err(RuntimeCoreError::Backend(
+            "source rollout does not contain importable user messages".to_string(),
+        ));
+    }
+    if let Some(session) = import_status::imported_session_for_thread(
+        core,
+        ConversationImportSourceClient::Codex,
+        &preview.thread.source_thread_id,
+    ) {
+        if params.replace_existing.unwrap_or(false) {
+            clear_existing_imported_session(core, &session.session_id)?;
+        } else {
+            preview.thread.import_status = ConversationImportThreadStatus::Imported;
+            preview.summary.dry_run.will_create_session = false;
+            preview.summary.dry_run.will_append_to_existing_session = true;
+            let warnings = preview.summary.warnings.clone();
+            return Ok(ConversationImportThreadCommitResponse {
+                session,
+                thread: preview.thread,
+                imported_messages: preview.summary.dry_run.will_import_messages,
+                imported_turns: preview.summary.dry_run.will_import_turns,
+                summary: preview.summary,
+                can_continue: true,
+                warnings,
+            });
+        }
+    }
+    preview.summary.fidelity.budget_dropped = 0;
+
+    let provenance = ImportProvenance::for_thread(
+        &preview.thread,
+        &source_root,
+        &source_path,
+        &preview.summary.fidelity,
+    );
+    let prepared_turns = prepare_history_turns(turns)?;
+
+    let created_session = core
+        .start_session(AgentSessionStartParams {
+            session_id: None,
+            thread_id: None,
+            app_id: params
+                .app_id
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(|| DEFAULT_IMPORT_APP_ID.to_string()),
+            workspace_id: params.workspace_id.filter(|value| !value.trim().is_empty()),
+            business_object_ref: Some(import_business_object_ref(
+                preview.thread.source_thread_id.as_str(),
+                preview.thread.title.as_deref(),
+                &source_root,
+                &source_path,
+                &preview.thread,
+                &preview.summary.fidelity,
+            )),
+            locale: None,
+        })?
+        .session;
+
+    let commit_result = (|| {
+        let imported_turns = append_history_turns(
+            core,
+            &created_session.session_id,
+            prepared_turns,
+            &provenance,
+        )?;
+        let imported_messages = preview.summary.dry_run.will_import_messages;
+        let warnings = provenance::commit_warnings(
+            &preview.summary.warnings,
+            preview.summary.unsupported_count,
+            preview.summary.rollout_event_items,
+        );
+
+        let (mut session, _) = core.session_snapshot(&created_session.session_id)?;
+        session.status = AgentSessionStatus::Completed;
+
+        Ok(ConversationImportThreadCommitResponse {
+            session,
+            thread: preview.thread,
+            summary: preview.summary,
+            imported_messages,
+            imported_turns,
+            can_continue: true,
+            warnings,
+        })
+    })();
+
+    match commit_result {
+        Ok(response) => Ok(response),
+        Err(import_error) => {
+            match clear_existing_imported_session(core, &created_session.session_id) {
+                Ok(()) => Err(import_error),
+                Err(cleanup_error) => Err(RuntimeCoreError::Backend(format!(
+                    "Codex import failed after creating session {}: {import_error}; compensating cleanup also failed: {cleanup_error}",
+                    created_session.session_id
+                ))),
+            }
+        }
+    }
+}
+
+fn clear_existing_imported_session(
+    core: &RuntimeCore,
+    session_id: &str,
+) -> Result<(), RuntimeCoreError> {
+    let mut errors = Vec::new();
+    if let Some(projection_store) = core.projection_store.as_ref() {
+        if let Err(error) = projection_store.delete_session_data(session_id) {
+            errors.push(format!("projection cleanup failed: {error}"));
+        }
+    }
+    {
+        let mut state = core
+            .state
+            .lock()
+            .expect("runtime core state mutex poisoned");
+        super::super::approval_cache::remove_session(&mut state.session_approval_cache, session_id);
+        state.sessions.remove(session_id);
+    }
+    if let Some(event_log_writer) = core.event_log_writer.as_ref() {
+        if let Err(error) = event_log_writer.clear_session(session_id) {
+            errors.push(format!("event log cleanup failed: {error}"));
+        }
+    }
+    if let Some(sidecar_store) = core.sidecar_store.as_ref() {
+        if let Err(error) = sidecar_store.clear_session(session_id) {
+            errors.push(format!("sidecar cleanup failed: {error}"));
+        }
+    }
+    if !errors.is_empty() {
+        return Err(RuntimeCoreError::Backend(format!(
+            "failed to clear imported session {session_id}: {}",
+            errors.join("; ")
+        )));
+    }
+    Ok(())
+}
+
+fn resolve_source_path(
+    source_root: &std::path::Path,
+    params: &ConversationImportThreadCommitParams,
+) -> Result<
+    (
+        std::path::PathBuf,
+        Option<app_server_protocol::ImportedThreadSummary>,
+    ),
+    RuntimeCoreError,
+> {
+    let (source_path, indexed_thread) = match codex::normalize_filter(params.source_path.as_deref())
+    {
+        Some(path) => (
+            codex::resolve_user_supplied_rollout_path(source_root, &path).ok_or_else(|| {
+                RuntimeCoreError::Backend(
+                    "source path must be a Codex rollout JSONL file inside source root".to_string(),
+                )
+            })?,
+            None,
+        ),
+        None => {
+            let thread_id = codex::normalize_filter(params.source_thread_id.as_deref())
+                .ok_or_else(|| {
+                    RuntimeCoreError::Backend(
+                        "conversation import commit requires sourceThreadId or sourcePath"
+                            .to_string(),
+                    )
+                })?;
+            let thread = codex::find_thread(source_root, &thread_id).ok_or_else(|| {
+                RuntimeCoreError::Backend(
+                    "unable to resolve source rollout path for thread".to_string(),
+                )
+            })?;
+            let path = thread
+                .source_path
+                .as_deref()
+                .and_then(|value| codex::resolve_existing_source_path(source_root, Some(value)))
+                .ok_or_else(|| {
+                    RuntimeCoreError::Backend(
+                        "unable to resolve source rollout path for thread".to_string(),
+                    )
+                })?;
+            (path, Some(thread))
+        }
+    };
+    Ok((source_path, indexed_thread))
+}
+
+struct HistoryTurn {
+    user_text: String,
+    user_attachments: Vec<AgentAttachment>,
+    user_timestamp: Option<String>,
+    user_provenance: Option<app_server_protocol::ConversationImportSourceProvenance>,
+    events: Vec<HistoryTurnEvent>,
+}
+
+struct PreparedHistoryTurn {
+    user_text: String,
+    user_attachments: Vec<AgentAttachment>,
+    user_timestamp: Option<String>,
+    user_provenance: Option<app_server_protocol::ConversationImportSourceProvenance>,
+    user_message: CodexRolloutEvent,
+    events: Vec<CodexRolloutEvent>,
+}
+
+enum HistoryTurnEvent {
+    AssistantMessage(HistoricalAssistantMessage),
+    Runtime(CodexRolloutEvent),
+}
+
+struct HistoricalAssistantMessage {
+    text: String,
+    provenance: Option<app_server_protocol::ConversationImportSourceProvenance>,
+}
+
+fn history_turns(timeline: &[CodexTimelineItem]) -> Vec<HistoryTurn> {
+    let mut turns = Vec::new();
+    let mut pending_user: Option<(
+        String,
+        Vec<AgentAttachment>,
+        Option<String>,
+        Option<String>,
+        Option<app_server_protocol::ConversationImportSourceProvenance>,
+    )> = None;
+    let mut pending_events = Vec::new();
+    let mut leading_runtime_events = Vec::new();
+
+    for item in timeline {
+        match item {
+            CodexTimelineItem::Message(message) => match message.role.as_str() {
+                "user" => {
+                    if pending_user.as_mut().is_some_and(
+                        |(text, attachments, source_type, timestamp, provenance)| {
+                            if text.trim() != message.text.trim()
+                                || !is_duplicate_source_user_message(
+                                    source_type.as_deref(),
+                                    message.source_type.as_deref(),
+                                )
+                            {
+                                return false;
+                            }
+                            for attachment in &message.attachments {
+                                let already_present = attachments.iter().any(|existing| {
+                                    existing.kind == attachment.kind
+                                        && existing.uri == attachment.uri
+                                });
+                                if !already_present {
+                                    attachments.push(attachment.clone());
+                                }
+                            }
+                            if timestamp.is_none() {
+                                *timestamp = message.timestamp.clone();
+                            }
+                            if provenance.is_none() {
+                                *provenance = message.provenance.clone();
+                            }
+                            true
+                        },
+                    ) {
+                        continue;
+                    }
+                    flush_history_turn(&mut turns, &mut pending_user, &mut pending_events);
+                    pending_user = Some((
+                        message.text.clone(),
+                        message.attachments.clone(),
+                        message.source_type.clone(),
+                        message.timestamp.clone(),
+                        message.provenance.clone(),
+                    ));
+                    pending_events.extend(
+                        leading_runtime_events
+                            .drain(..)
+                            .map(HistoryTurnEvent::Runtime),
+                    );
+                }
+                "assistant" => {
+                    if pending_user.is_some() {
+                        let text = message.text.trim();
+                        if !text.is_empty() {
+                            pending_events.push(HistoryTurnEvent::AssistantMessage(
+                                HistoricalAssistantMessage {
+                                    text: text.to_string(),
+                                    provenance: message.provenance.clone(),
+                                },
+                            ));
+                        }
+                    }
+                }
+                _ => {}
+            },
+            CodexTimelineItem::RolloutEvent(event) => {
+                if pending_user.is_some() {
+                    pending_events.push(HistoryTurnEvent::Runtime(event.clone()));
+                } else {
+                    leading_runtime_events.push(event.clone());
+                }
+            }
+        }
+    }
+    flush_history_turn(&mut turns, &mut pending_user, &mut pending_events);
+    turns
+}
+
+fn flush_history_turn(
+    turns: &mut Vec<HistoryTurn>,
+    pending_user: &mut Option<(
+        String,
+        Vec<AgentAttachment>,
+        Option<String>,
+        Option<String>,
+        Option<app_server_protocol::ConversationImportSourceProvenance>,
+    )>,
+    pending_events: &mut Vec<HistoryTurnEvent>,
+) {
+    let Some((user_text, user_attachments, _source_type, user_timestamp, user_provenance)) =
+        pending_user.take()
+    else {
+        pending_events.clear();
+        return;
+    };
+    turns.push(HistoryTurn {
+        user_text,
+        user_attachments,
+        user_timestamp,
+        user_provenance,
+        events: std::mem::take(pending_events),
+    });
+}
+
+fn is_duplicate_source_user_message(existing: Option<&str>, candidate: Option<&str>) -> bool {
+    matches!(
+        (existing, candidate),
+        (Some("event_msg"), Some("response_item")) | (Some("response_item"), Some("event_msg"))
+    )
+}
+
+fn append_history_turns(
+    core: &RuntimeCore,
+    session_id: &str,
+    turns: Vec<PreparedHistoryTurn>,
+    provenance: &ImportProvenance,
+) -> Result<usize, RuntimeCoreError> {
+    let (session, _) = core.session_snapshot(session_id)?;
+    let thread_id = session.thread_id.clone();
+    let mut imported = 0;
+
+    for history_turn in turns {
+        let turn_id = new_id("turn");
+        let started_at = history_turn
+            .user_timestamp
+            .clone()
+            .unwrap_or_else(timestamp);
+        {
+            let mut state = core
+                .state
+                .lock()
+                .expect("runtime core state mutex poisoned");
+            let stored = state
+                .sessions
+                .get_mut(session_id)
+                .ok_or_else(|| RuntimeCoreError::SessionNotFound(session_id.to_string()))?;
+            let turn = AgentTurn {
+                turn_id: turn_id.clone(),
+                session_id: session_id.to_string(),
+                thread_id: thread_id.clone(),
+                status: AgentTurnStatus::Running,
+                started_at: Some(started_at.clone()),
+                completed_at: None,
+            };
+            stored.session.status = AgentSessionStatus::Running;
+            stored.session.updated_at = started_at;
+            stored.turn_inputs.insert(
+                turn_id.clone(),
+                AgentInput {
+                    text: history_turn.user_text,
+                    attachments: history_turn.user_attachments,
+                },
+            );
+            stored.turn_runtime_options.insert(
+                turn_id.clone(),
+                provenance.turn_runtime_options(history_turn.user_provenance.as_ref()),
+            );
+            stored.turns.push(turn);
+        }
+
+        let mut source_events = Vec::with_capacity(history_turn.events.len() + 1);
+        source_events.push(history_turn.user_message);
+        source_events.extend(history_turn.events);
+        let events =
+            codex::build_canonical_history_events(source_events, session_id, &thread_id, &turn_id);
+        core.append_runtime_events(session_id, &thread_id, Some(&turn_id), events)?;
+        imported += 1;
+    }
+
+    Ok(imported)
+}
+
+fn prepare_history_turns(
+    turns: Vec<HistoryTurn>,
+) -> Result<Vec<PreparedHistoryTurn>, RuntimeCoreError> {
+    turns
+        .into_iter()
+        .map(|turn| {
+            let user_message = message_rollout_event(
+                "user",
+                &turn.user_text,
+                &turn.user_attachments,
+                turn.user_provenance.as_ref(),
+            )?;
+            let mut events = Vec::with_capacity(turn.events.len());
+            for event in turn.events {
+                match event {
+                    HistoryTurnEvent::AssistantMessage(message) => {
+                        events.push(message_rollout_event(
+                            "assistant",
+                            &message.text,
+                            &[],
+                            message.provenance.as_ref(),
+                        )?);
+                    }
+                    HistoryTurnEvent::Runtime(runtime_event) => events.push(runtime_event),
+                }
+            }
+            Ok(PreparedHistoryTurn {
+                user_text: turn.user_text,
+                user_attachments: turn.user_attachments,
+                user_timestamp: turn.user_timestamp,
+                user_provenance: turn.user_provenance,
+                user_message,
+                events,
+            })
+        })
+        .collect()
+}
+
+fn message_rollout_event(
+    role: &'static str,
+    text: &str,
+    attachments: &[AgentAttachment],
+    provenance: Option<&ConversationImportSourceProvenance>,
+) -> Result<CodexRolloutEvent, RuntimeCoreError> {
+    let provenance = provenance.ok_or_else(|| {
+        RuntimeCoreError::Backend(format!(
+            "Codex import {role} message is missing source provenance"
+        ))
+    })?;
+    let source_event_seq = provenance.source_event_seq.ok_or_else(|| {
+        RuntimeCoreError::Backend(format!(
+            "Codex import {role} message is missing source event sequence"
+        ))
+    })?;
+    let ordinal = u64::try_from(source_event_seq).map_err(|_| {
+        RuntimeCoreError::Backend(format!(
+            "Codex import {role} message source event sequence is out of range: {source_event_seq}"
+        ))
+    })?;
+    let item_role = if role == "user" { "user" } else { "agent" };
+    let item_id = provenance
+        .source_call_id
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("imported-{item_role}_{source_event_seq}"));
+    let source_provenance = serde_json::to_value(provenance).map_err(|error| {
+        RuntimeCoreError::Backend(format!(
+            "unable to serialize Codex import {role} message provenance: {error}"
+        ))
+    })?;
+    let attachments = serde_json::to_value(attachments).map_err(|error| {
+        RuntimeCoreError::Backend(format!(
+            "unable to serialize Codex import {role} message attachments: {error}"
+        ))
+    })?;
+
+    Ok(CodexRolloutEvent::new(
+        if role == "user" {
+            "import.message"
+        } else {
+            "message.delta"
+        },
+        json!({
+            "itemId": item_id,
+            "ordinal": ordinal,
+            "role": role,
+            "text": text,
+            "attachments": attachments,
+            "imported": true,
+            "sourceClient": "codex",
+            "sourceEventSeq": source_event_seq,
+            "sourceProvenance": source_provenance,
+        }),
+    ))
+}
+
+fn import_business_object_ref(
+    source_thread_id: &str,
+    title: Option<&str>,
+    source_root: &std::path::Path,
+    source_path: &std::path::Path,
+    thread: &app_server_protocol::ImportedThreadSummary,
+    fidelity: &app_server_protocol::ConversationImportFidelitySummary,
+) -> BusinessObjectRef {
+    let metadata = provenance::import_session_metadata(
+        source_thread_id,
+        source_root,
+        source_path,
+        thread,
+        fidelity,
+    );
+    BusinessObjectRef {
+        kind: import_status::IMPORTED_CONVERSATION_KIND.to_string(),
+        id: source_thread_id.to_string(),
+        title: title.map(str::to_string),
+        uri: Some(codex::path_to_string(source_path)),
+        metadata: Some(metadata),
+    }
+}

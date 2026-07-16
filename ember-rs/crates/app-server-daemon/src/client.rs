@@ -80,7 +80,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn initialize_probe_request_uses_ember_current_protocol() {
+    fn initialize_probe_request_uses_lime_current_protocol() {
         let request = initialize_probe_request("1.2.3");
         let value = serde_json::to_value(request).expect("json");
 

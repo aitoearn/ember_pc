@@ -2,9 +2,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { cwd } from "node:process";
 import { describe, expect, it } from "vitest";
+import { readAppServerApiSources } from "../../test/appServerApiSources";
 
 const RETIRED_MEDIA_TASK_FACADE_COMMANDS = [
   "create_image_generation_task_artifact",
+  "complete_image_generation_task_artifact",
   "create_audio_generation_task_artifact",
   "complete_audio_generation_task_artifact",
   "get_media_task_artifact",
@@ -20,6 +22,7 @@ const CURRENT_MEDIA_TASK_METHOD_CONSTANTS = [
   "APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_IMAGE_CREATE",
   "APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_AUDIO_CREATE",
   "APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_VIDEO_CREATE",
+  "APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_IMAGE_COMPLETE",
   "APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_AUDIO_COMPLETE",
   "APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_GET",
   "APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_LIST",
@@ -30,6 +33,7 @@ const CURRENT_MEDIA_TASK_CLIENT_HELPERS = [
   "createImageMediaTaskArtifact",
   "createAudioMediaTaskArtifact",
   "createVideoMediaTaskArtifact",
+  "completeImageMediaTaskArtifact",
   "completeAudioMediaTaskArtifact",
   "getMediaTaskArtifact",
   "listMediaTaskArtifacts",
@@ -40,6 +44,7 @@ const CURRENT_MEDIA_TASK_METHODS = [
   "mediaTaskArtifact/image/create",
   "mediaTaskArtifact/audio/create",
   "mediaTaskArtifact/video/create",
+  "mediaTaskArtifact/image/complete",
   "mediaTaskArtifact/audio/complete",
   "mediaTaskArtifact/get",
   "mediaTaskArtifact/list",
@@ -51,7 +56,6 @@ const RETIRED_MEDIA_TASK_FILES = [
   "ember-rs/src/dev_bridge/dispatcher.rs",
   "ember-rs/src/commands/mod.rs",
   "ember-rs/src/commands/media_task_cmd.rs",
-  "ember-rs/src/commands/aster_agent_cmd/tool_runtime/creation_tools.rs",
   "ember-rs/src/dev_bridge/dispatcher/media_tasks.rs",
 ];
 
@@ -106,9 +110,9 @@ describe("mediaTasks current App Server boundary", () => {
   });
 
   it("App Server protocol / client 应记录 mediaTaskArtifact current 方法", () => {
-    const appServerSource = readRepoFile("src/lib/api/appServer.ts");
-    const clientProtocolSource = readRepoFile(
-      "packages/app-server-client/src/protocol.ts",
+    const appServerSource = readAppServerApiSources();
+    const generatedClientProtocolSource = readRepoFile(
+      "packages/app-server-client/src/generated/protocol-types.ts",
     );
     const rustProtocolSource = [
       readRepoFile(
@@ -123,10 +127,10 @@ describe("mediaTasks current App Server boundary", () => {
       expect(appServerSource).toContain(methodConstant);
     }
     for (const helper of CURRENT_MEDIA_TASK_CLIENT_HELPERS) {
-      expect(appServerSource).toContain(`async ${helper}(`);
+      expect(appServerSource).toContain(`${helper}(`);
     }
     for (const method of CURRENT_MEDIA_TASK_METHODS) {
-      expect(clientProtocolSource).toContain(`"${method}"`);
+      expect(generatedClientProtocolSource).toContain(`"${method}"`);
       expect(rustProtocolSource).toContain(`"${method}"`);
     }
   });

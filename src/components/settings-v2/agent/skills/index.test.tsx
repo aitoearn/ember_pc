@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const { mockOpenExternalUrlWithSystemBrowser } = vi.hoisted(() => ({
   mockOpenExternalUrlWithSystemBrowser: vi.fn(),
@@ -48,7 +48,7 @@ beforeEach(async () => {
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
   vi.clearAllMocks();
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
   mockOpenExternalUrlWithSystemBrowser.mockResolvedValue(undefined);
 });
 
@@ -65,7 +65,7 @@ afterEach(async () => {
     target.container.remove();
   }
 
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("ExtensionsSettings", () => {
@@ -95,7 +95,7 @@ describe("ExtensionsSettings", () => {
 
     expect(link).toBeInstanceOf(HTMLAnchorElement);
     expect(link?.getAttribute("href")).toBe(
-      "https://github.com/aitoearn/ember_pc/issues",
+      "https://github.com/aiclientproxy/lime/issues",
     );
     expect(link?.getAttribute("target")).toBeNull();
     expect(link?.getAttribute("rel")).toBe("noreferrer noopener");
@@ -111,7 +111,7 @@ describe("ExtensionsSettings", () => {
 
     expect(clickEvent.defaultPrevented).toBe(true);
     expect(mockOpenExternalUrlWithSystemBrowser).toHaveBeenCalledWith(
-      "https://github.com/aitoearn/ember_pc/issues",
+      "https://github.com/aiclientproxy/lime/issues",
     );
   });
 });

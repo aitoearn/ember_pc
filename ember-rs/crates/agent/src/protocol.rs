@@ -1,8 +1,15 @@
-use aster::session::TurnOutputSchemaRuntime;
-use ember_core::database::dao::agent_timeline::{AgentThreadItem, AgentThreadTurn};
+use agent_protocol::provider_trace::{ProviderTraceEvent, ProviderTraceStage};
+use agent_protocol::turn_context::TurnOutputSchemaRuntime;
+use agent_protocol::{
+    CollabAgentOperation, ItemId, ItemStatus, SessionId, ThreadId, ThreadItem, ThreadItemPayload,
+    ToolArgument, ToolOutput, TurnId,
+};
+use lime_core::database::dao::agent_timeline::AgentThreadTurn;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::HashMap;
+use tool_runtime::tool_lifecycle::{ToolLifecycleEvent, ToolLifecyclePhase};
+use tool_runtime::tool_result_projection::NormalizedToolOutput;
 
 use crate::queued_turn::QueuedTurnSnapshot;
 use crate::session_execution_runtime::{
@@ -10,6 +17,11 @@ use crate::session_execution_runtime::{
     SessionExecutionRuntimeLimitState, SessionExecutionRuntimeRoutingDecision,
     SessionExecutionRuntimeTaskProfile,
 };
+
+mod protocol_agent_control;
+pub(crate) use protocol_agent_control::CanonicalSubAgentActivity;
+
+pub type AgentActionRequiredScope = agent_protocol::action_required::ActionRequiredScope;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentToolImage {
@@ -26,6 +38,12 @@ pub struct AgentToolResult {
     pub output: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    #[serde(
+        default,
+        rename = "structuredContent",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub structured_content: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub images: Option<Vec<AgentToolImage>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -65,11 +83,7 @@ pub struct AgentTokenUsage {
     pub cache_creation_input_tokens: Option<u32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentContextTraceStep {
-    pub stage: String,
-    pub detail: String,
-}
+pub type AgentContextTraceStep = agent_protocol::context_trace::ContextTraceStep;
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct AgentContextBudget {
@@ -155,36 +169,7 @@ pub struct AgentRuntimeStatus {
 }
 
 pub fn build_diagnostics_runtime_status_metadata() -> HashMap<String, Value> {
-    HashMap::from([
-        (
-            "sourceType".to_string(),
-            Value::String("runtime_status".to_string()),
-        ),
-        (
-            "source".to_string(),
-            Value::String("runtime_status".to_string()),
-        ),
-        (
-            "surface".to_string(),
-            Value::String("runtime_status".to_string()),
-        ),
-        (
-            "visibility".to_string(),
-            Value::String("diagnostics".to_string()),
-        ),
-        (
-            "persistence".to_string(),
-            Value::String("transient".to_string()),
-        ),
-        (
-            "agentui".to_string(),
-            serde_json::json!({
-                "eventClass": "run.status",
-                "surface": "runtime_status",
-                "visibility": "diagnostics",
-            }),
-        ),
-    ])
+    agent_runtime::runtime_timeline::build_diagnostics_runtime_status_metadata()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -196,16 +181,6 @@ pub struct AgentMessage {
     pub timestamp: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<AgentTokenUsage>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AgentActionRequiredScope {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub session_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub thread_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub turn_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -231,6 +206,12 @@ pub enum AgentMessageContent {
         output: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         error: Option<String>,
+        #[serde(
+            default,
+            rename = "structuredContent",
+            skip_serializing_if = "Option::is_none"
+        )]
+        structured_content: Option<Value>,
         #[serde(skip_serializing_if = "Option::is_none")]
         images: Option<Vec<AgentToolImage>>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -259,6 +240,25 @@ pub enum TextDeltaBatchBoundary {
     Provider,
 }
 
+pub type AgentProviderTraceStage = ProviderTraceStage;
+pub type AgentProviderTraceEvent = ProviderTraceEvent;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentMessagePhase {
+    Commentary,
+    FinalAnswer,
+}
+
+impl AgentMessagePhase {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Commentary => "commentary",
+            Self::FinalAnswer => "final_answer",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum AgentEvent {
@@ -269,13 +269,13 @@ pub enum AgentEvent {
     TurnStarted { turn: AgentThreadTurn },
 
     #[serde(rename = "item_started")]
-    ItemStarted { item: AgentThreadItem },
+    ItemStarted { item: ThreadItem },
 
     #[serde(rename = "item_updated")]
-    ItemUpdated { item: AgentThreadItem },
+    ItemUpdated { item: ThreadItem },
 
     #[serde(rename = "item_completed")]
-    ItemCompleted { item: AgentThreadItem },
+    ItemCompleted { item: ThreadItem },
 
     #[serde(rename = "turn_completed")]
     TurnCompleted { turn: AgentThreadTurn },
@@ -283,8 +283,25 @@ pub enum AgentEvent {
     #[serde(rename = "turn_failed")]
     TurnFailed { turn: AgentThreadTurn },
 
+    #[serde(rename = "text_start")]
+    TextStart {
+        #[serde(rename = "itemId")]
+        item_id: String,
+    },
+
     #[serde(rename = "text_delta")]
-    TextDelta { text: String },
+    TextDelta {
+        #[serde(rename = "itemId")]
+        item_id: String,
+        text: String,
+    },
+
+    #[serde(rename = "text_end")]
+    TextEnd {
+        #[serde(rename = "itemId")]
+        item_id: String,
+        phase: AgentMessagePhase,
+    },
 
     #[serde(rename = "text_delta_batch")]
     TextDeltaBatch {
@@ -293,21 +310,23 @@ pub enum AgentEvent {
         boundary: TextDeltaBatchBoundary,
     },
 
-    #[serde(rename = "thinking_delta")]
-    ThinkingDelta { text: String },
-
-    #[serde(rename = "tool_start")]
-    ToolStart {
-        tool_name: String,
-        tool_id: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        arguments: Option<String>,
+    #[serde(rename = "thinking_start")]
+    ThinkingStart {
+        #[serde(rename = "itemId")]
+        item_id: String,
     },
 
-    #[serde(rename = "tool_end")]
-    ToolEnd {
-        tool_id: String,
-        result: AgentToolResult,
+    #[serde(rename = "thinking_delta")]
+    ThinkingDelta {
+        #[serde(rename = "itemId")]
+        item_id: String,
+        text: String,
+    },
+
+    #[serde(rename = "thinking_end")]
+    ThinkingEnd {
+        #[serde(rename = "itemId")]
+        item_id: String,
     },
 
     #[serde(rename = "tool_progress")]
@@ -378,6 +397,18 @@ pub enum AgentEvent {
 
     #[serde(rename = "model_change")]
     ModelChange { model: String, mode: String },
+
+    #[serde(rename = "provider_trace")]
+    ProviderTrace {
+        #[serde(flatten)]
+        event: AgentProviderTraceEvent,
+    },
+
+    #[serde(rename = "provider_stream_event")]
+    ProviderStreamEvent {
+        runtime_event_kind: String,
+        payload: Value,
+    },
 
     #[serde(rename = "context_trace")]
     ContextTrace { steps: Vec<AgentContextTraceStep> },
@@ -490,14 +521,21 @@ pub enum AgentEvent {
         queued_turn_ids: Vec<String>,
     },
 
-    #[serde(rename = "done")]
-    Done {
+    #[serde(rename = "provider_step")]
+    ProviderStep {
+        attempt: u32,
+        completed: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        finish_reason: Option<String>,
+        text_output_chars: u64,
+        reasoning_output_chars: u64,
+        tool_call_count: u32,
         #[serde(skip_serializing_if = "Option::is_none")]
         usage: Option<AgentTokenUsage>,
     },
 
-    #[serde(rename = "final_done")]
-    FinalDone {
+    #[serde(rename = "done")]
+    Done {
         #[serde(skip_serializing_if = "Option::is_none")]
         usage: Option<AgentTokenUsage>,
     },
@@ -514,6 +552,221 @@ pub enum AgentEvent {
 
     #[serde(rename = "message")]
     Message { message: AgentMessage },
+}
+
+#[derive(Clone)]
+pub(crate) struct ToolItemLifecycleContext {
+    pub session_id: SessionId,
+    pub thread_id: ThreadId,
+    pub sequence: u64,
+    pub ordinal: u64,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
+}
+
+pub(crate) fn canonical_tool_item_event(
+    event: ToolLifecycleEvent,
+    context: ToolItemLifecycleContext,
+) -> Option<AgentEvent> {
+    let ToolLifecycleEvent {
+        turn_id,
+        call_id,
+        tool_name,
+        arguments,
+        environments,
+        phase,
+        output,
+    } = event;
+    if matches!(phase, ToolLifecyclePhase::Completed) && output.is_none() {
+        return None;
+    }
+    if tool_name == tool_runtime::unified_exec::WRITE_STDIN_TOOL_NAME
+        && matches!(phase, ToolLifecyclePhase::Started)
+    {
+        return None;
+    }
+
+    let raw_arguments = arguments.clone();
+    let arguments = canonical_tool_arguments(arguments);
+    let mut metadata = serde_json::Map::new();
+    metadata.insert(
+        "environments".to_string(),
+        Value::Array(
+            environments
+                .into_iter()
+                .map(|environment| {
+                    serde_json::json!({
+                        "environmentId": environment.environment_id,
+                        "cwd": environment.cwd.to_string_lossy(),
+                    })
+                })
+                .collect(),
+        ),
+    );
+
+    let (mut status, output) = match output {
+        Some(output) => {
+            let NormalizedToolOutput {
+                success,
+                text,
+                structured_content,
+                error,
+                duration_ms,
+                truncation,
+                sidecar_reference,
+                metadata: output_metadata,
+                agent_control_projection_facts: _,
+            } = output;
+            metadata.extend(output_metadata);
+            metadata.insert("success".to_string(), Value::Bool(success));
+            metadata.insert("duration_ms".to_string(), Value::from(duration_ms));
+            if let Some(truncation) = truncation.as_ref() {
+                metadata.insert(
+                    "truncation".to_string(),
+                    serde_json::to_value(truncation).unwrap_or(Value::Null),
+                );
+            }
+            if let Some(reference) = sidecar_reference.as_ref() {
+                metadata.insert(
+                    "sidecar_reference".to_string(),
+                    serde_json::to_value(reference).unwrap_or(Value::Null),
+                );
+            }
+            (
+                if success {
+                    ItemStatus::Completed
+                } else {
+                    ItemStatus::Failed
+                },
+                Some(ToolOutput {
+                    text: Some(text),
+                    structured_content,
+                    error,
+                    duration_ms: Some(duration_ms),
+                    truncated: truncation.is_some(),
+                    output_ref: sidecar_reference.map(|reference| reference.reference),
+                }),
+            )
+        }
+        None => (ItemStatus::InProgress, None),
+    };
+    let command_call_id = metadata
+        .get("exec_command_call_id")
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned);
+    let command_running = metadata.get("session_id").is_some_and(Value::is_number)
+        && metadata.get("exit_code").is_none_or(Value::is_null);
+    let command_exit_code = metadata
+        .get("exit_code")
+        .and_then(Value::as_i64)
+        .and_then(|value| i32::try_from(value).ok());
+    let command_tool = tool_name == tool_runtime::unified_exec::EXEC_COMMAND_TOOL_NAME
+        || tool_name == tool_runtime::unified_exec::WRITE_STDIN_TOOL_NAME;
+    if command_running {
+        status = ItemStatus::InProgress;
+    }
+    let payload = if command_tool {
+        let command = metadata
+            .get("command")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned)
+            .or_else(|| {
+                raw_arguments
+                    .get("cmd")
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned)
+            })
+            .unwrap_or_else(|| "command".to_string());
+        let cwd = metadata
+            .get("cwd")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned)
+            .or_else(|| {
+                raw_arguments
+                    .get("workdir")
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned)
+            });
+        let command_output = metadata
+            .get("command_output")
+            .and_then(Value::as_str)
+            .map(ToOwned::to_owned)
+            .filter(|value| !value.is_empty());
+        ThreadItemPayload::Command {
+            command,
+            cwd,
+            output: command_output,
+            exit_code: command_exit_code,
+        }
+    } else if tool_name == tool_runtime::agent_control::WAIT_AGENT_TOOL_NAME {
+        ThreadItemPayload::CollabAgentToolCall {
+            call_id: call_id.clone(),
+            operation: CollabAgentOperation::Wait,
+            target_thread_id: None,
+            message: None,
+            output,
+        }
+    } else {
+        ThreadItemPayload::Tool {
+            call_id: call_id.clone(),
+            name: tool_name,
+            arguments,
+            output,
+        }
+    };
+    let item_id = command_call_id.unwrap_or(call_id);
+    let item = ThreadItem {
+        session_id: context.session_id,
+        thread_id: context.thread_id,
+        turn_id: TurnId::new(turn_id),
+        item_id: ItemId::new(item_id),
+        sequence: context.sequence,
+        ordinal: context.ordinal,
+        created_at_ms: context.created_at_ms,
+        updated_at_ms: context.updated_at_ms,
+        completed_at_ms: status.is_terminal().then_some(context.updated_at_ms),
+        kind: payload.kind(),
+        status,
+        payload,
+        metadata: Value::Object(metadata),
+    };
+    Some(match (phase, command_running) {
+        (ToolLifecyclePhase::Started, _) => AgentEvent::ItemStarted { item },
+        (ToolLifecyclePhase::Completed, true) => AgentEvent::ItemUpdated { item },
+        (ToolLifecyclePhase::Completed, false) => AgentEvent::ItemCompleted { item },
+    })
+}
+
+fn canonical_tool_arguments(arguments: Value) -> Vec<ToolArgument> {
+    match arguments {
+        Value::Object(arguments) => arguments
+            .into_iter()
+            .map(|(name, value)| ToolArgument {
+                name,
+                value: compact_tool_argument(value),
+            })
+            .collect(),
+        Value::Array(arguments) => arguments
+            .into_iter()
+            .enumerate()
+            .map(|(index, value)| ToolArgument {
+                name: index.to_string(),
+                value: compact_tool_argument(value),
+            })
+            .collect(),
+        Value::Null => Vec::new(),
+        value => vec![ToolArgument {
+            name: "value".to_string(),
+            value: compact_tool_argument(value),
+        }],
+    }
+}
+
+fn compact_tool_argument(value: Value) -> String {
+    match value {
+        Value::String(value) => value,
+        value => value.to_string(),
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -543,8 +796,6 @@ pub struct AgentUserPreferences {
     pub subagent: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub selected_team_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auto_continue: Option<Value>,
 }
@@ -596,8 +847,146 @@ pub enum AgentOp {
 }
 
 #[cfg(test)]
+#[path = "protocol_agent_control_tests.rs"]
+mod agent_control_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
+    use tool_runtime::tool_lifecycle::{ToolLifecycleEvent, ToolLifecyclePhase};
+    use tool_runtime::tool_result_projection::NormalizedToolOutput;
+
+    fn tool_item_context() -> ToolItemLifecycleContext {
+        ToolItemLifecycleContext {
+            session_id: SessionId::new("session-1"),
+            thread_id: ThreadId::new("thread-1"),
+            sequence: 1,
+            ordinal: 1,
+            created_at_ms: 1,
+            updated_at_ms: 2,
+        }
+    }
+
+    fn unified_exec_output(running: bool) -> NormalizedToolOutput {
+        let mut metadata = HashMap::from([
+            (
+                "exec_command_call_id".to_string(),
+                serde_json::json!("exec-call"),
+            ),
+            ("command".to_string(), serde_json::json!("printf done")),
+            ("cwd".to_string(), serde_json::json!("/tmp/project")),
+            (
+                "command_output".to_string(),
+                serde_json::json!(if running { "" } else { "done" }),
+            ),
+            (
+                "exit_code".to_string(),
+                if running {
+                    Value::Null
+                } else {
+                    serde_json::json!(0)
+                },
+            ),
+        ]);
+        if running {
+            metadata.insert("session_id".to_string(), serde_json::json!(1001));
+        }
+        NormalizedToolOutput {
+            success: true,
+            text: "{}".to_string(),
+            structured_content: None,
+            error: None,
+            duration_ms: 10,
+            truncation: None,
+            sidecar_reference: None,
+            metadata,
+            agent_control_projection_facts: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn exec_command_projects_canonical_command_lifecycle() {
+        let started = canonical_tool_item_event(
+            ToolLifecycleEvent {
+                turn_id: "turn-1".to_string(),
+                call_id: "exec-call".to_string(),
+                tool_name: "exec_command".to_string(),
+                arguments: serde_json::json!({ "cmd": "printf done" }),
+                environments: Vec::new(),
+                phase: ToolLifecyclePhase::Started,
+                output: None,
+            },
+            tool_item_context(),
+        )
+        .expect("command started event");
+        let AgentEvent::ItemStarted { item } = started else {
+            panic!("expected item started");
+        };
+        assert!(matches!(item.payload, ThreadItemPayload::Command { .. }));
+
+        let updated = canonical_tool_item_event(
+            ToolLifecycleEvent {
+                turn_id: "turn-1".to_string(),
+                call_id: "exec-call".to_string(),
+                tool_name: "exec_command".to_string(),
+                arguments: serde_json::json!({ "cmd": "printf done" }),
+                environments: Vec::new(),
+                phase: ToolLifecyclePhase::Completed,
+                output: Some(unified_exec_output(true)),
+            },
+            tool_item_context(),
+        )
+        .expect("running command update");
+        let AgentEvent::ItemUpdated { item } = updated else {
+            panic!("expected item updated");
+        };
+        assert_eq!(item.item_id.as_str(), "item_exec-call");
+        assert_eq!(item.status, ItemStatus::InProgress);
+    }
+
+    #[test]
+    fn write_stdin_completes_original_command_item_without_second_started_item() {
+        let started = canonical_tool_item_event(
+            ToolLifecycleEvent {
+                turn_id: "turn-1".to_string(),
+                call_id: "write-call".to_string(),
+                tool_name: "write_stdin".to_string(),
+                arguments: serde_json::json!({ "session_id": 1001, "chars": "" }),
+                environments: Vec::new(),
+                phase: ToolLifecyclePhase::Started,
+                output: None,
+            },
+            tool_item_context(),
+        );
+        assert!(started.is_none());
+
+        let completed = canonical_tool_item_event(
+            ToolLifecycleEvent {
+                turn_id: "turn-1".to_string(),
+                call_id: "write-call".to_string(),
+                tool_name: "write_stdin".to_string(),
+                arguments: serde_json::json!({ "session_id": 1001, "chars": "" }),
+                environments: Vec::new(),
+                phase: ToolLifecyclePhase::Completed,
+                output: Some(unified_exec_output(false)),
+            },
+            tool_item_context(),
+        )
+        .expect("original command completion");
+        let AgentEvent::ItemCompleted { item } = completed else {
+            panic!("expected item completed");
+        };
+        assert_eq!(item.item_id.as_str(), "item_exec-call");
+        assert!(matches!(
+            item.payload,
+            ThreadItemPayload::Command {
+                output: Some(ref output),
+                exit_code: Some(0),
+                ..
+            } if output == "done"
+        ));
+    }
 
     #[test]
     fn agent_op_user_input_serializes_with_protocol_tag() {
@@ -617,7 +1006,6 @@ mod tests {
                 task: Some(false),
                 subagent: Some(false),
                 theme: Some("general".to_string()),
-                selected_team_id: None,
                 auto_continue: Some(serde_json::json!({
                     "enabled": true,
                     "continuation_length": 3
@@ -625,7 +1013,7 @@ mod tests {
             },
             session_id: "session-1".to_string(),
             workspace_id: "workspace-1".to_string(),
-            event_name: "aster_stream_session-1".to_string(),
+            event_name: "agent_stream_session-1".to_string(),
             turn_id: Some("turn-1".to_string()),
             system_prompt: Some("保持简洁".to_string()),
             metadata: Some(Map::from_iter([(
@@ -690,6 +1078,35 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_provider_stream_event_serializes_current_payload() {
+        let event = model_provider::provider_stream::RuntimeReplyProviderStreamEvent::SafetyBuffering(
+            model_provider::safety::ProviderSafetyBufferingRuntimeEventPayload {
+                kind: model_provider::safety::SAFETY_BUFFERING_RUNTIME_EVENT_KIND,
+                provider: Some("openai".to_string()),
+                model: Some("gpt-5-codex".to_string()),
+                use_cases: vec!["policy".to_string()],
+                reasons: vec!["buffering".to_string()],
+                show_buffering_ui: true,
+                retry_model: Some("gpt-5-mini".to_string()),
+                fallback_header_model: None,
+                source: model_provider::safety::ProviderSafetyBufferingRetryModelSource::PayloadRetryModel,
+            },
+        );
+        let value = serde_json::to_value(AgentEvent::ProviderStreamEvent {
+            runtime_event_kind: event.runtime_event_kind().to_string(),
+            payload: event.payload_json_value(),
+        })
+        .expect("serialize provider stream event");
+
+        assert_eq!(value["type"], "provider_stream_event");
+        assert_eq!(value["runtime_event_kind"], "provider_safety_buffering");
+        assert_eq!(value["payload"]["retryModel"], "gpt-5-mini");
+        assert_eq!(value["payload"]["source"], "payload_retry_model");
+        assert!(value["payload"].get("retry_model").is_none());
+        assert!(value["payload"].get("fasterModel").is_none());
+    }
+
+    #[test]
     fn diagnostics_runtime_status_metadata_marks_runtime_status_as_transient() {
         let metadata = build_diagnostics_runtime_status_metadata();
 
@@ -727,5 +1144,40 @@ mod tests {
         assert_eq!(value["text"], "第一段\n");
         assert_eq!(value["chunks"][0], "第一段");
         assert_eq!(value["boundary"], "newline");
+    }
+
+    #[test]
+    fn agent_output_lifecycle_serializes_required_item_identity() {
+        let events = [
+            AgentEvent::TextStart {
+                item_id: "message-1".to_string(),
+            },
+            AgentEvent::TextDelta {
+                item_id: "message-1".to_string(),
+                text: "answer".to_string(),
+            },
+            AgentEvent::TextEnd {
+                item_id: "message-1".to_string(),
+                phase: AgentMessagePhase::FinalAnswer,
+            },
+            AgentEvent::ThinkingDelta {
+                item_id: "reasoning-1".to_string(),
+                text: "inspect".to_string(),
+            },
+        ];
+        let values = events
+            .into_iter()
+            .map(|event| serde_json::to_value(event).expect("serialize output lifecycle"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(values[0]["type"], "text_start");
+        assert_eq!(values[0]["itemId"], "message-1");
+        assert_eq!(values[1]["type"], "text_delta");
+        assert_eq!(values[1]["itemId"], "message-1");
+        assert_eq!(values[2]["phase"], "final_answer");
+        assert_eq!(values[2]["type"], "text_end");
+        assert_eq!(values[2]["itemId"], "message-1");
+        assert_eq!(values[3]["type"], "thinking_delta");
+        assert_eq!(values[3]["itemId"], "reasoning-1");
     }
 }

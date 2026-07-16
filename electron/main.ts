@@ -1,3 +1,4 @@
+/* global Electron, process */
 import {
   IPC_DEEP_LINK_GET_CURRENT_CHANNEL,
   IPC_DEEP_LINK_GET_URLS_CHANNEL,
@@ -14,41 +15,30 @@ import {
   type ElectronInvokeResponse,
 } from "./ipcChannels";
 import { ElectronAppServerHost } from "./appServerHost";
-import { DeviceInventoryWatcher } from "./deviceAutomation/deviceInventoryWatcher";
-import { deviceAutomationRuntime } from "./deviceAutomationSidecar";
-import { DEVICE_AUTOMATION_INVENTORY_CHANGED_EVENT } from "../src/features/device-automation/events";
-import { DEVICE_AUTOMATION_PERF_FRAME_EVENT } from "../src/features/device-automation/performance/events";
-import { DEVICE_AUTOMATION_MONKEY_EVENT } from "../src/features/device-automation/monkey/events";
-import { DEVICE_AUTOMATION_STABILITY_ANALYSIS_EVENT } from "../src/features/device-automation/stability/events";
-import { setMonkeyResultsRoot } from "./deviceAutomation/monkeyTest";
-import { setKea2WorkspacesRoot } from "./deviceAutomation/kea2/kea2RunSession";
 import {
-  setStabilityAnalysisResultsRoot,
-} from "./deviceAutomation/stabilityAnalysis";
-import { setStabilityLlmConfigRoot } from "./deviceAutomation/stabilityLlmConfig";
-import { DEVICE_AUTOMATION_PERF_TRACE_PROGRESS_EVENT } from "../src/features/device-automation/performance/events";
-import { setTraceProcessorCacheRoot } from "./deviceAutomation/traceProcessorDownload";
+  ElectronEmbeddedBrowserHost,
+  isEmbeddedBrowserCommand,
+} from "./embeddedBrowserHost";
 import { ElectronDevHttpBridge } from "./devHttpBridge";
 import { ElectronHostCommands } from "./hostCommands";
 import {
   buildMainWindowChromeOptions,
+  buildMainWindowStartupHtml,
   buildMainWindowStartupOptions,
 } from "./mainWindowOptions";
+import {
+  isMainWindowRendererLoadInterruption,
+  isNavigationAbortError,
+  isWindowLifecycleLoadAbort,
+} from "./mainWindowLoadErrors";
+import { installMainWindowMediaPermissionHandler } from "./mainWindowMediaPermissions";
 import { ElectronUpdateHost } from "./updateHost";
+import { createElectronSmokeRunner } from "./smokeChecks";
 import {
   buildUpdateNotificationWindowBounds,
   type RectangleLike,
 } from "./updateNotificationWindowPosition";
 import { buildUpdateNotificationWindowUrl } from "./updateNotificationWindowUrl";
-import { APP_DISPLAY_NAME } from "./productIdentity";
-import {
-  AppServerClient,
-  decodeMessage,
-  encodeMessage,
-  PROTOCOL_VERSION,
-  SERVER_NAME,
-  type InitializeResponse,
-} from "@embercloud/app-server-client";
 import {
   app,
   BrowserWindow,
@@ -57,17 +47,19 @@ import {
   ipcMain,
   Menu,
   nativeImage,
+  net,
   screen,
   session,
   type MenuItemConstructorOptions,
   type OpenDialogOptions,
+  protocol,
   shell,
   type SaveDialogOptions,
   Tray,
   type IpcMainInvokeEvent,
 } from "./electronRuntime";
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -80,43 +72,7 @@ const hostCommands = new ElectronHostCommands(
   app.getPath("userData"),
   broadcast,
 );
-const deviceInventoryWatcher = new DeviceInventoryWatcher({
-  emit: broadcast,
-  onInitialSnapshot: () => {
-    void deviceAutomationRuntime.listDevices();
-  },
-});
-deviceAutomationRuntime.setAndroidDeviceProvider(() =>
-  deviceInventoryWatcher.getAndroidDevices(),
-);
-deviceAutomationRuntime.setInventoryChangeEmitter((payload) => {
-  broadcast(DEVICE_AUTOMATION_INVENTORY_CHANGED_EVENT, payload);
-});
-deviceAutomationRuntime.setPerfFrameEmitter((payload) => {
-  broadcast(DEVICE_AUTOMATION_PERF_FRAME_EVENT, payload);
-});
-deviceAutomationRuntime.setMonkeyEventEmitter((payload) => {
-  broadcast(DEVICE_AUTOMATION_MONKEY_EVENT, payload);
-});
-const stabilityAnalysisRoot = path.join(
-  app.getPath("userData"),
-  "device-automation",
-  "stability-analysis",
-);
-deviceAutomationRuntime.setStabilityAnalysisEventEmitter((payload) => {
-  broadcast(DEVICE_AUTOMATION_STABILITY_ANALYSIS_EVENT, payload);
-});
-setStabilityAnalysisResultsRoot(stabilityAnalysisRoot);
-setStabilityLlmConfigRoot(stabilityAnalysisRoot);
-setMonkeyResultsRoot(
-  path.join(app.getPath("userData"), "device-automation", "monkey-results"),
-);
-setKea2WorkspacesRoot(
-  path.join(app.getPath("userData"), "device-automation", "kea2-workspaces"),
-);
-deviceAutomationRuntime.setPerfTraceProgressEmitter((payload) => {
-  broadcast(DEVICE_AUTOMATION_PERF_TRACE_PROGRESS_EVENT, payload);
-});
+const embeddedBrowserHost = new ElectronEmbeddedBrowserHost(broadcast);
 const updateHost = new ElectronUpdateHost(broadcast, {
   open: openUpdateNotificationWindow,
   close: closeUpdateNotificationWindow,
@@ -124,12 +80,13 @@ const updateHost = new ElectronUpdateHost(broadcast, {
 let devHttpBridge: ElectronDevHttpBridge | null = null;
 const pendingDeepLinks: string[] = [];
 const pendingSkillPackageOpenPaths: string[] = [];
-const APP_NAME = APP_DISPLAY_NAME;
+const APP_NAME = "Lime";
 const APP_BUNDLE_IDENTIFIER = "com.embercloud.ember";
 const APP_ICON_SOURCE = "ember-rs/icons/icon.png";
 const APP_ICON_PACKAGED_NAME = "icon.png";
 const SKILL_PACKAGE_OPEN_EVENT = "skill-package://open";
 const TRAY_MODEL_SELECTED_EVENT = "tray-model-selected";
+const STARTUP_SCREEN_VISIBLE_TIMEOUT_MS = 900;
 const UPDATE_NOTIFICATION_ANCHOR_SELECTOR =
   '[data-testid="app-sidebar-update-button"]';
 const UPDATE_NOTIFICATION_WINDOW_SIZE = {
@@ -142,6 +99,17 @@ let updateNotificationWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
 let trayModelShortcutsState: TrayModelShortcutsState | null = null;
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "asset",
+    privileges: {
+      standard: true,
+      secure: true,
+      stream: true,
+    },
+  },
+]);
 
 app.setName(APP_NAME);
 
@@ -187,8 +155,17 @@ function createMainWindow(): BrowserWindow {
   installMainWindowNavigationGuard(window, devServerUrl);
   installDevRendererContextMenu(window, devServerUrl);
   installDevRendererShortcuts(window, devServerUrl);
+  const smokeRunner = isElectronSmokeMode()
+    ? createElectronSmokeRunner({
+        window,
+        appServerHost,
+        appVersion: app.getVersion(),
+      })
+    : null;
   void showStartupScreenBeforeRenderer(window, devServerUrl).catch((error) => {
-    if (isNavigationAbortError(error)) {
+    if (
+      isMainWindowRendererLoadInterruption(error, mainWindowLoadState(window))
+    ) {
       return;
     }
     console.error(
@@ -198,14 +175,16 @@ function createMainWindow(): BrowserWindow {
     );
   });
 
-  if (process.env.EMBER_ELECTRON_SMOKE === "1") {
+  if (smokeRunner) {
     const runSmokeAfterRendererLoad = () => {
       const loadedUrl = window.webContents.getURL();
-      if (loadedUrl.startsWith("data:text/html")) {
+      if (smokeRunner.isStartupUrl(loadedUrl)) {
         return;
       }
       window.webContents.off("did-finish-load", runSmokeAfterRendererLoad);
-      void runElectronSmokeChecks(window)
+      console.log("[electron-smoke] renderer loaded");
+      void smokeRunner
+        .run()
         .then(() => {
           void exitElectronSmoke(0);
         })
@@ -219,10 +198,21 @@ function createMainWindow(): BrowserWindow {
         });
     };
     window.webContents.on("did-finish-load", runSmokeAfterRendererLoad);
-    window.webContents.once("did-fail-load", (_event, code, description) => {
-      console.error(`[electron-smoke] renderer failed: ${code} ${description}`);
-      void exitElectronSmoke(1);
-    });
+    window.webContents.on(
+      "did-fail-load",
+      (_event, code, description, _url, isMainFrame) => {
+        if (code === -3 || isMainFrame === false) {
+          return;
+        }
+        console.error(
+          `[electron-smoke] renderer failed: ${code} ${description}`,
+        );
+        void smokeRunner
+          .recordFailure("renderer-load")
+          .catch(() => undefined)
+          .finally(() => exitElectronSmoke(1));
+      },
+    );
   }
 
   window.on("closed", () => {
@@ -231,7 +221,7 @@ function createMainWindow(): BrowserWindow {
     }
   });
   window.on("close", (event) => {
-    if (isQuitting || process.env.EMBER_ELECTRON_SMOKE === "1") {
+    if (isQuitting || process.env.LIME_ELECTRON_SMOKE === "1") {
       return;
     }
     event.preventDefault();
@@ -242,36 +232,147 @@ function createMainWindow(): BrowserWindow {
   return window;
 }
 
+function registerLocalAssetProtocol(): void {
+  if (protocol.isProtocolHandled("asset")) {
+    return;
+  }
+
+  protocol.handle("asset", (request) => {
+    const filePath = decodeLocalAssetFilePath(request.url);
+    if (!filePath || !existsSync(filePath)) {
+      return new Response("asset not found", { status: 404 });
+    }
+
+    return net.fetch(pathToFileURL(filePath).toString());
+  });
+}
+
+function decodeLocalAssetFilePath(requestUrl: string): string | null {
+  try {
+    const url = new URL(requestUrl);
+    const encodedPath = url.host ? `${url.host}${url.pathname}` : url.pathname;
+    const filePath = decodeURIComponent(encodedPath);
+    return isAbsoluteLocalAssetPath(filePath) ? filePath : null;
+  } catch {
+    return null;
+  }
+}
+
+function isAbsoluteLocalAssetPath(filePath: string): boolean {
+  return (
+    filePath.startsWith("/") ||
+    /^[a-zA-Z]:[\\/]/.test(filePath) ||
+    filePath.startsWith("\\\\")
+  );
+}
+
 async function showStartupScreenBeforeRenderer(
   window: BrowserWindow,
   devServerUrl?: string,
 ): Promise<void> {
-  // 单段式启动：直接加载真实渲染页面。index.html 内置的启动 overlay 是纯 HTML/CSS，
-  // 在 HTML 解析时即可绘制（logo 已内联，无需等待 JS bundle），React 加载完成后自行淡出。
-  // 借助 ready-to-show 在首帧可绘制时显示窗口，既避免“原生启动画面 → 渲染页面”跨文档
-  // 导航造成的清屏闪烁，也去掉了原两段式的固定等待与中转，缩短感知启动时长。
-  const startupDiagT0 = Date.now();
-  const startupDiag = (label: string) => {
-    console.log(`[启动诊断] ${label} @ ${Date.now() - startupDiagT0}ms`);
-  };
-  window.webContents.once("dom-ready", () => startupDiag("dom-ready"));
-  window.once("ready-to-show", () => startupDiag("ready-to-show"));
-  window.webContents.once("did-finish-load", () =>
-    startupDiag("did-finish-load"),
-  );
-  window.webContents.once("did-stop-loading", () =>
-    startupDiag("did-stop-loading"),
-  );
-
-  // 立即显示窗口：窗口底色 backgroundColor(#f7fbf4) 与启动 overlay 背景一致，
-  // index.html 内置 overlay 是纯 HTML/CSS，首帧绘制不被 JS bundle 阻塞，会很快显示 logo。
-  // 不再等待 dom-ready/ready-to-show——dev 下重 bundle 会把这些事件拖到数秒，导致窗口长时间不可见。
-  if (!window.isDestroyed()) {
-    window.show();
-    startupDiag("window.show() 立即调用");
-  }
+  await loadMainWindowStartupScreen(window);
+  await waitForMainWindowStartupScreenVisible(window);
+  showMainWindowDuringStartup(window);
   await loadMainWindowRenderer(window, devServerUrl);
-  startupDiag("loadMainWindowRenderer 完成");
+}
+
+function showMainWindowDuringStartup(window: BrowserWindow): void {
+  if (window.isDestroyed() || !shouldShowMainWindowDuringStartup()) {
+    return;
+  }
+
+  if (isElectronSmokeMode()) {
+    window.showInactive();
+    return;
+  }
+
+  window.show();
+}
+
+function shouldShowMainWindowDuringStartup(): boolean {
+  return (
+    !isElectronSmokeMode() || process.env.LIME_ELECTRON_SMOKE_VISIBLE === "1"
+  );
+}
+
+function isElectronSmokeMode(): boolean {
+  return process.env.LIME_ELECTRON_SMOKE === "1";
+}
+
+async function loadMainWindowStartupScreen(
+  window: BrowserWindow,
+): Promise<void> {
+  const iconDataUrl = resolveStartupIconDataUrl();
+  const startupHtml = buildMainWindowStartupHtml({
+    appName: APP_NAME,
+    iconDataUrl,
+    locale: app.getLocale(),
+  });
+
+  try {
+    await window.loadURL(writeMainWindowStartupHtmlFile(startupHtml));
+  } catch (error) {
+    console.warn(
+      `[electron-host] startup screen failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+}
+
+function writeMainWindowStartupHtmlFile(html: string): string {
+  const startupDir = path.join(app.getPath("userData"), "startup");
+  mkdirSync(startupDir, { recursive: true });
+  const startupPath = path.join(startupDir, "main-window-startup.html");
+  writeFileSync(startupPath, html, "utf8");
+  return pathToFileURL(startupPath).toString();
+}
+
+async function waitForMainWindowStartupScreenVisible(
+  window: BrowserWindow,
+): Promise<void> {
+  if (window.isDestroyed()) {
+    return;
+  }
+
+  try {
+    await Promise.race([
+      window.webContents.executeJavaScript(
+        `new Promise((resolve) => {
+          const finish = () => resolve(true);
+          const waitForPaint = () => {
+            requestAnimationFrame(() => requestAnimationFrame(finish));
+          };
+          const logo = document.querySelector("[data-lime-startup-logo]");
+          if (!logo || logo.tagName !== "IMG") {
+            waitForPaint();
+            return;
+          }
+          if (logo.complete && logo.naturalWidth > 0) {
+            waitForPaint();
+            return;
+          }
+          if (typeof logo.decode === "function") {
+            logo.decode().catch(() => undefined).then(waitForPaint);
+            return;
+          }
+          logo.addEventListener("load", waitForPaint, { once: true });
+          logo.addEventListener("error", waitForPaint, { once: true });
+        })`,
+      ),
+      new Promise((resolve) => {
+        setTimeout(resolve, STARTUP_SCREEN_VISIBLE_TIMEOUT_MS);
+      }),
+    ]);
+  } catch (error) {
+    if (!window.isDestroyed()) {
+      console.warn(
+        `[electron-host] startup screen visibility wait failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
 }
 
 async function loadMainWindowRenderer(
@@ -289,7 +390,7 @@ async function loadMainWindowRenderer(
     }
     if (
       !window.isDestroyed() &&
-      process.env.EMBER_ELECTRON_OPEN_DEVTOOLS === "1"
+      process.env.LIME_ELECTRON_OPEN_DEVTOOLS === "1"
     ) {
       window.webContents.openDevTools({ mode: "detach" });
     }
@@ -313,19 +414,24 @@ async function loadMainWindowUrl(
   try {
     await window.loadURL(url);
   } catch (error) {
-    if (isNavigationAbortError(error)) {
+    if (
+      isNavigationAbortError(error) ||
+      isWindowLifecycleLoadAbort(error, mainWindowLoadState(window))
+    ) {
       return;
     }
     throw error;
   }
 }
 
-function isNavigationAbortError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    (error.message.includes("ERR_ABORTED") ||
-      error.message.includes("ERR_FAILED (-3)"))
-  );
+function mainWindowLoadState(
+  window: Pick<BrowserWindow, "isDestroyed" | "webContents">,
+) {
+  return {
+    appQuitting: isQuitting,
+    windowDestroyed: window.isDestroyed(),
+    webContentsDestroyed: window.webContents.isDestroyed(),
+  };
 }
 
 function withNativeStartupFlag(targetUrl: string): string {
@@ -335,7 +441,7 @@ function withNativeStartupFlag(targetUrl: string): string {
 }
 
 async function clearDevRendererCache(): Promise<void> {
-  if (process.env.EMBER_ELECTRON_CLEAR_RENDERER_CACHE === "0") {
+  if (process.env.LIME_ELECTRON_CLEAR_RENDERER_CACHE === "0") {
     return;
   }
 
@@ -348,190 +454,6 @@ async function clearDevRendererCache(): Promise<void> {
       }`,
     );
   }
-}
-
-async function runElectronSmokeChecks(window: BrowserWindow): Promise<void> {
-  console.log("[electron-smoke] renderer loaded");
-  const client = new AppServerClient({ initialRequestId: 1 });
-  const request = client.initialize({
-    clientInfo: {
-      name: "electron_smoke",
-      title: "Electron smoke",
-      version: app.getVersion(),
-    },
-    capabilities: {
-      eventMethods: ["agentSession/event"],
-      experimental: true,
-    },
-  });
-  const response = await appServerHost.handleJsonLines({
-    lines: [encodeMessage(request)],
-  });
-  const message = decodeMessage(response.lines[0] ?? "");
-  if (!("result" in message)) {
-    throw new Error("app-server initialize did not return a result");
-  }
-
-  const result = message.result as InitializeResponse;
-  if (result.serverInfo.name !== SERVER_NAME) {
-    throw new Error(
-      `unexpected app-server name: ${String(result.serverInfo.name)}`,
-    );
-  }
-  if (result.serverInfo.protocolVersion !== PROTOCOL_VERSION) {
-    throw new Error(
-      `unexpected app-server protocol: ${String(
-        result.serverInfo.protocolVersion,
-      )}`,
-    );
-  }
-  console.log(
-    `[electron-smoke] app-server initialized protocol=${result.serverInfo.protocolVersion} version=${result.serverInfo.version}`,
-  );
-  await waitForElectronSmokeWorkbenchReady(window);
-  console.log("[electron-smoke] claw workbench shell ready");
-}
-
-async function waitForElectronSmokeWorkbenchReady(
-  window: BrowserWindow,
-): Promise<void> {
-  if (window.isDestroyed()) {
-    throw new Error("main window was destroyed before workbench smoke");
-  }
-
-  const result = (await window.webContents.executeJavaScript(
-    `new Promise((resolve) => {
-      const timeoutMs = 60000;
-      const intervalMs = 250;
-      const startedAt = Date.now();
-      const problemPatterns = [
-        /无法连接后端桥接/,
-        /Desktop Host 尚未支持命令/,
-        /Electron host command is not supported/,
-        /Electron host command is not implemented/,
-        /Unsupported command/,
-        /未知命令/,
-        /bridge cooldown active/,
-        /加载.*失败/,
-        /加载失败/,
-        /调用失败/,
-      ];
-      const sanitize = (value) => String(value || "").replace(/\\s+/g, " ").trim();
-      const readJsonArray = (key) => {
-        try {
-          const parsed = JSON.parse(localStorage.getItem(key) || "[]");
-          return Array.isArray(parsed) ? parsed : [];
-        } catch {
-          return [];
-        }
-      };
-      const isCurrentRunEntry = (entry) => {
-        const timestamp = Date.parse(entry?.timestamp || "");
-        return Number.isFinite(timestamp) && timestamp >= startedAt;
-      };
-      const visible = (element) => {
-        if (!element) {
-          return false;
-        }
-        const rect = element.getBoundingClientRect();
-        const style = window.getComputedStyle(element);
-        return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
-      };
-      const collect = () => {
-        const text = document.body?.innerText || "";
-        const problemTexts = problemPatterns.flatMap((pattern) => {
-          const match = text.match(pattern);
-          return match ? [match[0]] : [];
-        });
-        const textareas = Array.from(document.querySelectorAll('textarea[name="agent-chat-message"]'));
-        const composer = textareas.find((item) => visible(item) && !item.disabled && item.getAttribute("aria-disabled") !== "true");
-        const shellReady = Boolean(document.querySelector('[data-testid="workspace-shell-scene"]'));
-        const inputbarReady = Boolean(document.querySelector('[data-testid="inputbar-core-container"]'));
-        const invokeErrors = readJsonArray("ember_invoke_error_buffer_v1").filter(isCurrentRunEntry);
-        const traceErrors = readJsonArray("ember_invoke_trace_buffer_v1").filter((entry) => entry && entry.status === "error" && isCurrentRunEntry(entry));
-        return {
-          ok: shellReady && inputbarReady && Boolean(composer) && problemTexts.length === 0 && invokeErrors.length === 0 && traceErrors.length === 0,
-          shellReady,
-          inputbarReady,
-          composerReady: Boolean(composer),
-          problemTexts,
-          invokeErrors: invokeErrors.slice(-5).map((entry) => ({
-            command: entry?.command || null,
-            transport: entry?.transport || null,
-            error: sanitize(entry?.error),
-          })),
-          traceErrors: traceErrors.slice(-5).map((entry) => ({
-            command: entry?.command || null,
-            transport: entry?.transport || null,
-            status: entry?.status || null,
-            error: sanitize(entry?.error),
-          })),
-          visibleButtons: Array.from(document.querySelectorAll("button"))
-            .map((button, index) => {
-              const rect = button.getBoundingClientRect();
-              return {
-                index,
-                visible: rect.width > 0 && rect.height > 0,
-                text: sanitize(button.textContent),
-                aria: button.getAttribute("aria-label") || "",
-                testId: button.getAttribute("data-testid") || "",
-                disabled: button.disabled || button.getAttribute("aria-disabled") === "true",
-              };
-            })
-            .filter((button) => button.visible && !button.disabled)
-            .slice(0, 24),
-          url: window.location.href,
-          title: document.title,
-          bodyStart: sanitize(text).slice(0, 500),
-        };
-      };
-      const tick = () => {
-        const snapshot = collect();
-        if (snapshot.ok) {
-          resolve(snapshot);
-          return;
-        }
-        if (Date.now() - startedAt >= timeoutMs) {
-          resolve(snapshot);
-          return;
-        }
-        setTimeout(tick, intervalMs);
-      };
-      tick();
-    })`,
-    true,
-  )) as {
-    ok?: boolean;
-    shellReady?: boolean;
-    inputbarReady?: boolean;
-    composerReady?: boolean;
-    problemTexts?: unknown[];
-    invokeErrors?: unknown[];
-    traceErrors?: unknown[];
-    visibleButtons?: unknown[];
-    url?: string;
-    title?: string;
-    bodyStart?: string;
-  };
-
-  if (result?.ok) {
-    return;
-  }
-
-  throw new Error(
-    `claw workbench shell not ready: ${JSON.stringify({
-      shellReady: result?.shellReady ?? false,
-      inputbarReady: result?.inputbarReady ?? false,
-      composerReady: result?.composerReady ?? false,
-      problemTexts: result?.problemTexts ?? [],
-      invokeErrors: result?.invokeErrors ?? [],
-      traceErrors: result?.traceErrors ?? [],
-      visibleButtons: result?.visibleButtons ?? [],
-      url: result?.url ?? "",
-      title: result?.title ?? "",
-      bodyStart: result?.bodyStart ?? "",
-    })}`,
-  );
 }
 
 async function exitElectronSmoke(exitCode: number): Promise<void> {
@@ -582,7 +504,7 @@ function installDevRendererContextMenu(
   window: BrowserWindow,
   devServerUrl?: string,
 ): void {
-  if (!devServerUrl || process.env.EMBER_ELECTRON_DEV_CONTEXT_MENU === "0") {
+  if (!devServerUrl || process.env.LIME_ELECTRON_DEV_CONTEXT_MENU === "0") {
     return;
   }
 
@@ -633,7 +555,7 @@ function installDevRendererShortcuts(
   window: BrowserWindow,
   devServerUrl?: string,
 ): void {
-  if (!devServerUrl || process.env.EMBER_ELECTRON_DEV_SHORTCUTS === "0") {
+  if (!devServerUrl || process.env.LIME_ELECTRON_DEV_SHORTCUTS === "0") {
     return;
   }
 
@@ -833,7 +755,7 @@ async function openUpdateNotificationWindow(
     minHeight: 112,
     maxWidth: 320,
     maxHeight: 180,
-    title: "Ember Update",
+    title: "Lime Update",
     frame: false,
     transparent: true,
     hasShadow: false,
@@ -974,7 +896,7 @@ function configureElectronUserDataPath(): void {
   if (!e2eUserDataDir) {
     return;
   }
-  if (process.env.EMBER_ELECTRON_E2E !== "1") {
+  if (process.env.LIME_ELECTRON_E2E !== "1") {
     console.warn(
       "[electron-host] ELECTRON_E2E_USER_DATA_DIR is ignored outside E2E mode",
     );
@@ -1002,7 +924,7 @@ function registerIpcHandlers(): void {
     IPC_INVOKE_CHANNEL,
     async (event, command: string, args?: Record<string, unknown>) => {
       try {
-        const result = await handleHostInvoke(command, args, event);
+        const result = await handleHostInvoke(event, command, args);
         return { ok: true, result } satisfies ElectronInvokeResponse;
       } catch (error) {
         return {
@@ -1070,9 +992,9 @@ function registerIpcHandlers(): void {
 }
 
 async function handleHostInvoke(
+  event: IpcMainInvokeEvent | null,
   command: string,
   args?: Record<string, unknown>,
-  event?: IpcMainInvokeEvent,
 ): Promise<unknown> {
   if (!isElectronHostCommand(command)) {
     throw new Error(`Electron host command is not supported: ${command}`);
@@ -1088,7 +1010,7 @@ async function handleHostInvoke(
     }
     return await appServerHost.drainEvents(
       typeof request === "object" && request !== null
-        ? (request as { limit?: number })
+        ? (request as { includeRecent?: boolean; limit?: number })
         : {},
     );
   }
@@ -1099,10 +1021,17 @@ async function handleHostInvoke(
   if (command === "take_pending_skill_package_open_requests") {
     return takePendingSkillPackageOpenRequests();
   }
+  if (isEmbeddedBrowserCommand(command)) {
+    return await embeddedBrowserHost.invoke(
+      event ? currentWindow(event) : null,
+      command,
+      args,
+    );
+  }
   if (isElectronUpdateCommand(command)) {
     return await updateHost.invoke(command, args);
   }
-  return await hostCommands.invoke(command, args, event?.sender);
+  return await hostCommands.invoke(command, args);
 }
 
 type HostOpenDialogOptions = {
@@ -1322,12 +1251,12 @@ function handleDeepLink(url: string): void {
 
 function normalizeDeepLinkUrl(value: string): string | null {
   const trimmed = value.trim().replace(/^["']|["']$/g, "");
-  if (!trimmed.startsWith("ember://")) {
+  if (!trimmed.startsWith("lime://")) {
     return null;
   }
   try {
     const url = new URL(trimmed);
-    return url.protocol === "ember:" ? trimmed : null;
+    return url.protocol === "lime:" ? trimmed : null;
   } catch {
     return null;
   }
@@ -1411,7 +1340,7 @@ function takePendingSkillPackageOpenRequests(): string[] {
   return pendingSkillPackageOpenPaths.splice(0);
 }
 
-app.setAsDefaultProtocolClient("ember");
+app.setAsDefaultProtocolClient("lime");
 app.on("open-url", (event, url) => {
   event.preventDefault();
   handleDeepLink(url);
@@ -1425,8 +1354,8 @@ recordSkillPackageOpenPaths(collectSkillPackageOpenPaths(process.argv));
 
 const singleInstanceLock =
   !isWindowsSquirrelStartup &&
-  (process.env.EMBER_ELECTRON_E2E === "1" ||
-    process.env.EMBER_ELECTRON_SMOKE === "1" ||
+  (process.env.LIME_ELECTRON_E2E === "1" ||
+    process.env.LIME_ELECTRON_SMOKE === "1" ||
     app.requestSingleInstanceLock());
 if (isWindowsSquirrelStartup) {
   // Windows Squirrel installer events are handled before the normal app boot path.
@@ -1441,18 +1370,21 @@ if (isWindowsSquirrelStartup) {
 
   app.whenReady().then(() => {
     configureApplicationIdentity();
-    setTraceProcessorCacheRoot(app.getPath("userData"));
+    registerLocalAssetProtocol();
+    installMainWindowMediaPermissionHandler({
+      session: session.defaultSession,
+      getMainWindow: () => mainWindow,
+    });
     registerIpcHandlers();
     devHttpBridge = startDevHttpBridge();
     tray = createTray();
     void warmupAppServer();
-    deviceInventoryWatcher.start();
     createMainWindow();
   });
 }
 
 app.on("window-all-closed", () => {
-  if (isQuitting || process.env.EMBER_ELECTRON_SMOKE === "1") {
+  if (isQuitting || process.env.LIME_ELECTRON_SMOKE === "1") {
     app.quit();
   }
 });
@@ -1466,12 +1398,11 @@ app.on("activate", () => {
 app.on("before-quit", () => {
   isQuitting = true;
   globalShortcut.unregisterAll();
+  hostCommands.disposeProjectShellSessionsForShutdown();
   tray?.destroy();
   tray = null;
-  deviceInventoryWatcher.stop();
   devHttpBridge?.stop();
   devHttpBridge = null;
-  void deviceAutomationRuntime.stop();
   void appServerHost.stop();
 });
 
@@ -1555,6 +1486,16 @@ function resolveDesktopAsset(
   return path.resolve(process.cwd(), sourceRelativePath);
 }
 
+function resolveStartupIconDataUrl(): string | null {
+  const iconPath = resolveDesktopAsset(APP_ICON_SOURCE, APP_ICON_PACKAGED_NAME);
+  try {
+    const icon = readFileSync(iconPath);
+    return `data:image/png;base64,${icon.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
 function configureApplicationIdentity(): void {
   app.setName(APP_NAME);
   if (process.platform === "win32") {
@@ -1573,7 +1514,7 @@ function configureApplicationIdentity(): void {
     app.setAboutPanelOptions({
       applicationName: APP_NAME,
       applicationVersion: app.getVersion(),
-      copyright: "Copyright © Ember",
+      copyright: "Copyright © Lime",
       iconPath: appIconPath,
     });
   }
@@ -1581,15 +1522,15 @@ function configureApplicationIdentity(): void {
 
 function startDevHttpBridge(): ElectronDevHttpBridge | null {
   const devServerUrl = process.env.VITE_DEV_SERVER_URL?.trim();
-  if (!devServerUrl || process.env.EMBER_ELECTRON_DEV_HTTP_BRIDGE === "0") {
+  if (!devServerUrl || process.env.LIME_ELECTRON_DEV_HTTP_BRIDGE === "0") {
     return null;
   }
 
   const bridge = new ElectronDevHttpBridge({
-    invoke: handleHostInvoke,
-    host: process.env.EMBER_ELECTRON_DEV_HTTP_BRIDGE_HOST?.trim() || undefined,
+    invoke: (command, args) => handleHostInvoke(null, command, args),
+    host: process.env.LIME_ELECTRON_DEV_HTTP_BRIDGE_HOST?.trim() || undefined,
     port: parseDevHttpBridgePort(
-      process.env.EMBER_ELECTRON_DEV_HTTP_BRIDGE_PORT,
+      process.env.LIME_ELECTRON_DEV_HTTP_BRIDGE_PORT,
     ),
   });
   bridge.start();

@@ -39,6 +39,10 @@ type VersionInfo = {
   error?: string | null;
 };
 
+type CheckForUpdatesOptions = {
+  automatic?: boolean;
+};
+
 type UpdateNotificationAnchorRect = {
   x: number;
   y: number;
@@ -73,6 +77,7 @@ type UpdateWindowController = {
 const UPDATE_INSTALL_SESSION_EVENT = "app-update://session";
 const MAC_UPDATE_MANIFEST_NAME = "RELEASES.json";
 const DEFAULT_UPDATE_BASE_URL = "https://updates.aiearn.me";
+const DEV_MAC_APP_PATH_SEGMENT = "/Lime-dev.app/Contents/MacOS/";
 
 export class ElectronUpdateHost {
   readonly #broadcast: Broadcast;
@@ -101,7 +106,7 @@ export class ElectronUpdateHost {
   ): Promise<unknown> {
     switch (command) {
       case "check_for_updates":
-        return await this.checkForUpdates();
+        return await this.checkForUpdates(parseCheckForUpdatesOptions(args));
       case "download_update":
         return await this.downloadUpdate();
       case "start_update_install_session":
@@ -137,8 +142,13 @@ export class ElectronUpdateHost {
     }
   }
 
-  async checkForUpdates(): Promise<VersionInfo> {
+  async checkForUpdates(
+    options: CheckForUpdatesOptions = {},
+  ): Promise<VersionInfo> {
     if (!this.#canUseUpdater()) {
+      if (options.automatic) {
+        return this.#currentVersionInfo();
+      }
       return {
         current: app.getVersion(),
         hasUpdate: false,
@@ -361,10 +371,16 @@ export class ElectronUpdateHost {
     if (!isAutoUpdaterSupportedPlatform(process.platform)) {
       return false;
     }
-    if (process.env.EMBER_ELECTRON_ENABLE_DEV_UPDATER === "1") {
+    if (process.env.LIME_ELECTRON_ENABLE_DEV_UPDATER === "1") {
       return true;
     }
+    if (isElectronAutomationSession()) {
+      return false;
+    }
     if (process.env.VITE_DEV_SERVER_URL) {
+      return false;
+    }
+    if (isDevelopmentPackagedApp(process.execPath, process.platform)) {
       return false;
     }
     return app.isPackaged;
@@ -539,6 +555,14 @@ export class ElectronUpdateHost {
   }
 }
 
+function parseCheckForUpdatesOptions(
+  value: Record<string, unknown> | undefined,
+): CheckForUpdatesOptions {
+  return {
+    automatic: value?.automatic === true,
+  };
+}
+
 function parseUpdateNotificationAnchorRect(
   value: unknown,
 ): UpdateNotificationAnchorRect | null {
@@ -593,18 +617,35 @@ function isAutoUpdaterSupportedPlatform(platform: NodeJS.Platform): boolean {
   return platform === "darwin" || platform === "win32";
 }
 
+function isDevelopmentPackagedApp(
+  execPath: string,
+  platform: NodeJS.Platform,
+): boolean {
+  if (platform !== "darwin") {
+    return false;
+  }
+  return execPath.replace(/\\/g, "/").includes(DEV_MAC_APP_PATH_SEGMENT);
+}
+
+function isElectronAutomationSession(): boolean {
+  return (
+    process.env.LIME_ELECTRON_SMOKE === "1" ||
+    process.env.LIME_ELECTRON_E2E === "1"
+  );
+}
+
 function runtimeUpdateFeedUrl(
   platform: NodeJS.Platform,
   arch: NodeJS.Architecture,
 ): string {
-  const explicitFeedUrl = process.env.EMBER_ELECTRON_UPDATES_URL?.trim();
+  const explicitFeedUrl = process.env.LIME_ELECTRON_UPDATES_URL?.trim();
   if (explicitFeedUrl) {
     return explicitFeedUrl.replace(/\/+$/, "");
   }
-  const baseUrl = (process.env.EMBER_UPDATES_BASE_URL || DEFAULT_UPDATE_BASE_URL)
+  const baseUrl = (process.env.LIME_UPDATES_BASE_URL || DEFAULT_UPDATE_BASE_URL)
     .trim()
     .replace(/\/+$/, "");
-  return `${baseUrl}/ember/stable/${updateFeedLabel(platform, arch)}`;
+  return `${baseUrl}/lime/stable/${updateFeedLabel(platform, arch)}`;
 }
 
 function updateFeedLabel(

@@ -187,7 +187,7 @@ function createOwnerIntervention(activeOwners) {
       "kill / pause / interrupt stale worker",
       "modify qcloop SQLite DB",
       "start another full GUI P0 batch",
-      "overwrite .ember/qc/agent-qc-evidence.json",
+      "overwrite .lime/qc/agent-qc-evidence.json",
       "git commit / push / tag / release",
     ],
     evidenceRefs: staleOwners.map((owner) => owner.path).filter(Boolean),

@@ -1,9 +1,11 @@
-import { getEmberI18n } from "@/i18n/createI18n";
+import { getLimeI18n } from "@/i18n/createI18n";
 import {
   getCurrentSkillCatalogSnapshot,
   listSkillCatalogCommandEntries,
 } from "@/lib/api/skillCatalog";
 import type { MessageImageWorkbenchPreview } from "../types";
+
+type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 function titleCaseModelSegment(value: string): string {
   return value
@@ -52,6 +54,56 @@ export function collapseImageWorkbenchWhitespace(
   return (value || "").replace(/\s+/g, " ").trim();
 }
 
+function normalizeImageWorkbenchPresentationInput(
+  value: string | null | undefined,
+): string {
+  return (value || "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
+export function sanitizeImageWorkbenchPresentationText(
+  value: string | null | undefined,
+  _options?: {
+    languageSource?: string | null;
+  },
+): string {
+  return normalizeImageWorkbenchPresentationInput(value)
+    .replace(/([\u4E00-\u9FFF])[ \t]+([\u4E00-\u9FFF])/gu, "$1$2")
+    .replace(/[ \t]+([，。！？、,.!?])/gu, "$1")
+    .replace(/([，。！？、])[ \t]+/gu, "$1")
+    .trim();
+}
+
+function normalizeImageTaskPromptSubject(value: string): string {
+  const normalized = collapseImageWorkbenchWhitespace(value)
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[[^\]]*]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]+)]\([^)]*\)/g, "$1")
+    .replace(/^@\S+(?:\s+\S+)?\s*/u, "")
+    .replace(
+      /^(?:请|帮我|给我|麻烦你?)?\s*(?:生成|画|做|制作|创建|绘制|修|重绘|改|调整)\s*/u,
+      "",
+    )
+    .replace(/^(?:一|这|那|每)?(?:张|幅|组|版|套|个|件|款|页)\s*/u, "")
+    .replace(/^(?:这张|那张|这一张|那一张|这幅|那幅|这一幅|那一幅)\s*/u, "")
+    .trim();
+
+  if (!normalized) {
+    return "";
+  }
+
+  if (normalized.length <= 72) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, 72).trim()}...`;
+}
+
 export function resolveImageWorkbenchModelLabel(
   value: string | null | undefined,
 ): string {
@@ -69,27 +121,69 @@ export function resolveImageWorkbenchModelLabel(
   return titleCaseModelSegment(tail);
 }
 
+type ImageWorkbenchPresentationKey =
+  | "agentChat.imageWorkbenchPresentation.caption.cancelled"
+  | "agentChat.imageWorkbenchPresentation.caption.failedDefault"
+  | "agentChat.imageWorkbenchPresentation.subjectFallback";
+
 export function resolveImageWorkbenchPreviewModelLabel(
   preview: MessageImageWorkbenchPreview,
 ): string {
   return resolveImageWorkbenchModelLabel(
-    preview.modelName || preview.runtimeContract?.model || null,
+    preview.runtimeContract?.model || preview.modelName || null,
   );
 }
 
-type ImageWorkbenchPresentationKey =
-  | "agentChat.imageWorkbenchPresentation.caption.failedWithMessage"
-  | "agentChat.imageWorkbenchPresentation.caption.failedDefault"
-  | "agentChat.imageWorkbenchPresentation.caption.cancelled";
+export function resolveImageWorkbenchCaptionStatus(
+  preview: MessageImageWorkbenchPreview,
+): MessageImageWorkbenchPreview["status"] {
+  const hasRenderedImage = Boolean(
+    preview.imageUrl || preview.previewImages?.some((url) => url.trim()),
+  );
+  if (preview.status !== "running" || !hasRenderedImage) {
+    return preview.status;
+  }
+
+  return preview.expectedImageCount &&
+    preview.imageCount &&
+    preview.imageCount < preview.expectedImageCount
+    ? "partial"
+    : "complete";
+}
+
+export function resolveImageWorkbenchCompletionCaption(
+  preview: MessageImageWorkbenchPreview,
+): string {
+  const status = resolveImageWorkbenchCaptionStatus(preview);
+  if (status !== "complete" && status !== "partial") {
+    return "";
+  }
+
+  return sanitizeImageWorkbenchPresentationText(preview.caption, {
+    languageSource: preview.prompt,
+  });
+}
 
 function tImageWorkbenchPresentation(
   key: ImageWorkbenchPresentationKey,
   options?: Record<string, unknown>,
 ): string {
-  return getEmberI18n().t(key, {
+  const translate = getLimeI18n().t as Translate;
+  return translate(key, {
     ns: "agent",
     ...(options || {}),
   });
+}
+
+export function resolveImageTaskPromptSubject(value: string): string {
+  const normalized = normalizeImageTaskPromptSubject(value);
+  if (normalized) {
+    return normalized;
+  }
+
+  return tImageWorkbenchPresentation(
+    "agentChat.imageWorkbenchPresentation.subjectFallback",
+  );
 }
 
 export function buildImageWorkbenchCaption(params: {

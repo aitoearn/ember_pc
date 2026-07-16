@@ -1,9 +1,9 @@
 {
-  "name": "@aitoearn/ember_pc-cli",
-  "version": "1.0.0",
-  "description": "Ember 官方任务 CLI",
+  "name": "@embercloud/lime-cli",
+  "version": "1.105.0",
+  "description": "Lime 官方任务 CLI",
   "bin": {
-    "ember": "scripts/run.js"
+    "lime": "scripts/run.js"
   },
   "scripts": {
     "postinstall": "node scripts/install.js",
@@ -23,7 +23,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/aitoearn/ember_pc.git"
+    "url": "git+https://github.com/limecloud/lime.git"
   },
   "license": "MIT",
   "files": [

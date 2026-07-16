@@ -12,7 +12,7 @@ import {
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ember-i18n-release-docs-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lime-i18n-release-docs-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -34,14 +34,14 @@ describe("i18n release docs workflow report", () => {
   it("应识别当前文档翻译工作流缺口并输出稳定报告", () => {
     const root = createTempDir();
 
-    writeFile(root, "README.md", "# Ember\n");
+    writeFile(root, "README.md", "# Lime\n");
     writeFile(
       root,
       "README.en.md",
-      "# Ember\n[Release Notes](./RELEASE_NOTES.en.md)\n<sub>companion</sub>\n",
+      "# Lime\n[Release Notes](./RELEASE_NOTES.en.md)\n<sub>companion</sub>\n",
     );
-    writeFile(root, "RELEASE_NOTES.md", "## Ember v1.0.0\n");
-    writeFile(root, "RELEASE_NOTES.en.md", "## Ember v1.0.0\n");
+    writeFile(root, "RELEASE_NOTES.md", "## Lime v1.0.0\n");
+    writeFile(root, "RELEASE_NOTES.en.md", "## Lime v1.0.0\n");
     writeFile(
       root,
       "docs/package.json",
@@ -54,21 +54,21 @@ describe("i18n release docs workflow report", () => {
     writeFile(
       root,
       "docs/nuxt.config.ts",
-      `export default { extends: ["docus"], app: { baseURL: "/ember/" } };\n`,
+      `export default { extends: ["docus"], app: { baseURL: "/lime/" } };\n`,
     );
     writeFile(root, "docs/content/02.user-guide/a.md", "# Guide\n");
     writeFile(
       root,
-      "docs/roadmap/i18n/companions/user-guide-a.en.md",
+      "internal/roadmap/i18n/companions/user-guide-a.en.md",
       "# Guide\n",
     );
     writeFile(root, "docs/content/08.open-platform/b.md", "# Open Platform\n");
     writeFile(
       root,
-      "docs/roadmap/i18n/evidence/docs-locale-build-manifest.json",
+      "internal/roadmap/i18n/evidence/docs-locale-build-manifest.json",
       JSON.stringify(
         {
-          schemaVersion: "ember.i18n.docsLocaleBuildManifest.v1",
+          schemaVersion: "lime.i18n.docsLocaleBuildManifest.v1",
           summary: {
             routeEmissionAllowed: false,
             workflowStatus: "ready",
@@ -80,10 +80,10 @@ describe("i18n release docs workflow report", () => {
     );
     writeFile(
       root,
-      "docs/roadmap/i18n/release-docs-translation-scope.json",
+      "internal/roadmap/i18n/release-docs-translation-scope.json",
       JSON.stringify(
         {
-          schemaVersion: "ember.i18n.releaseDocsTranslationScope.v1",
+          schemaVersion: "lime.i18n.releaseDocsTranslationScope.v1",
           sourceLocale: "zh-CN",
           targetLocales: ["en-US"],
           items: [
@@ -103,7 +103,7 @@ describe("i18n release docs workflow report", () => {
               path: "docs/content/02.user-guide/a.md",
               kind: "help-doc",
               priority: "pilot",
-              enUSPath: "docs/roadmap/i18n/companions/user-guide-a.en.md",
+              enUSPath: "internal/roadmap/i18n/companions/user-guide-a.en.md",
             },
             {
               path: "docs/content/08.open-platform/b.md",
@@ -120,7 +120,7 @@ describe("i18n release docs workflow report", () => {
 
     const report = analyzeReleaseDocsWorkflowReport({ repoRoot: root });
 
-    expect(report.schemaVersion).toBe("ember.i18n.releaseDocsWorkflowReport.v1");
+    expect(report.schemaVersion).toBe("lime.i18n.releaseDocsWorkflowReport.v1");
     expect(report.summary.hasBilingualRootReadme).toBe(true);
     expect(report.summary.hasReleaseNotesCompanion).toBe(true);
     expect(report.summary.hasReleaseNotesCompanionVersionMatch).toBe(true);
@@ -156,7 +156,7 @@ describe("i18n release docs workflow report", () => {
       expect.objectContaining({
         blockingReason: null,
         generatedFromScopePath:
-          "docs/roadmap/i18n/release-docs-translation-scope.json",
+          "internal/roadmap/i18n/release-docs-translation-scope.json",
         itemCount: 1,
         missingSourceCount: 0,
         pilotCompanionMissingCount: 0,
@@ -184,7 +184,7 @@ describe("i18n release docs workflow report", () => {
       expect.objectContaining({
         existingEnglishCompanionCount: 3,
         itemCount: 4,
-        companionFiles: ["docs/roadmap/i18n/companions/user-guide-a.en.md"],
+        companionFiles: ["internal/roadmap/i18n/companions/user-guide-a.en.md"],
         missingEnglishCompanions: [],
         missingPilotEnglishCompanions: [],
         pilotCount: 1,
@@ -216,7 +216,7 @@ describe("i18n release docs workflow report", () => {
       expect.objectContaining({
         exists: true,
         routeEmissionAllowed: false,
-        schemaVersion: "ember.i18n.docsLocaleBuildManifest.v1",
+        schemaVersion: "lime.i18n.docsLocaleBuildManifest.v1",
         workflowStatus: "ready",
       }),
     );
@@ -232,7 +232,7 @@ describe("i18n release docs workflow report", () => {
     );
     expect(JSON.parse(formatReleaseDocsWorkflowReport(report, "json"))).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.releaseDocsWorkflowReport.v1",
+        schemaVersion: "lime.i18n.releaseDocsWorkflowReport.v1",
       }),
     );
   });
@@ -240,10 +240,10 @@ describe("i18n release docs workflow report", () => {
   it("应识别未被 translation scope 引用的 companion 文件", () => {
     const root = createTempDir();
 
-    writeFile(root, "README.md", "# Ember\n");
-    writeFile(root, "README.en.md", "# Ember\n");
-    writeFile(root, "RELEASE_NOTES.md", "## Ember v1.0.0\n");
-    writeFile(root, "RELEASE_NOTES.en.md", "## Ember v1.0.0\n");
+    writeFile(root, "README.md", "# Lime\n");
+    writeFile(root, "README.en.md", "# Lime\n");
+    writeFile(root, "RELEASE_NOTES.md", "## Lime v1.0.0\n");
+    writeFile(root, "RELEASE_NOTES.en.md", "## Lime v1.0.0\n");
     writeFile(
       root,
       "docs/package.json",
@@ -257,20 +257,20 @@ describe("i18n release docs workflow report", () => {
     writeFile(root, "docs/content/index.md", "# Docs\n");
     writeFile(
       root,
-      "docs/roadmap/i18n/companions/docs-content-index.en.md",
+      "internal/roadmap/i18n/companions/docs-content-index.en.md",
       "# Docs\n",
     );
     writeFile(
       root,
-      "docs/roadmap/i18n/companions/orphan.en.md",
+      "internal/roadmap/i18n/companions/orphan.en.md",
       "# Orphan\n",
     );
     writeFile(
       root,
-      "docs/roadmap/i18n/release-docs-translation-scope.json",
+      "internal/roadmap/i18n/release-docs-translation-scope.json",
       JSON.stringify(
         {
-          schemaVersion: "ember.i18n.releaseDocsTranslationScope.v1",
+          schemaVersion: "lime.i18n.releaseDocsTranslationScope.v1",
           sourceLocale: "zh-CN",
           targetLocales: ["en-US"],
           items: [
@@ -291,7 +291,7 @@ describe("i18n release docs workflow report", () => {
               kind: "docs-home",
               priority: "pilot",
               enUSPath:
-                "docs/roadmap/i18n/companions/docs-content-index.en.md",
+                "internal/roadmap/i18n/companions/docs-content-index.en.md",
             },
           ],
         },
@@ -304,17 +304,17 @@ describe("i18n release docs workflow report", () => {
 
     expect(report.summary.releaseDocsOrphanCompanionCount).toBe(1);
     expect(report.releaseDocsTranslationScope.orphanEnglishCompanions).toEqual([
-      "docs/roadmap/i18n/companions/orphan.en.md",
+      "internal/roadmap/i18n/companions/orphan.en.md",
     ]);
   });
 
   it("应识别未纳入 translation scope 的 docs/content source 文件", () => {
     const root = createTempDir();
 
-    writeFile(root, "README.md", "# Ember\n");
-    writeFile(root, "README.en.md", "# Ember\n");
-    writeFile(root, "RELEASE_NOTES.md", "## Ember v1.0.0\n");
-    writeFile(root, "RELEASE_NOTES.en.md", "## Ember v1.0.0\n");
+    writeFile(root, "README.md", "# Lime\n");
+    writeFile(root, "README.en.md", "# Lime\n");
+    writeFile(root, "RELEASE_NOTES.md", "## Lime v1.0.0\n");
+    writeFile(root, "RELEASE_NOTES.en.md", "## Lime v1.0.0\n");
     writeFile(
       root,
       "docs/package.json",
@@ -329,10 +329,10 @@ describe("i18n release docs workflow report", () => {
     writeFile(root, "docs/content/02.user-guide/untracked.md", "# Untracked\n");
     writeFile(
       root,
-      "docs/roadmap/i18n/release-docs-translation-scope.json",
+      "internal/roadmap/i18n/release-docs-translation-scope.json",
       JSON.stringify(
         {
-          schemaVersion: "ember.i18n.releaseDocsTranslationScope.v1",
+          schemaVersion: "lime.i18n.releaseDocsTranslationScope.v1",
           sourceLocale: "zh-CN",
           targetLocales: ["en-US"],
           items: [
@@ -372,9 +372,9 @@ describe("i18n release docs workflow report", () => {
   it("应把缺失 source 和 required companion 暴露为 release docs 翻译队列阻断项", () => {
     const root = createTempDir();
 
-    writeFile(root, "README.md", "# Ember\n");
-    writeFile(root, "RELEASE_NOTES.md", "## Ember v1.0.0\n");
-    writeFile(root, "RELEASE_NOTES.en.md", "## Ember v1.0.0\n");
+    writeFile(root, "README.md", "# Lime\n");
+    writeFile(root, "RELEASE_NOTES.md", "## Lime v1.0.0\n");
+    writeFile(root, "RELEASE_NOTES.en.md", "## Lime v1.0.0\n");
     writeFile(
       root,
       "docs/package.json",
@@ -388,10 +388,10 @@ describe("i18n release docs workflow report", () => {
     writeFile(root, "docs/content/index.md", "# Docs\n");
     writeFile(
       root,
-      "docs/roadmap/i18n/release-docs-translation-scope.json",
+      "internal/roadmap/i18n/release-docs-translation-scope.json",
       JSON.stringify(
         {
-          schemaVersion: "ember.i18n.releaseDocsTranslationScope.v1",
+          schemaVersion: "lime.i18n.releaseDocsTranslationScope.v1",
           sourceLocale: "zh-CN",
           targetLocales: ["en-US"],
           items: [
@@ -450,9 +450,9 @@ describe("i18n release docs workflow report", () => {
 
   it("应支持 CLI 输出与文件写入", () => {
     const root = createTempDir();
-    writeFile(root, "README.md", "# Ember\n");
-    writeFile(root, "README.en.md", "# Ember\n");
-    writeFile(root, "RELEASE_NOTES.md", "## Ember v1.0.0\n");
+    writeFile(root, "README.md", "# Lime\n");
+    writeFile(root, "README.en.md", "# Lime\n");
+    writeFile(root, "RELEASE_NOTES.md", "## Lime v1.0.0\n");
     writeFile(
       root,
       "docs/package.json",
@@ -482,7 +482,7 @@ describe("i18n release docs workflow report", () => {
     expect(writeSpy).not.toHaveBeenCalled();
     expect(JSON.parse(fs.readFileSync(outFile, "utf8"))).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.releaseDocsWorkflowReport.v1",
+        schemaVersion: "lime.i18n.releaseDocsWorkflowReport.v1",
         releaseDocsTranslationQueue: expect.objectContaining({
           workflowStatus: "missing-scope",
         }),

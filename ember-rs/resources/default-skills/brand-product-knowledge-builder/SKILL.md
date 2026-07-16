@@ -5,17 +5,17 @@ license: Apache-2.0
 allowed-tools: list_directory, read_file
 compatibility: Agent Knowledge >=0.6.0
 metadata:
-  ember_version: 1.0.1
-  ember_execution_mode: prompt
-  ember_surface: workbench
-  ember_category: knowledge
-  Ember_skill_bundle_version: "1.0.1"
-  Ember_knowledge_builder: "true"
-  Ember_knowledge_pack_type: "brand-product"
-  Ember_knowledge_template: "brand-product"
-  Ember_knowledge_family: "data"
-  Ember_agent_knowledge_profile: "document-first"
-  Ember_agent_knowledge_runtime_mode: "data"
+  lime_version: 1.0.1
+  lime_execution_mode: prompt
+  lime_surface: workbench
+  lime_category: knowledge
+  Lime_skill_bundle_version: "1.0.1"
+  Lime_knowledge_builder: "true"
+  Lime_knowledge_pack_type: "brand-product"
+  Lime_knowledge_template: "brand-product"
+  Lime_knowledge_family: "data"
+  Lime_agent_knowledge_profile: "document-first"
+  Lime_agent_knowledge_runtime_mode: "data"
 ---
 
 # 品牌产品知识库生成器
@@ -49,9 +49,9 @@ Agent Knowledge 负责“知识产物长什么样、如何安全进入上下文�
 3. 缺少关键事实、资质、价格、权益或数据时，先问用户补齐；如果用户要求先生成，则用 `待补充` 标注，不要编造。
 4. 提炼产品定位、适用人群、事实清单、卖点证据、异议处理、渠道表达和禁止承诺。
 5. 用 `references/brand-product-quality-checklist.md` 自检，必要时补一节“待补充信息清单”。
-6. 返回符合 Ember Runtime Binding 契约的 JSON，供 App Server `knowledgePack/compile` runtime binding 写回 KnowledgePack。
+6. 返回符合 Lime Runtime Binding 契约的 JSON，供 App Server `knowledgePack/compile` runtime binding 写回 KnowledgePack。
 
-## Ember Runtime Binding 契约
+## Lime Runtime Binding 契约
 
 ### 输入
 
@@ -82,8 +82,8 @@ provenance:
 固定规则：
 
 1. 不输出独立于 KnowledgePack 的新目录结构；`documents/<packName>.md` 是主文档唯一写回目标。
-2. 不直接改写 `KNOWLEDGE.md`；由 Ember 写入 `metadata.producedBy`、`runtime.mode` 和状态。
-3. 不把模板复制进 Ember 代码；模板和质量检查表继续留在本 Skill 的 `references/`。
+2. 不直接改写 `KNOWLEDGE.md`；由 Lime 写入 `metadata.producedBy`、`runtime.mode` 和状态。
+3. 不把模板复制进 Lime 代码；模板和质量检查表继续留在本 Skill 的 `references/`。
 4. 不在运行时回答阶段执行；仅在用户导入、重新整理或维护 pack 时调用。
 
 ## 适用场景

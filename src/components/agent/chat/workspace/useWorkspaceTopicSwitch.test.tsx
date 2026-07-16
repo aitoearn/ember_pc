@@ -6,8 +6,6 @@ import { useWorkspaceTopicSwitch } from "./useWorkspaceTopicSwitch";
 
 const projectApiMock = vi.hoisted(() => ({
   getProject: vi.fn(),
-  getDefaultProject: vi.fn(),
-  getOrCreateDefaultProject: vi.fn(),
 }));
 
 const toastMock = vi.hoisted(() => ({
@@ -78,8 +76,6 @@ describe("useWorkspaceTopicSwitch", () => {
   beforeEach(() => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     projectApiMock.getProject.mockReset();
-    projectApiMock.getDefaultProject.mockReset();
-    projectApiMock.getOrCreateDefaultProject.mockReset();
     toastMock.error.mockReset();
     toastMock.info.mockReset();
   });
@@ -123,13 +119,9 @@ describe("useWorkspaceTopicSwitch", () => {
     );
   });
 
-  it("需要项目解析时也应在后端项目查询前发出导航信号", async () => {
+  it("没有明确项目时应返回 missing，不再回退默认项目", async () => {
     const originalSwitchTopic = vi.fn(async () => undefined);
     const onBeforeTopicSwitch = vi.fn();
-    projectApiMock.getDefaultProject.mockResolvedValue({
-      id: "workspace-1",
-      isArchived: false,
-    });
     const props = createBaseProps({
       projectId: undefined,
       originalSwitchTopic,
@@ -143,17 +135,68 @@ describe("useWorkspaceTopicSwitch", () => {
       result = await mounted.getValue().switchTopic("session-2");
     });
 
-    expect(result).toBe("deferred");
+    expect(result).toBe("missing");
     expect(onBeforeTopicSwitch).toHaveBeenCalledTimes(1);
-    expect(onBeforeTopicSwitch.mock.invocationCallOrder[0]).toBeLessThan(
-      projectApiMock.getDefaultProject.mock.invocationCallOrder[0],
-    );
-    expect(props.deferTopicSwitch).toHaveBeenCalledWith(
-      "session-2",
-      "workspace-1",
-      undefined,
-    );
+    expect(projectApiMock.getProject).not.toHaveBeenCalled();
+    expect(props.deferTopicSwitch).not.toHaveBeenCalled();
+    expect(toastMock.error).toHaveBeenCalledWith("未找到可用项目，请先创建项目");
     expect(originalSwitchTopic).not.toHaveBeenCalled();
+  });
+
+  it("允许 detached session 时没有项目也应直接切换 standalone 会话", async () => {
+    const originalSwitchTopic = vi.fn(async () => undefined);
+    const onBeforeTopicSwitch = vi.fn();
+    const props = createBaseProps({
+      projectId: undefined,
+      originalSwitchTopic,
+      onBeforeTopicSwitch,
+      loadTopicBoundProjectId: vi.fn(() => null),
+    });
+    const mounted = renderHook(props);
+
+    let result: Awaited<ReturnType<HookValue["switchTopic"]>> | undefined;
+    await act(async () => {
+      result = await mounted
+        .getValue()
+        .switchTopic("standalone-imported-session", {
+          allowDetachedSession: true,
+        });
+    });
+
+    expect(result).toBe("success");
+    expect(projectApiMock.getProject).not.toHaveBeenCalled();
+    expect(toastMock.error).not.toHaveBeenCalled();
+    expect(onBeforeTopicSwitch).toHaveBeenCalledWith(
+      "standalone-imported-session",
+    );
+    expect(originalSwitchTopic).toHaveBeenCalledWith(
+      "standalone-imported-session",
+      expect.objectContaining({ allowDetachedSession: true }),
+    );
+  });
+
+  it("锁定项目与话题绑定冲突时应返回 blocked 且不弹出全局 tip", async () => {
+    const originalSwitchTopic = vi.fn(async () => undefined);
+    const onBeforeTopicSwitch = vi.fn();
+    const props = createBaseProps({
+      projectId: "locked-project",
+      externalProjectId: "locked-project",
+      originalSwitchTopic,
+      onBeforeTopicSwitch,
+      loadTopicBoundProjectId: vi.fn(() => "topic-project"),
+    });
+    const mounted = renderHook(props);
+
+    let result: Awaited<ReturnType<HookValue["switchTopic"]>> | undefined;
+    await act(async () => {
+      result = await mounted.getValue().switchTopic("topic-bound-elsewhere");
+    });
+
+    expect(result).toBe("blocked");
+    expect(onBeforeTopicSwitch).toHaveBeenCalledWith("topic-bound-elsewhere");
+    expect(originalSwitchTopic).not.toHaveBeenCalled();
+    expect(props.deferTopicSwitch).not.toHaveBeenCalled();
+    expect(toastMock.error).not.toHaveBeenCalled();
   });
 
   it("当前项目已知但话题未绑定时应直接切换，不再等待项目解析", async () => {
@@ -173,8 +216,6 @@ describe("useWorkspaceTopicSwitch", () => {
 
     expect(result).toBe("success");
     expect(projectApiMock.getProject).not.toHaveBeenCalled();
-    expect(projectApiMock.getDefaultProject).not.toHaveBeenCalled();
-    expect(projectApiMock.getOrCreateDefaultProject).not.toHaveBeenCalled();
     expect(onBeforeTopicSwitch).toHaveBeenCalledWith("session-fast-path");
     expect(originalSwitchTopic).toHaveBeenCalledWith("session-fast-path");
   });

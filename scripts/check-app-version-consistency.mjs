@@ -54,11 +54,11 @@ if ((cliNpmPackageJson.version ?? null) !== sourceVersion) {
 }
 
 if (issues.length > 0) {
-  console.error("[ember] 应用版本一致性检查失败:");
+  console.error("[lime] 应用版本一致性检查失败:");
   for (const issue of issues) {
     console.error(`- ${issue}`);
   }
   process.exit(1);
 }
 
-console.log(`[ember] 版本一致性检查通过: ${sourceVersion}`);
+console.log(`[lime] 版本一致性检查通过: ${sourceVersion}`);

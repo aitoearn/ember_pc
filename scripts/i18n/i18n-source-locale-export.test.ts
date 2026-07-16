@@ -13,7 +13,7 @@ const tempDirs: string[] = [];
 
 function createTempDir(): string {
   const dir = fs.mkdtempSync(
-    path.join(os.tmpdir(), "ember-i18n-source-export-"),
+    path.join(os.tmpdir(), "lime-i18n-source-export-"),
   );
   tempDirs.push(dir);
   return dir;
@@ -55,7 +55,7 @@ describe("i18n source locale export", () => {
       sourceLocale: "zh-CN",
     });
 
-    expect(report.schemaVersion).toBe("ember.i18n.sourceLocaleExport.v1");
+    expect(report.schemaVersion).toBe("lime.i18n.sourceLocaleExport.v1");
     expect(report.summary).toEqual(
       expect.objectContaining({
         namespaceCount: 2,
@@ -120,7 +120,7 @@ describe("i18n source locale export", () => {
     expect(writeSpy).not.toHaveBeenCalled();
     expect(JSON.parse(fs.readFileSync(outputPath, "utf8"))).toEqual(
       expect.objectContaining({
-        schemaVersion: "ember.i18n.sourceLocaleExport.v1",
+        schemaVersion: "lime.i18n.sourceLocaleExport.v1",
       }),
     );
   });

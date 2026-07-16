@@ -52,7 +52,7 @@ function runLegacySurfaceReportCli() {
     if (options.output) {
       fs.mkdirSync(path.dirname(options.output), { recursive: true });
       fs.writeFileSync(options.output, serialized, "utf8");
-      console.log(`[ember] legacy surface report JSON: ${options.output}`);
+      console.log(`[lime] legacy surface report JSON: ${options.output}`);
     } else {
       console.log(serialized);
     }
@@ -63,7 +63,7 @@ function runLegacySurfaceReportCli() {
   if (report.violations.length > 0) {
     console.error("");
     console.error(
-      "[ember] legacy surface report 检测到边界违规，请先治理再继续扩展。",
+      "[lime] legacy surface report 检测到边界违规，请先治理再继续扩展。",
     );
     process.exit(1);
   }

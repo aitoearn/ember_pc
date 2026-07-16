@@ -40,7 +40,7 @@ function getDelegatedTitle(item: ResourceManagerItem): string {
 function getDelegatedDescription(item: ResourceManagerItem): string {
   const target = getResourcePreviewTarget(item);
   if (target === "unsupported") {
-    return "Ember 已识别该格式，但尚未接入安全可靠的内置解析器。请先使用顶部导航栏的系统打开、定位或下载动作处理。";
+    return "Lime 已识别该格式，但尚未接入安全可靠的内置解析器。请先使用顶部导航栏的系统打开、定位或下载动作处理。";
   }
   return "该格式在桌面系统的原生查看器中兼容性更好。为避免 WebView 硬加载失败，当前不伪装成内置预览。";
 }

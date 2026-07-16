@@ -1,6 +1,6 @@
 # A2UI 运行时
 
-`components/` 只保留 Ember 的运行时装配层，不再承载组件实现。
+`components/` 只保留 Lime 的运行时装配层，不再承载组件实现。
 
 ## 目录结构
 

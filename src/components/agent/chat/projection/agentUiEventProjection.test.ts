@@ -60,6 +60,24 @@ describe("agentUiEventProjection", () => {
     expect(
       buildAgentUiProjectionEvents(
         {
+          type: "reasoning_final",
+          reasoningId: "runtime-thinking",
+          text: "先分析完整过程",
+        },
+        baseContext,
+      )[0],
+    ).toMatchObject({
+      type: "reasoning.delta",
+      sourceType: "reasoning_final",
+      owner: "model",
+      phase: "reasoning",
+      surface: "inline_process",
+      persistence: "ephemeral_live",
+    });
+
+    expect(
+      buildAgentUiProjectionEvents(
+        {
           type: "runtime_status",
           status: {
             phase: "permission_review",
@@ -78,6 +96,33 @@ describe("agentUiEventProjection", () => {
       payload: {
         title: "等待确认",
         sourcePhase: "permission_review",
+      },
+    });
+  });
+
+  it("应把 model.effective 映射为模型生效事件", () => {
+    expect(
+      buildAgentUiProjectionEvents(
+        {
+          type: "model_effective",
+          modelRef: {
+            providerId: "openai",
+            modelId: "gpt-codex",
+          },
+          modelName: "gpt-codex",
+          serviceModelSlot: "coding",
+        },
+        baseContext,
+      )[0],
+    ).toMatchObject({
+      type: "run.status",
+      sourceType: "model_effective",
+      sequence: 10,
+      owner: "runtime",
+      scope: "run",
+      payload: {
+        model: "gpt-codex",
+        mode: "coding",
       },
     });
   });
@@ -160,7 +205,7 @@ describe("agentUiEventProjection", () => {
       baseContext,
     );
 
-    expect(events).toHaveLength(2);
+    expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       type: "run.status",
       runtimeEntity: "agent_turn",
@@ -182,31 +227,6 @@ describe("agentUiEventProjection", () => {
         teamActiveCount: 1,
         teamQueuedCount: 1,
         providerConcurrencyGroup: "openai",
-      },
-    });
-    expect(events[1]).toMatchObject({
-      type: "team.changed",
-      sourceType: "runtime_status",
-      owner: "team",
-      scope: "team",
-      phase: "waiting",
-      surface: "team_roster",
-      runtimeEntity: "agent_turn",
-      runtimeStatus: "preparing",
-      latestTurnStatus: "preparing",
-      topology: "parallel_workers",
-      teamPhase: "queued",
-      teamParallelBudget: 2,
-      teamActiveCount: 1,
-      teamQueuedCount: 1,
-      providerConcurrencyGroup: "openai",
-      providerParallelBudget: 3,
-      queueReason: "provider_busy",
-      retryableOverload: true,
-      payload: {
-        teamEvent: "runtime_status_changed",
-        concurrencyPhase: undefined,
-        concurrencyScope: undefined,
       },
     });
   });
@@ -480,6 +500,11 @@ describe("agentUiEventProjection", () => {
   });
 
   it("应把 Team controls adapter 投影到 work board 与标准 control 语义", () => {
+    const teamThreadContext = {
+      ...baseContext,
+      threadId: "thread-team-1",
+      turnId: "turn-parent-1",
+    };
     const events = buildAgentUiTeamControlProjectionEvents(
       {
         action: "resume",
@@ -488,33 +513,17 @@ describe("agentUiEventProjection", () => {
         affectedSessionIds: ["child-1"],
         cascadeSessionIds: ["child-2"],
       },
-      baseContext,
+      teamThreadContext,
     );
 
-    expect(events).toHaveLength(3);
+    expect(events).toHaveLength(2);
+    expect(events.every((event) => event.threadId === "thread-team-1")).toBe(
+      true,
+    );
     expect(events[0]).toMatchObject({
-      type: "team.changed",
-      sourceType: "team_control_projection",
-      sequence: 10,
-      sessionId: "session-team-1",
-      owner: "team",
-      scope: "team",
-      phase: "acting",
-      surface: "team_policy",
-      control: "continue_agent",
-      payload: {
-        teamEvent: "team_control",
-        action: "resume",
-        control: "continue_agent",
-        requestedSessionIds: ["child-1"],
-        affectedSessionIds: ["child-1"],
-        cascadeSessionIds: ["child-2"],
-      },
-    });
-    expect(events[1]).toMatchObject({
       type: "task.changed",
       sourceType: "team_control_projection",
-      sequence: 11,
+      sequence: 10,
       taskId: "child-1",
       agentId: "child-1",
       owner: "task",
@@ -532,15 +541,17 @@ describe("agentUiEventProjection", () => {
         runtimeEntity: "subagent_turn",
       },
     });
-    expect(events[2]).toMatchObject({
+    expect(events[1]).toMatchObject({
       type: "agent.handoff",
       sourceType: "team_control_projection",
-      sequence: 12,
+      sequence: 11,
       sessionId: "session-team-1",
+      threadId: "thread-team-1",
+      turnId: "turn-parent-1",
       taskId: "child-1",
       agentId: "child-1",
       handoffId: "session-team-1:handoff:child-1",
-      parentSessionId: "session-team-1",
+      parentThreadId: "thread-team-1",
       owner: "agent",
       scope: "agent",
       phase: "completed",
@@ -585,7 +596,7 @@ describe("agentUiEventProjection", () => {
           requestedSessionIds: ["child-delegated"],
         },
         baseContext,
-      )[1],
+      )[0],
     ).toMatchObject({
       type: "task.changed",
       control: "delegate",
@@ -603,7 +614,7 @@ describe("agentUiEventProjection", () => {
           workItemId: "work-item-1",
         },
         baseContext,
-      )[1],
+      )[0],
     ).toMatchObject({
       type: "task.changed",
       control: "assign",
@@ -629,7 +640,7 @@ describe("agentUiEventProjection", () => {
           resolvedStatus: "assigned",
         },
         baseContext,
-      )[1],
+      )[0],
     ).toMatchObject({
       type: "task.changed",
       taskId: "work-item-2",
@@ -659,7 +670,7 @@ describe("agentUiEventProjection", () => {
           runtimeEntity: "work_item",
         },
         baseContext,
-      )[1],
+      )[0],
     ).toMatchObject({
       type: "task.changed",
       taskId: "review-1",
@@ -737,7 +748,7 @@ describe("agentUiEventProjection", () => {
           output: "已读取文件",
           metadata: {
             artifact_id: "artifact-1",
-            artifact_path: ".ember/artifacts/demo.md",
+            artifact_path: ".lime/artifacts/demo.md",
           },
         },
       },
@@ -751,7 +762,7 @@ describe("agentUiEventProjection", () => {
       persistence: "archive",
       refs: {
         artifactIds: ["artifact-1"],
-        artifactPaths: [".ember/artifacts/demo.md"],
+        artifactPaths: [".lime/artifacts/demo.md"],
       },
     });
 
@@ -833,7 +844,7 @@ describe("agentUiEventProjection", () => {
     });
   });
 
-  it("应把 action、artifact、queue 和 subagent 映射到独立 taxonomy", () => {
+  it("应把 action、artifact 和 queue 映射到独立 taxonomy", () => {
     expect(
       buildAgentUiProjectionEvents(
         {
@@ -860,7 +871,7 @@ describe("agentUiEventProjection", () => {
           type: "artifact_snapshot",
           artifact: {
             artifactId: "artifact-2",
-            filePath: ".ember/artifacts/report.md",
+            filePath: ".lime/artifacts/report.md",
             content: "# 报告",
             metadata: {
               complete: false,
@@ -877,7 +888,7 @@ describe("agentUiEventProjection", () => {
       surface: "artifact_workspace",
       refs: {
         artifactIds: ["artifact-2"],
-        artifactPaths: [".ember/artifacts/report.md"],
+        artifactPaths: [".lime/artifacts/report.md"],
       },
     });
 
@@ -903,6 +914,11 @@ describe("agentUiEventProjection", () => {
       owner: "task",
       surface: "task_capsule",
       control: "queue",
+      queuedTurnCount: 2,
+      payload: {
+        queuedTurnCount: 2,
+        position: 1,
+      },
     });
     expect(queueEvents[1]).toMatchObject({
       type: "task.changed",
@@ -914,10 +930,12 @@ describe("agentUiEventProjection", () => {
       phase: "submitted",
       surface: "task_capsule",
       control: "steer",
+      queuedTurnCount: 2,
       payload: {
         taskEvent: "steer_intent",
         intentKind: "queued_user_input",
         queuedTurnId: "queued-1",
+        position: 1,
         messagePreview: "下一轮",
       },
     });
@@ -986,237 +1004,20 @@ describe("agentUiEventProjection", () => {
         clearedCount: 2,
       },
     });
+  });
 
-    const runningSubagentEvents = buildAgentUiProjectionEvents(
-      {
-        type: "subagent_status_changed",
-        session_id: "child-1",
-        root_session_id: "session-1",
-        parent_session_id: "session-1",
-        status: "running",
-        latest_turn_id: "turn-child-1",
-        latest_turn_status: "queued",
-        queued_turn_count: 2,
-        team_phase: "queued",
-        team_parallel_budget: 3,
-        team_active_count: 1,
-        team_queued_count: 2,
-        provider_concurrency_group: "openai:gpt-5.2",
-        provider_parallel_budget: 4,
-        queue_reason: "provider_busy",
-        retryable_overload: true,
-      },
-      baseContext,
-    );
-    expect(runningSubagentEvents).toHaveLength(6);
-    expect(runningSubagentEvents[0]).toMatchObject({
-      type: "agent.changed",
-      taskId: "child-1",
-      agentId: "child-1",
-      parentSessionId: "session-1",
-      owner: "agent",
-      scope: "agent",
-      phase: "acting",
-      surface: "team_roster",
-      runtimeEntity: "subagent_turn",
-      runtimeStatus: "running",
-      latestTurnStatus: "queued",
-      teamPhase: "queued",
-      teamParallelBudget: 3,
-      teamActiveCount: 1,
-      teamQueuedCount: 2,
-      queuedTurnCount: 2,
-      providerConcurrencyGroup: "openai:gpt-5.2",
-      providerParallelBudget: 4,
-      queueReason: "provider_busy",
-      retryableOverload: true,
-    });
-    expect(runningSubagentEvents[1]).toMatchObject({
-      type: "task.changed",
-      owner: "task",
-      scope: "task",
-      phase: "acting",
-      surface: "task_capsule",
-      control: "stop",
-      runtimeEntity: "subagent_turn",
-      runtimeStatus: "running",
-      payload: {
-        taskEvent: "subagent_status_changed",
-        childSessionId: "child-1",
-        latestTurnId: "turn-child-1",
-        latestTurnStatus: "queued",
-        teamPhase: "queued",
-        queueReason: "provider_busy",
-      },
-    });
-    expect(runningSubagentEvents[2]).toMatchObject({
-      type: "team.changed",
-      owner: "team",
-      scope: "team",
-      phase: "acting",
-      surface: "team_roster",
-      topology: "parallel_workers",
-      runtimeEntity: "subagent_turn",
-      payload: {
-        teamEvent: "teammate_status_changed",
-        childSessionId: "child-1",
-        parentSessionId: "session-1",
-        status: "running",
-        queuedTurnCount: 2,
-      },
-    });
-    expect(runningSubagentEvents[3]).toMatchObject({
-      type: "agent.changed",
-      owner: "agent",
-      scope: "agent",
-      phase: "acting",
-      surface: "teammate_transcript",
-      control: "open_detail",
-      transcriptRef: "child-1:turn-child-1",
-      runtimeEntity: "subagent_turn",
-      runtimeStatus: "running",
-      payload: {
-        agentEvent: "teammate_transcript_ref",
-        transcriptRef: "child-1:turn-child-1",
-        childSessionId: "child-1",
-      },
-    });
-    expect(runningSubagentEvents[4]).toMatchObject({
-      type: "agent.spawned",
-      sourceType: "subagent_status_changed",
-      taskId: "child-1",
-      agentId: "child-1",
-      parentSessionId: "session-1",
-      owner: "agent",
-      scope: "agent",
-      phase: "acting",
-      surface: "delegation_graph",
-      control: "delegate",
-      runtimeEntity: "subagent_turn",
-      runtimeStatus: "running",
-      payload: {
-        agentEvent: "subagent_active",
-        spawnSource: "subagent_status_changed",
-      },
-    });
-    expect(runningSubagentEvents[5]).toMatchObject({
-      type: "agent.handoff",
-      sourceType: "subagent_status_changed",
-      handoffId: "session-1:handoff:child-1",
-      parentSessionId: "session-1",
-      taskId: "child-1",
-      agentId: "child-1",
-      phase: "accepted",
-      surface: "handoff_lane",
-      topology: "specialist_handoff",
-      runtimeEntity: "subagent_turn",
-      runtimeStatus: "running",
-      payload: {
-        handoffEvent: "specialist_handoff",
-        status: "accepted",
-        sourceStatus: "running",
-        from: "session-1",
-        to: "child-1",
-        reason: "subagent_status_changed",
-        resumeTarget: "agent-runtime://session/child-1",
-        contextBoundary: "subagent_session",
-        transcriptRef: "child-1:turn-child-1",
-      },
-    });
-
-    const completedSubagentEvents = buildAgentUiProjectionEvents(
-      {
-        type: "subagent_status_changed",
-        session_id: "child-1",
-        root_session_id: "session-1",
-        parent_session_id: "session-1",
-        status: "completed",
-        latest_turn_id: "turn-child-done",
-        usage: {
-          input_tokens: 120,
-          output_tokens: 32,
-          cached_input_tokens: 5,
-          cache_creation_input_tokens: 7,
-        },
-        duration_ms: 12_345,
-        tool_count: 4,
-        result_ref: "artifact://worker-result-1",
-      },
-      baseContext,
-    );
-    expect(completedSubagentEvents).toHaveLength(7);
-    expect(completedSubagentEvents[1]).toMatchObject({
-      type: "task.changed",
-      control: "close",
-    });
-    expect(completedSubagentEvents[3]).toMatchObject({
-      type: "agent.changed",
-      surface: "teammate_transcript",
-      control: "open_detail",
-      transcriptRef: "child-1:turn-child-done",
-      runtimeStatus: "completed",
-    });
-    expect(completedSubagentEvents[4]).toMatchObject({
-      type: "agent.completed",
-      owner: "agent",
-      phase: "completed",
-      surface: "delegation_graph",
-      runtimeEntity: "subagent_turn",
-      runtimeStatus: "completed",
-    });
-    expect(completedSubagentEvents[5]).toMatchObject({
-      type: "worker.notification",
-      workerNotificationId: "child-1:completed",
-      transcriptRef: "child-1:turn-child-done",
-      workerUsage: {
-        inputTokens: 120,
-        outputTokens: 32,
-        cachedInputTokens: 5,
-        cacheCreationInputTokens: 7,
-        totalTokens: 152,
-      },
-      owner: "agent",
-      phase: "completed",
-      surface: "worker_notifications",
-      runtimeEntity: "subagent_turn",
-      payload: {
-        notificationKind: "worker_completed",
-        status: "completed",
-        childSessionId: "child-1",
-        transcriptRef: "child-1:turn-child-done",
-        workerUsage: {
-          inputTokens: 120,
-          outputTokens: 32,
-          cachedInputTokens: 5,
-          cacheCreationInputTokens: 7,
-          totalTokens: 152,
-        },
-        durationMs: 12345,
-        toolCount: 4,
-        resultRef: "artifact://worker-result-1",
-      },
-    });
-    expect(completedSubagentEvents[6]).toMatchObject({
-      type: "agent.handoff",
-      sourceType: "subagent_status_changed",
-      handoffId: "session-1:handoff:child-1",
-      parentSessionId: "session-1",
-      taskId: "child-1",
-      agentId: "child-1",
-      phase: "reconciling",
-      surface: "handoff_lane",
-      persistence: "archive",
-      runtimeEntity: "subagent_turn",
-      runtimeStatus: "completed",
-      payload: {
-        handoffEvent: "specialist_handoff",
-        status: "returned",
-        sourceStatus: "completed",
-        from: "session-1",
-        to: "child-1",
-        resultRef: "artifact://worker-result-1",
-      },
-    });
+  it("已退役的 raw subagent status 不应进入 Agent UI 投影", () => {
+    expect(
+      buildAgentUiProjectionEvents(
+        {
+          type: "subagent_status_changed",
+          session_id: "child-1",
+          root_session_id: "session-1",
+          status: "running",
+        } as unknown as AgentEvent,
+        baseContext,
+      ),
+    ).toEqual([]);
   });
 
   it("应从 artifact metadata 的 requested fix 执行结果即时回写 work_board", () => {
@@ -1225,7 +1026,7 @@ describe("agentUiEventProjection", () => {
         type: "artifact_snapshot",
         artifact: {
           artifactId: "artifact-fix-execution-1",
-          filePath: ".ember/harness/sessions/session-1/review/fix-result.json",
+          filePath: ".lime/harness/sessions/session-1/review/fix-result.json",
           content: "{}",
           metadata: {
             complete: true,
@@ -1284,7 +1085,7 @@ describe("agentUiEventProjection", () => {
         executionArtifactPaths: ["docs/release-note.md"],
         sourceArtifactId: "artifact-fix-execution-1",
         sourceArtifactPath:
-          ".ember/harness/sessions/session-1/review/fix-result.json",
+          ".lime/harness/sessions/session-1/review/fix-result.json",
       },
       refs: {
         artifactIds: ["artifact-release-note"],
@@ -1368,7 +1169,7 @@ describe("agentUiEventProjection", () => {
         data: {
           decision_kind: "plan_approval_response",
           target_session_id: "child-session",
-          plan_file: "/tmp/ember-child/PLAN.md",
+          plan_file: "/tmp/lime-child/PLAN.md",
           plan_id: "plan-1",
           awaiting_leader_approval: false,
         },
@@ -1395,7 +1196,7 @@ describe("agentUiEventProjection", () => {
         feedbackPreview: "请补充验收项",
         permissionMode: "default",
         targetSessionId: "child-session",
-        planFile: "/tmp/ember-child/PLAN.md",
+        planFile: "/tmp/lime-child/PLAN.md",
         planId: "plan-1",
         awaitingLeaderApproval: false,
       },
@@ -1489,9 +1290,9 @@ describe("agentUiEventProjection", () => {
           team_memory_refs: [
             {
               key: "team.selection",
-              repo_scope: "/repo/ember",
+              repo_scope: "/repo/lime",
               updated_at: 1710000000,
-              source: "team_memory_shadow",
+              source: "context",
             },
           ],
         },
@@ -1609,6 +1410,64 @@ describe("agentUiEventProjection", () => {
         selectedModel: "gpt-5.4",
         candidateCount: 2,
         fallbackChain: ["gpt-5.4"],
+      },
+    });
+
+    expect(
+      buildAgentUiProjectionEvents(
+        {
+          type: "routing_fallback_applied",
+          routing_decision: {
+            routingMode: "profile_slot",
+            decisionSource: "profile_model_slot",
+            selectedProvider: "openai",
+            selectedModel: "gpt-4.1-mini",
+            fallbackApplied: true,
+            requestedSelection: {
+              provider: "custom-coding",
+              model: "coder-large",
+            },
+            routingAttempts: [
+              {
+                slot: "coding",
+                provider: "custom-coding",
+                model: "coder-large",
+                providerReadiness: {
+                  status: "needs_setup",
+                  reasonCode: "missing_enabled_api_key",
+                },
+              },
+            ],
+          },
+        } as unknown as AgentEvent,
+        baseContext,
+      )[0],
+    ).toMatchObject({
+      type: "run.status",
+      sourceType: "routing_fallback_applied",
+      phase: "routing",
+      payload: {
+        runtimeEvent: "routing_fallback_applied",
+        routingMode: "profile_slot",
+        decisionSource: "profile_model_slot",
+        selectedProvider: "openai",
+        selectedModel: "gpt-4.1-mini",
+        fallbackApplied: true,
+        requestedSelection: {
+          provider: "custom-coding",
+          model: "coder-large",
+        },
+        routingAttempts: [
+          {
+            slot: "coding",
+            provider: "custom-coding",
+            model: "coder-large",
+            providerReadiness: {
+              status: "needs_setup",
+              reasonCode: "missing_enabled_api_key",
+            },
+          },
+        ],
       },
     });
 
@@ -1788,7 +1647,7 @@ describe("agentUiEventProjection", () => {
           id: "tool-plan",
           type: "tool_call",
           status: "completed",
-          tool_name: "ExitPlanMode",
+          tool_name: "request_user_input",
           success: true,
           output: "已提交计划审批",
           metadata: {
@@ -1848,8 +1707,8 @@ describe("agentUiEventProjection", () => {
       baseContext,
     );
 
-    expect(taskUpdateEvents).toHaveLength(3);
-    expect(taskUpdateEvents[2]).toMatchObject({
+    expect(taskUpdateEvents).toHaveLength(2);
+    expect(taskUpdateEvents[1]).toMatchObject({
       type: "task.changed",
       sourceType: "item_completed",
       taskId: "1",
@@ -1936,7 +1795,7 @@ describe("agentUiEventProjection", () => {
           verdict: "pass",
           summaryPreview: "已导出 evidence pack",
           artifactIds: ["artifact-1", "artifact-1"],
-          artifactPaths: [".ember/evidence/pack.json"],
+          artifactPaths: [".lime/evidence/pack.json"],
           itemCount: 3,
         },
         baseContext,
@@ -1953,7 +1812,7 @@ describe("agentUiEventProjection", () => {
       persistence: "evidence_pack",
       refs: {
         artifactIds: ["artifact-1"],
-        artifactPaths: [".ember/evidence/pack.json"],
+        artifactPaths: [".lime/evidence/pack.json"],
       },
       payload: {
         kind: "evidence_pack",
@@ -1975,7 +1834,7 @@ describe("agentUiEventProjection", () => {
         kind: "analysis_handoff",
         status: "handoff_requested",
         verdict: "complete",
-        from: "ember_harness",
+        from: "lime_harness",
         to: "external_reviewer",
         reason: "analysis_handoff_exported",
         resumeTarget: "analysis/root",
@@ -2007,7 +1866,7 @@ describe("agentUiEventProjection", () => {
         handoffEvent: "analysis_handoff",
         status: "handoff_requested",
         verdict: "complete",
-        from: "ember_harness",
+        from: "lime_harness",
         to: "external_reviewer",
         reason: "analysis_handoff_exported",
         resumeTarget: "analysis/root",

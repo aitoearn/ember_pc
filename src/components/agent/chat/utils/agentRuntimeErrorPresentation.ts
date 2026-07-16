@@ -1,4 +1,5 @@
 import i18n from "i18next";
+import { MODEL_INPUT_CAPABILITY_GAP_ERROR_PREFIX } from "@/lib/model/modelCapabilitySendGate";
 
 const DEFAULT_RUNTIME_ERROR_MESSAGE = "执行链路返回失败，请查看详情后重试。";
 
@@ -20,6 +21,15 @@ const PROVIDER_UNAVAILABLE_ERROR_MESSAGE =
 const INTERNAL_RUNTIME_ERROR_MESSAGE =
   "运行时返回内部错误，已保留详情用于排查。请稍后重试，或检查服务商与工具连接状态。";
 
+const MODEL_INPUT_CAPABILITY_GAP_ERROR_MESSAGE =
+  "当前模型不支持本次输入的媒体类型，请切换到支持图片或文件输入的模型后再发送。";
+
+export const MODEL_SELECTION_REQUIRED_ERROR_MESSAGE =
+  "lime_model_selection_required: provider/model selection incomplete";
+
+const MODEL_SELECTION_REQUIRED_DISPLAY_MESSAGE =
+  "请先在输入框底部选择可用模型，或完成服务商登录后再发送。";
+
 function normalizeRuntimeErrorMessage(errorMessage: string): string {
   const normalized = errorMessage.trim();
   return normalized || DEFAULT_RUNTIME_ERROR_MESSAGE;
@@ -27,7 +37,7 @@ function normalizeRuntimeErrorMessage(errorMessage: string): string {
 
 function looksLikeHttpStatus(
   message: string,
-  status: "401" | "402" | "403" | "503",
+  status: "401" | "402" | "403" | "404" | "503",
 ): boolean {
   return new RegExp(`(^|\\D)${status}(\\D|$)`).test(message);
 }
@@ -41,12 +51,15 @@ function readAgentRuntimeCopy(key: string, fallback: string): string {
     return fallback;
   }
 
-  return String(
-    i18n.t(key, {
-      ns: "agent",
-      defaultValue: fallback,
-    }),
-  );
+  const translate = i18n.t as unknown as (
+    key: string,
+    options?: Record<string, unknown>,
+  ) => string;
+
+  return translate(key, {
+    ns: "agent",
+    defaultValue: fallback,
+  });
 }
 
 function isLikelyProviderAuthError(message: string): boolean {
@@ -127,9 +140,37 @@ function isLikelyProviderUnavailableError(message: string): boolean {
   );
 }
 
+function isLikelyProviderNotFoundError(message: string): boolean {
+  return (
+    message.includes("agent provider execution failed") &&
+    (looksLikeHttpStatus(message, "404") ||
+      includesAny(message, [
+        "resource not found",
+        "notfounderror",
+        '"detail":"not found"',
+        '"detail": "not found"',
+      ]))
+  );
+}
+
 function isLikelyInternalRuntimeTransportError(message: string): boolean {
   return (
-    includesAny(message, ["-32603", "-32002", "troubleshooting"]) ||
+    includesAny(message, [
+      "-32603",
+      "-32002",
+      "failed to connect",
+      "connection refused",
+      "connection reset",
+      "connection timed out",
+      "connect timeout",
+      "network error",
+      "dns error",
+      "troubleshooting",
+      "agent runtime tool lifecycle validation failed",
+      "runtime tool lifecycle validation failed",
+      "tool_args_without_start",
+      "tool_result_without_start",
+    ]) ||
     ((message.includes("json-rpc") || message.includes("jsonrpc")) &&
       includesAny(message, [
         "internal error",
@@ -139,12 +180,49 @@ function isLikelyInternalRuntimeTransportError(message: string): boolean {
   );
 }
 
+function isModelInputCapabilityGapError(message: string): boolean {
+  return (
+    message === MODEL_INPUT_CAPABILITY_GAP_ERROR_PREFIX ||
+    message.startsWith(`${MODEL_INPUT_CAPABILITY_GAP_ERROR_PREFIX}:`)
+  );
+}
+
+function isModelSelectionRequiredError(message: string): boolean {
+  return (
+    message === MODEL_SELECTION_REQUIRED_ERROR_MESSAGE ||
+    message.startsWith(`${MODEL_SELECTION_REQUIRED_ERROR_MESSAGE}:`) ||
+    message.includes("requires provider/model selection")
+  );
+}
+
 export function resolveAgentRuntimeErrorPresentation(errorMessage: string): {
   displayMessage: string;
   toastMessage: string;
 } {
   const normalizedMessage = normalizeRuntimeErrorMessage(errorMessage);
   const lowerMessage = normalizedMessage.toLowerCase();
+
+  if (isModelSelectionRequiredError(lowerMessage)) {
+    const message = readAgentRuntimeCopy(
+      "agentChat.runtimeError.modelSelectionRequired",
+      MODEL_SELECTION_REQUIRED_DISPLAY_MESSAGE,
+    );
+    return {
+      displayMessage: message,
+      toastMessage: message,
+    };
+  }
+
+  if (isModelInputCapabilityGapError(lowerMessage)) {
+    const message = readAgentRuntimeCopy(
+      "agentChat.runtimeError.modelInputCapabilityGap",
+      MODEL_INPUT_CAPABILITY_GAP_ERROR_MESSAGE,
+    );
+    return {
+      displayMessage: message,
+      toastMessage: message,
+    };
+  }
 
   if (isLikelyProviderSessionExpiredError(lowerMessage)) {
     return {
@@ -160,7 +238,10 @@ export function resolveAgentRuntimeErrorPresentation(errorMessage: string): {
     };
   }
 
-  if (isLikelyProviderUnavailableError(lowerMessage)) {
+  if (
+    isLikelyProviderUnavailableError(lowerMessage) ||
+    isLikelyProviderNotFoundError(lowerMessage)
+  ) {
     const message = readAgentRuntimeCopy(
       "agentChat.runtimeError.providerUnavailable",
       PROVIDER_UNAVAILABLE_ERROR_MESSAGE,

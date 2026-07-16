@@ -12,7 +12,7 @@ import {
 const tempDirs: string[] = [];
 
 function createTempDir(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ember-i18n-boundary-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lime-i18n-boundary-"));
   tempDirs.push(dir);
   return dir;
 }
@@ -80,7 +80,7 @@ describe("i18n language boundary report", () => {
       sourceDirs: ["src", "ember-rs"],
     });
 
-    expect(report.schemaVersion).toBe("ember.i18n.languageBoundaryReport.v1");
+    expect(report.schemaVersion).toBe("lime.i18n.languageBoundaryReport.v1");
     expect(report.summary.categorySummaries).toEqual(
       expect.arrayContaining([
         { category: "browserEnvironmentLanguage", count: 1 },
@@ -144,7 +144,7 @@ describe("i18n language boundary report", () => {
     expect(JSON.parse(fs.readFileSync(outputPath, "utf8"))).toEqual(
       expect.objectContaining({
         filters: {},
-        schemaVersion: "ember.i18n.languageBoundaryReport.v1",
+        schemaVersion: "lime.i18n.languageBoundaryReport.v1",
       }),
     );
   });

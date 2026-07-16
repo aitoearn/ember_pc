@@ -1,9 +1,9 @@
 //! OpenAI Custom Provider (自定义 OpenAI 兼容 API)
 use crate::converter::ReasoningHandler;
-use ember_core::api_host_utils::{
+use lime_core::api_host_utils::{
     normalize_openai_compatible_api_host, normalize_openai_model_discovery_host,
 };
-use ember_core::models::openai::{ChatCompletionRequest, ChatMessage};
+use lime_core::models::openai::{ChatCompletionRequest, ChatMessage};
 use reqwest::StatusCode;
 use reqwest::{Client, RequestBuilder};
 use serde::{Deserialize, Serialize};
@@ -11,8 +11,8 @@ use std::error::Error;
 use std::time::Duration;
 use url::{form_urlencoded, Url};
 
-const EMBER_TENANT_HEADER: &str = "X-Ember-Tenant-ID";
-const EMBER_TENANT_PARAM: &str = "ember_tenant_id";
+const LIME_TENANT_HEADER: &str = "X-Lime-Tenant-ID";
+const LIME_TENANT_PARAM: &str = "lime_tenant_id";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct OpenAICustomConfig {
@@ -50,11 +50,11 @@ impl Default for OpenAICustomProvider {
 
 impl OpenAICustomProvider {
     fn tool_calling_v2_enabled() -> bool {
-        ember_core::tool_calling::tool_calling_v2_enabled()
+        lime_core::tool_calling::tool_calling_v2_enabled()
     }
 
     fn native_input_examples_enabled() -> bool {
-        ember_core::tool_calling::tool_calling_native_input_examples_enabled()
+        lime_core::tool_calling::tool_calling_native_input_examples_enabled()
     }
 
     fn normalize_openai_request_payload(&self, payload: &mut serde_json::Value) {
@@ -107,7 +107,7 @@ impl OpenAICustomProvider {
                 .and_then(|v| v.as_str())
                 .unwrap_or_default();
             let metadata =
-                ember_core::tool_calling::extract_tool_surface_metadata(tool_name, &parameters);
+                lime_core::tool_calling::extract_tool_surface_metadata(tool_name, &parameters);
             let input_examples = metadata.input_examples;
             let allowed_callers = metadata.allowed_callers.unwrap_or_default();
             let deferred_loading = metadata.deferred_loading.unwrap_or(false);
@@ -306,7 +306,7 @@ impl OpenAICustomProvider {
             .ok()
     }
 
-    fn normalize_ember_tenant_id(value: &str) -> Option<String> {
+    fn normalize_lime_tenant_id(value: &str) -> Option<String> {
         let tenant_id = value.trim();
         if tenant_id.is_empty() {
             return None;
@@ -318,30 +318,30 @@ impl OpenAICustomProvider {
             .then(|| tenant_id.to_string())
     }
 
-    fn parse_ember_tenant_id_from_pairs(value: &str) -> Option<String> {
+    fn parse_lime_tenant_id_from_pairs(value: &str) -> Option<String> {
         form_urlencoded::parse(value.as_bytes()).find_map(|(key, value)| {
-            (key == EMBER_TENANT_PARAM)
-                .then(|| Self::normalize_ember_tenant_id(&value))
+            (key == LIME_TENANT_PARAM)
+                .then(|| Self::normalize_lime_tenant_id(&value))
                 .flatten()
         })
     }
 
-    fn ember_tenant_id_from_base_url(&self) -> Option<String> {
+    fn lime_tenant_id_from_base_url(&self) -> Option<String> {
         let base_url = self.config.base_url.as_deref()?;
         let url = Self::parse_config_url(base_url)?;
 
         url.query()
-            .and_then(Self::parse_ember_tenant_id_from_pairs)
+            .and_then(Self::parse_lime_tenant_id_from_pairs)
             .or_else(|| {
                 url.fragment()
-                    .and_then(Self::parse_ember_tenant_id_from_pairs)
+                    .and_then(Self::parse_lime_tenant_id_from_pairs)
             })
     }
 
     fn apply_auth_headers(&self, request: RequestBuilder, api_key: &str) -> RequestBuilder {
         let request = request.header("Authorization", format!("Bearer {api_key}"));
-        if let Some(tenant_id) = self.ember_tenant_id_from_base_url() {
-            request.header(EMBER_TENANT_HEADER, tenant_id)
+        if let Some(tenant_id) = self.lime_tenant_id_from_base_url() {
+            request.header(LIME_TENANT_HEADER, tenant_id)
         } else {
             request
         }
@@ -666,7 +666,7 @@ mod tests {
         Json, Router,
     };
     use futures::StreamExt;
-    use ember_core::models::openai::{ChatMessage, FunctionDef, MessageContent, Tool};
+    use lime_core::models::openai::{ChatMessage, FunctionDef, MessageContent, Tool};
     use std::sync::Arc;
     use tokio::sync::Mutex;
 
@@ -729,7 +729,7 @@ mod tests {
         ) -> impl IntoResponse {
             captured.lock().await.push(
                 headers
-                    .get(EMBER_TENANT_HEADER)
+                    .get(LIME_TENANT_HEADER)
                     .and_then(|value| value.to_str().ok())
                     .map(ToString::to_string),
             );
@@ -781,7 +781,7 @@ mod tests {
                     parameters: Some(serde_json::json!({
                         "type":"object",
                         "properties":{"query":{"type":"string"}},
-                        "x-ember": {
+                        "x-lime": {
                             "input_examples":[{"query":"rust async"}],
                             "allowed_callers":["assistant","code_execution"],
                             "deferred_loading": true
@@ -808,7 +808,7 @@ mod tests {
                     "parameters": {
                         "type":"object",
                         "properties":{"query":{"type":"string"}},
-                        "x-ember": {
+                        "x-lime": {
                             "input_examples":[{"query":"rust async"}],
                             "allowed_callers":["assistant","code_execution"],
                             "deferred_loading":true
@@ -829,7 +829,7 @@ mod tests {
     }
 
     #[test]
-    fn test_normalize_openai_request_payload_supports_x_ember_alias() {
+    fn test_normalize_openai_request_payload_supports_x_lime_alias() {
         let provider = OpenAICustomProvider::default();
         let mut payload = serde_json::json!({
             "model": "deepseek-chat",
@@ -842,7 +842,7 @@ mod tests {
                     "parameters": {
                         "type":"object",
                         "properties":{"query":{"type":"string"}},
-                        "x_ember": {
+                        "x_lime": {
                             "inputExamples":[{"query":"tool search"}],
                             "allowedCallers":["tool_search"]
                         }
@@ -920,7 +920,7 @@ mod tests {
                     "parameters": {
                         "type":"object",
                         "properties":{"query":{"type":"string"}},
-                        "x_ember": {
+                        "x_lime": {
                             "inputExamples":[{"query":"tool search"}],
                             "allowedCallers":["assistant"],
                             "deferredLoading": true
@@ -1079,25 +1079,25 @@ mod tests {
     }
 
     #[test]
-    fn test_ember_tenant_id_from_base_url_fragment() {
+    fn test_lime_tenant_id_from_base_url_fragment() {
         let provider = OpenAICustomProvider::with_config(
             "sk-test".to_string(),
-            Some("https://llm.emberai.run#ember_tenant_id=tenant-0001".to_string()),
+            Some("https://llm.limeai.run#lime_tenant_id=tenant-0001".to_string()),
         );
 
         assert_eq!(
-            provider.ember_tenant_id_from_base_url().as_deref(),
+            provider.lime_tenant_id_from_base_url().as_deref(),
             Some("tenant-0001")
         );
     }
 
     #[tokio::test]
-    async fn test_call_api_adds_ember_tenant_header_from_base_url_fragment() {
+    async fn test_call_api_adds_lime_tenant_header_from_base_url_fragment() {
         let captured = Arc::new(Mutex::new(Vec::<Option<String>>::new()));
         let (base_url, server_handle) = start_header_capture_server(captured.clone()).await;
         let mut provider = OpenAICustomProvider::with_config(
             "sk-test".to_string(),
-            Some(format!("{base_url}#ember_tenant_id=tenant-0001")),
+            Some(format!("{base_url}#lime_tenant_id=tenant-0001")),
         );
         provider.client = reqwest::Client::builder()
             .no_proxy()

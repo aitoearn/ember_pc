@@ -1,5 +1,5 @@
-export const EDITOR_PERF_DEBUG_KEY = "ember:editor-perf-debug";
-export const INPUT_LATENCY_DEBUG_KEY = "ember:input-latency-debug";
+export const EDITOR_PERF_DEBUG_KEY = "lime:editor-perf-debug";
+export const INPUT_LATENCY_DEBUG_KEY = "lime:input-latency-debug";
 
 interface RenderPerfPayload {
   [key: string]: string | number | boolean | null | undefined;

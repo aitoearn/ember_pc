@@ -2,7 +2,7 @@ import { act, type ReactNode } from "react";
 import type React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { SkillPackageInstallDialog } from "./SkillPackageInstallDialog";
 
 const mocks = vi.hoisted(() => ({
@@ -144,7 +144,7 @@ describe("SkillPackageInstallDialog", () => {
         IS_REACT_ACT_ENVIRONMENT?: boolean;
       }
     ).IS_REACT_ACT_ENVIRONMENT = true;
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     mocks.inspectLocalSkillPackage.mockReset();
     mocks.inspectLocalSkillPackage.mockResolvedValue(createInspectionResult());
     mocks.installLocalSkillPackage.mockReset();
@@ -165,7 +165,7 @@ describe("SkillPackageInstallDialog", () => {
       act(() => mounted.root.unmount());
       mounted.container.remove();
     }
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
     vi.clearAllMocks();
   });
 
@@ -174,7 +174,7 @@ describe("SkillPackageInstallDialog", () => {
 
     expect(mocks.inspectLocalSkillPackage).toHaveBeenCalledWith(
       "/Users/demo/article-typesetting-master.skill",
-      "ember",
+      "lime",
     );
     expect(document.body.textContent).toContain(
       "Add “article-typesetting-master” to your library?",
@@ -235,7 +235,7 @@ describe("SkillPackageInstallDialog", () => {
 
     expect(mocks.installLocalSkillPackage).toHaveBeenCalledWith(
       "/Users/demo/article-typesetting-master.skill",
-      "ember",
+      "lime",
     );
     expect(onInstalled).toHaveBeenCalledWith("article-typesetting-master");
     expect(onOpenChange).toHaveBeenCalledWith(false);

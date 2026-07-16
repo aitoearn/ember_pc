@@ -1,4 +1,4 @@
-const VIDEO_WORKBENCH_TASK_ACTION_EVENT = "ember:video-workbench-task-action";
+const VIDEO_WORKBENCH_TASK_ACTION_EVENT = "lime:video-workbench-task-action";
 
 export type VideoWorkbenchTaskAction = "retry" | "cancel";
 

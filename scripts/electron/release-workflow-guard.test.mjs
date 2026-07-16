@@ -108,7 +108,7 @@ describe("Electron release workflow guard", () => {
     const current = fs.readFileSync(".github/workflows/release.yml", "utf8");
     const workflowPath = tempWorkflowPath(
       current.replace(
-        /          npx electron-forge package \\\n            --platform "\$\{\{ matrix\.host_platform \}\}" \\\n            --arch "\$\{\{ matrix\.arch \}\}"\n/,
+        /            npx electron-forge package \\\n              --platform "\$\{\{ matrix\.host_platform \}\}" \\\n              --arch "\$\{\{ matrix\.arch \}\}" 2>&1 \| tee "\$FORGE_PACKAGE_LOG"\n/,
         "",
       ),
     );
@@ -116,6 +116,39 @@ describe("Electron release workflow guard", () => {
     expect(() => validateReleaseWorkflow({ workflowPath })).toThrow(
       /Electron Forge make step must include npx electron-forge package/,
     );
+  });
+
+  it("rejects missing macOS transient package retry in Forge package step", () => {
+    const current = fs.readFileSync(".github/workflows/release.yml", "utf8");
+    const workflowPath = tempWorkflowPath(
+      current.replaceAll(
+        "is_transient_macos_package_error",
+        "is_package_error",
+      ),
+    );
+
+    expect(() => validateReleaseWorkflow({ workflowPath })).toThrow(
+      /Electron Forge make step must include is_transient_macos_package_error/,
+    );
+  });
+
+  it("rejects missing macOS 502 retry classification in Forge package step", () => {
+    const current = fs.readFileSync(".github/workflows/release.yml", "utf8");
+    const workflowPath = tempWorkflowPath(
+      current.replace(
+        "Response code 502 \\\\(Bad Gateway\\\\)",
+        "Response code 500 \\\\(Internal Server Error\\\\)",
+      ),
+    );
+
+    try {
+      validateReleaseWorkflow({ workflowPath });
+      throw new Error("expected validateReleaseWorkflow to throw");
+    } catch (error) {
+      expect(String(error)).toContain(
+        "Electron Forge make step must include Response code 502 \\\\(Bad Gateway\\\\)",
+      );
+    }
   });
 
   it("rejects Forge make without the existing package output", () => {
@@ -132,11 +165,11 @@ describe("Electron release workflow guard", () => {
   it("rejects missing macOS DMG detach retry guard in Forge make step", () => {
     const current = fs.readFileSync(".github/workflows/release.yml", "utf8");
     const workflowPath = tempWorkflowPath(
-      current.replaceAll("hdiutil detach /Volumes/Ember", "hdiutil detach"),
+      current.replaceAll("hdiutil detach /Volumes/Lime", "hdiutil detach"),
     );
 
     expect(() => validateReleaseWorkflow({ workflowPath })).toThrow(
-      /Electron Forge make step must include hdiutil detach \/Volumes\/Ember/,
+      /Electron Forge make step must include hdiutil detach \/Volumes\/Lime/,
     );
   });
 
@@ -228,14 +261,14 @@ describe("Electron release workflow guard", () => {
 
   it("rejects retired builder updater metadata files in the repository", () => {
     const repositoryRoot = tempRepositoryRoot({
-      "docs/latest-mac.yml": "legacy mac updater metadata",
-      "docs/Ember.app.tar.gz": "legacy archive",
-      "docs/Ember.dmg.blockmap": "legacy blockmap",
-      "docs/Ember.sig": "legacy signature",
+      "internal/latest-mac.yml": "legacy mac updater metadata",
+      "internal/Lime.app.tar.gz": "legacy archive",
+      "internal/Lime.dmg.blockmap": "legacy blockmap",
+      "internal/Lime.sig": "legacy signature",
     });
 
     expect(() => validateReleaseWorkflow({ repositoryRoot })).toThrow(
-      /retired Electron packaging files must not exist.*Ember\.app\.tar\.gz.*Ember\.dmg\.blockmap.*Ember\.sig.*latest-mac\.yml/s,
+      /retired Electron packaging files must not exist.*Lime\.app\.tar\.gz.*Lime\.dmg\.blockmap.*Lime\.sig.*latest-mac\.yml/s,
     );
   });
 

@@ -10,7 +10,7 @@ describe("skillManagementMocks", () => {
       "get_skill_repos",
       "add_skill_repo",
       "remove_skill_repo",
-      "get_installed_ember_skills",
+      "get_installed_lime_skills",
       "refresh_skill_cache",
       "inspect_local_skill_for_app",
       "inspect_local_skill_detail_for_app",

@@ -36,6 +36,7 @@ import {
   filterActionsForCurrentAssistantTail,
   findActionRequestSourceMessageId,
 } from "../utils/currentTurnActionRequests";
+import type { AgentSessionDetailRefreshRequest } from "./agentSessionRefresh";
 
 interface UseAgentToolsOptions {
   runtime: AgentRuntimeAdapter;
@@ -46,6 +47,10 @@ interface UseAgentToolsOptions {
   setMessages: Dispatch<SetStateAction<Message[]>>;
   setThreadItems: Dispatch<SetStateAction<AgentThreadItem[]>>;
   refreshSessionReadModel: (targetSessionId?: string) => Promise<boolean>;
+  refreshSessionDetail?: (
+    targetSessionId?: string,
+    request?: AgentSessionDetailRefreshRequest,
+  ) => Promise<boolean>;
 }
 
 function findActionRequestInMessages(
@@ -97,6 +102,7 @@ export function useAgentTools(options: UseAgentToolsOptions) {
     setMessages,
     setThreadItems,
     refreshSessionReadModel,
+    refreshSessionDetail,
   } = options;
 
   const [pendingActions, setPendingActions] = useState<ActionRequired[]>([]);
@@ -107,6 +113,22 @@ export function useAgentTools(options: UseAgentToolsOptions) {
   const queuedFallbackResponsesRef = useRef<
     Map<string, QueuedFallbackActionResponse>
   >(new Map());
+
+  const refreshActionResponseSession = useCallback(
+    async (targetSessionId: string) => {
+      if (refreshSessionDetail) {
+        const refreshedDetail = await refreshSessionDetail(targetSessionId, {
+          source: "actionRespond",
+          detailMergeMode: "runtime_sync",
+        });
+        if (refreshedDetail) {
+          return true;
+        }
+      }
+      return refreshSessionReadModel(targetSessionId);
+    },
+    [refreshSessionDetail, refreshSessionReadModel],
+  );
 
   const confirmAction = useCallback(
     async (response: ConfirmResponse) => {
@@ -233,6 +255,7 @@ export function useAgentTools(options: UseAgentToolsOptions) {
             requestId: effectiveRequestId,
             actionType,
             confirmed: response.confirmed,
+            decision: response.decision,
             response: response.response,
             userData,
             metadata: submissionContext?.requestMetadata,
@@ -240,7 +263,9 @@ export function useAgentTools(options: UseAgentToolsOptions) {
             actionScope: metadataAction?.scope,
           });
         } else {
-          refreshSessionId = sessionIdRef.current;
+          const activeSessionId =
+            currentStreamingSessionIdRef.current || sessionIdRef.current;
+          refreshSessionId = activeSessionId;
           setSubmittedActionsInFlight((prev) =>
             upsertSubmittedAction(prev, {
               ...(metadataAction ||
@@ -255,12 +280,22 @@ export function useAgentTools(options: UseAgentToolsOptions) {
               submittedUserData,
             }),
           );
+          const activeEventName =
+            currentStreamingSessionIdRef.current === activeSessionId
+              ? currentStreamingEventNameRef.current
+              : null;
+          const submissionEventName =
+            activeEventName || metadataAction?.eventName;
           await runtime.respondToAction({
             sessionId: refreshSessionId || "",
             requestId: effectiveRequestId,
             actionType,
             confirmed: response.confirmed,
+            decision: response.decision,
             response: response.response,
+            userData: response.userData,
+            eventName: submissionEventName || undefined,
+            actionScope: metadataAction?.scope,
           });
         }
 
@@ -287,7 +322,7 @@ export function useAgentTools(options: UseAgentToolsOptions) {
           ),
         );
         if (refreshSessionId) {
-          await refreshSessionReadModel(refreshSessionId);
+          await refreshActionResponseSession(refreshSessionId);
         }
         setSubmittedActionsInFlight((prev) =>
           removeActionsByRequestIds(prev, acknowledgedRequestIds),
@@ -296,7 +331,7 @@ export function useAgentTools(options: UseAgentToolsOptions) {
         setSubmittedActionsInFlight((prev) =>
           removeActionsByRequestIds(prev, acknowledgedRequestIds),
         );
-        console.error("[AsterChat] 确认失败:", error);
+        console.error("[AgentChat] 确认失败:", error);
         toast.error(
           error instanceof Error && error.message
             ? error.message
@@ -309,6 +344,7 @@ export function useAgentTools(options: UseAgentToolsOptions) {
       currentStreamingEventNameRef,
       messages,
       pendingActions,
+      refreshActionResponseSession,
       runtime,
       refreshSessionReadModel,
       sessionIdRef,
@@ -414,7 +450,7 @@ export function useAgentTools(options: UseAgentToolsOptions) {
         toast.success("已重新拉起待处理请求");
         return true;
       } catch (error) {
-        console.error("[AsterChat] 重新拉起请求失败:", error);
+        console.error("[AgentChat] 重新拉起请求失败:", error);
         toast.error(
           error instanceof Error && error.message
             ? error.message

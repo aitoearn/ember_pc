@@ -2,21 +2,34 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockUseOemCloudAccess, mockApiKeyProviderSection } = vi.hoisted(() => ({
+const {
+  mockUseOemCloudAccess,
+  mockApiKeyProviderSection,
+  mockHandleGoogleLogin,
+  mockOpenUserCenter,
+} = vi.hoisted(() => ({
   mockUseOemCloudAccess: vi.fn(),
   mockApiKeyProviderSection: vi.fn(),
+  mockHandleGoogleLogin: vi.fn(),
+  mockOpenUserCenter: vi.fn(),
 }));
 
 vi.mock("@/components/api-key-provider", () => ({
-  ApiKeyProviderSection: (props: { className?: string }) => {
+  ApiKeyProviderSection: (props: {
+    className?: string;
+    exposeOemLoginPrompt?: boolean;
+    onOemLogin?: () => void;
+  }) => {
     mockApiKeyProviderSection(props);
     return (
-      <div
+      <button
+        type="button"
         data-testid="api-key-provider-stub"
         className={props.className}
+        onClick={() => props.onOemLogin?.()}
       >
         API Key Provider 设置占位
-      </div>
+      </button>
     );
   },
 }));
@@ -27,11 +40,23 @@ vi.mock("@/hooks/useOemCloudAccess", () => ({
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => {
+    t: (key: string, values?: Record<string, unknown>) => {
       const dictionary: Record<string, string> = {
         "settings.tab.providers": "AI 服务商",
+        "settings.providers.cloud.brandFallback": "Lime Cloud",
+        "settings.providers.cloud.message.userCenterMissing":
+          "云端用户中心不可用",
+        "settings.providers.cloud.message.loginOpened":
+          "已打开 {{brand}} 登录",
+        "settings.providers.cloud.message.userCenterOpened":
+          "已打开 {{brand}} 用户中心",
+        "settings.providers.cloud.message.browserRetry": "请在浏览器重试",
+        "settings.providers.cloud.message.userCenterOpenFailed":
+          "打开 {{brand}} 用户中心失败：{{detail}}",
       };
-      return dictionary[key] ?? key;
+      return (dictionary[key] ?? key).replace(/\{\{(\w+)\}\}/g, (_, name) =>
+        String(values?.[name] ?? ""),
+      );
     },
   }),
 }));
@@ -47,8 +72,15 @@ const mounted: Mounted[] = [];
 
 function createAccessState(overrides: Record<string, unknown> = {}) {
   return {
+    runtime: null,
+    hubProviderName: "Lime Cloud",
+    session: null,
+    initializing: false,
+    openingGoogleLogin: false,
     errorMessage: null,
     infoMessage: null,
+    handleGoogleLogin: mockHandleGoogleLogin,
+    openUserCenter: mockOpenUserCenter,
     ...overrides,
   };
 }
@@ -74,6 +106,8 @@ beforeEach(() => {
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
   mockUseOemCloudAccess.mockReturnValue(createAccessState());
+  mockHandleGoogleLogin.mockResolvedValue(undefined);
+  mockOpenUserCenter.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -110,10 +144,10 @@ describe("CloudProviderSettings", () => {
     expect(text).toContain("API Key Provider 设置占位");
     expect(text).not.toContain("桌宠");
     expect(text).not.toContain("Companion");
-    expect(text).not.toContain("Ember Pet");
+    expect(text).not.toContain("Lime Pet");
   });
 
-  it("不应再向 Provider 主区透传 Ember Hub 登录提示", () => {
+  it("OEM 未登录时仍把登录动作接给 Provider 主区", async () => {
     mockUseOemCloudAccess.mockReturnValue(
       createAccessState({
         runtime: { baseUrl: "https://cloud.example.test" },
@@ -121,13 +155,51 @@ describe("CloudProviderSettings", () => {
       }),
     );
 
-    renderPage();
-
+    const container = renderPage();
     const providerProps = mockApiKeyProviderSection.mock.calls.at(-1)?.[0] as
-      | Record<string, unknown>
+      | { exposeOemLoginPrompt?: boolean }
       | undefined;
+    const loginButton = container.querySelector<HTMLButtonElement>(
+      '[data-testid="api-key-provider-stub"]',
+    );
 
-    expect(providerProps?.exposeOemLoginPrompt).toBeUndefined();
-    expect(providerProps?.onOemLogin).toBeUndefined();
+    expect(providerProps?.exposeOemLoginPrompt).toBe(true);
+
+    await act(async () => {
+      loginButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(mockHandleGoogleLogin).toHaveBeenCalledTimes(1);
+    expect(container.textContent ?? "").toContain("已打开 Lime Cloud 登录");
+  });
+
+  it("OEM 已登录时仍把用户中心动作接给 Provider 主区", async () => {
+    mockUseOemCloudAccess.mockReturnValue(
+      createAccessState({
+        runtime: { baseUrl: "https://cloud.example.test" },
+        session: { user: { id: "user-1" } },
+      }),
+    );
+
+    const container = renderPage();
+    const providerProps = mockApiKeyProviderSection.mock.calls.at(-1)?.[0] as
+      | { exposeOemLoginPrompt?: boolean }
+      | undefined;
+    const loginButton = container.querySelector<HTMLButtonElement>(
+      '[data-testid="api-key-provider-stub"]',
+    );
+
+    expect(providerProps?.exposeOemLoginPrompt).toBe(false);
+
+    await act(async () => {
+      loginButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(mockOpenUserCenter).toHaveBeenCalledWith("/welcome");
+    expect(container.textContent ?? "").toContain(
+      "已打开 Lime Cloud 用户中心",
+    );
   });
 });

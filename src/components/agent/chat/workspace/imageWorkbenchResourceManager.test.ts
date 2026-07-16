@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import type { Message } from "../types";
 import {
   buildImageWorkbenchPreviewResourceManagerInput,
@@ -8,7 +8,7 @@ import {
 
 describe("imageWorkbenchResourceManager", () => {
   beforeEach(async () => {
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
   });
 
   it("消息内图片点击应构造资源管理器会话并按点击图片定位", () => {

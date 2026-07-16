@@ -8,9 +8,9 @@ import {
 describe("expertAnalytics", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    window.__EMBER_OEM_CLOUD__ = {
+    window.__LIME_OEM_CLOUD__ = {
       enabled: true,
-      baseUrl: "https://ember.example.com",
+      baseUrl: "https://lime.example.com",
       tenantId: "tenant-0001",
       sessionToken: "session-token",
     };
@@ -18,7 +18,7 @@ describe("expertAnalytics", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    delete window.__EMBER_OEM_CLOUD__;
+    delete window.__LIME_OEM_CLOUD__;
     window.localStorage.clear();
   });
 
@@ -39,14 +39,14 @@ describe("expertAnalytics", () => {
       sourceSurface: "expert_plaza",
       catalogVersion: "tenant-0001:test",
       metadata: {
-        category: "test-strategy",
+        category: "marketing",
         prompt: "用户原始输入不应发送",
         assistantResponse: "助手回复不应发送",
       },
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://ember.example.com/api/v1/public/tenants/tenant-0001/client/experts/events",
+      "https://lime.example.com/api/v1/public/tenants/tenant-0001/client/experts/events",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
@@ -59,7 +59,7 @@ describe("expertAnalytics", () => {
     const body = JSON.parse(String(request.body)) as {
       events: Array<{ metadata?: Record<string, string> }>;
     };
-    expect(body.events[0]?.metadata).toEqual({ category: "test-strategy" });
+    expect(body.events[0]?.metadata).toEqual({ category: "marketing" });
     expect(String(request.body)).not.toContain("用户原始输入");
     expect(String(request.body)).not.toContain("助手回复");
   });

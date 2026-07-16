@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { SettingsTabs } from "@/types/settings";
 
 import { SettingsSidebar } from "./SettingsSidebar";
@@ -38,7 +38,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
   vi.clearAllMocks();
 });
 
@@ -55,7 +55,7 @@ afterEach(async () => {
     target.container.remove();
   }
   vi.clearAllMocks();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("SettingsSidebar", () => {

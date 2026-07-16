@@ -3,14 +3,24 @@ import type { SendMessageFn } from "./agentChatShared";
 import { createAgentChatSendMessage } from "./agentChatSendMessage";
 import { listSlashEntryUsage } from "../skill-selection/slashEntryUsage";
 
+type CreateSendMessageOptions = Parameters<
+  typeof createAgentChatSendMessage
+>[0];
+
 beforeEach(() => {
   window.localStorage.clear();
 });
 
+function createTestAgentChatSendMessage(
+  options: CreateSendMessageOptions,
+): SendMessageFn {
+  return createAgentChatSendMessage(options);
+}
+
 describe("createAgentChatSendMessage", () => {
   it("普通消息应直接透传到 rawSendMessage", async () => {
     const rawSendMessage = vi.fn<SendMessageFn>(async () => undefined);
-    const sendMessage = createAgentChatSendMessage({
+    const sendMessage = createTestAgentChatSendMessage({
       baseStatusSnapshot: {
         sessionId: "session-1",
         currentTurnId: "turn-1",
@@ -45,10 +55,126 @@ describe("createAgentChatSendMessage", () => {
     );
   });
 
+  it("带图片普通消息不应在 rawSendMessage 前拉取模型能力摘要", async () => {
+    const rawSendMessage = vi.fn<SendMessageFn>(async () => undefined);
+    const sendMessage = createTestAgentChatSendMessage({
+      baseStatusSnapshot: {
+        sessionId: "session-1",
+        currentTurnId: "turn-1",
+        providerType: "openai",
+        model: "gpt-5",
+        executionStrategy: "react",
+        queuedTurnsCount: 0,
+        isSending: false,
+      },
+      rawSendMessage,
+      compactSession: vi.fn(async () => undefined),
+      clearMessages: vi.fn(),
+      createFreshSession: vi.fn(async () => null),
+      appendAssistantMessage: vi.fn(),
+      notifyInfo: vi.fn(),
+      notifySuccess: vi.fn(),
+    });
+
+    await sendMessage(
+      "分析这张图",
+      [{ data: "base64-image", mediaType: "image/png" }],
+      false,
+      false,
+      false,
+      "react",
+      "gpt-5.4",
+    );
+
+    expect(rawSendMessage.mock.calls[0]?.[8]).toBeUndefined();
+  });
+
+  it("显式传入模型能力摘要时应原样透传", async () => {
+    const rawSendMessage = vi.fn<SendMessageFn>(async () => undefined);
+    const sendOptions = {
+      requestMetadata: { source: "test" },
+      modelCapabilitySummary: null,
+    };
+    const sendMessage = createTestAgentChatSendMessage({
+      baseStatusSnapshot: {
+        sessionId: "session-1",
+        currentTurnId: "turn-1",
+        providerType: "openai",
+        model: "gpt-5",
+        executionStrategy: "react",
+        queuedTurnsCount: 0,
+        isSending: false,
+      },
+      rawSendMessage,
+      compactSession: vi.fn(async () => undefined),
+      clearMessages: vi.fn(),
+      createFreshSession: vi.fn(async () => null),
+      appendAssistantMessage: vi.fn(),
+      notifyInfo: vi.fn(),
+      notifySuccess: vi.fn(),
+    });
+
+    await sendMessage(
+      "继续执行",
+      [],
+      false,
+      false,
+      false,
+      "react",
+      "gpt-5.4",
+      undefined,
+      sendOptions,
+    );
+
+    expect(rawSendMessage.mock.calls[0]?.[8]).toBe(sendOptions);
+  });
+
+  it("发送选项中的 provider/model override 应直接透传", async () => {
+    const rawSendMessage = vi.fn<SendMessageFn>(async () => undefined);
+    const sendMessage = createTestAgentChatSendMessage({
+      baseStatusSnapshot: {
+        sessionId: "session-1",
+        currentTurnId: "turn-1",
+        providerType: "openai",
+        model: "gpt-5",
+        executionStrategy: "react",
+        queuedTurnsCount: 0,
+        isSending: false,
+      },
+      rawSendMessage,
+      compactSession: vi.fn(async () => undefined),
+      clearMessages: vi.fn(),
+      createFreshSession: vi.fn(async () => null),
+      appendAssistantMessage: vi.fn(),
+      notifyInfo: vi.fn(),
+      notifySuccess: vi.fn(),
+    });
+
+    await sendMessage(
+      "翻译这段内容",
+      [],
+      false,
+      false,
+      false,
+      "react",
+      "ignored-positional-model",
+      undefined,
+      {
+        providerOverride: "translation-provider",
+        modelOverride: "translation-model",
+      },
+    );
+
+    expect(rawSendMessage.mock.calls[0]?.[8]).toEqual({
+      providerOverride: "translation-provider",
+      modelOverride: "translation-model",
+    });
+  });
+
   it("命中本地 slash 命令时应跳过 rawSendMessage", async () => {
     const rawSendMessage = vi.fn<SendMessageFn>(async () => undefined);
     const appendAssistantMessage = vi.fn();
-    const sendMessage = createAgentChatSendMessage({
+    const sendMessage = createTestAgentChatSendMessage({
       baseStatusSnapshot: {
         sessionId: "session-status",
         currentTurnId: "turn-status",
@@ -89,7 +215,7 @@ describe("createAgentChatSendMessage", () => {
 
   it("命中 prompt slash 命令时应转换 prompt 后透传", async () => {
     const rawSendMessage = vi.fn<SendMessageFn>(async () => undefined);
-    const sendMessage = createAgentChatSendMessage({
+    const sendMessage = createTestAgentChatSendMessage({
       baseStatusSnapshot: {
         sessionId: "session-review",
         currentTurnId: "turn-review",
@@ -127,7 +253,7 @@ describe("createAgentChatSendMessage", () => {
   it("命中 /subagents 时应打开 Subagents 面板并跳过 rawSendMessage", async () => {
     const rawSendMessage = vi.fn<SendMessageFn>(async () => undefined);
     const onOpenSubagents = vi.fn();
-    const sendMessage = createAgentChatSendMessage({
+    const sendMessage = createTestAgentChatSendMessage({
       baseStatusSnapshot: {
         sessionId: "session-subagents",
         currentTurnId: "turn-subagents",
@@ -162,7 +288,7 @@ describe("createAgentChatSendMessage", () => {
   it("命中 /agent alias 时也应打开 Subagents 面板", async () => {
     const rawSendMessage = vi.fn<SendMessageFn>(async () => undefined);
     const onOpenSubagents = vi.fn();
-    const sendMessage = createAgentChatSendMessage({
+    const sendMessage = createTestAgentChatSendMessage({
       baseStatusSnapshot: {
         sessionId: "session-agent-alias",
         currentTurnId: "turn-agent-alias",
@@ -197,7 +323,7 @@ describe("createAgentChatSendMessage", () => {
   it("skipUserMessage 为 true 时应绕过 slash 分流", async () => {
     const rawSendMessage = vi.fn<SendMessageFn>(async () => undefined);
     const appendAssistantMessage = vi.fn();
-    const sendMessage = createAgentChatSendMessage({
+    const sendMessage = createTestAgentChatSendMessage({
       baseStatusSnapshot: {
         sessionId: "session-skip",
         currentTurnId: "turn-skip",

@@ -8,7 +8,7 @@ describe("agentStreamSubmitOpController", () => {
       activeSessionId: "session-fast-1",
       content: "只回答一个字：好",
       images: [],
-      eventName: "aster_stream_fast",
+      eventName: "agent_stream_fast",
       submitWorkspaceId: "workspace-1",
       requestTurnId: "turn-fast-1",
       skipPreSubmitResume: true,
@@ -22,7 +22,7 @@ describe("agentStreamSubmitOpController", () => {
       type: "user_input",
       text: "只回答一个字：好",
       sessionId: "session-fast-1",
-      eventName: "aster_stream_fast",
+      eventName: "agent_stream_fast",
       workspaceId: "workspace-1",
       turnId: "turn-fast-1",
       images: undefined,
@@ -54,7 +54,7 @@ describe("agentStreamSubmitOpController", () => {
           mediaType: "image/png",
         },
       ],
-      eventName: "aster_stream_x",
+      eventName: "agent_stream_x",
       submitWorkspaceId: undefined,
       requestTurnId: "turn-1",
       systemPrompt: "system",
@@ -117,7 +117,7 @@ describe("agentStreamSubmitOpController", () => {
         },
       ],
       sessionId: "session-social-1",
-      eventName: "aster_stream_x",
+      eventName: "agent_stream_x",
       workspaceId: undefined,
       turnId: "turn-1",
       systemPrompt: "system",
@@ -180,7 +180,7 @@ describe("agentStreamSubmitOpController", () => {
       activeSessionId: "session-reasoning-1",
       content: "继续",
       images: [],
-      eventName: "aster_stream_reasoning",
+      eventName: "agent_stream_reasoning",
       submitWorkspaceId: "workspace-1",
       requestTurnId: "turn-reasoning-1",
       skipPreSubmitResume: true,
@@ -194,12 +194,34 @@ describe("agentStreamSubmitOpController", () => {
     expect(op.preferences?.reasoningEffort).toBe("high");
   });
 
+  it("显式强制搜索命令应把 web search 偏好写入 user_input preferences", () => {
+    const op = buildAgentStreamSubmitOp({
+      activeSessionId: "session-search-1",
+      content: "@搜索 关键词:AI 行业新闻",
+      images: [],
+      eventName: "agent_stream_search",
+      submitWorkspaceId: "workspace-1",
+      requestTurnId: "turn-search-1",
+      skipPreSubmitResume: true,
+      effectiveExecutionStrategy: "react",
+      effectiveAccessMode: "current",
+      effectiveProviderType: "openai",
+      effectiveModel: "gpt-5.5",
+      webSearch: true,
+      searchMode: "required",
+      explicitToolPreferences: true,
+    });
+
+    expect(op.preferences?.webSearch).toBe(true);
+    expect(op.preferences?.searchMode).toBe("required");
+  });
+
   it("应在最终 submit 边界把 thread goal 绑定到真实 session id", () => {
     const op = buildAgentStreamSubmitOp({
       activeSessionId: "session-real-1",
       content: "请按目标推进",
       images: [],
-      eventName: "aster_stream_goal",
+      eventName: "agent_stream_goal",
       requestTurnId: "turn-goal-1",
       requestMetadata: {
         harness: {

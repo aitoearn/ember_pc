@@ -16,9 +16,9 @@ use app_server_protocol::WorkspaceReadResponse;
 use app_server_protocol::WorkspaceUpdateParams;
 use app_server_protocol::WorkspaceUpdateResponse;
 use chrono::Utc;
-use ember_core::app_paths;
-use ember_core::database;
-use ember_core::database::DbConnection;
+use lime_core::app_paths;
+use lime_core::database;
+use lime_core::database::DbConnection;
 use rusqlite::params;
 use rusqlite::OptionalExtension;
 use rusqlite::Row;
@@ -31,15 +31,6 @@ use uuid::Uuid;
 
 const LEGACY_DEFAULT_WORKSPACE_ID: &str = "workspace-default";
 const DEFAULT_PROJECT_NAME: &str = "默认项目";
-
-pub(crate) fn normalize_workspace_filter(value: Option<&str>) -> Option<&str> {
-    let value = value?.trim();
-    if value.is_empty() || value == LEGACY_DEFAULT_WORKSPACE_ID {
-        None
-    } else {
-        Some(value)
-    }
-}
 
 pub(crate) fn list_workspaces(
     db: &DbConnection,

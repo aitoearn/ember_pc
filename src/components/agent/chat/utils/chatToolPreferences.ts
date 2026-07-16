@@ -1,13 +1,15 @@
-import type { AsterExecutionStrategy } from "@/lib/api/agentRuntime";
+import type { AgentExecutionStrategy } from "@/lib/api/agentExecutionRuntime";
 import { isGeneralResearchTheme } from "./generalAgentPrompt";
 
 export interface ChatToolPreferences {
+  webSearch?: boolean;
+  thinking?: boolean;
   task: boolean;
   subagent: boolean;
 }
 
 export function isPlanExecutionStrategy(
-  executionStrategy?: AsterExecutionStrategy | null,
+  executionStrategy?: AgentExecutionStrategy | null,
 ): boolean {
   void executionStrategy;
   return false;
@@ -15,7 +17,7 @@ export function isPlanExecutionStrategy(
 
 export function alignChatToolPreferencesWithExecutionStrategy(
   preferences: ChatToolPreferences,
-  executionStrategy?: AsterExecutionStrategy | null,
+  executionStrategy?: AgentExecutionStrategy | null,
 ): ChatToolPreferences {
   void executionStrategy;
   return preferences;
@@ -38,8 +40,8 @@ export function shouldUseCompactGeneralPromptForPreferences(params: {
   return !params.preferences.task && !params.preferences.subagent;
 }
 
-const LEGACY_CHAT_TOOL_PREFERENCES_KEY = "ember.chat.tool_preferences.v1";
-const CHAT_TOOL_PREFERENCES_KEY_PREFIX = "ember.chat.tool_preferences";
+const LEGACY_CHAT_TOOL_PREFERENCES_KEY = "lime.chat.tool_preferences.v1";
+const CHAT_TOOL_PREFERENCES_KEY_PREFIX = "lime.chat.tool_preferences";
 const CHAT_TOOL_PREFERENCES_KEY_VERSION = "v3";
 
 const normalizeBoolean = (value: unknown, fallback: boolean): boolean =>

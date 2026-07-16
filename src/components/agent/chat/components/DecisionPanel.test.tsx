@@ -3,7 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DecisionPanel } from "./DecisionPanel";
 import type { ActionRequired, ConfirmResponse } from "../types";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 interface RenderResult {
   container: HTMLDivElement;
@@ -21,7 +21,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 function renderDecisionPanel(request: ActionRequired): RenderResult {
@@ -440,6 +440,34 @@ describe("DecisionPanel ask_user", () => {
     expect(container.textContent).not.toContain("取消");
   });
 
+  it("历史审批应复用普通已处理权限摘要且不伪造用户决定", () => {
+    const request: ActionRequired = {
+      requestId: "approval-codex-imported",
+      actionType: "tool_confirmation",
+      toolName: "exec_command",
+      prompt: "Approve imported command: npm test",
+      status: "submitted",
+      submittedUserData: {},
+      arguments: {
+        command: "npm test",
+        cwd: "/workspace/app",
+      },
+    };
+    const { container } = renderDecisionPanel(request);
+
+    expect(container.textContent).toContain("已处理权限请求");
+    expect(container.textContent).toContain("处理结果");
+    expect(container.textContent).toContain("已处理");
+    expect(container.textContent).not.toContain("Approve imported command");
+    expect(container.textContent).toContain("影响范围");
+    expect(container.textContent).toContain("本次授权");
+    expect(container.textContent).toContain("/workspace/app");
+    expect(container.textContent).not.toContain("imported_read_only");
+    expect(container.textContent).not.toContain('"decision"');
+    expect(container.textContent).not.toContain("你的回答");
+    expect(container.textContent).toContain("等待助手继续执行");
+  });
+
   it("显式提交答案等待回调完成时，应展示提交中并禁用交互", async () => {
     const request = createAskUserRequest("req-ask-user-loading");
     let resolveSubmit: (() => void) | null = null;
@@ -491,7 +519,7 @@ describe("DecisionPanel copywriting", () => {
     expect(container.textContent).not.toContain("Claude");
   });
 
-  it("tool_confirmation 应展示待确认动作、工具名和参数摘要，并继续提交允许响应", () => {
+  it("tool_confirmation 应展示只读确认摘要，并提示从输入区完成授权", () => {
     const request: ActionRequired = {
       requestId: "req-tool-confirm-summary",
       actionType: "tool_confirmation",
@@ -499,7 +527,7 @@ describe("DecisionPanel copywriting", () => {
       prompt: "允许执行测试命令？",
       arguments: {
         command: "npm test -- DecisionPanel",
-        cwd: "/workspace/ember",
+        cwd: "/workspace/lime",
         target_path: "src/components/agent/chat/components/DecisionPanel.tsx",
         sandboxed: true,
       },
@@ -534,7 +562,7 @@ describe("DecisionPanel copywriting", () => {
     expect(container.textContent).toContain("命令");
     expect(container.textContent).toContain("npm test -- DecisionPanel");
     expect(container.textContent).toContain("目录");
-    expect(container.textContent).toContain("/workspace/ember");
+    expect(container.textContent).toContain("/workspace/lime");
     expect(container.textContent).toContain("路径");
     expect(container.textContent).toContain(
       "src/components/agent/chat/components/DecisionPanel.tsx",
@@ -545,16 +573,20 @@ describe("DecisionPanel copywriting", () => {
         '[data-testid="decision-panel-tool-confirmation-argument"]',
       ).length,
     ).toBeGreaterThanOrEqual(3);
-
-    clickButton(findButtonByText(container, "允许"));
-
-    expect(onSubmit).toHaveBeenCalledTimes(1);
-    expect(onSubmit).toHaveBeenCalledWith({
-      requestId: "req-tool-confirm-summary",
-      confirmed: true,
-      response: "允许",
-      actionType: "tool_confirmation",
-    });
+    expect(
+      container.querySelector(
+        '[data-testid="decision-panel-tool-confirmation-readonly"]',
+      ),
+    ).toBeTruthy();
+    expect(container.textContent).toContain(
+      "请在输入区完成本次授权；消息流只保留只读记录。",
+    );
+    expect(
+      Array.from(container.querySelectorAll("button")).some((button) =>
+        ["允许", "拒绝"].some((label) => button.textContent?.includes(label)),
+      ),
+    ).toBe(false);
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("tool_confirmation 应对高影响命令展示高风险判断", () => {
@@ -565,7 +597,7 @@ describe("DecisionPanel copywriting", () => {
       prompt: "允许删除依赖目录？",
       arguments: {
         command: "rm -rf node_modules",
-        cwd: "/workspace/ember",
+        cwd: "/workspace/lime",
       },
     };
     const { container } = renderDecisionPanel(request);
@@ -579,7 +611,7 @@ describe("DecisionPanel copywriting", () => {
     expect(impact?.textContent).toContain("包含高影响命令");
     expect(impact?.textContent).toContain("影响范围");
     expect(impact?.textContent).toContain("目录");
-    expect(impact?.textContent).toContain("/workspace/ember");
+    expect(impact?.textContent).toContain("/workspace/lime");
     expect(impact?.textContent).toContain("本次授权");
   });
 
@@ -591,7 +623,7 @@ describe("DecisionPanel copywriting", () => {
       prompt: "允许执行运行时预检？",
       arguments: {
         command: "rm -rf node_modules",
-        cwd: "/workspace/ember",
+        cwd: "/workspace/lime",
         permission_facts: {
           risk_level: "low",
           risk_reason_label: "后端已判定为只读预检",
@@ -614,41 +646,25 @@ describe("DecisionPanel copywriting", () => {
     expect(impact?.textContent).toContain("仅允许本次只读预检请求");
     expect(impact?.textContent).not.toContain("高风险");
     expect(impact?.textContent).not.toContain("包含高影响命令");
-    expect(impact?.textContent).not.toContain("/workspace/ember");
+    expect(impact?.textContent).not.toContain("/workspace/lime");
   });
 
-  it("tool_confirmation 提交中时，应展示处理中并禁用按钮", async () => {
+  it("tool_confirmation 待确认态不应在消息流展示提交按钮", () => {
     const request: ActionRequired = {
       requestId: "req-tool-confirm-loading",
       actionType: "tool_confirmation",
       toolName: "exec_command",
       arguments: { cmd: "ls" },
     };
-    let resolveSubmit: (() => void) | null = null;
     const { container, onSubmit } = renderDecisionPanel(request);
-    onSubmit.mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveSubmit = resolve;
-        }),
-    );
 
-    const allowButton = findButtonByText(container, "允许");
-    const denyButton = findButtonByText(container, "拒绝");
-
-    await act(async () => {
-      allowButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      await Promise.resolve();
-    });
-
-    expect(onSubmit).toHaveBeenCalledTimes(1);
-    expect(allowButton.textContent).toContain("处理中");
-    expect(allowButton.disabled).toBe(true);
-    expect(denyButton.disabled).toBe(true);
-
-    await act(async () => {
-      resolveSubmit?.();
-      await Promise.resolve();
-    });
+    expect(
+      container.querySelector(
+        '[data-testid="decision-panel-tool-confirmation-readonly"]',
+      ),
+    ).toBeTruthy();
+    expect(container.querySelector("button")).toBeNull();
+    expect(container.querySelector("svg.animate-spin")).toBeNull();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

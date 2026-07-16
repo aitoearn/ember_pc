@@ -11,18 +11,18 @@ use app_server_protocol::AgentSessionObjectiveStatusUpdateParams;
 use app_server_protocol::AgentSessionObjectiveStatusUpdateResponse;
 use app_server_protocol::ManagedObjective;
 use app_server_protocol::ManagedObjectiveStatus;
-use ember_core::database;
-use ember_core::database::managed_objective_repository::clear_objective_by_owner;
-use ember_core::database::managed_objective_repository::get_agent_session_workspace_id;
-use ember_core::database::managed_objective_repository::get_objective_by_owner;
-use ember_core::database::managed_objective_repository::update_objective_audit_by_owner;
-use ember_core::database::managed_objective_repository::update_objective_status_by_owner;
-use ember_core::database::managed_objective_repository::upsert_objective;
-use ember_core::database::managed_objective_repository::ManagedObjectiveRecord as CoreManagedObjectiveRecord;
-use ember_core::database::managed_objective_repository::ManagedObjectiveStatus as CoreManagedObjectiveStatus;
-use ember_core::database::managed_objective_repository::ManagedObjectiveUpsert;
-use ember_core::database::managed_objective_repository::MANAGED_OBJECTIVE_OWNER_AGENT_SESSION;
-use ember_core::database::DbConnection;
+use lime_core::database;
+use lime_core::database::managed_objective_repository::clear_objective_by_owner;
+use lime_core::database::managed_objective_repository::get_agent_session_workspace_id;
+use lime_core::database::managed_objective_repository::get_objective_by_owner;
+use lime_core::database::managed_objective_repository::update_objective_audit_by_owner;
+use lime_core::database::managed_objective_repository::update_objective_status_by_owner;
+use lime_core::database::managed_objective_repository::upsert_objective;
+use lime_core::database::managed_objective_repository::ManagedObjectiveRecord as CoreManagedObjectiveRecord;
+use lime_core::database::managed_objective_repository::ManagedObjectiveStatus as CoreManagedObjectiveStatus;
+use lime_core::database::managed_objective_repository::ManagedObjectiveUpsert;
+use lime_core::database::managed_objective_repository::MANAGED_OBJECTIVE_OWNER_AGENT_SESSION;
+use lime_core::database::DbConnection;
 
 pub(crate) fn read_agent_session_objective(
     db: &DbConnection,
@@ -128,7 +128,7 @@ pub(crate) fn audit_agent_session_objective(
         &conn,
         &owner_kind,
         &owner_id,
-        ember_core::database::managed_objective_repository::ManagedObjectiveAuditUpdate {
+        lime_core::database::managed_objective_repository::ManagedObjectiveAuditUpdate {
             status: protocol_objective_status_to_core(update.status),
             last_audit_summary: update.last_audit_summary,
             last_evidence_pack_ref: update.last_evidence_pack_ref,

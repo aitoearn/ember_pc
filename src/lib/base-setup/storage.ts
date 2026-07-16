@@ -1,6 +1,6 @@
 import type { BaseSetupPackage, BaseSetupProjectionIndex } from "./types";
 
-export const BASE_SETUP_PACKAGE_STORAGE_KEY = "ember:base-setup-package:v1";
+export const BASE_SETUP_PACKAGE_STORAGE_KEY = "lime:base-setup-package:v1";
 
 export interface StoredBaseSetupPackageSnapshot {
   packageId: string;

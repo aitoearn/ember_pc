@@ -1,4 +1,7 @@
 use super::data_error;
+use super::model_projection::model_info_from_value;
+use super::model_projection::provider_info_from_value;
+use super::model_projection::provider_key_info_from_value;
 use super::values_from_serializable_vec;
 use crate::RuntimeCoreError;
 use app_server_protocol::ModelListParams;
@@ -40,39 +43,147 @@ use app_server_protocol::ModelProviderUiStateWriteParams;
 use app_server_protocol::ModelProviderUpdateParams;
 use app_server_protocol::ModelProviderWriteResponse;
 use app_server_protocol::ModelSyncStateReadResponse;
-use ember_core::database::dao::api_key_provider::ApiKeyEntry;
-use ember_core::database::dao::api_key_provider::ApiKeyProvider;
-use ember_core::database::dao::api_key_provider::ApiProviderPromptCacheMode;
-use ember_core::database::dao::api_key_provider::ApiProviderType;
-use ember_core::database::dao::api_key_provider::ProviderWithKeys;
-use ember_core::database::system_providers::get_system_providers;
-use ember_core::database::system_providers::SystemProviderDef;
-use ember_core::database::DbConnection;
-use ember_core::models::model_registry::ModelTier;
-use ember_services::api_key_provider_service::ApiKeyProviderService;
-use ember_services::model_registry_service::FetchModelsResult;
-use ember_services::model_registry_service::ModelRegistryService;
+use lime_core::database::dao::api_key_provider::ApiKeyEntry;
+use lime_core::database::dao::api_key_provider::ApiKeyProvider;
+use lime_core::database::dao::api_key_provider::ApiProviderPromptCacheMode;
+use lime_core::database::dao::api_key_provider::ApiProviderType;
+use lime_core::database::dao::api_key_provider::ProviderWithKeys;
+use lime_core::database::system_providers::get_system_providers;
+use lime_core::database::system_providers::SystemProviderDef;
+use lime_core::database::DbConnection;
+use lime_core::models::model_registry::EnhancedModelMetadata;
+use lime_core::models::model_registry::ModelTier;
+use lime_services::api_key_provider_service::ApiKeyProviderService;
+use lime_services::model_registry_service::FetchModelsResult;
+use lime_services::model_registry_service::ModelRegistryService;
 use serde_json::json;
 use serde_json::Map;
 use serde_json::Value;
+use std::collections::HashSet;
 
 pub(crate) async fn list_models(
+    db: &DbConnection,
+    api_key_provider_service: &ApiKeyProviderService,
     model_registry_service: &ModelRegistryService,
     params: ModelListParams,
 ) -> Result<ModelListResponse, RuntimeCoreError> {
-    let models = if let Some(provider_id) = params.provider_id.as_deref() {
+    let provider_filter = params
+        .provider_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let tier_filter = params
+        .tier
+        .as_deref()
+        .map(|tier| tier.parse::<ModelTier>().map_err(data_error))
+        .transpose()?;
+
+    let mut models = if let Some(provider_id) = provider_filter {
         model_registry_service
             .get_models_by_provider(provider_id)
             .await
-    } else if let Some(tier) = params.tier.as_deref() {
-        let tier = tier.parse::<ModelTier>().map_err(data_error)?;
+    } else if let Some(tier) = tier_filter.clone() {
         model_registry_service.get_models_by_tier(tier).await
     } else {
         model_registry_service.get_all_models().await
     };
+
+    append_provider_models(
+        db,
+        api_key_provider_service,
+        model_registry_service,
+        provider_filter,
+        tier_filter.as_ref(),
+        &mut models,
+    )?;
+
     Ok(ModelListResponse {
-        models: values_from_serializable_vec(models)?,
+        models: values_from_serializable_vec(models)?
+            .iter()
+            .map(model_info_from_value)
+            .collect(),
     })
+}
+
+fn append_provider_models(
+    db: &DbConnection,
+    api_key_provider_service: &ApiKeyProviderService,
+    model_registry_service: &ModelRegistryService,
+    provider_filter: Option<&str>,
+    tier_filter: Option<&ModelTier>,
+    models: &mut Vec<EnhancedModelMetadata>,
+) -> Result<(), RuntimeCoreError> {
+    let mut seen = models
+        .iter()
+        .map(model_dedupe_key)
+        .collect::<HashSet<(String, String)>>();
+    let providers = api_key_provider_service
+        .get_all_providers(db)
+        .map_err(data_error)?;
+
+    for provider in providers {
+        if !provider.provider.enabled {
+            continue;
+        }
+        let provider_id = provider.provider.id.as_str();
+        if provider_filter.is_some_and(|filter| filter != provider_id) {
+            continue;
+        }
+
+        for model_id in &provider.provider.custom_models {
+            append_model_if_visible(
+                models,
+                &mut seen,
+                tier_filter,
+                model_registry_service.build_declared_model_metadata(provider_id, model_id),
+            );
+        }
+
+        let provider_type = provider.provider.effective_provider_type();
+        match model_registry_service.get_cached_provider_models(
+            provider_id,
+            &provider.provider.api_host,
+            Some(provider_type),
+        ) {
+            Ok(Some(result)) => {
+                for model in result.models {
+                    append_model_if_visible(models, &mut seen, tier_filter, model);
+                }
+            }
+            Ok(None) => {}
+            Err(error) => {
+                tracing::warn!(
+                    "[ModelProvider] 读取 Provider 模型缓存失败，跳过缓存模型: provider={}, error={}",
+                    provider_id,
+                    error
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn append_model_if_visible(
+    models: &mut Vec<EnhancedModelMetadata>,
+    seen: &mut HashSet<(String, String)>,
+    tier_filter: Option<&ModelTier>,
+    model: EnhancedModelMetadata,
+) {
+    if tier_filter.is_some_and(|tier| &model.tier != tier) {
+        return;
+    }
+    let key = model_dedupe_key(&model);
+    if seen.insert(key) {
+        models.push(model);
+    }
+}
+
+fn model_dedupe_key(model: &EnhancedModelMetadata) -> (String, String) {
+    (
+        model.provider_id.trim().to_ascii_lowercase(),
+        model.id.trim().to_ascii_lowercase(),
+    )
 }
 
 pub(crate) async fn list_model_preferences(
@@ -105,17 +216,19 @@ pub(crate) fn list_model_providers(
         .map_err(data_error)?
         .iter()
         .map(|provider| provider_with_keys_to_value(provider, api_key_provider_service))
+        .map(|provider| provider_info_from_value(&provider))
         .collect();
     Ok(ModelProviderListResponse { providers })
 }
 
 pub(crate) fn list_model_provider_catalog(
 ) -> Result<ModelProviderCatalogListResponse, RuntimeCoreError> {
+    let providers: Vec<Value> = get_system_providers()
+        .into_iter()
+        .map(system_provider_to_value)
+        .collect();
     Ok(ModelProviderCatalogListResponse {
-        providers: get_system_providers()
-            .into_iter()
-            .map(system_provider_to_value)
-            .collect(),
+        providers: providers.iter().map(provider_info_from_value).collect(),
     })
 }
 
@@ -127,7 +240,8 @@ pub(crate) fn read_model_provider(
     let provider = api_key_provider_service
         .get_provider(db, &params.provider_id)
         .map_err(data_error)?
-        .map(|provider| provider_with_keys_to_value(&provider, api_key_provider_service));
+        .map(|provider| provider_with_keys_to_value(&provider, api_key_provider_service))
+        .map(|provider| provider_info_from_value(&provider));
     Ok(ModelProviderReadResponse { provider })
 }
 
@@ -136,25 +250,26 @@ pub(crate) fn create_model_provider(
     api_key_provider_service: &ApiKeyProviderService,
     params: ModelProviderCreateParams,
 ) -> Result<ModelProviderWriteResponse, RuntimeCoreError> {
-    let provider = params.provider;
-    let provider_type = required_string_field(&provider, "type")?
+    let provider_type = params
+        .provider_type
         .parse::<ApiProviderType>()
         .map_err(data_error)?;
     let provider = api_key_provider_service
         .add_custom_provider(
             db,
-            required_string_field(&provider, "name")?,
+            params.name,
             provider_type,
-            required_string_field(&provider, "api_host")?,
-            optional_string_field(&provider, "api_version"),
-            optional_string_field(&provider, "project"),
-            optional_string_field(&provider, "location"),
-            optional_string_field(&provider, "region"),
-            optional_prompt_cache_mode(&provider)?,
+            params.api_host,
+            params.api_version,
+            params.project,
+            params.location,
+            params.region,
+            parse_prompt_cache_mode(params.prompt_cache_mode)?,
         )
         .map_err(data_error)?;
+    let provider = provider_to_value(&provider, 0);
     Ok(ModelProviderWriteResponse {
-        provider: provider_to_value(&provider, 0),
+        provider: provider_info_from_value(&provider),
     })
 }
 
@@ -163,8 +278,8 @@ pub(crate) fn update_model_provider(
     api_key_provider_service: &ApiKeyProviderService,
     params: ModelProviderUpdateParams,
 ) -> Result<ModelProviderWriteResponse, RuntimeCoreError> {
-    let patch = params.patch;
-    let provider_type = optional_string_field(&patch, "type")
+    let provider_type = params
+        .provider_type
         .map(|value| value.parse::<ApiProviderType>())
         .transpose()
         .map_err(data_error)?;
@@ -172,17 +287,17 @@ pub(crate) fn update_model_provider(
         .update_provider(
             db,
             &params.provider_id,
-            optional_string_field(&patch, "name"),
+            params.name,
             provider_type,
-            optional_string_field(&patch, "api_host"),
-            optional_bool_field(&patch, "enabled"),
-            optional_i32_field(&patch, "sort_order")?,
-            optional_string_field(&patch, "api_version"),
-            optional_string_field(&patch, "project"),
-            optional_string_field(&patch, "location"),
-            optional_string_field(&patch, "region"),
-            optional_prompt_cache_mode(&patch)?,
-            optional_string_vec_field(&patch, "custom_models")?,
+            params.api_host,
+            params.enabled,
+            params.sort_order,
+            params.api_version,
+            params.project,
+            params.location,
+            params.region,
+            parse_prompt_cache_mode(params.prompt_cache_mode)?,
+            params.custom_models,
         )
         .map_err(data_error)?;
     let api_key_count = api_key_provider_service
@@ -190,8 +305,9 @@ pub(crate) fn update_model_provider(
         .map_err(data_error)?
         .map(|provider| provider.api_keys.len())
         .unwrap_or(0);
+    let provider = provider_to_value(&provider, api_key_count);
     Ok(ModelProviderWriteResponse {
-        provider: provider_to_value(&provider, api_key_count),
+        provider: provider_info_from_value(&provider),
     })
 }
 
@@ -361,7 +477,7 @@ pub(crate) fn create_model_provider_key(
         )
         .map_err(data_error)?;
     Ok(ModelProviderKeyWriteResponse {
-        key: api_key_to_value(&key, api_key_provider_service),
+        key: provider_key_info_from_value(&api_key_to_value(&key, api_key_provider_service)),
     })
 }
 
@@ -387,7 +503,7 @@ pub(crate) fn update_model_provider_key(
         key
     };
     Ok(ModelProviderKeyWriteResponse {
-        key: api_key_to_value(&key, api_key_provider_service),
+        key: provider_key_info_from_value(&api_key_to_value(&key, api_key_provider_service)),
     })
 }
 
@@ -562,8 +678,9 @@ fn api_key_to_value(api_key: &ApiKeyEntry, service: &ApiKeyProviderService) -> V
 fn fetch_models_result_to_response(
     result: FetchModelsResult,
 ) -> Result<ModelProviderFetchModelsResponse, RuntimeCoreError> {
+    let models = values_from_serializable_vec(result.models)?;
     Ok(ModelProviderFetchModelsResponse {
-        models: values_from_serializable_vec(result.models)?,
+        models: models.iter().map(model_info_from_value).collect(),
         source: serde_json::to_value(result.source)
             .map_err(data_error)?
             .as_str()
@@ -583,85 +700,15 @@ fn fetch_models_result_to_response(
     })
 }
 
-fn required_string_field(value: &Value, key: &str) -> Result<String, RuntimeCoreError> {
-    optional_string_field(value, key).ok_or_else(|| data_error(format!("{key} is required")))
-}
-
-fn optional_string_field(value: &Value, key: &str) -> Option<String> {
-    value
-        .get(key)
-        .or_else(|| value.get(to_camel_case(key).as_str()))
-        .and_then(Value::as_str)
-        .map(str::to_string)
-}
-
-fn optional_bool_field(value: &Value, key: &str) -> Option<bool> {
-    value
-        .get(key)
-        .or_else(|| value.get(to_camel_case(key).as_str()))
-        .and_then(Value::as_bool)
-}
-
-fn optional_i32_field(value: &Value, key: &str) -> Result<Option<i32>, RuntimeCoreError> {
-    value
-        .get(key)
-        .or_else(|| value.get(to_camel_case(key).as_str()))
-        .map(|value| {
-            value
-                .as_i64()
-                .and_then(|number| i32::try_from(number).ok())
-                .ok_or_else(|| data_error(format!("{key} must be a 32-bit integer")))
-        })
-        .transpose()
-}
-
-fn optional_string_vec_field(
-    value: &Value,
-    key: &str,
-) -> Result<Option<Vec<String>>, RuntimeCoreError> {
-    value
-        .get(key)
-        .or_else(|| value.get(to_camel_case(key).as_str()))
-        .map(|value| {
-            value
-                .as_array()
-                .ok_or_else(|| data_error(format!("{key} must be an array")))?
-                .iter()
-                .map(|item| {
-                    item.as_str()
-                        .map(str::to_string)
-                        .ok_or_else(|| data_error(format!("{key} must contain only strings")))
-                })
-                .collect()
-        })
-        .transpose()
-}
-
-fn optional_prompt_cache_mode(
-    value: &Value,
+fn parse_prompt_cache_mode(
+    value: Option<String>,
 ) -> Result<Option<ApiProviderPromptCacheMode>, RuntimeCoreError> {
-    optional_string_field(value, "prompt_cache_mode")
+    value
         .map(|mode| {
             mode.parse::<ApiProviderPromptCacheMode>()
                 .map_err(data_error)
         })
         .transpose()
-}
-
-fn to_camel_case(key: &str) -> String {
-    let mut result = String::new();
-    let mut uppercase_next = false;
-    for ch in key.chars() {
-        if ch == '_' {
-            uppercase_next = true;
-        } else if uppercase_next {
-            result.extend(ch.to_uppercase());
-            uppercase_next = false;
-        } else {
-            result.push(ch);
-        }
-    }
-    result
 }
 
 fn mask_api_key(key: &str) -> String {
@@ -690,7 +737,7 @@ fn system_provider_to_value(provider: SystemProviderDef) -> Value {
 
 fn legacy_provider_ids(provider_id: &str) -> Vec<String> {
     match provider_id {
-        "ember-hub" => vec![format!("{}{}", "lobe", "hub")],
+        "lime-hub" => vec![format!("{}{}", "lobe", "hub")],
         "google" => vec!["gemini".to_string()],
         "zhipuai" => vec!["zhipu".to_string()],
         "alibaba" => vec!["dashscope".to_string(), "qwen".to_string()],
@@ -716,5 +763,87 @@ fn legacy_provider_ids(provider_id: &str) -> Vec<String> {
         "baidu-cloud" => vec!["wenxin".to_string()],
         "tencent-cloud-ti" => vec!["tencentcloud".to_string()],
         _ => vec![],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lime_core::database::schema;
+    use rusqlite::{params, Connection};
+    use std::sync::{Arc, Mutex};
+
+    fn setup_model_provider_db() -> DbConnection {
+        let conn = Connection::open_in_memory().expect("open db");
+        schema::create_tables(&conn).expect("create schema");
+        Arc::new(Mutex::new(conn))
+    }
+
+    fn insert_provider(
+        db: &DbConnection,
+        provider_id: &str,
+        enabled: bool,
+        custom_models: &[&str],
+    ) {
+        let custom_models = serde_json::to_string(custom_models).expect("serialize models");
+        let conn = db.lock().expect("lock db");
+        conn.execute(
+            "INSERT INTO api_key_providers (
+                id, name, type, api_host, is_system, group_name, enabled, sort_order,
+                custom_models, created_at, updated_at
+             ) VALUES (?1, ?2, 'openai', ?3, 0, 'cloud', ?4, 0, ?5, ?6, ?6)",
+            params![
+                provider_id,
+                provider_id,
+                "https://llm.limeai.run#lime_tenant_id=tenant-0001",
+                if enabled { 1 } else { 0 },
+                custom_models,
+                "2026-07-06T00:00:00Z",
+            ],
+        )
+        .expect("insert provider");
+    }
+
+    #[tokio::test]
+    async fn list_models_includes_enabled_provider_declared_models() {
+        let db = setup_model_provider_db();
+        insert_provider(&db, "lime-hub", true, &["gpt-5.1", "gpt-5.1"]);
+        let api_key_provider_service = ApiKeyProviderService::new();
+        let model_registry_service = ModelRegistryService::new(db.clone());
+
+        let response = list_models(
+            &db,
+            &api_key_provider_service,
+            &model_registry_service,
+            ModelListParams {
+                provider_id: Some("lime-hub".to_string()),
+                tier: None,
+            },
+        )
+        .await
+        .expect("list models");
+
+        assert_eq!(response.models.len(), 1);
+        assert_eq!(response.models[0].id, "gpt-5.1");
+        assert_eq!(response.models[0].provider_id, "lime-hub");
+    }
+
+    #[tokio::test]
+    async fn list_models_skips_disabled_provider_declared_models() {
+        let db = setup_model_provider_db();
+        insert_provider(&db, "disabled-hub", false, &["gpt-disabled"]);
+        let api_key_provider_service = ApiKeyProviderService::new();
+        let model_registry_service = ModelRegistryService::new(db.clone());
+
+        let response = list_models(
+            &db,
+            &api_key_provider_service,
+            &model_registry_service,
+            ModelListParams::default(),
+        )
+        .await
+        .expect("list models");
+
+        assert!(response.models.is_empty());
     }
 }

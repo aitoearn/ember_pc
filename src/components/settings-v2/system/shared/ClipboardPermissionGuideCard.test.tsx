@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 (
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -52,7 +52,7 @@ describe("ClipboardPermissionGuideCard", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     setNavigatorPlatform("MacIntel");
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
   });
 
   afterEach(async () => {
@@ -62,7 +62,7 @@ describe("ClipboardPermissionGuideCard", () => {
     }
 
     vi.restoreAllMocks();
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
   });
 
   it("应通过 settings namespace 渲染剪贴板权限指引", () => {
@@ -71,7 +71,7 @@ describe("ClipboardPermissionGuideCard", () => {
     expect(container.textContent).toContain("macOS Clipboard Permission Guide");
     expect(container.textContent).toContain("Open System Settings");
     expect(container.textContent).toContain(
-      "Click anywhere in the Ember window, then try copying again.",
+      "Click anywhere in the Lime window, then try copying again.",
     );
     expect(container.textContent).not.toContain("macOS 剪贴板权限指引");
     expect(container.textContent).not.toContain(

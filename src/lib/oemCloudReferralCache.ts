@@ -3,7 +3,7 @@ import type {
   OemCloudReferralDashboard,
 } from "@/lib/api/oemCloudControlPlane";
 
-const OEM_CLOUD_REFERRAL_CACHE_KEY = "ember:oem-cloud-referral:cache:v1";
+const OEM_CLOUD_REFERRAL_CACHE_KEY = "lime:oem-cloud-referral:cache:v1";
 
 export interface OemCloudReferralCachedState {
   tenantId: string;

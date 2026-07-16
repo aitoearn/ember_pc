@@ -1,1 +1,0 @@
-export { DeviceAutomationWorkspace } from "./DeviceAutomationWorkspace";

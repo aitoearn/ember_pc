@@ -14,7 +14,7 @@ import type {
 import type { CanvasStateUnion } from "@/components/workspace/canvas/canvasUtils";
 import type { TaskFile } from "../components/TaskFiles";
 import { buildHomeAgentParams } from "@/lib/workspace/navigation";
-import type { Character } from "@/lib/api/memory";
+import type { Character } from "@/lib/api/projectMemory";
 import type { Page, PageParams } from "@/types/page";
 
 type SetStringState = Dispatch<SetStateAction<string>>;
@@ -25,9 +25,9 @@ interface ClearMessagesOptions {
 
 interface UseWorkspaceResetRuntimeParams {
   clearMessages: (options?: ClearMessagesOptions) => void;
-  clearRuntimeTeamState: () => void;
   clearPendingEntryA2UI?: () => void;
   clearProjectSelectionRuntime: () => void;
+  resetProjectSelection: () => void;
   resetRestoredSessionState: () => void;
   resetGuideState: () => void;
   hasHandledNewChatRequest: (requestKey: string) => boolean;
@@ -37,6 +37,7 @@ interface UseWorkspaceResetRuntimeParams {
   initialCreationMode?: CreationMode;
   newChatAt?: number;
   externalProjectId?: string | null;
+  preserveSessionRestoreOnNewChat?: boolean;
   onNavigate?: (page: Page, params?: PageParams) => void;
   autoCollapsedTopicSidebarRef: MutableRefObject<boolean>;
   processedMessageIdsRef: MutableRefObject<Set<string>>;
@@ -55,9 +56,9 @@ interface UseWorkspaceResetRuntimeParams {
 
 export function useWorkspaceResetRuntime({
   clearMessages,
-  clearRuntimeTeamState,
   clearPendingEntryA2UI,
   clearProjectSelectionRuntime,
+  resetProjectSelection,
   resetRestoredSessionState,
   resetGuideState,
   hasHandledNewChatRequest,
@@ -67,6 +68,7 @@ export function useWorkspaceResetRuntime({
   initialCreationMode,
   newChatAt,
   externalProjectId,
+  preserveSessionRestoreOnNewChat = false,
   onNavigate,
   autoCollapsedTopicSidebarRef,
   processedMessageIdsRef,
@@ -101,12 +103,10 @@ export function useWorkspaceResetRuntime({
   const resetTopicLocalState = useCallback(() => {
     resetWorkbenchSurface();
     clearPendingEntryA2UI?.();
-    clearRuntimeTeamState();
     resetRestoredSessionState();
     resetGuideState();
   }, [
     clearPendingEntryA2UI,
-    clearRuntimeTeamState,
     resetGuideState,
     resetRestoredSessionState,
     resetWorkbenchSurface,
@@ -147,6 +147,10 @@ export function useWorkspaceResetRuntime({
     }
     markNewChatRequestHandled(requestKey);
 
+    if (preserveSessionRestoreOnNewChat) {
+      return;
+    }
+
     clearMessages({
       showToast: false,
     });
@@ -158,6 +162,9 @@ export function useWorkspaceResetRuntime({
     clearPendingEntryA2UI?.();
     setMentionedCharacters([]);
     clearProjectSelectionRuntime();
+    if (!externalProjectId) {
+      resetProjectSelection();
+    }
     resetRestoredSessionState();
     resetGuideState();
 
@@ -177,7 +184,9 @@ export function useWorkspaceResetRuntime({
     markNewChatRequestHandled,
     newChatAt,
     normalizedInitialTheme,
+    preserveSessionRestoreOnNewChat,
     resetGuideState,
+    resetProjectSelection,
     resetRestoredSessionState,
     resetWorkbenchSurface,
     setActiveTheme,

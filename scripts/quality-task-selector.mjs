@@ -45,7 +45,7 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember 质量任务规划器
+Lime 质量任务规划器
 
 用法:
   node scripts/quality-task-selector.mjs

@@ -2,7 +2,7 @@ import { act } from "react";
 import { describe, expect, it } from "vitest";
 import {
   flushUntilTextAppears,
-  renderPanel,
+  renderExpandedPanel as renderPanel,
   getHarnessPanelTestMocks,
 } from "./HarnessStatusPanel.testFixtures";
 import {
@@ -28,7 +28,6 @@ describe("HarnessStatusPanel exports", () => {
         model: "gpt-5.4",
         executionStrategy: "react",
         activeTheme: "default",
-        selectedTeamLabel: null,
       },
     });
 
@@ -73,9 +72,9 @@ describe("HarnessStatusPanel exports", () => {
       workspace_id: "workspace-evidence-only-1",
       workspace_root: "/tmp/workspace-evidence-only-1",
       pack_relative_root:
-        ".ember/harness/sessions/session-evidence-only-1/evidence",
+        ".lime/harness/sessions/session-evidence-only-1/evidence",
       pack_absolute_root:
-        "/tmp/workspace-evidence-only-1/.ember/harness/sessions/session-evidence-only-1/evidence",
+        "/tmp/workspace-evidence-only-1/.lime/harness/sessions/session-evidence-only-1/evidence",
       exported_at: "2026-03-27T09:36:00.000Z",
       thread_status: "running",
       latest_turn_status: "running",
@@ -90,9 +89,9 @@ describe("HarnessStatusPanel exports", () => {
           kind: "summary",
           title: "问题摘要",
           relative_path:
-            ".ember/harness/sessions/session-evidence-only-1/evidence/summary.md",
+            ".lime/harness/sessions/session-evidence-only-1/evidence/summary.md",
           absolute_path:
-            "/tmp/workspace-evidence-only-1/.ember/harness/sessions/session-evidence-only-1/evidence/summary.md",
+            "/tmp/workspace-evidence-only-1/.lime/harness/sessions/session-evidence-only-1/evidence/summary.md",
           bytes: 128,
         },
       ],
@@ -106,7 +105,6 @@ describe("HarnessStatusPanel exports", () => {
         model: "gpt-5.4",
         executionStrategy: "react",
         activeTheme: "default",
-        selectedTeamLabel: null,
       },
     });
 
@@ -133,9 +131,9 @@ describe("HarnessStatusPanel exports", () => {
       thread_id: "thread-evidence-1",
       workspace_id: "workspace-evidence-1",
       workspace_root: "/tmp/workspace-evidence-1",
-      pack_relative_root: ".ember/harness/sessions/session-evidence-1/evidence",
+      pack_relative_root: ".lime/harness/sessions/session-evidence-1/evidence",
       pack_absolute_root:
-        "/tmp/workspace-evidence-1/.ember/harness/sessions/session-evidence-1/evidence",
+        "/tmp/workspace-evidence-1/.lime/harness/sessions/session-evidence-1/evidence",
       exported_at: "2026-03-27T09:40:00.000Z",
       thread_status: "running",
       latest_turn_status: "running",
@@ -206,6 +204,58 @@ describe("HarnessStatusPanel exports", () => {
             "Artifact 校验已恢复 1 个产物，fallback 0 次。",
           ],
         },
+        skill_invocations: [
+          {
+            event: "skill_invocation",
+            skill_name: "project:capability-report",
+            status: "completed",
+            source_event_id: "evt-skill-1",
+            source_event_type: "tool.result",
+            turn_id: "turn-evidence-1",
+            tool_call_id: "skill-call-1",
+            workspace_skill_runtime_enable: {
+              source: "manual_session_enable",
+              approval: "manual",
+            },
+          },
+        ],
+        skill_searches: [
+          {
+            event: "skill_search",
+            query: "capability report",
+            result_count: 2,
+            snapshot_skill_count: 7,
+            status: "completed",
+            source_event_id: "evt-skill-search-1",
+            source_event_type: "tool.result",
+            turn_id: "turn-evidence-1",
+            tool_call_id: "skill-search-call-1",
+          },
+        ],
+        mcp_resource_reads: [
+          {
+            event: "mcp_resource_read",
+            tool_name: "ReadMcpResourceTool",
+            server: "docs",
+            uri: "file:///docs/intro.md",
+            status: "completed",
+            source_event_id: "evt-mcp-resource-1",
+            source_event_type: "tool.result",
+            mime_types: ["text/markdown"],
+            content_count: 1,
+            content_refs: [
+              {
+                index: 0,
+                type: "text",
+                uri: "file:///docs/intro.md",
+                mime_type: "text/markdown",
+                text_char_count: 64,
+              },
+            ],
+            turn_id: "turn-evidence-1",
+            tool_call_id: "mcp-resource-call-1",
+          },
+        ],
         modality_runtime_contracts: {
           snapshot_count: 2,
           snapshot_index: {
@@ -219,7 +269,7 @@ describe("HarnessStatusPanel exports", () => {
               skill_ids: ["browser_assist", "research"],
               model_ids: ["gpt-5.2-browser", "gpt-5.2"],
               executor_kinds: ["browser_action", "search_query"],
-              executor_binding_keys: ["ember_browser_mcp", "web_search"],
+              executor_binding_keys: ["lime_browser_mcp", "web_search"],
               cost_states: ["estimated", "metered"],
               limit_states: ["within_limit", "quota_low"],
               estimated_cost_classes: ["low", "medium"],
@@ -228,7 +278,7 @@ describe("HarnessStatusPanel exports", () => {
               items: [
                 {
                   artifact_path:
-                    "runtime_timeline/browser-tool-1/mcp__ember-browser__navigate",
+                    "runtime_timeline/browser-tool-1/mcp__lime-browser__navigate",
                   contract_key: "browser_control",
                   thread_id: "thread-evidence-1",
                   turn_id: "turn-evidence-1",
@@ -238,7 +288,7 @@ describe("HarnessStatusPanel exports", () => {
                   skill_id: "browser_assist",
                   model_id: "gpt-5.2-browser",
                   executor_kind: "browser_action",
-                  executor_binding_key: "ember_browser_mcp",
+                  executor_binding_key: "lime_browser_mcp",
                   cost_state: "estimated",
                   limit_state: "within_limit",
                   estimated_cost_class: "low",
@@ -283,7 +333,7 @@ describe("HarnessStatusPanel exports", () => {
                 { action: "navigate", count: 1 },
                 { action: "get_page_info", count: 1 },
               ],
-              backend_counts: [{ backend: "ember_extension_bridge", count: 1 }],
+              backend_counts: [{ backend: "lime_extension_bridge", count: 1 }],
               items: [
                 {
                   artifact_kind: "browser_session",
@@ -303,14 +353,14 @@ describe("HarnessStatusPanel exports", () => {
                   session_id: "browser-session-1",
                   target_id: "target-1",
                   entry_source: "at_browser_agent_command",
-                  backend: "ember_extension_bridge",
+                  backend: "lime_extension_bridge",
                   last_url: "https://example.com/",
                   observation_available: true,
                   screenshot_available: true,
                 },
               ],
             },
-            embercore_policy_index: {
+            limecore_policy_index: {
               snapshot_count: 1,
               ref_keys: [
                 "model_catalog",
@@ -327,7 +377,7 @@ describe("HarnessStatusPanel exports", () => {
               items: [
                 {
                   artifact_path:
-                    ".ember/tasks/image_generate/task-policy-gap.json",
+                    ".lime/tasks/image_generate/task-policy-gap.json",
                   contract_key: "image_generation",
                   execution_profile_key: "image_generation_default",
                   executor_adapter_key: "skill_image_generate",
@@ -357,7 +407,7 @@ describe("HarnessStatusPanel exports", () => {
                       ref_key: "model_catalog",
                       status: "declared_only",
                       source: "modality_runtime_contract",
-                      value_source: "embercore_pending",
+                      value_source: "limecore_pending",
                     },
                   ],
                   source: "modality_runtime_contract",
@@ -372,9 +422,9 @@ describe("HarnessStatusPanel exports", () => {
           kind: "summary",
           title: "问题摘要",
           relative_path:
-            ".ember/harness/sessions/session-evidence-1/evidence/summary.md",
+            ".lime/harness/sessions/session-evidence-1/evidence/summary.md",
           absolute_path:
-            "/tmp/workspace-evidence-1/.ember/harness/sessions/session-evidence-1/evidence/summary.md",
+            "/tmp/workspace-evidence-1/.lime/harness/sessions/session-evidence-1/evidence/summary.md",
           bytes: 256,
         },
       ],
@@ -388,7 +438,6 @@ describe("HarnessStatusPanel exports", () => {
         model: "gpt-5.4",
         executionStrategy: "react",
         activeTheme: "default",
-        selectedTeamLabel: null,
       },
     });
 
@@ -409,6 +458,24 @@ describe("HarnessStatusPanel exports", () => {
     expect(document.body.textContent).toContain("completed · 证据完成");
     expect(document.body.textContent).toContain("Owner success");
     expect(document.body.textContent).toContain("Skill ToolCall");
+    expect(document.body.textContent).toContain(
+      "project:capability-report · completed",
+    );
+    expect(document.body.textContent).toContain(
+      "运行启用 · 手动会话 · 人工确认",
+    );
+    expect(document.body.textContent).toContain("Skill Search");
+    expect(document.body.textContent).toContain(
+      "capability report · 2/7 · completed",
+    );
+    expect(document.body.textContent).toContain("MCP Resource Reads");
+    expect(document.body.textContent).toContain("file:///docs/intro.md");
+    expect(document.body.textContent).toContain(
+      "server docs · completed · text/markdown · 1 个内容项",
+    );
+    expect(document.body.textContent).toContain(
+      "#0 · text · text/markdown · 64 chars",
+    );
     expect(document.body.textContent).toContain("验证结果");
     expect(document.body.textContent).toContain("阻塞失败");
     expect(document.body.textContent).toContain("验证失败焦点");
@@ -422,13 +489,13 @@ describe("HarnessStatusPanel exports", () => {
     expect(document.body.textContent).toContain("任务中心过滤列表");
     expect(document.body.textContent).toContain("thread-evidence-1");
     expect(document.body.textContent).toContain("content-browser-1");
-    expect(document.body.textContent).toContain("ember_browser_mcp");
+    expect(document.body.textContent).toContain("lime_browser_mcp");
     expect(document.body.textContent).toContain("within_limit");
-    expect(document.body.textContent).toContain("EmberCore 策略缺口");
+    expect(document.body.textContent).toContain("LimeCore 策略缺口");
     expect(document.body.textContent).toContain("model_catalog");
     expect(document.body.textContent).toContain("provider_offer");
     expect(document.body.textContent).toContain("本地允许");
-    expect(document.body.textContent).toContain("等待 EmberCore");
+    expect(document.body.textContent).toContain("等待 LimeCore");
     expect(document.body.textContent).toContain("local_defaults_only");
     const replayButton = document.body.querySelector(
       'button[aria-label="打开 Browser Assist 复盘"]',
@@ -445,20 +512,30 @@ describe("HarnessStatusPanel exports", () => {
     expect(document.body.textContent).toContain("browser_replay_viewer");
     expect(document.body.textContent).toContain("当前已知缺口");
     expect(document.body.textContent).toContain(
-      ".ember/harness/sessions/session-evidence-1/evidence/summary.md",
+      ".lime/harness/sessions/session-evidence-1/evidence/summary.md",
     );
+    expect(document.body.textContent).toContain("相对路径：");
+    expect(document.body.textContent).toContain("绝对路径：");
+    expect(
+      document.body.querySelector('button[aria-label="预览问题证据：问题摘要"]'),
+    ).not.toBeNull();
+    expect(
+      document.body.querySelector(
+        'button[aria-label="系统打开问题证据：/tmp/workspace-evidence-1/.lime/harness/sessions/session-evidence-1/evidence/summary.md"]',
+      ),
+    ).not.toBeNull();
     expect(mockToast.success).toHaveBeenCalledWith("已导出 1 个问题证据文件");
     expect(
       selectLatestAgentUiProjectionEventForEvidence(
         conversationProjectionStore.getSnapshot(),
-        ".ember/harness/sessions/session-evidence-1/evidence",
+        ".lime/harness/sessions/session-evidence-1/evidence",
       ),
     ).toMatchObject({
       type: "evidence.changed",
       sourceType: "evidence_projection",
       sessionId: "session-evidence-1",
       threadId: "thread-evidence-1",
-      evidenceId: ".ember/harness/sessions/session-evidence-1/evidence",
+      evidenceId: ".lime/harness/sessions/session-evidence-1/evidence",
       owner: "evidence",
       scope: "evidence",
       phase: "completed",
@@ -466,7 +543,7 @@ describe("HarnessStatusPanel exports", () => {
       persistence: "evidence_pack",
       refs: {
         artifactPaths: [
-          ".ember/harness/sessions/session-evidence-1/evidence/summary.md",
+          ".lime/harness/sessions/session-evidence-1/evidence/summary.md",
         ],
       },
       payload: {

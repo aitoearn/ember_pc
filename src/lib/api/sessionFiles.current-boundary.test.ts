@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { cwd } from "node:process";
 import { describe, expect, it } from "vitest";
+import { readAppServerApiSources } from "../../test/appServerApiSources";
 
 const RETIRED_FRONTEND_SESSION_MANAGEMENT_COMMANDS = [
   "session_files_create",
@@ -108,13 +109,15 @@ describe("Session files frontend boundary", () => {
         "ember-rs/crates/app-server-protocol/src/protocol/v0/session_files.rs",
       ),
     ].join("\n");
-    const processorSource = readRepoFile(
-      "ember-rs/crates/app-server/src/processor.rs",
+    const processorSource = [
+      readRepoFile("ember-rs/crates/app-server/src/processor/mod.rs"),
+      readRepoFile("ember-rs/crates/app-server/src/processor/dispatch.rs"),
+      readRepoFile("ember-rs/crates/app-server/src/processor/workspace.rs"),
+    ].join("\n");
+    const generatedClientProtocolSource = readRepoFile(
+      "packages/app-server-client/src/generated/protocol-types.ts",
     );
-    const clientProtocolSource = readRepoFile(
-      "packages/app-server-client/src/protocol.ts",
-    );
-    const appServerFacadeSource = readRepoFile("src/lib/api/appServer.ts");
+    const appServerFacadeSource = readAppServerApiSources();
 
     for (const method of CURRENT_SESSION_FILE_METHODS) {
       expect(protocolSource).toContain(`"${method}"`);
@@ -129,7 +132,7 @@ describe("Session files frontend boundary", () => {
           .replace("delete", "DELETE")
           .replace("list", "LIST"),
       );
-      expect(clientProtocolSource).toContain(`"${method}"`);
+      expect(generatedClientProtocolSource).toContain(`"${method}"`);
       expect(appServerFacadeSource).toContain(
         `METHOD_SESSION_FILE_${method
           .replace("sessionFile/", "")

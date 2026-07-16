@@ -11,9 +11,9 @@ import {
 } from "node:fs";
 import path from "node:path";
 
-const APP_NAME = "Ember";
+const APP_NAME = "Lime";
 const DEV_BUNDLE_IDENTIFIER = "com.embercloud.ember.dev";
-const DEV_APP_DIR = path.join(".ember", "electron-dev-host");
+const DEV_APP_DIR = path.join(".lime", "electron-dev-host");
 const APP_ICON_SOURCE = path.join("ember-rs", "icons", "icon.icns");
 const APP_ICON_NAME = "icon.icns";
 
@@ -50,7 +50,7 @@ export function resolveElectronLaunchPath({
   if (!electronPath) {
     throw new Error("Electron executable path is required.");
   }
-  if (platform !== "darwin" || env.EMBER_ELECTRON_BRAND_DEV_APP === "0") {
+  if (platform !== "darwin" || env.LIME_ELECTRON_BRAND_DEV_APP === "0") {
     return electronPath;
   }
 

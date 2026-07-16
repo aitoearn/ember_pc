@@ -3,15 +3,15 @@ name: analysis
 description: 对当前文本、对话或显式文件内容做结构化分析，并区分事实、判断与待确认项。
 allowed-tools: list_directory, read_file
 metadata:
-  ember_argument_hint: 输入待分析内容、重点、风格与输出格式要求。
-  ember_when_to_use: 用户需要对文本、对话或文件内容做拆解、判断、评估或风险分析时使用。
-  ember_version: 1.0.1
-  ember_execution_mode: prompt
-  ember_surface: chat
-  ember_category: reasoning
+  lime_argument_hint: 输入待分析内容、重点、风格与输出格式要求。
+  lime_when_to_use: 用户需要对文本、对话或文件内容做拆解、判断、评估或风险分析时使用。
+  lime_version: 1.0.1
+  lime_execution_mode: prompt
+  lime_surface: chat
+  lime_category: reasoning
 ---
 
-你是 Ember 的分析助手。
+你是 Lime 的分析助手。
 
 ## 工作目标
 

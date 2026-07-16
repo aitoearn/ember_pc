@@ -3,9 +3,9 @@ use super::common::skill_package_app_to_core_app;
 use super::common::skill_state_key;
 use super::common::validate_skill_package_directory;
 use super::common::SkillPackageApp;
-use app_server_protocol::SkillListResponse;
 use app_server_protocol::SkillManagementInstallParams;
 use app_server_protocol::SkillManagementListParams;
+use app_server_protocol::SkillManagementListResponse;
 use app_server_protocol::SkillManagementUninstallParams;
 use app_server_protocol::SkillManagementWriteResponse;
 use app_server_protocol::SkillRepositoryDeleteParams;
@@ -13,14 +13,13 @@ use app_server_protocol::SkillRepositoryEntry;
 use app_server_protocol::SkillRepositoryListResponse;
 use app_server_protocol::SkillRepositorySaveParams;
 use chrono::Utc;
-use ember_agent::AsterAgentState;
-use ember_core::database::dao::skills::SkillDao;
-use ember_core::database::DbConnection;
-use ember_core::models::skill_model::SkillCatalogSource;
-use ember_core::models::skill_model::SkillRepo;
-use ember_core::models::skill_model::SkillState;
-use ember_services::skill_service::LocalSkillCatalogScope;
-use ember_services::skill_service::SkillService;
+use lime_core::database::dao::skills::SkillDao;
+use lime_core::database::DbConnection;
+use lime_core::models::skill_model::SkillCatalogSource;
+use lime_core::models::skill_model::SkillRepo;
+use lime_core::models::skill_model::SkillState;
+use lime_services::skill_service::LocalSkillCatalogScope;
+use lime_services::skill_service::SkillService;
 
 fn parse_skill_list_scope(scope: Option<&str>) -> Result<LocalSkillCatalogScope, String> {
     match scope.unwrap_or("all").trim().to_ascii_lowercase().as_str() {
@@ -33,7 +32,7 @@ fn parse_skill_list_scope(scope: Option<&str>) -> Result<LocalSkillCatalogScope,
 pub(crate) async fn list_management_skills(
     db: DbConnection,
     params: SkillManagementListParams,
-) -> Result<SkillListResponse, String> {
+) -> Result<SkillManagementListResponse, String> {
     let app = parse_skill_package_app(&params.app)?;
     let app_type = skill_package_app_to_core_app(app);
     let scope = parse_skill_list_scope(params.scope.as_deref())?;
@@ -76,7 +75,7 @@ pub(crate) async fn list_management_skills(
         }
     }
 
-    Ok(SkillListResponse {
+    Ok(SkillManagementListResponse {
         skills: skills
             .into_iter()
             .map(serde_json::to_value)
@@ -143,8 +142,8 @@ pub(crate) async fn install_management_skill(
         )
         .map_err(|error| error.to_string())?;
     }
-    if matches!(app, SkillPackageApp::Ember) {
-        AsterAgentState::reload_ember_skills();
+    if matches!(app, SkillPackageApp::Lime) {
+        crate::skill_registry::reload_lime_skill_registry();
     }
     Ok(SkillManagementWriteResponse { success: true })
 }
@@ -169,8 +168,8 @@ pub(crate) fn uninstall_management_skill(
         },
     )
     .map_err(|error| error.to_string())?;
-    if matches!(app, SkillPackageApp::Ember) {
-        AsterAgentState::reload_ember_skills();
+    if matches!(app, SkillPackageApp::Lime) {
+        crate::skill_registry::reload_lime_skill_registry();
     }
     Ok(SkillManagementWriteResponse { success: true })
 }

@@ -68,7 +68,7 @@ jobs:
             fi
 
             {
-              echo "## Ember ${TAG}"
+              echo "## Lime ${TAG}"
               echo
               echo "### Changes"
               echo "${CHANGELOG}"
@@ -78,7 +78,7 @@ jobs:
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release edit "$TAG" \
               --repo "$GITHUB_REPOSITORY" \
-              --title "Ember $TAG" \
+              --title "Lime $TAG" \
               --notes-file "$NOTES_FILE"
             echo "Release $TAG already exists; notes refreshed"
             exit 0
@@ -87,7 +87,7 @@ jobs:
           gh release create "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$TARGET_REF" \
-            --title "Ember $TAG" \
+            --title "Lime $TAG" \
             --notes-file "$NOTES_FILE"
 
   build:
@@ -123,7 +123,7 @@ jobs:
     env:
       NODE_OPTIONS: --max-old-space-size=8192
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
-      EMBER_ELECTRON_UPDATES_URL: ${{ (secrets.EMBER_UPDATES_BASE_URL || vars.EMBER_UPDATES_BASE_URL || 'https://updates.aiearn.me') }}/ember/stable/${{ matrix.feed }}/
+      LIME_ELECTRON_UPDATES_URL: ${{ (secrets.LIME_UPDATES_BASE_URL || vars.LIME_UPDATES_BASE_URL || 'https://updates.aiearn.me') }}/lime/stable/${{ matrix.feed }}/
 
     steps:
       - name: Checkout
@@ -222,8 +222,8 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
-          KEYCHAIN_PATH="$RUNNER_TEMP/ember-electron-signing.keychain-db"
-          CERTIFICATE_PATH="$RUNNER_TEMP/ember-electron-signing.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/lime-electron-signing.keychain-db"
+          CERTIFICATE_PATH="$RUNNER_TEMP/lime-electron-signing.p12"
           echo "$APPLE_CERTIFICATE" | base64 --decode > "$CERTIFICATE_PATH"
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -247,7 +247,7 @@ jobs:
             "$KEYCHAIN_PATH"
           echo "Available macOS signing identities in release keychain:"
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
-          echo "EMBER_MACOS_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+          echo "LIME_MACOS_KEYCHAIN=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
       - name: Prepare Electron Windows signing certificate
         if: matrix.host_platform == 'win32'
@@ -261,15 +261,15 @@ jobs:
             echo "Skipping Electron Windows signing certificate preparation; no Windows signing secrets are configured."
             exit 0
           fi
-          CERTIFICATE_PATH="$RUNNER_TEMP/ember-electron-signing.pfx"
+          CERTIFICATE_PATH="$RUNNER_TEMP/lime-electron-signing.pfx"
           WINDOWS_SIGNING_CERTIFICATE_PATH="$CERTIFICATE_PATH" node - <<'NODE'
           const fs = require("node:fs");
           const certificate = process.env.WINDOWS_SIGNING_CERTIFICATE || "";
           const certificatePath = process.env.WINDOWS_SIGNING_CERTIFICATE_PATH;
           fs.writeFileSync(certificatePath, Buffer.from(certificate, "base64"));
           NODE
-          echo "EMBER_WINDOWS_SIGNING_CERTIFICATE_FILE=$CERTIFICATE_PATH" >> "$GITHUB_ENV"
-          echo "EMBER_WINDOWS_SIGNING_CERTIFICATE_PASSWORD=$WINDOWS_SIGNING_CERTIFICATE_PASSWORD" >> "$GITHUB_ENV"
+          echo "LIME_WINDOWS_SIGNING_CERTIFICATE_FILE=$CERTIFICATE_PATH" >> "$GITHUB_ENV"
+          echo "LIME_WINDOWS_SIGNING_CERTIFICATE_PASSWORD=$WINDOWS_SIGNING_CERTIFICATE_PASSWORD" >> "$GITHUB_ENV"
 
       - name: Build Electron app
         shell: bash
@@ -280,7 +280,7 @@ jobs:
           CARGO_TARGET_DIR: ${{ github.workspace }}/ember-rs/target
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: sccache
-          EMBER_ELECTRON_SIGN: ${{ (startsWith(matrix.platform, 'macos') || matrix.host_platform == 'win32') && '1' || '' }}
+          LIME_ELECTRON_SIGN: ${{ (startsWith(matrix.platform, 'macos') || matrix.host_platform == 'win32') && '1' || '' }}
           APPLE_SIGNING_IDENTITY: ${{ startsWith(matrix.platform, 'macos') && secrets.APPLE_SIGNING_IDENTITY || '' }}
           APPLE_ID: ${{ startsWith(matrix.platform, 'macos') && secrets.APPLE_ID || '' }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ startsWith(matrix.platform, 'macos') && secrets.APPLE_PASSWORD || '' }}
@@ -289,9 +289,30 @@ jobs:
         run: |
           set -euxo pipefail
           npm run electron:build
-          npx electron-forge package \
-            --platform "${{ matrix.host_platform }}" \
-            --arch "${{ matrix.arch }}"
+          FORGE_PACKAGE_LOG="$RUNNER_TEMP/electron-forge-package-${{ matrix.host_platform }}-${{ matrix.arch }}.log"
+          run_forge_package() {
+            set +e
+            npx electron-forge package \
+              --platform "${{ matrix.host_platform }}" \
+              --arch "${{ matrix.arch }}" 2>&1 | tee "$FORGE_PACKAGE_LOG"
+            package_status=${PIPESTATUS[0]}
+            set -e
+          }
+          is_transient_macos_package_error() {
+            [ "${{ matrix.host_platform }}" = "darwin" ] || return 1
+            grep -Eq "NSURLErrorDomain|The Internet connection appears to be offline|No network route|HTTPError\\(statusCode: nil|_NSURLErrorNWPathKey=unsatisfied|Response code 502 \\(Bad Gateway\\)" "$FORGE_PACKAGE_LOG"
+          }
+          package_attempt=1
+          run_forge_package
+          while [ "$package_status" -ne 0 ] && [ "$package_attempt" -lt 3 ] && is_transient_macos_package_error; do
+            package_attempt=$((package_attempt + 1))
+            echo "Electron Forge package hit a transient macOS packaging or notarization network error; retrying package attempt $package_attempt/3 after 60 seconds."
+            sleep 60
+            run_forge_package
+          done
+          if [ "$package_status" -ne 0 ]; then
+            exit "$package_status"
+          fi
           FORGE_MAKE_LOG="$RUNNER_TEMP/electron-forge-make-${{ matrix.host_platform }}-${{ matrix.arch }}.log"
           run_forge_make() {
             set +e
@@ -304,9 +325,9 @@ jobs:
             set -e
           }
           run_forge_make
-          if [ "$forge_status" -ne 0 ] && [ "${{ matrix.host_platform }}" = "darwin" ] && grep -q "hdiutil detach /Volumes/Ember" "$FORGE_MAKE_LOG" && grep -q "No such file or directory" "$FORGE_MAKE_LOG"; then
-            echo "Electron Forge DMG cleanup hit a missing /Volumes/Ember mount; retrying make once after best-effort cleanup."
-            hdiutil detach "/Volumes/Ember" -force || true
+          if [ "$forge_status" -ne 0 ] && [ "${{ matrix.host_platform }}" = "darwin" ] && grep -q "hdiutil detach /Volumes/Lime" "$FORGE_MAKE_LOG" && grep -q "No such file or directory" "$FORGE_MAKE_LOG"; then
+            echo "Electron Forge DMG cleanup hit a missing /Volumes/Lime mount; retrying make once after best-effort cleanup."
+            hdiutil detach "/Volumes/Lime" -force || true
             sleep 5
             run_forge_make
           fi
@@ -317,7 +338,7 @@ jobs:
             echo "release-electron output directory is missing"
           fi
           if [ "${{ matrix.host_platform }}" = "darwin" ]; then
-            APP_PATH="release-electron/Ember-darwin-${{ matrix.arch }}/Ember.app"
+            APP_PATH="release-electron/Lime-darwin-${{ matrix.arch }}/Lime.app"
             if [ -d "$APP_PATH" ]; then
               codesign --display --verbose=4 "$APP_PATH" || true
               codesign --verify --deep --strict --verbose=4 "$APP_PATH" || true
@@ -497,12 +518,12 @@ jobs:
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          EMBER_RELEASES_R2_BUCKET: ${{ secrets.EMBER_RELEASES_R2_BUCKET }}
+          LIME_RELEASES_R2_BUCKET: ${{ secrets.LIME_RELEASES_R2_BUCKET }}
           RELEASE_TAG: ${{ github.event.inputs.version || github.ref_name }}
         shell: bash
         run: |
           set -euo pipefail
-          BUCKET="${EMBER_RELEASES_R2_BUCKET:-ember-releases}"
+          BUCKET="${LIME_RELEASES_R2_BUCKET:-lime-releases}"
           PLAN="$RUNNER_TEMP/electron-r2-upload-plan.json"
           node scripts/electron/update-feed-r2-upload-plan.mjs \
             --assets-dir release-assets \
@@ -535,29 +556,29 @@ jobs:
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          EMBER_MINIMUM_SUPPORTED_VERSION: ${{ secrets.EMBER_MINIMUM_SUPPORTED_VERSION }}
-          EMBER_R2_KEEP_RELEASES: ${{ vars.EMBER_R2_KEEP_RELEASES }}
-          EMBER_RELEASES_R2_BUCKET: ${{ secrets.EMBER_RELEASES_R2_BUCKET }}
+          LIME_MINIMUM_SUPPORTED_VERSION: ${{ secrets.LIME_MINIMUM_SUPPORTED_VERSION }}
+          LIME_R2_KEEP_RELEASES: ${{ vars.LIME_R2_KEEP_RELEASES }}
+          LIME_RELEASES_R2_BUCKET: ${{ secrets.LIME_RELEASES_R2_BUCKET }}
           RELEASE_TAG: ${{ github.event.inputs.version || github.ref_name }}
         shell: bash
         run: |
           set -euo pipefail
-          BUCKET="${EMBER_RELEASES_R2_BUCKET:-ember-releases}"
-          KEEP="${EMBER_R2_KEEP_RELEASES:-3}"
+          BUCKET="${LIME_RELEASES_R2_BUCKET:-lime-releases}"
+          KEEP="${LIME_R2_KEEP_RELEASES:-3}"
           if ! npx wrangler@latest r2 object --help | grep -q "object list"; then
             echo "::warning::wrangler r2 object list is unavailable; skipping old R2 updater cleanup"
             exit 0
           fi
           npx wrangler@latest r2 object list "$BUCKET" \
             --remote \
-            --prefix "ember/stable/v" \
+            --prefix "lime/stable/v" \
             --json > "$RUNNER_TEMP/r2-objects.json"
           node scripts/electron/r2-release-cleanup-plan.mjs \
             --input "$RUNNER_TEMP/r2-objects.json" \
             --output "$RUNNER_TEMP/r2-delete-keys.txt" \
             --current "$RELEASE_TAG" \
             --keep "$KEEP" \
-            --minimum "${EMBER_MINIMUM_SUPPORTED_VERSION:-}" \
+            --minimum "${LIME_MINIMUM_SUPPORTED_VERSION:-}" \
             --channel stable
           if [ ! -s "$RUNNER_TEMP/r2-delete-keys.txt" ]; then
             echo "No old R2 updater assets to delete"
@@ -570,8 +591,8 @@ jobs:
             npx wrangler@latest r2 object delete "${BUCKET}/${key}" --remote
           done < "$RUNNER_TEMP/r2-delete-keys.txt"
 
-  publish_ember_cli_assets:
-    name: Publish ember-cli release assets
+  publish_lime_cli_assets:
+    name: Publish lime-cli release assets
     needs: publish_release_assets
     if: needs.publish_release_assets.result == 'success'
     continue-on-error: true
@@ -618,12 +639,12 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ember-rs
-          shared-key: "ember-cli-${{ matrix.target }}"
+          shared-key: "lime-cli-${{ matrix.target }}"
           cache-on-failure: true
           cache-all-crates: true
           save-if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') }}
 
-      - name: Build ember-cli release binary
+      - name: Build lime-cli release binary
         shell: bash
         env:
           CARGO_PROFILE_RELEASE_LTO: "off"
@@ -634,10 +655,10 @@ jobs:
           RUSTC_WRAPPER: sccache
         run: |
           set -euxo pipefail
-          cargo build --manifest-path ember-rs/Cargo.toml -p ember-cli --release --target "${{ matrix.target }}"
+          cargo build --manifest-path ember-rs/Cargo.toml -p lime-cli --release --target "${{ matrix.target }}"
 
-      - name: Package ember-cli release asset
-        id: package_ember_cli
+      - name: Package lime-cli release asset
+        id: package_lime_cli
         shell: bash
         run: |
           set -euxo pipefail
@@ -656,16 +677,16 @@ jobs:
           asset_path="$(node -e 'const data = JSON.parse(process.argv[1]); process.stdout.write(data.archivePath);' "$metadata")"
           echo "asset_path=$asset_path" >> "$GITHUB_OUTPUT"
 
-      - name: Upload ember-cli asset to GitHub Release
+      - name: Upload lime-cli asset to GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.event.inputs.version || github.ref_name }}
         shell: bash
         run: |
           set -euo pipefail
-          ASSET_PATH="${{ steps.package_ember_cli.outputs.asset_path }}"
+          ASSET_PATH="${{ steps.package_lime_cli.outputs.asset_path }}"
           if [ -z "$ASSET_PATH" ] || [ ! -f "$ASSET_PATH" ]; then
-            echo "ember-cli asset missing: $ASSET_PATH" >&2
+            echo "lime-cli asset missing: $ASSET_PATH" >&2
             exit 1
           fi
 

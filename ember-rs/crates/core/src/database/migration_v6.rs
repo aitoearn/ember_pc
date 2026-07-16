@@ -1,7 +1,7 @@
 //! 受管项目路径迁移
 //!
-//! 统一把历史 `.proxycast/projects/...`、`.ember/projects/...` 与旧 appdata
-//! 下的受管项目目录迁移到当前 `ember/projects/...` 主路径，避免数据库和
+//! 统一把历史 `.proxycast/projects/...`、`.lime/projects/...` 与旧 appdata
+//! 下的受管项目目录迁移到当前 `lime/projects/...` 主路径，避免数据库和
 //! 会话继续暴露旧品牌目录。
 
 use std::collections::HashMap;
@@ -16,7 +16,7 @@ use super::migration_support::{
 };
 
 const MIGRATION_KEY_MANAGED_WORKSPACE_PATHS_TO_LIME: &str =
-    "migrated_managed_workspace_paths_to_ember_v1";
+    "migrated_managed_workspace_paths_to_lime_v1";
 
 pub struct MigrationResult {
     pub executed: bool,
@@ -40,7 +40,7 @@ where
     F: Fn(&Path) -> Result<Option<PathBuf>, String>,
 {
     if is_migration_completed(conn, MIGRATION_KEY_MANAGED_WORKSPACE_PATHS_TO_LIME) {
-        tracing::debug!("[迁移] 受管项目 legacy 路径已迁移到 ember，跳过");
+        tracing::debug!("[迁移] 受管项目 legacy 路径已迁移到 lime，跳过");
         return Ok(MigrationResult {
             executed: false,
             migrated_workspaces: 0,
@@ -221,7 +221,7 @@ mod tests {
     #[test]
     fn migrate_managed_workspace_paths_rewrites_proxycast_paths_and_copies_project() {
         let temp = tempdir().unwrap();
-        let preferred_root = temp.path().join("appdata").join("ember");
+        let preferred_root = temp.path().join("appdata").join("lime");
         let legacy_proxycast_root = temp.path().join("home").join(".proxycast");
         let legacy_project_root = legacy_proxycast_root.join("projects").join("default");
         std::fs::create_dir_all(&legacy_project_root).unwrap();
@@ -314,10 +314,10 @@ mod tests {
     }
 
     #[test]
-    fn migrate_managed_workspace_paths_rewrites_compat_ember_paths_only_once() {
+    fn migrate_managed_workspace_paths_rewrites_compat_lime_paths_only_once() {
         let temp = tempdir().unwrap();
-        let preferred_root = temp.path().join("appdata").join("ember");
-        let compat_root = temp.path().join("home").join(".ember");
+        let preferred_root = temp.path().join("appdata").join("lime");
+        let compat_root = temp.path().join("home").join(".lime");
         let compat_project_root = compat_root.join("projects").join("default");
         std::fs::create_dir_all(&compat_project_root).unwrap();
 

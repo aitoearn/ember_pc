@@ -88,6 +88,16 @@ function appServerClientMock(): AppServerSessionRpcClient {
       notifications: [],
       messages: [],
     }),
+    deleteSession: vi.fn().mockResolvedValue({
+      id: 6,
+      result: {
+        sessionId: "session-1",
+        deleted: true,
+      },
+      response: { id: 6, result: {} },
+      notifications: [],
+      messages: [],
+    }),
   };
 }
 
@@ -137,15 +147,52 @@ describe("appServerSessionClient", () => {
     });
   });
 
-  it("create 缺少 workspaceId 时应 fail closed", async () => {
+  it("create 有 workingDir 时不再要求 workspaceId", async () => {
     const appServerClient = appServerClientMock();
     const client = createAppServerSessionClient({ appServerClient });
 
-    await expect(client.createAgentRuntimeSession(" ")).rejects.toThrow(
-      "workspaceId 不能为空，请先选择项目工作区",
-    );
+    await expect(
+      client.createAgentRuntimeSession(" ", "空项目对话", undefined, {
+        workingDir: "/repo/skill-think/",
+      }),
+    ).resolves.toBe("session-1");
 
-    expect(appServerClient.startSession).not.toHaveBeenCalled();
+    expect(appServerClient.startSession).toHaveBeenCalledWith({
+      appId: "desktop",
+      workspaceId: undefined,
+      businessObjectRef: {
+        kind: "agent.session",
+        id: "agent-session:/repo/skill-think:1780704000000",
+        title: "空项目对话",
+        metadata: {
+          title: "空项目对话",
+          workingDir: "/repo/skill-think",
+          working_dir: "/repo/skill-think",
+        },
+      },
+    });
+  });
+
+  it("create 同时缺少 workspaceId 和 workingDir 时应创建 detached 普通会话", async () => {
+    const appServerClient = appServerClientMock();
+    const client = createAppServerSessionClient({ appServerClient });
+
+    await expect(
+      client.createAgentRuntimeSession(undefined, "普通对话"),
+    ).resolves.toBe("session-1");
+
+    expect(appServerClient.startSession).toHaveBeenCalledWith({
+      appId: "desktop",
+      workspaceId: undefined,
+      businessObjectRef: {
+        kind: "agent.session",
+        id: "agent-session:detached:1780704000000",
+        title: "普通对话",
+        metadata: {
+          title: "普通对话",
+        },
+      },
+    });
   });
 
   it("create 收到半截 App Server session 时应 fail closed", async () => {
@@ -191,6 +238,10 @@ describe("appServerSessionClient", () => {
             workingDir: "/tmp/workspace-1",
             executionStrategy: "react",
             messagesCount: 3,
+            threadStatus: "running",
+            latestTurnStatus: "accepted",
+            activeTurnId: "turn-1",
+            queuedTurnCount: 1,
           },
         ],
       },
@@ -220,6 +271,10 @@ describe("appServerSessionClient", () => {
         workspace_id: "workspace-1",
         working_dir: "/tmp/workspace-1",
         execution_strategy: "react",
+        thread_status: "running",
+        latest_turn_status: "accepted",
+        active_turn_id: "turn-1",
+        queued_turn_count: 1,
       },
     ]);
 
@@ -301,6 +356,46 @@ describe("appServerSessionClient", () => {
     ]);
   });
 
+  it("list 应兼容历史 snake_case overview 并补齐缺省字段", async () => {
+    const appServerClient = appServerClientMock();
+    vi.mocked(appServerClient.request).mockResolvedValueOnce({
+      id: 2,
+      result: {
+        sessions: [
+          {
+            session_id: "session-snake",
+            thread_id: "thread-snake",
+            title: "历史会话",
+            model: "",
+            created_at: "2026-06-06T00:00:00.000Z",
+            updated_at: "2026-06-06T00:00:02.000Z",
+            workspace_id: "workspace-1",
+            working_dir: "/tmp/workspace-1",
+            execution_strategy: "react",
+            messages_count: 2,
+          },
+        ],
+      } as never,
+      response: { id: 2, result: {} },
+      notifications: [],
+      messages: [],
+    });
+    const client = createAppServerSessionClient({ appServerClient });
+
+    await expect(client.listAgentRuntimeSessions()).resolves.toEqual([
+      expect.objectContaining({
+        id: "session-snake",
+        thread_id: "thread-snake",
+        name: "历史会话",
+        model: "",
+        messages_count: 2,
+        workspace_id: "workspace-1",
+        working_dir: "/tmp/workspace-1",
+        execution_strategy: "react",
+      }),
+    ]);
+  });
+
   it("get 应优先返回 App Server detail 并透传 history 游标", async () => {
     const appServerClient = appServerClientMock();
     const readSessionResult = {
@@ -370,7 +465,7 @@ describe("appServerSessionClient", () => {
         historyBeforeMessageId: 100.8,
         resumeSessionStartHooks: true,
       }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       id: "session-1",
       thread_id: "thread-1",
       name: "Runtime Detail",
@@ -408,6 +503,14 @@ describe("appServerSessionClient", () => {
           ],
         },
       ],
+      turns: [],
+      items: [],
+      queued_turns: [],
+      thread_read: expect.objectContaining({
+        thread_id: "thread-1",
+        status: "idle",
+      }),
+      todo_items: [],
     });
 
     expect(appServerClient.readSession).toHaveBeenCalledWith({
@@ -418,7 +521,7 @@ describe("appServerSessionClient", () => {
     });
   });
 
-  it("get 无 detail 时应从协议 session/turns 构造最小详情", async () => {
+  it("get 无 canonical detail 时应显式失败", async () => {
     const appServerClient = appServerClientMock();
     const readSessionResult = {
       session: {
@@ -453,51 +556,485 @@ describe("appServerSessionClient", () => {
     });
     const client = createAppServerSessionClient({ appServerClient });
 
-    await expect(client.getAgentRuntimeSession("session-2")).resolves.toEqual({
-      id: "session-2",
-      thread_id: "thread-2",
-      name: "协议会话标题",
-      created_at: 1780704000000,
-      updated_at: 1780704003000,
-      workspace_id: "workspace-2",
-      messages: [],
+    await expect(client.getAgentRuntimeSession("session-2")).rejects.toThrow(
+      "agentSession/read did not return canonical session detail",
+    );
+  });
+
+  it("queued turn 只保留在 queued read model，不伪装成 running ThreadTurn", async () => {
+    const appServerClient = appServerClientMock();
+    const readSessionResult = {
+      session: {
+        sessionId: "session-queued",
+        threadId: "thread-queued",
+        appId: "desktop",
+        workspaceId: "workspace-1",
+        status: "running" as const,
+        createdAt: "2026-06-06T00:00:00.000Z",
+        updatedAt: "2026-06-06T00:00:03.000Z",
+      },
       turns: [
         {
-          id: "turn-1",
-          thread_id: "thread-2",
-          prompt_text: "",
-          status: "running",
-          started_at: "2026-06-06T00:00:03.000Z",
-          completed_at: undefined,
-          created_at: "2026-06-06T00:00:03.000Z",
-          updated_at: "2026-06-06T00:00:03.000Z",
+          turnId: "turn-completed",
+          sessionId: "session-queued",
+          threadId: "thread-queued",
+          status: "completed" as const,
+          startedAt: "2026-06-06T00:00:01.000Z",
+          completedAt: "2026-06-06T00:00:02.000Z",
+        },
+        {
+          turnId: "turn-queued",
+          sessionId: "session-queued",
+          threadId: "thread-queued",
+          status: "queued" as const,
+          startedAt: "2026-06-06T00:00:03.000Z",
         },
       ],
-      items: [],
-      queued_turns: [],
-      thread_read: {
-        thread_id: "thread-2",
-        status: "running",
-        profile_status: "running",
-        active_turn_id: "turn-1",
-        turns: [
+      detail: {
+        id: "session-queued",
+        thread_id: "thread-queued",
+        messages: [],
+        queued_turns: [
           {
-            turn_id: "turn-1",
-            status: "running",
-            native_status: "running",
+            queued_turn_id: "turn-queued",
+            message_text: "稍后继续",
+            status: "queued",
+            position: 0,
           },
         ],
-        pending_requests: [],
-        incidents: [],
-        queued_turns: [],
-        updated_at: "2026-06-06T00:00:03.000Z",
+        thread_read: {
+          thread_id: "thread-queued",
+          status: "running",
+          active_turn_id: null,
+          turns: [
+            { turn_id: "turn-completed", status: "completed" },
+            { turn_id: "turn-queued", status: "queued" },
+          ],
+          queued_turns: [
+            {
+              queued_turn_id: "turn-queued",
+              message_text: "稍后继续",
+              status: "queued",
+              position: 0,
+            },
+          ],
+        },
       },
-      todo_items: [],
-      child_subagent_sessions: [],
+    };
+    vi.mocked(appServerClient.readSession).mockResolvedValueOnce({
+      id: 3,
+      result: readSessionResult,
+      response: { id: 3, result: readSessionResult },
+      notifications: [],
+      messages: [],
+    });
+    const client = createAppServerSessionClient({ appServerClient });
+
+    const detail = await client.getAgentRuntimeSession("session-queued");
+
+    expect(detail.turns).toEqual([
+      expect.objectContaining({
+        id: "turn-completed",
+        status: "completed",
+      }),
+    ]);
+    expect(detail.queued_turns).toEqual([
+      expect.objectContaining({
+        queued_turn_id: "turn-queued",
+        status: "queued",
+      }),
+    ]);
+    expect(detail.thread_read).toMatchObject({
+      active_turn_id: null,
+      queued_turns: [
+        expect.objectContaining({
+          queued_turn_id: "turn-queued",
+          status: "queued",
+        }),
+      ],
     });
   });
 
-  it("get 无 detail 时应保留 App Server canceled turn current 状态", async () => {
+  it("get 有 detail 时应补齐缺省数组并保留 current timeline items", async () => {
+    const appServerClient = appServerClientMock();
+    const readSessionResult = {
+      session: {
+        sessionId: "session-items",
+        threadId: "thread-items",
+        appId: "desktop",
+        workspaceId: "workspace-items",
+        status: "completed" as const,
+        createdAt: "2026-06-08T10:00:00.000Z",
+        updatedAt: "2026-06-08T10:00:06.000Z",
+      },
+      turns: [
+        {
+          turnId: "turn-items",
+          sessionId: "session-items",
+          threadId: "thread-items",
+          status: "completed" as const,
+          startedAt: "2026-06-08T10:00:00.000Z",
+          completedAt: "2026-06-08T10:00:06.000Z",
+        },
+      ],
+      detail: {
+        id: "session-items",
+        thread_id: "thread-items",
+        created_at: 1780912800000,
+        updated_at: 1780912806000,
+        turns: [
+          {
+            turnId: "legacy-detail-turn-shadow",
+            threadId: "thread-items",
+            status: "completed",
+            completedAtMs: 1780912806000,
+          },
+        ],
+        items: [
+          {
+            id: "item-assistant-content",
+            thread_id: "thread-items",
+            turn_id: "turn-items",
+            sequence: 2,
+            type: "agent_message",
+            content: "最终总结正文。",
+            phase: "final_answer",
+            status: "completed",
+            started_at: "2026-06-08T10:00:05.000Z",
+            completed_at: "2026-06-08T10:00:06.000Z",
+            updated_at: "2026-06-08T10:00:06.000Z",
+          },
+          {
+            sessionId: "session-items",
+            threadId: "thread-items",
+            turnId: "turn-items",
+            itemId: "item_approval-session",
+            ordinal: 3,
+            sequence: 3,
+            kind: "approval",
+            status: "completed",
+            payload: {
+              type: "approval",
+              request_id: "approval-session",
+              action: {
+                kind: "tool_confirmation",
+                description: "允许执行浏览器工具？",
+              },
+              scope: "session",
+              decision: "approvedForSession",
+            },
+            createdAtMs: 1780912802000,
+            completedAtMs: 1780912803000,
+            updatedAtMs: 1780912803000,
+          },
+        ],
+      },
+    };
+    vi.mocked(appServerClient.readSession).mockResolvedValueOnce({
+      id: 3,
+      result: readSessionResult,
+      response: { id: 3, result: readSessionResult },
+      notifications: [],
+      messages: [],
+    });
+    const client = createAppServerSessionClient({ appServerClient });
+
+    await expect(
+      client.getAgentRuntimeSession("session-items"),
+    ).resolves.toMatchObject({
+      id: "session-items",
+      thread_id: "thread-items",
+      messages: [],
+      turns: [
+        {
+          id: "turn-items",
+          thread_id: "thread-items",
+          status: "completed",
+        },
+      ],
+      items: [
+        {
+          id: "item-assistant-content",
+          type: "agent_message",
+          content: "最终总结正文。",
+          phase: "final_answer",
+        },
+        {
+          id: "item_approval-session",
+          type: "approval_request",
+          request_id: "approval-session",
+          status: "completed",
+          response: {
+            decision: "approvedForSession",
+            decision_scope: "session",
+          },
+        },
+      ],
+      queued_turns: [],
+      todo_items: [],
+      thread_read: expect.objectContaining({
+        thread_id: "thread-items",
+        status: "completed" as const,
+        turns: [
+          {
+            turn_id: "turn-items",
+            status: "completed",
+            native_status: "completed",
+          },
+        ],
+      }),
+    });
+  });
+
+  it("get 有 detail.thread_read 时仍应合入 session business object metadata", async () => {
+    const appServerClient = appServerClientMock();
+    const readSessionResult = {
+      session: {
+        sessionId: "session-expert",
+        threadId: "thread-expert",
+        appId: "desktop",
+        workspaceId: "workspace-expert",
+        status: "running" as const,
+        createdAt: "2026-06-08T10:00:00.000Z",
+        updatedAt: "2026-06-08T10:00:06.000Z",
+        businessObjectRef: {
+          kind: "agent.session",
+          id: "agent-session:workspace-expert:session-expert",
+          metadata: {
+            title: "代码文学专家",
+            expert: { expertId: "code-literature" },
+            harness: {
+              expert: { expert_id: "code-literature" },
+            },
+          },
+        },
+      },
+      turns: [
+        {
+          turnId: "turn-expert",
+          sessionId: "session-expert",
+          threadId: "thread-expert",
+          status: "running" as const,
+          startedAt: "2026-06-08T10:00:00.000Z",
+        },
+      ],
+      detail: {
+        id: "session-expert",
+        thread_id: "thread-expert",
+        thread_read: {
+          thread_id: "thread-expert",
+          status: "running",
+          active_turn_id: "turn-expert",
+          article_workspace: {
+            appId: "content-factory-app",
+            sessionId: "session-expert",
+            objects: [
+              {
+                ref: {
+                  appId: "content-factory-app",
+                  kind: "articleDraft",
+                  id: "article-1",
+                  sessionId: "session-expert",
+                },
+                title: "公众号文章草稿",
+                status: "ready",
+              },
+            ],
+          },
+          tool_calls: [
+            {
+              id: "tool-1",
+              tool_name: "skill_search",
+              status: "completed",
+            },
+          ],
+        },
+      },
+    };
+    vi.mocked(appServerClient.readSession).mockResolvedValueOnce({
+      id: 3,
+      result: readSessionResult,
+      response: { id: 3, result: readSessionResult },
+      notifications: [],
+      messages: [],
+    });
+    const client = createAppServerSessionClient({ appServerClient });
+
+    await expect(
+      client.getAgentRuntimeSession("session-expert"),
+    ).resolves.toMatchObject({
+      thread_read: {
+        thread_id: "thread-expert",
+        status: "running",
+        active_turn_id: "turn-expert",
+        tool_calls: [
+          {
+            id: "tool-1",
+            tool_name: "skill_search",
+            status: "completed",
+          },
+        ],
+        article_workspace: {
+          appId: "content-factory-app",
+          sessionId: "session-expert",
+          objects: [
+            {
+              ref: {
+                appId: "content-factory-app",
+                kind: "articleDraft",
+                id: "article-1",
+                sessionId: "session-expert",
+              },
+              title: "公众号文章草稿",
+              status: "ready",
+            },
+          ],
+        },
+        session_business_object_ref_metadata: {
+          title: "代码文学专家",
+          expert: { expertId: "code-literature" },
+          harness: {
+            expert: { expert_id: "code-literature" },
+          },
+        },
+      },
+    });
+  });
+
+  it("get 应兼容历史 snake_case session/turn 并保留 detail.thread_read", async () => {
+    const appServerClient = appServerClientMock();
+    const readSessionResult = {
+      session: {
+        session_id: "session-snake",
+        thread_id: "thread-snake",
+        sessionId: "session-snake",
+        threadId: "thread-snake",
+        app_id: "desktop",
+        appId: "desktop",
+        workspace_id: "workspace-snake",
+        workspaceId: "workspace-snake",
+        status: "completed" as const,
+        created_at: "2026-06-06T00:00:00.000Z",
+        updated_at: "2026-06-06T00:00:03.000Z",
+        createdAt: "2026-06-06T00:00:00.000Z",
+        updatedAt: "2026-06-06T00:00:03.000Z",
+      },
+      turns: [
+        {
+          turn_id: "turn-snake",
+          session_id: "session-snake",
+          thread_id: "thread-snake",
+          turnId: "turn-snake",
+          sessionId: "session-snake",
+          threadId: "thread-snake",
+          status: "completed" as const,
+          started_at: "2026-06-06T00:00:01.000Z",
+          completed_at: "2026-06-06T00:00:03.000Z",
+          startedAt: "2026-06-06T00:00:01.000Z",
+          completedAt: "2026-06-06T00:00:03.000Z",
+        },
+      ],
+      detail: {
+        id: "session-snake",
+        thread_id: "thread-snake",
+        messages: [],
+        items: [
+          {
+            id: "item-final",
+            thread_id: "thread-snake",
+            turn_id: "turn-snake",
+            sequence: 1,
+            type: "agent_message",
+            content: "历史正文",
+            phase: "final_answer",
+            status: "completed",
+            updated_at: "2026-06-06T00:00:03.000Z",
+          },
+        ],
+        thread_read: {
+          thread_id: "thread-snake",
+          status: "completed",
+          tool_calls: [
+            {
+              id: "tool-1",
+              tool_name: "read_file",
+              status: "completed",
+              structured_content: {
+                answer: "ok",
+              },
+            },
+          ],
+        },
+        executionRuntime: {
+          session_id: "session-snake",
+          source_client: "codex",
+          imported_thread_settings: {
+            cwd: "/tmp/imported-project",
+          },
+          imported_continuation: {
+            cwd: "/tmp/imported-project",
+          },
+          source: "session",
+        },
+      },
+    };
+    vi.mocked(appServerClient.readSession).mockResolvedValueOnce({
+      id: 3,
+      result: readSessionResult as never,
+      response: { id: 3, result: readSessionResult },
+      notifications: [],
+      messages: [],
+    });
+    const client = createAppServerSessionClient({ appServerClient });
+
+    await expect(
+      client.getAgentRuntimeSession("session-snake"),
+    ).resolves.toMatchObject({
+      id: "session-snake",
+      thread_id: "thread-snake",
+      workspace_id: "workspace-snake",
+      turns: [
+        {
+          id: "turn-snake",
+          status: "completed",
+          started_at: "2026-06-06T00:00:01.000Z",
+          completed_at: "2026-06-06T00:00:03.000Z",
+        },
+      ],
+      items: [
+        {
+          id: "item-final",
+          content: "历史正文",
+        },
+      ],
+      thread_read: expect.objectContaining({
+        thread_id: "thread-snake",
+        status: "completed",
+        tool_calls: [
+          expect.objectContaining({
+            id: "tool-1",
+            tool_name: "read_file",
+            structured_content: {
+              answer: "ok",
+            },
+          }),
+        ],
+      }),
+      execution_runtime: {
+        session_id: "session-snake",
+        source_client: "codex",
+        imported_thread_settings: {
+          cwd: "/tmp/imported-project",
+        },
+        imported_continuation: {
+          cwd: "/tmp/imported-project",
+        },
+        source: "session",
+      },
+    });
+  });
+
+  it("get canceled turn 无 canonical detail 时应显式失败", async () => {
     const appServerClient = appServerClientMock();
     const readSessionResult = {
       session: {
@@ -530,29 +1067,8 @@ describe("appServerSessionClient", () => {
 
     await expect(
       client.getAgentRuntimeSession("session-cancel"),
-    ).resolves.toEqual(
-      expect.objectContaining({
-        id: "session-cancel",
-        thread_id: "thread-cancel",
-        turns: [
-          expect.objectContaining({
-            id: "turn-cancel",
-            status: "canceled",
-            completed_at: "2026-06-06T00:00:04.000Z",
-          }),
-        ],
-        thread_read: expect.objectContaining({
-          status: "cancelled",
-          profile_status: "cancelled",
-          turns: [
-            {
-              turn_id: "turn-cancel",
-              status: "cancelled",
-              native_status: "canceled",
-            },
-          ],
-        }),
-      }),
+    ).rejects.toThrow(
+      "agentSession/read did not return canonical session detail",
     );
   });
 
@@ -619,8 +1135,22 @@ describe("appServerSessionClient", () => {
           task: true,
           subagent: false,
         },
-        recent_team_selection: {
-          disabled: true,
+        article_workspace_selected_object_ref: {
+          appId: "content-factory-app",
+          sessionId: "session-1",
+          kind: "imageGenerationSet",
+          id: "image-set-1",
+        },
+        article_workspace_edited_draft: {
+          objectKey: "content-factory-app:session-1:articleDraft:article-1",
+          objectRef: {
+            appId: "content-factory-app",
+            sessionId: "session-1",
+            kind: "articleDraft",
+            id: "article-1",
+          },
+          markdown: "# 用户编辑稿\n\n这是画布编辑后的正文。",
+          updatedAt: "2026-06-29T10:00:00.000Z",
         },
       }),
     ).resolves.toBeUndefined();
@@ -638,8 +1168,22 @@ describe("appServerSessionClient", () => {
         task: true,
         subagent: false,
       },
-      recentTeamSelection: {
-        disabled: true,
+      articleWorkspaceSelectedObjectRef: {
+        appId: "content-factory-app",
+        sessionId: "session-1",
+        kind: "imageGenerationSet",
+        id: "image-set-1",
+      },
+      articleWorkspaceEditedDraft: {
+        objectKey: "content-factory-app:session-1:articleDraft:article-1",
+        objectRef: {
+          appId: "content-factory-app",
+          sessionId: "session-1",
+          kind: "articleDraft",
+          id: "article-1",
+        },
+        markdown: "# 用户编辑稿\n\n这是画布编辑后的正文。",
+        updatedAt: "2026-06-29T10:00:00.000Z",
       },
     });
   });
@@ -664,6 +1208,20 @@ describe("appServerSessionClient", () => {
 
     expect(appServerClient.archiveManySessions).toHaveBeenCalledWith({
       sessionIds: ["session-1", "session-2"],
+    });
+    expect(appServerClient.updateSession).not.toHaveBeenCalled();
+  });
+
+  it("delete 应通过 agentSession/delete 物理清理 current session", async () => {
+    const appServerClient = appServerClientMock();
+    const client = createAppServerSessionClient({ appServerClient });
+
+    await expect(
+      client.deleteAgentRuntimeSession(" session-1 "),
+    ).resolves.toBeUndefined();
+
+    expect(appServerClient.deleteSession).toHaveBeenCalledWith({
+      sessionId: "session-1",
     });
     expect(appServerClient.updateSession).not.toHaveBeenCalled();
   });

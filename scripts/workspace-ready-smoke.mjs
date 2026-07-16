@@ -8,12 +8,12 @@ const DEFAULTS = {
   invokeUrl: "http://127.0.0.1:3030/invoke",
   timeoutMs: 60_000,
   intervalMs: 1_000,
-  sampleProjectName: "Ember Smoke Workspace",
+  sampleProjectName: "Lime Smoke Workspace",
 };
 
 function printHelp() {
   console.log(`
-Ember Workspace Ready Smoke
+Lime Workspace Ready Smoke
 
 用途:
   验证 DevBridge 已就绪，并检查默认 workspace 可获取、可修复、可按路径回查。

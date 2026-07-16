@@ -11,8 +11,8 @@
 //! # 示例
 //!
 //! ```rust,ignore
-//! use ember_lib::router::AmpRouter;
-//! use ember_lib::config::AmpConfig;
+//! use lime_lib::router::AmpRouter;
+//! use lime_lib::config::AmpConfig;
 //!
 //! let config = AmpConfig::default();
 //! let router = AmpRouter::new(config);

@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const { mockGetConfig, mockSaveConfig } = vi.hoisted(() => ({
   mockGetConfig: vi.fn(),
@@ -129,7 +129,7 @@ async function clickButton(button: HTMLButtonElement) {
 }
 
 beforeEach(async () => {
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
   (
     globalThis as typeof globalThis & {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -163,7 +163,7 @@ afterEach(async () => {
   }
 
   vi.clearAllMocks();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("ProfileSettings", () => {
@@ -273,7 +273,7 @@ describe("ProfileSettings", () => {
 
     const nicknameTip = await hoverTip("Nickname info");
     expect(getBodyText()).toContain(
-      "Use the name you prefer so Ember can show it consistently.",
+      "Use the name you prefer so Lime can show it consistently.",
     );
     await leaveTip(nicknameTip);
 

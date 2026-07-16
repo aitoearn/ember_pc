@@ -9,15 +9,13 @@ import {
   resolveArtifactWritePhase,
 } from "../utils/messageArtifacts";
 import { resolveContentPostArtifactDisplayTitle } from "../utils/contentPostSkill";
-import { isHiddenConversationArtifactPath } from "../utils/internalArtifactVisibility";
+import { isHiddenConversationArtifact } from "../utils/internalArtifactVisibility";
 import { resolveKnowledgeSourceFromArtifacts } from "./messageListKnowledgeSource";
-
-interface SaveMessageAsKnowledgeSource {
-  messageId: string;
-  content: string;
-  sourceName?: string;
-  description?: string | null;
-}
+import { resolveArtifactFrameRenderer } from "./artifactFrameRenderers";
+import type {
+  SaveMessageAsKnowledgeSource,
+  ArtifactFrameRendererProps,
+} from "./artifactFrameRegistry";
 
 interface MessageArtifactCardsProps {
   artifacts: Artifact[] | undefined;
@@ -36,7 +34,8 @@ export function MessageArtifactCards({
   const visibleArtifacts =
     artifacts?.filter(
       (artifact) =>
-        !isHiddenConversationArtifactPath(
+        !isHiddenConversationArtifact(
+          artifact,
           resolveArtifactProtocolFilePath(artifact),
         ),
     ) || [];
@@ -48,6 +47,17 @@ export function MessageArtifactCards({
   return (
     <div className="flex flex-col gap-2">
       {visibleArtifacts.map((artifact) => {
+        const frameRenderer = resolveArtifactFrameRenderer(artifact);
+        if (frameRenderer) {
+          const FrameRenderer = frameRenderer.component;
+          const frameRendererProps: ArtifactFrameRendererProps = {
+            artifact,
+            messageId,
+            onArtifactClick,
+            onSaveMessageAsKnowledge,
+          };
+          return <FrameRenderer key={artifact.id} {...frameRendererProps} />;
+        }
         const filePath = resolveArtifactProtocolFilePath(artifact);
         const displayTitle = resolveContentPostArtifactDisplayTitle({
           title: artifact.title,

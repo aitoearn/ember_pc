@@ -6,11 +6,11 @@ import {
   type AgentThreadTurn,
 } from "@/lib/api/agentProtocol";
 import type {
-  AsterExecutionStrategy,
-  AsterSessionExecutionRuntime,
-  AutoContinueRequestPayload,
-  QueuedTurnSnapshot,
-} from "@/lib/api/agentRuntime";
+  AgentExecutionStrategy,
+  AgentSessionExecutionRuntime,
+} from "@/lib/api/agentExecutionRuntime";
+import type { AutoContinueRequestPayload } from "@/lib/api/agentRuntime/sessionTypes";
+import type { QueuedTurnSnapshot } from "@/lib/api/queuedTurn";
 import { logAgentDebug } from "@/lib/agentDebug";
 import type { ActionRequired, Message } from "../types";
 import { handleTurnStreamEvent } from "./agentStreamRuntimeHandler";
@@ -34,17 +34,109 @@ import {
   shouldScheduleAgentStreamInactivityWatchdog,
 } from "./agentStreamListenerReadinessController";
 import { startAgentStreamRequest } from "./agentStreamRequestStartController";
+import { buildAgentStreamProviderTraceMetricContext } from "./agentStreamRuntimeMetricsController";
 import {
   rememberAgentStreamUnknownEventWarning,
   resolveAgentStreamUnknownEventPlan,
 } from "./agentStreamUnknownEventController";
 import type { AgentRuntimeAdapter } from "./agentRuntimeAdapter";
 import type { StreamRequestState } from "./agentStreamSubmissionLifecycle";
-import { recordAgentStreamPerformanceMetric } from "./agentStreamPerformanceMetrics";
+import {
+  recordAgentStreamPerformanceMetric,
+  type AgentUiPerformanceTraceMetadata,
+} from "./agentStreamPerformanceMetrics";
+import type { SoulInteractionCopy } from "@/lib/soul/interactionCopy";
 
 type MessageParts = NonNullable<Message["contentParts"]>;
 const STREAM_FIRST_EVENT_TIMEOUT_MS = 12_000;
 const STREAM_INACTIVITY_TIMEOUT_MS = 120_000; // 2 分钟，兼容推理模型长时间思考
+const STREAM_DEFERRED_RECOVERY_POLL_MS = 5_000;
+
+function normalizeEventNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function parseEventTimestampMs(timestamp: string | undefined): number | null {
+  if (!timestamp) {
+    return null;
+  }
+  const parsed = Date.parse(timestamp);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function buildAgentEventPerformanceTrace(params: {
+  activeSessionId: string;
+  event: AgentEvent;
+  eventReceivedAt: number;
+  previousTrace?: AgentUiPerformanceTraceMetadata | null;
+  resolvedWorkspaceId: string;
+}): AgentUiPerformanceTraceMetadata | null {
+  const previousTrace = params.previousTrace ?? null;
+  if (!previousTrace && !params.event.trace_id && !params.event.run_id) {
+    return null;
+  }
+
+  return {
+    ...previousTrace,
+    requestId: params.event.request_id ?? previousTrace?.requestId ?? null,
+    runId: params.event.run_id ?? previousTrace?.runId ?? null,
+    sessionId:
+      params.event.session_id ??
+      previousTrace?.sessionId ??
+      params.activeSessionId,
+    traceId: params.event.trace_id ?? previousTrace?.traceId ?? null,
+    turnId: params.event.turn_id ?? previousTrace?.turnId ?? null,
+    workspaceId: previousTrace?.workspaceId ?? params.resolvedWorkspaceId,
+    serverEventEmittedAt:
+      normalizeEventNumber(params.event.server_event_emitted_at) ??
+      parseEventTimestampMs(params.event.timestamp) ??
+      previousTrace?.serverEventEmittedAt ??
+      null,
+    serverEventId:
+      params.event.event_id ?? previousTrace?.serverEventId ?? null,
+    serverEventSequence:
+      normalizeEventNumber(params.event.sequence) ??
+      previousTrace?.serverEventSequence ??
+      null,
+    serverEventType:
+      params.event.type ?? previousTrace?.serverEventType ?? null,
+    rendererEventReceivedAt:
+      normalizeEventNumber(params.event.renderer_event_received_at) ??
+      params.eventReceivedAt,
+    providerWaitMs:
+      params.event.type === "provider_trace" &&
+      params.event.stage === "first_text_delta_received"
+        ? (normalizeEventNumber(params.event.elapsed_ms) ??
+          previousTrace?.providerWaitMs ??
+          null)
+        : (previousTrace?.providerWaitMs ?? null),
+  };
+}
+
+function readRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function readRuntimeErrorMessage(payload: unknown): string {
+  const root = readRecord(payload);
+  const params = readRecord(root?.params);
+  const event = readRecord(params?.event);
+  const eventPayload = readRecord(event?.payload);
+  const directPayload = readRecord(root?.payload);
+  const source = eventPayload ?? directPayload ?? params ?? root;
+  const message =
+    source?.message ??
+    source?.errorMessage ??
+    source?.error_message ??
+    source?.error ??
+    event?.event_type ??
+    root?.type;
+  return typeof message === "string" && message.trim()
+    ? message.trim()
+    : "Runtime error";
+}
 
 interface StreamObserver {
   onTextDelta?: (delta: string, accumulated: string) => void;
@@ -60,11 +152,12 @@ interface RegisterAgentStreamTurnEventBindingOptions {
     sessionId: string,
     requestStartedAt: number,
     promptText: string,
+    options?: { requireTerminal?: boolean; turnId?: string | null },
   ) => Promise<boolean>;
   skipUserMessage: boolean;
   effectiveProviderType: string;
   effectiveModel: string;
-  effectiveExecutionStrategy: AsterExecutionStrategy;
+  effectiveExecutionStrategy: AgentExecutionStrategy;
   systemPrompt?: string;
   thinking?: boolean;
   content: string;
@@ -102,11 +195,7 @@ interface RegisterAgentStreamTurnEventBindingOptions {
     removeQueuedDraftMessages: () => void;
     clearActiveStreamIfMatch: (eventName: string) => boolean;
     upsertQueuedTurn: (queuedTurn: QueuedTurnSnapshot) => void;
-    removeQueuedTurnState: (queuedTurnIds: string[]) => void;
-  };
-  sounds: {
-    playToolcallSound: () => void;
-    playTypewriterSound: () => void;
+    removeQueuedTurnsFromProjection: (queuedTurnIds: string[]) => void;
   };
   appendThinkingToParts: (
     parts: MessageParts,
@@ -114,13 +203,15 @@ interface RegisterAgentStreamTurnEventBindingOptions {
   ) => MessageParts;
   setMessages: Dispatch<SetStateAction<Message[]>>;
   setPendingActions: Dispatch<SetStateAction<ActionRequired[]>>;
+  getThreadItems?: () => readonly AgentThreadItem[];
   setThreadItems: Dispatch<SetStateAction<AgentThreadItem[]>>;
   setThreadTurns: Dispatch<SetStateAction<AgentThreadTurn[]>>;
   setCurrentTurnId: Dispatch<SetStateAction<string | null>>;
   setExecutionRuntime: Dispatch<
-    SetStateAction<AsterSessionExecutionRuntime | null>
+    SetStateAction<AgentSessionExecutionRuntime | null>
   >;
   setIsSending: Dispatch<SetStateAction<boolean>>;
+  soulCopy?: SoulInteractionCopy;
 }
 
 export async function registerAgentStreamTurnEventBinding(
@@ -157,15 +248,16 @@ export async function registerAgentStreamTurnEventBinding(
     observer,
     onWriteFile,
     callbacks,
-    sounds,
     appendThinkingToParts,
     setMessages,
     setPendingActions,
+    getThreadItems,
     setThreadItems,
     setThreadTurns,
     setCurrentTurnId,
     setExecutionRuntime,
     setIsSending,
+    soulCopy,
   } = options;
 
   startAgentStreamRequest({
@@ -188,6 +280,7 @@ export async function registerAgentStreamTurnEventBinding(
   let lastRuntimeEventType: string | null = null;
   const warnedUnknownEventTypes = new Set<string>();
   const surfaceThinkingDeltas = thinking === true;
+  let terminalRecoveryPollStarted = false;
   const markFirstEventReceived = (params: {
     eventReceivedAt: number;
     eventType: string;
@@ -223,6 +316,82 @@ export async function registerAgentStreamTurnEventBinding(
       inactivityWatchdogId = null;
     }
   };
+  let deferredRecoveryPollId: ReturnType<typeof setTimeout> | null = null;
+  const clearDeferredRecoveryPoll = () => {
+    if (deferredRecoveryPollId) {
+      clearTimeout(deferredRecoveryPollId);
+      deferredRecoveryPollId = null;
+    }
+  };
+  const readRecoveryTurnId = () =>
+    requestState.activeTextSegmentTurnId ??
+    requestState.currentTurnId ??
+    null;
+  function scheduleDeferredRecoveryPoll() {
+    clearDeferredRecoveryPoll();
+    if (requestState.requestFinished) {
+      return;
+    }
+    logAgentDebug(
+      "AgentStream",
+      "terminalRecoveryPoll.scheduled",
+      {
+        eventName,
+        requireTerminal: terminalRecoveryPollStarted,
+        sessionId: activeSessionId,
+        turnId: readRecoveryTurnId(),
+      },
+      {
+        dedupeKey: `${eventName}:terminalRecoveryPoll.scheduled`,
+        throttleMs: 1000,
+      },
+    );
+    deferredRecoveryPollId = globalThis.setTimeout(() => {
+      deferredRecoveryPollId = null;
+      if (requestState.requestFinished) {
+        return;
+      }
+      void (async () => {
+        logAgentDebug(
+          "AgentStream",
+          "terminalRecoveryPoll.attempt",
+          {
+            eventName,
+            requireTerminal: terminalRecoveryPollStarted,
+            sessionId: activeSessionId,
+            turnId: readRecoveryTurnId(),
+          },
+          {
+            dedupeKey: `${eventName}:terminalRecoveryPoll.attempt`,
+            throttleMs: 1000,
+          },
+        );
+        const recovered = await tryRecoverSilentTurn({
+          requireTerminal: terminalRecoveryPollStarted,
+        });
+        if (recovered) {
+          logAgentDebug("AgentStream", "terminalRecoveryPoll.recovered", {
+            eventName,
+            sessionId: activeSessionId,
+            turnId: readRecoveryTurnId(),
+          });
+          console.warn(
+            buildAgentStreamFirstEventSilentRecoveryWarning({ eventName }),
+          );
+          finalizeSilentTurnRecovery();
+          return;
+        }
+        scheduleDeferredRecoveryPoll();
+      })();
+    }, STREAM_DEFERRED_RECOVERY_POLL_MS);
+  }
+  const startTerminalRecoveryPoll = () => {
+    if (requestState.requestFinished) {
+      return;
+    }
+    terminalRecoveryPollStarted = true;
+    scheduleDeferredRecoveryPoll();
+  };
   function deferFirstEventTimeoutAfterSubmission() {
     if (
       !shouldDeferAgentStreamFirstEventTimeout({
@@ -251,6 +420,7 @@ export async function registerAgentStreamTurnEventBinding(
     );
     callbacks.activateStream(activeSessionId, effectiveWaitingRuntimeStatus);
     scheduleInactivityWatchdog();
+    startTerminalRecoveryPoll();
     return true;
   }
 
@@ -305,6 +475,7 @@ export async function registerAgentStreamTurnEventBinding(
   const disposeListenerWithWatchdogs = () => {
     clearFirstEventWatchdog();
     clearInactivityWatchdog();
+    clearDeferredRecoveryPoll();
     callbacks.disposeListener();
   };
   const finalizeSilentTurnRecovery = () => {
@@ -313,7 +484,9 @@ export async function registerAgentStreamTurnEventBinding(
     disposeListenerWithWatchdogs();
     setIsSending(false);
   };
-  const tryRecoverSilentTurn = async () => {
+  const tryRecoverSilentTurn = async (recoveryOptions?: {
+    requireTerminal?: boolean;
+  }) => {
     if (!attemptSilentTurnRecovery) {
       return false;
     }
@@ -321,8 +494,13 @@ export async function registerAgentStreamTurnEventBinding(
       activeSessionId,
       requestState.requestStartedAt,
       content,
+      {
+        requireTerminal: recoveryOptions?.requireTerminal === true,
+        turnId: readRecoveryTurnId(),
+      },
     );
   };
+  requestState.startTerminalRecoveryPoll = startTerminalRecoveryPoll;
   const dispatchSyntheticEvent = (data: AgentEvent) => {
     handleTurnStreamEvent({
       data,
@@ -340,9 +518,7 @@ export async function registerAgentStreamTurnEventBinding(
         removeQueuedDraftMessages: callbacks.removeQueuedDraftMessages,
         clearActiveStreamIfMatch: callbacks.clearActiveStreamIfMatch,
         upsertQueuedTurn: callbacks.upsertQueuedTurn,
-        removeQueuedTurnState: callbacks.removeQueuedTurnState,
-        playToolcallSound: sounds.playToolcallSound,
-        playTypewriterSound: sounds.playTypewriterSound,
+        removeQueuedTurnsFromProjection: callbacks.removeQueuedTurnsFromProjection,
         appendThinkingToParts,
       },
       observer,
@@ -367,11 +543,13 @@ export async function registerAgentStreamTurnEventBinding(
       onWriteFile,
       setMessages,
       setPendingActions,
+      getThreadItems,
       setThreadItems,
       setThreadTurns,
       setCurrentTurnId,
       setExecutionRuntime,
       setIsSending,
+      soulCopy,
     });
   };
   const dispatchSyntheticError = (message: string) => {
@@ -413,8 +591,16 @@ export async function registerAgentStreamTurnEventBinding(
         { level: "warn" },
       );
       void (async () => {
-        const recovered = await tryRecoverSilentTurn();
+        const recovered = await tryRecoverSilentTurn({
+          requireTerminal: true,
+        });
+        const activeReadModelActivity = recovered
+          ? false
+          : await tryRecoverSilentTurn({
+              requireTerminal: false,
+            });
         const timeoutAction = resolveAgentStreamInactivityTimeoutAction({
+          activeReadModelActivity,
           recovered,
           shouldIgnore: shouldIgnoreAgentStreamInactivityResult({
             lastEventReceivedAt,
@@ -441,6 +627,14 @@ export async function registerAgentStreamTurnEventBinding(
               lastRuntimeEventType,
             });
             finalizeSilentTurnRecovery();
+            return;
+          case "continue":
+            logAgentDebug("AgentStream", "inactivityWatchdog.continue", {
+              eventName,
+              sessionId: activeSessionId,
+              lastRuntimeEventType,
+            });
+            scheduleInactivityWatchdog();
             return;
           case "fail":
             logAgentDebug(
@@ -469,7 +663,35 @@ export async function registerAgentStreamTurnEventBinding(
       const schemaVersion = extractAgentStreamRuntimeEventSchemaVersion(
         event.payload,
       );
+      if (data?.type === "text_delta" || data?.type === "text_delta_batch") {
+        logAgentDebug(
+          "AgentStream",
+          "inboundTextDelta",
+          {
+            eventName,
+            itemId: data.itemId ?? null,
+            parsedType: data.type,
+            phase: data.phase ?? null,
+            rawEventType: eventType,
+            sequence: data.sequence ?? null,
+            sessionId: data.session_id ?? activeSessionId,
+            turnId: data.turn_id ?? null,
+          },
+          {
+            consoleOnly: true,
+            dedupeKey: `${eventName}:inboundTextDelta:${data.itemId ?? "no-item"}:${data.phase ?? "no-phase"}`,
+            throttleMs: 1000,
+          },
+        );
+      }
       if (!data) {
+        if (eventType === "runtime_error" || eventType === "runtime.error") {
+          dispatchSyntheticError(readRuntimeErrorMessage(event.payload));
+          return;
+        }
+        if (!terminalRecoveryPollStarted) {
+          clearDeferredRecoveryPoll();
+        }
         const unknownEventPlan = resolveAgentStreamUnknownEventPlan({
           eventName,
           eventType,
@@ -512,8 +734,54 @@ export async function registerAgentStreamTurnEventBinding(
           recognized: true,
         });
       }
+      if (!terminalRecoveryPollStarted) {
+        clearDeferredRecoveryPoll();
+      }
       lastEventReceivedAt = eventReceivedAt;
       lastRuntimeEventType = data.type;
+      requestState.performanceTrace = buildAgentEventPerformanceTrace({
+        activeSessionId,
+        event: data,
+        eventReceivedAt,
+        previousTrace: requestState.performanceTrace,
+        resolvedWorkspaceId,
+      });
+
+      if (data.type === "provider_trace") {
+        const providerTraceContext = buildAgentStreamProviderTraceMetricContext(
+          {
+            activeSessionId,
+            attempt: data.attempt,
+            cancelReason: data.cancel_reason,
+            elapsedMs: data.elapsed_ms,
+            eventName,
+            failureCategory: data.failure_category,
+            model: data.model,
+            provider: data.provider,
+            retryable: data.retryable,
+            runtimeProviderActiveModel: data.runtime_provider_active_model,
+            runtimeProviderBackend: data.runtime_provider_backend,
+            runtimeProviderProtocol: data.runtime_provider_protocol,
+            runtimeProviderSelector: data.runtime_provider_selector,
+            runtimeEventType: data.runtime_event_type,
+            stage: data.stage,
+            status: data.status,
+            textChars: data.text_chars,
+          },
+        );
+        recordAgentStreamPerformanceMetric(
+          "agentStream.providerTrace",
+          requestState.performanceTrace,
+          providerTraceContext,
+        );
+        logAgentDebug("AgentStream", "providerTrace", providerTraceContext, {
+          consoleOnly: true,
+          dedupeKey: `${eventName}:providerTrace:${data.stage ?? "no-stage"}:${data.status ?? "no-status"}`,
+          throttleMs: 1000,
+        });
+        scheduleInactivityWatchdog();
+        return;
+      }
 
       handleTurnStreamEvent({
         data,
@@ -531,9 +799,7 @@ export async function registerAgentStreamTurnEventBinding(
           removeQueuedDraftMessages: callbacks.removeQueuedDraftMessages,
           clearActiveStreamIfMatch: callbacks.clearActiveStreamIfMatch,
           upsertQueuedTurn: callbacks.upsertQueuedTurn,
-          removeQueuedTurnState: callbacks.removeQueuedTurnState,
-          playToolcallSound: sounds.playToolcallSound,
-          playTypewriterSound: sounds.playTypewriterSound,
+          removeQueuedTurnsFromProjection: callbacks.removeQueuedTurnsFromProjection,
           appendThinkingToParts,
         },
         observer,
@@ -558,12 +824,17 @@ export async function registerAgentStreamTurnEventBinding(
         onWriteFile,
         setMessages,
         setPendingActions,
+        getThreadItems,
         setThreadItems,
         setThreadTurns,
         setCurrentTurnId,
         setExecutionRuntime,
         setIsSending,
+        soulCopy,
       });
+      if (data.type === "text_delta" || data.type === "text_delta_batch") {
+        startTerminalRecoveryPoll();
+      }
       scheduleInactivityWatchdog();
     },
   );
@@ -586,6 +857,7 @@ export async function registerAgentStreamTurnEventBinding(
   return () => {
     clearFirstEventWatchdog();
     clearInactivityWatchdog();
+    clearDeferredRecoveryPoll();
     if (requestState.queuedDraftCleanupTimerId) {
       clearTimeout(requestState.queuedDraftCleanupTimerId);
       requestState.queuedDraftCleanupTimerId = null;

@@ -240,8 +240,8 @@ def ensure_ocr_binary(configured: str = "") -> str | None:
         return configured
     if sys.platform != "darwin":
         return None
-    binary = Path(tempfile.gettempdir()) / "ember-layered-design-vision-ocr"
-    source = Path(tempfile.gettempdir()) / "ember-layered-design-vision-ocr.swift"
+    binary = Path(tempfile.gettempdir()) / "lime-layered-design-vision-ocr"
+    source = Path(tempfile.gettempdir()) / "lime-layered-design-vision-ocr.swift"
     if binary.exists():
         return str(binary)
     source.write_text(SWIFT_OCR_SOURCE, encoding="utf-8")

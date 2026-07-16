@@ -92,7 +92,7 @@ const AGENT_RESULT_MESSAGE = {
 const FILE_MANAGER_SOURCE_ID = "default-source";
 const FILE_MANAGER_SOURCE_VISIBLE_TITLE = "default source";
 const USER_FACING_FORBIDDEN_TEXT = [
-  ".ember/knowledge",
+  ".lime/knowledge",
   "KNOWLEDGE.md",
   "knowledge_builder",
   "compiled/brief.md",
@@ -196,10 +196,10 @@ function rewriteKnowledgeCompileInvokePayload(rawPostData) {
 
 function printHelp() {
   console.log(`
-Ember Knowledge GUI Smoke
+Lime Knowledge GUI Smoke
 
 用途:
-  通过真实 Ember 页面验证项目资料管理页、全部资料列表、
+  通过真实 Lime 页面验证项目资料管理页、全部资料列表、
   用于生成视图与补充导入入口。
 
 用法:
@@ -960,10 +960,10 @@ async function clickScopedButton(page, { scope, text, ariaLabel, index = 0 }) {
 async function syncSmokeProjectStorage(page, options) {
   await page.evaluate(
     ({ workingDir, onboardingVersion, projectId }) => {
-      localStorage.setItem("ember_onboarding_complete", "true");
-      localStorage.setItem("ember_onboarding_version", onboardingVersion);
-      localStorage.setItem("ember_user_profile", "developer");
-      localStorage.setItem("ember.knowledge.working-dir", workingDir);
+      localStorage.setItem("lime_onboarding_complete", "true");
+      localStorage.setItem("lime_onboarding_version", onboardingVersion);
+      localStorage.setItem("lime_user_profile", "developer");
+      localStorage.setItem("lime.knowledge.working-dir", workingDir);
       localStorage.setItem("agent_last_project_id", JSON.stringify(projectId));
       window.dispatchEvent(
         new CustomEvent("agent-persisted-project-id-changed", {
@@ -1002,7 +1002,7 @@ async function restoreKnowledgeOverview(page, options, label) {
   await waitForPageText(
     page,
     `${label} 项目资料首页恢复`,
-    ["让 Ember 记住这个项目", "项目资料清单"],
+    ["让 Lime 记住这个项目", "项目资料清单"],
     options.timeoutMs,
   );
 }
@@ -1081,7 +1081,7 @@ async function verifyBuilderImportAndReview(page, options) {
     [
       "选择资料用途",
       "添加原始资料",
-      "Ember 开始整理",
+      "Lime 开始整理",
       "没有确认的资料不会自动用于创作",
     ],
     options.timeoutMs,
@@ -1113,7 +1113,7 @@ async function verifyBuilderImportAndReview(page, options) {
     options.timeoutMs,
   );
   await page
-    .getByRole("button", { name: "Ember 开始整理", exact: true })
+    .getByRole("button", { name: "Lime 开始整理", exact: true })
     .click({ timeout: DEFAULT_ACTION_TIMEOUT_MS });
 
   try {
@@ -1182,7 +1182,7 @@ async function openKnowledgePageFromMainNav(page, options) {
       await waitForPageText(
         page,
         `项目资料导航第 ${attempt} 次`,
-        ["让 Ember 记住这个项目"],
+        ["让 Lime 记住这个项目"],
         Math.min(options.timeoutMs, 15_000),
       );
       return;
@@ -1257,7 +1257,7 @@ async function seedAgentResultForKnowledgeCapture(page, options) {
     ({ projectId, message }) => {
       const now = new Date().toISOString();
       sessionStorage.setItem(
-        `aster_messages_${projectId}`,
+        `agent_messages_${projectId}`,
         JSON.stringify([
           {
             id: message.id,
@@ -1267,11 +1267,11 @@ async function seedAgentResultForKnowledgeCapture(page, options) {
           },
         ]),
       );
-      sessionStorage.removeItem(`aster_curr_sessionId_${projectId}`);
-      sessionStorage.removeItem(`aster_last_sessionId_${projectId}`);
-      sessionStorage.removeItem(`aster_thread_turns_${projectId}`);
-      sessionStorage.removeItem(`aster_thread_items_${projectId}`);
-      sessionStorage.removeItem(`aster_curr_turnId_${projectId}`);
+      sessionStorage.removeItem(`agent_curr_sessionId_${projectId}`);
+      sessionStorage.removeItem(`agent_last_sessionId_${projectId}`);
+      sessionStorage.removeItem(`agent_thread_turns_${projectId}`);
+      sessionStorage.removeItem(`agent_thread_items_${projectId}`);
+      sessionStorage.removeItem(`agent_curr_turnId_${projectId}`);
     },
     {
       projectId: options.projectId,
@@ -1325,7 +1325,7 @@ async function cleanupSmokeProject(options) {
 
 async function runPlaywrightGuiFlow(options) {
   const userDataDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), `ember-knowledge-gui-playwright-${process.pid}-`),
+    path.join(os.tmpdir(), `lime-knowledge-gui-playwright-${process.pid}-`),
   );
   const launchOptions = {
     headless: true,
@@ -1478,7 +1478,7 @@ async function runPlaywrightGuiFlow(options) {
       page,
       "知识库总览加载",
       [
-        "让 Ember 记住这个项目",
+        "让 Lime 记住这个项目",
         "回到创作",
         "整理新资料",
         "项目资料清单",
@@ -1520,7 +1520,7 @@ async function runPlaywrightGuiFlow(options) {
     await waitForPageText(
       page,
       "状态说明后返回项目资料首页",
-      ["让 Ember 记住这个项目", "项目资料清单", DEFAULT_PACK.title],
+      ["让 Lime 记住这个项目", "项目资料清单", DEFAULT_PACK.title],
       options.timeoutMs,
     );
 
@@ -1618,7 +1618,7 @@ async function runPlaywrightGuiFlow(options) {
       page,
       "保存资料进入管理页",
       [
-        "让 Ember 记住这个项目",
+        "让 Lime 记住这个项目",
         "项目资料清单",
         DEFAULT_PACK.title,
         "待确认",
@@ -1697,7 +1697,7 @@ async function main() {
 
   const options = parseArgs(process.argv.slice(2));
   options.workingDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), `ember-knowledge-gui-smoke-${process.pid}-`),
+    path.join(os.tmpdir(), `lime-knowledge-gui-smoke-${process.pid}-`),
   );
 
   try {

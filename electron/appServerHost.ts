@@ -1,5 +1,6 @@
 import {
   AppServerSidecarLifecycle,
+  cancelRequest,
   decodeMessage,
   defaultReleaseManifestPath,
   encodeMessage,
@@ -8,11 +9,15 @@ import {
   isJsonRpcErrorResponse,
   type AgentSessionTurnStartParams,
   type AgentSessionTurnStartResponse,
+  type AgentSessionReadResponse,
   METHOD_INITIALIZE,
   METHOD_INITIALIZED,
+  METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED,
   readReleaseManifest,
   resolveSidecarFromReleaseManifest,
   stdioSidecar,
+  type AppServerRequestOptions,
+  type AppServerRequestResult,
   type ConnectedAppServerSidecar,
   type InitializeResponse,
   type InitializeParams,
@@ -21,17 +26,46 @@ import {
   type RequestId,
   type SidecarLaunchConfig,
 } from "@embercloud/app-server-client";
-import { app } from "./electronRuntime";
+import { app, session } from "./electronRuntime";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
 const DEFAULT_APP_SERVER_REQUEST_TIMEOUT_MS = 30_000;
 const APP_SERVER_BACKEND_TIMEOUT_GRACE_MS = 30_000;
 const APP_SERVER_TURN_START_METHOD = "agentSession/turn/start";
-const APP_SERVER_AGENT_APP_UI_RUNTIME_START_METHOD = "agentAppUiRuntime/start";
-const APP_SERVER_AGENT_APP_UI_RUNTIME_START_TIMEOUT_MS = 60_000;
+const APP_SERVER_PLUGIN_UI_RUNTIME_START_METHOD = "pluginUiRuntime/start";
+const APP_SERVER_PROJECT_SHELL_DRAIN_EVENTS_METHOD =
+  "projectShell/session/drainEvents";
+const APP_SERVER_CONVERSATION_IMPORT_THREAD_COMMIT_METHOD =
+  "conversationImport/thread/commit";
+const APP_SERVER_PLUGIN_UI_RUNTIME_START_TIMEOUT_MS = 60_000;
+const APP_SERVER_PLUGIN_INSTALLED_SAVE_TIMEOUT_MS = 240_000;
+const APP_SERVER_PLUGIN_PACKAGE_INSPECT_TIMEOUT_MS = 240_000;
+const APP_SERVER_PROJECT_SHELL_DRAIN_EVENTS_TIMEOUT_MS = 3_000;
+const APP_SERVER_CONVERSATION_IMPORT_THREAD_COMMIT_TIMEOUT_MS = 180_000;
+const APP_SERVER_REQUEST_TIMEOUT_OVERRIDE_CEILING_MS = 600_000;
 const APP_SERVER_STREAMING_TURN_ACK_GRACE_MS = 250;
+const APP_SERVER_STREAMING_TURN_IDENTITY_READ_TIMEOUT_MS = 2_000;
+const APP_SERVER_STREAMING_TURN_IDENTITY_READ_RETRY_MS = 25;
 const APP_SERVER_PROXY_REQUEST_ID_PREFIX = "electron-host";
+const APP_SERVER_CANCEL_REQUEST_METHOD = "$/cancelRequest";
+const APP_SERVER_DATA_DIR_NAME = "app-server";
+const APP_SERVER_CONFIG_FILE_NAME = "config.yaml";
+const APP_SERVER_RECENT_NOTIFICATION_LIMIT = 500;
+const APP_SERVER_PROXY_PROBE_URL = "https://llm.limeai.run/v1/models";
+const APP_SERVER_PROXY_ENV_KEYS = [
+  "HTTP_PROXY",
+  "HTTPS_PROXY",
+  "ALL_PROXY",
+  "http_proxy",
+  "https_proxy",
+  "all_proxy",
+] as const;
+const APP_SERVER_NO_PROXY_ENV_KEYS = ["NO_PROXY", "no_proxy"] as const;
+const APP_SERVER_LOOPBACK_NO_PROXY_HOSTS = ["127.0.0.1", "localhost", "::1"];
+const DEFAULT_APP_SERVER_PRODUCT_DB_MIGRATION_CLEANUP: NonNullable<
+  SidecarLaunchConfig["productDbMigrationCleanup"]
+> = "drop-tables";
 
 type ElectronAppServerLaunchConfig = {
   config: SidecarLaunchConfig;
@@ -40,9 +74,11 @@ type ElectronAppServerLaunchConfig = {
 
 type HandleJsonLinesRequest = {
   lines: string[];
+  timeoutMs?: number;
 };
 
 type DrainEventsRequest = {
+  includeRecent?: boolean;
   limit?: number;
 };
 
@@ -55,6 +91,9 @@ export class ElectronAppServerHost {
   #connected: ConnectedAppServerSidecar | null = null;
   #connectPromise: Promise<ConnectedAppServerSidecar> | null = null;
   #nextProxyRequestId = 1;
+  #activeProxyRequestIds = new Map<RequestId, RequestId>();
+  #recentNotifications: JsonRpcMessage[] = [];
+  #stopping = false;
 
   async warmup(): Promise<InitializeResponse> {
     const connected = await this.#connect();
@@ -64,9 +103,14 @@ export class ElectronAppServerHost {
   async request<T>(method: string, params: unknown = {}): Promise<T> {
     const connected = await this.#connect();
     const request = connected.client.request(method, params ?? {});
-    const response = await connected.connection.request<T>(request, method, {
-      timeoutMs: resolveAppServerRequestTimeoutMs(method),
-    });
+    const response = await this.#requestAppServer<T>(
+      connected,
+      request,
+      method,
+      {
+        timeoutMs: resolveAppServerRequestTimeoutMs(method),
+      },
+    );
     return response.result;
   }
 
@@ -81,8 +125,17 @@ export class ElectronAppServerHost {
       if (isInitializedNotification(message)) {
         continue;
       }
-      if (isJsonRpcRequestLike(message) && message.method === METHOD_INITIALIZE) {
-        responses.push(initializeResponseMessage(message, connected.initializeResponse));
+      if (isCancelRequestNotification(message)) {
+        this.#forwardCancelRequest(connected, message);
+        continue;
+      }
+      if (
+        isJsonRpcRequestLike(message) &&
+        message.method === METHOD_INITIALIZE
+      ) {
+        responses.push(
+          initializeResponseMessage(message, connected.initializeResponse),
+        );
         continue;
       }
       if (isJsonRpcRequestLike(message)) {
@@ -97,12 +150,20 @@ export class ElectronAppServerHost {
           );
           continue;
         }
-        const result = await connected.connection.request<unknown>(
-          proxiedMessage.message,
+        const timeoutMs = resolveAppServerRequestTimeoutMs(
           proxiedMessage.message.method,
-          {
-            timeoutMs: resolveAppServerRequestTimeoutMs(proxiedMessage.message.method),
-          },
+          request.timeoutMs,
+        );
+        const result = await this.#withActiveProxyRequest(
+          proxiedMessage.originalId,
+          proxiedMessage.message.id,
+          () =>
+            this.#requestAppServer<unknown>(
+              connected,
+              proxiedMessage.message,
+              proxiedMessage.message.method,
+              { timeoutMs },
+            ),
         );
         responses.push(
           ...result.messages.map((response) =>
@@ -111,33 +172,51 @@ export class ElectronAppServerHost {
         );
         continue;
       }
-      connected.connection.transport.send(message);
+      (await this.#connect()).connection.transport.send(message);
     }
 
+    this.#rememberRecentNotifications(responses);
     return {
       lines: responses.map(encodeMessage),
     };
   }
 
-  async drainEvents(request: DrainEventsRequest = {}): Promise<{ lines: string[] }> {
+  async drainEvents(
+    request: DrainEventsRequest = {},
+  ): Promise<{ lines: string[] }> {
     const connected = await this.#connect();
-    const limit = Math.max(1, Math.min(100, Math.floor(request.limit ?? 20)));
+    const limit = normalizeDrainEventsLimit(
+      request.limit,
+      request.includeRecent === true
+        ? APP_SERVER_RECENT_NOTIFICATION_LIMIT
+        : 100,
+    );
     const drained: JsonRpcMessage[] = [];
 
     for (let index = 0; index < limit; index += 1) {
       try {
-        drained.push(await connected.connection.nextNotification(25));
+        drained.push(await connected.connection.nextServerMessage(25));
       } catch {
         break;
       }
     }
 
+    this.#rememberRecentNotifications(drained);
+    const messages =
+      request.includeRecent === true
+        ? uniqueJsonRpcMessages([
+            ...this.#recentNotifications,
+            ...drained,
+          ]).slice(-limit)
+        : drained;
+
     return {
-      lines: drained.map(encodeMessage),
+      lines: messages.map(encodeMessage),
     };
   }
 
   async stop(): Promise<void> {
+    this.#stopping = true;
     await this.#lifecycle?.stop();
     this.#lifecycle = null;
     this.#connected = null;
@@ -145,8 +224,19 @@ export class ElectronAppServerHost {
   }
 
   async #connect(): Promise<ConnectedAppServerSidecar> {
+    if (this.#stopping) {
+      throw appServerHostStoppingError();
+    }
     if (this.#connected) {
-      return this.#connected;
+      const lifecycleConnected = this.#lifecycle?.connected;
+      if (lifecycleConnected && lifecycleConnected !== this.#connected) {
+        this.#connected = lifecycleConnected;
+        return lifecycleConnected;
+      }
+      if (lifecycleConnected) {
+        return this.#connected;
+      }
+      this.#connected = null;
     }
     if (!this.#connectPromise) {
       this.#connectPromise = this.#start();
@@ -159,36 +249,74 @@ export class ElectronAppServerHost {
     }
   }
 
+  #rememberRecentNotifications(messages: JsonRpcMessage[]): void {
+    const notifications = messages.filter(isJsonRpcNotification);
+    if (notifications.length === 0) {
+      return;
+    }
+    this.#recentNotifications = [
+      ...this.#recentNotifications,
+      ...notifications,
+    ].slice(-APP_SERVER_RECENT_NOTIFICATION_LIMIT);
+  }
+
   async #start(): Promise<ConnectedAppServerSidecar> {
     const launchConfig = await resolveLaunchConfig();
+    const sidecarEnv = await resolveAppServerSidecarEnv(
+      launchConfig.config.binaryPath,
+    );
     const initializeParams: InitializeParams = {
       clientInfo: {
-        name: "ember_desktop_electron",
-        title: "Ember Desktop Electron",
+        name: "lime_desktop_electron",
+        title: "Lime Desktop Electron",
         version: app.getVersion(),
       },
       capabilities: {
-        eventMethods: ["agentSession/event"],
+        eventMethods: [
+          "agentSession/event",
+          METHOD_WORKSPACE_RIGHT_SURFACE_PENDING_CHANGED,
+        ],
         experimental: true,
       },
     };
 
-    this.#lifecycle = new AppServerSidecarLifecycle(launchConfig.config, initializeParams, {
-      verifySha256: launchConfig.verifySha256,
-      restartPolicy: {
-        maxAttempts: 3,
-        initialDelayMs: 500,
-        maxDelayMs: 5_000,
+    let lifecycle: AppServerSidecarLifecycle;
+    lifecycle = new AppServerSidecarLifecycle(
+      launchConfig.config,
+      initializeParams,
+      {
+        verifySha256: launchConfig.verifySha256,
+        ...(sidecarEnv ? { env: sidecarEnv } : {}),
+        restartPolicy: {
+          maxAttempts: 3,
+          initialDelayMs: 500,
+          maxDelayMs: 5_000,
+        },
+        onExit: (event) => {
+          if (this.#lifecycle === lifecycle) {
+            this.#connected = null;
+            this.#connectPromise = null;
+          }
+          console.warn("[electron-host] app-server exited", event);
+        },
+        onRestarted: (connected) => {
+          if (this.#lifecycle === lifecycle) {
+            this.#connected = connected;
+            this.#connectPromise = null;
+          }
+        },
+        onRestartFailed: (event) => {
+          if (this.#lifecycle === lifecycle) {
+            this.#connected = null;
+            this.#connectPromise = null;
+          }
+          console.warn("[electron-host] app-server restart failed", event);
+        },
       },
-      onExit: (event) => {
-        console.warn("[electron-host] app-server exited", event);
-      },
-      onRestartFailed: (event) => {
-        console.warn("[electron-host] app-server restart failed", event);
-      },
-    });
+    );
 
-    return await this.#lifecycle.start();
+    this.#lifecycle = lifecycle;
+    return await lifecycle.start();
   }
 
   #proxyRequestMessage(message: JsonRpcRequest): {
@@ -212,62 +340,421 @@ export class ElectronAppServerHost {
     originalMessage: JsonRpcRequest,
     message: JsonRpcRequest,
   ): Promise<JsonRpcMessage[]> {
-    const requestPromise = connected.connection
-      .request<AgentSessionTurnStartResponse>(message, message.method, {
-        timeoutMs: resolveAppServerRequestTimeoutMs(message.method),
-      });
+    try {
+      const result = await this.#withActiveProxyRequest(
+        originalMessage.id,
+        message.id,
+        () =>
+          this.#requestAppServerUntilFirstNotificationOrResponse<AgentSessionTurnStartResponse>(
+            connected,
+            message,
+            message.method,
+            {
+              timeoutMs: APP_SERVER_STREAMING_TURN_ACK_GRACE_MS,
+            },
+          ),
+      );
+      const messages = result.messages.map((response) =>
+        restoreProxyResponseId(response, originalMessage.id),
+      );
+      if (result.completed) {
+        return messages;
+      }
+      const identity = turnEventIdentity(result.messages[0]);
+      const acceptedIdentity =
+        identity && turnIdentityMatchesStart(identity, originalMessage)
+          ? identity
+          : await this.#readCanonicalTurnIdentity(connected, originalMessage);
+      return [
+        streamingTurnStartAcceptedResponse(originalMessage, acceptedIdentity),
+      ];
+    } catch (error) {
+      if (!isAppServerRequestTimeoutError(error)) {
+        throw error;
+      }
+      const identity = await this.#readCanonicalTurnIdentity(
+        connected,
+        originalMessage,
+      );
+      return [streamingTurnStartAcceptedResponse(originalMessage, identity)];
+    }
+  }
 
-    const fastResult = await Promise.race<
-      { kind: "done"; messages: JsonRpcMessage[] } | { kind: "pending" }
-    >([
-      requestPromise.then((result) => ({
-        kind: "done" as const,
-        messages: result.messages.map((response) =>
-          restoreProxyResponseId(response, originalMessage.id),
-        ),
-      })),
-      wait(APP_SERVER_STREAMING_TURN_ACK_GRACE_MS).then(() => ({
-        kind: "pending" as const,
-      })),
-    ]);
-
-    if (fastResult.kind === "done") {
-      return fastResult.messages;
+  async #readCanonicalTurnIdentity(
+    connected: ConnectedAppServerSidecar,
+    originalMessage: JsonRpcRequest,
+  ): Promise<CanonicalTurnIdentity> {
+    const params = turnStartParams(originalMessage);
+    const sessionId = nonEmptyString(params?.sessionId);
+    const turnId = nonEmptyString(params?.turnId);
+    if (!sessionId || !turnId) {
+      throw new Error(
+        "app-server turn/start timed out before a canonical turn identity event",
+      );
     }
 
-    requestPromise.catch((error) => {
-        console.warn("[electron-host] app-server streaming turn failed", error);
-      });
+    const startedAt = Date.now();
+    for (;;) {
+      const elapsedMs = Date.now() - startedAt;
+      const remainingMs =
+        APP_SERVER_STREAMING_TURN_IDENTITY_READ_TIMEOUT_MS - elapsedMs;
+      if (remainingMs <= 0) {
+        break;
+      }
 
-    return [
-      streamingTurnStartAcceptedResponse(
-        originalMessage,
-        message,
-      ),
-    ];
+      const read = await this.#requestAppServer<AgentSessionReadResponse>(
+        connected,
+        connected.connection.client.readSession({ sessionId }),
+        "agentSession/read",
+        {
+          timeoutMs: Math.min(
+            DEFAULT_APP_SERVER_REQUEST_TIMEOUT_MS,
+            remainingMs,
+          ),
+        },
+      );
+      const identity = turnIdentityFromSessionRead(
+        read.result,
+        sessionId,
+        turnId,
+      );
+      if (identity) {
+        return identity;
+      }
+
+      const retryDelayMs = Math.min(
+        APP_SERVER_STREAMING_TURN_IDENTITY_READ_RETRY_MS,
+        Math.max(
+          0,
+          APP_SERVER_STREAMING_TURN_IDENTITY_READ_TIMEOUT_MS -
+            (Date.now() - startedAt),
+        ),
+      );
+      if (retryDelayMs <= 0) {
+        break;
+      }
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, retryDelayMs);
+      });
+    }
+
+    throw new Error(
+      "app-server turn/start did not resolve a canonical turn identity",
+    );
+  }
+
+  async #withActiveProxyRequest<T>(
+    originalId: RequestId,
+    proxiedId: RequestId,
+    run: () => Promise<T>,
+  ): Promise<T> {
+    this.#activeProxyRequestIds.set(originalId, proxiedId);
+    try {
+      return await run();
+    } finally {
+      this.#activeProxyRequestIds.delete(originalId);
+    }
+  }
+
+  #forwardCancelRequest(
+    connected: ConnectedAppServerSidecar,
+    message: JsonRpcMessage,
+  ): void {
+    const originalId = readCancelRequestId(message);
+    if (originalId === null) {
+      return;
+    }
+    const proxiedId = this.#activeProxyRequestIds.get(originalId);
+    if (proxiedId === undefined) {
+      return;
+    }
+    connected.connection.transport.send(cancelRequest(proxiedId));
+  }
+
+  async #requestAppServer<T>(
+    connected: ConnectedAppServerSidecar,
+    request: JsonRpcRequest,
+    method: string,
+    options: AppServerRequestOptions,
+  ): Promise<AppServerRequestResult<T>> {
+    try {
+      return await connected.connection.request<T>(request, method, options);
+    } catch (error) {
+      if (!isStaleSidecarConnectionError(error)) {
+        throw error;
+      }
+      if (this.#stopping) {
+        throw appServerHostStoppingError();
+      }
+
+      console.warn(
+        "[electron-host] app-server stale connection detected; restarting sidecar",
+        error,
+      );
+      await this.#discardStaleSidecar();
+      const freshConnected = await this.#connect();
+      return await freshConnected.connection.request<T>(
+        request,
+        method,
+        options,
+      );
+    }
+  }
+
+  async #requestAppServerUntilFirstNotificationOrResponse<T>(
+    connected: ConnectedAppServerSidecar,
+    request: JsonRpcRequest,
+    method: string,
+    options: AppServerRequestOptions,
+  ) {
+    try {
+      return await connected.connection.requestUntilFirstNotificationOrResponse<T>(
+        request,
+        method,
+        options,
+      );
+    } catch (error) {
+      if (!isStaleSidecarConnectionError(error)) {
+        throw error;
+      }
+      if (this.#stopping) {
+        throw appServerHostStoppingError();
+      }
+
+      console.warn(
+        "[electron-host] app-server stale connection detected; restarting sidecar",
+        error,
+      );
+      await this.#discardStaleSidecar();
+      const freshConnected = await this.#connect();
+      return await freshConnected.connection.requestUntilFirstNotificationOrResponse<T>(
+        request,
+        method,
+        options,
+      );
+    }
+  }
+
+  async #discardStaleSidecar(): Promise<void> {
+    const lifecycle = this.#lifecycle;
+    this.#lifecycle = null;
+    this.#connected = null;
+    this.#connectPromise = null;
+    try {
+      await lifecycle?.stop();
+    } catch (error) {
+      console.warn(
+        "[electron-host] app-server stale sidecar cleanup failed",
+        error,
+      );
+    }
   }
 }
 
+function isStaleSidecarConnectionError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.message.includes("app-server sidecar stdin is closed") ||
+      error.message.includes("app-server sidecar is closed") ||
+      error.message.includes("app-server exited before next message"))
+  );
+}
+
+function appServerHostStoppingError(): Error {
+  return new Error("app-server host is stopping");
+}
+
+function isAppServerRequestTimeoutError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.includes("timed out waiting for app-server message after")
+  );
+}
+
+function isCancelRequestNotification(
+  message: JsonRpcMessage,
+): message is Extract<JsonRpcMessage, { method: string }> {
+  return (
+    isJsonRpcNotification(message) &&
+    message.method === APP_SERVER_CANCEL_REQUEST_METHOD
+  );
+}
+
+function readCancelRequestId(message: JsonRpcMessage): RequestId | null {
+  if (!isCancelRequestNotification(message)) {
+    return null;
+  }
+  const params = message.params;
+  if (!params || typeof params !== "object" || Array.isArray(params)) {
+    return null;
+  }
+  const id = (params as { id?: unknown }).id;
+  return typeof id === "string" || typeof id === "number" ? id : null;
+}
+
+function normalizeDrainEventsLimit(value: unknown, maxLimit: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 20;
+  }
+  return Math.max(1, Math.min(maxLimit, Math.floor(value)));
+}
+
+function uniqueJsonRpcMessages(messages: JsonRpcMessage[]): JsonRpcMessage[] {
+  const seen = new Set<string>();
+  const uniqueMessages: JsonRpcMessage[] = [];
+
+  for (const message of messages) {
+    const key = jsonRpcMessageDedupKey(message);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    uniqueMessages.push(message);
+  }
+
+  return uniqueMessages;
+}
+
+function jsonRpcMessageDedupKey(message: JsonRpcMessage): string {
+  const eventId = jsonRpcNotificationEventId(message);
+  if (eventId) {
+    return `event:${eventId}`;
+  }
+  return `message:${JSON.stringify(message)}`;
+}
+
+function jsonRpcNotificationEventId(
+  message: JsonRpcMessage,
+): string | undefined {
+  if (!isJsonRpcNotification(message)) {
+    return undefined;
+  }
+  const params = message.params;
+  if (!params || typeof params !== "object" || Array.isArray(params)) {
+    return undefined;
+  }
+  const event = (params as { event?: unknown }).event;
+  if (!event || typeof event !== "object" || Array.isArray(event)) {
+    return undefined;
+  }
+  const eventId =
+    (event as { eventId?: unknown; event_id?: unknown }).eventId ??
+    (event as { eventId?: unknown; event_id?: unknown }).event_id;
+  return typeof eventId === "string" && eventId.trim()
+    ? eventId.trim()
+    : undefined;
+}
+
+type CanonicalTurnIdentity = {
+  sessionId: string;
+  threadId: string;
+  turnId: string;
+  timestamp: string;
+};
+
 function streamingTurnStartAcceptedResponse(
   originalMessage: JsonRpcRequest,
-  proxiedMessage: JsonRpcRequest,
+  identity: CanonicalTurnIdentity,
 ): JsonRpcMessage {
-  const params = turnStartParams(proxiedMessage);
-  const now = new Date().toISOString();
-  const sessionId = nonEmptyString(params?.sessionId) || "";
-  const turnId = nonEmptyString(params?.turnId) || `turn_${String(proxiedMessage.id)}`;
+  const expected = turnStartParams(originalMessage);
+  const sessionId = nonEmptyString(expected?.sessionId);
+  const requestedTurnId = nonEmptyString(expected?.turnId);
+  if (!sessionId || identity.sessionId !== sessionId) {
+    throw new Error(
+      "app-server turn/start did not emit a canonical turn identity",
+    );
+  }
+  if (requestedTurnId && identity.turnId !== requestedTurnId) {
+    throw new Error(
+      "app-server turn/start admission turnId does not match the requested turn",
+    );
+  }
   return {
     id: originalMessage.id,
     result: {
       turn: {
-        turnId,
-        sessionId,
-        threadId: sessionId,
+        turnId: identity.turnId,
+        sessionId: identity.sessionId,
+        threadId: identity.threadId,
         status: "accepted",
-        startedAt: now,
+        startedAt: identity.timestamp,
       },
     },
   } satisfies JsonRpcMessage;
+}
+
+function turnEventIdentity(
+  message: JsonRpcMessage | undefined,
+): CanonicalTurnIdentity | null {
+  if (
+    !message ||
+    !isJsonRpcNotification(message) ||
+    message.method !== "agentSession/event"
+  ) {
+    return null;
+  }
+  const params = message.params;
+  if (!params || typeof params !== "object" || Array.isArray(params)) {
+    return null;
+  }
+  const event = (params as { event?: unknown }).event;
+  if (!event || typeof event !== "object" || Array.isArray(event)) {
+    return null;
+  }
+  const record = event as {
+    sessionId?: unknown;
+    threadId?: unknown;
+    timestamp?: unknown;
+    turnId?: unknown;
+    type?: unknown;
+  };
+  const sessionId = nonEmptyString(record.sessionId);
+  const threadId = nonEmptyString(record.threadId);
+  const turnId = nonEmptyString(record.turnId);
+  const timestamp = nonEmptyString(record.timestamp);
+  if (!sessionId || !threadId || !turnId || !timestamp) {
+    return null;
+  }
+  return { sessionId, threadId, turnId, timestamp };
+}
+
+function turnIdentityMatchesStart(
+  identity: CanonicalTurnIdentity,
+  originalMessage: JsonRpcRequest,
+): boolean {
+  const params = turnStartParams(originalMessage);
+  const sessionId = nonEmptyString(params?.sessionId);
+  const turnId = nonEmptyString(params?.turnId);
+  return (
+    (!sessionId || identity.sessionId === sessionId) &&
+    (!turnId || identity.turnId === turnId)
+  );
+}
+
+function turnIdentityFromSessionRead(
+  response: AgentSessionReadResponse,
+  sessionId: string,
+  turnId: string,
+): CanonicalTurnIdentity | null {
+  if (response.session.sessionId !== sessionId) {
+    return null;
+  }
+  const threadId = nonEmptyString(response.session.threadId);
+  const turn = response.turns?.find((candidate) => candidate.turnId === turnId);
+  if (
+    !threadId ||
+    !turn ||
+    turn.sessionId !== sessionId ||
+    turn.threadId !== threadId
+  ) {
+    return null;
+  }
+  return {
+    sessionId,
+    threadId,
+    turnId,
+    timestamp: nonEmptyString(turn.startedAt) ?? response.session.updatedAt,
+  };
 }
 
 function turnStartParams(
@@ -284,12 +771,6 @@ function nonEmptyString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-function wait(delayMs: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, delayMs);
-  });
-}
-
 function restoreProxyResponseId(
   message: JsonRpcMessage,
   originalId: RequestId,
@@ -304,6 +785,7 @@ function restoreProxyResponseId(
 }
 
 async function resolveLaunchConfig(): Promise<ElectronAppServerLaunchConfig> {
+  const dataDir = resolveAppServerDataDir();
   const envBinary = process.env.APP_SERVER_BIN?.trim();
   if (envBinary) {
     return {
@@ -311,6 +793,7 @@ async function resolveLaunchConfig(): Promise<ElectronAppServerLaunchConfig> {
         envBinary,
         process.env.APP_SERVER_POLICY_PATH,
         "runtime",
+        dataDir,
       ),
     };
   }
@@ -333,13 +816,175 @@ async function resolveLaunchConfig(): Promise<ElectronAppServerLaunchConfig> {
       devBinaryPath,
       process.env.APP_SERVER_POLICY_PATH,
       "runtime",
+      dataDir,
     ),
   };
+}
+
+async function resolveAppServerSidecarEnv(
+  binaryPath: string,
+): Promise<NodeJS.ProcessEnv | undefined> {
+  const env: NodeJS.ProcessEnv = resolveAppServerRuntimeLibraryEnv(binaryPath);
+  const currentNoProxy = APP_SERVER_NO_PROXY_ENV_KEYS.map(
+    (key) => process.env[key],
+  ).find((value) => Boolean(value?.trim()));
+  const noProxy = mergeLoopbackNoProxy(currentNoProxy);
+  if (noProxy && noProxy !== process.env.NO_PROXY) {
+    env.NO_PROXY = noProxy;
+  }
+  if (noProxy && noProxy !== process.env.no_proxy) {
+    env.no_proxy = noProxy;
+  }
+
+  if (!hasExplicitProxyEnv(process.env)) {
+    const proxyUrl = await resolveElectronSystemProxyUrl();
+    if (proxyUrl) {
+      for (const key of APP_SERVER_PROXY_ENV_KEYS) {
+        env[key] = proxyUrl;
+      }
+    }
+  }
+
+  return Object.keys(env).length > 0 ? env : undefined;
+}
+
+function resolveAppServerRuntimeLibraryEnv(
+  binaryPath: string,
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    LIME_CONFIG_PATH: resolveAppServerConfigPath(),
+  };
+  const binaryDir = path.dirname(binaryPath);
+  if (!binaryDir || binaryDir === ".") {
+    return env;
+  }
+
+  if (process.platform === "darwin") {
+    return {
+      ...env,
+      DYLD_FALLBACK_LIBRARY_PATH: prependPathEnv(
+        process.env.DYLD_FALLBACK_LIBRARY_PATH,
+        [binaryDir],
+      ),
+      DYLD_LIBRARY_PATH: prependPathEnv(process.env.DYLD_LIBRARY_PATH, [
+        binaryDir,
+      ]),
+    };
+  }
+
+  if (process.platform === "linux") {
+    return {
+      ...env,
+      LD_LIBRARY_PATH: prependPathEnv(process.env.LD_LIBRARY_PATH, [binaryDir]),
+    };
+  }
+
+  if (process.platform === "win32") {
+    return {
+      ...env,
+      PATH: prependPathEnv(process.env.PATH, [binaryDir]),
+    };
+  }
+
+  return env;
+}
+
+function prependPathEnv(
+  currentValue: string | undefined,
+  entries: string[],
+): string {
+  const result: string[] = [];
+  const seen = new Set<string>();
+  const remember = (entry: string | undefined) => {
+    const trimmed = entry?.trim();
+    if (!trimmed) {
+      return;
+    }
+    const key = process.platform === "win32" ? trimmed.toLowerCase() : trimmed;
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    result.push(trimmed);
+  };
+
+  for (const entry of entries) {
+    remember(entry);
+  }
+  for (const entry of currentValue?.split(path.delimiter) ?? []) {
+    remember(entry);
+  }
+  return result.join(path.delimiter);
+}
+
+function hasExplicitProxyEnv(env: NodeJS.ProcessEnv): boolean {
+  return APP_SERVER_PROXY_ENV_KEYS.some((key) => Boolean(env[key]?.trim()));
+}
+
+async function resolveElectronSystemProxyUrl(): Promise<string | undefined> {
+  if (process.platform !== "darwin") {
+    return undefined;
+  }
+
+  try {
+    const rules = await session.defaultSession.resolveProxy(
+      APP_SERVER_PROXY_PROBE_URL,
+    );
+    return firstProxyRuleToUrl(rules);
+  } catch (error) {
+    console.warn(
+      "[electron-host] failed to resolve system proxy for app-server",
+      error,
+    );
+    return undefined;
+  }
+}
+
+function firstProxyRuleToUrl(rules: string): string | undefined {
+  for (const rawRule of rules.split(";")) {
+    const rule = rawRule.trim();
+    if (!rule || rule.toUpperCase() === "DIRECT") {
+      continue;
+    }
+    const [kind = "", address = ""] = rule.split(/\s+/, 2);
+    const normalizedAddress = address.trim();
+    if (!normalizedAddress || normalizedAddress.includes("://")) {
+      continue;
+    }
+    switch (kind.toUpperCase()) {
+      case "PROXY":
+        return `http://${normalizedAddress}`;
+      case "HTTPS":
+        return `https://${normalizedAddress}`;
+      case "SOCKS":
+      case "SOCKS5":
+        return `socks5://${normalizedAddress}`;
+      default:
+        continue;
+    }
+  }
+  return undefined;
+}
+
+function mergeLoopbackNoProxy(value: string | undefined): string {
+  const entries = (value ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  const normalized = new Set(entries.map((entry) => entry.toLowerCase()));
+  for (const host of APP_SERVER_LOOPBACK_NO_PROXY_HOSTS) {
+    if (!normalized.has(host.toLowerCase())) {
+      entries.push(host);
+      normalized.add(host.toLowerCase());
+    }
+  }
+  return entries.join(",");
 }
 
 async function resolveResourceLaunchConfig(
   resourcesPath: string,
 ): Promise<ElectronAppServerLaunchConfig | null> {
+  const dataDir = resolveAppServerDataDir();
   const manifestPath = defaultReleaseManifestPath(resourcesPath);
   try {
     const manifest = await readReleaseManifest(manifestPath);
@@ -347,6 +992,8 @@ async function resolveResourceLaunchConfig(
       allowEnvOverride: false,
       resourcesPath,
       appPolicyPath: process.env.APP_SERVER_POLICY_PATH,
+      dataDir,
+      productDbMigrationCleanup: resolveProductDbMigrationCleanup(),
       ...resolveRuntimeBackendLaunchOptions("runtime"),
     });
     if (resolved) {
@@ -373,11 +1020,47 @@ function stdioSidecarWithRuntimeBackend(
   binaryPath: string,
   appPolicyPath: string | undefined,
   defaultBackendMode: NonNullable<SidecarLaunchConfig["backendMode"]>,
+  dataDir: string,
 ): SidecarLaunchConfig {
   return {
-    ...stdioSidecar(binaryPath, appPolicyPath),
+    ...stdioSidecar(
+      binaryPath,
+      appPolicyPath,
+      dataDir,
+      resolveProductDbMigrationCleanup(),
+    ),
     ...resolveRuntimeBackendLaunchOptions(defaultBackendMode),
   };
+}
+
+function resolveAppServerDataDir(): string {
+  return path.join(app.getPath("userData"), APP_SERVER_DATA_DIR_NAME);
+}
+
+function resolveAppServerConfigPath(): string {
+  return path.join(app.getPath("userData"), APP_SERVER_CONFIG_FILE_NAME);
+}
+
+function resolveProductDbMigrationCleanup(): NonNullable<
+  SidecarLaunchConfig["productDbMigrationCleanup"]
+> {
+  const value = process.env.APP_SERVER_PRODUCT_DB_MIGRATION_CLEANUP?.trim();
+  if (!value) {
+    return DEFAULT_APP_SERVER_PRODUCT_DB_MIGRATION_CLEANUP;
+  }
+
+  if (
+    value === "retain" ||
+    value === "clear-rows" ||
+    value === "drop-tables" ||
+    value === "delete-file"
+  ) {
+    return value;
+  }
+
+  throw new Error(
+    "APP_SERVER_PRODUCT_DB_MIGRATION_CLEANUP must be one of retain, clear-rows, drop-tables, delete-file",
+  );
 }
 
 function resolveRuntimeBackendLaunchOptions(
@@ -457,9 +1140,36 @@ function parsePositiveInteger(value: string | undefined): number | undefined {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
-function resolveAppServerRequestTimeoutMs(method: string): number {
-  if (method === APP_SERVER_AGENT_APP_UI_RUNTIME_START_METHOD) {
-    return APP_SERVER_AGENT_APP_UI_RUNTIME_START_TIMEOUT_MS;
+function resolveAppServerRequestTimeoutMs(
+  method: string,
+  requestedTimeoutMs?: unknown,
+): number {
+  const defaultTimeoutMs = resolveDefaultAppServerRequestTimeoutMs(method);
+  const overrideTimeoutMs = parsePositiveIntegerValue(requestedTimeoutMs);
+  if (!overrideTimeoutMs) {
+    return defaultTimeoutMs;
+  }
+  return Math.min(
+    Math.max(defaultTimeoutMs, overrideTimeoutMs),
+    APP_SERVER_REQUEST_TIMEOUT_OVERRIDE_CEILING_MS,
+  );
+}
+
+function resolveDefaultAppServerRequestTimeoutMs(method: string): number {
+  if (method === APP_SERVER_PLUGIN_UI_RUNTIME_START_METHOD) {
+    return APP_SERVER_PLUGIN_UI_RUNTIME_START_TIMEOUT_MS;
+  }
+  if (method === "pluginInstalled/save") {
+    return APP_SERVER_PLUGIN_INSTALLED_SAVE_TIMEOUT_MS;
+  }
+  if (method === "pluginLocalPackage/inspect") {
+    return APP_SERVER_PLUGIN_PACKAGE_INSPECT_TIMEOUT_MS;
+  }
+  if (method === APP_SERVER_PROJECT_SHELL_DRAIN_EVENTS_METHOD) {
+    return APP_SERVER_PROJECT_SHELL_DRAIN_EVENTS_TIMEOUT_MS;
+  }
+  if (method === APP_SERVER_CONVERSATION_IMPORT_THREAD_COMMIT_METHOD) {
+    return APP_SERVER_CONVERSATION_IMPORT_THREAD_COMMIT_TIMEOUT_MS;
   }
   if (method !== APP_SERVER_TURN_START_METHOD) {
     return DEFAULT_APP_SERVER_REQUEST_TIMEOUT_MS;
@@ -470,6 +1180,12 @@ function resolveAppServerRequestTimeoutMs(method: string): number {
   return backendTimeoutMs
     ? backendTimeoutMs + APP_SERVER_BACKEND_TIMEOUT_GRACE_MS
     : DEFAULT_APP_SERVER_REQUEST_TIMEOUT_MS;
+}
+
+function parsePositiveIntegerValue(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value > 0
+    ? value
+    : undefined;
 }
 
 function resolveDevAppServerBinaryPath(appPath: string): string {
@@ -504,7 +1220,9 @@ function isJsonRpcRequestLike(
 }
 
 function isInitializedNotification(message: JsonRpcMessage): boolean {
-  return isJsonRpcNotification(message) && message.method === METHOD_INITIALIZED;
+  return (
+    isJsonRpcNotification(message) && message.method === METHOD_INITIALIZED
+  );
 }
 
 function initializeResponseMessage(

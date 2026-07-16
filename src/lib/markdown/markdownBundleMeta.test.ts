@@ -8,10 +8,10 @@ describe("markdownBundleMeta", () => {
   it("应从 Markdown 文件路径解析同目录 meta.json", () => {
     expect(
       resolveMarkdownBundleMetaPath(
-        "/Users/coso/.ember/projects/default/exports/x-article/google/index.md",
+        "/Users/coso/.lime/projects/default/exports/x-article/google/index.md",
       ),
     ).toBe(
-      "/Users/coso/.ember/projects/default/exports/x-article/google/meta.json",
+      "/Users/coso/.lime/projects/default/exports/x-article/google/meta.json",
     );
   });
 

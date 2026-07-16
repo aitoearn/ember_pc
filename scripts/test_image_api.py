@@ -17,9 +17,9 @@ OpenAI 兼容图像生成 API 测试脚本
     python scripts/test_image_api.py --allow-live-provider --base-url http://localhost:8999 --api-key your-key
 
 环境变量:
-    EMBER_BASE_URL: API 服务器地址（默认: http://localhost:8999）
-    EMBER_API_KEY: API 密钥
-    EMBER_ALLOW_LIVE_PROVIDER_SMOKE / EMBER_REAL_API_TEST: 设为 1/true/yes/on 时允许真实 API 测试
+    LIME_BASE_URL: API 服务器地址（默认: http://localhost:8999）
+    LIME_API_KEY: API 密钥
+    LIME_ALLOW_LIVE_PROVIDER_SMOKE / LIME_REAL_API_TEST: 设为 1/true/yes/on 时允许真实 API 测试
 """
 
 import argparse
@@ -34,8 +34,8 @@ except ImportError:
     OpenAI = None
 
 
-LIVE_PROVIDER_SMOKE_ENV = "EMBER_ALLOW_LIVE_PROVIDER_SMOKE"
-REAL_API_TEST_ENV = "EMBER_REAL_API_TEST"
+LIVE_PROVIDER_SMOKE_ENV = "LIME_ALLOW_LIVE_PROVIDER_SMOKE"
+REAL_API_TEST_ENV = "LIME_REAL_API_TEST"
 DEFAULT_API_KEY = "test-key"
 
 
@@ -308,13 +308,13 @@ def main():
     )
     parser.add_argument(
         "--base-url",
-        default=os.environ.get("EMBER_BASE_URL")
+        default=os.environ.get("LIME_BASE_URL")
         or os.environ.get("PROXYCAST_BASE_URL", "http://localhost:8999"),
         help="API 服务器地址"
     )
     parser.add_argument(
         "--api-key",
-        default=os.environ.get("EMBER_API_KEY")
+        default=os.environ.get("LIME_API_KEY")
         or os.environ.get("PROXYCAST_API_KEY", DEFAULT_API_KEY),
         help="API 密钥"
     )

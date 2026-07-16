@@ -50,7 +50,7 @@ function createCloudSceneSkill(): ServiceSkillHomeItem {
   return {
     id: "cloud-video-dubbing",
     skillKey: "campaign-launch",
-    title: "性能测试",
+    title: "视频配音",
     summary: "围绕视频文案与素材整理一版可继续加工的配音稿。",
     category: "视频创作",
     outputHint: "配音文案 + 结果摘要",
@@ -259,6 +259,10 @@ describe("serviceSkillSceneLaunch", () => {
           service_scene_run: {
             scene_key: "campaign-launch",
             skill_id: "cloud-video-dubbing",
+            skill_locator: {
+              source: "catalog",
+              name: "campaign-launch",
+            },
             project_id: "project-1",
             content_id: "content-1",
             user_input: "帮我做一版新品活动启动方案",
@@ -266,7 +270,7 @@ describe("serviceSkillSceneLaunch", () => {
         },
       },
     });
-    expect(request?.dispatchText).toContain("[技能任务] 性能测试");
+    expect(request?.dispatchText).toContain("[技能任务] 视频配音");
   });
 
   it("site skill scene 应根据 skill 声明注入 service_skill_launch metadata", async () => {
@@ -319,7 +323,7 @@ describe("serviceSkillSceneLaunch", () => {
         browser_assist: {
           enabled: true,
           profile_key: "existing-session-x",
-          preferred_backend: "ember_extension_bridge",
+          preferred_backend: "lime_extension_bridge",
           auto_launch: false,
           stream_mode: "both",
         },

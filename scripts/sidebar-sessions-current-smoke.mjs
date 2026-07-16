@@ -15,7 +15,7 @@ const DEFAULTS = {
   workspaceId: "workspace-1",
   evidenceDir: path.join(
     process.cwd(),
-    ".ember",
+    ".lime",
     "qc",
     "gui-evidence",
     "sidebar-sessions-current",
@@ -28,7 +28,7 @@ const APP_SERVER_HANDLE_JSON_LINES_COMMAND = "app_server_handle_json_lines";
 const REQUIRED_APP_SERVER_METHODS = ["agentSession/list"];
 const LEGACY_SESSION_COMMANDS = ["agent_runtime_list_sessions"];
 const LAST_PROJECT_ID_KEY = "agent_last_project_id";
-const APP_SIDEBAR_COLLAPSED_STORAGE_KEY = "ember.app-sidebar.collapsed";
+const APP_SIDEBAR_COLLAPSED_STORAGE_KEY = "lime.app-sidebar.collapsed";
 
 function printHelp() {
   console.log(`
@@ -48,7 +48,7 @@ Sidebar Sessions Current Smoke
   --workspace-id <id>    写入 localStorage 的只读工作区 ID，默认 workspace-1
   --timeout-ms <ms>      总超时，默认 120000
   --interval-ms <ms>     健康检查轮询间隔，默认 1000
-  --evidence-dir <path>  证据目录，默认 .ember/qc/gui-evidence/sidebar-sessions-current
+  --evidence-dir <path>  证据目录，默认 .lime/qc/gui-evidence/sidebar-sessions-current
   --prefix <name>        证据文件前缀，默认 sidebar-sessions-current
   --headed               使用有界面 Chrome
   -h, --help             显示帮助

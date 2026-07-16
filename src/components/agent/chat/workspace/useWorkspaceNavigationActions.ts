@@ -1,9 +1,14 @@
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 import { toast } from "sonner";
-import { open as openDialog } from "@/lib/desktop-host/plugin-dialog";
+import { requestChatHostOpenPath } from "../host/chatHostCapabilities";
 import { updateProject as updateProjectById } from "@/lib/api/project";
 import { notifyProjectRuntimeAgentsGuide } from "@/components/workspace/services/runtimeAgentsGuideService";
-import type { MemoryPageParams, Page, PageParams } from "@/types/page";
+import type {
+  ExecutionPolicyFocusContext,
+  Page,
+  PageParams,
+  ProviderSettingsFocusContext,
+} from "@/types/page";
 import { SettingsTabs } from "@/types/settings";
 import type { WorkspacePathMissingState } from "../hooks/agentChatShared";
 
@@ -40,11 +45,26 @@ export function useWorkspaceNavigationActions({
   setWorkspaceHealthError,
   workspacePathMissing,
 }: UseWorkspaceNavigationActionsParams) {
-  const handleManageProviders = useCallback(() => {
-    onNavigate?.("settings", {
-      tab: SettingsTabs.Providers,
-    });
-  }, [onNavigate]);
+  const handleManageProviders = useCallback(
+    (focus?: ProviderSettingsFocusContext) => {
+      onNavigate?.("settings", {
+        tab: SettingsTabs.Providers,
+        providerView: "settings",
+        ...(focus ? { providerFocus: focus } : {}),
+      });
+    },
+    [onNavigate],
+  );
+
+  const handleOpenExecutionPolicySettings = useCallback(
+    (focus?: ExecutionPolicyFocusContext) => {
+      onNavigate?.("settings", {
+        tab: SettingsTabs.ExecutionPolicy,
+        ...(focus ? { executionPolicyFocus: focus } : {}),
+      });
+    },
+    [onNavigate],
+  );
 
   const handleBackToResources = useCallback(() => {
     onNavigate?.("resources");
@@ -73,7 +93,10 @@ export function useWorkspaceNavigationActions({
   );
 
   const handleSelectWorkspaceDirectory = useCallback(async () => {
-    const newPath = await openDialog({ directory: true, multiple: false });
+    const newPath = await requestChatHostOpenPath({
+      directory: true,
+      multiple: false,
+    });
     if (!newPath) {
       return;
     }
@@ -118,15 +141,10 @@ export function useWorkspaceNavigationActions({
   }, [onNavigate]);
 
   const handleOpenRuntimeMemoryWorkbench = useCallback(
-    (params?: OpenRuntimeMemoryWorkbenchParams) => {
-      const { sessionId, workingDir, userMessage } = params || {};
-      const nextParams: MemoryPageParams = {
-        section: "home",
-        runtimeSessionId: sessionId?.trim() || undefined,
-        runtimeWorkingDir: workingDir?.trim() || undefined,
-        runtimeUserMessage: userMessage?.trim() || undefined,
-      };
-      onNavigate?.("memory", nextParams);
+    (_params?: OpenRuntimeMemoryWorkbenchParams) => {
+      onNavigate?.("settings", {
+        tab: SettingsTabs.Memory,
+      });
     },
     [onNavigate],
   );
@@ -180,6 +198,7 @@ export function useWorkspaceNavigationActions({
     handleManageProviders,
     handleOpenChannels,
     handleOpenChromeRelay,
+    handleOpenExecutionPolicySettings,
     handleOpenKnowledgeManagement,
     handleOpenRuntimeMemoryWorkbench,
     handleOpenAppearanceSettings,

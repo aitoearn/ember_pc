@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
+import { resolveSoulInteractionCopy } from "@/lib/soul/interactionCopy";
 import type { AgentThreadItem, AgentThreadTurn } from "../types";
 import {
   applyAgentStreamErrorToastPlan,
@@ -14,7 +15,7 @@ import {
 
 describe("agentStreamErrorController", () => {
   beforeEach(async () => {
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
   });
 
   it("应把 rate limit 错误展示为 warning toast", () => {
@@ -31,7 +32,7 @@ describe("agentStreamErrorController", () => {
     });
   });
 
-  it("应构造失败 assistant 消息 patch，并保留局部输出", () => {
+  it("应构造失败 assistant 消息 patch，并保留局部输出但不追加失败详情", () => {
     expect(
       buildAgentStreamFailedAssistantMessagePatch({
         accumulatedContent: "已输出一半",
@@ -40,9 +41,9 @@ describe("agentStreamErrorController", () => {
       }),
     ).toMatchObject({
       isThinking: false,
-      content: "已输出一半\n\n执行失败：provider failed",
+      content: "已输出一半",
       contentParts: [
-        { type: "text", text: "已输出一半\n\n执行失败：provider failed" },
+        { type: "text", text: "已输出一半" },
       ],
       runtimeStatus: {
         phase: "failed",
@@ -69,6 +70,40 @@ describe("agentStreamErrorController", () => {
     expect(patch.content).not.toContain("Insufficient Balance");
     expect(patch.runtimeStatus?.detail).not.toContain("Payment Required");
     expect(patch.runtimeStatus?.detail).not.toContain("Insufficient Balance");
+  });
+
+  it("失败 assistant patch 应保持 neutral 文案并携带 Soul descriptor metadata", () => {
+    const soulCopy = resolveSoulInteractionCopy({
+      soul: {
+        enabled: true,
+        style_profile_id: "cheeky_sassy_executor",
+        tone: [],
+        communication_style: [],
+        avoid: [],
+        artifact_voice: { enabled: false, evidence_refs: [] },
+        imported_from: "manual",
+      },
+    });
+    const patch = buildAgentStreamFailedAssistantMessagePatch({
+      accumulatedContent: "",
+      errorMessage: "provider failed",
+      previousContent: "",
+      soulCopy,
+    });
+
+    expect(patch.content).toBe("执行失败：provider failed");
+    expect(patch.contentParts).toEqual([
+      { type: "text", text: "执行失败：provider failed" },
+    ]);
+    expect(patch.runtimeStatus?.metadata).toMatchObject({
+      soul_surface: "failure_recovery",
+      soul_phase: "failed",
+      style_level: "L2",
+      risk_level: "normal",
+      tone_variant: "cheeky_sassy",
+      profile_id: "cheeky_sassy_executor",
+      pack_id: "com.lime.soul.cheeky-sassy-executor",
+    });
   });
 
   it("Provider 402 失败 timeline summary 应使用友好提示", () => {
@@ -104,7 +139,7 @@ describe("agentStreamErrorController", () => {
     expect(item.text).not.toContain("Insufficient Balance");
   });
 
-  it("应在无局部输出时回退 previousContent，并按需带回 usage", () => {
+  it("应在无局部输出时回退 previousContent 且不追加失败详情，并按需带回 usage", () => {
     const usage = { input_tokens: 1, output_tokens: 2 };
     expect(
       buildAgentStreamFailedAssistantMessagePatch({
@@ -114,7 +149,7 @@ describe("agentStreamErrorController", () => {
         usage,
       }),
     ).toMatchObject({
-      content: "旧内容\n\n执行失败：boom",
+      content: "旧内容",
       usage,
     });
   });

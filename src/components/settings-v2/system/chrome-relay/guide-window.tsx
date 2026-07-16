@@ -39,7 +39,7 @@ import {
 
 const REMOTE_DEBUGGING_URL = "chrome://inspect/#remote-debugging";
 const PRIMARY_BUTTON_CLASS_NAME =
-  "inline-flex items-center justify-center gap-2 rounded-full border border-[color:var(--ember-text-strong,hsl(var(--foreground)))] bg-[color:var(--ember-text-strong,hsl(var(--foreground)))] px-4 py-2.5 text-sm font-semibold text-[color:var(--ember-surface,hsl(var(--background)))] shadow-sm shadow-slate-950/10 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-full border border-[color:var(--lime-text-strong,hsl(var(--foreground)))] bg-[color:var(--lime-text-strong,hsl(var(--foreground)))] px-4 py-2.5 text-sm font-semibold text-[color:var(--lime-surface,hsl(var(--background)))] shadow-sm shadow-slate-950/10 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
 const SECONDARY_BUTTON_CLASS_NAME =
   "inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -343,7 +343,7 @@ function BrowserConnectorGuideContent() {
   );
 
   return (
-    <main className="ember-settings-theme-scope h-screen overflow-y-auto bg-[color:var(--ember-stage-surface,hsl(var(--background)))] text-[color:var(--ember-text,hsl(var(--foreground)))]">
+    <main className="lime-settings-theme-scope h-screen overflow-y-auto bg-[color:var(--lime-stage-surface,hsl(var(--background)))] text-[color:var(--lime-text,hsl(var(--foreground)))]">
       <div className="mx-auto max-w-[900px] px-7 py-12 pb-20 sm:px-10">
         <header className="flex flex-col gap-5 sm:flex-row sm:items-start">
           <div className="flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-[18px] border border-emerald-200 bg-emerald-50 text-emerald-700">

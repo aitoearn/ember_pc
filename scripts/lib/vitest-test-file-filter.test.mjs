@@ -14,6 +14,17 @@ describe("vitest-test-file-filter", () => {
     expect(isVitestRunnableTestFile("src/Foo.test_fixtures.ts")).toBe(false);
   });
 
+  it("应排除本地 .lime 证据目录里的外部测试产物", () => {
+    expect(
+      isVitestRunnableTestFile(".lime/qc/playwright-cli/codex-rendering.spec.mjs"),
+    ).toBe(false);
+    expect(
+      isVitestRunnableTestFile(
+        "/repo/.lime/qc/playwright-cli/codex-rendering.spec.mjs",
+      ),
+    ).toBe(false);
+  });
+
   it("应排除 node:test 专用 package 自测文件", () => {
     expect(
       isVitestRunnableTestFile(
@@ -26,7 +37,7 @@ describe("vitest-test-file-filter", () => {
   it("应保留同时支持 Vitest 的 package 测试文件", () => {
     expect(
       isVitestRunnableTestFile(
-        "packages/agent-app-runtime/tests/projection-export.test.mjs",
+        "packages/plugin-runtime/tests/projection-export.test.mjs",
         "const { test } = process.env.VITEST ? await import('vitest') : await import('node:test');\n",
       ),
     ).toBe(true);

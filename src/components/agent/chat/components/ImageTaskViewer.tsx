@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { LoaderCircle, Sparkles, X } from "lucide-react";
+import { LoaderCircle, RotateCcw, Sparkles, X } from "lucide-react";
 import { openResourceManager } from "@/features/resource-manager";
 import { cn } from "@/lib/utils";
 import { RenderableTaskImage } from "./RenderableTaskImage";
@@ -7,6 +7,7 @@ import type { ImageTaskViewerProps } from "./imageWorkbenchTypes";
 import { buildImageTaskResourceSourceContext } from "../workspace/imageWorkbenchResourceManager";
 import {
   buildFollowUpCommand,
+  canRetryImageTask,
   orderTaskOutputsByTaskOutputIds,
   resolveEmptyStateDescription,
   resolveFollowUpLabel,
@@ -17,9 +18,6 @@ import {
   resolveOutputGridClassName,
   resolveOutputTileAspectClass,
   resolveOutputDisplayIndexForLabel,
-  resolveRuntimeContractBadge,
-  resolveRuntimeContractPolicyLabel,
-  resolveRuntimeContractRegistryLabel,
   resolveSelectedOutputLabel,
   resolveSelectedStoryboardSlot,
   resolveSourceLabel,
@@ -43,6 +41,7 @@ export function ImageTaskViewer({
   onSaveSelectedToLibrary,
   applySelectedOutputLabel,
   onApplySelectedOutput,
+  onRetryTask,
   onSeedFollowUpCommand,
   onSelectOutput,
   onClose,
@@ -96,17 +95,6 @@ export function ImageTaskViewer({
     selectedTask?.mode,
     t,
   );
-  const runtimeContractBadge = resolveRuntimeContractBadge(
-    selectedTask?.runtimeContract,
-    t,
-  );
-  const runtimeContractRegistryLabel = resolveRuntimeContractRegistryLabel(
-    selectedTask?.runtimeContract,
-    t,
-  );
-  const runtimeContractPolicyLabel = resolveRuntimeContractPolicyLabel(
-    selectedTask?.runtimeContract,
-  );
   const layoutLabel = resolveLayoutLabel(selectedTask?.layoutHint, t);
   const selectedOutputLabel = resolveSelectedOutputLabel({
     selectedIndex: selectedOutputIndex,
@@ -156,6 +144,9 @@ export function ImageTaskViewer({
     prompt: selectedTask?.prompt,
   });
   const canContinueEdit = Boolean(followUpCommand && onSeedFollowUpCommand);
+  const canRetryTask = Boolean(
+    selectedTask?.id && onRetryTask && canRetryImageTask(selectedTask.status),
+  );
   const handleOpenSelectedImagePreview = () => {
     if (!selectedOutput) {
       return;
@@ -190,8 +181,6 @@ export function ImageTaskViewer({
             prompt: output.slotPrompt || output.prompt || prompt,
             slotLabel,
             size: output.size,
-            providerName: output.providerName,
-            modelName: output.modelName,
           },
           sourceContext: buildImageTaskResourceSourceContext({
             taskId: output.taskId || selectedTask?.id,
@@ -407,33 +396,6 @@ export function ImageTaskViewer({
         ) : null}
 
         <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-          {runtimeContractBadge ? (
-            <span
-              data-testid="image-task-viewer-runtime-contract"
-              className={cn(
-                "rounded-full border px-2.5 py-1 font-medium",
-                runtimeContractBadge.tone,
-              )}
-            >
-              {runtimeContractBadge.label}
-            </span>
-          ) : null}
-          {runtimeContractRegistryLabel ? (
-            <span
-              data-testid="image-task-viewer-runtime-contract-registry"
-              className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-medium text-slate-600"
-            >
-              {runtimeContractRegistryLabel}
-            </span>
-          ) : null}
-          {runtimeContractPolicyLabel ? (
-            <span
-              data-testid="image-task-viewer-runtime-contract-policy"
-              className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-medium text-amber-800"
-            >
-              {runtimeContractPolicyLabel}
-            </span>
-          ) : null}
           {layoutLabel ? (
             <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 font-medium text-sky-700">
               {layoutLabel}
@@ -447,16 +409,6 @@ export function ImageTaskViewer({
           {selectedStoryboardSlot?.label ? (
             <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 font-medium text-violet-700">
               {selectedStoryboardSlot.label}
-            </span>
-          ) : null}
-          {selectedOutput?.providerName ? (
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1">
-              {selectedOutput.providerName}
-            </span>
-          ) : null}
-          {selectedOutput?.modelName ? (
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1">
-              {selectedOutput.modelName}
             </span>
           ) : null}
           {selectedOutput?.size ? (
@@ -478,10 +430,27 @@ export function ImageTaskViewer({
           ) : null}
         </div>
 
-        {canContinueEdit ||
+        {canRetryTask ||
+        canContinueEdit ||
         (selectedOutput && onSaveSelectedToLibrary) ||
         (selectedOutput && onApplySelectedOutput) ? (
           <div className="mt-4 flex flex-wrap items-center gap-2">
+            {canRetryTask ? (
+              <button
+                type="button"
+                data-testid="image-task-viewer-action-retry"
+                onClick={() => {
+                  if (!selectedTask?.id) {
+                    return;
+                  }
+                  onRetryTask?.(selectedTask.id);
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 transition hover:border-amber-300 hover:bg-amber-100"
+              >
+                <RotateCcw className="h-4 w-4" />
+                {t("agentChat.imageWorkbenchPreview.action.retry")}
+              </button>
+            ) : null}
             {canContinueEdit ? (
               <button
                 type="button"

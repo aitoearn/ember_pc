@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { cwd } from "node:process";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import { readAppServerApiSources } from "../../test/appServerApiSources";
 
 const RETIRED_AUDIO_DEVICE_FACADE_COMMAND = "list_audio_devices";
 const RETIRED_VOICE_INPUT_CONFIG_FACADE_COMMANDS = [
@@ -22,6 +23,12 @@ const CURRENT_VOICE_MODEL_TEST_TRANSCRIBE_METHOD =
   "voiceModel/testTranscribeFile";
 const CURRENT_VOICE_MODEL_TEST_TRANSCRIBE_CLIENT_HELPER =
   "testTranscribeVoiceModelFile";
+const CURRENT_VOICE_TRANSCRIPTION_METHOD = "voiceTranscription/transcribeAudio";
+const CURRENT_VOICE_TRANSCRIPTION_CLIENT_HELPER = "transcribeVoiceAudio";
+const CURRENT_VOICE_TRANSCRIPTION_FRONTEND_HELPER = "transcribeVoiceInputAudio";
+const CURRENT_VOICE_POLISH_METHOD = "voiceTranscription/polishText";
+const CURRENT_VOICE_POLISH_CLIENT_HELPER = "polishVoiceText";
+const CURRENT_VOICE_POLISH_FRONTEND_HELPER = "polishVoiceInputText";
 const CURRENT_ASR_CREDENTIAL_METHODS = [
   "voiceAsrCredential/list",
   "voiceAsrCredential/create",
@@ -147,6 +154,12 @@ function listProductionGuiTsFiles(): string[] {
   ];
 }
 
+let productionGuiSourceByPath = new Map<string, string>();
+
+function getProductionGuiSource(path: string): string {
+  return productionGuiSourceByPath.get(path) ?? readRepoFile(path);
+}
+
 function expectStringLiteralsAbsent(source: string, literals: string[]): void {
   for (const literal of literals) {
     expect(source).not.toContain(`"${literal}"`);
@@ -247,7 +260,7 @@ function readAppServerAsrCredentialSources(): string {
   return [
     readRepoFile("packages/app-server-client/src/protocol.ts"),
     readRepoFile("packages/app-server-client/src/index.ts"),
-    readRepoFile("src/lib/api/appServer.ts"),
+    readAppServerApiSources(),
     readRepoFile(
       "ember-rs/crates/app-server-protocol/src/protocol/v0/method_names.rs",
     ),
@@ -258,6 +271,9 @@ function readAppServerAsrCredentialSources(): string {
     readRepoFile(
       "ember-rs/crates/app-server/src/local_data_source/voice_instructions.rs",
     ),
+    readRepoFile(
+      "ember-rs/crates/app-server/src/local_data_source/voice_text_processing.rs",
+    ),
   ].join("\n");
 }
 
@@ -265,7 +281,7 @@ function readAppServerVoiceInstructionSources(): string {
   return [
     readRepoFile("packages/app-server-client/src/protocol.ts"),
     readRepoFile("packages/app-server-client/src/index.ts"),
-    readRepoFile("src/lib/api/appServer.ts"),
+    readAppServerApiSources(),
     readRepoFile(
       "ember-rs/crates/app-server-protocol/src/protocol/v0/method_names.rs",
     ),
@@ -277,6 +293,15 @@ function readAppServerVoiceInstructionSources(): string {
 }
 
 describe("ASR / Voice current boundary", () => {
+  beforeAll(() => {
+    const productionFiles = listProductionGuiTsFiles().filter(
+      (path) => path !== "src/lib/api/asrProvider.ts",
+    );
+    productionGuiSourceByPath = new Map(
+      productionFiles.map((path) => [path, readRepoFile(path)]),
+    );
+  }, 20_000);
+
   it("麦克风设备列表应固定走 renderer mediaDevices current", () => {
     const asrProviderSource = readRepoFile("src/lib/api/asrProvider.ts");
     const restrictedSources = [
@@ -619,7 +644,7 @@ describe("ASR / Voice current boundary", () => {
 
     expect(asrProviderSource).toContain("failClosedRetiredVoiceInputCommand");
     expect(asrProviderSource).toContain(
-      "语音转写、润色、输出与录音控制尚未接入 App Server / Electron current 通道",
+      "旧实时语音转写、润色、输出与录音控制入口已退役",
     );
     expectStringLiteralsAbsent(
       restrictedSources,
@@ -630,27 +655,70 @@ describe("ASR / Voice current boundary", () => {
     expectLegacyRustFileDeleted("ember-rs/src/voice/commands.rs");
   });
 
-  it("生产 GUI 不应重新 import 实时语音 fail-closed wrapper", () => {
-    const productionFiles = listProductionGuiTsFiles().filter(
-      (path) => path !== "src/lib/api/asrProvider.ts",
+  it("输入框语音转写应固定走 App Server voiceTranscription current 主链", () => {
+    const asrProviderSource = readRepoFile("src/lib/api/asrProvider.ts");
+    const appServerSources = readAppServerAsrCredentialSources();
+    const restrictedSources = [
+      readElectronSources(),
+      readDevBridgeAndMockSources(),
+      readRepoFileIfExists("ember-rs/src/app/runner.rs"),
+      readRepoFileIfExists("ember-rs/src/dev_bridge/dispatcher.rs"),
+      readRepoFileIfExists("ember-rs/src/dev_bridge/dispatcher/voice.rs"),
+      readRepoFile("src/lib/governance/agentCommandCatalog.json"),
+    ].join("\n");
+
+    expect(asrProviderSource).toContain(
+      CURRENT_VOICE_TRANSCRIPTION_FRONTEND_HELPER,
     );
-    const violations = productionFiles.flatMap((path) => {
-      const imports = findAsrProviderNamedImports(
-        readRepoFile(path),
-        RETIRED_VOICE_REALTIME_FRONTEND_HELPERS,
-      );
-      return imports.map((name) => `${path}: ${name}`);
-    });
+    expect(asrProviderSource).toContain(CURRENT_VOICE_POLISH_FRONTEND_HELPER);
+    expect(asrProviderSource).toContain("createAppServerClient()");
+    expect(asrProviderSource).toContain(
+      `.${CURRENT_VOICE_TRANSCRIPTION_CLIENT_HELPER}(`,
+    );
+    expect(asrProviderSource).toContain(
+      `.${CURRENT_VOICE_POLISH_CLIENT_HELPER}(`,
+    );
+    expect(appServerSources).toContain(
+      `"${CURRENT_VOICE_TRANSCRIPTION_METHOD}"`,
+    );
+    expect(appServerSources).toContain(`"${CURRENT_VOICE_POLISH_METHOD}"`);
+    expect(appServerSources).toContain(
+      CURRENT_VOICE_TRANSCRIPTION_CLIENT_HELPER,
+    );
+    expect(appServerSources).toContain(CURRENT_VOICE_POLISH_CLIENT_HELPER);
+    expectStringLiteralsAbsent(
+      restrictedSources,
+      RETIRED_VOICE_REALTIME_FACADE_COMMANDS,
+    );
+  });
+
+  it("App Server 应编入默认本地 SenseVoice 转写能力", () => {
+    const appServerCargoToml = readRepoFile(
+      "ember-rs/crates/app-server/Cargo.toml",
+    );
+
+    expect(appServerCargoToml).toMatch(
+      /lime-services\s*=\s*\{[^}]*features\s*=\s*\[[^\]]*"local-sensevoice"/,
+    );
+  });
+
+  it("生产 GUI 不应重新 import 实时语音 fail-closed wrapper", () => {
+    const violations = [...productionGuiSourceByPath].flatMap(
+      ([path, source]) => {
+        const imports = findAsrProviderNamedImports(
+          source,
+          RETIRED_VOICE_REALTIME_FRONTEND_HELPERS,
+        );
+        return imports.map((name) => `${path}: ${name}`);
+      },
+    );
 
     expect(violations).toEqual([]);
   });
 
   it("生产 GUI 不应重新暴露实时语音默认入口", () => {
-    const productionFiles = listProductionGuiTsFiles().filter(
-      (path) => path !== "src/lib/api/asrProvider.ts",
-    );
-    const violations = productionFiles.flatMap((path) => {
-      const source = readRepoFile(path);
+    const violations = [...productionGuiSourceByPath].flatMap(([path]) => {
+      const source = getProductionGuiSource(path);
       return RETIRED_VOICE_REALTIME_GUI_FALSE_ENTRY_LITERALS.flatMap(
         (literal) =>
           source.includes(`"${literal}"`) || source.includes(`'${literal}'`)

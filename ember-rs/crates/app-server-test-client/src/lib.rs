@@ -80,6 +80,7 @@ pub fn sample_session_facade_lines(client_name: impl Into<String>) -> anyhow::Re
         include_archived: Some(true),
         archived_only: None,
         workspace_id: Some(SESSION_FACADE_SAMPLE_WORKSPACE_ID.to_string()),
+        cwd: None,
         limit: Some(20),
     })?;
     let read = client.read_session(AgentSessionReadParams {
@@ -115,6 +116,7 @@ pub fn sample_session_facade_stdio_lines(
         include_archived: Some(true),
         archived_only: None,
         workspace_id: Some(SESSION_FACADE_SAMPLE_WORKSPACE_ID.to_string()),
+        cwd: None,
         limit: Some(20),
     })?;
     let read = client.read_session(AgentSessionReadParams {
@@ -225,7 +227,8 @@ fn sample_session_update_request(
             execution_strategy: None,
             recent_access_mode: None,
             recent_preferences: None,
-            recent_team_selection: None,
+            article_workspace_selected_object_ref: None,
+            article_workspace_edited_draft: None,
         },
     )
 }

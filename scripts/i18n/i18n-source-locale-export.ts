@@ -109,7 +109,7 @@ export function analyzeI18nSourceLocaleExport(
   return {
     namespaces,
     resourcesDir,
-    schemaVersion: "ember.i18n.sourceLocaleExport.v1",
+    schemaVersion: "lime.i18n.sourceLocaleExport.v1",
     sourceLocale,
     summary: {
       namespaceCount: namespaces.length,

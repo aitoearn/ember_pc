@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   type Dispatch,
@@ -8,11 +9,14 @@ import {
 } from "react";
 import { toast } from "sonner";
 import type {
-  AsterExecutionStrategy,
-  AsterSessionExecutionRuntime,
+  AgentExecutionStrategy,
+  AgentSessionExecutionRuntime,
+} from "@/lib/api/agentExecutionRuntime";
+import type {
+  AgentRuntimeThreadReadModel,
   AutoContinueRequestPayload,
-  QueuedTurnSnapshot,
-} from "@/lib/api/agentRuntime";
+} from "@/lib/api/agentRuntime/sessionTypes";
+import type { QueuedTurnSnapshot } from "@/lib/api/queuedTurn";
 import {
   type AgentThreadItem,
   type AgentThreadTurn,
@@ -20,17 +24,26 @@ import {
 import type { ActionRequired, Message, MessageImage } from "../types";
 import type { ChatToolPreferences } from "../utils/chatToolPreferences";
 import type { AgentAccessMode } from "./agentChatStorage";
-import { playToolcallSound, playTypewriterSound } from "./agentChatStorage";
+import type { SoulInteractionCopy } from "@/lib/soul/interactionCopy";
 import type {
   SendMessageOptions,
   SessionModelPreference,
   WorkspacePathMissingState,
 } from "./agentChatShared";
+import type {
+  InterruptedInputDraftSnapshot,
+  InterruptedInputRestoreRequest,
+} from "./agentStreamInputRestoreTypes";
 import type { AgentRuntimeAdapter } from "./agentRuntimeAdapter";
 import {
   createAgentStreamPreparedSendEnv,
   type AgentStreamPreparedSendEnv,
 } from "./agentStreamPreparedSendEnv";
+import {
+  bindRecoveredAgentStreamThread,
+  hasBlockingActiveAgentStreamBinding,
+  resolveAgentStreamResumeBindingTarget,
+} from "./agentStreamResumeBinding";
 import { AgentStreamSubmitGate } from "./agentStreamSubmitGate";
 import {
   normalizeAgentStreamCompactionError,
@@ -85,6 +98,18 @@ function appendThinkingToParts(
   return nextParts;
 }
 
+function cloneInterruptedInputDraft(
+  draft: InterruptedInputDraftSnapshot,
+): InterruptedInputDraftSnapshot {
+  return {
+    text: draft.text,
+    images: draft.images ? [...draft.images] : [],
+    pathReferences: draft.pathReferences ? [...draft.pathReferences] : [],
+    textElements: draft.textElements ? [...draft.textElements] : [],
+    inputCapabilityRoute: draft.inputCapabilityRoute,
+  };
+}
+
 interface UseAgentStreamOptions {
   runtime: AgentRuntimeAdapter;
   systemPrompt?: string;
@@ -94,15 +119,19 @@ interface UseAgentStreamOptions {
     context?: import("../types").WriteArtifactContext,
   ) => void;
   ensureSession: (options?: {
+    targetSessionId?: string;
     skipSessionRestore?: boolean;
+    skipSessionStartHooks?: boolean;
   }) => Promise<string | null>;
   attemptSilentTurnRecovery: (
     sessionId: string,
     requestStartedAt: number,
     promptText: string,
+    options?: { requireTerminal?: boolean; turnId?: string | null },
   ) => Promise<boolean>;
   sessionIdRef: MutableRefObject<string | null>;
-  executionStrategy: AsterExecutionStrategy;
+  sessionId?: string | null;
+  executionStrategy: AgentExecutionStrategy;
   accessMode: AgentAccessMode;
   providerTypeRef: MutableRefObject<string>;
   modelRef: MutableRefObject<string>;
@@ -112,7 +141,7 @@ interface UseAgentStreamOptions {
   ) => SessionModelPreference | null;
   getSyncedSessionExecutionStrategy: (
     sessionId: string,
-  ) => AsterExecutionStrategy | null;
+  ) => AgentExecutionStrategy | null;
   getSyncedSessionRecentPreferences?: (
     sessionId: string,
   ) => ChatToolPreferences | null;
@@ -120,23 +149,32 @@ interface UseAgentStreamOptions {
   currentStreamingSessionIdRef: MutableRefObject<string | null>;
   currentStreamingEventNameRef: MutableRefObject<string | null>;
   warnedKeysRef: MutableRefObject<Set<string>>;
-  getRequiredWorkspaceId: () => string;
+  getWorkspaceIdForSubmit: () => string | undefined;
   setWorkspacePathMissing: Dispatch<
     SetStateAction<WorkspacePathMissingState | null>
   >;
+  getMessages?: () => readonly Message[];
   setMessages: Dispatch<SetStateAction<Message[]>>;
+  getThreadItems?: () => readonly AgentThreadItem[];
   setThreadItems: Dispatch<SetStateAction<AgentThreadItem[]>>;
   setThreadTurns: Dispatch<SetStateAction<AgentThreadTurn[]>>;
   setCurrentTurnId: Dispatch<SetStateAction<string | null>>;
   setExecutionRuntime: Dispatch<
-    SetStateAction<AsterSessionExecutionRuntime | null>
+    SetStateAction<AgentSessionExecutionRuntime | null>
   >;
   threadBusy: boolean;
+  currentTurnId?: string | null;
+  threadRead?: AgentRuntimeThreadReadModel | null;
+  threadTurns: readonly AgentThreadTurn[];
   queuedTurns: QueuedTurnSnapshot[];
   setQueuedTurns: Dispatch<SetStateAction<QueuedTurnSnapshot[]>>;
   setPendingActions: Dispatch<SetStateAction<ActionRequired[]>>;
   refreshSessionReadModel: (targetSessionId?: string) => Promise<boolean>;
-  executionRuntime: AsterSessionExecutionRuntime | null;
+  onRestoreInterruptedInput?: (request: InterruptedInputRestoreRequest) => void;
+  executionRuntime: AgentSessionExecutionRuntime | null;
+  clawTraceEnabled?: boolean;
+  allowRecoveredStreamBinding?: boolean;
+  soulCopy?: SoulInteractionCopy;
 }
 
 export function useAgentStream(options: UseAgentStreamOptions) {
@@ -147,6 +185,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     ensureSession,
     attemptSilentTurnRecovery,
     sessionIdRef,
+    sessionId,
     executionStrategy,
     accessMode,
     providerTypeRef,
@@ -159,23 +198,34 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     currentStreamingSessionIdRef,
     currentStreamingEventNameRef,
     warnedKeysRef,
-    getRequiredWorkspaceId,
+    getWorkspaceIdForSubmit,
     setWorkspacePathMissing,
+    getMessages,
     setMessages,
+    getThreadItems,
     setThreadItems,
     setThreadTurns,
     setCurrentTurnId,
     setExecutionRuntime,
     threadBusy,
+    currentTurnId,
+    threadRead,
+    threadTurns,
     queuedTurns,
     setQueuedTurns,
     setPendingActions,
     refreshSessionReadModel,
+    onRestoreInterruptedInput,
     executionRuntime,
+    clawTraceEnabled = false,
+    allowRecoveredStreamBinding = false,
+    soulCopy,
   } = options;
 
   const {
     isSending,
+    activeStreamEventName,
+    activeStreamTurnId,
     setIsSending,
     listenerMapRef,
     activeStreamRef,
@@ -190,6 +240,15 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     currentStreamingEventNameRef,
   });
   const preparedSubmitGateRef = useRef(new AgentStreamSubmitGate());
+  const submittedDraftFallbackRef =
+    useRef<InterruptedInputDraftSnapshot | null>(null);
+  const recoveredBindingAttemptKeyRef = useRef<string | null>(null);
+  const getMessagesRef = useRef(getMessages);
+  const getThreadItemsRef = useRef(getThreadItems);
+  const queuedTurnsRef = useRef(queuedTurns);
+  getMessagesRef.current = getMessages;
+  getThreadItemsRef.current = getThreadItems;
+  queuedTurnsRef.current = queuedTurns;
 
   const preparedSendEnv = useMemo<AgentStreamPreparedSendEnv>(
     () =>
@@ -199,6 +258,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
         runtime,
         ensureSession,
         attemptSilentTurnRecovery,
+        refreshSessionReadModel,
         executionStrategy,
         accessMode,
         providerTypeRef,
@@ -208,7 +268,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
         hasPendingPreparedSubmit: () =>
           preparedSubmitGateRef.current.hasPending(),
         runPreparedSubmit: (task) => preparedSubmitGateRef.current.run(task),
-        getRequiredWorkspaceId,
+        getWorkspaceIdForSubmit,
         getSyncedSessionModelPreference,
         getSyncedSessionExecutionStrategy,
         getSyncedSessionRecentPreferences,
@@ -217,9 +277,12 @@ export function useAgentStream(options: UseAgentStreamOptions) {
         warnedKeysRef,
         onWriteFile,
         executionRuntime,
+        clawTraceEnabled,
+        soulCopy,
         setActiveStream,
         clearActiveStreamIfMatch,
         setMessages,
+        getThreadItems,
         setThreadItems,
         setThreadTurns,
         setCurrentTurnId,
@@ -228,8 +291,6 @@ export function useAgentStream(options: UseAgentStreamOptions) {
         setPendingActions,
         setWorkspacePathMissing,
         setIsSending,
-        playToolcallSound,
-        playTypewriterSound,
         appendThinkingToParts,
       }),
     [
@@ -240,15 +301,19 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       executionStrategy,
       ensureSession,
       executionRuntime,
-      getRequiredWorkspaceId,
+      clawTraceEnabled,
+      soulCopy,
+      getWorkspaceIdForSubmit,
       getSyncedSessionModelPreference,
       getSyncedSessionExecutionStrategy,
       getSyncedSessionRecentPreferences,
+      getThreadItems,
       listenerMapRef,
       modelRef,
       onWriteFile,
       providerTypeRef,
       reasoningEffortRef,
+      refreshSessionReadModel,
       queuedTurns.length,
       runtime,
       sessionIdRef,
@@ -267,6 +332,123 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     ],
   );
 
+  const recoveredBindingTarget = useMemo(
+    () =>
+      resolveAgentStreamResumeBindingTarget({
+        currentTurnId,
+        queuedTurns,
+        sessionId: sessionId ?? sessionIdRef.current,
+        threadBusy,
+        threadRead,
+        threadTurns,
+      }),
+    [
+      currentTurnId,
+      queuedTurns,
+      sessionId,
+      sessionIdRef,
+      threadBusy,
+      threadRead,
+      threadTurns,
+    ],
+  );
+  const recoveredBindingKey = recoveredBindingTarget
+    ? `${recoveredBindingTarget.sessionId}:${recoveredBindingTarget.turnId}`
+    : null;
+  const recoveredBindingTargetRef = useRef(recoveredBindingTarget);
+  recoveredBindingTargetRef.current = recoveredBindingTarget;
+
+  useEffect(() => {
+    const target = recoveredBindingTargetRef.current;
+    if (!allowRecoveredStreamBinding || !target || !recoveredBindingKey) {
+      recoveredBindingAttemptKeyRef.current = null;
+      return;
+    }
+    if (
+      hasBlockingActiveAgentStreamBinding({
+        activeStreamRef,
+        listenerMapRef,
+        target,
+      })
+    ) {
+      return;
+    }
+    if (recoveredBindingAttemptKeyRef.current === recoveredBindingKey) {
+      return;
+    }
+
+    recoveredBindingAttemptKeyRef.current = recoveredBindingKey;
+    let disposed = false;
+    let cleanup: (() => void) | null = null;
+    void bindRecoveredAgentStreamThread({
+      activeStreamRef,
+      appendThinkingToParts,
+      clearActiveStreamIfMatch,
+      executionStrategy,
+      getMessages: () => getMessagesRef.current?.() ?? [],
+      getThreadItems: () => getThreadItemsRef.current?.() ?? [],
+      listenerMapRef,
+      onWriteFile,
+      refreshSessionReadModel,
+      runtime,
+      setActiveStream,
+      setCurrentTurnId,
+      setExecutionRuntime,
+      setIsSending,
+      setMessages,
+      setPendingActions,
+      setQueuedTurns,
+      setThreadItems,
+      setThreadTurns,
+      soulCopy,
+      target,
+      warnedKeysRef,
+    })
+      .then((nextCleanup) => {
+        if (disposed) {
+          nextCleanup?.();
+          return;
+        }
+        cleanup = nextCleanup;
+        if (!nextCleanup) {
+          recoveredBindingAttemptKeyRef.current = null;
+        }
+      })
+      .catch((error) => {
+        recoveredBindingAttemptKeyRef.current = null;
+        console.error("[AgentChat] 绑定运行中会话失败:", error);
+      });
+
+    return () => {
+      disposed = true;
+      cleanup?.();
+    };
+  }, [
+    activeStreamRef,
+    allowRecoveredStreamBinding,
+    clearActiveStreamIfMatch,
+    executionStrategy,
+    getMessagesRef,
+    getThreadItemsRef,
+    listenerMapRef,
+    onWriteFile,
+    recoveredBindingKey,
+    recoveredBindingTargetRef,
+    refreshSessionReadModel,
+    runtime,
+    setActiveStream,
+    setCurrentTurnId,
+    setExecutionRuntime,
+    setIsSending,
+    setMessages,
+    setPendingActions,
+    setQueuedTurns,
+    setThreadItems,
+    setThreadTurns,
+    soulCopy,
+    warnedKeysRef,
+  ]);
+
   const sendMessage = useCallback(
     async (
       content: string,
@@ -274,11 +456,21 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       webSearch?: boolean,
       _thinking?: boolean,
       skipUserMessage = false,
-      executionStrategyOverride?: AsterExecutionStrategy,
+      executionStrategyOverride?: AgentExecutionStrategy,
       modelOverride?: string,
       autoContinue?: AutoContinueRequestPayload,
       options?: SendMessageOptions,
     ) => {
+      submittedDraftFallbackRef.current = cloneInterruptedInputDraft(
+        options?.inputRestoreDraft ?? {
+          text: options?.displayContent ?? content,
+          images,
+          textElements: (options?.displayContent ?? content).trim()
+            ? [{ type: "text", text: options?.displayContent ?? content }]
+            : [],
+          inputCapabilityRoute: options?.capabilityRoute,
+        },
+      );
       await sendAgentStreamMessage({
         content,
         images,
@@ -303,32 +495,39 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       runtime,
       removeStreamListener,
       refreshSessionReadModel,
-      setQueuedTurns,
       setThreadItems,
       setThreadTurns,
       setCurrentTurnId,
       setMessages,
+      getMessages: () => getMessagesRef.current?.() ?? [],
+      getThreadItems: () => getThreadItemsRef.current?.() ?? [],
+      getQueuedTurns: () => queuedTurnsRef.current,
       setActiveStream,
+      submittedDraftFallback: submittedDraftFallbackRef.current,
+      onRestoreInterruptedInput,
       notify: {
         info: (message) => toast.info(message),
         error: () => undefined,
       },
       onInterruptError: (error) => {
-        console.error("[AsterChat] 停止失败:", error);
+        console.error("[AgentChat] 停止失败:", error);
       },
     });
+    submittedDraftFallbackRef.current = null;
   }, [
     refreshSessionReadModel,
     runtime,
     sessionIdRef,
+    onRestoreInterruptedInput,
     setActiveStream,
     setCurrentTurnId,
     setMessages,
-    setQueuedTurns,
     setThreadItems,
     setThreadTurns,
     removeStreamListener,
     activeStreamRef,
+    getThreadItemsRef,
+    queuedTurnsRef,
   ]);
 
   const removeQueuedTurn = useCallback(
@@ -338,17 +537,16 @@ export function useAgentStream(options: UseAgentStreamOptions) {
         queuedTurnId,
         sessionIdRef,
         refreshSessionReadModel,
-        setQueuedTurns,
         notify: {
           info: () => undefined,
           error: (message) => toast.error(message),
         },
         onError: (error) => {
-          console.error("[AsterChat] 移除排队消息失败:", error);
+          console.error("[AgentChat] 移除排队消息失败:", error);
         },
       });
     },
-    [refreshSessionReadModel, runtime, sessionIdRef, setQueuedTurns],
+    [refreshSessionReadModel, runtime, sessionIdRef],
   );
 
   const compactSession = useCallback(async () => {
@@ -372,6 +570,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
         clearActiveStreamIfMatch,
         replaceStreamListener,
         removeStreamListener,
+        setIsSending,
         setCurrentTurnId,
         setThreadItems,
         setThreadTurns,
@@ -383,7 +582,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       });
     } catch (error) {
       const compactionError = normalizeAgentStreamCompactionError(error);
-      console.error("[AsterChat] 压缩上下文失败:", compactionError);
+      console.error("[AgentChat] 压缩上下文失败:", compactionError);
       if (!compactionError.alreadyNotified) {
         toast.error(compactionError.message);
       }
@@ -395,6 +594,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
     runtime,
     sessionIdRef,
     setActiveStream,
+    setIsSending,
     setCurrentTurnId,
     setThreadItems,
     setThreadTurns,
@@ -412,7 +612,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
         error: (message) => toast.error(message),
       },
       onError: (error) => {
-        console.error("[AsterChat] 恢复线程执行失败:", error);
+        console.error("[AgentChat] 恢复线程执行失败:", error);
       },
     });
   }, [refreshSessionReadModel, runtime, sessionIdRef]);
@@ -422,11 +622,11 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       return promoteQueuedAgentTurn({
         runtime,
         queuedTurnId,
+        threadId: threadRead?.thread_id,
         activeStream: activeStreamRef.current,
         removeStreamListener,
         sessionIdRef,
         refreshSessionReadModel,
-        setQueuedTurns,
         setThreadItems,
         setThreadTurns,
         setCurrentTurnId,
@@ -437,7 +637,7 @@ export function useAgentStream(options: UseAgentStreamOptions) {
           error: (message) => toast.error(message),
         },
         onError: (error) => {
-          console.error("[AsterChat] 立即执行排队消息失败:", error);
+          console.error("[AgentChat] 立即执行排队消息失败:", error);
         },
       });
     },
@@ -450,14 +650,16 @@ export function useAgentStream(options: UseAgentStreamOptions) {
       setActiveStream,
       setCurrentTurnId,
       setMessages,
-      setQueuedTurns,
       setThreadItems,
       setThreadTurns,
+      threadRead?.thread_id,
     ],
   );
 
   return {
     isSending,
+    activeStreamEventName,
+    activeStreamTurnId,
     sendMessage,
     compactSession,
     stopSending,

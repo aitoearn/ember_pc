@@ -15,7 +15,7 @@ function createArtifact(): Artifact {
     content: "",
     status: "complete",
     meta: {
-      filePath: ".ember/artifacts/thread-1/board-review.artifact.json",
+      filePath: ".lime/artifacts/thread-1/board-review.artifact.json",
       filename: "board-review.artifact.json",
       artifactRequestId: "artifact:analysis:board-review",
     },
@@ -96,7 +96,7 @@ describe("buildArtifactBlockRewriteRequest", () => {
         itemId: "thread-item-body",
         blockId: "body-1",
         label: "步骤 04",
-        filePath: ".ember/artifacts/thread-1/board-review.artifact.json",
+        filePath: ".lime/artifacts/thread-1/board-review.artifact.json",
         sequence: 4,
       },
       instruction: "请改得更适合董事会直接阅读。",
@@ -114,7 +114,7 @@ describe("buildArtifactBlockRewriteRequest", () => {
         workbench_surface: "right_panel",
       },
     });
-    expect(result.prompt).toContain("Ember Artifact Workbench 的局部改写任务");
+    expect(result.prompt).toContain("Lime Artifact Workbench 的局部改写任务");
     expect(result.prompt).toContain('"id": "body-1"');
     expect(result.prompt).toContain(
       "当前编辑稿（这是最新输入，即使它还没保存）",

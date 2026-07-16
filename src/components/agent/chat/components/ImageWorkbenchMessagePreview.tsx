@@ -2,19 +2,22 @@ import React from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Leaf, RotateCcw } from "lucide-react";
-import {
-  emitImageWorkbenchFocus,
-  emitImageWorkbenchTaskAction,
-} from "@/lib/imageWorkbenchEvents";
+import { emitImageWorkbenchTaskAction } from "@/lib/imageWorkbenchEvents";
 import type {
   MessageImageWorkbenchPreview,
   MessageImageWorkbenchPreviewSelection,
 } from "../types";
-import { resolveImageWorkbenchPreviewModelLabel } from "../utils/imageWorkbenchPresentation";
+import {
+  buildImageWorkbenchCaption,
+  resolveImageWorkbenchCaptionStatus,
+  resolveImageWorkbenchPreviewModelLabel,
+  sanitizeImageWorkbenchPresentationText,
+} from "../utils/imageWorkbenchPresentation";
 import { ImageWorkbenchPreviewMedia } from "./ImageWorkbenchPreviewMedia";
 
 interface ImageWorkbenchMessagePreviewProps {
   preview: MessageImageWorkbenchPreview;
+  showCompletionCaption?: boolean;
   onOpen?: (
     preview: MessageImageWorkbenchPreview,
     selection?: MessageImageWorkbenchPreviewSelection,
@@ -22,6 +25,7 @@ interface ImageWorkbenchMessagePreviewProps {
 }
 
 type AgentTranslate = TFunction<"agent", undefined>;
+type CaptionStatus = Parameters<typeof buildImageWorkbenchCaption>[0]["status"];
 
 function resolveToolLabel(
   preview: MessageImageWorkbenchPreview,
@@ -40,22 +44,52 @@ function resolveToolLabel(
 
 export const ImageWorkbenchMessagePreview: React.FC<
   ImageWorkbenchMessagePreviewProps
-> = ({ preview, onOpen }) => {
+> = ({ preview, showCompletionCaption = true, onOpen }) => {
   const { t } = useTranslation("agent");
   const toolLabel = resolveToolLabel(preview, t);
+  const modelId = (
+    preview.runtimeContract?.model ||
+    preview.modelName ||
+    ""
+  ).trim();
   const modelLabel = resolveImageWorkbenchPreviewModelLabel(preview);
-  const caption = preview.caption?.trim();
-  const showRetryAction = preview.status === "failed";
+  const resolvedCaptionStatus: CaptionStatus =
+    resolveImageWorkbenchCaptionStatus(preview);
+  const displayPrompt =
+    sanitizeImageWorkbenchPresentationText(preview.prompt, {
+      languageSource: preview.prompt,
+    }) || "";
+  const explicitCaption =
+    resolvedCaptionStatus === "running"
+      ? ""
+      : sanitizeImageWorkbenchPresentationText(preview.caption, {
+          languageSource: displayPrompt || preview.prompt,
+        });
+  const caption =
+    explicitCaption ||
+    buildImageWorkbenchCaption({
+      prompt: displayPrompt,
+      status: resolvedCaptionStatus,
+      imageCount: preview.imageCount ?? preview.expectedImageCount ?? null,
+      statusMessage: preview.statusMessage ?? null,
+    });
+  const shouldShowCaption = Boolean(
+    caption &&
+      (showCompletionCaption ||
+        resolvedCaptionStatus === "failed" ||
+        resolvedCaptionStatus === "cancelled"),
+  );
+  const showRetryAction =
+    (preview.status === "failed" || preview.status === "cancelled") &&
+    preview.retryable !== false;
+  const canOpenPreview = Boolean(onOpen);
+  const soulMetadata = preview.soulMetadata;
 
   const openPreview = (selection?: MessageImageWorkbenchPreviewSelection) => {
-    if (onOpen) {
-      onOpen(preview, selection);
+    if (!onOpen) {
       return;
     }
-    emitImageWorkbenchFocus({
-      projectId: preview.projectId ?? null,
-      contentId: preview.contentId ?? null,
-    });
+    onOpen(preview, selection);
   };
 
   const handleRetry = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -71,13 +105,34 @@ export const ImageWorkbenchMessagePreview: React.FC<
   return (
     <div className="w-full max-w-[800px]">
       <div
-        onClick={() => openPreview()}
+        onClick={canOpenPreview ? () => openPreview() : undefined}
         data-testid={`image-workbench-message-preview-${preview.taskId}`}
-        className="group block w-full cursor-pointer text-left"
+        data-soul-surface={soulMetadata?.surface ?? "image_generation"}
+        data-soul-phase={soulMetadata?.phase ?? ""}
+        data-soul-style-level={soulMetadata?.styleLevel ?? ""}
+        data-soul-risk-level={soulMetadata?.riskLevel ?? ""}
+        data-soul-profile-id={soulMetadata?.profileId ?? ""}
+        data-soul-pack-id={soulMetadata?.packId ?? ""}
+        data-soul-tone-variant={soulMetadata?.toneVariant ?? ""}
+        data-generation-brief-boundary={
+          soulMetadata?.formalArtifactVoiceSource ?? ""
+        }
+        className={`group block w-full text-left ${
+          canOpenPreview ? "cursor-pointer" : ""
+        }`}
       >
         <div
           data-testid={`image-workbench-message-preview-toolbar-${preview.taskId}`}
-          className="mb-2 flex min-h-6 w-full max-w-full items-center gap-2 px-0.5 text-[13px] font-medium leading-5 text-[#435d2e]"
+          data-model-id={modelId}
+          data-soul-surface={soulMetadata?.surface ?? "image_generation"}
+          data-soul-style-level={soulMetadata?.runningStatusStyleLevel ?? ""}
+          data-media-artifact-style-level={
+            soulMetadata?.mediaArtifactStyleLevel ?? ""
+          }
+          data-generation-brief-boundary={
+            soulMetadata?.formalArtifactVoiceSource ?? ""
+          }
+          className="mb-3 flex min-h-10 w-full max-w-full items-center gap-2 rounded-[10px] border border-[#d9ded6] bg-[#eef0ec] px-4 text-[13px] font-medium leading-5 text-[#435d2e]"
         >
           <Leaf className="h-3.5 w-3.5 shrink-0 fill-[#496631]/15 text-[#496631]" />
           <span className="truncate">{toolLabel}</span>
@@ -92,10 +147,10 @@ export const ImageWorkbenchMessagePreview: React.FC<
           <ImageWorkbenchPreviewMedia
             preview={preview}
             t={t}
-            onSelect={openPreview}
+            onSelect={canOpenPreview ? openPreview : undefined}
           />
         </div>
-        {caption ? (
+        {shouldShowCaption ? (
           <div
             data-testid={`image-workbench-message-preview-caption-${preview.taskId}`}
             className="mt-2 max-w-[800px] whitespace-pre-line text-sm leading-6 text-slate-700"

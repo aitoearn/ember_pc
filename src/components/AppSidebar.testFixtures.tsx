@@ -4,31 +4,32 @@ import { act as reactAct } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { vi } from "vitest";
 import type { AgentPageParams, Page, PageParams } from "@/types/page";
-import { SettingsTabs as EmberSettingsTabs } from "@/types/settings";
+import { SettingsTabs as LimeSettingsTabs } from "@/types/settings";
 import { AppSidebar as AppSidebarComponent } from "./AppSidebar";
-import { changeEmberLocale as changeEmberLocaleImpl } from "@/i18n/createI18n";
-import {
-  TASK_CENTER_CREATE_DRAFT_TASK_EVENT as TASK_CENTER_CREATE_DRAFT_TASK_EVENT_VALUE,
-  TASK_CENTER_OPEN_TASK_EVENT as TASK_CENTER_OPEN_TASK_EVENT_VALUE,
-} from "@/components/agent/chat/taskCenterDraftTaskEvents";
-import { EMBER_COLOR_SCHEME_STORAGE_KEY as EMBER_COLOR_SCHEME_STORAGE_KEY_VALUE } from "@/lib/appearance/colorSchemes";
-import { EMBER_THEME_STORAGE_KEY as EMBER_THEME_STORAGE_KEY_VALUE } from "@/lib/appearance/themeMode";
+import { changeLimeLocale as changeLimeLocaleImpl } from "@/i18n/createI18n";
+import { TASK_CENTER_CREATE_DRAFT_TASK_EVENT as TASK_CENTER_CREATE_DRAFT_TASK_EVENT_VALUE } from "@/components/agent/chat/taskCenterDraftTaskEvents";
+import { LIME_COLOR_SCHEME_STORAGE_KEY as LIME_COLOR_SCHEME_STORAGE_KEY_VALUE } from "@/lib/appearance/colorSchemes";
+import { LIME_THEME_STORAGE_KEY as LIME_THEME_STORAGE_KEY_VALUE } from "@/lib/appearance/themeMode";
 import {
   getStoredOemCloudSessionState as getStoredOemCloudSessionStateImpl,
   setOemCloudBootstrapSnapshot as setOemCloudBootstrapSnapshotImpl,
   setStoredOemCloudSessionState as setStoredOemCloudSessionStateImpl,
 } from "@/lib/oemCloudSession";
+import type {
+  ConversationImportThreadPreviewResponse,
+  ImportedThreadSummary,
+} from "@/lib/api/conversationImport";
+import type { AgentBackgroundSessionRuntimeSnapshot } from "@/components/agent/chat";
 
 export const act = reactAct;
 export const AppSidebar = AppSidebarComponent;
-export const changeEmberLocale = changeEmberLocaleImpl;
-export const SettingsTabs = EmberSettingsTabs;
-export const EMBER_COLOR_SCHEME_STORAGE_KEY =
-  EMBER_COLOR_SCHEME_STORAGE_KEY_VALUE;
-export const EMBER_THEME_STORAGE_KEY = EMBER_THEME_STORAGE_KEY_VALUE;
+export const changeLimeLocale = changeLimeLocaleImpl;
+export const SettingsTabs = LimeSettingsTabs;
+export const LIME_COLOR_SCHEME_STORAGE_KEY =
+  LIME_COLOR_SCHEME_STORAGE_KEY_VALUE;
+export const LIME_THEME_STORAGE_KEY = LIME_THEME_STORAGE_KEY_VALUE;
 export const TASK_CENTER_CREATE_DRAFT_TASK_EVENT =
   TASK_CENTER_CREATE_DRAFT_TASK_EVENT_VALUE;
-export const TASK_CENTER_OPEN_TASK_EVENT = TASK_CENTER_OPEN_TASK_EVENT_VALUE;
 export const getStoredOemCloudSessionState = getStoredOemCloudSessionStateImpl;
 export const setOemCloudBootstrapSnapshot = setOemCloudBootstrapSnapshotImpl;
 export const setStoredOemCloudSessionState = setStoredOemCloudSessionStateImpl;
@@ -38,7 +39,8 @@ const {
   mockSaveConfig,
   mockSubscribeAppConfigChanged,
   mockListAgentRuntimeSessions,
-  mockListInstalledAgentApps,
+  mockListInstalledPlugins,
+  mockSelectPluginDirectory,
   mockGetProject,
   mockUpdateProject,
   mockDeleteProject,
@@ -46,8 +48,10 @@ const {
   mockCreateProjectGitWorktree,
   mockRevealPathInFinder,
   mockUpdateAgentRuntimeSession,
-  mockArchiveManyAgentRuntimeSessions,
   mockDeleteAgentRuntimeSession,
+  mockScanConversationImportSource,
+  mockPreviewConversationImportThread,
+  mockCommitConversationImportThread,
   mockSetI18nLanguage,
   mockScheduleMinimumDelayIdleTask,
   mockLogoutClient,
@@ -56,11 +60,14 @@ const {
   mockCreateExternalBrowserOpenTarget,
   mockOpenExternalUrl,
   mockStartOemCloudLogin,
+  mockGetClientReferralDashboard,
   mockClearSiteAdapterCatalogCache,
   mockToastSuccess,
   mockToastError,
   mockToastInfo,
   mockRecordAgentUiPerformanceMetric,
+  mockSubscribeAgentUiPerformanceMetricRecorded,
+  mockAgentUiPerformanceMetricListeners,
   mockCheckForUpdates,
   mockGetUpdateInstallSession,
   mockListenUpdateInstallSession,
@@ -73,7 +80,8 @@ const {
   mockSaveConfig: vi.fn(),
   mockSubscribeAppConfigChanged: vi.fn(),
   mockListAgentRuntimeSessions: vi.fn(),
-  mockListInstalledAgentApps: vi.fn(),
+  mockListInstalledPlugins: vi.fn(),
+  mockSelectPluginDirectory: vi.fn(),
   mockGetProject: vi.fn(),
   mockUpdateProject: vi.fn(),
   mockDeleteProject: vi.fn(),
@@ -81,8 +89,10 @@ const {
   mockCreateProjectGitWorktree: vi.fn(),
   mockRevealPathInFinder: vi.fn(),
   mockUpdateAgentRuntimeSession: vi.fn(),
-  mockArchiveManyAgentRuntimeSessions: vi.fn(),
   mockDeleteAgentRuntimeSession: vi.fn(),
+  mockScanConversationImportSource: vi.fn(),
+  mockPreviewConversationImportThread: vi.fn(),
+  mockCommitConversationImportThread: vi.fn(),
   mockSetI18nLanguage: vi.fn(),
   mockScheduleMinimumDelayIdleTask: vi.fn((task: () => void) => {
     task();
@@ -96,11 +106,22 @@ const {
   mockCreateExternalBrowserOpenTarget: vi.fn(() => null),
   mockOpenExternalUrl: vi.fn(),
   mockStartOemCloudLogin: vi.fn(),
+  mockGetClientReferralDashboard: vi.fn(),
   mockClearSiteAdapterCatalogCache: vi.fn(),
   mockToastSuccess: vi.fn(),
   mockToastError: vi.fn(),
   mockToastInfo: vi.fn(),
   mockRecordAgentUiPerformanceMetric: vi.fn(),
+  mockSubscribeAgentUiPerformanceMetricRecorded: vi.fn(),
+  mockAgentUiPerformanceMetricListeners: [] as Array<
+    (detail: {
+      id: number;
+      phase: string;
+      sessionId?: string | null;
+      source?: string | null;
+      workspaceId?: string | null;
+    }) => void
+  >,
   mockCheckForUpdates: vi.fn(),
   mockGetUpdateInstallSession: vi.fn(),
   mockListenUpdateInstallSession: vi.fn(),
@@ -115,25 +136,30 @@ export {
   mockClearSiteAdapterCatalogCache,
   mockCheckForUpdates,
   mockCreateExternalBrowserOpenTarget,
-  mockArchiveManyAgentRuntimeSessions,
   mockDeleteAgentRuntimeSession,
   mockGetUpdateInstallSession,
+  mockGetClientReferralDashboard,
   mockGetConfig,
   mockGetConfiguredOemCloudTarget,
   mockListenUpdateInstallSession,
   mockListAgentRuntimeSessions,
-  mockListInstalledAgentApps,
+  mockListInstalledPlugins,
+  mockSelectPluginDirectory,
   mockGetProject,
   mockUpdateProject,
   mockDeleteProject,
   mockEnsureProjectWorkspace,
   mockCreateProjectGitWorktree,
   mockRevealPathInFinder,
+  mockScanConversationImportSource,
   mockLogoutClient,
+  mockPreviewConversationImportThread,
+  mockCommitConversationImportThread,
   mockOpenExternalUrl,
   mockOpenUpdateWindow,
   mockRecordUpdateNotificationAction,
   mockRecordAgentUiPerformanceMetric,
+  mockSubscribeAgentUiPerformanceMetricRecorded,
   mockRemindUpdateLater,
   mockSaveConfig,
   mockScheduleMinimumDelayIdleTask,
@@ -160,16 +186,23 @@ vi.mock("@/i18n/legacy-patch/I18nPatchProvider", () => ({
   }),
 }));
 
-vi.mock("@/lib/api/agentRuntime", () => ({
-  archiveManyAgentRuntimeSessions: mockArchiveManyAgentRuntimeSessions,
+vi.mock("@/lib/api/agentRuntime/sessionClient", () => ({
+  AGENT_RUNTIME_SESSIONS_CHANGED_EVENT: "lime:agent-runtime-sessions-changed",
   deleteAgentRuntimeSession: mockDeleteAgentRuntimeSession,
   listAgentRuntimeSessions: mockListAgentRuntimeSessions,
   updateAgentRuntimeSession: mockUpdateAgentRuntimeSession,
 }));
 
-vi.mock("@/lib/api/agentApps", () => ({
-  AGENT_APPS_CHANGED_EVENT: "ember:agent-apps-changed",
-  listInstalledAgentApps: mockListInstalledAgentApps,
+vi.mock("@/lib/api/conversationImport", () => ({
+  scanConversationImportSource: mockScanConversationImportSource,
+  previewConversationImportThread: mockPreviewConversationImportThread,
+  commitConversationImportThread: mockCommitConversationImportThread,
+}));
+
+vi.mock("@/lib/api/plugins", () => ({
+  PLUGINS_CHANGED_EVENT: "lime:plugins-changed",
+  listInstalledPlugins: mockListInstalledPlugins,
+  selectPluginDirectory: mockSelectPluginDirectory,
 }));
 
 vi.mock("@/lib/api/project", () => ({
@@ -217,6 +250,7 @@ vi.mock("@/lib/api/appUpdate", () => ({
 vi.mock("@/lib/api/oemCloudControlPlane", () => ({
   logoutClient: mockLogoutClient,
   getConfiguredOemCloudTarget: mockGetConfiguredOemCloudTarget,
+  getClientReferralDashboard: mockGetClientReferralDashboard,
 }));
 
 vi.mock("@/lib/oemCloudLoginLauncher", () => ({
@@ -242,8 +276,36 @@ vi.mock("@/lib/utils/scheduleMinimumDelayIdleTask", () => ({
   scheduleMinimumDelayIdleTask: mockScheduleMinimumDelayIdleTask,
 }));
 
+type MockAgentUiPerformanceMetricDetail = {
+  id: number;
+  phase: string;
+  sessionId?: string | null;
+  source?: string | null;
+  workspaceId?: string | null;
+};
+
+export function emitMockAgentUiPerformanceMetricRecorded(
+  detail: MockAgentUiPerformanceMetricDetail,
+) {
+  for (const listener of [...mockAgentUiPerformanceMetricListeners]) {
+    listener(detail);
+  }
+}
+
 vi.mock("@/lib/agentUiPerformanceMetrics", () => ({
   recordAgentUiPerformanceMetric: mockRecordAgentUiPerformanceMetric,
+  subscribeAgentUiPerformanceMetricRecorded:
+    mockSubscribeAgentUiPerformanceMetricRecorded.mockImplementation(
+      (listener: (detail: MockAgentUiPerformanceMetricDetail) => void) => {
+        mockAgentUiPerformanceMetricListeners.push(listener);
+        return () => {
+          const index = mockAgentUiPerformanceMetricListeners.indexOf(listener);
+          if (index >= 0) {
+            mockAgentUiPerformanceMetricListeners.splice(index, 1);
+          }
+        };
+      },
+    ),
 }));
 
 interface MountedSidebar {
@@ -252,13 +314,18 @@ interface MountedSidebar {
 }
 
 const mountedSidebars: MountedSidebar[] = [];
-export const APP_SIDEBAR_COLLAPSED_STORAGE_KEY = "ember.app-sidebar.collapsed";
+export const APP_SIDEBAR_COLLAPSED_STORAGE_KEY = "lime.app-sidebar.collapsed";
 export const APP_SIDEBAR_ENABLED_ITEMS_STORAGE_KEY =
-  "ember.app-sidebar.enabled-items";
+  "lime.app-sidebar.enabled-items";
 
 export function mountSidebar(options?: {
   currentPage?: Page;
   currentPageParams?: PageParams;
+  activeAgentSessionId?: string | null;
+  activeAgentStreaming?: boolean;
+  backgroundAgentSessionRuntime?: AgentBackgroundSessionRuntimeSnapshot | null;
+  requestedPage?: Page;
+  requestedPageParams?: PageParams;
   onNavigate?: (page: Page, params?: PageParams) => void;
 }): MountedSidebar {
   const container = document.createElement("div");
@@ -270,6 +337,11 @@ export function mountSidebar(options?: {
       <AppSidebar
         currentPage={options?.currentPage ?? "agent"}
         currentPageParams={options?.currentPageParams}
+        activeAgentSessionId={options?.activeAgentSessionId}
+        activeAgentStreaming={options?.activeAgentStreaming}
+        backgroundAgentSessionRuntime={options?.backgroundAgentSessionRuntime}
+        requestedPage={options?.requestedPage}
+        requestedPageParams={options?.requestedPageParams}
         onNavigate={options?.onNavigate ?? vi.fn()}
       />,
     );
@@ -283,6 +355,11 @@ export function mountSidebar(options?: {
 export function mountSidebarContainer(options?: {
   currentPage?: Page;
   currentPageParams?: PageParams;
+  activeAgentSessionId?: string | null;
+  activeAgentStreaming?: boolean;
+  backgroundAgentSessionRuntime?: AgentBackgroundSessionRuntimeSnapshot | null;
+  requestedPage?: Page;
+  requestedPageParams?: PageParams;
   onNavigate?: (page: Page, params?: PageParams) => void;
 }) {
   return mountSidebar(options).container;
@@ -371,27 +448,225 @@ export async function clickAccountMenuItem(
   });
 }
 
+export function buildMockReferralDashboard() {
+  return {
+    code: {
+      id: "refcode-001",
+      tenantId: "tenant-0001",
+      userId: "user-001",
+      code: "LIME-2026",
+      landingUrl: "https://limeai.run/invite?code=LIME-2026",
+      status: "active",
+      createdAt: "2026-04-28T00:00:00.000Z",
+      updatedAt: "2026-04-28T00:00:00.000Z",
+    },
+    policy: {
+      enabled: true,
+      rewardCredits: 600,
+      referrerRewardCredits: 480,
+      inviteeRewardCredits: 120,
+      claimWindowDays: 30,
+      autoClaimEnabled: true,
+      allowManualClaimFallback: true,
+      riskReviewEnabled: false,
+    },
+    summary: {
+      totalInvites: 0,
+      successfulInvites: 0,
+      totalRewardCredits: 0,
+      referrerRewardCreditsTotal: 0,
+      inviteeRewardCreditsTotal: 0,
+    },
+    events: [],
+    rewards: [],
+    invitedBy: {},
+    share: {
+      brandName: "Lime",
+      code: "LIME-2026",
+      landingUrl: "https://limeai.run/invite?code=LIME-2026",
+      downloadUrl: "https://limeai.run",
+      shareText:
+        "邀请你体验Lime，让AI做牛做马，我们来做牛人！前往 https://limeai.run 下载客户端，复制邀请码 LIME-2026 激活并注册账号参与内测",
+      headline: "登录后自动领取奖励",
+      rules: "复制邀请码后完成注册即可参与内测。",
+    },
+  };
+}
+
+export function seedCloudSessionWithReferral(options?: {
+  referralEnabled?: boolean;
+  referral?: ReturnType<typeof buildMockReferralDashboard> | null;
+}) {
+  setStoredOemCloudSessionState({
+    token: "session-token",
+    tenant: { id: "tenant-0001", name: "Lime Cloud" },
+    user: {
+      id: "user-001",
+      displayName: "晚风",
+      email: "wanfeng@example.com",
+    },
+    session: { id: "session-001", provider: "google" },
+  });
+  setOemCloudBootstrapSnapshot({
+    session: {
+      tenant: { id: "tenant-0001", name: "Lime Cloud" },
+    },
+    features: {
+      referralEnabled: options?.referralEnabled ?? true,
+    },
+    ...(options?.referral !== null
+      ? { referral: options?.referral ?? buildMockReferralDashboard() }
+      : {}),
+  });
+}
+
 export type { AgentPageParams, Page, PageParams };
+
+export function buildMockImportedThreadSummary(
+  overrides: Partial<ImportedThreadSummary> = {},
+): ImportedThreadSummary {
+  return {
+    sourceClient: "codex",
+    sourceThreadId: "codex-thread-1",
+    title: "本地历史修复记录",
+    createdAt: "2026-06-15T00:00:00.000Z",
+    updatedAt: "2026-06-16T00:00:00.000Z",
+    cwd: "/repo/project-1",
+    source: "cli",
+    modelProvider: "openai",
+    archived: false,
+    sourcePath: "/Users/example/.codex/sessions/codex-thread-1.jsonl",
+    importStatus: "not_imported",
+    ...overrides,
+  };
+}
+
+export function buildMockConversationImportPreview(
+  overrides: Partial<ConversationImportThreadPreviewResponse> = {},
+): ConversationImportThreadPreviewResponse {
+  const thread = buildMockImportedThreadSummary(overrides.thread);
+  return {
+    source: {
+      sourceClient: "codex",
+      status: "ready",
+      sourceRoot: "/Users/example/.codex",
+      readable: true,
+      threadCount: 1,
+      sourceHomeExists: true,
+      stateDbReadable: true,
+      rolloutFileCount: 1,
+      indexedAt: "2026-06-16T00:00:00.000Z",
+      statePath: "/Users/example/.codex/state_5.sqlite",
+    },
+    thread,
+    summary: {
+      lineCount: 8,
+      messageCount: 2,
+      rolloutEventItems: 2,
+      unsupportedCount: 1,
+      dryRun: {
+        willCreateSession: thread.importStatus !== "imported",
+        willAppendToExistingSession: thread.importStatus === "imported",
+        willImportMessages: 2,
+        willImportTurns: 1,
+        willImportTimelineItems: 4,
+        willImportAttachments: 1,
+        unsupportedItems: 1,
+      },
+      fidelity: {
+        messages: 2,
+        reasoning: 0,
+        tools: 2,
+        commands: 1,
+        patches: 1,
+        approvals: 0,
+        mcp: 0,
+        webSearch: 0,
+        attachments: 1,
+        unsupported: 1,
+        provenanceOnly: 1,
+        budgetDropped: 0,
+      },
+      truncated: false,
+      warnings: ["工具事件会作为来源信息保留，不会伪造成 Lime 工具时间线。"],
+    },
+    messages: [
+      {
+        role: "user",
+        text: "请帮我修复运行时问题",
+        attachments: [
+          {
+            kind: "image",
+            uri: "data:image/png;base64,preview",
+            metadata: {
+              sourceType: "event_msg",
+              codexField: "images",
+              mediaType: "image/png",
+            },
+          },
+        ],
+        truncated: false,
+        omittedBytes: 0,
+        timestamp: "2026-06-16T00:00:00.000Z",
+        sourceType: "event_msg",
+        provenance: {
+          sourceClient: "codex",
+          sourceThreadId: thread.sourceThreadId,
+          sourcePath: thread.sourcePath,
+          sourceEventType: "event_msg",
+          sourceEventSeq: 2,
+          sourcePayloadType: "user_message",
+        },
+      },
+      {
+        role: "assistant",
+        text: "已完成修复并补充测试。",
+        attachments: [],
+        truncated: false,
+        omittedBytes: 0,
+        timestamp: "2026-06-16T00:00:01.000Z",
+        sourceType: "event_msg",
+        provenance: {
+          sourceClient: "codex",
+          sourceThreadId: thread.sourceThreadId,
+          sourcePath: thread.sourcePath,
+          sourceEventType: "event_msg",
+          sourceEventSeq: 3,
+          sourcePayloadType: "agent_message",
+        },
+      },
+    ],
+    events: [],
+    ...overrides,
+  };
+}
 
 export async function resetAppSidebarTest() {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
+  mockAgentUiPerformanceMetricListeners.splice(
+    0,
+    mockAgentUiPerformanceMetricListeners.length,
+  );
   localStorage.clear();
-  delete window.__EMBER_BOOTSTRAP__;
-  delete window.__EMBER_OEM_CLOUD__;
-  delete window.__EMBER_SESSION_TOKEN__;
+  delete window.__LIME_BOOTSTRAP__;
+  delete window.__LIME_OEM_CLOUD__;
+  delete window.__LIME_SESSION_TOKEN__;
   document.documentElement.classList.remove("dark");
-  document.documentElement.removeAttribute("data-ember-theme");
-  document.documentElement.removeAttribute("data-ember-color-scheme");
+  document.documentElement.removeAttribute("data-lime-theme");
+  document.documentElement.removeAttribute("data-lime-color-scheme");
   document.documentElement.removeAttribute("style");
   mockGetConfig.mockResolvedValue({});
   mockSaveConfig.mockResolvedValue(undefined);
   mockListAgentRuntimeSessions.mockResolvedValue([]);
-  mockListInstalledAgentApps.mockResolvedValue({ states: [], issues: [] });
+  mockListInstalledPlugins.mockResolvedValue({ states: [], issues: [] });
+  mockSelectPluginDirectory.mockResolvedValue({
+    path: null,
+    cancelled: true,
+  });
   mockGetProject.mockResolvedValue(null);
   mockUpdateProject.mockResolvedValue({});
   mockDeleteProject.mockResolvedValue(true);
-  mockArchiveManyAgentRuntimeSessions.mockResolvedValue([]);
   mockEnsureProjectWorkspace.mockResolvedValue({
     id: "project-worktree",
     name: "project-worktree",
@@ -411,6 +686,118 @@ export async function resetAppSidebarTest() {
   mockRevealPathInFinder.mockResolvedValue(undefined);
   mockUpdateAgentRuntimeSession.mockResolvedValue(undefined);
   mockDeleteAgentRuntimeSession.mockResolvedValue(undefined);
+  mockScanConversationImportSource.mockResolvedValue({
+    source: {
+      sourceClient: "codex",
+      status: "ready",
+      sourceRoot: "/Users/example/.codex",
+      readable: true,
+      threadCount: 1,
+      indexedAt: "2026-06-16T00:00:00.000Z",
+      statePath: "/Users/example/.codex/state_5.sqlite",
+    },
+    threads: [
+      {
+        sourceClient: "codex",
+        sourceThreadId: "codex-thread-1",
+        title: "本地历史修复记录",
+        createdAt: "2026-06-15T00:00:00.000Z",
+        updatedAt: "2026-06-16T00:00:00.000Z",
+        cwd: "/repo/project-1",
+        source: "cli",
+        modelProvider: "openai",
+        archived: false,
+        sourcePath: "/Users/example/.codex/sessions/codex-thread-1.jsonl",
+        importStatus: "not_imported",
+      },
+      {
+        sourceClient: "codex",
+        sourceThreadId: "codex-thread-2",
+        title: "本地历史第二条记录",
+        createdAt: "2026-06-15T01:00:00.000Z",
+        updatedAt: "2026-06-16T01:00:00.000Z",
+        cwd: "/repo/project-1",
+        source: "cli",
+        modelProvider: "openai",
+        archived: false,
+        sourcePath: "/Users/example/.codex/sessions/codex-thread-2.jsonl",
+        importStatus: "not_imported",
+      },
+    ],
+  });
+  mockPreviewConversationImportThread.mockResolvedValue(
+    buildMockConversationImportPreview(),
+  );
+  mockCommitConversationImportThread.mockImplementation(async (params) => ({
+    session: {
+      sessionId:
+        params.sourceThreadId === "codex-thread-2"
+          ? "session-imported-2"
+          : "session-imported",
+      threadId:
+        params.sourceThreadId === "codex-thread-2"
+          ? "thread-imported-2"
+          : "thread-imported",
+      appId: "content-studio",
+      workspaceId: "project-1",
+      status: "completed",
+      createdAt: "2026-06-16T00:00:00.000Z",
+      updatedAt: "2026-06-16T00:00:01.000Z",
+    },
+    thread: {
+      sourceClient: "codex",
+      sourceThreadId: params.sourceThreadId ?? "codex-thread-1",
+      title:
+        params.sourceThreadId === "codex-thread-2"
+          ? "本地历史第二条记录"
+          : "本地历史修复记录",
+      createdAt: "2026-06-15T00:00:00.000Z",
+      updatedAt: "2026-06-16T00:00:00.000Z",
+      cwd: "/repo/project-1",
+      source: "cli",
+      modelProvider: "openai",
+      archived: false,
+      sourcePath:
+        params.sourcePath ??
+        "/Users/example/.codex/sessions/codex-thread-1.jsonl",
+      importStatus: "imported",
+    },
+    summary: {
+      lineCount: 8,
+      messageCount: 2,
+      rolloutEventItems: 2,
+      unsupportedCount: 1,
+      dryRun: {
+        willCreateSession: true,
+        willAppendToExistingSession: false,
+        willImportMessages: 2,
+        willImportTurns: 1,
+        willImportTimelineItems: 4,
+        willImportAttachments: 1,
+        unsupportedItems: 1,
+      },
+      fidelity: {
+        messages: 2,
+        reasoning: 0,
+        tools: 2,
+        commands: 1,
+        patches: 1,
+        approvals: 0,
+        mcp: 0,
+        webSearch: 0,
+        attachments: 1,
+        unsupported: 1,
+        provenanceOnly: 1,
+        budgetDropped: 0,
+      },
+      truncated: false,
+      warnings: [],
+    },
+    importedMessages: 2,
+    importedTurns: 1,
+    canContinue: true,
+    warnings: [],
+  }));
   mockCheckForUpdates.mockResolvedValue({
     current: "1.57.0",
     latest: null,
@@ -447,7 +834,7 @@ export async function resetAppSidebarTest() {
     stage: "downloading",
     currentVersion: "1.57.0",
     latestVersion: "1.58.0",
-    downloadUrl: "https://example.com/ember",
+    downloadUrl: "https://example.com/lime",
     downloadedBytes: 20,
     totalBytes: 100,
     percent: 0.2,
@@ -461,7 +848,7 @@ export async function resetAppSidebarTest() {
   });
   mockLogoutClient.mockResolvedValue(undefined);
   mockGetConfiguredOemCloudTarget.mockReturnValue({
-    baseUrl: "https://user.emberai.run",
+    baseUrl: "https://user.limeai.run",
     tenantId: "tenant-0001",
   });
   mockBuildOemCloudUserCenterUrl.mockImplementation(
@@ -470,8 +857,11 @@ export async function resetAppSidebarTest() {
   mockOpenExternalUrl.mockResolvedValue(undefined);
   mockStartOemCloudLogin.mockResolvedValue({
     mode: "login_url",
-    openedUrl: "https://user.emberai.run/login",
+    openedUrl: "https://user.limeai.run/login",
   });
+  mockGetClientReferralDashboard.mockResolvedValue(
+    buildMockReferralDashboard(),
+  );
   mockClearSiteAdapterCatalogCache.mockResolvedValue(null);
   mockScheduleMinimumDelayIdleTask.mockImplementation((task: () => void) => {
     task();
@@ -505,13 +895,17 @@ export function cleanupAppSidebarTest() {
   }
 
   vi.clearAllMocks();
+  mockAgentUiPerformanceMetricListeners.splice(
+    0,
+    mockAgentUiPerformanceMetricListeners.length,
+  );
   vi.unstubAllGlobals();
-  delete window.__EMBER_BOOTSTRAP__;
-  delete window.__EMBER_OEM_CLOUD__;
-  delete window.__EMBER_SESSION_TOKEN__;
+  delete window.__LIME_BOOTSTRAP__;
+  delete window.__LIME_OEM_CLOUD__;
+  delete window.__LIME_SESSION_TOKEN__;
   document.documentElement.classList.remove("dark");
-  document.documentElement.removeAttribute("data-ember-theme");
-  document.documentElement.removeAttribute("data-ember-color-scheme");
+  document.documentElement.removeAttribute("data-lime-theme");
+  document.documentElement.removeAttribute("data-lime-color-scheme");
   document.documentElement.removeAttribute("style");
   (
     globalThis as typeof globalThis & {

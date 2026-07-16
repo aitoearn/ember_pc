@@ -41,7 +41,7 @@ export interface WebsiteOpenNavigationResult {
 const WEBSITE_SKILL_LAUNCH_ENTRIES: WebsiteSkillLaunchEntry[] = [
   {
     slug: "daily-trend-briefing",
-    title: "冒烟检查清单",
+    title: "每日趋势摘要",
     target: {
       type: "curated_task",
       taskId: "daily-trend-briefing",
@@ -49,7 +49,7 @@ const WEBSITE_SKILL_LAUNCH_ENTRIES: WebsiteSkillLaunchEntry[] = [
   },
   {
     slug: "social-post-starter",
-    title: "功能用例生成",
+    title: "内容主稿生成",
     target: {
       type: "curated_task",
       taskId: "social-post-starter",
@@ -57,7 +57,7 @@ const WEBSITE_SKILL_LAUNCH_ENTRIES: WebsiteSkillLaunchEntry[] = [
   },
   {
     slug: "viral-content-breakdown",
-    title: "缺陷根因分析",
+    title: "拆解一条爆款内容",
     target: {
       type: "curated_task",
       taskId: "viral-content-breakdown",
@@ -65,7 +65,7 @@ const WEBSITE_SKILL_LAUNCH_ENTRIES: WebsiteSkillLaunchEntry[] = [
   },
   {
     slug: "longform-multiplatform-rewrite",
-    title: "需求转用例集",
+    title: "长文转多平台发布稿",
     target: {
       type: "curated_task",
       taskId: "longform-multiplatform-rewrite",
@@ -73,7 +73,7 @@ const WEBSITE_SKILL_LAUNCH_ENTRIES: WebsiteSkillLaunchEntry[] = [
   },
   {
     slug: "script-to-voiceover",
-    title: "手测转自动化",
+    title: "脚本转口播/字幕稿",
     target: {
       type: "curated_task",
       taskId: "script-to-voiceover",
@@ -81,7 +81,7 @@ const WEBSITE_SKILL_LAUNCH_ENTRIES: WebsiteSkillLaunchEntry[] = [
   },
   {
     slug: "account-project-review",
-    title: "测试迭代复盘",
+    title: "复盘这个账号/项目",
     target: {
       type: "curated_task",
       taskId: "account-project-review",
@@ -89,7 +89,7 @@ const WEBSITE_SKILL_LAUNCH_ENTRIES: WebsiteSkillLaunchEntry[] = [
   },
   {
     slug: "carousel-post-replication",
-    title: "兼容性测试",
+    title: "复制轮播帖",
     target: {
       type: "service_skill",
       skillId: "carousel-post-replication",
@@ -97,7 +97,7 @@ const WEBSITE_SKILL_LAUNCH_ENTRIES: WebsiteSkillLaunchEntry[] = [
   },
   {
     slug: "short-video-script-replication",
-    title: "接口测试",
+    title: "复制视频脚本",
     target: {
       type: "service_skill",
       skillId: "short-video-script-replication",
@@ -105,7 +105,7 @@ const WEBSITE_SKILL_LAUNCH_ENTRIES: WebsiteSkillLaunchEntry[] = [
   },
   {
     slug: "article-to-slide-video-outline",
-    title: "安全测试",
+    title: "文章转 Slide 视频提纲",
     target: {
       type: "service_skill",
       skillId: "article-to-slide-video-outline",
@@ -113,7 +113,7 @@ const WEBSITE_SKILL_LAUNCH_ENTRIES: WebsiteSkillLaunchEntry[] = [
   },
   {
     slug: "cloud-video-dubbing",
-    title: "性能测试",
+    title: "视频配音",
     target: {
       type: "service_skill",
       skillId: "cloud-video-dubbing",
@@ -121,7 +121,7 @@ const WEBSITE_SKILL_LAUNCH_ENTRIES: WebsiteSkillLaunchEntry[] = [
   },
   {
     slug: "video-dubbing-language",
-    title: "压力测试",
+    title: "视频配音成其他语言",
     target: {
       type: "service_skill",
       skillId: "video-dubbing-language",

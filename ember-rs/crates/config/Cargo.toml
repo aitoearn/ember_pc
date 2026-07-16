@@ -1,12 +1,12 @@
 [package]
-name = "ember-config"
+name = "lime-config"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 
 [dependencies]
-ember-core.workspace = true
-ember-infra.workspace = true
+lime-core.workspace = true
+lime-infra.workspace = true
 
 serde.workspace = true
 serde_json.workspace = true

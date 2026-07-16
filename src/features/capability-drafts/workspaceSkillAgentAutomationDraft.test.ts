@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AgentRuntimeWorkspaceSkillBinding } from "@/lib/api/agentRuntime";
+import type { AgentRuntimeWorkspaceSkillBinding } from "@/lib/api/agentRuntime/toolInventoryTypes";
 import {
   buildWorkspaceSkillManagedAutomationPresentation,
   buildWorkspaceSkillAgentAutomationInitialValues,
@@ -78,7 +78,7 @@ describe("workspaceSkillAgentAutomationDraft", () => {
           completion_audit: "artifact_or_evidence_required",
         },
         workspace_skill_runtime_enable: {
-          source: "agent_envelope_scheduled_run",
+          source: "manual_session_enable",
           approval: "manual",
           workspace_root: "/tmp/work",
           bindings: [

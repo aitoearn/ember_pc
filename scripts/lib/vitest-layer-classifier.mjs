@@ -25,7 +25,7 @@ const EXCLUDED_DIR_NAMES = new Set([
 
 const EXCLUDED_PATH_SEGMENTS = [
   "/ember-rs/target/",
-  "/tmp/ember-pnpm-frozen-node_modules/",
+  "/tmp/lime-pnpm-frozen-node_modules/",
 ];
 
 const INTEGRATION_PATTERNS = [

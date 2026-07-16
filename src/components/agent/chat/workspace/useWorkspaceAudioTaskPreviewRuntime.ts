@@ -2,11 +2,13 @@ import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import {
   getMediaTaskArtifact,
   listMediaTaskArtifacts,
-  type ListMediaTaskArtifactsOutput,
-  type MediaTaskModalityRuntimeContractIndexEntry,
-  type MediaTaskArtifactOutput,
-  type MediaTaskLookupRequest,
 } from "@/lib/api/mediaTasks";
+import type {
+  ListMediaTaskArtifactsOutput,
+  MediaTaskModalityRuntimeContractIndexEntry,
+  MediaTaskArtifactOutput,
+  MediaTaskLookupRequest,
+} from "@/lib/api/agentRuntime/mediaTaskTypes";
 import { resolveArtifactProtocolFilePath } from "@/lib/artifact-protocol";
 import { safeListen } from "@/lib/api/bridgeEvents";
 import type { Message, MessageGenericTaskPreview } from "../types";
@@ -22,7 +24,7 @@ import {
 } from "./mediaTaskPolicyEvaluation";
 import { doesWorkspaceFileCandidateMatch } from "./workspaceFilePathMatch";
 
-const AUDIO_TASK_EVENT_NAME = "ember://creation_task_submitted";
+const AUDIO_TASK_EVENT_NAME = "lime://creation_task_submitted";
 const AUDIO_TASK_POLL_INTERVAL_MS = 3000;
 const AUDIO_TASK_INDEX_RESTORE_LIMIT = 24;
 const VOICE_GENERATION_CONTRACT_KEY = "voice_generation";
@@ -509,6 +511,10 @@ function collectTrackedAudioTasks(messages: Message[]): TrackedAudioTask[] {
   return Array.from(tasks.values());
 }
 
+function hasTrackedAudioTasks(messages: Message[]): boolean {
+  return collectTrackedAudioTasks(messages).length > 0;
+}
+
 function buildLookupRequest(params: {
   task: TrackedAudioTask;
   projectRootPath?: string | null;
@@ -593,12 +599,17 @@ export function useWorkspaceAudioTaskPreviewRuntime({
   setChatMessages,
 }: UseWorkspaceAudioTaskPreviewRuntimeParams) {
   const contextRef = useRef({ projectRootPath, messages });
+  const shouldRunPreviewRuntime = hasTrackedAudioTasks(messages);
 
   useEffect(() => {
     contextRef.current = { projectRootPath, messages };
   }, [projectRootPath, messages]);
 
   useEffect(() => {
+    if (!shouldRunPreviewRuntime) {
+      return;
+    }
+
     let disposed = false;
     let polling = false;
 
@@ -745,5 +756,5 @@ export function useWorkspaceAudioTaskPreviewRuntime({
         unlisten();
       }
     };
-  }, [setChatMessages]);
+  }, [setChatMessages, shouldRunPreviewRuntime]);
 }

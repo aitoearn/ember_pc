@@ -25,7 +25,7 @@ use axum::{
 use super::image_api_provider;
 use crate::handlers::verify_api_key;
 use crate::AppState;
-use ember_core::models::openai::ImageGenerationRequest;
+use lime_core::models::openai::ImageGenerationRequest;
 
 fn read_explicit_provider_id(headers: &HeaderMap) -> Option<String> {
     headers

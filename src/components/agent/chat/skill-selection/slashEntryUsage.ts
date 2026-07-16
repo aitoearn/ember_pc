@@ -14,10 +14,10 @@ export interface RecordSlashEntryUsageInput {
   replayText?: string;
 }
 
-const SLASH_ENTRY_USAGE_STORAGE_KEY = "ember:slash-entry-usage:v1";
+const SLASH_ENTRY_USAGE_STORAGE_KEY = "lime:slash-entry-usage:v1";
 const MAX_SLASH_ENTRY_USAGE_RECORDS = 12;
 const MAX_SLASH_ENTRY_REPLAY_TEXT_LENGTH = 400;
-export const SLASH_ENTRY_USAGE_CHANGED_EVENT = "ember:slash-entry-usage-changed";
+export const SLASH_ENTRY_USAGE_CHANGED_EVENT = "lime:slash-entry-usage-changed";
 
 export function getSlashEntryUsageRecordKey(
   kind: SlashEntryUsageKind,

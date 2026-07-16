@@ -5,7 +5,7 @@
 use super::emitter::ConfigEventEmit;
 use super::events::{ConfigChangeEvent, ConfigChangeSource, FullReloadEvent};
 use super::traits::ConfigObserver;
-use ember_core::config::Config;
+use lime_core::config::Config;
 use parking_lot::RwLock;
 use std::collections::BTreeMap;
 use std::sync::Arc;

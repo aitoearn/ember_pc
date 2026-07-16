@@ -1,7 +1,7 @@
 /**
- * 图片生成模型数据（从 components/image-gen/types 提取到 lib 层）
+ * 图片能力模型目录
  *
- * 纯数据，无 UI 依赖。详见 docs/refactor/progressive-refactor-plan.md R-31。
+ * 这里是图片模型与尺寸的单一事实源，供设置页、工作台和 runtime 共享。
  */
 
 export interface ImageGenModel {
@@ -28,67 +28,161 @@ const OPENAI_IMAGE_MODELS: ImageGenModel[] = [
   },
 ];
 
+const GEMINI_IMAGE_MODELS: ImageGenModel[] = [
+  {
+    id: "gemini-3.1-flash-image",
+    name: "Nano Banana 2",
+    supportedSizes: ["1024x1024", "1792x1024", "1024x1792"],
+  },
+  {
+    id: "gemini-3-pro-image",
+    name: "Nano Banana Pro",
+    supportedSizes: ["1024x1024", "1792x1024", "1024x1792"],
+  },
+];
+
+const ZHIPU_IMAGE_MODELS: ImageGenModel[] = [
+  {
+    id: "glm-image",
+    name: "GLM-Image",
+    supportedSizes: [
+      "1280x1280",
+      "1568x1056",
+      "1056x1568",
+      "1472x1088",
+      "1088x1472",
+      "1728x960",
+      "960x1728",
+    ],
+  },
+  {
+    id: "cogview-4-250304",
+    name: "CogView-4-250304",
+    supportedSizes: [
+      "1024x1024",
+      "768x1344",
+      "864x1152",
+      "1344x768",
+      "1152x864",
+      "1440x720",
+      "720x1440",
+    ],
+  },
+  {
+    id: "cogview-4",
+    name: "CogView-4",
+    supportedSizes: [
+      "1024x1024",
+      "768x1344",
+      "864x1152",
+      "1344x768",
+      "1152x864",
+      "1440x720",
+      "720x1440",
+    ],
+  },
+  {
+    id: "cogview-3-flash",
+    name: "CogView-3-Flash",
+    supportedSizes: [
+      "1024x1024",
+      "768x1344",
+      "864x1152",
+      "1344x768",
+      "1152x864",
+      "1440x720",
+      "720x1440",
+    ],
+  },
+];
+
+const DASHSCOPE_IMAGE_MODELS: ImageGenModel[] = [
+  {
+    id: "qwen-image-2.0",
+    name: "Qwen-Image 2.0",
+    supportedSizes: [
+      "2048x2048",
+      "2304x1792",
+      "1792x2304",
+      "2560x1440",
+      "1440x2560",
+    ],
+  },
+  {
+    id: "qwen-image-2.0-pro",
+    name: "Qwen-Image 2.0 Pro",
+    supportedSizes: [
+      "2048x2048",
+      "2304x1792",
+      "1792x2304",
+      "2560x1440",
+      "1440x2560",
+    ],
+  },
+  {
+    id: "qwen-image-plus",
+    name: "Qwen-Image Plus",
+    supportedSizes: [
+      "1328x1328",
+      "1664x928",
+      "928x1664",
+      "1472x1140",
+      "1140x1472",
+    ],
+  },
+  {
+    id: "qwen-image",
+    name: "Qwen-Image",
+    supportedSizes: [
+      "1328x1328",
+      "1664x928",
+      "928x1664",
+      "1472x1140",
+      "1140x1472",
+    ],
+  },
+  {
+    id: "wan2.6-image",
+    name: "Wan2.6 Image",
+    supportedSizes: [
+      "1280x1280",
+      "1600x900",
+      "900x1600",
+      "1472x1104",
+      "1104x1472",
+    ],
+  },
+];
+
+const AGNES_IMAGE_MODELS: ImageGenModel[] = [
+  {
+    id: "agnes-image-2.1-flash",
+    name: "Agnes Image 2.1 Flash",
+    supportedSizes: [
+      "1024x1024",
+      "1024x768",
+      "768x1024",
+      "768x1344",
+      "1344x768",
+    ],
+  },
+];
+
 /** 图片生成模型映射（根据 Provider ID 或类型） */
 export const IMAGE_GEN_MODELS: Record<string, ImageGenModel[]> = {
   openai: OPENAI_IMAGE_MODELS,
   "openai-response": OPENAI_IMAGE_MODELS,
   // 智谱 AI
-  zhipuai: [
-    {
-      id: "cogview-3-flash",
-      name: "CogView-3-Flash",
-      supportedSizes: [
-        "1024x1024",
-        "768x1344",
-        "864x1152",
-        "1344x768",
-        "1152x864",
-        "1440x720",
-        "720x1440",
-      ],
-    },
-    {
-      id: "cogview-4-250304",
-      name: "CogView-4-250304",
-      supportedSizes: [
-        "1024x1024",
-        "768x1344",
-        "864x1152",
-        "1344x768",
-        "1152x864",
-        "1440x720",
-        "720x1440",
-      ],
-    },
-  ],
-  zhipu: [
-    {
-      id: "cogview-3-flash",
-      name: "CogView-3-Flash",
-      supportedSizes: [
-        "1024x1024",
-        "768x1344",
-        "864x1152",
-        "1344x768",
-        "1152x864",
-        "1440x720",
-        "720x1440",
-      ],
-    },
-    {
-      id: "cogview-4-250304",
-      name: "CogView-4-250304",
-      supportedSizes: [
-        "1024x1024",
-        "768x1344",
-        "864x1152",
-        "1344x768",
-        "1152x864",
-        "1440x720",
-        "720x1440",
-      ],
-    },
-  ],
+  zhipuai: ZHIPU_IMAGE_MODELS,
+  zhipu: ZHIPU_IMAGE_MODELS,
+  // 阿里云百炼 / 通义万相
+  alibaba: DASHSCOPE_IMAGE_MODELS,
+  "alibaba-cn": DASHSCOPE_IMAGE_MODELS,
+  dashscope: DASHSCOPE_IMAGE_MODELS,
+  qwen: DASHSCOPE_IMAGE_MODELS,
+  tongyi: DASHSCOPE_IMAGE_MODELS,
+  // Agnes
+  agnes: AGNES_IMAGE_MODELS,
   // AiHubMix
   aihubmix: [
     {
@@ -154,6 +248,10 @@ export const IMAGE_GEN_MODELS: Record<string, ImageGenModel[]> = {
   ],
   // New API
   "new-api": OPENAI_IMAGE_MODELS,
+  gemini: GEMINI_IMAGE_MODELS,
+  google: GEMINI_IMAGE_MODELS,
+  vertexai: GEMINI_IMAGE_MODELS,
+  "google-vertex": GEMINI_IMAGE_MODELS,
   // Fal
   fal: [
     {
@@ -210,9 +308,3 @@ export const IMAGE_GEN_MODELS: Record<string, ImageGenModel[]> = {
     },
   ],
 };
-
-export const IMAGE_GEN_PROVIDER_IDS = [
-  ...Object.keys(IMAGE_GEN_MODELS),
-  // 兼容不同大小写的 type 值
-  "NewApi",
-];

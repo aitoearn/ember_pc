@@ -23,7 +23,7 @@ function buildPack({
       maintainers: [],
     },
     rootPath: "/tmp/project",
-    knowledgePath: `/tmp/project/.ember/knowledge/packs/${name}`,
+    knowledgePath: `/tmp/project/.lime/knowledge/packs/${name}`,
     defaultForWorkspace,
     updatedAt: 1,
     sourceCount: status === "ready" ? 1 : 0,

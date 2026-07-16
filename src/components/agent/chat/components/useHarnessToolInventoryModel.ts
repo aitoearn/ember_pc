@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { AgentRuntimeToolInventory } from "@/lib/api/agentRuntime";
+import type { AgentRuntimeToolInventory } from "@/lib/api/agentRuntime/toolInventoryTypes";
 import { deriveRuntimeToolAvailability } from "../utils/runtimeToolAvailability";
 import {
   buildRuntimeToolCapabilityGaps,
@@ -74,7 +74,8 @@ export function useHarnessToolInventoryModel({
     toolInventoryExtensionTools: toolInventory?.extension_tools || [],
     toolInventoryFilter,
     toolInventoryMcpTools: toolInventory?.mcp_tools || [],
-    toolInventoryRegistryTools: toolInventory?.registry_tools || [],
+    toolInventoryPluginMcpTargets: toolInventory?.plugin_mcp_targets || [],
+    toolInventoryNativeTools: toolInventory?.native_tools || [],
     toolInventoryRuntimeTools,
     toolInventorySourceStats,
     toolInventoryWarnings: toolInventory?.warnings || [],

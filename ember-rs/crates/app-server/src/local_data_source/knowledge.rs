@@ -23,7 +23,7 @@ pub(crate) fn list_knowledge_packs(
     params: KnowledgeListPacksParams,
 ) -> Result<KnowledgeListPacksResponse, RuntimeCoreError> {
     let response =
-        ember_knowledge::list_knowledge_packs(ember_knowledge::KnowledgeListPacksRequest {
+        lime_knowledge::list_knowledge_packs(lime_knowledge::KnowledgeListPacksRequest {
             working_dir: params.working_dir,
             include_archived: params.include_archived,
         })
@@ -38,7 +38,7 @@ pub(crate) fn list_knowledge_packs(
 pub(crate) fn read_knowledge_pack(
     params: KnowledgeReadPackParams,
 ) -> Result<KnowledgeReadPackResponse, RuntimeCoreError> {
-    let pack = ember_knowledge::get_knowledge_pack(ember_knowledge::KnowledgeGetPackRequest {
+    let pack = lime_knowledge::get_knowledge_pack(lime_knowledge::KnowledgeGetPackRequest {
         working_dir: params.working_dir,
         name: params.name,
     })
@@ -53,7 +53,7 @@ pub(crate) fn import_knowledge_source(
     params: KnowledgeImportSourceParams,
 ) -> Result<KnowledgeImportSourceResponse, RuntimeCoreError> {
     let response =
-        ember_knowledge::import_knowledge_source(ember_knowledge::KnowledgeImportSourceRequest {
+        lime_knowledge::import_knowledge_source(lime_knowledge::KnowledgeImportSourceRequest {
             working_dir: params.working_dir,
             pack_name: params.pack_name,
             description: params.description,
@@ -71,9 +71,9 @@ pub(crate) fn import_knowledge_source(
 }
 
 pub(crate) fn compile_knowledge_pack(
-    request: ember_knowledge::KnowledgeCompilePackRequest,
+    request: lime_knowledge::KnowledgeCompilePackRequest,
 ) -> Result<KnowledgeCompilePackResponse, RuntimeCoreError> {
-    let response = ember_knowledge::compile_knowledge_pack(request).map_err(data_error)?;
+    let response = lime_knowledge::compile_knowledge_pack(request).map_err(data_error)?;
 
     Ok(KnowledgeCompilePackResponse {
         pack: value_from_serializable(response.pack)?,
@@ -87,8 +87,8 @@ pub(crate) fn compile_knowledge_pack(
 pub(crate) fn set_default_knowledge_pack(
     params: KnowledgeSetDefaultPackParams,
 ) -> Result<KnowledgeSetDefaultPackResponse, RuntimeCoreError> {
-    let response = ember_knowledge::set_default_knowledge_pack(
-        ember_knowledge::KnowledgeSetDefaultPackRequest {
+    let response = lime_knowledge::set_default_knowledge_pack(
+        lime_knowledge::KnowledgeSetDefaultPackRequest {
             working_dir: params.working_dir,
             name: params.name,
         },
@@ -104,8 +104,8 @@ pub(crate) fn set_default_knowledge_pack(
 pub(crate) fn update_knowledge_pack_status(
     params: KnowledgeUpdatePackStatusParams,
 ) -> Result<KnowledgeUpdatePackStatusResponse, RuntimeCoreError> {
-    let response = ember_knowledge::update_knowledge_pack_status(
-        ember_knowledge::KnowledgeUpdatePackStatusRequest {
+    let response = lime_knowledge::update_knowledge_pack_status(
+        lime_knowledge::KnowledgeUpdatePackStatusRequest {
             working_dir: params.working_dir,
             name: params.name,
             status: params.status,
@@ -124,13 +124,13 @@ pub(crate) fn resolve_knowledge_context(
     params: KnowledgeResolveContextParams,
 ) -> Result<KnowledgeContextResolutionResponse, RuntimeCoreError> {
     let response =
-        ember_knowledge::resolve_knowledge_context(ember_knowledge::KnowledgeResolveContextRequest {
+        lime_knowledge::resolve_knowledge_context(lime_knowledge::KnowledgeResolveContextRequest {
             working_dir: params.working_dir,
             name: params.name,
             packs: params
                 .packs
                 .into_iter()
-                .map(to_ember_knowledge_context_pack_request)
+                .map(to_lime_knowledge_context_pack_request)
                 .collect(),
             task: params.task,
             max_chars: params.max_chars,
@@ -159,8 +159,8 @@ pub(crate) fn resolve_knowledge_context(
 pub(crate) fn validate_knowledge_context_run(
     params: KnowledgeValidateContextRunParams,
 ) -> Result<KnowledgeValidateContextRunResponse, RuntimeCoreError> {
-    let response = ember_knowledge::validate_knowledge_context_run(
-        ember_knowledge::KnowledgeValidateContextRunRequest {
+    let response = lime_knowledge::validate_knowledge_context_run(
+        lime_knowledge::KnowledgeValidateContextRunRequest {
             working_dir: params.working_dir,
             name: params.name,
             run_path: params.run_path,
@@ -177,10 +177,10 @@ pub(crate) fn validate_knowledge_context_run(
     })
 }
 
-fn to_ember_knowledge_context_pack_request(
+fn to_lime_knowledge_context_pack_request(
     params: KnowledgeResolveContextPackParams,
-) -> ember_knowledge::KnowledgeResolveContextPackRequest {
-    ember_knowledge::KnowledgeResolveContextPackRequest {
+) -> lime_knowledge::KnowledgeResolveContextPackRequest {
+    lime_knowledge::KnowledgeResolveContextPackRequest {
         name: params.name,
         activation: params.activation,
     }

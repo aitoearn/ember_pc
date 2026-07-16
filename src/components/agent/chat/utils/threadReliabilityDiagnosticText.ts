@@ -1,16 +1,5 @@
-import type {
-  AgentRuntimeThreadReadModel,
-  QueuedTurnSnapshot,
-} from "@/lib/api/agentRuntime";
-import type { TurnMemoryPrefetchResult } from "@/lib/api/memoryRuntime";
-import {
-  assessRuntimeMemoryPrefetchHistoryDiff,
-  compareRuntimeMemoryPrefetchHistoryEntries,
-  type RuntimeMemoryPrefetchHistoryDiff,
-  type RuntimeMemoryPrefetchHistoryDiffAssessment,
-  type RuntimeMemoryPrefetchHistoryEntry,
-  type RuntimeMemoryPrefetchHistoryLayerKey,
-} from "@/lib/runtimeMemoryPrefetchHistory";
+import type { QueuedTurnSnapshot } from "@/lib/api/queuedTurn";
+import type { AgentRuntimeThreadReadModel } from "@/lib/api/agentRuntime/sessionTypes";
 import {
   formatAgentUiProjectionEventDetail,
   formatAgentUiProjectionEventType,
@@ -32,6 +21,11 @@ import {
   resolveRuntimeRoutingEvidence,
   type RuntimeRoutingEvidenceLineText,
 } from "./runtimeRoutingEvidence";
+import {
+  buildRuntimePolicyEvidenceLines,
+  resolveRuntimePolicyEvidence,
+} from "./runtimePolicyEvidence";
+import { formatProviderSafetyBufferingDiagnostic } from "./providerSafetyBufferingDiagnostic";
 
 export interface AgentThreadReliabilityDiagnosticContext {
   sessionId?: string | null;
@@ -41,19 +35,6 @@ export interface AgentThreadReliabilityDiagnosticContext {
   model?: string | null;
   executionStrategy?: string | null;
   activeTheme?: string | null;
-  selectedTeamLabel?: string | null;
-}
-
-export interface RuntimeMemoryPrefetchState {
-  status: "idle" | "loading" | "ready" | "error";
-  result: TurnMemoryPrefetchResult | null;
-  error: string | null;
-}
-
-export interface RuntimeMemoryPrefetchComparisonState {
-  baselineEntry: RuntimeMemoryPrefetchHistoryEntry | null;
-  diff: RuntimeMemoryPrefetchHistoryDiff | null;
-  assessment: RuntimeMemoryPrefetchHistoryDiffAssessment | null;
 }
 
 const DIAGNOSTIC_I18N_PREFIX = "agentChat.threadReliability.diagnostic.";
@@ -136,6 +117,21 @@ export function formatDiagnosticDateTime(
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function joinDiagnosticValues(
+  values: Array<string | number | boolean | null | undefined>,
+  separator: string,
+): string {
+  return values
+    .map((value) => {
+      if (value === null || value === undefined) {
+        return "";
+      }
+      return String(value).trim();
+    })
+    .filter(Boolean)
+    .join(separator);
 }
 
 function summarizeThreadItemSignals(threadItems: AgentThreadItem[]) {
@@ -301,279 +297,6 @@ function summarizeHarnessState(harnessState?: HarnessSessionState | null) {
   };
 }
 
-function joinDiagnosticValues(
-  values: Array<string | number | null | undefined>,
-  separator: string,
-): string {
-  return values
-    .map((value) => (typeof value === "number" ? String(value) : value))
-    .filter((value): value is string => Boolean(value))
-    .join(separator);
-}
-
-function buildMemoryPrefetchDiagnosticLines(
-  memoryPrefetchState: RuntimeMemoryPrefetchState | undefined,
-  t: AgentUiProjectionTranslation,
-): string[] {
-  if (memoryPrefetchState?.result) {
-    const prefetch = memoryPrefetchState.result;
-    const separator = tr(t, "separator.pipe");
-    const detailSeparator = tr(t, "separator.detail");
-    const hitLabel = tr(t, "value.hit");
-    const missLabel = tr(t, "value.miss");
-    const unknownLabel = tr(t, "value.unknown");
-    const sections = [
-      bullet(t, "memoryPrefetch.rulesLayer", {
-        count: prefetch.rules_source_paths.length,
-      }),
-      bullet(t, "memoryPrefetch.workingLayer", {
-        status: prefetch.working_memory_excerpt ? hitLabel : missLabel,
-      }),
-      bullet(t, "memoryPrefetch.durableLayer", {
-        count: prefetch.durable_memories.length,
-      }),
-      bullet(t, "memoryPrefetch.teamLayer", {
-        count: prefetch.team_memory_entries.length,
-      }),
-      bullet(t, "memoryPrefetch.compactionLayer", {
-        status: prefetch.latest_compaction ? hitLabel : missLabel,
-      }),
-    ];
-
-    if (prefetch.rules_source_paths.length > 0) {
-      sections.push(
-        bullet(t, "memoryPrefetch.ruleSources", {
-          value: prefetch.rules_source_paths
-            .slice(0, 3)
-            .map((path) => truncateDiagnosticText(path, 120))
-            .join(separator),
-        }),
-      );
-    }
-    if (prefetch.working_memory_excerpt) {
-      sections.push(
-        bullet(t, "memoryPrefetch.workingExcerpt", {
-          value: truncateDiagnosticText(prefetch.working_memory_excerpt, 220),
-        }),
-      );
-    }
-    if (prefetch.durable_memories.length > 0) {
-      sections.push(
-        bullet(t, "memoryPrefetch.durableHits", {
-          value: prefetch.durable_memories
-            .slice(0, 3)
-            .map((entry) => entry.title)
-            .join(separator),
-        }),
-      );
-      sections.push(
-        bullet(t, "memoryPrefetch.durableDetails", {
-          value: prefetch.durable_memories
-            .slice(0, 3)
-            .map((entry) =>
-              joinDiagnosticValues(
-                [
-                  truncateDiagnosticText(entry.title, 80),
-                  truncateDiagnosticText(entry.summary, 120),
-                ],
-                separator,
-              ),
-            )
-            .join(detailSeparator),
-        }),
-      );
-    }
-    if (prefetch.team_memory_entries.length > 0) {
-      sections.push(
-        bullet(t, "memoryPrefetch.teamKeys", {
-          value: prefetch.team_memory_entries
-            .slice(0, 3)
-            .map((entry) => entry.key)
-            .join(separator),
-        }),
-      );
-      sections.push(
-        bullet(t, "memoryPrefetch.teamDetails", {
-          value: prefetch.team_memory_entries
-            .slice(0, 3)
-            .map((entry) =>
-              joinDiagnosticValues(
-                [
-                  truncateDiagnosticText(entry.key, 80),
-                  truncateDiagnosticText(entry.content, 120),
-                ],
-                separator,
-              ),
-            )
-            .join(detailSeparator),
-        }),
-      );
-    }
-    if (prefetch.latest_compaction) {
-      sections.push(
-        bullet(t, "memoryPrefetch.compactionSummary", {
-          value: truncateDiagnosticText(
-            prefetch.latest_compaction.summary_preview,
-            180,
-          ),
-        }),
-      );
-      sections.push(
-        bullet(t, "memoryPrefetch.compactionMetadata", {
-          trigger: prefetch.latest_compaction.trigger || unknownLabel,
-          turnCount: prefetch.latest_compaction.turn_count ?? unknownLabel,
-        }),
-      );
-    }
-    if (prefetch.prompt) {
-      sections.push(
-        bullet(t, "memoryPrefetch.runtimeSnippet", {
-          value: truncateDiagnosticText(prefetch.prompt, 220),
-        }),
-      );
-    }
-
-    return sections;
-  }
-
-  if (memoryPrefetchState?.status === "loading") {
-    return [bullet(t, "memoryPrefetch.loading")];
-  }
-
-  if (memoryPrefetchState?.error) {
-    return [
-      bullet(t, "memoryPrefetch.failed", {
-        message: memoryPrefetchState.error,
-      }),
-    ];
-  }
-
-  return [bullet(t, "value.none")];
-}
-
-function normalizeWorkingDirForComparison(value: string): string {
-  return value.trim().replace(/\\/g, "/").replace(/\/+$/u, "");
-}
-
-export function resolveMemoryPrefetchComparison(
-  entries: RuntimeMemoryPrefetchHistoryEntry[],
-  currentWorkingDir: string,
-): RuntimeMemoryPrefetchComparisonState {
-  const currentEntry = entries[0];
-  if (!currentEntry) {
-    return {
-      baselineEntry: null,
-      diff: null,
-      assessment: null,
-    };
-  }
-
-  const normalizedCurrentWorkingDir =
-    normalizeWorkingDirForComparison(currentWorkingDir);
-  const candidates = entries.slice(1);
-  const baselineEntry =
-    candidates.find((entry) => entry.sessionId === currentEntry.sessionId) ||
-    candidates.find(
-      (entry) =>
-        normalizeWorkingDirForComparison(entry.workingDir) ===
-        normalizedCurrentWorkingDir,
-    ) ||
-    candidates[0] ||
-    null;
-  const diff = baselineEntry
-    ? compareRuntimeMemoryPrefetchHistoryEntries(currentEntry, baselineEntry)
-    : null;
-
-  return {
-    baselineEntry,
-    diff,
-    assessment: diff ? assessRuntimeMemoryPrefetchHistoryDiff(diff) : null,
-  };
-}
-
-export function resolveMemoryPrefetchHistorySourceLabel(
-  source: RuntimeMemoryPrefetchHistoryEntry["source"],
-  t: AgentUiProjectionTranslation,
-): string {
-  return tr(t, `memory.source.${source}`);
-}
-
-export function formatMemoryPrefetchLayerLabel(
-  layer: RuntimeMemoryPrefetchHistoryLayerKey,
-  t: AgentUiProjectionTranslation,
-): string {
-  return tr(t, `memory.layer.${layer}`);
-}
-
-export function formatMemoryPrefetchAssessmentStatusLabel(
-  status: RuntimeMemoryPrefetchHistoryDiffAssessment["status"],
-  t: AgentUiProjectionTranslation,
-): string {
-  return tr(t, `memory.assessment.status.${status}`);
-}
-
-function joinMemoryPrefetchLayerLabels(
-  layers: RuntimeMemoryPrefetchHistoryLayerKey[],
-  t: AgentUiProjectionTranslation,
-): string {
-  const separator = tr(t, "separator.list");
-  return layers
-    .map((layer) => formatMemoryPrefetchLayerLabel(layer, t))
-    .join(separator);
-}
-
-export function describeMemoryPrefetchAssessment(
-  assessment: RuntimeMemoryPrefetchHistoryDiffAssessment,
-  t: AgentUiProjectionTranslation,
-): string {
-  if (assessment.status === "same") {
-    return tr(
-      t,
-      assessment.previewChanged
-        ? "memory.assessment.sameWithPreview"
-        : "memory.assessment.same",
-    );
-  }
-
-  const key = assessment.previewChanged
-    ? `memory.assessment.${assessment.status}WithPreview`
-    : `memory.assessment.${assessment.status}`;
-
-  return tr(t, key, {
-    addedLayers: joinMemoryPrefetchLayerLabels(assessment.addedLayers, t),
-    removedLayers: joinMemoryPrefetchLayerLabels(assessment.removedLayers, t),
-  });
-}
-
-export function resolveMemoryPrefetchPreviewChangeLabel(
-  change: RuntimeMemoryPrefetchHistoryDiff["previewChanges"][number],
-  t: AgentUiProjectionTranslation,
-): string {
-  const previous = change.previous || tr(t, "value.nonePlain");
-  const current = change.current || tr(t, "value.nonePlain");
-  switch (change.key) {
-    case "rule":
-    case "working":
-    case "durable":
-    case "team":
-    case "compaction":
-    case "user_message":
-      return tr(t, `memory.previewChange.${change.key}`, {
-        previous,
-        current,
-      });
-    default:
-      return tr(t, "memory.previewChange.default", { previous, current });
-  }
-}
-
-export function formatMemoryPrefetchHitChange(
-  change: "added" | "removed",
-  t: AgentUiProjectionTranslation,
-): string {
-  return tr(t, `memory.hitChange.${change}`);
-}
-
 export function buildReliabilityDiagnosticText(params: {
   threadRead?: AgentRuntimeThreadReadModel | null;
   statusLabel: string;
@@ -582,8 +305,6 @@ export function buildReliabilityDiagnosticText(params: {
   threadItems: AgentThreadItem[];
   messages: Message[];
   harnessState?: HarnessSessionState | null;
-  memoryPrefetchState?: RuntimeMemoryPrefetchState;
-  memoryPrefetchComparison?: RuntimeMemoryPrefetchComparisonState;
   diagnosticRuntimeContext?: AgentThreadReliabilityDiagnosticContext | null;
   agentUiProjectionSummary?: AgentUiProjectionSummary;
   routingEvidenceLineText: RuntimeRoutingEvidenceLineText;
@@ -597,8 +318,6 @@ export function buildReliabilityDiagnosticText(params: {
     threadItems,
     messages,
     harnessState,
-    memoryPrefetchState,
-    memoryPrefetchComparison,
     diagnosticRuntimeContext,
     agentUiProjectionSummary,
     routingEvidenceLineText,
@@ -607,8 +326,12 @@ export function buildReliabilityDiagnosticText(params: {
   const threadItemSignals = summarizeThreadItemSignals(threadItems);
   const recentMessages = summarizeRecentMessages(messages);
   const runtimeRoutingEvidence = resolveRuntimeRoutingEvidence(threadRead);
+  const runtimePolicyEvidence = resolveRuntimePolicyEvidence({
+    threadRead,
+    decisionReason: runtimeRoutingEvidence.decisionReason,
+    fallbackChain: runtimeRoutingEvidence.fallbackChain,
+  });
   const unknownLabel = tr(t, "value.unknown");
-  const unsetLabel = tr(t, "value.unset");
   const noneLabel = tr(t, "value.nonePlain");
   const noMessageLabel = tr(t, "value.noMessage");
   const noDetailLabel = tr(t, "value.noDetail");
@@ -661,9 +384,6 @@ export function buildReliabilityDiagnosticText(params: {
     bullet(t, "environment.theme", {
       value: diagnosticRuntimeContext?.activeTheme || unknownLabel,
     }),
-    bullet(t, "environment.team", {
-      value: diagnosticRuntimeContext?.selectedTeamLabel || unsetLabel,
-    }),
     bullet(t, "environment.workingDir", {
       value: diagnosticRuntimeContext?.workingDir || unknownLabel,
     }),
@@ -693,6 +413,10 @@ export function buildReliabilityDiagnosticText(params: {
     tr(t, "sections.routing"),
     ...buildRuntimeRoutingEvidenceLines(
       runtimeRoutingEvidence,
+      routingEvidenceLineText,
+    ),
+    ...buildRuntimePolicyEvidenceLines(
+      runtimePolicyEvidence,
       routingEvidenceLineText,
     ),
     "",
@@ -986,101 +710,6 @@ export function buildReliabilityDiagnosticText(params: {
     sections.push(bullet(t, "value.none"));
   }
 
-  sections.push("", tr(t, "sections.memoryPrefetch"));
-  sections.push(...buildMemoryPrefetchDiagnosticLines(memoryPrefetchState, t));
-
-  sections.push("", tr(t, "sections.memoryBaseline"));
-  if (
-    memoryPrefetchComparison?.baselineEntry &&
-    memoryPrefetchComparison.diff
-  ) {
-    sections.push(
-      bullet(t, "memoryBaseline.source", {
-        value: resolveMemoryPrefetchHistorySourceLabel(
-          memoryPrefetchComparison.baselineEntry.source,
-          t,
-        ),
-      }),
-    );
-    sections.push(
-      bullet(t, "memoryBaseline.userMessage", {
-        value: memoryPrefetchComparison.baselineEntry.userMessage || noneLabel,
-      }),
-    );
-    sections.push(
-      bullet(t, "memoryBaseline.summary", {
-        value:
-          truncateDiagnosticText(
-            memoryPrefetchComparison.baselineEntry.preview.durableTitle ||
-              memoryPrefetchComparison.baselineEntry.preview.workingExcerpt ||
-              memoryPrefetchComparison.baselineEntry.preview
-                .compactionSummary ||
-              memoryPrefetchComparison.baselineEntry.preview
-                .firstRuleSourcePath ||
-              memoryPrefetchComparison.baselineEntry.preview.teamKey,
-            180,
-          ) || noneLabel,
-      }),
-    );
-    if (memoryPrefetchComparison.assessment) {
-      sections.push(
-        bullet(t, "memoryBaseline.assessmentStatus", {
-          value: formatMemoryPrefetchAssessmentStatusLabel(
-            memoryPrefetchComparison.assessment.status,
-            t,
-          ),
-        }),
-      );
-      sections.push(
-        bullet(t, "memoryBaseline.assessmentSummary", {
-          value: describeMemoryPrefetchAssessment(
-            memoryPrefetchComparison.assessment,
-            t,
-          ),
-        }),
-      );
-    }
-    if (memoryPrefetchComparison.diff.changed) {
-      sections.push(
-        bullet(t, "memoryBaseline.layerChanges", {
-          rulesDelta: `${
-            memoryPrefetchComparison.diff.layerChanges.rulesDelta >= 0
-              ? "+"
-              : ""
-          }${memoryPrefetchComparison.diff.layerChanges.rulesDelta}`,
-          workingChanged:
-            memoryPrefetchComparison.diff.layerChanges.workingChanged,
-          durableDelta: `${
-            memoryPrefetchComparison.diff.layerChanges.durableDelta >= 0
-              ? "+"
-              : ""
-          }${memoryPrefetchComparison.diff.layerChanges.durableDelta}`,
-          teamDelta: `${
-            memoryPrefetchComparison.diff.layerChanges.teamDelta >= 0 ? "+" : ""
-          }${memoryPrefetchComparison.diff.layerChanges.teamDelta}`,
-          compactionChanged:
-            memoryPrefetchComparison.diff.layerChanges.compactionChanged,
-        }),
-      );
-      if (memoryPrefetchComparison.diff.previewChanges.length > 0) {
-        sections.push(
-          bullet(t, "memoryBaseline.previewChanges", {
-            value: memoryPrefetchComparison.diff.previewChanges
-              .slice(0, 4)
-              .map((change) =>
-                resolveMemoryPrefetchPreviewChangeLabel(change, t),
-              )
-              .join(detailSeparator),
-          }),
-        );
-      }
-    } else {
-      sections.push(bullet(t, "memoryBaseline.noChange"));
-    }
-  } else {
-    sections.push(bullet(t, "memoryBaseline.noBaseline"));
-  }
-
   sections.push("", tr(t, "sections.backendDiagnostics"));
   if (threadRead?.diagnostics) {
     const diagnostics = threadRead.diagnostics;
@@ -1119,6 +748,20 @@ export function buildReliabilityDiagnosticText(params: {
         value:
           sanitizeReliabilityDiagnosticText(
             diagnostics.latest_turn_error_message,
+            t,
+          ) || noneLabel,
+      }),
+    );
+    sections.push(
+      bullet(t, "backend.providerSafetyBufferingCount", {
+        count: diagnostics.provider_safety_buffering_count ?? 0,
+      }),
+    );
+    sections.push(
+      bullet(t, "backend.latestProviderSafetyBuffering", {
+        value:
+          formatProviderSafetyBufferingDiagnostic(
+            diagnostics.latest_provider_safety_buffering,
             t,
           ) || noneLabel,
       }),
@@ -1297,8 +940,6 @@ export function buildReliabilityRawPayload(params: {
   view: ReturnType<typeof buildThreadReliabilityView>;
   harnessState?: HarnessSessionState | null;
   messages: Message[];
-  memoryPrefetchState?: RuntimeMemoryPrefetchState;
-  memoryPrefetchComparison?: RuntimeMemoryPrefetchComparisonState;
   diagnosticRuntimeContext?: AgentThreadReliabilityDiagnosticContext | null;
   agentUiProjectionSummary?: AgentUiProjectionSummary;
 }): Record<string, unknown> {
@@ -1307,17 +948,11 @@ export function buildReliabilityRawPayload(params: {
     runtime_context: params.diagnosticRuntimeContext || null,
     backend_diagnostics: params.threadRead?.diagnostics || null,
     runtime_routing_evidence: resolveRuntimeRoutingEvidence(params.threadRead),
+    runtime_policy_evidence: resolveRuntimePolicyEvidence({
+      threadRead: params.threadRead,
+    }),
     latest_compaction_boundary:
       params.threadRead?.latest_compaction_boundary || null,
-    memory_prefetch_preview: params.memoryPrefetchState?.result || null,
-    memory_prefetch_error: params.memoryPrefetchState?.error || null,
-    memory_prefetch_comparison: params.memoryPrefetchComparison
-      ? {
-          baseline_entry: params.memoryPrefetchComparison.baselineEntry,
-          diff: params.memoryPrefetchComparison.diff,
-          assessment: params.memoryPrefetchComparison.assessment,
-        }
-      : null,
     current_turn_id: params.currentTurnId || null,
     thread_read: params.threadRead || null,
     turns: params.turns,

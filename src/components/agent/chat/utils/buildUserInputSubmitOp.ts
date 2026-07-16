@@ -1,11 +1,18 @@
 import type { AgentUserInputOp } from "@/lib/api/agentProtocol";
+import type { ModelCapabilitySummary } from "@/lib/model/inferModelCapabilities";
+import {
+  assertModelInputCapabilityAllowed,
+  buildModelCapabilitySendGateInput,
+} from "@/lib/model/modelCapabilitySendGate";
 import type {
-  AsterExecutionStrategy,
-  AsterSessionExecutionRuntime,
+  AgentExecutionStrategy,
+  AgentSessionExecutionRuntime,
+} from "@/lib/api/agentExecutionRuntime";
+import type {
   AutoContinueRequestPayload,
-  AgentRuntimeWebSearchMode,
   ImageInput,
-} from "@/lib/api/agentRuntime";
+} from "@/lib/api/agentRuntime/sessionTypes";
+import type { RuntimeSearchMode } from "@embercloud/app-server-client";
 import type { AgentAccessMode } from "../hooks/agentChatStorage";
 import type { SessionModelPreference } from "../hooks/agentChatShared";
 import type { MessageImage } from "../types";
@@ -36,20 +43,22 @@ export interface BuildUserInputSubmitOpOptions {
   queueIfBusy?: boolean;
   skipPreSubmitResume?: boolean;
   requestMetadata?: Record<string, unknown>;
-  executionRuntime?: AsterSessionExecutionRuntime | null;
+  executionRuntime?: AgentSessionExecutionRuntime | null;
   syncedRecentPreferences?: ChatToolPreferences | null;
   syncedSessionModelPreference?: SessionModelPreference | null;
-  syncedExecutionStrategy?: AsterExecutionStrategy | null;
-  effectiveExecutionStrategy: AsterExecutionStrategy;
+  syncedExecutionStrategy?: AgentExecutionStrategy | null;
+  effectiveExecutionStrategy: AgentExecutionStrategy;
   effectiveAccessMode: AgentAccessMode;
   effectiveProviderType: string;
   effectiveModel: string;
   modelOverride?: string;
   reasoningEffort?: string;
   webSearch?: boolean;
-  searchMode?: AgentRuntimeWebSearchMode;
+  searchMode?: RuntimeSearchMode;
   thinking?: boolean;
+  explicitToolPreferences?: boolean;
   autoContinue?: AutoContinueRequestPayload;
+  modelCapabilitySummary?: ModelCapabilitySummary | null;
 }
 
 export function buildUserInputSubmitOp(
@@ -76,12 +85,27 @@ export function buildUserInputSubmitOp(
     effectiveModel,
     modelOverride,
     reasoningEffort,
+    webSearch,
     searchMode,
+    thinking,
+    explicitToolPreferences,
     autoContinue,
+    modelCapabilitySummary,
   } = options;
   const normalizedEffectiveExecutionStrategy = normalizeExecutionStrategy(
     effectiveExecutionStrategy,
   );
+
+  if (modelCapabilitySummary !== undefined) {
+    assertModelInputCapabilityAllowed(
+      modelCapabilitySummary,
+      buildModelCapabilitySendGateInput({
+        text: content,
+        imageCount: images.length,
+      }),
+      { failClosedOnUnknown: false },
+    );
+  }
 
   const compaction = buildSubmitOpRuntimeCompaction({
     requestMetadata,
@@ -93,6 +117,8 @@ export function buildUserInputSubmitOp(
     effectiveProviderType,
     effectiveModel,
     modelOverride,
+    requestedWebSearch: explicitToolPreferences ? webSearch : undefined,
+    requestedThinking: explicitToolPreferences ? thinking : undefined,
   });
   const runtimePolicies =
     createRuntimePoliciesFromAccessMode(effectiveAccessMode);
@@ -116,13 +142,17 @@ export function buildUserInputSubmitOp(
         ? effectiveModel
         : undefined,
       reasoningEffort: reasoningEffort?.trim() || undefined,
-      thinking: undefined,
+      thinking: compaction.shouldSubmitThinking
+        ? compaction.thinkingPreference
+        : undefined,
       approvalPolicy: runtimePolicies.approvalPolicy,
       sandboxPolicy: runtimePolicies.sandboxPolicy,
       executionStrategy: compaction.shouldSubmitExecutionStrategy
         ? normalizedEffectiveExecutionStrategy
         : undefined,
-      webSearch: undefined,
+      webSearch: compaction.shouldSubmitWebSearch
+        ? compaction.webSearchPreference
+        : undefined,
       ...(searchMode ? { searchMode } : {}),
       autoContinue,
     },

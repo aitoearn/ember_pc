@@ -1,17 +1,40 @@
-import { useEffect, useRef, type MutableRefObject } from "react";
+import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
+import { isRuntimeSettledStatusValue } from "@embercloud/agent-ui-contracts";
 import { isAppServerBridgeAvailable } from "@/lib/api/appServerBridgeAvailability";
 import { hasDevBridgeEventListenerCapability } from "@/lib/api/bridgeEvents";
 import { parseAgentEvent } from "@/lib/api/agentProtocol";
-import {
-  dedupeAgentRuntimeEventNames,
-  getAgentSubagentStatusEventName,
-} from "@/lib/api/agentRuntimeEvents";
 import { hasDesktopHostEventListenerCapability } from "@/lib/desktop-runtime";
 import type { AgentThreadTurn } from "../types";
 import type { AgentRuntimeAdapter } from "./agentRuntimeAdapter";
+import type { AgentSessionDetailRefreshRequest } from "./agentSessionRefresh";
+import { hasRunningThreadReadActivity } from "../projection/threadReadActivity";
 
 const APP_SERVER_BRIDGE_RUNTIME_POLL_MS = 1000;
 const RECOVERED_RUNTIME_POLL_ACTIVE_WINDOW_MS = 30 * 60 * 1000;
+const RUNTIME_DETAIL_REFRESH_COALESCE_MS = 120;
+
+const RUNTIME_SYNC_REFRESH_REQUESTS = {
+  sendSettled: {
+    source: "runtimeSync.sendSettled",
+    detailMergeMode: "runtime_sync",
+  },
+  recoveredPoll: {
+    source: "runtimeSync.recoveredPoll",
+    detailMergeMode: "runtime_sync",
+  },
+  poll: {
+    source: "runtimeSync.poll",
+    detailMergeMode: "runtime_sync",
+  },
+  event: {
+    source: "runtimeSync.event",
+    detailMergeMode: "runtime_sync",
+  },
+  terminalEvent: {
+    source: "runtimeSync.event",
+    detailMergeMode: "terminal_reconcile",
+  },
+} satisfies Record<string, AgentSessionDetailRefreshRequest>;
 
 function parseTimestampMs(value: string | null | undefined): number | null {
   if (!value) {
@@ -19,6 +42,208 @@ function parseTimestampMs(value: string | null | undefined): number | null {
   }
   const timestampMs = Date.parse(value);
   return Number.isFinite(timestampMs) ? timestampMs : null;
+}
+
+function readRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function readArray(record: Record<string, unknown>, keys: string[]): unknown[] {
+  for (const key of keys) {
+    const value = record[key];
+    if (Array.isArray(value)) {
+      return value;
+    }
+  }
+  return [];
+}
+
+function readString(
+  record: Record<string, unknown>,
+  keys: string[],
+): string | null {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function readNestedRecord(
+  record: Record<string, unknown>,
+  keys: string[],
+): Record<string, unknown> | null {
+  for (const key of keys) {
+    const value = readRecord(record[key]);
+    if (value) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function normalizeRuntimeStatus(value: unknown): string | null {
+  return typeof value === "string"
+    ? value
+        .trim()
+        .toLowerCase()
+        .replace(/[\s-]+/g, "_") || null
+    : null;
+}
+
+function isTerminalStatusLike(status: unknown): boolean {
+  const normalizedStatus = normalizeRuntimeStatus(status);
+  return (
+    normalizedStatus === "done" ||
+    isExplicitTerminalRuntimeStatus(normalizedStatus)
+  );
+}
+
+function hasTerminalStatusInRecord(
+  record: Record<string, unknown>,
+  keys: string[],
+): boolean {
+  return keys.some((key) => isTerminalStatusLike(record[key]));
+}
+
+function readTurnIdFromRecord(record: Record<string, unknown>): string | null {
+  return readString(record, ["turn_id", "turnId", "id"]);
+}
+
+function isTerminalTurnRecord(turn: unknown): boolean {
+  const record = readRecord(turn);
+  if (!record) {
+    return false;
+  }
+  return hasTerminalStatusInRecord(record, [
+    "status",
+    "profile_status",
+    "profileStatus",
+    "native_status",
+    "nativeStatus",
+  ]);
+}
+
+interface ThreadReadTerminalInfo {
+  activeTurnId: string | null;
+  activeTurnMatchesCurrent: boolean;
+  hasAuthoritativeTerminal: boolean;
+  hasCurrentTurnTerminal: boolean;
+  hasTerminal: boolean;
+}
+
+function readThreadReadTerminalInfo(
+  threadRead: unknown,
+  currentTurnId?: string | null,
+): ThreadReadTerminalInfo {
+  const record = readRecord(threadRead);
+  if (!record) {
+    return {
+      activeTurnId: null,
+      activeTurnMatchesCurrent: false,
+      hasAuthoritativeTerminal: false,
+      hasCurrentTurnTerminal: false,
+      hasTerminal: false,
+    };
+  }
+
+  const normalizedCurrentTurnId = currentTurnId?.trim() || null;
+  const threadStatuses = [
+    normalizeRuntimeStatus(record.status),
+    normalizeRuntimeStatus(record.profile_status),
+    normalizeRuntimeStatus(record.profileStatus),
+  ].filter((status): status is string => Boolean(status));
+  const hasTerminalThreadStatus = threadStatuses.some(isTerminalStatusLike);
+  const turns = readArray(record, ["turns"]);
+  const activeTurnId = readString(record, ["active_turn_id", "activeTurnId"]);
+  const activeTurn = activeTurnId
+    ? turns
+        .map(readRecord)
+        .find((turn) => turn && readTurnIdFromRecord(turn) === activeTurnId)
+    : null;
+  const activeTurnMatchesCurrent = normalizedCurrentTurnId
+    ? activeTurnId === normalizedCurrentTurnId
+    : Boolean(activeTurnId);
+  const hasTerminalActiveTurn = Boolean(
+    activeTurn && activeTurnMatchesCurrent && isTerminalTurnRecord(activeTurn),
+  );
+  const hasCurrentTurnTerminal = Boolean(
+    normalizedCurrentTurnId &&
+    turns.some((turn) => {
+      const turnRecord = readRecord(turn);
+      return (
+        turnRecord &&
+        readTurnIdFromRecord(turnRecord) === normalizedCurrentTurnId &&
+        isTerminalTurnRecord(turnRecord)
+      );
+    }),
+  );
+  const diagnostics = readNestedRecord(record, ["diagnostics"]);
+  const hasTerminalLatestTurnStatus =
+    hasTerminalStatusInRecord(record, [
+      "latest_turn_status",
+      "latestTurnStatus",
+    ]) ||
+    (diagnostics
+      ? hasTerminalStatusInRecord(diagnostics, [
+          "latest_turn_status",
+          "latestTurnStatus",
+        ])
+      : false);
+  const hasTerminalTurn = turns.some(isTerminalTurnRecord);
+  const hasAuthoritativeThreadStatus = threadStatuses.some((status) => {
+    if (!isTerminalStatusLike(status)) {
+      return false;
+    }
+    return !normalizedCurrentTurnId || activeTurnId === normalizedCurrentTurnId;
+  });
+  const hasAuthoritativeTerminal =
+    hasAuthoritativeThreadStatus ||
+    hasTerminalActiveTurn ||
+    hasCurrentTurnTerminal;
+
+  return {
+    activeTurnId,
+    activeTurnMatchesCurrent,
+    hasAuthoritativeTerminal,
+    hasCurrentTurnTerminal,
+    hasTerminal:
+      hasAuthoritativeTerminal ||
+      hasTerminalThreadStatus ||
+      hasTerminalLatestTurnStatus ||
+      hasTerminalTurn,
+  };
+}
+
+function hasRunningThreadReadForRuntimeSync(threadRead: unknown): boolean {
+  const record = readRecord(threadRead);
+  if (!record) {
+    return false;
+  }
+
+  const terminalInfo = readThreadReadTerminalInfo(record);
+  if (terminalInfo.hasTerminal) {
+    return false;
+  }
+
+  if (
+    hasRunningThreadReadActivity(threadRead, {
+      allowThreadStatusWithoutTurn: true,
+    })
+  ) {
+    return true;
+  }
+
+  const status =
+    normalizeRuntimeStatus(record.status) ??
+    normalizeRuntimeStatus(record.profile_status) ??
+    normalizeRuntimeStatus(record.profileStatus);
+  const activeTurnId = readString(record, ["active_turn_id", "activeTurnId"]);
+  return status === "running" && Boolean(activeTurnId);
 }
 
 function hasRecentRunningTurn(threadTurns: AgentThreadTurn[]): boolean {
@@ -39,6 +264,7 @@ function hasRecentRunningTurn(threadTurns: AgentThreadTurn[]): boolean {
 }
 
 function shouldPollRecoveredRuntimeWork(params: {
+  threadRead?: unknown;
   threadReadStatus?: string | null;
   queuedTurnCount: number;
   threadTurns: AgentThreadTurn[];
@@ -50,6 +276,17 @@ function shouldPollRecoveredRuntimeWork(params: {
   const normalizedThreadReadStatus = (
     params.threadReadStatus || ""
   ).toLowerCase();
+  if (isExplicitTerminalRuntimeStatus(normalizedThreadReadStatus)) {
+    return false;
+  }
+
+  if (params.threadRead !== undefined && params.threadRead !== null) {
+    if (hasRunningThreadReadForRuntimeSync(params.threadRead)) {
+      return true;
+    }
+    return normalizedThreadReadStatus === "queued";
+  }
+
   const hasRunningTurn = params.threadTurns.some(
     (turn) => turn.status === "running",
   );
@@ -64,45 +301,116 @@ function shouldPollRecoveredRuntimeWork(params: {
   );
 }
 
-function shouldRefreshReadModelForTurnEvent(payload: unknown): boolean {
+function resolveRefreshRequestForTurnEventPayload(
+  payload: unknown,
+): AgentSessionDetailRefreshRequest | null {
   const data = parseAgentEvent(payload);
   if (!data) {
-    return false;
+    return null;
   }
 
   switch (data.type) {
+    case "error":
+    case "turn_completed":
+    case "turn_canceled":
+    case "turn_failed":
+      return RUNTIME_SYNC_REFRESH_REQUESTS.terminalEvent;
     case "action_required":
     case "action_resolved":
     case "artifact_snapshot":
-    case "done":
-    case "error":
-    case "final_done":
     case "queue_added":
     case "queue_cleared":
     case "queue_removed":
     case "queue_started":
     case "runtime_status":
     case "warning":
-      return true;
+      return RUNTIME_SYNC_REFRESH_REQUESTS.event;
     default:
-      return false;
+      return null;
   }
 }
 
+function preferRuntimeRefreshRequest(
+  current: AgentSessionDetailRefreshRequest | null,
+  next: AgentSessionDetailRefreshRequest,
+): AgentSessionDetailRefreshRequest {
+  if (next.detailMergeMode === "terminal_reconcile") {
+    return next;
+  }
+  return current ?? next;
+}
+
+function isTerminalRuntimeStatus(status?: string | null): boolean {
+  return isRuntimeSettledStatusValue(status);
+}
+
+function isExplicitTerminalRuntimeStatus(status?: string | null): boolean {
+  const normalizedStatus = (status || "").trim().toLowerCase();
+  return (
+    normalizedStatus === "completed" ||
+    normalizedStatus === "failed" ||
+    normalizedStatus === "canceled" ||
+    normalizedStatus === "cancelled" ||
+    normalizedStatus === "aborted" ||
+    (normalizedStatus !== "idle" && isTerminalRuntimeStatus(status))
+  );
+}
+
+function shouldForceSettleStaleRunningTurn(status?: string | null): boolean {
+  return isExplicitTerminalRuntimeStatus(status);
+}
+
+function isThreadStatusAuthoritativeForCurrentStream(params: {
+  status?: string | null;
+  currentTurnId?: string | null;
+  threadReadTerminalInfo: ThreadReadTerminalInfo;
+}): boolean {
+  if (!isExplicitTerminalRuntimeStatus(params.status)) {
+    return false;
+  }
+  if (!params.currentTurnId?.trim()) {
+    return true;
+  }
+  return (
+    params.threadReadTerminalInfo.hasCurrentTurnTerminal ||
+    params.threadReadTerminalInfo.activeTurnMatchesCurrent
+  );
+}
+
+function hasRunningTurn(threadTurns: AgentThreadTurn[]): boolean {
+  return threadTurns.some((turn) => turn.status === "running");
+}
+
+function hasTerminalTurn(
+  threadTurns: AgentThreadTurn[],
+  currentTurnId?: string | null,
+): boolean {
+  const normalizedCurrentTurnId = currentTurnId?.trim() || null;
+  return threadTurns.some((turn) => {
+    if (!isTerminalRuntimeStatus(turn.status)) {
+      return false;
+    }
+    return !normalizedCurrentTurnId || turn.id === normalizedCurrentTurnId;
+  });
+}
+
 interface UseAgentRuntimeSyncEffectsOptions {
-  runtime: Pick<
-    AgentRuntimeAdapter,
-    "listenToTeamEvents" | "listenToTurnEvents"
-  >;
+  runtime: Pick<AgentRuntimeAdapter, "listenToTurnEvents">;
   sessionIdRef: MutableRefObject<string | null>;
   sessionId: string | null;
-  parentSessionId?: string | null;
   currentTurnEventName?: string | null;
+  currentStreamTurnId?: string | null;
   isSending: boolean;
+  threadRead?: unknown;
   threadReadStatus?: string | null;
   queuedTurnCount: number;
   threadTurns: AgentThreadTurn[];
-  refreshSessionDetail: (targetSessionId?: string) => Promise<unknown>;
+  refreshSessionDetail: (
+    targetSessionId?: string,
+    request?: AgentSessionDetailRefreshRequest,
+  ) => Promise<unknown>;
+  refreshSessionReadModel: (targetSessionId?: string) => Promise<unknown>;
+  settleActiveRuntimeStream?: (targetSessionId: string) => void;
 }
 
 export function useAgentRuntimeSyncEffects(
@@ -112,23 +420,37 @@ export function useAgentRuntimeSyncEffects(
     runtime,
     sessionIdRef,
     sessionId,
-    parentSessionId,
     currentTurnEventName,
+    currentStreamTurnId,
     isSending,
+    threadRead,
     threadReadStatus,
     queuedTurnCount,
     threadTurns,
     refreshSessionDetail,
+    refreshSessionReadModel,
+    settleActiveRuntimeStream,
   } = options;
-  const lastIsSendingRef = useRef(isSending);
-  const normalizedParentSessionId = parentSessionId?.trim() || null;
   const normalizedCurrentTurnEventName = currentTurnEventName?.trim() || null;
+  const normalizedCurrentStreamTurnId = currentStreamTurnId?.trim() || null;
+  const lastIsSendingRef = useRef(isSending);
+  const lastCurrentTurnEventNameRef = useRef(normalizedCurrentTurnEventName);
+  const observedActiveRuntimeWorkRef = useRef(false);
+  const refreshInFlightSessionRef = useRef<string | null>(null);
+  const readModelRefreshInFlightSessionRef = useRef<string | null>(null);
+  const refreshTimerRef = useRef<number | null>(null);
+  const readModelRefreshTimerRef = useRef<number | null>(null);
+  const deferredRuntimeRefreshRequestRef =
+    useRef<AgentSessionDetailRefreshRequest | null>(null);
   const hasDesktopRuntimeEventListenerCapability =
     hasDesktopHostEventListenerCapability();
   const hasRuntimeEventListenerCapability =
     hasDesktopRuntimeEventListenerCapability ||
     hasDevBridgeEventListenerCapability();
+  const cannotSubscribeCurrentTurnRuntimeEvent =
+    !hasRuntimeEventListenerCapability || !normalizedCurrentTurnEventName;
   const hasActiveRuntimeWork = shouldPollRecoveredRuntimeWork({
+    threadRead,
     threadReadStatus,
     queuedTurnCount,
     threadTurns,
@@ -136,33 +458,230 @@ export function useAgentRuntimeSyncEffects(
   const shouldUseAppServerBridgeRuntimePolling =
     Boolean(sessionId) &&
     isSending &&
-    isAppServerBridgeAvailable() &&
-    !hasRuntimeEventListenerCapability;
-  const shouldSubscribeTeamEvents =
-    Boolean(sessionId) &&
-    (hasDesktopRuntimeEventListenerCapability ||
-      isSending ||
-      hasActiveRuntimeWork ||
-      Boolean(normalizedParentSessionId));
+    !normalizedCurrentTurnEventName &&
+    cannotSubscribeCurrentTurnRuntimeEvent &&
+    isAppServerBridgeAvailable();
+  const refreshSessionDetailOnce = useCallback(
+    (targetSessionId: string, request: AgentSessionDetailRefreshRequest) => {
+      if (refreshInFlightSessionRef.current === targetSessionId) {
+        return;
+      }
+
+      refreshInFlightSessionRef.current = targetSessionId;
+      void refreshSessionDetail(targetSessionId, request).finally(() => {
+        if (refreshInFlightSessionRef.current === targetSessionId) {
+          refreshInFlightSessionRef.current = null;
+        }
+      });
+    },
+    [refreshSessionDetail],
+  );
+
+  const scheduleRefreshSessionDetail = useCallback(
+    (targetSessionId: string, request: AgentSessionDetailRefreshRequest) => {
+      if (refreshInFlightSessionRef.current === targetSessionId) {
+        return;
+      }
+
+      if (refreshTimerRef.current !== null) {
+        window.clearTimeout(refreshTimerRef.current);
+      }
+
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshTimerRef.current = null;
+        refreshSessionDetailOnce(targetSessionId, request);
+      }, RUNTIME_DETAIL_REFRESH_COALESCE_MS);
+    },
+    [refreshSessionDetailOnce],
+  );
+
+  const refreshSessionReadModelOnce = useCallback(
+    (targetSessionId: string) => {
+      if (readModelRefreshInFlightSessionRef.current === targetSessionId) {
+        return;
+      }
+
+      readModelRefreshInFlightSessionRef.current = targetSessionId;
+      void refreshSessionReadModel(targetSessionId).finally(() => {
+        if (readModelRefreshInFlightSessionRef.current === targetSessionId) {
+          readModelRefreshInFlightSessionRef.current = null;
+        }
+      });
+    },
+    [refreshSessionReadModel],
+  );
+
+  const scheduleRefreshSessionReadModel = useCallback(
+    (targetSessionId: string) => {
+      if (readModelRefreshInFlightSessionRef.current === targetSessionId) {
+        return;
+      }
+
+      if (readModelRefreshTimerRef.current !== null) {
+        window.clearTimeout(readModelRefreshTimerRef.current);
+      }
+
+      readModelRefreshTimerRef.current = window.setTimeout(() => {
+        readModelRefreshTimerRef.current = null;
+        refreshSessionReadModelOnce(targetSessionId);
+      }, RUNTIME_DETAIL_REFRESH_COALESCE_MS);
+    },
+    [refreshSessionReadModelOnce],
+  );
+
+  const scheduleRuntimeSyncRefresh = useCallback(
+    (targetSessionId: string, request: AgentSessionDetailRefreshRequest) => {
+      if (request.detailMergeMode === "terminal_reconcile") {
+        scheduleRefreshSessionReadModel(targetSessionId);
+        return;
+      }
+
+      scheduleRefreshSessionDetail(targetSessionId, request);
+    },
+    [scheduleRefreshSessionDetail, scheduleRefreshSessionReadModel],
+  );
+
+  useEffect(
+    () => () => {
+      if (refreshTimerRef.current !== null) {
+        window.clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+      if (readModelRefreshTimerRef.current !== null) {
+        window.clearTimeout(readModelRefreshTimerRef.current);
+        readModelRefreshTimerRef.current = null;
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const wasSending = lastIsSendingRef.current;
+    const wasCurrentTurnEventName = lastCurrentTurnEventNameRef.current;
     lastIsSendingRef.current = isSending;
+    lastCurrentTurnEventNameRef.current = normalizedCurrentTurnEventName;
 
-    if (!wasSending || isSending || !sessionId) {
+    if (!sessionId || isSending || normalizedCurrentTurnEventName) {
       return;
     }
 
-    void refreshSessionDetail(sessionId);
-  }, [isSending, refreshSessionDetail, sessionId]);
+    if (!wasSending && !wasCurrentTurnEventName) {
+      return;
+    }
+
+    const deferredRefreshRequest = deferredRuntimeRefreshRequestRef.current;
+    deferredRuntimeRefreshRequestRef.current = null;
+    scheduleRuntimeSyncRefresh(
+      sessionId,
+      deferredRefreshRequest ?? RUNTIME_SYNC_REFRESH_REQUESTS.sendSettled,
+    );
+  }, [
+    isSending,
+    normalizedCurrentTurnEventName,
+    scheduleRuntimeSyncRefresh,
+    sessionId,
+  ]);
 
   useEffect(() => {
-    if (!sessionId || isSending) {
+    if (!isSending) {
+      observedActiveRuntimeWorkRef.current = false;
+      return;
+    }
+
+    if (hasActiveRuntimeWork) {
+      observedActiveRuntimeWorkRef.current = true;
+    }
+  }, [hasActiveRuntimeWork, isSending]);
+
+  useEffect(() => {
+    if (!sessionId || !isSending || !settleActiveRuntimeStream) {
+      return;
+    }
+    const hasTerminalTurnInReadModel = hasTerminalTurn(
+      threadTurns,
+      normalizedCurrentStreamTurnId,
+    );
+    const threadReadTerminalInfo = readThreadReadTerminalInfo(
+      threadRead,
+      normalizedCurrentStreamTurnId,
+    );
+    const hasAuthoritativeThreadReadStatus =
+      isThreadStatusAuthoritativeForCurrentStream({
+        status: threadReadStatus,
+        currentTurnId: normalizedCurrentStreamTurnId,
+        threadReadTerminalInfo,
+      });
+    const hasTerminalThreadReadModel = normalizedCurrentStreamTurnId
+      ? threadReadTerminalInfo.hasAuthoritativeTerminal ||
+        hasAuthoritativeThreadReadStatus
+      : threadReadTerminalInfo.hasTerminal;
+    const hasTerminalReadModel =
+      hasAuthoritativeThreadReadStatus ||
+      hasTerminalThreadReadModel ||
+      hasTerminalTurnInReadModel;
+    if (!observedActiveRuntimeWorkRef.current && !hasTerminalReadModel) {
+      return;
+    }
+    const hasRunningLocalTurn = hasRunningTurn(threadTurns);
+    const normalizedThreadReadStatus = normalizeRuntimeStatus(threadReadStatus);
+    if (
+      hasRunningLocalTurn &&
+      !normalizedCurrentStreamTurnId &&
+      isExplicitTerminalRuntimeStatus(threadReadStatus)
+    ) {
+      return;
+    }
+    const shouldForceSettleByThreadStatus =
+      shouldForceSettleStaleRunningTurn(threadReadStatus) &&
+      isThreadStatusAuthoritativeForCurrentStream({
+        status: normalizedThreadReadStatus,
+        currentTurnId: normalizedCurrentStreamTurnId,
+        threadReadTerminalInfo,
+      });
+    if (
+      queuedTurnCount > 0 ||
+      hasRunningThreadReadForRuntimeSync(threadRead) ||
+      hasRunningLocalTurn
+    ) {
+      if (
+        shouldForceSettleByThreadStatus ||
+        threadReadTerminalInfo.hasAuthoritativeTerminal ||
+        hasTerminalTurnInReadModel
+      ) {
+        observedActiveRuntimeWorkRef.current = false;
+        settleActiveRuntimeStream(sessionId);
+      }
+      return;
+    }
+    if (
+      !hasTerminalTurnInReadModel &&
+      !hasTerminalThreadReadModel &&
+      !isTerminalRuntimeStatus(threadReadStatus)
+    ) {
+      return;
+    }
+
+    observedActiveRuntimeWorkRef.current = false;
+    settleActiveRuntimeStream(sessionId);
+  }, [
+    isSending,
+    queuedTurnCount,
+    sessionId,
+    settleActiveRuntimeStream,
+    threadRead,
+    threadReadStatus,
+    threadTurns,
+    normalizedCurrentStreamTurnId,
+  ]);
+
+  useEffect(() => {
+    if (!sessionId || isSending || normalizedCurrentTurnEventName) {
       return;
     }
 
     if (
       !shouldPollRecoveredRuntimeWork({
+        threadRead,
         threadReadStatus,
         queuedTurnCount,
         threadTurns,
@@ -172,7 +691,10 @@ export function useAgentRuntimeSyncEffects(
     }
 
     const timer = window.setInterval(() => {
-      void refreshSessionDetail(sessionId);
+      refreshSessionDetailOnce(
+        sessionId,
+        RUNTIME_SYNC_REFRESH_REQUESTS.recoveredPoll,
+      );
     }, 1500);
 
     return () => {
@@ -180,9 +702,11 @@ export function useAgentRuntimeSyncEffects(
     };
   }, [
     isSending,
+    threadRead,
     threadReadStatus,
     queuedTurnCount,
-    refreshSessionDetail,
+    normalizedCurrentTurnEventName,
+    refreshSessionDetailOnce,
     sessionId,
     threadTurns,
   ]);
@@ -192,17 +716,17 @@ export function useAgentRuntimeSyncEffects(
       return;
     }
 
-    void refreshSessionDetail(sessionId);
+    refreshSessionDetailOnce(sessionId, RUNTIME_SYNC_REFRESH_REQUESTS.poll);
 
     const timer = window.setInterval(() => {
-      void refreshSessionDetail(sessionId);
+      refreshSessionDetailOnce(sessionId, RUNTIME_SYNC_REFRESH_REQUESTS.poll);
     }, APP_SERVER_BRIDGE_RUNTIME_POLL_MS);
 
     return () => {
       window.clearInterval(timer);
     };
   }, [
-    refreshSessionDetail,
+    refreshSessionDetailOnce,
     sessionId,
     shouldUseAppServerBridgeRuntimePolling,
   ]);
@@ -219,14 +743,21 @@ export function useAgentRuntimeSyncEffects(
       const nextUnlisten = await runtime.listenToTurnEvents(
         normalizedCurrentTurnEventName,
         (event) => {
+          const refreshRequest = resolveRefreshRequestForTurnEventPayload(
+            event.payload,
+          );
           if (
             disposed ||
             sessionIdRef.current !== sessionId ||
-            !shouldRefreshReadModelForTurnEvent(event.payload)
+            !refreshRequest
           ) {
             return;
           }
-          void refreshSessionDetail(sessionId);
+          deferredRuntimeRefreshRequestRef.current =
+            preferRuntimeRefreshRequest(
+              deferredRuntimeRefreshRequestRef.current,
+              refreshRequest,
+            );
         },
       );
 
@@ -244,68 +775,5 @@ export function useAgentRuntimeSyncEffects(
       disposed = true;
       unlisten?.();
     };
-  }, [
-    normalizedCurrentTurnEventName,
-    refreshSessionDetail,
-    runtime,
-    sessionId,
-    sessionIdRef,
-  ]);
-
-  useEffect(() => {
-    if (!sessionId || !shouldSubscribeTeamEvents) {
-      return;
-    }
-
-    const eventNames = dedupeAgentRuntimeEventNames([
-      getAgentSubagentStatusEventName(sessionId),
-      normalizedParentSessionId
-        ? getAgentSubagentStatusEventName(normalizedParentSessionId)
-        : null,
-    ]);
-
-    let disposed = false;
-    const unlisteners: Array<() => void> = [];
-
-    const subscribe = async () => {
-      for (const eventName of eventNames) {
-        const unlisten = await runtime.listenToTeamEvents(
-          eventName,
-          (event) => {
-            const data = parseAgentEvent(event.payload);
-            if (disposed || data?.type !== "subagent_status_changed") {
-              return;
-            }
-            if (sessionIdRef.current !== sessionId) {
-              return;
-            }
-            void refreshSessionDetail(sessionId);
-          },
-        );
-
-        if (disposed) {
-          unlisten();
-          return;
-        }
-
-        unlisteners.push(unlisten);
-      }
-    };
-
-    void subscribe();
-
-    return () => {
-      disposed = true;
-      for (const unlisten of unlisteners) {
-        unlisten();
-      }
-    };
-  }, [
-    normalizedParentSessionId,
-    refreshSessionDetail,
-    runtime,
-    sessionId,
-    sessionIdRef,
-    shouldSubscribeTeamEvents,
-  ]);
+  }, [normalizedCurrentTurnEventName, runtime, sessionId, sessionIdRef]);
 }

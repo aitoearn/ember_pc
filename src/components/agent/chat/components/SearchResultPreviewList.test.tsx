@@ -2,7 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SearchResultPreviewList } from "./SearchResultPreviewList";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 interface RenderResult {
   container: HTMLDivElement;
@@ -39,13 +39,41 @@ function renderList() {
   return rendered;
 }
 
+function renderInlineList() {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  const root = createRoot(container);
+
+  act(() => {
+    root.render(
+      <SearchResultPreviewList
+        items={[
+          {
+            id: "long-url-result",
+            title: "Learning Tablet Guide",
+            url: "https://example.com/products/learning/tablet/fifth-grade/buying-guide?utm_source=yahoo",
+            hostname: "example.com",
+            snippet: "Guide summary",
+          },
+        ]}
+        onOpenUrl={vi.fn()}
+        variant="inline"
+      />,
+    );
+  });
+
+  const rendered = { container, root };
+  mountedRoots.push(rendered);
+  return rendered;
+}
+
 beforeEach(async () => {
   (
     globalThis as typeof globalThis & {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 afterEach(async () => {
@@ -59,7 +87,7 @@ afterEach(async () => {
     mounted.container.remove();
   }
   document.body.innerHTML = "";
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("SearchResultPreviewList", () => {
@@ -102,7 +130,7 @@ describe("SearchResultPreviewList", () => {
     vi.useFakeTimers();
     const { container } = renderList();
     const trigger = container.querySelector(
-      'button[aria-label="Preview search result: Result 1"]',
+      'button[aria-label="Open search result: Result 1"]',
     ) as HTMLButtonElement | null;
 
     act(() => {
@@ -125,5 +153,16 @@ describe("SearchResultPreviewList", () => {
     });
 
     expect(document.body.textContent).not.toContain("Summary 1");
+  });
+
+  it("renders inline sources as compact source labels instead of raw long URLs", () => {
+    const { container } = renderInlineList();
+
+    expect(container.textContent).toContain("Learning Tablet Guide");
+    expect(container.textContent).toContain(
+      "example.com/products/learning/tablet/fifth-g…",
+    );
+    expect(container.textContent).not.toContain("utm_source=yahoo");
+    expect(container.textContent).not.toContain("https://example.com");
   });
 });

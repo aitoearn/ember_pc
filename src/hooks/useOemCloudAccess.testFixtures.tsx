@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const hoisted = vi.hoisted(() => ({
   controlPlaneMocks: {
@@ -110,7 +110,7 @@ vi.mock("@/lib/desktop-runtime", () => ({
 }));
 
 vi.mock("@/lib/oemCloudDesktopAuth", () => ({
-  OEM_CLOUD_OAUTH_COMPLETED_EVENT: "ember:oem-cloud-oauth-completed",
+  OEM_CLOUD_OAUTH_COMPLETED_EVENT: "lime:oem-cloud-oauth-completed",
   completeOemCloudDesktopOAuthLogin:
     hoisted.desktopAuthMocks.completeOemCloudDesktopOAuthLogin,
 }));
@@ -206,7 +206,7 @@ export async function flushEffects() {
 
 export function useOemCloudAccessTestLifecycle() {
   beforeEach(async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     (
       globalThis as typeof globalThis & {
         IS_REACT_ACT_ENVIRONMENT?: boolean;
@@ -215,23 +215,23 @@ export function useOemCloudAccessTestLifecycle() {
 
     latestState = null;
     window.localStorage.clear();
-    delete window.__EMBER_SESSION_TOKEN__;
-    delete window.__EMBER_BOOTSTRAP__;
-    window.__EMBER_OEM_CLOUD__ = {
+    delete window.__LIME_SESSION_TOKEN__;
+    delete window.__LIME_BOOTSTRAP__;
+    window.__LIME_OEM_CLOUD__ = {
       enabled: true,
-      baseUrl: "https://user.emberai.run",
+      baseUrl: "https://user.limeai.run",
       tenantId: "tenant-0001",
     };
 
     controlPlaneMocks.getClientCloudActivation.mockResolvedValue({
       gateway: {
-        basePath: "https://llm.emberai.run",
-        openAIBaseUrl: "https://llm.emberai.run/v1",
-        anthropicBaseUrl: "https://llm.emberai.run",
+        basePath: "https://llm.limeai.run",
+        openAIBaseUrl: "https://llm.limeai.run/v1",
+        anthropicBaseUrl: "https://llm.limeai.run",
       },
-      llmBaseUrl: "https://llm.emberai.run",
-      openAIBaseUrl: "https://llm.emberai.run/v1",
-      anthropicBaseUrl: "https://llm.emberai.run",
+      llmBaseUrl: "https://llm.limeai.run",
+      openAIBaseUrl: "https://llm.limeai.run/v1",
+      anthropicBaseUrl: "https://llm.limeai.run",
       readiness: {
         status: "no_api_key",
         title: "还没有可用 API Key",
@@ -295,9 +295,9 @@ export function useOemCloudAccessTestLifecycle() {
     vi.clearAllMocks();
     vi.useRealTimers();
     window.localStorage.clear();
-    delete window.__EMBER_SESSION_TOKEN__;
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_OEM_CLOUD__;
+    delete window.__LIME_SESSION_TOKEN__;
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_OEM_CLOUD__;
 
     if (mountedHarness) {
       act(() => {
@@ -306,6 +306,6 @@ export function useOemCloudAccessTestLifecycle() {
       mountedHarness.container.remove();
       mountedHarness = null;
     }
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
   });
 }

@@ -149,7 +149,7 @@ describe("layered-design analyzer model slots", () => {
       },
       execute: vi.fn(async () => [
         {
-          text: "Ember OCR",
+          text: "Lime OCR",
           boundingBox: { x: 8, y: 10, width: 120, height: 40 },
           confidence: 0.96,
         },
@@ -183,7 +183,7 @@ describe("layered-design analyzer model slots", () => {
       }),
     ).resolves.toEqual([
       {
-        text: "Ember OCR",
+        text: "Lime OCR",
         boundingBox: { x: 8, y: 10, width: 120, height: 40 },
         confidence: 0.96,
       },

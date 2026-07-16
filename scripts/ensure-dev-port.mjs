@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-const devPort = process.env.EMBER_DEV_PORT ?? process.env.PROXYCAST_DEV_PORT ?? "1420";
+const devPort = process.env.LIME_DEV_PORT ?? process.env.PROXYCAST_DEV_PORT ?? "1420";
 const projectRoot = path.resolve(process.cwd());
 const repoRootMarker = path.join(projectRoot, "package.json");
 const nestedRepoRootMarker = path.join(projectRoot, "..", "package.json");
@@ -15,17 +15,17 @@ const runningInsideRustWorkspace =
   fs.existsSync(nestedRepoRootMarker);
 
 if (runningInsideRustWorkspace) {
-  console.error("[ember] 检测到在 ember-rs 子目录启动开发脚本。");
-  console.error("[ember] 请回到仓库根目录执行：npm run dev");
+  console.error("[lime] 检测到在 ember-rs 子目录启动开发脚本。");
+  console.error("[lime] 请回到仓库根目录执行：npm run dev");
   console.error(
-    "[ember] 这样可以避免生成 ember-rs/ember-rs/target 目录。",
+    "[lime] 这样可以避免生成 ember-rs/ember-rs/target 目录。",
   );
   process.exit(1);
 }
 
 if (!fs.existsSync(repoRootMarker)) {
-  console.error(`[ember] 当前目录缺少 package.json: ${projectRoot}`);
-  console.error("[ember] 请在 ember 仓库根目录执行开发命令。");
+  console.error(`[lime] 当前目录缺少 package.json: ${projectRoot}`);
+  console.error("[lime] 请在 lime 仓库根目录执行开发命令。");
   process.exit(1);
 }
 
@@ -92,11 +92,11 @@ for (const pid of occupiedPids) {
 }
 
 if (blockedProcesses.length > 0) {
-  console.error(`[ember] 端口 ${devPort} 被其他进程占用，无法自动清理：`);
+  console.error(`[lime] 端口 ${devPort} 被其他进程占用，无法自动清理：`);
   for (const item of blockedProcesses) {
     console.error(`- PID ${item.pid}: ${item.command}`);
   }
-  console.error("[ember] 请先结束占用进程后再重试启动。");
+  console.error("[lime] 请先结束占用进程后再重试启动。");
   process.exit(1);
 }
 
@@ -113,12 +113,12 @@ for (const pid of stillOccupied) {
 
 const unresolved = listListenPids(devPort);
 if (unresolved.length > 0) {
-  console.error(`[ember] 端口 ${devPort} 仍被占用，请手动清理后重试。`);
+  console.error(`[lime] 端口 ${devPort} 仍被占用，请手动清理后重试。`);
   process.exit(1);
 }
 
 if (targetPids.length > 0) {
   console.log(
-    `[ember] 已清理 ${targetPids.length} 个残留 vite 进程（端口 ${devPort}）。`,
+    `[lime] 已清理 ${targetPids.length} 个残留 vite 进程（端口 ${devPort}）。`,
   );
 }

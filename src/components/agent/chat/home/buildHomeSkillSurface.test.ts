@@ -11,7 +11,6 @@ import { agentEnUSResource, agentZhCNResource } from "@/i18n/agentResources";
 import {
   buildHomeGalleryItems,
   buildHomeGuideCards,
-  buildHomeInputSuggestions,
   buildHomeSkillItems,
   buildHomeSkillSections,
   buildHomeStarterChips,
@@ -109,22 +108,22 @@ describe("buildHomeSkillSurface", () => {
     );
 
     expect(labels).toEqual([
-      "测试引导",
-      "测试用例编写",
-      "导入测试资料",
-      "测试方案",
-      "测试报告",
-      "需求转用例",
-      "场景覆盖",
-      "用例设计",
-      "数据驱动用例",
-      "自动化脚本",
-      "更多用例",
+      "引导帮助",
+      "写作",
+      "添加资料",
+      "PPT",
+      "调研报告",
+      "需求分析",
+      "视频",
+      "设计",
+      "Excel",
+      "编程",
+      "更多做法",
       "⚙",
     ]);
   });
 
-  it("优先使用服务端下发的首页展示入口、Tab 建议与帮助卡", () => {
+  it("优先使用服务端下发的首页展示入口与帮助卡，并忽略旧输入建议 slot", () => {
     const entries: SkillCatalogEntry[] = [
       {
         id: "home:starter:poster",
@@ -179,19 +178,13 @@ describe("buildHomeSkillSurface", () => {
       buildHomeStarterChips(entries, TEST_HOME_SURFACE_COPY).map(
         (chip) => chip.label,
       ),
-    ).toEqual(["做海报", "更多用例", "⚙"]);
+    ).toEqual(["做海报", "更多做法", "⚙"]);
     expect(
       buildHomeStarterChips(entries, TEST_HOME_SURFACE_COPY)[0],
     ).toMatchObject({
       launchKind: "prefill_prompt",
       prompt: "请帮我做一张海报。",
     });
-    expect(buildHomeInputSuggestions(entries, TEST_HOME_SURFACE_COPY)).toEqual([
-      expect.objectContaining({
-        label: "帮我写一封工作邮件",
-        prompt: "请帮我写一封工作邮件。",
-      }),
-    ]);
     expect(buildHomeGuideCards(entries, TEST_HOME_SURFACE_COPY)).toEqual([
       expect.objectContaining({
         title: "怎么添加模型？",
@@ -230,8 +223,8 @@ describe("buildHomeSkillSurface", () => {
 
     const items = buildHomeSkillItems({
       curatedTasks: [
-        createCuratedTask("daily-trend-briefing", "冒烟检查清单"),
-        createCuratedTask("social-post-starter", "功能用例生成", 10),
+        createCuratedTask("daily-trend-briefing", "每日趋势摘要"),
+        createCuratedTask("social-post-starter", "内容主稿生成", 10),
       ],
       serviceSkillHomeCopy: TEST_SERVICE_SKILL_HOME_COPY,
       serviceSkills: [createServiceSkill()],
@@ -283,7 +276,7 @@ describe("buildHomeSkillSurface", () => {
   it("按分类生成 drawer 分组，并为 gallery 截取最多 12 个任务", () => {
     const items = buildHomeSkillItems({
       curatedTasks: [
-        createCuratedTask("daily-trend-briefing", "冒烟检查清单", 10),
+        createCuratedTask("daily-trend-briefing", "每日趋势摘要", 10),
         createCuratedTask("script-to-voiceover", "脚本转口播"),
       ],
       serviceSkillHomeCopy: TEST_SERVICE_SKILL_HOME_COPY,
@@ -315,12 +308,7 @@ describe("buildHomeSkillSurface", () => {
       buildHomeStarterChips(undefined, TEST_HOME_SURFACE_EN_COPY).map(
         (chip) => chip.label,
       ),
-    ).toContain("Test guide");
-    expect(
-      buildHomeInputSuggestions(undefined, TEST_HOME_SURFACE_EN_COPY)[0],
-    ).toMatchObject({
-      label: "Summarize test review notes",
-    });
+    ).toContain("Guide help");
     expect(
       buildHomeGuideCards(undefined, TEST_HOME_SURFACE_EN_COPY)[0],
     ).toMatchObject({
@@ -330,7 +318,7 @@ describe("buildHomeSkillSurface", () => {
       buildHomeSkillSections(items, TEST_HOME_SURFACE_EN_COPY)[0],
     ).toMatchObject({
       id: "social",
-      title: "Functional testing",
+      title: "Social media",
     });
   });
 });

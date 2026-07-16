@@ -106,7 +106,7 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Harness Cleanup / Slop Report
+Lime Harness Cleanup / Slop Report
 
 用法:
   node scripts/report-generated-slop.mjs
@@ -145,7 +145,7 @@ function readJsonFile(filePath) {
 
 function detectDefaultTrendHistoryDir(repoRoot) {
   const candidates = [
-    resolvePath(repoRoot, "./.ember/harness/history"),
+    resolvePath(repoRoot, "./.lime/harness/history"),
     resolvePath(repoRoot, "./artifacts/history"),
   ];
 

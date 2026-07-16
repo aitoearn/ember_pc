@@ -5,14 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CuratedTaskBadge } from "./CuratedTaskBadge";
 import { findCuratedTaskTemplateById } from "../utils/curatedTaskTemplates";
 import { recordCuratedTaskRecommendationSignalFromReviewDecision } from "../utils/curatedTaskRecommendationSignals";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 describe("CuratedTaskBadge", () => {
   let container: HTMLDivElement;
   let root: Root;
 
   beforeEach(async () => {
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
     (
       globalThis as typeof globalThis & {
         IS_REACT_ACT_ENVIRONMENT?: boolean;

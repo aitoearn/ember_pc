@@ -22,12 +22,12 @@ vi.mock("@/lib/oemCloudLoginLauncher", () => ({
 }));
 
 function configureRuntime() {
-  window.__EMBER_OEM_CLOUD__ = {
+  window.__LIME_OEM_CLOUD__ = {
     enabled: true,
-    baseUrl: "https://user.emberai.run",
+    baseUrl: "https://user.limeai.run",
     tenantId: "tenant-0001",
     desktopClientId: "desktop-client",
-    desktopOauthRedirectUrl: "ember://oauth/callback",
+    desktopOauthRedirectUrl: "lime://oauth/callback",
   };
 }
 
@@ -35,9 +35,9 @@ describe("oemCloudStartupLogin", () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_OEM_CLOUD__;
-    delete window.__EMBER_SESSION_TOKEN__;
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_OEM_CLOUD__;
+    delete window.__LIME_SESSION_TOKEN__;
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     mockGetPublicAuthCatalog.mockResolvedValue({
       providers: [
@@ -56,16 +56,16 @@ describe("oemCloudStartupLogin", () => {
     });
     mockStartOemCloudLogin.mockResolvedValue({
       mode: "desktop_auth",
-      openedUrl: "https://user.emberai.run/oauth/desktop/authorize",
+      openedUrl: "https://user.limeai.run/oauth/desktop/authorize",
     });
   });
 
   afterEach(() => {
     localStorage.clear();
     sessionStorage.clear();
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_OEM_CLOUD__;
-    delete window.__EMBER_SESSION_TOKEN__;
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_OEM_CLOUD__;
+    delete window.__LIME_SESSION_TOKEN__;
     vi.restoreAllMocks();
   });
 

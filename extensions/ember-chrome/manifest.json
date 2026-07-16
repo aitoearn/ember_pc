@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Ember Browser Bridge",
-  "description": "Attach Ember to your current Chrome tab via the Ember browser bridge.",
+  "name": "Lime Browser Bridge",
+  "description": "Attach Lime to your current Chrome tab via the Lime browser bridge.",
   "version": "0.4.0",
   "icons": {
     "16": "icons/icon16.png",
@@ -26,7 +26,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Ember Browser Bridge",
+    "default_title": "Lime Browser Bridge",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",

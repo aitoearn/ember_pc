@@ -1,0 +1,132 @@
+# MCP 服务器与工具管理
+
+## 事实源
+
+MCP 管理、发现、工具调用、提示词、资源和订阅控制面只允许继续收敛到：
+
+`src/lib/api/mcp.ts -> AppServerClient.request(...) -> app_server_handle_json_lines -> App Server JSON-RPC -> ember-rs/crates/mcp`
+
+Electron Desktop Host 只负责 renderer bridge、事件转发、系统浏览器打开和 sidecar 生命周期，不承接 MCP 业务事实；desktop-host 默认 mock 不再提供 MCP fallback。
+
+MCP 有两个不能混用的 current owner：GUI management read（server/status/resource/prompt）继续使用 `LocalAppDataSource` 的 management-only `McpClientManager`；Agent runtime MCP connection 必须按 Session/Thread 持有 immutable `threadId`。management manager 不拥有 Thread，也不允许 server-originated elicitation。缺少可信 Thread owner 的 `mcpTool/call` / `mcpTool/callWithCaller` nested elicitation 必须在 MCP service 边界 decline，禁止从最近活动 Turn、singleton、`sessionId`、`parentToolCallId`、progress token 或 server metadata 猜测归属。
+
+## 当前结构
+
+```text
+src/lib/api/
+├── mcp.ts                 # 前端 MCP API 网关，唯一 renderer 调用入口
+├── mcpTypes.ts            # 公开类型与 mcp__<server>__<tool> 命名 helper
+└── mcpResponseGuards.ts   # App Server response fail-closed guard
+
+src/hooks/
+├── useMcp.ts              # MCP runtime 状态与事件刷新
+└── useMcpEvents.ts        # Desktop Host MCP event bridge
+
+src/components/mcp/
+├── McpPage.tsx            # 设置页入口
+├── McpPanel.tsx           # runtime 面板 facade
+├── McpServerList.tsx      # server runtime 列表 facade
+├── McpToolsBrowser.tsx    # tools browser facade
+├── McpPromptsBrowser.tsx  # prompts browser facade
+└── McpResourcesBrowser.tsx # resources browser facade
+
+ember-rs/crates/
+├── mcp/                   # MCP manager、stdio / streamable HTTP、OAuth、tools/prompts/resources
+├── app-server-protocol/   # mcpServer* / mcpTool* / mcpPrompt* / mcpResource* schema
+└── app-server/            # JSON-RPC processor、runtime projection、evidence/read model 接线
+
+scripts/mcp/
+├── current-smoke.mjs      # MCP current smoke 入口
+├── live-provider-smoke.mjs
+└── lib/                   # smoke transport、fixture、contract guard helper
+```
+
+## App Server methods
+
+Current MCP method 固定为：
+
+- `mcpServer/list`
+- `mcpServerStatus/list`
+- `mcpServer/create`
+- `mcpServer/update`
+- `mcpServer/delete`
+- `mcpServer/enabled/set`
+- `mcpServer/importFromApp`
+- `mcpServer/syncAllToLive`
+- `mcpServer/oauth/login`
+- `mcpServer/start`
+- `mcpServer/stop`
+- `mcpTool/list`
+- `mcpTool/listForContext`
+- `mcpTool/search`
+- `mcpTool/call`
+- `mcpTool/callWithCaller`
+- `mcpPrompt/list`
+- `mcpPrompt/get`
+- `mcpResource/list`
+- `mcpResource/read`
+- `mcpResource/subscribe`
+- `mcpResource/unsubscribe`
+
+旧 Desktop facade 已归类为 `dead / retired guard-only`，包括 `get_mcp_servers`、`mcp_list_*`、`mcp_call_tool*`、`mcp_get_prompt`、`mcp_read_resource`、`mcp_start_server`、`mcp_stop_server`、`add_mcp_server`、`update_mcp_server`、`delete_mcp_server`、`toggle_mcp_server`、`import_mcp_from_app`、`sync_all_mcp_to_live`。这些名字只能出现在负向测试、contract forbidden snippet、smoke legacy 黑名单或历史 evidence 中。
+
+## Server-Originated Elicitation
+
+`mcpServer/elicitation/request` 是 App Server `serverRequest`，不是 Renderer `AppServerRequestMethod`。公开 request 只包含必填非空 `threadId`、可空 `turnId`、必填非空 `serverName` 和 typed `mode: "form"`；`sessionId`、`parentToolCallId`、私有 scope token 和 raw MCP request id 都禁止跨 JSON-RPC 边界。
+
+它是瞬时 reverse request：App Server 以 outer JSON-RPC id 精确等待 Response/Error，`serverRequest/resolved` 只回到创建 request 的同一 connection，且先于 exact domain waiter continuation。它不得生成 Thread/Turn/Item、read model 或 durable store 写入。Renderer 在主窗口根部用全局 GUI Modal 消费 typed form；不得复用 TUI、Approval、通用 answer control 或生产 mock。
+
+## Transport 与 auth
+
+- `stdio` 与 `streamable_http` 都由 `ember-rs/crates/mcp` 管理。
+- HTTP header 只允许来自配置中的安全字段或环境变量引用；inline secret、非法 header、缺失 env var 必须 fail closed。
+- OAuth 登录走 `mcpServer/oauth/login`，使用系统浏览器 current 网关打开授权 URL，callback 完成后通过 `mcp:oauth_completed` 刷新前端。
+- OAuth token store 使用 app data runtime 下的 versioned credential envelope，按 server name + URL 隔离。
+- 显式 `oauth.client_id` / `oauth_resource` 目前仍按 unsupported fail-closed，不能伪装成可用。
+
+## Runtime 工具命名
+
+MCP runtime 工具命名唯一事实源：
+
+- 工具全名：`mcp__<server>__<tool>`
+- extension surface key：`mcp__<server>`
+- UI 展示名：优先显示 server 原名
+- deferred 工具通过 `ToolSearch` 时优先使用 `select:mcp__<server>__<tool>`
+
+不要恢复裸 `server__tool`、临时 `server_tool` 或 inventory / mock / GUI 各自一套前缀的旧心智。
+
+## Resources / prompts / evidence
+
+- `mcpResource/list` 同时返回 `resources` 与 `resourceTemplates`。
+- `mcpResource/subscribe` / `mcpResource/unsubscribe` 使用 MCP 标准 resource subscription。
+- 标准通知 `notifications/resources/list_changed` 与 `notifications/resources/updated` 通过 `mcp:resources_updated` / `mcp:resource_updated` 事件刷新 GUI。
+- GUI resource preview 必须截断大文本、只展示 image/blob 摘要，不能把完整 base64 或大正文压进 DOM。
+- `ReadMcpResourceTool` 的 grounding 进入 evidence/export 的 `observability_summary.mcp_resource_reads`，只记录 server、URI 摘要、mime、content refs 等可回放元数据，不复制 resource 正文或 blob。
+
+## 校验入口
+
+最低校验按改动范围选择：
+
+```bash
+npx vitest run "src/lib/api/mcp.test.ts" "src/lib/api/mcp.failClosed.test.ts" "src/hooks/useMcp.test.tsx"
+npm run test:contracts
+npm run verify:gui-smoke
+```
+
+MCP smoke：
+
+```bash
+npm run smoke:mcp-current
+npm run smoke:mcp-current -- --allow-write-fixture
+npm run smoke:mcp-current -- --allow-oauth-fixture
+npm run smoke:mcp-current -- --allow-live-provider
+```
+
+`--allow-live-provider` 只能在提供 `LIME_MCP_LIVE_SERVER_URL` 和凭证环境后运行；缺 env 必须在 DevBridge / App Server 调用前 fail closed，不能把无凭证环境伪造成 live provider 成功。
+
+## 相关文档
+
+- [commands.md](commands.md) - MCP 控制面主链、旧命令 dead 分类、工具命名主链
+- [quality-workflow.md](quality-workflow.md) - GUI / command / bridge 校验门槛
+- [governance.md](governance.md) - current / compat / deprecated / dead 分类语言
+- [../exec-plans/mcp-modernization-progress.md](../exec-plans/mcp-modernization-progress.md) - 当前 MCP 现代化进度与缺口

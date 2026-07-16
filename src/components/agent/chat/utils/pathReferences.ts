@@ -1,6 +1,6 @@
 import type { MessagePathReference } from "../types";
 
-export const PATH_REFERENCE_DRAG_MIME = "application/x-ember-path-reference";
+export const PATH_REFERENCE_DRAG_MIME = "application/x-lime-path-reference";
 const REMEMBERED_PATH_DRAG_TTL_MS = 10_000;
 
 interface PathReferenceInput {

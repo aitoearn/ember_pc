@@ -82,7 +82,7 @@ describe("parseImageWorkbenchCommand", () => {
     ).toBe(true);
   });
 
-  it("应解析 Ember Cloud 或本地目录声明的图片模型绑定命令", () => {
+  it("应解析 Lime Cloud 或本地目录声明的图片模型绑定命令", () => {
     const seeded = getSeededSkillCatalog();
     saveSkillCatalog(
       {
@@ -108,7 +108,7 @@ describe("parseImageWorkbenchCommand", () => {
                 provider_id: "airgate-openai-images",
                 model_id: "gpt-images-2",
                 executor_mode: "responses_image_generation",
-                bindingSource: "ember_cloud",
+                bindingSource: "lime_cloud",
               },
             },
             render_contract: {

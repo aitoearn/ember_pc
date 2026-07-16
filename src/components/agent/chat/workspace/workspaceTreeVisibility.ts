@@ -1,6 +1,6 @@
 import type { DirectoryListing, FileEntry } from "@/lib/api/fileBrowser";
 
-const ROOT_HIDDEN_DIRECTORY_NAMES = new Set([".ember", "output"]);
+const ROOT_HIDDEN_DIRECTORY_NAMES = new Set([".lime", "output"]);
 const GLOBAL_HIDDEN_ENTRY_NAMES = new Set([".DS_Store", "Thumbs.db"]);
 const ROOT_HIDDEN_FILE_PATTERNS = [/^output_image\.[a-z0-9]+$/i];
 

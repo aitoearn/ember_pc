@@ -284,7 +284,7 @@ describe("layered-design export", () => {
     expect(view.getUint16(24, false)).toBe(3);
     expect(readPsdLayerCount(psd)).toBe(3);
     expect(readAscii(psd, 0, psd.byteLength)).toContain("LmTx");
-    expect(decodePsdText(psd)).toContain("ember.layered-design.text-layer");
+    expect(decodePsdText(psd)).toContain("lime.layered-design.text-layer");
     expect(decodePsdText(psd)).toContain("咖啡 & 甜点 <入门>");
     expect(decodePsdText(psd)).toContain("rasterized_placeholder_layer");
     expect(readAscii(psd, 0, psd.byteLength)).not.toMatch(

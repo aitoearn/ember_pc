@@ -1,9 +1,18 @@
 import type { AgentThreadItem, AgentThreadTurn, Message } from "../types";
 import { isRetainedSkillProcessMessage } from "../utils/skillInlineProcessRetention";
+import { isUnifiedWebSearchToolName } from "../utils/searchResultPreview";
 import {
-  isRuntimeStatusDiagnosticsOnly,
+  isUpdatePlanToolName,
+  isUnifiedWebFetchToolName,
+} from "../utils/toolNameFamily";
+import {
   shouldHideTurnSummaryFromConversation,
 } from "../utils/turnSummaryPresentation";
+import {
+  buildAgentTextDeltaContentPartMetadata,
+  canMergeCoalescibleContentParts,
+  mergeIncrementalTextWithOverlap,
+} from "../utils/contentPartTimeline";
 
 export function isDeferredTimelineItem(item: AgentThreadItem): boolean {
   return item.type === "file_artifact" || item.type === "turn_summary";
@@ -97,14 +106,21 @@ export function hasTimelineProcessItems(items?: AgentThreadItem[]): boolean {
       (item) =>
         item.type === "plan" ||
         item.type === "reasoning" ||
-        item.type === "tool_call" ||
+        (item.type === "tool_call" && !isUpdatePlanToolName(item.tool_name)) ||
         item.type === "command_execution" ||
+        item.type === "patch" ||
         item.type === "web_search" ||
         item.type === "approval_request" ||
         item.type === "request_user_input" ||
         item.type === "context_compaction",
     ),
   );
+}
+
+export function hasPersistedReasoningTimelineItem(
+  items?: AgentThreadItem[],
+): boolean {
+  return Boolean(items?.some((item) => item.type === "reasoning"));
 }
 
 function hasInlineThinkingContent(message: Message): boolean {
@@ -143,41 +159,37 @@ export function resolveInlineThinkingContent(
   return thinkingText.trim() ? thinkingText : undefined;
 }
 
-function hasNonTextInlineProcessPart(message: Message): boolean {
-  return Boolean(
-    message.contentParts?.some(
-      (part) => part.type !== "text" && part.type !== "thinking",
-    ),
-  );
-}
-
-function shouldSuppressAmbientStreamingReasoning(
+function hasCompletedOrRunningWebRetrievalProcess(
   message: Message,
   displayContent: string,
 ): boolean {
-  if (
-    !hasInlineThinkingContent(message) ||
-    displayContent.trim() ||
-    !isRuntimeStatusDiagnosticsOnly(message.runtimeStatus)
-  ) {
+  if (displayContent.trim()) {
     return false;
   }
 
-  if (
-    hasNonTextInlineProcessPart(message) ||
-    (message.toolCalls || []).length > 0 ||
-    (message.actionRequests || []).length > 0
-  ) {
-    return false;
-  }
+  const isCompletedOrRunningWebRetrievalTool = (toolCall: {
+    name: string;
+    status: string;
+  }) =>
+    (toolCall.status === "running" || toolCall.status === "completed") &&
+    (isUnifiedWebSearchToolName(toolCall.name) ||
+      isUnifiedWebFetchToolName(toolCall.name));
 
-  return true;
+  return (
+    (message.toolCalls || []).some(isCompletedOrRunningWebRetrievalTool) ||
+    (message.contentParts || []).some(
+      (part) =>
+        part.type === "tool_use" &&
+        isCompletedOrRunningWebRetrievalTool(part.toolCall),
+    )
+  );
 }
 
 export function shouldKeepInlineProcessForActiveAssistant(
   message: Message,
   isConversationTailAssistant: boolean,
   hasProcessTimelineItems: boolean,
+  hasPersistedReasoningTimeline: boolean,
   hasTurnContext: boolean,
   displayContent: string,
   isSending: boolean,
@@ -187,9 +199,6 @@ export function shouldKeepInlineProcessForActiveAssistant(
   }
 
   if (message.isThinking) {
-    if (shouldSuppressAmbientStreamingReasoning(message, displayContent)) {
-      return false;
-    }
     return true;
   }
 
@@ -207,6 +216,7 @@ export function shouldKeepInlineProcessForActiveAssistant(
   if (
     hasTurnContext &&
     !hasProcessTimelineItems &&
+    !hasPersistedReasoningTimeline &&
     hasInlineThinkingContent(message)
   ) {
     return true;
@@ -238,9 +248,11 @@ export function shouldKeepInlineProcessForActiveAssistant(
         part.type === "action_required" &&
         part.actionRequired.status !== "submitted",
     );
+  const hasActiveWebRetrievalProcess =
+    hasCompletedOrRunningWebRetrievalProcess(message, displayContent);
   const hasActiveRuntimeStatus =
     Boolean(message.runtimeStatus) &&
-    (message.isThinking || isSending) &&
+    (message.isThinking || isSending || hasActiveWebRetrievalProcess) &&
     message.runtimeStatus?.phase !== "failed" &&
     message.runtimeStatus?.phase !== "cancelled";
 
@@ -256,7 +268,6 @@ function isPreAnswerThinkingTimelineItem(item: AgentThreadItem): boolean {
 
   return (
     item.type === "plan" ||
-    item.type === "reasoning" ||
     item.type === "turn_summary" ||
     item.type === "context_compaction"
   );
@@ -282,6 +293,7 @@ export function shouldSuppressPreAnswerThinkingTimeline(params: {
 
 export interface InlineProcessCoverage {
   hasInlineProcessEntries: boolean;
+  plan: boolean;
   thinking: boolean;
   toolNameCounts: Map<string, number>;
   actionRequestCounts: Map<string, number>;
@@ -349,9 +361,14 @@ export function createInlineCoverageMatcher(coverage: InlineProcessCoverage) {
 
   return (item: AgentThreadItem): boolean => {
     switch (item.type) {
+      case "plan":
+        return coverage.plan;
       case "reasoning":
         return coverage.thinking;
       case "tool_call":
+        if (isUpdatePlanToolName(item.tool_name)) {
+          return true;
+        }
         return consumeInlineCoverageCount(
           remainingToolNameCounts,
           normalizeInlineCoverageKey(item.tool_name),
@@ -360,6 +377,11 @@ export function createInlineCoverageMatcher(coverage: InlineProcessCoverage) {
         return consumeInlineCoverageCount(
           remainingToolNameCounts,
           normalizeInlineCoverageKey("command_execution"),
+        );
+      case "patch":
+        return consumeInlineCoverageCount(
+          remainingToolNameCounts,
+          normalizeInlineCoverageKey("patch"),
         );
       case "web_search":
         return consumeInlineCoverageCount(
@@ -387,9 +409,14 @@ export function resolveInlineProcessCoverage(params: {
   const contentParts = params.contentParts || [];
   const toolNameCounts = new Map<string, number>();
   const actionRequestCounts = new Map<string, number>();
+  let plan = false;
   let thinking = false;
 
   if (contentParts.length > 0) {
+    plan = contentParts.some(
+      (part) =>
+        part.type === "text" && part.text.includes("<proposed_plan>"),
+    );
     thinking = contentParts.some(
       (part) => part.type === "thinking" && part.text.trim().length > 0,
     );
@@ -427,7 +454,11 @@ export function resolveInlineProcessCoverage(params: {
 
   return {
     hasInlineProcessEntries:
-      thinking || toolNameCounts.size > 0 || actionRequestCounts.size > 0,
+      plan ||
+      thinking ||
+      toolNameCounts.size > 0 ||
+      actionRequestCounts.size > 0,
+    plan,
     thinking,
     toolNameCounts,
     actionRequestCounts,
@@ -474,18 +505,123 @@ function isTimelineProcessBoundaryPart(
   );
 }
 
+type StreamingOverlayInput =
+  | string
+  | {
+      content?: string | null;
+      itemId?: string | null;
+      phase?: string | null;
+      sequence?: number | null;
+      turnId?: string | null;
+    }
+  | null
+  | undefined;
+
+type TextContentPart = Extract<
+  NonNullable<Message["contentParts"]>[number],
+  { type: "text" }
+>;
+
+function normalizeStreamingOverlayInput(
+  overlay: StreamingOverlayInput,
+): { content: string; metadata?: Record<string, unknown> } | null {
+  if (!overlay) {
+    return null;
+  }
+  if (typeof overlay === "string") {
+    return overlay ? { content: overlay } : null;
+  }
+
+  const content = overlay.content || "";
+  if (!content) {
+    return null;
+  }
+  const metadata = buildAgentTextDeltaContentPartMetadata({
+    itemId: overlay.itemId,
+    phase: overlay.phase,
+    sequence: overlay.sequence,
+    turnId: overlay.turnId,
+  });
+  return metadata ? { content, metadata } : { content };
+}
+
+function createOverlayTextPart(
+  text: string,
+  metadata?: Record<string, unknown>,
+): TextContentPart {
+  return {
+    type: "text",
+    text,
+    ...(metadata ? { metadata } : {}),
+  };
+}
+
+function hasStructuredTextProvenance(part: TextContentPart): boolean {
+  const metadata = part.metadata;
+  return Boolean(
+    metadata?.itemId ||
+      metadata?.threadItemId ||
+      metadata?.turnId ||
+      metadata?.phase ||
+      typeof metadata?.sequence === "number",
+  );
+}
+
+function mergeTextPart(
+  base: TextContentPart,
+  chunk: TextContentPart,
+): TextContentPart {
+  return {
+    ...base,
+    type: "text",
+    text: mergeIncrementalTextWithOverlap(base.text, chunk.text),
+    metadata: base.metadata ?? chunk.metadata,
+  };
+}
+
+function mergeOverlayIntoLastPreProcessText(
+  parts: NonNullable<Message["contentParts"]>,
+  pendingPart: TextContentPart,
+): Message["contentParts"] | null {
+  const processBoundaryIndex = parts.findIndex(isTimelineProcessBoundaryPart);
+  if (processBoundaryIndex < 0) {
+    return null;
+  }
+
+  for (let index = processBoundaryIndex - 1; index >= 0; index -= 1) {
+    const part = parts[index];
+    if (part?.type !== "text") {
+      continue;
+    }
+    if (
+      !hasStructuredTextProvenance(part) ||
+      !hasStructuredTextProvenance(pendingPart) ||
+      !canMergeCoalescibleContentParts(part, pendingPart)
+    ) {
+      return null;
+    }
+    const nextParts = [...parts];
+    nextParts[index] = mergeTextPart(part, pendingPart);
+    return nextParts;
+  }
+
+  return null;
+}
+
 export function mergeStreamingOverlayContentParts(
   parts: Message["contentParts"] | undefined,
-  overlayContent: string | null,
+  overlay: StreamingOverlayInput,
 ): Message["contentParts"] | undefined {
-  if (!overlayContent) {
+  const normalizedOverlay = normalizeStreamingOverlayInput(overlay);
+  if (!normalizedOverlay) {
     return parts;
   }
 
-  const textPart: NonNullable<Message["contentParts"]>[number] = {
-    type: "text",
-    text: overlayContent,
-  };
+  const overlayContent = normalizedOverlay.content;
+  const textPart = createOverlayTextPart(
+    overlayContent,
+    normalizedOverlay.metadata,
+  );
   if (!parts?.length) {
     return [textPart];
   }
@@ -504,13 +640,31 @@ export function mergeStreamingOverlayContentParts(
     const nextParts = [...parts];
     const lastPart = nextParts[nextParts.length - 1];
     if (lastPart?.type === "text") {
-      nextParts[nextParts.length - 1] = {
-        type: "text",
-        text: `${lastPart.text}${pendingText}`,
-      };
+      const pendingPart = createOverlayTextPart(
+        pendingText,
+        normalizedOverlay.metadata,
+      );
+      if (canMergeCoalescibleContentParts(lastPart, pendingPart)) {
+        nextParts[nextParts.length - 1] = mergeTextPart(
+          lastPart,
+          pendingPart,
+        );
+      } else {
+        nextParts.push(pendingPart);
+      }
       return nextParts;
     }
-    return [...nextParts, { type: "text", text: pendingText }];
+    const preProcessMergedParts = mergeOverlayIntoLastPreProcessText(
+      nextParts,
+      createOverlayTextPart(pendingText, normalizedOverlay.metadata),
+    );
+    if (preProcessMergedParts) {
+      return preProcessMergedParts;
+    }
+    return [
+      ...nextParts,
+      createOverlayTextPart(pendingText, normalizedOverlay.metadata),
+    ];
   }
 
   const processBoundaryIndex = parts.findIndex(isTimelineProcessBoundaryPart);
@@ -537,8 +691,12 @@ export function mergeStreamingOverlayContentParts(
           : overlayContent;
       const nextParts = [...parts];
       nextParts[lastTextAfterProcessIndex] = {
+        ...nextParts[lastTextAfterProcessIndex],
         type: "text",
         text: nextText,
+        ...(normalizedOverlay.metadata
+          ? { metadata: normalizedOverlay.metadata }
+          : {}),
       };
       return nextParts;
     }

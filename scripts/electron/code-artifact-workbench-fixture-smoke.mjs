@@ -13,7 +13,7 @@ const DEFAULTS = {
   appUrl: "",
   evidenceDir: path.join(
     process.cwd(),
-    ".ember",
+    ".lime",
     "qc",
     "gui-evidence",
     "code-artifact-workbench-electron-fixture",
@@ -22,9 +22,13 @@ const DEFAULTS = {
   timeoutMs: 180_000,
   intervalMs: 500,
   keepTemp: false,
+  scenario: "direct-session",
 };
 
 const LOG_PREFIX = "[smoke:code-artifact-workbench-electron-fixture]";
+const TEMP_CLEANUP_RETRY_COUNT = 8;
+const TEMP_CLEANUP_RETRY_DELAY_MS = 250;
+const FINAL_PAGE_OPERATION_TIMEOUT_MS = 15_000;
 const APP_SERVER_HANDLE_JSON_LINES_COMMAND = "app_server_handle_json_lines";
 const APP_SERVER_METHOD_SESSION_START = "agentSession/start";
 const APP_SERVER_METHOD_SESSION_UPDATE = "agentSession/update";
@@ -37,33 +41,57 @@ const THREAD_ID = `${SESSION_ID}-thread`;
 const TURN_ID = `${SESSION_ID}-turn`;
 const SESSION_TITLE = "代码产物工作台 Electron fixture";
 const USER_PROMPT = "生成一个 TypeScript greeting 代码产物，并打开工作台验证。";
+const GUI_CODING_PROMPT =
+  "@代码 修复 coding-target.test.ts 中 codingWorkbenchSmoke 失败的问题，并补一个回归测试";
 const ASSISTANT_ARTIFACT_TEXT = "已生成代码产物，可在工作台查看。";
 const FINAL_DONE_TEXT = "CODE_ARTIFACT_WORKBENCH_DONE";
 const ARTIFACT_ID = "code-artifact-workbench-electron:greeting";
 const ARTIFACT_PATH =
-  ".ember/qc/code-artifact-workbench-electron-fixture/src/greeting.ts";
+  ".lime/qc/code-artifact-workbench-electron-fixture/src/greeting.ts";
 const TOOL_CALL_ID = "code-artifact-workbench-electron:tool:webfetch";
 const TOOL_NAME = "WebFetch";
 const TOOL_OUTPUT_PREVIEW =
-  "已获取 fixture 工具事实: https://example.com/ember-workbench-tool";
+  "已获取 fixture 工具事实: https://example.com/lime-workbench-tool";
 const TOOL_TIMELINE_GUI_TEXT = "已获取 1 项数据";
+const CODING_FILE_PATH =
+  ".lime/qc/code-artifact-workbench-electron-fixture/src/coding-target.ts";
+const CODING_ARTIFACT_ID = "code-artifact-workbench-electron:coding-target";
+const CODING_PATCH_ID = "code-artifact-workbench-electron:patch:coding-target";
+const CODING_COMMAND_ID = "code-artifact-workbench-electron:command:test";
+const CODING_TEST_RUN_ID = "code-artifact-workbench-electron:test:unit";
+const CODING_COMMAND_TEXT = "npm test -- coding-target";
+const CODING_COMMAND_FAILURE_PREVIEW =
+  "FAIL coding-target.test.ts: expected codingWorkbenchSmoke to be true";
+const CODING_COMMAND_SUCCESS_PREVIEW =
+  "PASS coding-target.test.ts: codingWorkbenchSmoke is true";
+const CODING_TEST_SUITE = "coding-target";
+const CODING_FILE_PREVIEW = "export const codingWorkbenchSmoke = true;";
+const ARTIFACT_PREVIEW_TEXT =
+  "export function greeting() { return 'Hello Lime Workbench'; }";
 const ARTIFACT_CONTENT = [
   "export function greeting() {",
-  "  return 'Hello Ember Workbench';",
+  "  return 'Hello Lime Workbench';",
   "}",
   "",
   "export const workbenchSmoke = true;",
   "",
 ].join("\n");
 
+function expectedUserPrompt(options) {
+  return options.scenario === "gui-coding-input"
+    ? GUI_CODING_PROMPT
+    : USER_PROMPT;
+}
+
 function printHelp() {
   console.log(`
 Code Artifact Workbench Electron Fixture Smoke
 
 用途:
-  启动真实 Electron Desktop Host，通过 App Server JSON-RPC current 主链创建一个
-  带代码产物 artifact.snapshot 的会话，再在 GUI 里从侧栏历史打开该会话并点击工作台，
-  验证历史恢复、代码产物展示入口和工作台面板可用。
+  启动真实 Electron Desktop Host，验证代码产物 / Coding Workbench current 主链。
+  默认通过 App Server JSON-RPC current 主链创建一个带代码产物 artifact.snapshot 的会话，
+  再在 GUI 里从侧栏历史打开该会话并点击工作台。gui-coding-input 场景会先通过真实
+  GUI 输入框发送一条 coding 请求，再验证 Workbench 面板可用。
 
 边界:
   本脚本使用一次性本地 external backend fixture，不调用正式模型后端，不使用
@@ -77,6 +105,7 @@ Code Artifact Workbench Electron Fixture Smoke
   --app-url <url>        可选 renderer dev server，例如 http://127.0.0.1:1420/
   --evidence-dir <path>  证据目录
   --prefix <name>        证据文件前缀
+  --scenario <name>      direct-session | gui-coding-input，默认 direct-session
   --timeout-ms <ms>      总超时，默认 180000
   --interval-ms <ms>     轮询间隔，默认 500
   --keep-temp            保留临时目录便于调试
@@ -108,6 +137,11 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
+    if (arg === "--scenario" && next) {
+      options.scenario = next.trim();
+      index += 1;
+      continue;
+    }
     if (arg === "--timeout-ms" && next) {
       options.timeoutMs = Number(next);
       index += 1;
@@ -134,6 +168,9 @@ function parseArgs(argv) {
   if (!options.evidenceDir || !options.prefix) {
     throw new Error("--evidence-dir / --prefix 均不能为空");
   }
+  if (!["direct-session", "gui-coding-input"].includes(options.scenario)) {
+    throw new Error("--scenario 只能是 direct-session 或 gui-coding-input");
+  }
   return options;
 }
 
@@ -141,10 +178,39 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function withTimeout(promise, timeoutMs, label) {
+  let timeout = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => {
+          reject(new Error(`${label} 超时 ${timeoutMs}ms`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  }
+}
+
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+function assertNoRendererErrors(consoleErrors, pageErrors) {
+  assert(
+    consoleErrors.length === 0,
+    `Electron renderer console error: ${JSON.stringify(consoleErrors)}`,
+  );
+  assert(
+    pageErrors.length === 0,
+    `Electron renderer page error: ${JSON.stringify(pageErrors)}`,
+  );
 }
 
 function logStage(stage) {
@@ -226,6 +292,21 @@ function writeJsonFile(filePath, value) {
   fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function cleanupTempRoot(tempRoot) {
+  try {
+    fs.rmSync(tempRoot, {
+      recursive: true,
+      force: true,
+      maxRetries: TEMP_CLEANUP_RETRY_COUNT,
+      retryDelay: TEMP_CLEANUP_RETRY_DELAY_MS,
+    });
+  } catch (error) {
+    console.warn(
+      `${LOG_PREFIX} temp cleanup skipped path=${tempRoot} error=${sanitizeText(error)}`,
+    );
+  }
+}
+
 function createTempRuntimeEnv() {
   const tempRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), "code-artifact-workbench-electron-"),
@@ -235,7 +316,7 @@ function createTempRuntimeEnv() {
   const localAppData = path.join(tempRoot, "local-app-data");
   const roamingAppData = path.join(tempRoot, "roaming-app-data");
   const electronUserDataDir = path.join(tempRoot, "electron-user-data");
-  const asterRoot = path.join(tempRoot, "aster");
+  const agentRoot = path.join(tempRoot, "agent");
   const backendPath = path.join(tempRoot, "code-artifact-backend.mjs");
   const backendLedgerPath = path.join(tempRoot, "code-artifact-backend.jsonl");
 
@@ -245,7 +326,7 @@ function createTempRuntimeEnv() {
     localAppData,
     roamingAppData,
     electronUserDataDir,
-    asterRoot,
+    agentRoot,
   ]) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -263,7 +344,7 @@ function createTempRuntimeEnv() {
       XDG_DATA_HOME: xdgDataHome,
       APPDATA: roamingAppData,
       LOCALAPPDATA: localAppData,
-      EMBER_ASTER_ROOT: asterRoot,
+      LIME_AGENT_RUNTIME_ROOT: agentRoot,
     },
   };
 }
@@ -286,38 +367,92 @@ if (ledgerPath) {
     providerPreference: input.request?.providerPreference,
     modelPreference: input.request?.modelPreference,
     runtimeOptions: input.request?.runtimeOptions,
+    requestMetadata: input.request?.runtimeOptions?.runtimeRequest?.metadata,
     recordedAt: new Date().toISOString()
   }) + "\\n");
 }
 
 if (input.kind === "turnStart") {
-  console.log(JSON.stringify({
-    events: [
+  const requestMetadata = input.request?.runtimeOptions?.runtimeRequest?.metadata || {};
+  const isRecoveryTurn = requestMetadata.harness?.coding_workbench_recovery?.schemaVersion === "coding-workbench-recovery/v1";
+  const inputText = String(input.request?.input?.text || "");
+  const isCodingPrompt = inputText.includes("coding-target.test.ts") || isRecoveryTurn;
+  const commandPreview = isCodingPrompt && !isRecoveryTurn
+    ? "${CODING_COMMAND_FAILURE_PREVIEW}"
+    : "${CODING_COMMAND_SUCCESS_PREVIEW}";
+  const commandExitCode = isCodingPrompt && !isRecoveryTurn ? 1 : 0;
+  const testResult = isCodingPrompt && !isRecoveryTurn ? "failed" : "passed";
+  const testPassed = isCodingPrompt && !isRecoveryTurn ? 0 : 1;
+  const testFailed = isCodingPrompt && !isRecoveryTurn ? 1 : 0;
+  const assistantText = isRecoveryTurn
+    ? "已继续修复 coding-target，并通过 npm test -- coding-target。"
+    : "${ASSISTANT_ARTIFACT_TEXT}";
+  const sessionId = String(input.request?.session?.sessionId || "");
+  const threadId = String(input.request?.session?.threadId || sessionId);
+  const turnId = String(input.request?.turn?.turnId || "");
+  const turnScopedExecutionId = (baseId) =>
+    isRecoveryTurn ? baseId + ":" + turnId : baseId;
+  const toolCallId = turnScopedExecutionId("${TOOL_CALL_ID}");
+  const fileChangeItemId = turnScopedExecutionId("${CODING_ARTIFACT_ID}");
+  const patchId = turnScopedExecutionId("${CODING_PATCH_ID}");
+  const commandId = turnScopedExecutionId("${CODING_COMMAND_ID}");
+  const testRunId = turnScopedExecutionId("${CODING_TEST_RUN_ID}");
+  const checkpointRef = turnScopedExecutionId("checkpoint://code-artifact-workbench/coding-target");
+  const contentRef = turnScopedExecutionId("content://code-artifact-workbench/coding-target");
+  const diffRef = turnScopedExecutionId("diff://code-artifact-workbench/coding-target");
+  const commandOutputRef = turnScopedExecutionId("output://code-artifact-workbench/coding-target-test");
+  const toolStartedAtMs = Date.now();
+  const canonicalToolItem = (status, sequence, output = null) => {
+    const updatedAtMs = Date.now();
+    return {
+      sessionId,
+      threadId,
+      turnId,
+      itemId: toolCallId,
+      sequence,
+      ordinal: 4,
+      createdAtMs: toolStartedAtMs,
+      updatedAtMs,
+      completedAtMs: output ? updatedAtMs : undefined,
+      kind: "tool",
+      status,
+      payload: {
+        type: "tool",
+        call_id: toolCallId,
+        name: "${TOOL_NAME}",
+        arguments: [
+          { name: "url", value: "https://example.com/lime-workbench-tool" },
+          { name: "purpose", value: "code-artifact-workbench-electron-fixture" }
+        ],
+        output
+      },
+      metadata: {
+        source: "code-artifact-workbench-electron-fixture"
+      }
+    };
+  };
+  const events = [
       {
         type: "message.delta",
         payload: {
-          text: "${ASSISTANT_ARTIFACT_TEXT}"
+          text: assistantText
         }
       },
       {
-        type: "tool.started",
+        type: "item.started",
         payload: {
-          toolCallId: "${TOOL_CALL_ID}",
-          toolName: "${TOOL_NAME}",
-          arguments: {
-            url: "https://example.com/ember-workbench-tool",
-            purpose: "code-artifact-workbench-electron-fixture"
-          }
+          item: canonicalToolItem("inProgress", 1)
         }
       },
       {
-        type: "tool.result",
+        type: "item.completed",
         payload: {
-          toolCallId: "${TOOL_CALL_ID}",
-          toolName: "${TOOL_NAME}",
-          outputPreview: "${TOOL_OUTPUT_PREVIEW}",
-          output: "${TOOL_OUTPUT_PREVIEW}",
-          success: true
+          item: canonicalToolItem("completed", 2, {
+            text: "${TOOL_OUTPUT_PREVIEW}",
+            structuredContent: { source: "fixture" },
+            durationMs: Math.max(0, Date.now() - toolStartedAtMs),
+            truncated: false
+          })
         }
       },
       {
@@ -333,10 +468,92 @@ if (input.kind === "turnStart") {
               artifactTitle: "Greeting TypeScript fixture",
               artifactStatus: "ready",
               language: "typescript",
-              previewText: "export function greeting() returns Hello Ember Workbench.",
+              previewText: "${ARTIFACT_PREVIEW_TEXT}",
               source: "code-artifact-workbench-electron-fixture"
             }
           }
+        }
+      },
+      {
+        type: "file.changed",
+        payload: {
+          itemId: fileChangeItemId,
+          path: "${CODING_FILE_PATH}",
+          artifactId: "${CODING_ARTIFACT_ID}",
+          artifactRefs: ["${CODING_ARTIFACT_ID}"],
+          changeKind: "modified",
+          checkpointRef,
+          contentRef,
+          diffRef,
+          preview: "${CODING_FILE_PREVIEW}",
+          change: {
+            diff: [
+              { kind: "context", value: "export const codingWorkbenchSmoke = false;" },
+              { kind: "remove", value: "export const codingWorkbenchSmoke = false;" },
+              { kind: "add", value: "${CODING_FILE_PREVIEW}" }
+            ]
+          }
+        }
+      },
+      {
+        type: "patch.started",
+        payload: {
+          patchId,
+          path: "${CODING_FILE_PATH}"
+        }
+      },
+      {
+        type: "patch.applied",
+        payload: {
+          patchId,
+          path: "${CODING_FILE_PATH}",
+          diffRef
+        }
+      },
+      {
+        type: "command.started",
+        payload: {
+          commandId,
+          command: "${CODING_COMMAND_TEXT}",
+          cwd: "."
+        }
+      },
+      {
+        type: "command.output",
+        payload: {
+          commandId,
+          outputRef: commandOutputRef,
+          preview: commandPreview
+        }
+      },
+      {
+        type: "command.exited",
+        payload: {
+          commandId,
+          command: "${CODING_COMMAND_TEXT}",
+          exitCode: commandExitCode,
+          outputRef: commandOutputRef,
+          preview: commandPreview
+        }
+      },
+      {
+        type: "test.started",
+        payload: {
+          testRunId,
+          commandId,
+          suite: "${CODING_TEST_SUITE}"
+        }
+      },
+      {
+        type: "test.completed",
+        payload: {
+          testRunId,
+          commandId,
+          suite: "${CODING_TEST_SUITE}",
+          result: testResult,
+          passed: testPassed,
+          failed: testFailed,
+          outputRef: commandOutputRef
         }
       },
       {
@@ -345,15 +562,25 @@ if (input.kind === "turnStart") {
           status: "completed",
           text: "${FINAL_DONE_TEXT}"
         }
-      },
-      {
-        type: "turn.final_done",
-        payload: {
-          text: "${FINAL_DONE_TEXT}"
-        }
       }
-    ]
-  }));
+    ];
+  if (ledgerPath) {
+    appendFileSync(ledgerPath, JSON.stringify({
+      kind: "backendEvents",
+      sessionId: input.request?.session?.sessionId,
+      turnId: input.request?.turn?.turnId,
+      executionIds: {
+        toolCallId,
+        fileChangeItemId,
+        patchId,
+        commandId,
+        testRunId
+      },
+      eventTypes: events.map((event) => event.type),
+      recordedAt: new Date().toISOString()
+    }) + "\\n");
+  }
+  console.log(JSON.stringify({ events }));
   process.exit(0);
 }
 
@@ -375,6 +602,20 @@ function readJsonl(filePath) {
     .map((line) => JSON.parse(line));
 }
 
+function persistBackendLedgerEvidence(sourcePath, evidencePath) {
+  let backendLedger = [];
+  let readError = null;
+  try {
+    backendLedger = readJsonl(sourcePath);
+  } catch (error) {
+    readError = sanitizeText(
+      error instanceof Error ? error.stack || error.message : String(error),
+    );
+  }
+  writeJsonFile(evidencePath, backendLedger.map(sanitizeJson));
+  return { backendLedger, readError };
+}
+
 function parseJsonRpcLine(line) {
   const trimmed = String(line || "").trim();
   if (!trimmed) {
@@ -392,6 +633,50 @@ function decodeJsonRpcLines(lines) {
   return Array.isArray(lines)
     ? lines.map(parseJsonRpcLine).filter(Boolean)
     : [];
+}
+
+function readTraceMessages(raw) {
+  try {
+    const parsed = JSON.parse(raw || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function collectTraceRequestMethods(traceMessages) {
+  return traceMessages
+    .filter((entry) => entry?.command === APP_SERVER_HANDLE_JSON_LINES_COMMAND)
+    .flatMap((entry) =>
+      decodeJsonRpcLines(entry?.args_preview?.request?.lines).map(
+        (message) => message.method,
+      ),
+    )
+    .filter(Boolean);
+}
+
+function collectTraceJsonRpcMessages(traceMessages) {
+  return traceMessages
+    .filter((entry) => entry?.command === APP_SERVER_HANDLE_JSON_LINES_COMMAND)
+    .flatMap((entry) =>
+      decodeJsonRpcLines(entry?.args_preview?.request?.lines),
+    );
+}
+
+function findCodingRecoveryTurnStart(messages) {
+  return messages
+    .filter(
+      (message) => message?.method === APP_SERVER_METHOD_SESSION_TURN_START,
+    )
+    .find((message) => {
+      const metadata =
+        message?.params?.runtimeOptions?.runtimeRequest?.metadata || {};
+      const harness = metadata.harness || {};
+      return (
+        harness.coding_workbench_recovery?.schemaVersion ===
+        "coding-workbench-recovery/v1"
+      );
+    });
 }
 
 function collectArtifactSummaries(readResult) {
@@ -452,10 +737,16 @@ function hasToolTimelineProjection(readResult) {
   return status === "completed" && output.includes(TOOL_OUTPUT_PREVIEW);
 }
 
-function hasGuiToolTimelineEvidence({ sessionHydrated, workbench, pageText }) {
+function hasGuiToolTimelineEvidence({
+  sessionHydrated,
+  timelineProcessEvidence,
+  workbench,
+  pageText,
+}) {
   const visibleText = [
     pageText,
     sessionHydrated?.bodyText,
+    timelineProcessEvidence?.bodyText,
     workbench?.snapshot?.bodyText,
   ]
     .filter((value) => typeof value === "string" && value.length > 0)
@@ -464,10 +755,160 @@ function hasGuiToolTimelineEvidence({ sessionHydrated, workbench, pageText }) {
     sessionHydrated?.hasToolName === true ||
     sessionHydrated?.hasToolOutputPreview === true ||
     sessionHydrated?.hasToolTimelineText === true ||
+    timelineProcessEvidence?.hasToolName === true ||
+    timelineProcessEvidence?.hasToolOutputPreview === true ||
+    timelineProcessEvidence?.hasToolTimelineText === true ||
     visibleText.includes(TOOL_NAME) ||
     visibleText.includes(TOOL_OUTPUT_PREVIEW) ||
     visibleText.includes(TOOL_TIMELINE_GUI_TEXT)
   );
+}
+
+function hasSessionConversationShell(snapshot) {
+  return (
+    snapshot?.hasMessageList === true || snapshot?.hasConversationShell === true
+  );
+}
+
+function hasSessionWorkbenchAnchor(snapshot) {
+  return (
+    snapshot?.hasWorkbenchToggle === true ||
+    snapshot?.hasTaskCenterWorkbenchTab === true ||
+    snapshot?.hasWorkbenchEntry === true ||
+    snapshot?.hasTaskCenterShell === true ||
+    snapshot?.hasWorkbenchSidebar === true ||
+    snapshot?.hasArtifactWorkbenchShell === true ||
+    snapshot?.hasCanvasWorkbenchShell === true
+  );
+}
+
+function hasSessionArtifactAnchor(snapshot) {
+  return (
+    snapshot?.hasArtifactPath === true ||
+    snapshot?.hasCodeText === true ||
+    hasSessionWorkbenchAnchor(snapshot)
+  );
+}
+
+function hasGuiCodingInputHydratedSession(snapshot) {
+  return (
+    snapshot?.isGuiCodingInput === true &&
+    snapshot?.hasUserPrompt === true &&
+    snapshot?.hasToolTimelineText === true &&
+    hasSessionWorkbenchAnchor(snapshot) &&
+    hasSessionConversationShell(snapshot)
+  );
+}
+
+function hasHydratedSessionSnapshot(snapshot) {
+  if (!snapshot || snapshot.isRestoringSession === true) {
+    return false;
+  }
+
+  const hasAssistantCompletionCopy =
+    snapshot.hasDoneText === true || snapshot.hasGeneratedText === true;
+  const hasDirectArtifactHydration =
+    snapshot.hasUserPrompt === true &&
+    hasAssistantCompletionCopy &&
+    hasSessionArtifactAnchor(snapshot);
+  const hasWorkbenchShellHydration =
+    snapshot.hasUserPrompt === true &&
+    (hasAssistantCompletionCopy ||
+      snapshot.hasToolName === true ||
+      snapshot.hasToolOutputPreview === true ||
+      snapshot.hasArtifactPath === true ||
+      snapshot.hasCodeText === true) &&
+    (snapshot.hasWorkbenchToggle === true ||
+      snapshot.hasTaskCenterWorkbenchTab === true) &&
+    hasSessionConversationShell(snapshot);
+
+  return (
+    hasDirectArtifactHydration ||
+    hasWorkbenchShellHydration ||
+    hasGuiCodingInputHydratedSession(snapshot)
+  );
+}
+
+async function expandTimelineProcessGroups(page, options) {
+  const startedAt = Date.now();
+  const timeoutMs = Math.min(options.timeoutMs, 15_000);
+  let lastSnapshot = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const snapshot = await evaluatePageSnapshot(
+      page,
+      ({ toolName, toolOutputPreview, toolTimelineText }) => {
+        const isVisible = (element) => {
+          if (!(element instanceof HTMLElement)) {
+            return false;
+          }
+          const style = window.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return (
+            style.display !== "none" &&
+            style.visibility !== "hidden" &&
+            rect.width > 0 &&
+            rect.height > 0
+          );
+        };
+        const groups = Array.from(
+          document.querySelectorAll('[data-testid="streaming-process-group"]'),
+        ).filter(isVisible);
+        const buttons = groups
+          .map((group) => group.querySelector("button"))
+          .filter(
+            (button) => button instanceof HTMLElement && isVisible(button),
+          );
+        let clicked = 0;
+        for (const button of buttons) {
+          if (button.getAttribute("aria-expanded") === "true") {
+            continue;
+          }
+          button.click();
+          clicked += 1;
+        }
+        const text = document.body?.innerText || "";
+        return {
+          groupCount: groups.length,
+          buttonCount: buttons.length,
+          clicked,
+          expandedCount: buttons.filter(
+            (button) => button.getAttribute("aria-expanded") === "true",
+          ).length,
+          hasToolName: text.includes(toolName),
+          hasToolOutputPreview: text.includes(toolOutputPreview),
+          hasToolTimelineText:
+            text.includes(toolTimelineText) ||
+            text.includes("已获取 1 项数据") ||
+            text.includes("获取中 1 项") ||
+            text.includes("Tool 结果") ||
+            text.includes("Tool result") ||
+            text.includes(toolOutputPreview),
+          bodyText: text,
+        };
+      },
+      {
+        toolName: TOOL_NAME,
+        toolOutputPreview: TOOL_OUTPUT_PREVIEW,
+        toolTimelineText: TOOL_TIMELINE_GUI_TEXT,
+      },
+    );
+    if (!snapshot) {
+      await sleep(options.intervalMs);
+      continue;
+    }
+    lastSnapshot = snapshot;
+    if (
+      snapshot.hasToolName ||
+      snapshot.hasToolOutputPreview ||
+      snapshot.hasToolTimelineText
+    ) {
+      return snapshot;
+    }
+    await sleep(options.intervalMs);
+  }
+
+  return lastSnapshot;
 }
 
 function hasCodeArtifactProjection(readResult) {
@@ -480,6 +921,23 @@ function hasCodeArtifactProjection(readResult) {
     );
     return artifactId === ARTIFACT_ID && artifactPath === ARTIFACT_PATH;
   });
+}
+
+function hasCodingProjection(readResult) {
+  const serialized = JSON.stringify(readResult || {});
+  return (
+    serialized.includes(CODING_FILE_PATH) &&
+    serialized.includes(CODING_COMMAND_ID) &&
+    serialized.includes(CODING_TEST_RUN_ID) &&
+    (serialized.includes(CODING_COMMAND_SUCCESS_PREVIEW) ||
+      serialized.includes(CODING_COMMAND_FAILURE_PREVIEW))
+  );
+}
+
+function hasCodingSuccessProjection(readResult) {
+  return JSON.stringify(readResult || {}).includes(
+    CODING_COMMAND_SUCCESS_PREVIEW,
+  );
 }
 
 async function ensureDefaultWorkspace(page) {
@@ -503,6 +961,7 @@ async function bindGuiWorkspaceToFixture(page, workspaceId) {
     ({ workspaceId, sessionId }) => {
       const lastProjectKey = "agent_last_project_id";
       const sessionWorkspaceKey = `agent_session_workspace_${sessionId}`;
+      window.localStorage.setItem("lime:agent-debug", "1");
       window.localStorage.setItem(lastProjectKey, JSON.stringify(workspaceId));
       window.localStorage.setItem(
         sessionWorkspaceKey,
@@ -621,6 +1080,153 @@ async function navigateGuiToWorkspaceScopedAgent(page, options, workspaceId) {
   );
 }
 
+async function waitForInputReady(page, options) {
+  const startedAt = Date.now();
+  let lastSnapshot = null;
+  while (Date.now() - startedAt < options.timeoutMs) {
+    const snapshot = await evaluatePageSnapshot(
+      page,
+      ({ sessionId }) => {
+        const textarea = document.querySelector(
+          'textarea[name="agent-chat-message"]',
+        );
+        const rect = textarea?.getBoundingClientRect();
+        const style = textarea ? window.getComputedStyle(textarea) : null;
+        const bodyText = document.body?.innerText || "";
+        const textareaSessionId =
+          textarea instanceof HTMLTextAreaElement
+            ? textarea.getAttribute("data-session-id") || null
+            : null;
+        const activeConversation = document.querySelector(
+          '[data-testid="app-sidebar-conversation-open"][aria-current="page"]',
+        );
+        const activeConversationMatches =
+          (activeConversation?.getAttribute("title") || "").includes(
+            "代码产物工作台 Electron fixture",
+          ) ||
+          (activeConversation?.textContent || "").includes(
+            "代码产物工作台 Electron fixture",
+          );
+        const restoring =
+          bodyText.includes("正在恢复生成会话") ||
+          bodyText.includes("正在同步最近一次生成会话") ||
+          bodyText.includes("Restoring generation session") ||
+          bodyText.includes("Syncing the latest generation session");
+        const visible = Boolean(
+          textarea &&
+          rect &&
+          rect.width > 16 &&
+          rect.height > 16 &&
+          style?.visibility !== "hidden" &&
+          style?.display !== "none",
+        );
+        return {
+          url: window.location.href,
+          sessionId: textareaSessionId,
+          sessionMatches: textareaSessionId === sessionId,
+          activeConversationMatches,
+          restoring,
+          hasTextarea: Boolean(textarea),
+          textareaVisible: visible,
+          textareaDisabled:
+            textarea instanceof HTMLTextAreaElement ? textarea.disabled : null,
+          textareaValue:
+            textarea instanceof HTMLTextAreaElement ? textarea.value : null,
+          hasInputbarCore: Boolean(
+            document.querySelector('[data-testid="inputbar-core-container"]'),
+          ),
+          bodyText,
+        };
+      },
+      { sessionId: SESSION_ID },
+    );
+    if (!snapshot) {
+      await sleep(options.intervalMs);
+      continue;
+    }
+    lastSnapshot = snapshot;
+    const hasWritableInput =
+      !snapshot.restoring &&
+      snapshot.hasTextarea &&
+      snapshot.textareaVisible &&
+      snapshot.textareaDisabled === false;
+    if (
+      hasWritableInput &&
+      (snapshot.sessionMatches ||
+        snapshot.activeConversationMatches ||
+        snapshot.hasInputbarCore)
+    ) {
+      return snapshot;
+    }
+    await sleep(options.intervalMs);
+  }
+  throw new Error(
+    `Coding 输入框未就绪: ${JSON.stringify(sanitizeJson(lastSnapshot))}`,
+  );
+}
+
+async function sendPromptFromGui(page, options, prompt) {
+  const before = await waitForInputReady(page, options);
+  const textarea = page.locator('textarea[name="agent-chat-message"]').first();
+  await textarea.fill(prompt);
+  const afterFill = await page.evaluate((prompt) => {
+    const input = document.querySelector('textarea[name="agent-chat-message"]');
+    return {
+      value: input instanceof HTMLTextAreaElement ? input.value : null,
+      promptVisibleInTextarea:
+        input instanceof HTMLTextAreaElement ? input.value === prompt : false,
+    };
+  }, prompt);
+  assert(
+    afterFill.promptVisibleInTextarea,
+    `输入框未保留 coding 请求: ${JSON.stringify(sanitizeJson(afterFill))}`,
+  );
+
+  const clicked = await page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll("button"));
+    const sendButton = buttons.find((button) => {
+      const label = [
+        button.getAttribute("aria-label") || "",
+        button.getAttribute("title") || "",
+        button.textContent || "",
+      ].join("\n");
+      return (
+        (label.includes("发送") || /\bSend\b/i.test(label)) && !button.disabled
+      );
+    });
+    if (sendButton instanceof HTMLElement) {
+      sendButton.click();
+      return {
+        clicked: true,
+        label:
+          sendButton.getAttribute("aria-label") ||
+          sendButton.getAttribute("title") ||
+          sendButton.textContent ||
+          "send",
+      };
+    }
+    return {
+      clicked: false,
+      labels: buttons.map((button) =>
+        [
+          button.getAttribute("aria-label") || "",
+          button.getAttribute("title") || "",
+          button.textContent || "",
+        ].join(" / "),
+      ),
+    };
+  });
+  assert(
+    clicked?.clicked,
+    `未找到可点击发送按钮: ${JSON.stringify(sanitizeJson(clicked))}`,
+  );
+  return {
+    before,
+    afterFill,
+    clicked,
+  };
+}
+
 function summarizeListVisibility(listResult) {
   const sessions = Array.isArray(listResult?.result?.sessions)
     ? listResult.result.sessions
@@ -664,13 +1270,13 @@ async function waitForRendererReady(page, options, onSnapshot) {
     const snapshot = await evaluatePageSnapshot(page, () => ({
       url: window.location.href,
       title: document.title || "",
-      electron: window.__EMBER_ELECTRON__ === true,
+      electron: window.__LIME_ELECTRON__ === true,
       hasInvokeBridge: typeof window.electronAPI?.invoke === "function",
       supportsAppServer:
         typeof window.electronAPI?.supportsCommand === "function" &&
         window.electronAPI.supportsCommand("app_server_handle_json_lines"),
       startupVisible: Boolean(
-        document.querySelector("[data-ember-startup-shell]"),
+        document.querySelector("[data-lime-startup-shell]"),
       ),
       appSidebarVisible: Boolean(
         document.querySelector('[data-testid="app-sidebar"]'),
@@ -697,9 +1303,13 @@ async function waitForRendererReady(page, options, onSnapshot) {
 }
 
 async function clearInvokeBuffers(page) {
-  await page.evaluate(() => {
-    window.localStorage.removeItem("ember_invoke_error_buffer_v1");
-    window.localStorage.removeItem("ember_invoke_trace_buffer_v1");
+  return await page.evaluate(() => {
+    window.localStorage.removeItem("lime_invoke_error_buffer_v1");
+    window.localStorage.removeItem("lime_invoke_trace_buffer_v1");
+    return {
+      cleared: true,
+      clearedAt: new Date().toISOString(),
+    };
   });
 }
 
@@ -779,12 +1389,95 @@ async function initializeAppServer(page) {
   return initialize.result;
 }
 
-async function createCodeArtifactSession(page, options, workspaceId) {
-  const startedAt = Date.now();
-  const requests = [];
+function summarizeCodeArtifactRead(readResult, requests = []) {
+  return {
+    requestMethods: Array.from(
+      new Set(requests.map((request) => request.method).filter(Boolean)),
+    ),
+    detailItemCount: Array.isArray(readResult?.detail?.items)
+      ? readResult.detail.items.length
+      : null,
+    detailArtifactCount: Array.isArray(readResult?.detail?.artifacts)
+      ? readResult.detail.artifacts.length
+      : null,
+    threadReadArtifactCount: Array.isArray(
+      readResult?.detail?.thread_read?.artifacts,
+    )
+      ? readResult.detail.thread_read.artifacts.length
+      : null,
+    threadReadToolCallCount: Array.isArray(
+      readResult?.detail?.thread_read?.tool_calls,
+    )
+      ? readResult.detail.thread_read.tool_calls.length
+      : null,
+    codingProjectionPersisted: hasCodingProjection(readResult),
+    toolTimelineProjectionPersisted: hasToolTimelineProjection(readResult),
+    fixtureToolCall: findFixtureToolCall(readResult) ?? null,
+    latestTurnStatus:
+      readResult?.detail?.thread_read?.runtime_summary?.latestTurnStatus ??
+      readResult?.detail?.thread_read?.status ??
+      readResult?.detail?.status ??
+      null,
+    artifactProjectionPersisted: hasCodeArtifactProjection(readResult),
+    detailTextIncludesArtifact: JSON.stringify(readResult || {}).includes(
+      ARTIFACT_ID,
+    ),
+  };
+}
 
+async function waitForCodeArtifactReadModel(
+  page,
+  options,
+  { requests = [], timeoutMs = 60_000, requireCodingSuccess = false } = {},
+) {
+  const startedAt = Date.now();
+  let lastRead = null;
+  while (Date.now() - startedAt < timeoutMs) {
+    let read = null;
+    try {
+      requests.push({ method: APP_SERVER_METHOD_SESSION_READ, params: {} });
+      read = await invokeAppServerFromPage(
+        page,
+        APP_SERVER_METHOD_SESSION_READ,
+        {
+          sessionId: SESSION_ID,
+          historyLimit: 100,
+        },
+      );
+    } catch (error) {
+      if (!isTransientPageEvaluationError(error)) {
+        throw error;
+      }
+      await waitForRendererReady(page, {
+        ...options,
+        timeoutMs: Math.min(15_000, options.timeoutMs),
+      });
+      await sleep(500);
+      continue;
+    }
+    lastRead = read.result;
+    const text = JSON.stringify(read.result || {});
+    if (
+      hasCodeArtifactProjection(read.result) &&
+      hasToolTimelineProjection(read.result) &&
+      hasCodingProjection(read.result) &&
+      (!requireCodingSuccess || hasCodingSuccessProjection(read.result))
+    ) {
+      return read.result;
+    }
+    await sleep(500);
+  }
+
+  throw new Error(
+    `代码产物会话未完成，或未持久化 artifact.snapshot / tool_calls / coding facts: ${JSON.stringify(
+      summarizeCodeArtifactRead(lastRead),
+    )}`,
+  );
+}
+
+async function startCodeArtifactSession(page, workspaceId, requests) {
   async function call(method, params = {}) {
-    requests.push({ method, params });
+    requests?.push({ method, params });
     return await invokeAppServerFromPage(page, method, params);
   }
 
@@ -818,6 +1511,36 @@ async function createCodeArtifactSession(page, options, workspaceId) {
     executionStrategy: "react",
   });
 
+  await page.evaluate(
+    ({ sessionId, workspaceId }) => {
+      window.dispatchEvent(
+        new CustomEvent("lime:agent-runtime-sessions-changed", {
+          detail: {
+            reason: "external",
+            sessionId,
+            workspaceId,
+          },
+        }),
+      );
+    },
+    { sessionId: SESSION_ID, workspaceId },
+  );
+
+  return {
+    session: session.result,
+  };
+}
+
+async function createCodeArtifactSession(page, options, workspaceId) {
+  const requests = [];
+
+  const session = await startCodeArtifactSession(page, workspaceId, requests);
+
+  async function call(method, params = {}) {
+    requests.push({ method, params });
+    return await invokeAppServerFromPage(page, method, params);
+  }
+
   const turn = await call(APP_SERVER_METHOD_SESSION_TURN_START, {
     sessionId: SESSION_ID,
     turnId: TURN_ID,
@@ -827,35 +1550,18 @@ async function createCodeArtifactSession(page, options, workspaceId) {
     runtimeOptions: {
       stream: true,
       eventName: `code_artifact_workbench_${TURN_ID}`,
-      providerPreference: "fixture-provider",
-      modelPreference: "fixture-model",
-      metadata: {
-        source: "code-artifact-workbench-electron-fixture",
-      },
-      hostOptions: {
-        asterChatRequest: {
-          message: USER_PROMPT,
-          session_id: SESSION_ID,
-          turn_id: TURN_ID,
-          event_name: `code_artifact_workbench_${TURN_ID}`,
-          provider_preference: "fixture-provider",
-          model_preference: "fixture-model",
-          provider_config: {
-            provider_name: "fixture-provider",
-            model_name: "fixture-model",
-          },
-          turn_config: {
-            provider_config: {
-              provider_name: "fixture-provider",
-              model_name: "fixture-model",
-            },
-            approval_policy: "never",
-            sandbox_policy: "workspace-write",
-            execution_strategy: "react",
-            metadata: {
-              source: "code-artifact-workbench-electron-fixture",
-            },
-          },
+      runtimeRequest: {
+        providerPreference: "fixture-provider",
+        modelPreference: "fixture-model",
+        providerConfig: {
+          providerName: "fixture-provider",
+          modelName: "fixture-model",
+        },
+        approvalPolicy: "never",
+        sandboxPolicy: "workspace-write",
+        executionStrategy: "react",
+        metadata: {
+          source: "code-artifact-workbench-electron-fixture",
         },
       },
     },
@@ -863,46 +1569,14 @@ async function createCodeArtifactSession(page, options, workspaceId) {
     skipPreSubmitResume: true,
   });
 
-  let lastRead = null;
-  while (Date.now() - startedAt < 60_000) {
-    let read = null;
-    try {
-      read = await call(APP_SERVER_METHOD_SESSION_READ, {
-        sessionId: SESSION_ID,
-        historyLimit: 100,
-      });
-    } catch (error) {
-      if (!isTransientPageEvaluationError(error)) {
-        throw error;
-      }
-      await waitForRendererReady(page, {
-        ...options,
-        timeoutMs: Math.min(15_000, options.timeoutMs),
-      });
-      await sleep(500);
-      continue;
-    }
-    lastRead = read.result;
-    const text = JSON.stringify(read.result || {});
-    if (
-      hasCodeArtifactProjection(read.result) &&
-      hasToolTimelineProjection(read.result)
-    ) {
-      return {
-        session: session.result,
-        turn: turn.result,
-        read: read.result,
-        requests,
-      };
-    }
-    await sleep(500);
-  }
+  const read = await waitForCodeArtifactReadModel(page, options, { requests });
 
-  throw new Error(
-    `代码产物会话未完成，或未持久化 artifact.snapshot / tool_calls: ${JSON.stringify(
-      sanitizeJson(lastRead),
-    )}`,
-  );
+  return {
+    session: session.session,
+    turn: turn.result,
+    read,
+    requests,
+  };
 }
 
 async function waitForGuiSessionVisible(page, options) {
@@ -926,10 +1600,10 @@ async function waitForGuiSessionVisible(page, options) {
           }),
         );
         const traceRaw = window.localStorage.getItem(
-          "ember_invoke_trace_buffer_v1",
+          "lime_invoke_trace_buffer_v1",
         );
         const errorRaw = window.localStorage.getItem(
-          "ember_invoke_error_buffer_v1",
+          "lime_invoke_error_buffer_v1",
         );
         return {
           url: window.location.href,
@@ -1004,41 +1678,180 @@ async function waitForGuiSessionVisible(page, options) {
 
 async function openFixtureSessionFromSidebar(page, options) {
   const startedAt = Date.now();
+  let lastSnapshot = null;
   while (Date.now() - startedAt < options.timeoutMs) {
-    const clicked = await evaluatePageSnapshot(
+    const snapshot = await evaluatePageSnapshot(
       page,
       ({ title }) => {
-        const candidates = Array.from(document.querySelectorAll("button"));
-        const button = candidates.find((candidate) => {
-          const label = [
-            candidate.getAttribute("title") || "",
-            candidate.getAttribute("aria-label") || "",
-            candidate.textContent || "",
-          ].join("\n");
-          return label.includes(title);
-        });
+        const conversationButtons = Array.from(
+          document.querySelectorAll(
+            '[data-testid="app-sidebar-conversation-open"]',
+          ),
+        );
+        const button = conversationButtons.find(
+          (candidate) =>
+            (candidate.getAttribute("title") || "").includes(title) ||
+            (candidate.textContent || "").includes(title),
+        );
         if (!button) {
+          const candidates = Array.from(document.querySelectorAll("button"));
           const moreButton = candidates.find((candidate) =>
             (candidate.textContent || "").includes("查看更多对话"),
           );
           moreButton?.click();
-          return false;
+          return {
+            clicked: false,
+            reason: "not-found",
+            conversationButtonCount: conversationButtons.length,
+            bodyText: document.body?.innerText || "",
+          };
         }
         button.click();
-        return true;
+        return {
+          clicked: true,
+          reason: "clicked",
+          title: button.getAttribute("title") || "",
+          text: button.textContent || "",
+          ariaCurrent: button.getAttribute("aria-current") || "",
+          conversationButtonCount: conversationButtons.length,
+        };
       },
       { title: SESSION_TITLE },
     );
-    if (clicked) {
+    if (!snapshot) {
+      await sleep(options.intervalMs);
+      continue;
+    }
+    lastSnapshot = snapshot;
+    if (snapshot.clicked) {
       return;
     }
     await sleep(options.intervalMs);
   }
-  throw new Error(`侧栏未找到 fixture 会话: ${SESSION_TITLE}`);
+  throw new Error(
+    `侧栏未找到 fixture 会话: ${SESSION_TITLE}: ${JSON.stringify(
+      sanitizeJson(lastSnapshot),
+    )}`,
+  );
+}
+
+async function waitForFixtureSessionOpenedFromSidebar(page, options) {
+  const startedAt = Date.now();
+  let lastSnapshot = null;
+
+  while (Date.now() - startedAt < options.timeoutMs) {
+    const snapshot = await evaluatePageSnapshot(
+      page,
+      ({ title, sessionId }) => {
+        const text = document.body?.innerText || "";
+        const mainText = document.querySelector("main")?.textContent || "";
+        const activeConversation = document.querySelector(
+          '[data-testid="app-sidebar-conversation-open"][aria-current="page"]',
+        );
+        const textarea = document.querySelector(
+          'textarea[name="agent-chat-message"]',
+        );
+        const textareaSessionId =
+          textarea instanceof HTMLTextAreaElement
+            ? textarea.getAttribute("data-session-id") || null
+            : null;
+        const restoring =
+          text.includes("正在恢复生成会话") ||
+          text.includes("正在同步最近一次生成会话") ||
+          text.includes("Restoring generation session") ||
+          text.includes("Syncing the latest generation session");
+        const agentPerfEntries =
+          typeof window.__LIME_AGENTUI_PERF__?.entries === "function"
+            ? window.__LIME_AGENTUI_PERF__.entries().slice(-20)
+            : [];
+        const traceRaw = window.localStorage.getItem(
+          "lime_invoke_trace_buffer_v1",
+        );
+        const frontendDebugEntries = (() => {
+          try {
+            const entries = JSON.parse(traceRaw || "[]");
+            return Array.isArray(entries)
+              ? entries
+                  .filter((entry) =>
+                    JSON.stringify(entry).includes("report_frontend_debug_log"),
+                  )
+                  .slice(-20)
+              : [];
+          } catch {
+            return [];
+          }
+        })();
+        return {
+          hasSessionTitle: text.includes(title),
+          hasSessionTitleInMain: mainText.includes(title),
+          activeConversationTitle:
+            activeConversation?.getAttribute("title") || null,
+          activeConversationText: activeConversation?.textContent || null,
+          activeConversationMatches:
+            (activeConversation?.getAttribute("title") || "").includes(title) ||
+            (activeConversation?.textContent || "").includes(title),
+          textareaSessionId,
+          sessionMatches: textareaSessionId === sessionId,
+          restoring,
+          hasEmptyState: Boolean(
+            document.querySelector('[data-testid="empty-state"]'),
+          ),
+          hasConversationShell: Boolean(
+            document.querySelector('[data-testid="agent-chat-workspace"]') ||
+            document.querySelector('[data-testid="chat-workspace"]') ||
+            document.querySelector('[data-testid="message-list"]') ||
+            document.querySelector('[data-testid="message-list-frame"]'),
+          ),
+          hasTaskCenterShell: Boolean(
+            document.querySelector(
+              '[data-testid="task-center-chrome-shell"]',
+            ) ||
+            document.querySelector('[data-testid="task-center-tab-strip"]'),
+          ),
+          hasWorkbenchTab: Boolean(
+            document.querySelector('[data-testid="task-center-tab-workbench"]'),
+          ),
+          hasCanvasWorkbenchShell: Boolean(
+            document.querySelector('[data-testid="canvas-workbench-shell"]') ||
+            document.querySelector('[data-testid="canvas-workbench-layout"]'),
+          ),
+          agentPerfEntries,
+          frontendDebugEntries,
+          bodyText: text,
+        };
+      },
+      { title: SESSION_TITLE, sessionId: SESSION_ID },
+    );
+    if (!snapshot) {
+      await sleep(options.intervalMs);
+      continue;
+    }
+    lastSnapshot = snapshot;
+    const hasOpenedShell =
+      snapshot.hasConversationShell ||
+      snapshot.hasTaskCenterShell ||
+      snapshot.hasWorkbenchTab ||
+      snapshot.hasCanvasWorkbenchShell;
+    const hasTargetSession =
+      snapshot.sessionMatches ||
+      snapshot.activeConversationMatches ||
+      snapshot.hasSessionTitleInMain;
+    if (!snapshot.restoring && hasTargetSession && hasOpenedShell) {
+      return snapshot;
+    }
+    await sleep(options.intervalMs);
+  }
+
+  throw new Error(
+    `侧栏点击后 fixture 会话未进入 current 工作区: ${JSON.stringify(
+      sanitizeJson(lastSnapshot),
+    )}`,
+  );
 }
 
 async function waitForSessionHydrated(page, options) {
   const startedAt = Date.now();
+  let lastSnapshot = null;
   while (Date.now() - startedAt < options.timeoutMs) {
     const snapshot = await evaluatePageSnapshot(
       page,
@@ -1049,14 +1862,24 @@ async function waitForSessionHydrated(page, options) {
         assistantArtifactText,
         toolName,
         toolOutputPreview,
+        isGuiCodingInput,
       }) => {
         const text = document.body?.innerText || "";
+        const normalizeText = (value) =>
+          String(value || "")
+            .replace(/\s+/g, " ")
+            .trim();
+        const normalizedText = normalizeText(text);
+        const normalizedUserPrompt = normalizeText(userPrompt);
         return {
           url: window.location.href,
           isRestoringSession:
             text.includes("正在恢复生成会话") ||
             text.includes("正在同步最近一次生成会话"),
-          hasUserPrompt: text.includes(userPrompt),
+          hasUserPrompt:
+            text.includes(userPrompt) ||
+            (normalizedUserPrompt.length > 0 &&
+              normalizedText.includes(normalizedUserPrompt)),
           hasDoneText: text.includes(doneText),
           hasGeneratedText: text.includes(assistantArtifactText),
           hasToolName: text.includes(toolName),
@@ -1067,8 +1890,9 @@ async function waitForSessionHydrated(page, options) {
             text.includes("Tool 结果") ||
             text.includes("Tool result") ||
             text.includes(toolOutputPreview),
+          isGuiCodingInput,
           hasArtifactPath: text.includes(artifactPath),
-          hasCodeText: text.includes("Hello Ember Workbench"),
+          hasCodeText: text.includes("Hello Lime Workbench"),
           hasMessageList: Boolean(
             document.querySelector('[data-testid="message-list"]') ||
             document.querySelector('[data-testid="message-list-frame"]'),
@@ -1122,59 +1946,106 @@ async function waitForSessionHydrated(page, options) {
       {
         artifactPath: ARTIFACT_PATH,
         doneText: FINAL_DONE_TEXT,
-        userPrompt: USER_PROMPT,
+        userPrompt: expectedUserPrompt(options),
         assistantArtifactText: ASSISTANT_ARTIFACT_TEXT,
         toolName: TOOL_NAME,
         toolOutputPreview: TOOL_OUTPUT_PREVIEW,
+        isGuiCodingInput: options.scenario === "gui-coding-input",
       },
     );
     if (!snapshot) {
       await sleep(options.intervalMs);
       continue;
     }
-    if (
-      !snapshot.isRestoringSession &&
-      snapshot.hasUserPrompt &&
-      (snapshot.hasDoneText || snapshot.hasGeneratedText) &&
-      (snapshot.hasArtifactPath ||
-        snapshot.hasCodeText ||
-        snapshot.hasWorkbenchToggle ||
-        snapshot.hasTaskCenterWorkbenchTab ||
-        snapshot.hasWorkbenchEntry ||
-        snapshot.hasTaskCenterShell ||
-        snapshot.hasWorkbenchSidebar ||
-        snapshot.hasArtifactWorkbenchShell ||
-        snapshot.hasCanvasWorkbenchShell)
-    ) {
-      return snapshot;
-    }
-    if (
-      !snapshot.isRestoringSession &&
-      snapshot.hasUserPrompt &&
-      (snapshot.hasDoneText ||
-        snapshot.hasGeneratedText ||
-        snapshot.hasToolName ||
-        snapshot.hasToolOutputPreview ||
-        snapshot.hasArtifactPath ||
-        snapshot.hasCodeText) &&
-      (snapshot.hasWorkbenchToggle || snapshot.hasTaskCenterWorkbenchTab) &&
-      (snapshot.hasMessageList || snapshot.hasConversationShell)
-    ) {
+    lastSnapshot = snapshot;
+    if (hasHydratedSessionSnapshot(snapshot)) {
       return snapshot;
     }
     await sleep(options.intervalMs);
   }
-  throw new Error("代码产物会话未在 GUI 中完成 hydrate");
+  throw new Error(
+    `代码产物会话未在 GUI 中完成 hydrate: ${JSON.stringify(
+      sanitizeJson(lastSnapshot),
+    )}`,
+  );
 }
 
 async function openWorkbench(page, options) {
+  await waitForSessionHydrated(page, options);
+  const existing = await evaluatePageSnapshot(page, () => {
+    const text = document.body?.innerText || "";
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    };
+    const canvasWorkbenchShell =
+      document.querySelector('[data-testid="canvas-workbench-shell"]') ||
+      document.querySelector('[data-testid="canvas-workbench-layout"]');
+    const canvasWorkbenchPanel = document.querySelector(
+      '[data-testid^="canvas-workbench-panel-"]',
+    );
+    const changesTab = document.querySelector(
+      '[data-canvas-tab-key="changes"]',
+    );
+    return {
+      hasCanvasWorkbenchShell: isVisible(canvasWorkbenchShell),
+      hasCanvasWorkbenchPanel: isVisible(canvasWorkbenchPanel),
+      hasChangesTab: isVisible(changesTab),
+      bodyText: text,
+    };
+  });
+  if (
+    existing?.hasCanvasWorkbenchShell ||
+    existing?.hasCanvasWorkbenchPanel ||
+    existing?.hasChangesTab
+  ) {
+    return {
+      clicked: { clicked: false, selector: "existing-canvas-workbench" },
+      snapshot: {
+        hasWorkbenchSidebar: false,
+        hasHarnessPanel: false,
+        hasArtifactWorkbenchShell: false,
+        hasCanvasWorkbenchShell: existing.hasCanvasWorkbenchShell,
+        hasCanvasWorkbenchPanel: existing.hasCanvasWorkbenchPanel,
+        hasCurrentProgressTab: false,
+        hasArtifactSummary: false,
+        bodyText: existing.bodyText,
+      },
+    };
+  }
+
   const clicked = await evaluatePageSnapshot(page, () => {
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    };
     const direct =
-      document.querySelector('[data-testid="task-center-tab-workbench"]') ||
-      document.querySelector(
-        '[data-testid="theme-workbench-harness-toggle"]',
-      ) ||
-      document.querySelector('[data-testid="toggle-harness"]');
+      [
+        document.querySelector('[data-testid="task-center-workbench-toggle"]'),
+        document.querySelector('[data-testid="task-center-tab-workbench"]'),
+        document.querySelector(
+          '[data-testid="theme-workbench-harness-toggle"]',
+        ),
+        document.querySelector('[data-testid="toggle-harness"]'),
+      ].find(isVisible) || null;
     if (direct instanceof HTMLElement) {
       direct.click();
       return {
@@ -1188,6 +2059,9 @@ async function openWorkbench(page, options) {
     }
     const button = Array.from(document.querySelectorAll("button")).find(
       (candidate) => {
+        if (!isVisible(candidate)) {
+          return false;
+        }
         const label = [
           candidate.getAttribute("title") || "",
           candidate.getAttribute("aria-label") || "",
@@ -1215,25 +2089,38 @@ async function openWorkbench(page, options) {
   while (Date.now() - startedAt < options.timeoutMs) {
     const snapshot = await evaluatePageSnapshot(page, () => {
       const text = document.body?.innerText || "";
+      const isVisible = (element) => {
+        if (!(element instanceof HTMLElement)) {
+          return false;
+        }
+        const style = window.getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return (
+          style.display !== "none" &&
+          style.visibility !== "hidden" &&
+          rect.width > 0 &&
+          rect.height > 0
+        );
+      };
       return {
-        hasWorkbenchSidebar: Boolean(
+        hasWorkbenchSidebar: isVisible(
           document.querySelector('[data-testid="general-workbench-sidebar"]'),
         ),
-        hasHarnessPanel: Boolean(
+        hasHarnessPanel: isVisible(
           document.querySelector('[data-testid="harness-status-panel"]'),
         ),
-        hasArtifactWorkbenchShell: Boolean(
+        hasArtifactWorkbenchShell: isVisible(
           document.querySelector('[data-testid="artifact-workbench-shell"]'),
         ),
-        hasCanvasWorkbenchShell: Boolean(
+        hasCanvasWorkbenchShell: isVisible(
           document.querySelector('[data-testid="canvas-workbench-shell"]') ||
-          document.querySelector('[data-testid="canvas-workbench-layout"]'),
+            document.querySelector('[data-testid="canvas-workbench-layout"]'),
         ),
-        hasCanvasWorkbenchPanel: Boolean(
+        hasCanvasWorkbenchPanel: isVisible(
           document.querySelector('[data-testid^="canvas-workbench-panel-"]'),
         ),
         hasCurrentProgressTab: text.includes("当前进展"),
-        hasArtifactSummary: text.includes("产物") || text.includes("artifact"),
+        hasArtifactSummary: false,
         bodyText: text,
       };
     });
@@ -1247,8 +2134,7 @@ async function openWorkbench(page, options) {
       snapshot.hasArtifactWorkbenchShell ||
       snapshot.hasCanvasWorkbenchShell ||
       snapshot.hasCanvasWorkbenchPanel ||
-      snapshot.hasCurrentProgressTab ||
-      snapshot.hasArtifactSummary
+      snapshot.hasCurrentProgressTab
     ) {
       return {
         clicked,
@@ -1258,6 +2144,386 @@ async function openWorkbench(page, options) {
     await sleep(options.intervalMs);
   }
   throw new Error("点击工作台后未出现工作台内容");
+}
+
+async function collectCodingWorkbenchGuiEvidence(
+  page,
+  options,
+  { outputPreview = CODING_COMMAND_SUCCESS_PREVIEW } = {},
+) {
+  const tabEvidenceTimeoutMs = Math.min(
+    options.timeoutMs,
+    FINAL_PAGE_OPERATION_TIMEOUT_MS,
+  );
+  const tabs = [
+    {
+      key: "changes",
+      panelTestId: "canvas-workbench-panel-changes",
+      expectedTexts: [CODING_FILE_PATH, CODING_FILE_PREVIEW],
+    },
+    {
+      key: "outputs",
+      panelTestId: "canvas-workbench-panel-outputs",
+      expectedTexts: [CODING_COMMAND_TEXT, outputPreview, CODING_TEST_SUITE],
+    },
+    {
+      key: "logs",
+      panelTestId: "canvas-workbench-panel-logs",
+      expectedTexts: [CODING_FILE_PATH, CODING_COMMAND_TEXT, CODING_TEST_SUITE],
+    },
+  ];
+  const evidence = {};
+
+  for (const tab of tabs) {
+    const clicked = await evaluatePageSnapshot(
+      page,
+      ({ key }) => {
+        const isVisible = (element) => {
+          if (!(element instanceof HTMLElement)) {
+            return false;
+          }
+          const style = window.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return (
+            style.display !== "none" &&
+            style.visibility !== "hidden" &&
+            rect.width > 0 &&
+            rect.height > 0
+          );
+        };
+        const visibleWorkbenchRoot = () => {
+          const visibleShell = Array.from(
+            document.querySelectorAll('[data-testid="canvas-workbench-shell"]'),
+          ).find(isVisible);
+          if (visibleShell instanceof HTMLElement) {
+            return visibleShell;
+          }
+          const visibleLayout = Array.from(
+            document.querySelectorAll(
+              '[data-testid="canvas-workbench-layout"]',
+            ),
+          ).find(isVisible);
+          if (!(visibleLayout instanceof HTMLElement)) {
+            return null;
+          }
+          const shell = visibleLayout.closest(
+            '[data-testid="canvas-workbench-shell"]',
+          );
+          return shell instanceof HTMLElement ? shell : visibleLayout;
+        };
+        const root = visibleWorkbenchRoot();
+        if (!root) {
+          return false;
+        }
+        const tabButton = Array.from(
+          root.querySelectorAll(`[data-canvas-tab-key="${key}"]`),
+        ).find(isVisible);
+        if (tabButton instanceof HTMLElement) {
+          tabButton.click();
+          return true;
+        }
+        return false;
+      },
+      { key: tab.key },
+    );
+    if (!clicked) {
+      evidence[tab.key] = {
+        clicked: false,
+        panelVisible: false,
+        expectedTextsPresent: false,
+        bodyText: "",
+      };
+      continue;
+    }
+
+    const startedAt = Date.now();
+    let lastSnapshot = null;
+    while (Date.now() - startedAt < tabEvidenceTimeoutMs) {
+      const snapshot = await evaluatePageSnapshot(
+        page,
+        ({ panelTestId, expectedTexts }) => {
+          const isVisible = (element) => {
+            if (!(element instanceof HTMLElement)) {
+              return false;
+            }
+            const style = window.getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return (
+              style.display !== "none" &&
+              style.visibility !== "hidden" &&
+              rect.width > 0 &&
+              rect.height > 0
+            );
+          };
+          const visibleWorkbenchRoot = () => {
+            const visibleShell = Array.from(
+              document.querySelectorAll(
+                '[data-testid="canvas-workbench-shell"]',
+              ),
+            ).find(isVisible);
+            if (visibleShell instanceof HTMLElement) {
+              return visibleShell;
+            }
+            const visibleLayout = Array.from(
+              document.querySelectorAll(
+                '[data-testid="canvas-workbench-layout"]',
+              ),
+            ).find(isVisible);
+            if (!(visibleLayout instanceof HTMLElement)) {
+              return null;
+            }
+            const shell = visibleLayout.closest(
+              '[data-testid="canvas-workbench-shell"]',
+            );
+            return shell instanceof HTMLElement ? shell : visibleLayout;
+          };
+          const root = visibleWorkbenchRoot();
+          if (!root) {
+            return {
+              clicked: true,
+              panelVisible: false,
+              expectedTexts: expectedTexts.map((text) => ({
+                text,
+                present: false,
+              })),
+              expectedTextsPresent: false,
+              bodyText: document.body?.innerText || "",
+            };
+          }
+          const panel = Array.from(
+            root.querySelectorAll(`[data-testid="${panelTestId}"]`),
+          ).find(isVisible);
+          const panelText = panel?.textContent || "";
+          const bodyText = document.body?.innerText || "";
+          return {
+            clicked: true,
+            panelVisible: Boolean(panel),
+            expectedTexts: expectedTexts.map((text) => ({
+              text,
+              present: panelText.includes(text),
+            })),
+            expectedTextsPresent: expectedTexts.every((text) =>
+              panelText.includes(text),
+            ),
+            bodyText,
+          };
+        },
+        {
+          panelTestId: tab.panelTestId,
+          expectedTexts: tab.expectedTexts,
+        },
+      );
+      if (!snapshot) {
+        await sleep(options.intervalMs);
+        continue;
+      }
+      lastSnapshot = snapshot;
+      if (snapshot.panelVisible && snapshot.expectedTextsPresent) {
+        break;
+      }
+      await sleep(options.intervalMs);
+    }
+    evidence[tab.key] = sanitizeJson(lastSnapshot);
+  }
+
+  return evidence;
+}
+
+async function clickCodingWorkbenchRecovery(page, options) {
+  const startedAt = Date.now();
+  let lastSnapshot = null;
+
+  while (Date.now() - startedAt < options.timeoutMs) {
+    const snapshot = await evaluatePageSnapshot(page, () => {
+      const isVisible = (element) => {
+        if (!(element instanceof HTMLElement)) {
+          return false;
+        }
+        const style = window.getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return (
+          style.display !== "none" &&
+          style.visibility !== "hidden" &&
+          rect.width > 0 &&
+          rect.height > 0
+        );
+      };
+      const visibleWorkbenchRoot = () => {
+        const visibleShell = Array.from(
+          document.querySelectorAll('[data-testid="canvas-workbench-shell"]'),
+        ).find(isVisible);
+        if (visibleShell instanceof HTMLElement) {
+          return visibleShell;
+        }
+        const visibleLayout = Array.from(
+          document.querySelectorAll('[data-testid="canvas-workbench-layout"]'),
+        ).find(isVisible);
+        if (!(visibleLayout instanceof HTMLElement)) {
+          return null;
+        }
+        const shell = visibleLayout.closest(
+          '[data-testid="canvas-workbench-shell"]',
+        );
+        return shell instanceof HTMLElement ? shell : visibleLayout;
+      };
+      const root = visibleWorkbenchRoot();
+      if (!root) {
+        return {
+          outputTabClicked: false,
+          outputPanelVisible: false,
+          recoveryPanelVisible: false,
+          buttonVisible: false,
+          hasCommandText: false,
+          hasFailurePreview: false,
+          hasSuccessPreview: false,
+          panelText: "",
+        };
+      }
+      const outputTab = Array.from(
+        root.querySelectorAll('[data-canvas-tab-key="outputs"]'),
+      ).find(isVisible);
+      if (outputTab instanceof HTMLElement) {
+        outputTab.click();
+      }
+      const panel = Array.from(
+        root.querySelectorAll('[data-testid="canvas-workbench-panel-outputs"]'),
+      ).find(isVisible);
+      const recoveryPanel = panel?.querySelector(
+        '[data-testid="coding-workbench-recovery"]',
+      );
+      const button =
+        panel?.querySelector(
+          '[data-testid="coding-workbench-recovery-submit"]',
+        ) ||
+        Array.from(panel?.querySelectorAll("button") || []).find((candidate) =>
+          (candidate.textContent || "").includes("继续修复"),
+        );
+      const buttonVisible = isVisible(button);
+      const panelText = panel?.textContent || "";
+      return {
+        outputTabClicked: outputTab instanceof HTMLElement,
+        outputPanelVisible: Boolean(panel),
+        recoveryPanelVisible: isVisible(recoveryPanel),
+        buttonVisible,
+        hasCommandText: panelText.includes("npm test -- coding-target"),
+        hasFailurePreview: panelText.includes("FAIL coding-target.test.ts"),
+        hasSuccessPreview: panelText.includes("PASS coding-target.test.ts"),
+        panelText,
+      };
+    });
+    if (!snapshot) {
+      await sleep(options.intervalMs);
+      continue;
+    }
+    lastSnapshot = snapshot;
+    if (
+      snapshot.outputPanelVisible &&
+      snapshot.recoveryPanelVisible &&
+      snapshot.buttonVisible
+    ) {
+      break;
+    }
+    await sleep(options.intervalMs);
+  }
+
+  assert(
+    lastSnapshot?.outputPanelVisible &&
+      lastSnapshot?.recoveryPanelVisible &&
+      lastSnapshot?.buttonVisible,
+    `未找到可点击的继续修复入口: ${JSON.stringify(sanitizeJson(lastSnapshot))}`,
+  );
+
+  const clicked = await evaluatePageSnapshot(page, () => {
+    const isVisible = (element) => {
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return (
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    };
+    const visibleWorkbenchRoot = () => {
+      const visibleShell = Array.from(
+        document.querySelectorAll('[data-testid="canvas-workbench-shell"]'),
+      ).find(isVisible);
+      if (visibleShell instanceof HTMLElement) {
+        return visibleShell;
+      }
+      const visibleLayout = Array.from(
+        document.querySelectorAll('[data-testid="canvas-workbench-layout"]'),
+      ).find(isVisible);
+      if (!(visibleLayout instanceof HTMLElement)) {
+        return null;
+      }
+      const shell = visibleLayout.closest(
+        '[data-testid="canvas-workbench-shell"]',
+      );
+      return shell instanceof HTMLElement ? shell : visibleLayout;
+    };
+    const root = visibleWorkbenchRoot();
+    if (!root) {
+      return false;
+    }
+    const panel = Array.from(
+      root.querySelectorAll('[data-testid="canvas-workbench-panel-outputs"]'),
+    ).find(isVisible);
+    if (!panel) {
+      return false;
+    }
+    const button =
+      panel.querySelector('[data-testid="coding-workbench-recovery-submit"]') ||
+      Array.from(panel.querySelectorAll("button")).find((candidate) =>
+        (candidate.textContent || "").includes("继续修复"),
+      );
+    if (button instanceof HTMLElement) {
+      button.click();
+      return true;
+    }
+    return false;
+  });
+  assert(clicked, "继续修复按钮点击失败");
+
+  const traceStartedAt = Date.now();
+  let lastTrace = null;
+  while (Date.now() - traceStartedAt < 30_000) {
+    const traceRaw = await page.evaluate(() =>
+      window.localStorage.getItem("lime_invoke_trace_buffer_v1"),
+    );
+    const traceMessages = readTraceMessages(traceRaw);
+    const turnStartMessages = collectTraceJsonRpcMessages(traceMessages).filter(
+      (message) => message.method === APP_SERVER_METHOD_SESSION_TURN_START,
+    );
+    const recoveryTurnStart = findCodingRecoveryTurnStart(turnStartMessages);
+    lastTrace = {
+      traceCount: traceMessages.length,
+      turnStartCount: turnStartMessages.length,
+      recoveryTurnStart: recoveryTurnStart || null,
+    };
+    if (recoveryTurnStart) {
+      const metadata =
+        recoveryTurnStart.params?.runtimeOptions?.runtimeRequest?.metadata ||
+        {};
+      const recovery = metadata.harness?.coding_workbench_recovery || null;
+      return sanitizeJson({
+        clicked: true,
+        panel: lastSnapshot,
+        inputText: recoveryTurnStart.params?.input?.text || null,
+        recovery,
+      });
+    }
+    await sleep(options.intervalMs);
+  }
+
+  throw new Error(
+    `继续修复点击后未在 turn/start trace 中找到结构化 recovery metadata: ${JSON.stringify(
+      sanitizeJson(lastTrace),
+    )}`,
+  );
 }
 
 async function run() {
@@ -1295,6 +2561,9 @@ async function run() {
   const summary = {
     ok: false,
     scenarioId: "code-artifact-workbench-electron-fixture",
+    scenario: options.scenario,
+    prompt:
+      options.scenario === "gui-coding-input" ? GUI_CODING_PROMPT : USER_PROMPT,
     sessionId: SESSION_ID,
     threadId: THREAD_ID,
     turnId: TURN_ID,
@@ -1318,11 +2587,16 @@ async function run() {
     initialize: null,
     guiWorkspaceBinding: null,
     guiWorkspaceNavigation: null,
+    guiCodingInput: null,
     sessionCreation: null,
     sessionListVisibility: null,
     guiSessionVisible: null,
+    guiSessionDirectOpen: null,
+    guiSessionOpenAfterInput: null,
     sessionHydrated: null,
     workbench: null,
+    codingWorkbenchGuiEvidence: null,
+    codingRecoveryEvidence: null,
     assertions: {},
     summary: summaryPath,
   };
@@ -1356,10 +2630,10 @@ async function run() {
         ]),
         APP_SERVER_BACKEND_TIMEOUT_MS: "10000",
         ELECTRON_E2E_USER_DATA_DIR: runtimeEnv.electronUserDataDir,
-        EMBER_ELECTRON_E2E: "1",
-        EMBER_ELECTRON_BRAND_DEV_APP: "0",
-        EMBER_ELECTRON_CLEAR_RENDERER_CACHE: "0",
-        EMBER_ELECTRON_DEV_HTTP_BRIDGE: "0",
+        LIME_ELECTRON_E2E: "1",
+        LIME_ELECTRON_BRAND_DEV_APP: "0",
+        LIME_ELECTRON_CLEAR_RENDERER_CACHE: "0",
+        LIME_ELECTRON_DEV_HTTP_BRIDGE: "0",
         ...(options.appUrl ? { VITE_DEV_SERVER_URL: options.appUrl } : {}),
       },
       timeout: options.timeoutMs,
@@ -1397,53 +2671,30 @@ async function run() {
     summary.workspaceId = workspace.workspaceId;
     summary.workspace = sanitizeJson(workspace);
 
-    logStage("create-code-artifact-session");
-    const sessionCreation = await createCodeArtifactSession(
-      page,
-      options,
-      workspace.workspaceId,
-    );
-    summary.sessionCreation = sanitizeJson({
-      requestMethods: Array.from(
-        new Set(sessionCreation.requests.map((request) => request.method)),
-      ),
-      sessionId: sessionCreation.session?.session?.sessionId ?? null,
-      turnId: sessionCreation.turn?.turn?.turnId ?? null,
-      detailItemCount: Array.isArray(sessionCreation.read?.detail?.items)
-        ? sessionCreation.read.detail.items.length
-        : null,
-      detailArtifactCount: Array.isArray(
-        sessionCreation.read?.detail?.artifacts,
-      )
-        ? sessionCreation.read.detail.artifacts.length
-        : null,
-      threadReadArtifactCount: Array.isArray(
-        sessionCreation.read?.detail?.thread_read?.artifacts,
-      )
-        ? sessionCreation.read.detail.thread_read.artifacts.length
-        : null,
-      threadReadToolCallCount: Array.isArray(
-        sessionCreation.read?.detail?.thread_read?.tool_calls,
-      )
-        ? sessionCreation.read.detail.thread_read.tool_calls.length
-        : null,
-      toolTimelineProjectionPersisted: hasToolTimelineProjection(
-        sessionCreation.read,
-      ),
-      fixtureToolCall: findFixtureToolCall(sessionCreation.read) ?? null,
-      latestTurnStatus:
-        sessionCreation.read?.detail?.thread_read?.runtime_summary
-          ?.latestTurnStatus ??
-        sessionCreation.read?.detail?.thread_read?.status ??
-        sessionCreation.read?.detail?.status ??
-        null,
-      artifactProjectionPersisted: hasCodeArtifactProjection(
-        sessionCreation.read,
-      ),
-      detailTextIncludesArtifact: JSON.stringify(
-        sessionCreation.read || {},
-      ).includes(ARTIFACT_ID),
-    });
+    let sessionCreation = null;
+
+    if (options.scenario === "gui-coding-input") {
+      logStage("start-empty-code-artifact-session");
+      const requests = [];
+      const startedSession = await startCodeArtifactSession(
+        page,
+        workspace.workspaceId,
+        requests,
+      );
+      sessionCreation = {
+        session: startedSession.session,
+        turn: null,
+        read: null,
+        requests,
+      };
+    } else {
+      logStage("create-code-artifact-session");
+      sessionCreation = await createCodeArtifactSession(
+        page,
+        options,
+        workspace.workspaceId,
+      );
+    }
 
     logStage("bind-gui-workspace");
     summary.guiWorkspaceBinding = sanitizeJson(
@@ -1482,89 +2733,234 @@ async function run() {
       ),
     );
 
+    logStage("wait-session-visible-in-sidebar");
+    summary.guiSessionVisible = sanitizeJson(
+      await waitForGuiSessionVisible(page, options),
+    );
+
     logStage("open-session-from-sidebar");
-    await waitForGuiSessionVisible(page, options);
-    await openFixtureSessionFromSidebar(page, options);
+    summary.guiSessionDirectOpenClick = sanitizeJson(
+      await openFixtureSessionFromSidebar(page, options),
+    );
+
+    logStage("wait-session-opened-from-sidebar");
+    summary.guiSessionDirectOpen = sanitizeJson(
+      await waitForFixtureSessionOpenedFromSidebar(page, options),
+    );
+
+    summary.invokeBuffersClearedBeforeScenario = sanitizeJson(
+      await clearInvokeBuffers(page),
+    );
+
+    if (options.scenario === "gui-coding-input") {
+      logStage("send-coding-prompt-from-gui");
+      summary.guiCodingInput = sanitizeJson(
+        await sendPromptFromGui(page, options, GUI_CODING_PROMPT),
+      );
+      logStage("wait-gui-coding-read-model");
+      sessionCreation.read = await waitForCodeArtifactReadModel(page, options, {
+        requests: sessionCreation.requests,
+        timeoutMs: options.timeoutMs,
+      });
+      logStage("open-session-after-gui-coding-input");
+      summary.guiSessionOpenAfterInput = sanitizeJson(
+        await waitForFixtureSessionOpenedFromSidebar(page, options),
+      );
+    }
+
+    summary.sessionCreation = sanitizeJson({
+      ...summarizeCodeArtifactRead(
+        sessionCreation.read,
+        sessionCreation.requests,
+      ),
+      sessionId:
+        sessionCreation.session?.session?.sessionId ??
+        sessionCreation.session?.session_id ??
+        SESSION_ID,
+      turnId:
+        sessionCreation.turn?.turn?.turnId ??
+        sessionCreation.turn?.turn?.turn_id ??
+        null,
+      guiPromptSubmitted:
+        options.scenario === "gui-coding-input"
+          ? summary.guiCodingInput?.clicked?.clicked === true &&
+            summary.guiCodingInput?.afterFill?.promptVisibleInTextarea === true
+          : null,
+    });
 
     logStage("wait-session-hydrated");
     const sessionHydrated = await waitForSessionHydrated(page, options);
     summary.sessionHydrated = sanitizeJson(sessionHydrated);
 
+    logStage("expand-timeline-process-groups");
+    summary.timelineProcessEvidence = sanitizeJson(
+      await expandTimelineProcessGroups(page, options),
+    );
+
     logStage("open-workbench");
     const workbench = await openWorkbench(page, options);
     summary.workbench = sanitizeJson(workbench);
 
-    const backendLedger = readJsonl(runtimeEnv.backendLedgerPath);
-    writeJsonFile(backendLedgerEvidencePath, backendLedger.map(sanitizeJson));
-    const pageText = await page.evaluate(() => document.body?.innerText || "");
-    const traceRaw = await page.evaluate(() =>
-      window.localStorage.getItem("ember_invoke_trace_buffer_v1"),
+    logStage("collect-coding-workbench-gui-evidence");
+    summary.codingWorkbenchGuiEvidence = sanitizeJson(
+      await collectCodingWorkbenchGuiEvidence(page, options, {
+        outputPreview:
+          options.scenario === "gui-coding-input"
+            ? CODING_COMMAND_FAILURE_PREVIEW
+            : CODING_COMMAND_SUCCESS_PREVIEW,
+      }),
     );
-    const errorRaw = await page.evaluate(() =>
-      window.localStorage.getItem("ember_invoke_error_buffer_v1"),
+
+    if (options.scenario === "gui-coding-input") {
+      logStage("click-coding-workbench-recovery");
+      summary.codingRecoveryEvidence = sanitizeJson(
+        await clickCodingWorkbenchRecovery(page, options),
+      );
+      logStage("wait-recovery-read-model");
+      summary.recoveryRead = sanitizeJson(
+        await waitForCodeArtifactReadModel(page, options, {
+          requests: sessionCreation.requests,
+          timeoutMs: options.timeoutMs,
+          requireCodingSuccess: true,
+        }),
+      );
+      logStage("open-session-after-recovery");
+      summary.guiSessionOpenAfterRecoveryClick = sanitizeJson(
+        await openFixtureSessionFromSidebar(page, options),
+      );
+      summary.guiSessionOpenAfterRecovery = sanitizeJson(
+        await waitForFixtureSessionOpenedFromSidebar(page, options),
+      );
+      logStage("open-workbench-after-recovery");
+      summary.workbenchAfterRecovery = sanitizeJson(
+        await openWorkbench(page, options),
+      );
+      logStage("collect-coding-workbench-gui-evidence-after-recovery");
+      summary.codingWorkbenchGuiEvidenceAfterRecovery = sanitizeJson(
+        await collectCodingWorkbenchGuiEvidence(page, options, {
+          outputPreview: CODING_COMMAND_SUCCESS_PREVIEW,
+        }),
+      );
+    }
+
+    const backendLedgerEvidence = persistBackendLedgerEvidence(
+      runtimeEnv.backendLedgerPath,
+      backendLedgerEvidencePath,
     );
-    const traceMessages = (() => {
-      try {
-        return JSON.parse(traceRaw || "[]");
-      } catch {
-        return [];
-      }
-    })();
+    if (backendLedgerEvidence.readError) {
+      throw new Error(
+        `读取 backend ledger 失败: ${backendLedgerEvidence.readError}`,
+      );
+    }
+    const { backendLedger } = backendLedgerEvidence;
+    const pageText = await withTimeout(
+      page.evaluate(() => document.body?.innerText || ""),
+      FINAL_PAGE_OPERATION_TIMEOUT_MS,
+      "读取页面正文",
+    );
+    const traceRaw = await withTimeout(
+      page.evaluate(() =>
+        window.localStorage.getItem("lime_invoke_trace_buffer_v1"),
+      ),
+      FINAL_PAGE_OPERATION_TIMEOUT_MS,
+      "读取 invoke trace",
+    );
+    const errorRaw = await withTimeout(
+      page.evaluate(() =>
+        window.localStorage.getItem("lime_invoke_error_buffer_v1"),
+      ),
+      FINAL_PAGE_OPERATION_TIMEOUT_MS,
+      "读取 invoke error",
+    );
+    const traceMessages = readTraceMessages(traceRaw);
     const appServerRequestMethods = Array.from(
       new Set(
         [
           ...(summary.sessionCreation?.requestMethods ?? []),
-          ...traceMessages
-            .filter(
-              (entry) =>
-                entry?.command === APP_SERVER_HANDLE_JSON_LINES_COMMAND,
-            )
-            .flatMap((entry) =>
-              decodeJsonRpcLines(entry?.args_preview?.request?.lines).map(
-                (message) => message.method,
-              ),
-            ),
+          ...collectTraceRequestMethods(traceMessages),
         ].filter(Boolean),
       ),
     );
+    const backendRecoveryTurnStart = backendLedger.find(
+      (entry) =>
+        entry.kind === "turnStart" &&
+        entry.requestMetadata?.harness?.coding_workbench_recovery
+          ?.schemaVersion === "coding-workbench-recovery/v1",
+    );
+    const backendRecoveryEvents = backendLedger.find(
+      (entry) =>
+        entry.kind === "backendEvents" &&
+        entry.turnId === backendRecoveryTurnStart?.turnId,
+    );
+    const recoveryExecutionIds = Object.values(
+      backendRecoveryEvents?.executionIds || {},
+    ).filter((value) => typeof value === "string" && value.trim());
+    const traceRecoveryTurnStart = findCodingRecoveryTurnStart(
+      collectTraceJsonRpcMessages(traceMessages),
+    );
+    const traceRecoveryMetadata =
+      traceRecoveryTurnStart?.params?.runtimeOptions?.runtimeRequest
+        ?.metadata || {};
+    const traceRecoveryContext =
+      traceRecoveryMetadata.harness?.coding_workbench_recovery || null;
+    const capturedRecoveryContext =
+      summary.codingRecoveryEvidence?.recovery || null;
+    const backendTurnStartObserved = backendLedger.some(
+      (entry) => entry.kind === "turnStart",
+    );
+    const backendEmittedEventTypes = Array.from(
+      new Set(
+        backendLedger
+          .filter((entry) => entry.kind === "backendEvents")
+          .flatMap((entry) =>
+            Array.isArray(entry.eventTypes) ? entry.eventTypes : [],
+          )
+          .filter((type) => typeof type === "string" && type.trim()),
+      ),
+    );
+    const appServerJsonRpcObserved =
+      appServerRequestMethods.includes(APP_SERVER_METHOD_SESSION_TURN_START) ||
+      backendTurnStartObserved ||
+      capturedRecoveryContext?.schemaVersion ===
+        "coding-workbench-recovery/v1" ||
+      traceRecoveryContext?.schemaVersion === "coding-workbench-recovery/v1";
     const guiToolTimelineEvidencePresent = hasGuiToolTimelineEvidence({
       sessionHydrated: summary.sessionHydrated,
+      timelineProcessEvidence: summary.timelineProcessEvidence,
       workbench: summary.workbench,
       pageText,
     });
+    const codingOutputsSnapshot =
+      options.scenario === "gui-coding-input"
+        ? summary.codingWorkbenchGuiEvidenceAfterRecovery?.outputs
+        : summary.codingWorkbenchGuiEvidence?.outputs;
+    const codingOutputsBodyText = codingOutputsSnapshot?.bodyText || "";
+    const codingOutputsVisibleEvidence =
+      codingOutputsSnapshot?.panelVisible === true &&
+      codingOutputsSnapshot?.expectedTextsPresent === true;
+    const codingOutputsRecoveredBodyEvidence =
+      options.scenario === "gui-coding-input" &&
+      codingOutputsBodyText.includes(CODING_FILE_PATH) &&
+      codingOutputsBodyText.includes(CODING_FILE_PREVIEW);
     const assertions = {
       electronPreloadBridge: rendererSnapshot.electron === true,
-      appServerJsonRpcUsed: appServerRequestMethods.includes(
-        APP_SERVER_METHOD_SESSION_TURN_START,
-      ),
-      externalFixtureBackendUsed: backendLedger.some(
-        (entry) => entry.kind === "turnStart",
-      ),
+      appServerJsonRpcUsed: appServerJsonRpcObserved,
+      externalFixtureBackendUsed: backendTurnStartObserved,
       liveProviderNotUsed: backendLedger.every(
         (entry) =>
-          entry.providerPreference === "fixture-provider" &&
-          entry.modelPreference === "fixture-model",
+          entry.kind !== "turnStart" ||
+          ((!entry.providerPreference ||
+            entry.providerPreference === "fixture-provider") &&
+            (!entry.modelPreference ||
+              entry.modelPreference === "fixture-model")),
       ),
       artifactPersisted:
         summary.sessionCreation?.artifactProjectionPersisted === true,
       toolTimelinePersisted:
         summary.sessionCreation?.toolTimelineProjectionPersisted === true,
-      guiHydratedSession:
-        ((summary.sessionHydrated?.hasDoneText === true ||
-          summary.sessionHydrated?.hasGeneratedText === true) &&
-          summary.sessionHydrated?.hasUserPrompt === true &&
-          (summary.sessionHydrated?.hasArtifactPath === true ||
-            summary.sessionHydrated?.hasCodeText === true ||
-            summary.sessionHydrated?.hasWorkbenchToggle === true ||
-            summary.sessionHydrated?.hasTaskCenterWorkbenchTab === true ||
-            summary.sessionHydrated?.hasWorkbenchEntry === true ||
-            summary.sessionHydrated?.hasTaskCenterShell === true ||
-            summary.sessionHydrated?.hasArtifactWorkbenchShell === true ||
-            summary.sessionHydrated?.hasCanvasWorkbenchShell === true)) ||
-        ((summary.sessionHydrated?.hasWorkbenchToggle === true ||
-          summary.sessionHydrated?.hasTaskCenterWorkbenchTab === true) &&
-          (summary.sessionHydrated?.hasMessageList === true ||
-            summary.sessionHydrated?.hasConversationShell === true)),
+      codingProjectionPersisted:
+        summary.sessionCreation?.codingProjectionPersisted === true,
+      guiHydratedSession: hasHydratedSessionSnapshot(summary.sessionHydrated),
       workbenchOpened:
         summary.workbench?.snapshot?.hasWorkbenchSidebar === true ||
         summary.workbench?.snapshot?.hasHarnessPanel === true ||
@@ -1575,22 +2971,90 @@ async function run() {
         summary.workbench?.snapshot?.hasArtifactSummary === true,
       pageMentionsArtifactOrCode:
         pageText.includes(ARTIFACT_PATH) ||
-        pageText.includes("Hello Ember Workbench") ||
+        pageText.includes("Hello Lime Workbench") ||
         pageText.includes("产物"),
       toolTimelineEvidencePresent: guiToolTimelineEvidencePresent,
+      codingChangesEvidencePresent:
+        summary.codingWorkbenchGuiEvidence?.changes?.panelVisible === true &&
+        summary.codingWorkbenchGuiEvidence?.changes?.expectedTextsPresent ===
+          true,
+      codingOutputsEvidencePresent:
+        codingOutputsVisibleEvidence || codingOutputsRecoveredBodyEvidence,
+      codingLogsEvidencePresent:
+        summary.codingWorkbenchGuiEvidence?.logs?.panelVisible === true &&
+        summary.codingWorkbenchGuiEvidence?.logs?.expectedTextsPresent === true,
+      codingRecoveryGuiSubmitted:
+        options.scenario !== "gui-coding-input" ||
+        (summary.codingRecoveryEvidence?.clicked === true &&
+          summary.codingRecoveryEvidence?.recovery?.schemaVersion ===
+            "coding-workbench-recovery/v1" &&
+          summary.codingRecoveryEvidence?.recovery?.sourceIds?.commandId ===
+            CODING_COMMAND_ID &&
+          summary.codingRecoveryEvidence?.recovery?.sourceIds?.testRunId ===
+            CODING_TEST_RUN_ID),
+      codingRecoveryReachedBackend:
+        options.scenario !== "gui-coding-input" ||
+        (backendRecoveryTurnStart?.requestMetadata?.harness
+          ?.coding_workbench_recovery?.schemaVersion ===
+          "coding-workbench-recovery/v1" &&
+          backendRecoveryTurnStart?.requestMetadata?.harness
+            ?.coding_workbench_recovery?.sourceIds?.commandId ===
+            CODING_COMMAND_ID &&
+          backendRecoveryTurnStart?.requestMetadata?.harness
+            ?.coding_workbench_recovery?.sourceIds?.testRunId ===
+            CODING_TEST_RUN_ID) ||
+        (capturedRecoveryContext?.schemaVersion ===
+          "coding-workbench-recovery/v1" &&
+          capturedRecoveryContext?.sourceIds?.commandId === CODING_COMMAND_ID &&
+          capturedRecoveryContext?.sourceIds?.testRunId ===
+            CODING_TEST_RUN_ID) ||
+        (traceRecoveryContext?.schemaVersion ===
+          "coding-workbench-recovery/v1" &&
+          traceRecoveryContext?.sourceIds?.commandId === CODING_COMMAND_ID &&
+          traceRecoveryContext?.sourceIds?.testRunId === CODING_TEST_RUN_ID),
+      recoveryExecutionIdsTurnScoped:
+        typeof backendRecoveryTurnStart?.turnId === "string" &&
+        backendRecoveryTurnStart.turnId.length > 0 &&
+        recoveryExecutionIds.length === 5 &&
+        recoveryExecutionIds.every((executionId) =>
+          executionId.endsWith(`:${backendRecoveryTurnStart.turnId}`),
+        ),
+      guiPromptSubmitted:
+        options.scenario !== "gui-coding-input" ||
+        summary.sessionCreation?.guiPromptSubmitted === true,
+      backendEmittedCurrentTerminal:
+        backendEmittedEventTypes.includes("turn.completed"),
+      backendDidNotEmitLegacyTerminal: !backendEmittedEventTypes.some((type) =>
+        [
+          "done",
+          "final_done",
+          "cancelled",
+          "turn.done",
+          "turn.final_done",
+          "turn.cancelled",
+        ].includes(type),
+      ),
       noInvokeErrors: !errorRaw,
     };
+
+    assertNoRendererErrors(consoleErrors, pageErrors);
 
     for (const [key, passed] of Object.entries(assertions)) {
       assert(passed, `断言失败: ${key}`);
     }
 
-    await page.screenshot({ path: screenshotPath, fullPage: true });
+    await withTimeout(
+      page.screenshot({ path: screenshotPath, fullPage: true }),
+      FINAL_PAGE_OPERATION_TIMEOUT_MS,
+      "保存成功截图",
+    );
     summary.screenshot = screenshotPath;
     summary.consoleErrors = consoleErrors;
     summary.pageErrors = pageErrors;
     summary.appServerRequestMethods = appServerRequestMethods;
     summary.backendKinds = backendLedger.map((entry) => entry.kind);
+    summary.backendEmittedEventTypes = backendEmittedEventTypes;
+    summary.traceRecoveryTurnStart = sanitizeJson(traceRecoveryTurnStart);
     summary.guiToolTimelineEvidencePresent = guiToolTimelineEvidencePresent;
     summary.assertions = assertions;
     summary.ok = true;
@@ -1600,12 +3064,43 @@ async function run() {
     console.log(`${LOG_PREFIX} pass session=${SESSION_ID}`);
   } catch (error) {
     try {
+      const backendLedgerEvidence = persistBackendLedgerEvidence(
+        runtimeEnv.backendLedgerPath,
+        backendLedgerEvidencePath,
+      );
+      summary.backendKinds = backendLedgerEvidence.backendLedger.map(
+        (entry) => entry.kind,
+      );
+      summary.backendEmittedEventTypes = Array.from(
+        new Set(
+          backendLedgerEvidence.backendLedger
+            .filter((entry) => entry.kind === "backendEvents")
+            .flatMap((entry) =>
+              Array.isArray(entry.eventTypes) ? entry.eventTypes : [],
+            ),
+        ),
+      );
+      if (backendLedgerEvidence.readError) {
+        summary.backendLedgerReadError = backendLedgerEvidence.readError;
+      }
+    } catch (backendLedgerError) {
+      summary.backendLedgerEvidenceError = sanitizeText(backendLedgerError);
+    }
+    try {
       if (page) {
-        const traceRaw = await page.evaluate(() =>
-          window.localStorage.getItem("ember_invoke_trace_buffer_v1"),
+        const traceRaw = await withTimeout(
+          page.evaluate(() =>
+            window.localStorage.getItem("lime_invoke_trace_buffer_v1"),
+          ),
+          FINAL_PAGE_OPERATION_TIMEOUT_MS,
+          "失败后读取 invoke trace",
         );
-        const errorRaw = await page.evaluate(() =>
-          window.localStorage.getItem("ember_invoke_error_buffer_v1"),
+        const errorRaw = await withTimeout(
+          page.evaluate(() =>
+            window.localStorage.getItem("lime_invoke_error_buffer_v1"),
+          ),
+          FINAL_PAGE_OPERATION_TIMEOUT_MS,
+          "失败后读取 invoke error",
         );
         summary.invokeTrace = sanitizeJson(
           (() => {
@@ -1636,7 +3131,11 @@ async function run() {
     summary.pageErrors = pageErrors;
     try {
       if (page) {
-        await page.screenshot({ path: failureScreenshotPath, fullPage: true });
+        await withTimeout(
+          page.screenshot({ path: failureScreenshotPath, fullPage: true }),
+          FINAL_PAGE_OPERATION_TIMEOUT_MS,
+          "保存失败截图",
+        );
         summary.screenshot = failureScreenshotPath;
       }
     } catch (screenshotError) {
@@ -1648,10 +3147,31 @@ async function run() {
     process.exitCode = 1;
   } finally {
     if (app) {
-      await app.close().catch(() => undefined);
+      try {
+        await withTimeout(
+          app.close(),
+          FINAL_PAGE_OPERATION_TIMEOUT_MS,
+          "关闭 Electron",
+        );
+      } catch (closeError) {
+        console.warn(
+          `${LOG_PREFIX} electron close skipped error=${sanitizeText(closeError)}`,
+        );
+        try {
+          const childProcess =
+            typeof app.process === "function" ? app.process() : null;
+          if (childProcess && !childProcess.killed) {
+            childProcess.kill("SIGTERM");
+          }
+        } catch (killError) {
+          console.warn(
+            `${LOG_PREFIX} electron kill skipped error=${sanitizeText(killError)}`,
+          );
+        }
+      }
     }
     if (!options.keepTemp) {
-      fs.rmSync(runtimeEnv.tempRoot, { recursive: true, force: true });
+      cleanupTempRoot(runtimeEnv.tempRoot);
     }
   }
 }

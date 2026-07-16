@@ -16,19 +16,19 @@ function writeFile(filePath, content = "asset") {
 describe("Electron updater upload plan", () => {
   it("Forge / Squirrel updater 资产应写入 feed 与版本化 R2 路径", () => {
     const root = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ember-electron-update-feed-plan-"),
+      path.join(os.tmpdir(), "lime-electron-update-feed-plan-"),
     );
     const assetsDir = path.join(root, "release-assets");
 
     writeFile(
-      path.join(assetsDir, "aarch64-apple-darwin", "Ember.dmg"),
+      path.join(assetsDir, "aarch64-apple-darwin", "Lime.dmg"),
       "arm-installer",
     );
     writeFile(
       path.join(
         assetsDir,
         "aarch64-apple-darwin",
-        "Ember-darwin-arm64-1.20.0.zip",
+        "Lime-darwin-arm64-1.20.0.zip",
       ),
       "arm-zip",
     );
@@ -37,11 +37,11 @@ describe("Electron updater upload plan", () => {
       "arm-feed",
     );
     writeFile(
-      path.join(assetsDir, "x86_64-apple-darwin", "Ember.dmg"),
+      path.join(assetsDir, "x86_64-apple-darwin", "Lime.dmg"),
       "x64-installer",
     );
     writeFile(
-      path.join(assetsDir, "x86_64-apple-darwin", "Ember-darwin-x64-1.20.0.zip"),
+      path.join(assetsDir, "x86_64-apple-darwin", "Lime-darwin-x64-1.20.0.zip"),
       "x64-zip",
     );
     writeFile(
@@ -49,11 +49,11 @@ describe("Electron updater upload plan", () => {
       "x64-feed",
     );
     writeFile(
-      path.join(assetsDir, "x86_64-pc-windows-msvc", "Ember-1.20.0 Setup.exe"),
+      path.join(assetsDir, "x86_64-pc-windows-msvc", "Lime-1.20.0 Setup.exe"),
       "win-installer",
     );
     writeFile(
-      path.join(assetsDir, "x86_64-pc-windows-msvc", "ember-1.20.0-full.nupkg"),
+      path.join(assetsDir, "x86_64-pc-windows-msvc", "lime-1.20.0-full.nupkg"),
       "win-package",
     );
     writeFile(
@@ -68,24 +68,24 @@ describe("Electron updater upload plan", () => {
     });
 
     expect(plan.map((item) => item.key)).toEqual([
-      "ember/stable/darwin-arm64/Ember-darwin-arm64-1.20.0.zip",
-      "ember/stable/darwin-arm64/Ember.dmg",
-      "ember/stable/darwin-arm64/RELEASES.json",
-      "ember/stable/darwin-x64/Ember-darwin-x64-1.20.0.zip",
-      "ember/stable/darwin-x64/Ember.dmg",
-      "ember/stable/darwin-x64/RELEASES.json",
-      "ember/stable/v1.20.0/darwin-arm64/Ember-darwin-arm64-1.20.0.zip",
-      "ember/stable/v1.20.0/darwin-arm64/Ember.dmg",
-      "ember/stable/v1.20.0/darwin-arm64/RELEASES.json",
-      "ember/stable/v1.20.0/darwin-x64/Ember-darwin-x64-1.20.0.zip",
-      "ember/stable/v1.20.0/darwin-x64/Ember.dmg",
-      "ember/stable/v1.20.0/darwin-x64/RELEASES.json",
-      "ember/stable/v1.20.0/win32-x64/Ember-1.20.0 Setup.exe",
-      "ember/stable/v1.20.0/win32-x64/ember-1.20.0-full.nupkg",
-      "ember/stable/v1.20.0/win32-x64/RELEASES",
-      "ember/stable/win32-x64/Ember-1.20.0 Setup.exe",
-      "ember/stable/win32-x64/ember-1.20.0-full.nupkg",
-      "ember/stable/win32-x64/RELEASES",
+      "lime/stable/darwin-arm64/Lime-darwin-arm64-1.20.0.zip",
+      "lime/stable/darwin-arm64/Lime.dmg",
+      "lime/stable/darwin-arm64/RELEASES.json",
+      "lime/stable/darwin-x64/Lime-darwin-x64-1.20.0.zip",
+      "lime/stable/darwin-x64/Lime.dmg",
+      "lime/stable/darwin-x64/RELEASES.json",
+      "lime/stable/v1.20.0/darwin-arm64/Lime-darwin-arm64-1.20.0.zip",
+      "lime/stable/v1.20.0/darwin-arm64/Lime.dmg",
+      "lime/stable/v1.20.0/darwin-arm64/RELEASES.json",
+      "lime/stable/v1.20.0/darwin-x64/Lime-darwin-x64-1.20.0.zip",
+      "lime/stable/v1.20.0/darwin-x64/Lime.dmg",
+      "lime/stable/v1.20.0/darwin-x64/RELEASES.json",
+      "lime/stable/v1.20.0/win32-x64/Lime-1.20.0 Setup.exe",
+      "lime/stable/v1.20.0/win32-x64/lime-1.20.0-full.nupkg",
+      "lime/stable/v1.20.0/win32-x64/RELEASES",
+      "lime/stable/win32-x64/Lime-1.20.0 Setup.exe",
+      "lime/stable/win32-x64/lime-1.20.0-full.nupkg",
+      "lime/stable/win32-x64/RELEASES",
     ]);
     expect(
       plan
@@ -105,14 +105,14 @@ describe("Electron updater upload plan", () => {
 
   it("拒绝旧 updater 资产进入 Electron R2 上传计划", () => {
     const root = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ember-electron-update-feed-legacy-"),
+      path.join(os.tmpdir(), "lime-electron-update-feed-legacy-"),
     );
     writeFile(
       path.join(
         root,
         "release-assets",
         "aarch64-apple-darwin",
-        "Ember.app.tar.gz",
+        "Lime.app.tar.gz",
       ),
     );
 
@@ -128,14 +128,14 @@ describe("Electron updater upload plan", () => {
 describe("Electron release asset staging", () => {
   it("拒绝旧 updater 资产停留在 Electron Forge 输出目录", async () => {
     const root = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ember-electron-stage-legacy-"),
+      path.join(os.tmpdir(), "lime-electron-stage-legacy-"),
     );
     const builderDir = path.join(root, "release-electron");
     const outDir = path.join(root, "release-assets", "aarch64-apple-darwin");
 
-    writeFile(path.join(builderDir, "Ember_1.20.0_aarch64.dmg"));
+    writeFile(path.join(builderDir, "Lime_1.20.0_aarch64.dmg"));
     writeFile(path.join(builderDir, "latest-mac.yml"));
-    writeFile(path.join(builderDir, "Ember.app.tar.gz"));
+    writeFile(path.join(builderDir, "Lime.app.tar.gz"));
 
     expect(() =>
       stageElectronReleaseAssets({
@@ -149,12 +149,12 @@ describe("Electron release asset staging", () => {
 
   it("macOS Forge 输出应复制 RELEASES.json、DMG 和 zip", () => {
     const root = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ember-electron-stage-forge-mac-"),
+      path.join(os.tmpdir(), "lime-electron-stage-forge-mac-"),
     );
     const forgeDir = path.join(root, "release-electron");
     const outDir = path.join(root, "release-assets", "aarch64-apple-darwin");
 
-    writeFile(path.join(forgeDir, "make", "Ember.dmg"), "arm-installer");
+    writeFile(path.join(forgeDir, "make", "Lime.dmg"), "arm-installer");
     writeFile(
       path.join(
         forgeDir,
@@ -162,7 +162,7 @@ describe("Electron release asset staging", () => {
         "zip",
         "darwin",
         "arm64",
-        "Ember-darwin-arm64-1.20.0.zip",
+        "Lime-darwin-arm64-1.20.0.zip",
       ),
       "arm-zip",
     );
@@ -181,7 +181,7 @@ describe("Electron release asset staging", () => {
     expect(
       copied.map((item) => path.basename(item.destination)).sort(),
     ).toEqual(
-      ["Ember-darwin-arm64-1.20.0.zip", "Ember.dmg", "RELEASES.json"].sort(),
+      ["Lime-darwin-arm64-1.20.0.zip", "Lime.dmg", "RELEASES.json"].sort(),
     );
     expect(
       fs.readFileSync(path.join(outDir, "RELEASES.json"), "utf8"),
@@ -190,12 +190,12 @@ describe("Electron release asset staging", () => {
 
   it("macOS staging 应拒绝本地临时 feed 生成的 RELEASES.json", () => {
     const root = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ember-electron-stage-local-feed-"),
+      path.join(os.tmpdir(), "lime-electron-stage-local-feed-"),
     );
     const forgeDir = path.join(root, "release-electron");
     const outDir = path.join(root, "release-assets", "aarch64-apple-darwin");
 
-    writeFile(path.join(forgeDir, "make", "Ember.dmg"), "arm-installer");
+    writeFile(path.join(forgeDir, "make", "Lime.dmg"), "arm-installer");
     writeFile(
       path.join(
         forgeDir,
@@ -203,7 +203,7 @@ describe("Electron release asset staging", () => {
         "zip",
         "darwin",
         "arm64",
-        "Ember-darwin-arm64-1.20.0.zip",
+        "Lime-darwin-arm64-1.20.0.zip",
       ),
       "arm-zip",
     );
@@ -215,7 +215,7 @@ describe("Electron release asset staging", () => {
           {
             version: "1.20.0",
             updateTo: {
-              url: "http://127.0.0.1:12345/ember/stable/darwin-arm64/Ember-darwin-arm64-1.20.0.zip",
+              url: "http://127.0.0.1:12345/lime/stable/darwin-arm64/Lime-darwin-arm64-1.20.0.zip",
             },
           },
         ],
@@ -234,7 +234,7 @@ describe("Electron release asset staging", () => {
 
   it("Windows Forge 输出应复制 Squirrel RELEASES、nupkg 和 Setup", () => {
     const root = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ember-electron-stage-forge-win-"),
+      path.join(os.tmpdir(), "lime-electron-stage-forge-win-"),
     );
     const forgeDir = path.join(root, "release-electron");
     const outDir = path.join(root, "release-assets", "x86_64-pc-windows-msvc");
@@ -245,7 +245,7 @@ describe("Electron release asset staging", () => {
         "make",
         "squirrel.windows",
         "x64",
-        "Ember-1.20.0 Setup.exe",
+        "Lime-1.20.0 Setup.exe",
       ),
       "setup",
     );
@@ -255,7 +255,7 @@ describe("Electron release asset staging", () => {
         "make",
         "squirrel.windows",
         "x64",
-        "ember-1.20.0-full.nupkg",
+        "lime-1.20.0-full.nupkg",
       ),
       "nupkg",
     );
@@ -274,13 +274,13 @@ describe("Electron release asset staging", () => {
     expect(
       copied.map((item) => path.basename(item.destination)).sort(),
     ).toEqual(
-      ["Ember-1.20.0 Setup.exe", "RELEASES", "ember-1.20.0-full.nupkg"].sort(),
+      ["Lime-1.20.0 Setup.exe", "RELEASES", "lime-1.20.0-full.nupkg"].sort(),
     );
   });
 
   it("Windows staging 缺少 Squirrel nupkg 时应输出 Forge 候选资产", () => {
     const root = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ember-electron-stage-forge-win-missing-nupkg-"),
+      path.join(os.tmpdir(), "lime-electron-stage-forge-win-missing-nupkg-"),
     );
     const forgeDir = path.join(root, "release-electron");
     const outDir = path.join(root, "release-assets", "x86_64-pc-windows-msvc");
@@ -291,7 +291,7 @@ describe("Electron release asset staging", () => {
         "make",
         "squirrel.windows",
         "x64",
-        "Ember-1.20.0 Setup.exe",
+        "Lime-1.20.0 Setup.exe",
       ),
       "setup",
     );
@@ -308,19 +308,19 @@ describe("Electron release asset staging", () => {
         version: "v1.20.0",
       }),
     ).toThrow(
-      /no updater archive for x86_64-pc-windows-msvc asset found under Forge output\. Candidate files: .*Ember-1\.20\.0 Setup\.exe.*RELEASES/,
+      /no updater archive for x86_64-pc-windows-msvc asset found under Forge output\. Candidate files: .*Lime-1\.20\.0 Setup\.exe.*RELEASES/,
     );
   });
 
   it("Windows staging 不应把非 Setup exe 当作 Squirrel 安装包", () => {
     const root = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ember-electron-stage-forge-win-non-setup-exe-"),
+      path.join(os.tmpdir(), "lime-electron-stage-forge-win-non-setup-exe-"),
     );
     const forgeDir = path.join(root, "release-electron");
     const outDir = path.join(root, "release-assets", "x86_64-pc-windows-msvc");
 
     writeFile(
-      path.join(forgeDir, "make", "squirrel.windows", "x64", "Ember.exe"),
+      path.join(forgeDir, "make", "squirrel.windows", "x64", "Lime.exe"),
       "app-exe",
     );
     writeFile(
@@ -329,7 +329,7 @@ describe("Electron release asset staging", () => {
         "make",
         "squirrel.windows",
         "x64",
-        "ember-1.20.0-full.nupkg",
+        "lime-1.20.0-full.nupkg",
       ),
       "nupkg",
     );
@@ -352,12 +352,12 @@ describe("Electron release asset staging", () => {
 describe("R2 release cleanup", () => {
   it("只删除超过保留窗口且未受保护的旧版本", () => {
     const keys = [
-      "ember/stable/v1.20.0/win32-x64/RELEASES",
-      "ember/stable/v1.20.0/win32-x64/Ember-1.20.0 Setup.exe",
-      "ember/stable/v1.19.0/win32-x64/Ember-1.19.0 Setup.exe",
-      "ember/stable/v1.18.0/win32-x64/Ember-1.18.0 Setup.exe",
-      "ember/stable/v1.17.0/win32-x64/Ember-1.17.0 Setup.exe",
-      "ember/stable/v1.16.0/win32-x64/Ember-1.16.0 Setup.exe",
+      "lime/stable/v1.20.0/win32-x64/RELEASES",
+      "lime/stable/v1.20.0/win32-x64/Lime-1.20.0 Setup.exe",
+      "lime/stable/v1.19.0/win32-x64/Lime-1.19.0 Setup.exe",
+      "lime/stable/v1.18.0/win32-x64/Lime-1.18.0 Setup.exe",
+      "lime/stable/v1.17.0/win32-x64/Lime-1.17.0 Setup.exe",
+      "lime/stable/v1.16.0/win32-x64/Lime-1.16.0 Setup.exe",
     ];
 
     const plan = planR2ReleaseCleanup({
@@ -368,7 +368,7 @@ describe("R2 release cleanup", () => {
     });
 
     expect(plan.deleteKeys).toEqual([
-      "ember/stable/v1.17.0/win32-x64/Ember-1.17.0 Setup.exe",
+      "lime/stable/v1.17.0/win32-x64/Lime-1.17.0 Setup.exe",
     ]);
     expect(plan.protectedVersions).toContain("1.16.0");
   });
@@ -377,13 +377,13 @@ describe("R2 release cleanup", () => {
 describe("GitHub release asset staging", () => {
   it("拒绝旧 updater 资产进入 GitHub Release 资产准备", () => {
     const root = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ember-github-release-legacy-"),
+      path.join(os.tmpdir(), "lime-github-release-legacy-"),
     );
     const assetsDir = path.join(root, "release-assets");
     const outDir = path.join(root, "release-github-assets");
 
     writeFile(
-      path.join(assetsDir, "aarch64-apple-darwin", "Ember_1.20.0_aarch64.dmg"),
+      path.join(assetsDir, "aarch64-apple-darwin", "Lime_1.20.0_aarch64.dmg"),
     );
     writeFile(path.join(assetsDir, "aarch64-apple-darwin", "latest.json"));
 
@@ -397,7 +397,7 @@ describe("GitHub release asset staging", () => {
 
   it("同名 Forge / Squirrel metadata 上传 GitHub Release 前应按平台重命名", () => {
     const root = fs.mkdtempSync(
-      path.join(os.tmpdir(), "ember-github-release-assets-"),
+      path.join(os.tmpdir(), "lime-github-release-assets-"),
     );
     const assetsDir = path.join(root, "release-assets");
     const outDir = path.join(root, "release-github-assets");
@@ -406,14 +406,14 @@ describe("GitHub release asset staging", () => {
       path.join(assetsDir, "aarch64-apple-darwin", "RELEASES.json"),
       "arm-feed",
     );
-    writeFile(path.join(assetsDir, "aarch64-apple-darwin", "Ember.dmg"));
+    writeFile(path.join(assetsDir, "aarch64-apple-darwin", "Lime.dmg"));
     writeFile(
       path.join(assetsDir, "x86_64-apple-darwin", "RELEASES.json"),
       "x64-feed",
     );
-    writeFile(path.join(assetsDir, "x86_64-apple-darwin", "Ember.dmg"));
+    writeFile(path.join(assetsDir, "x86_64-apple-darwin", "Lime.dmg"));
     writeFile(
-      path.join(assetsDir, "x86_64-pc-windows-msvc", "Ember-1.29.0 Setup.exe"),
+      path.join(assetsDir, "x86_64-pc-windows-msvc", "Lime-1.29.0 Setup.exe"),
     );
     writeFile(path.join(assetsDir, "x86_64-pc-windows-msvc", "RELEASES"));
 
@@ -425,10 +425,10 @@ describe("GitHub release asset staging", () => {
 
     expect(copied.map((item) => item.name).sort()).toEqual(
       [
-        "Ember-1.29.0 Setup.exe",
-        "macos-arm64-Ember-1.29.0.dmg",
+        "Lime-1.29.0 Setup.exe",
+        "macos-arm64-Lime-1.29.0.dmg",
         "macos-arm64-RELEASES.json",
-        "macos-x64-Ember-1.29.0.dmg",
+        "macos-x64-Lime-1.29.0.dmg",
         "macos-x64-RELEASES.json",
         "RELEASES",
       ].sort(),

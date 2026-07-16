@@ -1,9 +1,7 @@
 import type { AgentTokenUsage } from "@/lib/api/agentProtocol";
-import type {
-  AgentRuntimeThreadReadModel,
-  AsterSubagentSessionInfo,
-  QueuedTurnSnapshot,
-} from "@/lib/api/agentRuntime";
+import type { AgentRuntimeThreadReadModel } from "@/lib/api/agentRuntime/sessionTypes";
+import type { QueuedTurnSnapshot } from "@/lib/api/queuedTurn";
+import type { CanonicalChildThreadSummary } from "../projection/canonicalChildThreadSummary";
 import type {
   ActionRequired,
   AgentThreadItem,
@@ -13,6 +11,7 @@ import type {
 import {
   buildAgentTaskRuntimeCardModel,
   isAssistantAwaitingFinalResponse,
+  summarizeAgentTaskChildren,
   type AgentTaskRuntimeStatus,
   type AgentTaskRuntimeSubtaskStats,
 } from "./agentTaskRuntime";
@@ -30,9 +29,11 @@ import {
 } from "./toolBatchGrouping";
 
 type DateLike = string | number | null;
+type LatestRuntimePhase = NonNullable<Message["runtimeStatus"]>["phase"];
 
 export interface InputbarRuntimeStatusLineModel {
   status: AgentTaskRuntimeStatus;
+  latestRuntimePhase?: LatestRuntimePhase | null;
   detail: string | null;
   batchDescriptor: ToolBatchSummaryDescriptor | null;
   queuedTurnCount: number;
@@ -45,20 +46,20 @@ export interface InputbarRuntimeStatusLineModel {
 
 interface BuildInputbarRuntimeStatusLineModelParams {
   messages: Message[];
-  turns?: AgentThreadTurn[];
-  threadItems?: AgentThreadItem[];
+  turns?: readonly AgentThreadTurn[];
+  threadItems?: readonly AgentThreadItem[];
   currentTurnId?: string | null;
   threadRead?: AgentRuntimeThreadReadModel | null;
-  pendingActions?: ActionRequired[];
-  submittedActionsInFlight?: ActionRequired[];
-  queuedTurns?: QueuedTurnSnapshot[];
-  childSubagentSessions?: AsterSubagentSessionInfo[];
+  pendingActions?: readonly ActionRequired[];
+  submittedActionsInFlight?: readonly ActionRequired[];
+  queuedTurns?: readonly QueuedTurnSnapshot[];
+  canonicalChildren?: CanonicalChildThreadSummary[];
   isSending?: boolean;
 }
 
 function resolveVisiblePendingRequestCount(
   threadRead: AgentRuntimeThreadReadModel | null | undefined,
-  submittedActionsInFlight: ActionRequired[],
+  submittedActionsInFlight: readonly ActionRequired[],
 ): number {
   const submittedRequestIds = new Set(
     submittedActionsInFlight.map((item) => item.requestId),
@@ -74,13 +75,13 @@ function resolveVisiblePendingRequestCount(
 }
 
 function resolveVisiblePendingActions(
-  pendingActions: ActionRequired[],
+  pendingActions: readonly ActionRequired[],
 ): ActionRequired[] {
   return pendingActions.filter((action) => action.status !== "submitted");
 }
 
 function resolveLatestTurn(
-  turns: AgentThreadTurn[],
+  turns: readonly AgentThreadTurn[],
   currentTurnId?: string | null,
 ): AgentThreadTurn | null {
   if (currentTurnId) {
@@ -94,7 +95,7 @@ function resolveLatestTurn(
 
 function resolveLatestTurnItems(
   latestTurn: AgentThreadTurn | null,
-  threadItems: AgentThreadItem[],
+  threadItems: readonly AgentThreadItem[],
 ): AgentThreadItem[] {
   if (!latestTurn) {
     return [];
@@ -103,7 +104,9 @@ function resolveLatestTurnItems(
   return threadItems.filter((item) => item.turn_id === latestTurn.id);
 }
 
-function resolveLatestAssistantMessage(messages: Message[]): Message | null {
+function resolveLatestAssistantMessage(
+  messages: readonly Message[],
+): Message | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
     if (message?.role === "assistant") {
@@ -118,8 +121,8 @@ function resolveFallbackStatus(params: {
   latestTurn: AgentThreadTurn | null;
   latestTurnItems: AgentThreadItem[];
   threadRead?: AgentRuntimeThreadReadModel | null;
-  pendingActions: ActionRequired[];
-  submittedActionsInFlight: ActionRequired[];
+  pendingActions: readonly ActionRequired[];
+  submittedActionsInFlight: readonly ActionRequired[];
   queuedTurnCount: number;
   isSending: boolean;
 }): AgentTaskRuntimeStatus | null {
@@ -200,33 +203,6 @@ function resolveFallbackStatus(params: {
   }
 }
 
-function resolveSubtaskStats(
-  childSubagentSessions: AsterSubagentSessionInfo[],
-): AgentTaskRuntimeSubtaskStats | null {
-  if (childSubagentSessions.length === 0) {
-    return null;
-  }
-
-  return childSubagentSessions.reduce<AgentTaskRuntimeSubtaskStats>(
-    (stats, session) => {
-      const status = session.runtime_status || "idle";
-      stats.total += 1;
-      if (status === "running") {
-        stats.active += 1;
-      } else if (status === "queued") {
-        stats.active += 1;
-        stats.queued += 1;
-      } else if (status === "completed" || status === "closed") {
-        stats.completed += 1;
-      } else if (status === "failed" || status === "aborted") {
-        stats.failed += 1;
-      }
-      return stats;
-    },
-    { total: 0, active: 0, queued: 0, completed: 0, failed: 0 },
-  );
-}
-
 function resolveLatestTurnTimestamp(
   latestTurn: AgentThreadTurn | null,
   threadRead: AgentRuntimeThreadReadModel | null | undefined,
@@ -257,7 +233,7 @@ function isProcessThreadItem(item: AgentThreadItem): boolean {
 
 function resolveLatestTurnBatchDescriptor(
   latestTurn: AgentThreadTurn | null,
-  threadItems: AgentThreadItem[],
+  threadItems: readonly AgentThreadItem[],
 ): ToolBatchSummaryDescriptor | null {
   if (!latestTurn) {
     return null;
@@ -287,12 +263,20 @@ function resolveVisibleUsage(
   return latestAssistant?.usage;
 }
 
+function shouldShowActiveRuntimeStatusDetail(
+  phase?: LatestRuntimePhase | null,
+): boolean {
+  return (
+    phase === "retrying" || phase === "continuing" || phase === "synthesizing"
+  );
+}
+
 function resolveFallbackDetail(params: {
   status: AgentTaskRuntimeStatus;
   latestTurn: AgentThreadTurn | null;
   latestAssistant: Message | null;
-  pendingActions: ActionRequired[];
-  submittedActionsInFlight: ActionRequired[];
+  pendingActions: readonly ActionRequired[];
+  submittedActionsInFlight: readonly ActionRequired[];
   threadRead?: AgentRuntimeThreadReadModel | null;
 }): string | null {
   const {
@@ -354,7 +338,7 @@ export function buildInputbarRuntimeStatusLineModel({
   pendingActions = [],
   submittedActionsInFlight = [],
   queuedTurns = [],
-  childSubagentSessions = [],
+  canonicalChildren = [],
   isSending = false,
 }: BuildInputbarRuntimeStatusLineModelParams): InputbarRuntimeStatusLineModel | null {
   const latestTurn = resolveLatestTurn(turns, currentTurnId);
@@ -383,14 +367,19 @@ export function buildInputbarRuntimeStatusLineModel({
     pendingActions,
     submittedActionsInFlight,
     queuedTurns,
-    childSubagentSessions,
+    canonicalChildren,
     isSending,
   });
 
   if (builtTask) {
     return {
       status: builtTask.status,
+      latestRuntimePhase: latestAssistant?.runtimeStatus?.phase ?? null,
       detail:
+        (builtTask.status === "running" &&
+          shouldShowActiveRuntimeStatusDetail(
+            latestAssistant?.runtimeStatus?.phase,
+          )) ||
         builtTask.status === "waiting_input" ||
         builtTask.status === "failed" ||
         builtTask.status === "aborted"
@@ -425,13 +414,14 @@ export function buildInputbarRuntimeStatusLineModel({
     status === "completed" &&
     !usage &&
     !startedAt &&
-    childSubagentSessions.length === 0
+    canonicalChildren.length === 0
   ) {
     return null;
   }
 
   return {
     status,
+    latestRuntimePhase: latestAssistant?.runtimeStatus?.phase ?? null,
     detail: resolveFallbackDetail({
       status,
       latestTurn,
@@ -445,7 +435,7 @@ export function buildInputbarRuntimeStatusLineModel({
     pendingRequestCount:
       resolveVisiblePendingActions(pendingActions).length ||
       resolveVisiblePendingRequestCount(threadRead, submittedActionsInFlight),
-    subtaskStats: resolveSubtaskStats(childSubagentSessions),
+    subtaskStats: summarizeAgentTaskChildren(canonicalChildren),
     usage,
     startedAt,
     completedAt: resolveVisibleCompletedAt(status, completedAt),

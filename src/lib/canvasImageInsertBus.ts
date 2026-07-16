@@ -1,8 +1,8 @@
 import { normalizeThemeCanvasType } from "@/lib/workspace/workbenchContract";
 
-const CANVAS_IMAGE_INSERT_EVENT = "ember:canvas-image-insert-request";
-const CANVAS_IMAGE_INSERT_ACK_EVENT = "ember:canvas-image-insert-ack";
-const CANVAS_IMAGE_INSERT_QUEUE_KEY = "ember:canvas-image-insert-queue";
+const CANVAS_IMAGE_INSERT_EVENT = "lime:canvas-image-insert-request";
+const CANVAS_IMAGE_INSERT_ACK_EVENT = "lime:canvas-image-insert-ack";
+const CANVAS_IMAGE_INSERT_QUEUE_KEY = "lime:canvas-image-insert-queue";
 const MAX_QUEUE_SIZE = 40;
 
 export type CanvasImageInsertSource =
@@ -38,6 +38,10 @@ export interface CanvasImageInsertRequest {
   contentId: string | null;
   canvasType: CanvasImageTargetType;
   anchorHint?: CanvasImageInsertAnchorHint;
+  taskId?: string | null;
+  slotId?: string | null;
+  sectionTitle?: string | null;
+  anchorText?: string | null;
   source: CanvasImageInsertSource;
   image: InsertableImage;
 }
@@ -47,6 +51,10 @@ interface EmitCanvasImageInsertRequestInput {
   contentId?: string | null;
   canvasType?: CanvasImageTargetType;
   anchorHint?: CanvasImageInsertAnchorHint;
+  taskId?: string | null;
+  slotId?: string | null;
+  sectionTitle?: string | null;
+  anchorText?: string | null;
   source: CanvasImageInsertSource;
   image: InsertableImage;
 }
@@ -94,6 +102,10 @@ const createRequest = (
   contentId: normalizeId(input.contentId),
   canvasType: normalizeCanvasType(input.canvasType),
   anchorHint: input.anchorHint,
+  taskId: normalizeId(input.taskId),
+  slotId: normalizeId(input.slotId),
+  sectionTitle: normalizeId(input.sectionTitle),
+  anchorText: normalizeId(input.anchorText),
   source: input.source,
   image: input.image,
 });

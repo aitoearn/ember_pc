@@ -12,7 +12,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { test } from "@fast-check/vitest";
 import * as fc from "fast-check";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import {
   SkillCard,
   canInspectSkill,
@@ -74,7 +74,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 afterEach(async () => {
@@ -88,7 +88,7 @@ afterEach(async () => {
     });
     mounted.container.remove();
   }
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("getSkillSource", () => {
@@ -99,17 +99,17 @@ describe("getSkillSource", () => {
    * - "builtin" if sourceKind="builtin"
    * - "project" if catalogSource="project" and sourceKind!="builtin"
    * - "local" if catalogSource="user"
-   * - "official" if repoOwner="ember" AND repoName="skills"
-   * - "community" if repoOwner and repoName are present but not ember/skills
+   * - "official" if repoOwner="lime" AND repoName="skills"
+   * - "community" if repoOwner and repoName are present but not lime/skills
    * - "local" if repoOwner or repoName is missing
    *
    * **Validates: Requirements 5.1, 5.2**
    */
   describe("Property 4: Source Classification Logic", () => {
-    // 生成有效的仓库所有者名（非 ember）
+    // 生成有效的仓库所有者名（非 lime）
     const nonLimeOwnerArb = fc
       .stringMatching(/^[a-zA-Z][a-zA-Z0-9_-]{0,20}$/)
-      .filter((s) => s !== "ember");
+      .filter((s) => s !== "lime");
 
     // 生成有效的仓库名（非 skills）
     const nonSkillsNameArb = fc
@@ -119,9 +119,9 @@ describe("getSkillSource", () => {
     // 生成任意有效的仓库名
     const repoNameArb = fc.stringMatching(/^[a-zA-Z][a-zA-Z0-9_-]{0,20}$/);
 
-    test.prop([fc.constant("ember"), fc.constant("skills")], {
+    test.prop([fc.constant("lime"), fc.constant("skills")], {
       numRuns: 100,
-    })("官方仓库 (ember/skills) 应返回 'official'", (repoOwner, repoName) => {
+    })("官方仓库 (lime/skills) 应返回 'official'", (repoOwner, repoName) => {
       const skill = createSkill({
         catalogSource: "remote",
         repoOwner,
@@ -132,7 +132,7 @@ describe("getSkillSource", () => {
     });
 
     test.prop([nonLimeOwnerArb, repoNameArb], { numRuns: 100 })(
-      "非 ember 所有者的仓库应返回 'community'",
+      "非 lime 所有者的仓库应返回 'community'",
       (repoOwner, repoName) => {
         const skill = createSkill({
           catalogSource: "remote",
@@ -144,8 +144,8 @@ describe("getSkillSource", () => {
       },
     );
 
-    test.prop([fc.constant("ember"), nonSkillsNameArb], { numRuns: 100 })(
-      "ember 所有者但非 skills 仓库应返回 'community'",
+    test.prop([fc.constant("lime"), nonSkillsNameArb], { numRuns: 100 })(
+      "lime 所有者但非 skills 仓库应返回 'community'",
       (repoOwner, repoName) => {
         const skill = createSkill({
           catalogSource: "remote",
@@ -202,7 +202,7 @@ describe("getSkillSource", () => {
     it("用户级 skills 应优先返回 'local'", () => {
       const skill = createSkill({
         catalogSource: "user",
-        repoOwner: "ember",
+        repoOwner: "lime",
         repoName: "skills",
       });
       expect(getSkillSource(skill)).toBe("local" as SkillSource);
@@ -277,7 +277,7 @@ describe("canViewLocalSkillContent", () => {
     const skill = createSkill({
       installed: true,
       sourceKind: "other",
-      repoOwner: "ember",
+      repoOwner: "lime",
       repoName: "skills",
     });
     expect(canViewLocalSkillContent(skill)).toBe(false);
@@ -309,7 +309,7 @@ describe("canInspectSkill", () => {
     const skill = createSkill({
       installed: false,
       catalogSource: "remote",
-      repoOwner: "ember",
+      repoOwner: "lime",
       repoName: "skills",
       repoBranch: "main",
     });
@@ -343,7 +343,7 @@ describe("getInspectActionKey", () => {
     const skill = createSkill({
       installed: false,
       catalogSource: "remote",
-      repoOwner: "ember",
+      repoOwner: "lime",
       repoName: "skills",
       repoBranch: "main",
     });
@@ -420,7 +420,7 @@ it("内置技能应优先返回 'builtin'", () => {
   const skill = createSkill({
     sourceKind: "builtin",
     catalogSource: "remote",
-    repoOwner: "ember",
+    repoOwner: "lime",
     repoName: "skills",
   });
   expect(getSkillSource(skill)).toBe("builtin" as SkillSource);

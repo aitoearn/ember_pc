@@ -3,7 +3,7 @@ function normalizeWorkspacePath(value: string): string {
 }
 
 function normalizeManagedHomeProjectsPath(value: string): string | null {
-  const match = value.match(/^(.+)\/\.(?:proxycast|ember)\/projects(\/.*)?$/);
+  const match = value.match(/^(.+)\/\.(?:proxycast|lime)\/projects(\/.*)?$/);
   if (!match) {
     return null;
   }
@@ -12,13 +12,13 @@ function normalizeManagedHomeProjectsPath(value: string): string | null {
   const suffix = match[2] || "";
 
   if (/^[A-Za-z]:\/Users\/[^/]+$/i.test(homeRoot)) {
-    return `${homeRoot}/AppData/Roaming/ember/projects${suffix}`;
+    return `${homeRoot}/AppData/Roaming/lime/projects${suffix}`;
   }
   if (/^\/Users\/[^/]+$/.test(homeRoot)) {
-    return `${homeRoot}/Library/Application Support/ember/projects${suffix}`;
+    return `${homeRoot}/Library/Application Support/lime/projects${suffix}`;
   }
   if (/^(\/home\/[^/]+|\/root)$/.test(homeRoot)) {
-    return `${homeRoot}/.local/share/ember/projects${suffix}`;
+    return `${homeRoot}/.local/share/lime/projects${suffix}`;
   }
 
   return null;
@@ -28,18 +28,18 @@ function normalizeManagedAppDataProjectsPath(value: string): string | null {
   const rules: Array<{ pattern: RegExp; replacement: string }> = [
     {
       pattern:
-        /^(\/Users\/[^/]+)\/Library\/Application Support\/(?:proxycast|ember)\/projects(\/.*)?$/,
-      replacement: "$1/Library/Application Support/ember/projects$2",
+        /^(\/Users\/[^/]+)\/Library\/Application Support\/(?:proxycast|lime)\/projects(\/.*)?$/,
+      replacement: "$1/Library/Application Support/lime/projects$2",
     },
     {
       pattern:
-        /^([A-Za-z]:\/Users\/[^/]+)\/AppData\/Roaming\/(?:proxycast|ember)\/projects(\/.*)?$/i,
-      replacement: "$1/AppData/Roaming/ember/projects$2",
+        /^([A-Za-z]:\/Users\/[^/]+)\/AppData\/Roaming\/(?:proxycast|lime)\/projects(\/.*)?$/i,
+      replacement: "$1/AppData/Roaming/lime/projects$2",
     },
     {
       pattern:
-        /^((?:\/home\/[^/]+|\/root))\/\.local\/share\/(?:proxycast|ember)\/projects(\/.*)?$/,
-      replacement: "$1/.local/share/ember/projects$2",
+        /^((?:\/home\/[^/]+|\/root))\/\.local\/share\/(?:proxycast|lime)\/projects(\/.*)?$/,
+      replacement: "$1/.local/share/lime/projects$2",
     },
   ];
 

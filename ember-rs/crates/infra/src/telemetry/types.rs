@@ -3,7 +3,7 @@
 //! 定义请求日志、统计数据等核心类型
 
 use chrono::{DateTime, Utc};
-use ember_core::ProviderType;
+use lime_core::ProviderType;
 use serde::{Deserialize, Serialize};
 
 /// 请求状态
@@ -37,15 +37,15 @@ impl std::fmt::Display for RequestStatus {
 /// 请求日志条目
 ///
 /// 记录每个 API 请求的详细信息，包括时间戳、Provider、模型、持续时间和状态
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RequestLog {
     /// 唯一请求 ID
     pub id: String,
-    /// Ember 会话 ID（如果有）
+    /// Lime 会话 ID（如果有）
     pub session_id: Option<String>,
-    /// Ember 线程 ID（如果有）
+    /// Lime 线程 ID（如果有）
     pub thread_id: Option<String>,
-    /// Ember 回合 ID（如果有）
+    /// Lime 回合 ID（如果有）
     pub turn_id: Option<String>,
     /// 关联的 pending request ID（如果有）
     pub pending_request_id: Option<String>,

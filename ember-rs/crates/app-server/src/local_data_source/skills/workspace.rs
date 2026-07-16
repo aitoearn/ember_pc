@@ -1,6 +1,6 @@
 use app_server_protocol::WorkspaceRegisteredSkillsListParams;
 use app_server_protocol::WorkspaceSkillBindingsListParams;
-use ember_skills::load_skill_from_file;
+use lime_skills::load_skill_from_file;
 use serde_json::json;
 use serde_json::Value;
 use std::fs;
@@ -10,7 +10,7 @@ use std::path::PathBuf;
 pub(crate) fn list_workspace_skill_bindings_value(
     params: WorkspaceSkillBindingsListParams,
 ) -> Result<Value, String> {
-    let caller = ember_core::tool_calling::normalize_tool_caller(params.caller.as_deref())
+    let caller = lime_core::tool_calling::normalize_tool_caller(params.caller.as_deref())
         .unwrap_or_else(|| "assistant".to_string());
     let workspace_root = workspace_root_path(&params.workspace_root)?;
     let registered_skills =
@@ -109,7 +109,7 @@ pub(crate) fn list_workspace_registered_skills_value(
             continue;
         }
         let skill_file = skill_dir.join("SKILL.md");
-        let registration_file = skill_dir.join(".ember").join("registration.json");
+        let registration_file = skill_dir.join(".lime").join("registration.json");
         let skill_file_metadata = match fs::symlink_metadata(&skill_file) {
             Ok(metadata) => metadata,
             Err(_) => continue,
@@ -297,7 +297,7 @@ mod tests {
             .join(".agents")
             .join("skills")
             .join(directory);
-        fs::create_dir_all(skill_dir.join(".ember")).expect("create registered skill dir");
+        fs::create_dir_all(skill_dir.join(".lime")).expect("create registered skill dir");
         fs::write(
             skill_dir.join("SKILL.md"),
             [
@@ -313,7 +313,7 @@ mod tests {
         )
         .expect("write skill");
         fs::write(
-            skill_dir.join(".ember").join("registration.json"),
+            skill_dir.join(".lime").join("registration.json"),
             json!({
                 "registrationId": "capreg-1",
                 "registeredAt": "2026-06-06T00:00:00.000Z",
@@ -353,6 +353,59 @@ mod tests {
         );
         assert_eq!(skills[0]["permission_summary"], json!(["Level 0 只读发现"]));
         assert_eq!(skills[0]["launch_enabled"], json!(false));
+    }
+
+    #[test]
+    fn list_workspace_skill_bindings_value_projects_readiness_without_launch() {
+        let temp = TempDir::new().expect("temp dir");
+        let skill_dir = write_registered_skill(temp.path(), "readonly-report");
+
+        let bindings = list_workspace_skill_bindings_value(WorkspaceSkillBindingsListParams {
+            workspace_root: temp.path().to_string_lossy().to_string(),
+            caller: Some("assistant".to_string()),
+            workbench: true,
+            browser_assist: false,
+        })
+        .expect("list workspace skill bindings");
+
+        assert_eq!(
+            bindings.pointer("/counts/registered_total"),
+            Some(&json!(1))
+        );
+        assert_eq!(
+            bindings.pointer("/counts/ready_for_manual_enable_total"),
+            Some(&json!(1))
+        );
+        assert_eq!(
+            bindings.pointer("/counts/query_loop_visible_total"),
+            Some(&json!(0))
+        );
+        assert_eq!(
+            bindings.pointer("/counts/tool_runtime_visible_total"),
+            Some(&json!(0))
+        );
+        assert_eq!(
+            bindings.pointer("/counts/launch_enabled_total"),
+            Some(&json!(0))
+        );
+        let binding = bindings
+            .pointer("/bindings/0")
+            .expect("binding should be present");
+        assert_eq!(
+            binding.get("registered_skill_directory"),
+            Some(&json!(skill_dir.to_string_lossy().to_string()))
+        );
+        assert_eq!(
+            binding.get("binding_status"),
+            Some(&json!("ready_for_manual_enable"))
+        );
+        assert_eq!(
+            binding.get("next_gate"),
+            Some(&json!("manual_runtime_enable"))
+        );
+        assert_eq!(binding.get("query_loop_visible"), Some(&json!(false)));
+        assert_eq!(binding.get("tool_runtime_visible"), Some(&json!(false)));
+        assert_eq!(binding.get("launch_enabled"), Some(&json!(false)));
     }
 
     #[test]

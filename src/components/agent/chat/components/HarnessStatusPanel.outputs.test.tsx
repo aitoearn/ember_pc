@@ -9,6 +9,7 @@ import {
 describe("HarnessStatusPanel outputs", () => {
   it("应渲染最近文件活动区块", () => {
     renderPanel({
+      layout: "dialog",
       harnessState: createHarnessState({
         recentFileEvents: [
           {
@@ -44,6 +45,7 @@ describe("HarnessStatusPanel outputs", () => {
     const onOpenFile = vi.fn();
 
     renderPanel({
+      layout: "dialog",
       harnessState: createHarnessState({
         recentFileEvents: [
           {
@@ -95,6 +97,7 @@ describe("HarnessStatusPanel outputs", () => {
 
   it("应支持按类型筛选最近文件活动", () => {
     renderPanel({
+      layout: "dialog",
       harnessState: createHarnessState({
         recentFileEvents: [
           {
@@ -157,6 +160,7 @@ describe("HarnessStatusPanel outputs", () => {
 
   it("应支持按文件聚合最近文件活动", () => {
     renderPanel({
+      layout: "dialog",
       harnessState: createHarnessState({
         recentFileEvents: [
           {
@@ -224,6 +228,7 @@ describe("HarnessStatusPanel outputs", () => {
 
   it("应支持按类型筛选工具输出", () => {
     renderPanel({
+      layout: "dialog",
       harnessState: createHarnessState({
         outputSignals: [
           {
@@ -284,6 +289,7 @@ describe("HarnessStatusPanel outputs", () => {
 
   it("工具输出应展示执行状态、截断转存和文件位置", () => {
     renderPanel({
+      layout: "dialog",
       harnessState: createHarnessState({
         outputSignals: [
           {
@@ -293,8 +299,8 @@ describe("HarnessStatusPanel outputs", () => {
             title: "测试命令输出",
             summary: "npm exec vitest run HarnessStatusPanel.test.tsx",
             preview: "PASS HarnessStatusPanel.test.tsx",
-            outputFile: "/tmp/workspace/.ember/runtime/test-output.txt",
-            offloadFile: "/tmp/workspace/.ember/runtime/full-output.txt",
+            outputFile: "/tmp/workspace/.lime/runtime/test-output.txt",
+            offloadFile: "/tmp/workspace/.lime/runtime/full-output.txt",
             exitCode: 1,
             stdoutLength: 2048,
             stderrLength: 128,
@@ -325,15 +331,16 @@ describe("HarnessStatusPanel outputs", () => {
     expect(outputSection?.textContent).toContain("输出文件");
     expect(outputSection?.textContent).toContain("转存文件");
     expect(outputSection?.textContent).toContain(
-      "/tmp/workspace/.ember/runtime/test-output.txt",
+      "/tmp/workspace/.lime/runtime/test-output.txt",
     );
     expect(outputSection?.textContent).toContain(
-      "/tmp/workspace/.ember/runtime/full-output.txt",
+      "/tmp/workspace/.lime/runtime/full-output.txt",
     );
   });
 
   it("内部错误型工具输出应展示短摘要并收起原始排障文本", () => {
     renderPanel({
+      layout: "dialog",
       harnessState: createHarnessState({
         outputSignals: [
           {
@@ -370,6 +377,7 @@ describe("HarnessStatusPanel outputs", () => {
 
   it("搜索输出应展示结果列表并支持悬浮预览", async () => {
     renderPanel({
+      layout: "dialog",
       harnessState: createHarnessState({
         outputSignals: [
           {
@@ -425,7 +433,7 @@ describe("HarnessStatusPanel outputs", () => {
     );
 
     const firstSearchResult = document.body.querySelector(
-      '[aria-label="预览搜索结果：Xinhua world news summary at 0030 GMT, March 13"]',
+      '[aria-label="打开搜索结果：Xinhua world news summary at 0030 GMT, March 13"]',
     ) as HTMLButtonElement | null;
 
     await act(async () => {
@@ -456,6 +464,7 @@ describe("HarnessStatusPanel outputs", () => {
 
   it("连续多条搜索输出应在 harness 中按搜索批次分组展示", () => {
     renderPanel({
+      layout: "dialog",
       harnessState: createHarnessState({
         outputSignals: [
           {
@@ -499,6 +508,7 @@ describe("HarnessStatusPanel outputs", () => {
     const onOpenPath = vi.fn().mockResolvedValue(undefined);
 
     renderPanel({
+      layout: "dialog",
       harnessState: createHarnessState({
         recentFileEvents: [
           {
@@ -557,6 +567,7 @@ describe("HarnessStatusPanel outputs", () => {
     const onOpenPath = vi.fn().mockResolvedValue(undefined);
 
     renderPanel({
+      layout: "dialog",
       harnessState: createHarnessState({
         recentFileEvents: [
           {
@@ -590,6 +601,7 @@ describe("HarnessStatusPanel outputs", () => {
 
   it("应支持直接点击工作台中的 URL 链接", async () => {
     renderPanel({
+      layout: "dialog",
       harnessState: createHarnessState({
         latestContextTrace: [
           {
@@ -620,6 +632,7 @@ describe("HarnessStatusPanel outputs", () => {
     const onOpenPath = vi.fn().mockResolvedValue(undefined);
 
     renderPanel({
+      layout: "dialog",
       environment: {
         skillsCount: 2,
         skillNames: ["read_file", "write_todos"],

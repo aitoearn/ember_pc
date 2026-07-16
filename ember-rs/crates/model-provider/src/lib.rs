@@ -1,0 +1,37 @@
+pub mod canonical;
+pub mod current_client;
+pub mod http;
+pub mod lowering;
+pub mod provider_stream;
+pub mod runtime_provider;
+pub mod safety;
+
+use agent_protocol::ModelId;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModelProviderProtocol {
+    Responses,
+    ChatCompletions,
+    AnthropicMessages,
+    Custom(String),
+}
+
+impl ModelProviderProtocol {
+    pub fn uses_responses_api(&self) -> bool {
+        matches!(self, Self::Responses)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ModelRoute {
+    pub provider: String,
+    pub model: ModelId,
+    pub protocol: ModelProviderProtocol,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    #[serde(default)]
+    pub metadata: Value,
+}

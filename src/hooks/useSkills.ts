@@ -21,7 +21,7 @@ function buildCacheKey(app: AppType, mode: SkillsCacheMode): SkillsCacheKey {
   return `${app}:${mode}`;
 }
 
-export function useSkills(app: AppType = "ember", options?: UseSkillsOptions) {
+export function useSkills(app: AppType = "lime", options?: UseSkillsOptions) {
   const includeRepos = options?.includeRepos ?? true;
   const cacheMode: SkillsCacheMode = includeRepos ? "catalog" : "local";
   const cacheKey = buildCacheKey(app, cacheMode);

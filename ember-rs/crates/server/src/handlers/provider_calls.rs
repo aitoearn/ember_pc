@@ -41,21 +41,21 @@ use axum::{
 use futures::StreamExt;
 
 use crate::AppState;
-use ember_core::database::dao::api_key_provider::ApiProviderType;
-use ember_core::models::anthropic::AnthropicMessagesRequest;
-use ember_core::models::openai::ChatCompletionRequest;
-use ember_core::models::{RuntimeCredentialData, RuntimeProviderCredential};
-use ember_providers::converter::anthropic_to_openai::convert_anthropic_to_openai;
-use ember_providers::providers::{
+use lime_core::database::dao::api_key_provider::ApiProviderType;
+use lime_core::models::anthropic::AnthropicMessagesRequest;
+use lime_core::models::openai::ChatCompletionRequest;
+use lime_core::models::{RuntimeCredentialData, RuntimeProviderCredential};
+use lime_providers::converter::anthropic_to_openai::convert_anthropic_to_openai;
+use lime_providers::providers::{
     ClaudeCustomProvider, OpenAICustomProvider, PromptCacheMode, VertexProvider,
 };
-use ember_providers::session::store_thought_signature;
-use ember_providers::streaming::traits::StreamingProvider;
-use ember_providers::streaming::{
+use lime_providers::session::store_thought_signature;
+use lime_providers::streaming::traits::StreamingProvider;
+use lime_providers::streaming::{
     StreamConfig, StreamContext, StreamError, StreamFormat as StreamingFormat, StreamManager,
     StreamResponse,
 };
-use ember_server_utils::{
+use lime_server_utils::{
     build_anthropic_response, build_anthropic_stream_response, CWParsedResponse,
 };
 
@@ -187,7 +187,7 @@ pub async fn call_provider_anthropic(
             let actual_base_url = base_url.as_deref().unwrap_or("https://api.anthropic.com");
             let prompt_cache_mode = if matches!(
                 credential.effective_prompt_cache_mode(),
-                Some(ember_core::models::ProviderPromptCacheMode::Automatic)
+                Some(lime_core::models::ProviderPromptCacheMode::Automatic)
             ) {
                 PromptCacheMode::Automatic
             } else {
@@ -677,7 +677,7 @@ pub async fn call_provider_openai(
             );
             let prompt_cache_mode = if matches!(
                 credential.effective_prompt_cache_mode(),
-                Some(ember_core::models::ProviderPromptCacheMode::Automatic)
+                Some(lime_core::models::ProviderPromptCacheMode::Automatic)
             ) {
                 PromptCacheMode::Automatic
             } else {
@@ -700,9 +700,9 @@ pub async fn call_provider_openai(
 
                         // 创建 StreamConverter 将 Anthropic SSE 转换为 OpenAI SSE
                         let converter = std::sync::Arc::new(tokio::sync::Mutex::new(
-                            ember_providers::streaming::converter::StreamConverter::with_model(
-                                ember_providers::streaming::converter::StreamFormat::AnthropicSse,
-                                ember_providers::streaming::converter::StreamFormat::OpenAiSse,
+                            lime_providers::streaming::converter::StreamConverter::with_model(
+                                lime_providers::streaming::converter::StreamFormat::AnthropicSse,
+                                lime_providers::streaming::converter::StreamFormat::OpenAiSse,
                                 &request.model,
                             ),
                         ));
@@ -723,7 +723,7 @@ pub async fn call_provider_openai(
                                         };
 
                                         for sse_str in sse_events {
-                                            yield Ok::<String, ember_providers::streaming::StreamError>(sse_str);
+                                            yield Ok::<String, lime_providers::streaming::StreamError>(sse_str);
                                         }
                                     }
                                     Err(e) => {
@@ -741,7 +741,7 @@ pub async fn call_provider_openai(
                             };
 
                             for sse_str in final_events {
-                                yield Ok::<String, ember_providers::streaming::StreamError>(sse_str);
+                                yield Ok::<String, lime_providers::streaming::StreamError>(sse_str);
                             }
                         };
 
@@ -1118,9 +1118,9 @@ pub async fn handle_streaming_response_with_timeout(
     // 获取 flow_id 的克隆用于回调
 
     // 创建带超时的流式处理，使用 BoxStream 统一类型
-    let timeout_stream: BoxStream<'static, Result<String, ember_providers::streaming::StreamError>> = {
+    let timeout_stream: BoxStream<'static, Result<String, lime_providers::streaming::StreamError>> = {
         let stream = manager.handle_stream(context, source_stream);
-        Box::pin(ember_providers::streaming::with_timeout(stream, &config))
+        Box::pin(lime_providers::streaming::with_timeout(stream, &config))
     };
 
     // 转换为 Body 流
@@ -1160,7 +1160,7 @@ pub async fn handle_streaming_response_with_timeout(
 /// # 返回
 /// 统一的流式响应类型
 pub fn response_to_stream(response: reqwest::Response) -> StreamResponse {
-    ember_providers::streaming::reqwest_stream_to_stream_response(response)
+    lime_providers::streaming::reqwest_stream_to_stream_response(response)
 }
 
 // ============================================================================
@@ -1216,7 +1216,7 @@ pub async fn handle_streaming_with_disconnect_detection(
     // 创建流式处理
     let managed_stream: futures::stream::BoxStream<
         'static,
-        Result<String, ember_providers::streaming::StreamError>,
+        Result<String, lime_providers::streaming::StreamError>,
     > = Box::pin(manager.handle_stream(context, source_stream));
 
     // 如果有取消令牌，创建一个可取消的流
@@ -1360,8 +1360,8 @@ pub async fn monitor_client_disconnect(cancel_token: tokio_util::sync::Cancellat
     cancel_token.cancelled().await;
 }
 
-fn is_ember_debug_enabled() -> bool {
-    ember_core::env_compat::bool_var(&["EMBER_DEBUG", "PROXYCAST_DEBUG"]).unwrap_or(false)
+fn is_lime_debug_enabled() -> bool {
+    lime_core::env_compat::bool_var(&["LIME_DEBUG", "PROXYCAST_DEBUG"]).unwrap_or(false)
 }
 
 /// 解析 Antigravity 累积的流式响应数据
@@ -1388,8 +1388,8 @@ fn parse_antigravity_accumulated_response(data: &str, model: &str) -> Result<Str
         data.len()
     );
 
-    let debug_enabled = is_ember_debug_enabled();
-    let debug_file = ember_core::app_paths::resolve_logs_dir()
+    let debug_enabled = is_lime_debug_enabled();
+    let debug_file = lime_core::app_paths::resolve_logs_dir()
         .map(|dir| dir.join("antigravity_stream_raw.txt"))
         .unwrap_or_else(|_| std::env::temp_dir().join("antigravity_stream_raw.txt"));
 
@@ -1472,7 +1472,7 @@ fn parse_antigravity_accumulated_response(data: &str, model: &str) -> Result<Str
         Err(format!("无法解析响应数据，请查看 {debug_file:?}"))
     } else {
         Err(
-            "无法解析响应数据，可设置 EMBER_DEBUG=1（兼容 PROXYCAST_DEBUG=1）以落盘原始响应"
+            "无法解析响应数据，可设置 LIME_DEBUG=1（兼容 PROXYCAST_DEBUG=1）以落盘原始响应"
                 .to_string(),
         )
     }
@@ -1783,7 +1783,7 @@ fn convert_gemini_chunk_to_openai_sse(json: &serde_json::Value, model: &str) -> 
 
 /// 将 OpenAI ChatCompletionResponse 转换为 Anthropic MessagesResponse 格式
 fn convert_openai_response_to_anthropic(
-    openai_resp: &ember_core::models::openai::ChatCompletionResponse,
+    openai_resp: &lime_core::models::openai::ChatCompletionResponse,
     model: &str,
 ) -> serde_json::Value {
     // 提取第一个 choice 的内容

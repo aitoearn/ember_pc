@@ -25,7 +25,7 @@ export function fastCheckRuns(
   options: FastCheckRunOptions = {},
 ): number {
   const env = options.env ?? process.env;
-  const overrideRuns = parsePositiveInteger(env.EMBER_FAST_CHECK_RUNS);
+  const overrideRuns = parsePositiveInteger(env.LIME_FAST_CHECK_RUNS);
   if (overrideRuns !== null) {
     return overrideRuns;
   }

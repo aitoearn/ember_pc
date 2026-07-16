@@ -9,8 +9,8 @@ import type {
   AgentThreadItem,
   AgentThreadTurn,
 } from "../types";
-import type { AgentRuntimeThreadReadModel } from "@/lib/api/agentRuntime";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import type { AgentRuntimeThreadReadModel } from "@/lib/api/agentRuntime/sessionTypes";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import type { ArtifactTimelineOpenTarget } from "../utils/artifactTimelineNavigation";
 
 export const parseAIResponseMock = vi.fn();
@@ -54,7 +54,7 @@ function resolveMockToolText(toolCall: {
   }
 
   if (
-    toolCall.name === "ember_site_run" &&
+    toolCall.name === "lime_site_run" &&
     typeof parsedArguments?.adapter_name === "string"
   ) {
     return `执行 ${parsedArguments.adapter_name}`;
@@ -91,8 +91,11 @@ export const mockToolCallItem = vi.fn(
   ),
 );
 
-vi.mock("@/lib/workspace/a2ui", () => ({
+vi.mock("@/components/workspace/a2ui/parser", () => ({
   parseAIResponse: (...args: unknown[]) => parseAIResponseMock(...args),
+}));
+
+vi.mock("@/components/workspace/a2ui/taskCardPresets", () => ({
   CHAT_A2UI_TASK_CARD_PRESET: {},
   TIMELINE_A2UI_TASK_CARD_PRESET: {},
 }));
@@ -167,7 +170,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   HTMLElement.prototype.scrollIntoView = vi.fn();
   parseAIResponseMock.mockImplementation((content: string) => ({
     parts: content.trim() ? [{ type: "text", content: content.trim() }] : [],
@@ -193,7 +196,9 @@ export function at(second: number): string {
   return `2026-03-15T09:10:${String(second).padStart(2, "0")}Z`;
 }
 
-export function createTurn(overrides?: Partial<AgentThreadTurn>): AgentThreadTurn {
+export function createTurn(
+  overrides?: Partial<AgentThreadTurn>,
+): AgentThreadTurn {
   return {
     id: "turn-1",
     thread_id: "thread-1",

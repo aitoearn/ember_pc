@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { MediaTaskArtifactOutput } from "@/lib/api/mediaTasks";
+import type { MediaTaskArtifactOutput } from "@/lib/api/agentRuntime/mediaTaskTypes";
 import {
   applyLayeredDesignImageTaskOutput,
   createGeneratedDesignAssetFromImageTaskOutput,
@@ -31,10 +31,10 @@ function createTaskOutput(taskId: string): MediaTaskArtifactOutput {
     task_family: "image",
     status: "succeeded",
     normalized_status: "succeeded",
-    path: `.ember/tasks/image_generate/${taskId}.json`,
-    absolute_path: `/workspace/.ember/tasks/image_generate/${taskId}.json`,
-    artifact_path: `.ember/tasks/image_generate/${taskId}.json`,
-    absolute_artifact_path: `/workspace/.ember/tasks/image_generate/${taskId}.json`,
+    path: `.lime/tasks/image_generate/${taskId}.json`,
+    absolute_path: `/workspace/.lime/tasks/image_generate/${taskId}.json`,
+    artifact_path: `.lime/tasks/image_generate/${taskId}.json`,
+    absolute_artifact_path: `/workspace/.lime/tasks/image_generate/${taskId}.json`,
     reused_existing: false,
     record: {
       task_id: taskId,
@@ -351,7 +351,7 @@ describe("layered-design image task adapter", () => {
       layerId: "background-image",
       nextAssetId: "record-store-opening-asset-background",
       taskId: "task-background",
-      taskPath: ".ember/tasks/image_generate/task-background.json",
+      taskPath: ".lime/tasks/image_generate/task-background.json",
       taskStatus: "pending",
     });
   });
@@ -379,7 +379,7 @@ describe("layered-design image task adapter", () => {
         layerId: "background-image",
         assetId: "record-store-opening-asset-background",
         taskId: "task-background",
-        taskRef: ".ember/tasks/image_generate/task-background.json",
+        taskRef: ".lime/tasks/image_generate/task-background.json",
       },
     ]);
 
@@ -423,7 +423,7 @@ describe("layered-design image task adapter", () => {
 
     expect(getTaskArtifact).toHaveBeenCalledWith({
       projectRootPath: "/workspace",
-      taskRef: ".ember/tasks/image_generate/task-background.json",
+      taskRef: ".lime/tasks/image_generate/task-background.json",
     });
     expect(result).toMatchObject({
       refreshedCount: 1,

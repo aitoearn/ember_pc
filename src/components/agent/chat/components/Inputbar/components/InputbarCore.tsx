@@ -2,12 +2,13 @@ import React, { useCallback, useRef, useState } from "react";
 import {
   ActionButtonGroup,
   Container,
+  DictationRecordingDot,
+  DictationRecordingDuration,
+  DictationRecordingWaveform,
+  DictationLiveTranscript,
   InputBarContainer,
   InputColumn,
   InputIconButton,
-  InputSuggestionKeycap,
-  InputSuggestionLayer,
-  InputSuggestionText,
   MainRow,
   MetaSlot,
   StyledTextarea,
@@ -38,20 +39,26 @@ import {
   FileText,
   Folder,
   ImagePlus,
+  Loader2,
+  Mic,
   Plus,
   Square,
   X,
 } from "lucide-react";
-import { BaseComposer } from "@/components/input-kit";
+import {
+  BaseComposer,
+  type BaseComposerSendMetadata,
+} from "@/components/input-kit";
 import { isKnowledgeTextSourceCandidate } from "@/features/knowledge/import/knowledgeSourceSupport";
 import type { MessageImage, MessagePathReference } from "../../../types";
-import type { QueuedTurnSnapshot } from "@/lib/api/agentRuntime";
+import type { QueuedTurnSnapshot } from "@/lib/api/queuedTurn";
 import { QueuedTurnsPanel } from "./QueuedTurnsPanel";
 import type { InputbarCoreCopy } from "./inputbarCoreCopy";
 import {
   InputbarPlusMenu,
   type InputbarPlusMenuConfig,
 } from "./InputbarPlusMenu";
+import { useInputbarDictation } from "../hooks/useInputbarDictation";
 
 const INTERACTIVE_TARGET_SELECTOR =
   "button, a, input, textarea, select, option, [role='button'], [contenteditable=''], [contenteditable='true'], [contenteditable='plaintext-only']";
@@ -63,11 +70,29 @@ function shouldFocusComposerTextarea(target: EventTarget | null): boolean {
   return !target.closest(INTERACTIVE_TARGET_SELECTOR);
 }
 
+function resolvePendingImagePreviewSrc(image: MessageImage): string {
+  const previewUrl = image.previewUrl?.trim();
+  if (previewUrl) {
+    return previewUrl;
+  }
+  if (image.data.trim()) {
+    return `data:${image.mediaType};base64,${image.data}`;
+  }
+  return image.sourceUri?.trim() || image.sourcePath?.trim() || "";
+}
+
+function formatRecordingDuration(durationSecs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(durationSecs));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = `${totalSeconds % 60}`.padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
 interface InputbarCoreProps {
   uiCopy: InputbarCoreCopy;
   text: string;
   setText: (text: string) => void;
-  onSend: () => void;
+  onSend: (metadata?: BaseComposerSendMetadata) => void;
   /** 停止生成回调 */
   onStop?: () => void;
   isLoading?: boolean;
@@ -103,22 +128,17 @@ interface InputbarCoreProps {
   connectedContextBar?: boolean;
   /** Enter 发送延后一帧，优先释放首页首帧渲染。 */
   deferSendOnEnter?: boolean;
+  /** 首页首发按钮在 pointerdown 阶段预提交，避免 click 前后出现空首页帧。 */
+  sendOnPointerDown?: boolean;
+  /** 当前输入所属会话，仅用于运行态可观测性与稳定回归定位。 */
+  sessionId?: string | null;
   activeTheme?: string;
   queuedTurns?: QueuedTurnSnapshot[];
   onPromoteQueuedTurn?: (queuedTurnId: string) => void | Promise<boolean>;
   onRemoveQueuedTurn?: (queuedTurnId: string) => void | Promise<boolean>;
   showMetaTools?: boolean;
+  showTextareaExpandButton?: boolean;
   plusMenu?: InputbarPlusMenuConfig;
-  inputSuggestion?: {
-    label: string;
-    prompt: string;
-    testId?: string;
-  } | null;
-  onAcceptInputSuggestion?: (suggestion: {
-    label: string;
-    prompt: string;
-    testId?: string;
-  }) => void;
 }
 
 export const InputbarCore: React.FC<InputbarCoreProps> = ({
@@ -150,19 +170,35 @@ export const InputbarCore: React.FC<InputbarCoreProps> = ({
   visualVariant = "default",
   connectedContextBar = false,
   deferSendOnEnter = false,
+  sendOnPointerDown = false,
+  sessionId = null,
   activeTheme,
   queuedTurns = [],
   onPromoteQueuedTurn,
   onRemoveQueuedTurn,
   showMetaTools = true,
+  showTextareaExpandButton = true,
   plusMenu,
-  inputSuggestion = null,
-  onAcceptInputSuggestion,
 }) => {
   const [isTextareaExpanded, setIsTextareaExpanded] = useState(false);
   const inputBarContainerRef = useRef<HTMLDivElement | null>(null);
   const fallbackTextareaRef = useRef<HTMLTextAreaElement>(null);
   const resolvedTextareaRef = externalTextareaRef ?? fallbackTextareaRef;
+  const {
+    dictationEnabled,
+    dictationState,
+    liveTranscript,
+    recordingStatus,
+    isDictationBusy,
+    isDictationProcessing,
+    handleDictationToggle,
+  } = useInputbarDictation({
+    text,
+    setText,
+    textareaRef: resolvedTextareaRef,
+    disabled: disabled || isLoading,
+  });
+  const composerDisabled = disabled || isDictationBusy;
   const isFloatingVariant = visualVariant === "floating";
   const hasInlineComposerContent =
     text.trim().length > 0 ||
@@ -221,57 +257,6 @@ export const InputbarCore: React.FC<InputbarCoreProps> = ({
       (showMetaTools &&
         toolMode === "default" &&
         !shouldCollapseFloatingTools));
-  const shouldShowInputSuggestion =
-    Boolean(inputSuggestion) && text.trim().length === 0 && !disabled;
-  const handleInputSuggestionKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (
-        !inputSuggestion ||
-        event.key !== "Tab" ||
-        event.shiftKey ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.altKey ||
-        text.trim().length > 0 ||
-        disabled
-      ) {
-        return;
-      }
-
-      const nativeEvent = event.nativeEvent as KeyboardEvent & {
-        isComposing?: boolean;
-      };
-      if (
-        nativeEvent.isComposing ||
-        nativeEvent.key === "Process" ||
-        nativeEvent.keyCode === 229
-      ) {
-        return;
-      }
-
-      event.preventDefault();
-      const acceptedText = inputSuggestion.prompt;
-      if (onAcceptInputSuggestion) {
-        onAcceptInputSuggestion(inputSuggestion);
-      } else {
-        setText(acceptedText);
-      }
-      window.requestAnimationFrame(() => {
-        const textarea = resolvedTextareaRef.current;
-        textarea?.focus();
-        textarea?.setSelectionRange(acceptedText.length, acceptedText.length);
-      });
-    },
-    [
-      disabled,
-      inputSuggestion,
-      onAcceptInputSuggestion,
-      resolvedTextareaRef,
-      setText,
-      text,
-    ],
-  );
-
   const handleRemoveImageMouseDown = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
@@ -335,9 +320,8 @@ export const InputbarCore: React.FC<InputbarCoreProps> = ({
       onSend={onSend}
       onStop={onStop}
       isLoading={isLoading}
-      disabled={disabled}
+      disabled={composerDisabled}
       onPaste={onPaste}
-      onKeyDown={handleInputSuggestionKeyDown}
       isFullscreen={isFullscreen}
       fillHeightWhenFullscreen
       hasAdditionalContent={
@@ -348,17 +332,41 @@ export const InputbarCore: React.FC<InputbarCoreProps> = ({
       onEscape={() => onToolClick("fullscreen")}
       allowSendWhileLoading
       deferSendOnEnter={deferSendOnEnter}
+      sendOnPointerDown={sendOnPointerDown}
       rows={isTextareaExpanded ? 7 : isFloatingVariant ? 3 : 1}
       placeholder={
-        shouldShowInputSuggestion
-          ? ""
-          : placeholder ||
-            (isFullscreen
-              ? uiCopy.placeholder.fullscreen
-              : uiCopy.placeholder.default)
+        placeholder ||
+        (isFullscreen
+          ? uiCopy.placeholder.fullscreen
+          : uiCopy.placeholder.default)
       }
     >
-      {({ textareaProps, textareaRef, isPrimaryDisabled, onPrimaryAction }) => {
+      {({
+        textareaProps,
+        textareaRef,
+        isPrimaryDisabled,
+        onPrimaryAction,
+        onPrimaryActionStart,
+      }) => {
+        const loadingSecondaryActionLabel = isPrimaryDisabled
+          ? uiCopy.action.running
+          : uiCopy.action.defer;
+        const recordingLabel = uiCopy.dictation.recording(
+          formatRecordingDuration(recordingStatus?.duration ?? 0),
+        );
+        const dictationButtonLabel =
+          dictationState === "listening"
+            ? uiCopy.dictation.stopRecording(recordingLabel)
+            : isDictationProcessing
+              ? uiCopy.dictation.transcribing
+              : uiCopy.dictation.start;
+        const dictationButtonClassName = [
+          "is-dictation",
+          dictationState === "listening" ? "is-recording" : "",
+          isDictationProcessing ? "is-processing" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
         const handleContainerMouseDownCapture = (
           event: React.MouseEvent<HTMLDivElement>,
         ) => {
@@ -391,7 +399,7 @@ export const InputbarCore: React.FC<InputbarCoreProps> = ({
                   {pendingImages.map((img, index) => (
                     <ImagePreviewItem key={index}>
                       <ImagePreviewImg
-                        src={`data:${img.mediaType};base64,${img.data}`}
+                        src={resolvePendingImagePreviewSrc(img)}
                         alt={uiCopy.image.previewAlt(index + 1)}
                       />
                       <ImageRemoveButton
@@ -481,56 +489,92 @@ export const InputbarCore: React.FC<InputbarCoreProps> = ({
                   <ImagePlus size={14} />
                 </InputIconButton>
                 <InputColumn>
-                  {shouldShowInputSuggestion && inputSuggestion ? (
-                    <InputSuggestionLayer
-                      className={textareaClassName}
-                      data-testid="home-input-tab-suggestion"
-                      title={uiCopy.suggestion.acceptTitle}
-                    >
-                      <InputSuggestionText>
-                        {inputSuggestion.label}
-                      </InputSuggestionText>
-                      <InputSuggestionKeycap>
-                        {uiCopy.suggestion.acceptKey}
-                      </InputSuggestionKeycap>
-                    </InputSuggestionLayer>
-                  ) : null}
                   <StyledTextarea
                     ref={textareaRef}
                     {...textareaProps}
+                    data-session-id={sessionId || undefined}
                     className={textareaClassName}
                   />
+                  {liveTranscript.trim() ? (
+                    <DictationLiveTranscript
+                      role="status"
+                      aria-label={uiCopy.dictation.liveTranscript}
+                      data-testid="inputbar-dictation-live-transcript"
+                    >
+                      {liveTranscript}
+                    </DictationLiveTranscript>
+                  ) : null}
                 </InputColumn>
-                <ActionButtonGroup>
-                  <InputIconButton
-                    type="button"
-                    onClick={handleToggleTextareaExpanded}
-                    disabled={disabled}
-                    className={isTextareaExpanded ? "is-active" : ""}
-                    aria-label={
-                      isTextareaExpanded
-                        ? uiCopy.textarea.collapse
-                        : uiCopy.textarea.expand
-                    }
-                    title={
-                      isTextareaExpanded
-                        ? uiCopy.textarea.collapse
-                        : uiCopy.textarea.expand
-                    }
-                  >
-                    {isTextareaExpanded ? (
-                      <ChevronDown size={14} />
-                    ) : (
-                      <ChevronUp size={14} />
-                    )}
-                  </InputIconButton>
+                <ActionButtonGroup data-testid="inputbar-primary-actions">
+                  {showTextareaExpandButton ? (
+                    <InputIconButton
+                      type="button"
+                      onClick={handleToggleTextareaExpanded}
+                      disabled={disabled}
+                      data-testid="inputbar-expand-toggle"
+                      className={isTextareaExpanded ? "is-active" : ""}
+                      aria-label={
+                        isTextareaExpanded
+                          ? uiCopy.textarea.collapse
+                          : uiCopy.textarea.expand
+                      }
+                      title={
+                        isTextareaExpanded
+                          ? uiCopy.textarea.collapse
+                          : uiCopy.textarea.expand
+                      }
+                    >
+                      {isTextareaExpanded ? (
+                        <ChevronDown size={14} />
+                      ) : (
+                        <ChevronUp size={14} />
+                      )}
+                    </InputIconButton>
+                  ) : null}
+                  {dictationEnabled ? (
+                    <InputIconButton
+                      type="button"
+                      data-testid="inputbar-dictation-toggle"
+                      onClick={() => {
+                        void handleDictationToggle();
+                      }}
+                      disabled={
+                        disabled ||
+                        isLoading ||
+                        (isDictationBusy && dictationState !== "listening")
+                      }
+                      className={dictationButtonClassName}
+                      aria-label={dictationButtonLabel}
+                      aria-pressed={dictationState === "listening"}
+                      title={dictationButtonLabel}
+                    >
+                      {dictationState === "listening" ? (
+                        <>
+                          <DictationRecordingDot aria-hidden />
+                          <DictationRecordingDuration>
+                            {formatRecordingDuration(
+                              recordingStatus?.duration ?? 0,
+                            )}
+                          </DictationRecordingDuration>
+                          <DictationRecordingWaveform aria-hidden />
+                          <Mic size={14} aria-hidden />
+                        </>
+                      ) : isDictationProcessing ? (
+                        <Loader2 size={14} aria-hidden />
+                      ) : (
+                        <Mic size={14} aria-hidden />
+                      )}
+                    </InputIconButton>
+                  ) : null}
                   {isLoading ? (
                     <SecondaryActionButton
                       type="button"
                       onClick={onPrimaryAction}
                       disabled={isPrimaryDisabled}
+                      aria-label={loadingSecondaryActionLabel}
+                      title={loadingSecondaryActionLabel}
                     >
-                      <span>{uiCopy.action.defer}</span>
+                      <span>{loadingSecondaryActionLabel}</span>
                     </SecondaryActionButton>
                   ) : null}
                   {isLoading ? (
@@ -545,9 +589,13 @@ export const InputbarCore: React.FC<InputbarCoreProps> = ({
                       <Square size={14} fill="currentColor" />
                     </InputIconButton>
                   ) : null}
-                  {!isLoading ? (
+                  {!isLoading && !isDictationBusy ? (
                     <SendButton
                       type="button"
+                      data-testid="send-btn"
+                      onPointerDown={
+                        sendOnPointerDown ? onPrimaryActionStart : undefined
+                      }
                       onClick={onPrimaryAction}
                       disabled={isPrimaryDisabled}
                       aria-label={uiCopy.action.send}

@@ -1,7 +1,8 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
-import type { AgentRuntimeEvidenceTaskIndex } from "@/lib/api/agentRuntime";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { changeLimeLocale } from "@/i18n/createI18n";
+import type { AgentRuntimeEvidenceTaskIndex } from "@/lib/api/agentRuntime/evidenceTypes";
 import { HarnessTaskIndexSection } from "./HarnessTaskIndexSection";
 
 (
@@ -15,6 +16,10 @@ interface RenderResult {
 
 const mountedRoots: RenderResult[] = [];
 
+beforeEach(async () => {
+  await changeLimeLocale("zh-CN");
+});
+
 function createTaskIndex(): AgentRuntimeEvidenceTaskIndex {
   return {
     snapshot_count: 2,
@@ -26,7 +31,7 @@ function createTaskIndex(): AgentRuntimeEvidenceTaskIndex {
     skill_ids: ["browser_assist", "research"],
     model_ids: ["gpt-5.2-browser", "gpt-5.2"],
     executor_kinds: ["browser_action", "search_query"],
-    executor_binding_keys: ["ember_browser_mcp", "web_search"],
+    executor_binding_keys: ["lime_browser_mcp", "web_search"],
     cost_states: ["estimated", "metered"],
     limit_states: ["within_limit", "quota_low"],
     estimated_cost_classes: ["low", "medium"],
@@ -35,7 +40,7 @@ function createTaskIndex(): AgentRuntimeEvidenceTaskIndex {
     items: [
       {
         artifact_path:
-          "runtime_timeline/browser-tool-1/mcp__ember-browser__navigate",
+          "runtime_timeline/browser-tool-1/mcp__lime-browser__navigate",
         contract_key: "browser_control",
         thread_id: "thread-evidence-1",
         turn_id: "turn-evidence-1",
@@ -45,7 +50,7 @@ function createTaskIndex(): AgentRuntimeEvidenceTaskIndex {
         skill_id: "browser_assist",
         model_id: "gpt-5.2-browser",
         executor_kind: "browser_action",
-        executor_binding_key: "ember_browser_mcp",
+        executor_binding_key: "lime_browser_mcp",
         cost_state: "estimated",
         limit_state: "within_limit",
         estimated_cost_class: "low",
@@ -128,7 +133,7 @@ describe("HarnessTaskIndexSection", () => {
     expect(document.body.textContent).toContain("2 / 2");
     expect(document.body.textContent).toContain("thread-evidence-1");
     expect(document.body.textContent).toContain("content-browser-1");
-    expect(document.body.textContent).toContain("ember_browser_mcp");
+    expect(document.body.textContent).toContain("lime_browser_mcp");
     expect(document.body.textContent).toContain(
       "runtime_timeline/browser-tool-1",
     );

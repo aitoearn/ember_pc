@@ -43,43 +43,43 @@ export const STATUS_CLASS_NAMES: Record<string, string> = {
 export const PACK_TYPES = [
   {
     value: "personal-ip",
-    label: "项目背景",
-    description: "项目目标、干系人、协作上下文与历史讨论摘要。",
+    label: "个人 IP",
+    description: "创始人介绍、故事素材、表达风格和商务话术。",
   },
   {
     value: "brand-product",
-    label: "产品信息",
-    description: "被测产品范围、功能边界、业务规则与验收口径。",
+    label: "品牌产品",
+    description: "品牌定位、产品事实、功效边界和客服口径。",
   },
   {
     value: "organization-knowhow",
-    label: "测试规范",
-    description: "团队测试流程、质量标准、升级路径与禁止假设。",
+    label: "组织 Know-how",
+    description: "团队 SOP、交付方法、升级路径和不可回答边界。",
   },
   {
     value: "content-operations",
-    label: "用例资产",
-    description: "历史用例、场景清单、覆盖矩阵与执行复盘。",
+    label: "内容运营",
+    description: "选题日历、栏目节奏、素材复用和发布复盘。",
   },
   {
     value: "private-domain-operations",
-    label: "缺陷回归",
-    description: "缺陷库、回归样本、阻塞项与修复验证记录。",
+    label: "私域 / 社群运营",
+    description: "社群 SOP、触达节奏、分层转化和话术边界。",
   },
   {
     value: "live-commerce-operations",
-    label: "测试环境",
-    description: "环境地址、依赖服务、测试账号与部署约束。",
+    label: "直播运营",
+    description: "直播排期、场控流程、互动话术和复盘指标。",
   },
   {
     value: "campaign-operations",
-    label: "版本发布",
-    description: "版本计划、发布范围、里程碑与测试准入条件。",
+    label: "活动 / Campaign",
+    description: "活动节奏、渠道分工、物料清单和风险预案。",
   },
   {
     value: "growth-strategy",
-    label: "测试策略",
-    description: "质量目标、测试分层、风险优先级与退出准则。",
+    label: "增长策略",
+    description: "渠道策略、投放假设、转化漏斗和复盘结论。",
   },
 ] as const;
 
@@ -116,7 +116,7 @@ export function getPackTypeLabel(value?: string | null): string {
   const normalized =
     value === "personal-profile"
       ? "personal-ip"
-      : value === "custom:ember-growth-strategy"
+      : value === "custom:lime-growth-strategy"
         ? "growth-strategy"
         : value;
   return (

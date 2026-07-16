@@ -9,8 +9,8 @@ import "./lib/desktop-host/index";
 import "./i18n/config";
 import { initCrashReporting } from "@/lib/crashReporting";
 import { scheduleStyledRuntimeDiagnostics } from "@/lib/styledRuntime";
-import { initializeEmberColorScheme } from "@/lib/appearance/colorSchemes";
-import { initializeEmberThemeMode } from "@/lib/appearance/themeMode";
+import { initializeLimeColorScheme } from "@/lib/appearance/colorSchemes";
+import { initializeLimeThemeMode } from "@/lib/appearance/themeMode";
 
 // 启动诊断工具
 import { startupTracker } from "@/lib/diagnostics/startupPerformance";
@@ -23,10 +23,10 @@ import { registerLightweightRenderers } from "./components/artifact/renderers";
 registerLightweightRenderers();
 startupTracker.mark("renderers registered");
 
-initializeEmberColorScheme();
+initializeLimeColorScheme();
 startupTracker.mark("color scheme initialized");
 
-initializeEmberThemeMode();
+initializeLimeThemeMode();
 startupTracker.mark("theme mode initialized");
 
 void initCrashReporting();

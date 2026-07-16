@@ -12,12 +12,16 @@ export function AutomationPage({
   pageParams,
 }: AutomationPageProps) {
   return (
-    <div className="ember-workbench-theme-scope flex-1 overflow-auto bg-[image:var(--ember-stage-surface)] px-6 py-6">
+    <div className="lime-workbench-theme-scope flex-1 overflow-auto bg-[image:var(--lime-stage-surface)] px-6 py-6">
       <div className="mx-auto w-full max-w-[1440px]">
         <AutomationSettings
           mode="workspace"
           initialSelectedJobId={pageParams?.selectedJobId}
           initialWorkspaceTab={pageParams?.workspaceTab}
+          threadLineage={{
+            sessionId: pageParams?.sessionId,
+            threadId: pageParams?.threadId,
+          }}
           onOpenSettings={() =>
             onNavigate?.("settings", { tab: SettingsTabs.Automation })
           }

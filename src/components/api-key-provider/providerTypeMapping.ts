@@ -3,7 +3,7 @@
  * @Date: 2026-01-06 17:34:03
  * @LastEditors: Chiron 598621670@qq.com
  * @LastEditTime: 2026-01-07 00:53:05
- * @FilePath: /ember/src/components/api-key-provider/providerTypeMapping.ts
+ * @FilePath: /lime/src/components/api-key-provider/providerTypeMapping.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 /**
@@ -187,7 +187,7 @@ function buildValidationCandidates(
  * 解析最终用于 model_registry 的 provider_id
  *
  * 优先级：
- * 1) codex 协议强制 `codex`
+ * 1) 本地 CLI 协议强制使用对应 registry id
  * 2) Catalog alias 映射
  * 3) 旧的静态/legacy ID 映射
  * 4) Provider 类型映射（无模型注册表上下文时作为回退）

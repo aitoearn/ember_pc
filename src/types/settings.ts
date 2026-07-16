@@ -39,6 +39,7 @@ export enum SettingsTabs {
   McpServer = "mcp-server",
   WebSearch = "web-search",
   Environment = "environment",
+  ExecutionPolicy = "execution-policy",
   ChromeRelay = "chrome-relay",
   Automation = "automation",
   ExecutionTracker = "execution-tracker",
@@ -74,7 +75,6 @@ export const SETTINGS_GROUPS: Record<SettingsGroupKey, SettingsTabs[]> = {
   [SettingsGroupKey.Account]: [SettingsTabs.Profile, SettingsTabs.Stats],
   [SettingsGroupKey.General]: [
     SettingsTabs.Appearance,
-    SettingsTabs.Hotkeys,
     SettingsTabs.Memory,
     SettingsTabs.ArchivedConversations,
   ],
@@ -86,6 +86,7 @@ export const SETTINGS_GROUPS: Record<SettingsGroupKey, SettingsTabs[]> = {
     SettingsTabs.McpServer,
     SettingsTabs.WebSearch,
     SettingsTabs.Environment,
+    SettingsTabs.ExecutionPolicy,
     SettingsTabs.ChromeRelay,
     SettingsTabs.Automation,
     SettingsTabs.Developer,

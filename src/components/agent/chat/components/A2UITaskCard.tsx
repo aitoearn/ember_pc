@@ -132,7 +132,7 @@ export function A2UITaskCard({
       </A2UITaskCardBody>
 
       {footerText ? (
-        <div className="mt-2.5 text-xs text-[color:var(--ember-text-muted)]">
+        <div className="mt-2.5 text-xs text-[color:var(--lime-text-muted)]">
           {footerText}
         </div>
       ) : null}

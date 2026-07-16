@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const { mockGetUsageStats, mockGetModelUsageRanking, mockGetDailyUsageTrends } =
   vi.hoisted(() => {
@@ -91,7 +91,7 @@ beforeEach(async () => {
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
   vi.clearAllMocks();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 
   mockGetUsageStats.mockResolvedValue({
     total_conversations: 240,
@@ -154,7 +154,7 @@ afterEach(async () => {
   }
 
   vi.clearAllMocks();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("StatsSettings", () => {
@@ -178,7 +178,7 @@ describe("StatsSettings", () => {
   });
 
   it("应使用 settings namespace 生成热力图日期范围", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
 
     const container = renderComponent();
     await waitForLoad();

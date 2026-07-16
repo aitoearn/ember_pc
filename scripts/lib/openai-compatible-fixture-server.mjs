@@ -1,6 +1,6 @@
 import http from "node:http";
 
-export const DEFAULT_FIXTURE_MODEL = "ember-fixture-chat";
+export const DEFAULT_FIXTURE_MODEL = "lime-fixture-chat";
 export const DEFAULT_FIXTURE_API_KEY = "fixture-key";
 const STRUCTURED_OUTPUT_TOOL_NAME = "StructuredOutput";
 
@@ -353,19 +353,26 @@ function buildProviderDescriptor({ baseUrl, model, apiKey }) {
     modelPreference: model,
     source: "localhost-fixture",
     providerConfig: {
-      provider_id: "fixture-openai",
-      provider_name: "openai",
-      model_name: model,
-      api_key: apiKey,
-      base_url: baseUrl,
-      model_capabilities: {
-        vision: true,
-        tools: true,
-        streaming: true,
-        json_mode: true,
-        function_calling: true,
-        reasoning: false,
-        reasoning_effort: null,
+      providerId: "fixture-openai",
+      providerName: "openai",
+      modelName: model,
+      apiKey,
+      baseUrl,
+      toolCallStrategy: "native",
+      modelCapabilities: {
+        capabilities: {
+          vision: true,
+          tools: true,
+          streaming: true,
+          jsonMode: true,
+          functionCalling: true,
+          reasoning: false,
+          reasoningEffort: null,
+        },
+        taskFamilies: ["chat"],
+        inputModalities: ["text"],
+        outputModalities: ["text"],
+        runtimeFeatures: ["streaming", "tool_calling"],
       },
     },
   };
@@ -474,6 +481,7 @@ export async function startOpenAiCompatibleFixtureServer(options = {}) {
 
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url || "/", "http://127.0.0.1");
+    let requestRecord = null;
 
     if (request.method === "GET" && url.pathname === "/v1/models") {
       jsonResponse(response, 200, {
@@ -483,7 +491,7 @@ export async function startOpenAiCompatibleFixtureServer(options = {}) {
             id: model,
             object: "model",
             created: 1_770_000_000,
-            owned_by: "ember-fixture",
+            owned_by: "lime-fixture",
           },
         ],
       });
@@ -502,12 +510,13 @@ export async function startOpenAiCompatibleFixtureServer(options = {}) {
 
     try {
       const body = await readJsonBody(request);
-      requests.push({
+      requestRecord = {
         method: request.method,
         path: url.pathname,
         authorization: request.headers.authorization || null,
         body,
-      });
+      };
+      requests.push(requestRecord);
       const requestIndex = requests.length - 1;
       const responseModel = String(body?.model || model);
       const scriptedCandidate = scriptedResponseAt(
@@ -537,6 +546,8 @@ export async function startOpenAiCompatibleFixtureServer(options = {}) {
           body,
         })
       ) {
+        requestRecord.responseKind = scripted.type || "scripted";
+        requestRecord.responseToolName = scriptedToolName(scripted) || null;
         scriptedIndex += 1;
         return;
       }
@@ -561,6 +572,10 @@ export async function startOpenAiCompatibleFixtureServer(options = {}) {
         });
       }
     } catch (error) {
+      if (requestRecord) {
+        requestRecord.responseError =
+          error instanceof Error ? error.message : String(error);
+      }
       jsonResponse(response, 400, {
         error: {
           message: error instanceof Error ? error.message : String(error),

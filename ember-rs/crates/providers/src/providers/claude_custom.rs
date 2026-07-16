@@ -1,9 +1,9 @@
 //! Claude Custom Provider (自定义 Claude API)
-use ember_core::database::dao::api_key_provider::{
+use lime_core::database::dao::api_key_provider::{
     infer_managed_runtime_spec, ApiProviderType, ProviderRuntimeSpec,
 };
-use ember_core::models::anthropic::AnthropicMessagesRequest;
-use ember_core::models::openai::{ChatCompletionRequest, ContentPart, MessageContent};
+use lime_core::models::anthropic::AnthropicMessagesRequest;
+use lime_core::models::openai::{ChatCompletionRequest, ContentPart, MessageContent};
 use reqwest::{Client, RequestBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -11,8 +11,8 @@ use std::error::Error;
 use std::time::Duration;
 use url::{form_urlencoded, Url};
 
-const EMBER_TENANT_HEADER: &str = "X-Ember-Tenant-ID";
-const EMBER_TENANT_PARAM: &str = "ember_tenant_id";
+const LIME_TENANT_HEADER: &str = "X-Lime-Tenant-ID";
+const LIME_TENANT_PARAM: &str = "lime_tenant_id";
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
@@ -183,7 +183,7 @@ impl ClaudeCustomProvider {
         trimmed[..end].trim_end_matches('/').to_string()
     }
 
-    fn normalize_ember_tenant_id(value: &str) -> Option<String> {
+    fn normalize_lime_tenant_id(value: &str) -> Option<String> {
         let tenant_id = value.trim();
         if tenant_id.is_empty() {
             return None;
@@ -195,23 +195,23 @@ impl ClaudeCustomProvider {
             .then(|| tenant_id.to_string())
     }
 
-    fn parse_ember_tenant_id_from_pairs(value: &str) -> Option<String> {
+    fn parse_lime_tenant_id_from_pairs(value: &str) -> Option<String> {
         form_urlencoded::parse(value.as_bytes()).find_map(|(key, value)| {
-            (key == EMBER_TENANT_PARAM)
-                .then(|| Self::normalize_ember_tenant_id(&value))
+            (key == LIME_TENANT_PARAM)
+                .then(|| Self::normalize_lime_tenant_id(&value))
                 .flatten()
         })
     }
 
-    fn ember_tenant_id_from_base_url(&self) -> Option<String> {
+    fn lime_tenant_id_from_base_url(&self) -> Option<String> {
         let base_url = self.config.base_url.as_deref()?;
         let url = Self::parse_config_url(base_url)?;
 
         url.query()
-            .and_then(Self::parse_ember_tenant_id_from_pairs)
+            .and_then(Self::parse_lime_tenant_id_from_pairs)
             .or_else(|| {
                 url.fragment()
-                    .and_then(Self::parse_ember_tenant_id_from_pairs)
+                    .and_then(Self::parse_lime_tenant_id_from_pairs)
             })
     }
 
@@ -259,15 +259,15 @@ impl ClaudeCustomProvider {
     }
 
     fn convert_openai_tool_to_anthropic(
-        tool: &ember_core::models::openai::Tool,
+        tool: &lime_core::models::openai::Tool,
     ) -> Option<serde_json::Value> {
         match tool {
-            ember_core::models::openai::Tool::Function { function } => {
+            lime_core::models::openai::Tool::Function { function } => {
                 let input_schema = function
                     .parameters
                     .clone()
                     .unwrap_or_else(|| serde_json::json!({"type":"object","properties":{}}));
-                let metadata = ember_core::tool_calling::extract_tool_surface_metadata(
+                let metadata = lime_core::tool_calling::extract_tool_surface_metadata(
                     &function.name,
                     &input_schema,
                 );
@@ -462,7 +462,7 @@ impl ClaudeCustomProvider {
         // 部分 Anthropic 协议上游在官方示例里会同时携带
         // `Authorization` 与 `x-api-key`；双写可尽量贴近 SDK 实际行为。
         if runtime_spec.protocol_family
-            == ember_core::database::dao::api_key_provider::ProviderProtocolFamily::Anthropic
+            == lime_core::database::dao::api_key_provider::ProviderProtocolFamily::Anthropic
             && runtime_spec
                 .auth_header
                 .eq_ignore_ascii_case("Authorization")
@@ -474,8 +474,8 @@ impl ClaudeCustomProvider {
             request = request.header(*name, *value);
         }
 
-        if let Some(tenant_id) = self.ember_tenant_id_from_base_url() {
-            request = request.header(EMBER_TENANT_HEADER, tenant_id);
+        if let Some(tenant_id) = self.lime_tenant_id_from_base_url() {
+            request = request.header(LIME_TENANT_HEADER, tenant_id);
         }
 
         request
@@ -1012,8 +1012,8 @@ impl StreamingProvider for ClaudeCustomProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ember_core::database::dao::api_key_provider::ProviderProtocolFamily;
-    use ember_core::models::openai::{FunctionDef, Tool};
+    use lime_core::database::dao::api_key_provider::ProviderProtocolFamily;
+    use lime_core::models::openai::{FunctionDef, Tool};
 
     #[test]
     fn test_convert_openai_tool_to_anthropic_keeps_metadata() {
@@ -1026,7 +1026,7 @@ mod tests {
                     "properties": {
                         "title": {"type": "string"}
                     },
-                    "x-ember": {
+                    "x-lime": {
                         "input_examples": [{"title":"Billing issue"}],
                         "allowed_callers": ["assistant", "code_execution"]
                     }
@@ -1111,7 +1111,7 @@ mod tests {
     }
 
     #[test]
-    fn test_convert_openai_tool_to_anthropic_supports_x_ember_alias() {
+    fn test_convert_openai_tool_to_anthropic_supports_x_lime_alias() {
         let tool = Tool::Function {
             function: FunctionDef {
                 name: "create_ticket".to_string(),
@@ -1121,7 +1121,7 @@ mod tests {
                     "properties": {
                         "title": {"type": "string"}
                     },
-                    "x_ember": {
+                    "x_lime": {
                         "inputExamples": [{"title":"Billing issue"}],
                         "allowedCallers": ["tool_search"]
                     }
@@ -1162,7 +1162,7 @@ mod tests {
                     "properties": {
                         "title": {"type": "string"}
                     },
-                    "x-ember": {
+                    "x-lime": {
                         "input_examples": [{"title":"Billing issue"}],
                         "allowed_callers": ["assistant"]
                     }
@@ -1339,19 +1339,19 @@ mod tests {
     }
 
     #[test]
-    fn test_ember_tenant_id_from_base_url_fragment() {
+    fn test_lime_tenant_id_from_base_url_fragment() {
         let provider = ClaudeCustomProvider::with_config(
             "test-key".to_string(),
-            Some("https://llm.emberai.run#ember_tenant_id=tenant-0001".to_string()),
+            Some("https://llm.limeai.run#lime_tenant_id=tenant-0001".to_string()),
         );
 
         assert_eq!(
-            provider.ember_tenant_id_from_base_url().as_deref(),
+            provider.lime_tenant_id_from_base_url().as_deref(),
             Some("tenant-0001")
         );
         assert_eq!(
             provider.build_url("messages"),
-            "https://llm.emberai.run/v1/messages"
+            "https://llm.limeai.run/v1/messages"
         );
     }
 
@@ -1394,10 +1394,10 @@ mod tests {
     }
 
     #[test]
-    fn test_apply_runtime_headers_adds_ember_tenant_header_from_fragment() {
+    fn test_apply_runtime_headers_adds_lime_tenant_header_from_fragment() {
         let provider = ClaudeCustomProvider::with_config(
             "test-key".to_string(),
-            Some("https://llm.emberai.run#ember_tenant_id=tenant-0001".to_string()),
+            Some("https://llm.limeai.run#lime_tenant_id=tenant-0001".to_string()),
         );
 
         let request = provider
@@ -1411,7 +1411,7 @@ mod tests {
         assert_eq!(
             request
                 .headers()
-                .get(EMBER_TENANT_HEADER)
+                .get(LIME_TENANT_HEADER)
                 .and_then(|value| value.to_str().ok()),
             Some("tenant-0001")
         );

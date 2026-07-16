@@ -814,7 +814,7 @@ export function useBrowserRuntimeDebug(
       setControlBusy(true);
       try {
         const backend = isExistingSessionProfile
-          ? "ember_extension_bridge"
+          ? "lime_extension_bridge"
           : "cdp_direct";
         await browserRuntimeApi.browserExecuteAction({
           profile_key: sessionState.profile_key,

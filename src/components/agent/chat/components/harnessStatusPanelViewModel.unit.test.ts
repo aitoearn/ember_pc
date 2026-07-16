@@ -1,10 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import type {
   AgentRuntimeToolInventoryCatalogEntry,
-  AgentRuntimeToolInventoryRegistryEntry,
+  AgentRuntimeToolInventoryNativeEntry,
   AgentRuntimeToolInventoryRuntimeEntry,
-  AsterSubagentSessionInfo,
-} from "@/lib/api/agentRuntime";
+} from "@/lib/api/agentRuntime/toolInventoryTypes";
 import type {
   HarnessActiveFileWrite,
   HarnessFileEvent,
@@ -29,7 +28,7 @@ import {
   buildRuntimeToolCapabilityGaps,
   buildToolInventorySourceStats,
   collectCatalogExecutionSources,
-  collectRegistryExecutionSources,
+  collectNativeExecutionSources,
   countFileChangeStatuses,
   countCatalogToolsByInventoryFilter,
   describeApproval,
@@ -79,27 +78,10 @@ import {
   resolveFriendlyToolLabel,
   resolveRuntimeStatusLabel,
   resolveRuntimeStepStatus,
-  resolveSubagentRuntimeStatusLabel,
-  resolveSubagentRuntimeStatusVariant,
-  resolveSubagentSessionTypeLabel,
   sortRuntimeToolsByVisibility,
   splitTextIntoSegments,
   summarizeFileActions,
-  summarizeChildSubagentSessions,
 } from "./harnessStatusPanelViewModel";
-
-function buildSubagentSession(
-  runtimeStatus: AsterSubagentSessionInfo["runtime_status"],
-): AsterSubagentSessionInfo {
-  return {
-    id: `session-${runtimeStatus ?? "unknown"}`,
-    name: `Session ${runtimeStatus ?? "unknown"}`,
-    created_at: 1,
-    updated_at: 1,
-    session_type: "sub_agent",
-    runtime_status: runtimeStatus,
-  };
-}
 
 function buildFileEvent(
   overrides: Partial<HarnessFileEvent> = {},
@@ -150,7 +132,7 @@ function buildCatalogTool(
     profiles: ["core"],
     capabilities: ["workspace_io"],
     lifecycle: "current",
-    source: "aster_builtin",
+    source: "agent_builtin",
     permission_plane: "session_allowlist",
     workspace_default_allow: true,
     execution_warning_policy: "none",
@@ -163,9 +145,9 @@ function buildCatalogTool(
   };
 }
 
-function buildRegistryTool(
-  overrides: Partial<AgentRuntimeToolInventoryRegistryEntry> = {},
-): AgentRuntimeToolInventoryRegistryEntry {
+function buildNativeTool(
+  overrides: Partial<AgentRuntimeToolInventoryNativeEntry> = {},
+): AgentRuntimeToolInventoryNativeEntry {
   return {
     name: "ReadFile",
     description: "读取文件",
@@ -174,6 +156,7 @@ function buildRegistryTool(
     allowed_callers: [],
     tags: [],
     input_examples_count: 0,
+    has_output_schema: false,
     caller_allowed: true,
     visible_in_context: true,
     ...overrides,
@@ -186,12 +169,13 @@ function buildRuntimeTool(
   return {
     name: "ReadFile",
     description: "读取文件",
-    source_kind: "registry_native",
+    source_kind: "current_surface",
     deferred_loading: false,
     always_visible: false,
     allowed_callers: [],
     tags: [],
     input_examples_count: 0,
+    has_output_schema: false,
     caller_allowed: true,
     visible_in_context: true,
     ...overrides,
@@ -199,36 +183,9 @@ function buildRuntimeTool(
 }
 
 describe("harnessStatusPanelViewModel", () => {
-  it("应解析子任务运行状态标签和 Badge 变体", () => {
-    expect(resolveSubagentRuntimeStatusLabel("queued")).toBe("稍后开始");
-    expect(resolveSubagentRuntimeStatusVariant("queued")).toBe("outline");
-
-    expect(resolveSubagentRuntimeStatusLabel("running")).toBe("处理中");
-    expect(resolveSubagentRuntimeStatusVariant("running")).toBe("default");
-
-    expect(resolveSubagentRuntimeStatusLabel("completed")).toBe("已完成");
-    expect(resolveSubagentRuntimeStatusVariant("completed")).toBe("secondary");
-
-    expect(resolveSubagentRuntimeStatusLabel("failed")).toBe("失败");
-    expect(resolveSubagentRuntimeStatusVariant("failed")).toBe("destructive");
-
-    expect(resolveSubagentRuntimeStatusLabel("aborted")).toBe("已暂停");
-    expect(resolveSubagentRuntimeStatusVariant("aborted")).toBe("destructive");
-
-    expect(resolveSubagentRuntimeStatusLabel("idle")).toBe("待开始");
-    expect(resolveSubagentRuntimeStatusVariant("idle")).toBe("outline");
-
-    expect(resolveSubagentRuntimeStatusLabel()).toBe("待开始");
-    expect(resolveSubagentRuntimeStatusVariant()).toBe("outline");
-  });
-
-  it("应解析子任务会话类型标签", () => {
-    expect(resolveSubagentSessionTypeLabel("sub_agent")).toBe("子任务");
-    expect(resolveSubagentSessionTypeLabel("fork")).toBe("分支任务");
-    expect(resolveSubagentSessionTypeLabel("user")).toBe("user");
-    expect(resolveSubagentSessionTypeLabel(" custom ")).toBe("custom");
-    expect(resolveSubagentSessionTypeLabel("   ")).toBe("任务会话");
-    expect(resolveSubagentSessionTypeLabel()).toBe("任务会话");
+  beforeEach(() => {
+    document.documentElement.lang = "zh-CN";
+    document.documentElement.dir = "ltr";
   });
 
   it("应解析工具友好标签", () => {
@@ -236,27 +193,6 @@ describe("harnessStatusPanelViewModel", () => {
     expect(resolveFriendlyToolLabel("   ")).toBeNull();
     expect(resolveFriendlyToolLabel("TurnSummary")).toBe("当前任务摘要");
     expect(resolveFriendlyToolLabel("ReadFile")).toBe("文件读取");
-  });
-
-  it("应汇总子任务会话状态", () => {
-    expect(
-      summarizeChildSubagentSessions([
-        buildSubagentSession("running"),
-        buildSubagentSession("queued"),
-        buildSubagentSession("completed"),
-        buildSubagentSession("failed"),
-        buildSubagentSession("aborted"),
-        buildSubagentSession("closed"),
-        buildSubagentSession("idle"),
-      ]),
-    ).toEqual({
-      total: 7,
-      running: 1,
-      queued: 1,
-      active: 2,
-      settled: 4,
-      failed: 2,
-    });
   });
 
   it("应解析 Harness 文件名、动作和类型展示", () => {
@@ -846,13 +782,13 @@ describe("harnessStatusPanelViewModel", () => {
     expect(formatToolPermissionPlaneLabel("caller_filtered")).toBe(
       "调用方过滤",
     );
-    expect(formatToolSourceKindLabel("ember_injected")).toBe("Ember 注入");
+    expect(formatToolSourceKindLabel("lime_injected")).toBe("Lime 注入");
     expect(formatExtensionSourceKindLabel("mcp_bridge")).toBe("MCP Bridge");
     expect(formatRuntimeToolSourceKindLabel("current_surface")).toBe(
       "当前工具面",
     );
-    expect(formatRuntimeToolAvailabilitySourceLabel("registry_tools")).toBe(
-      "registry_tools",
+    expect(formatRuntimeToolAvailabilitySourceLabel("native_tools")).toBe(
+      "native_tools",
     );
     expect(formatRuntimeToolAvailabilitySourceLabel("none")).toBe("未就绪");
   });
@@ -898,8 +834,8 @@ describe("harnessStatusPanelViewModel", () => {
     });
 
     expect(
-      collectRegistryExecutionSources(
-        buildRegistryTool({
+      collectNativeExecutionSources(
+        buildNativeTool({
           catalog_execution_warning_policy_source: "runtime",
           catalog_execution_sandbox_profile_source: "persisted",
         }),
@@ -924,10 +860,10 @@ describe("harnessStatusPanelViewModel", () => {
         subagentCore: false,
         subagentTeamTools: false,
         subagentRuntime: false,
-        taskRuntime: false,
+        planRuntime: false,
         missingSubagentCoreTools: ["Agent", "SendMessage"],
         missingSubagentTeamTools: ["TeamCreate"],
-        missingTaskTools: ["TaskCreate"],
+        missingPlanTools: ["update_plan"],
       }),
     ).toEqual([]);
     expect(
@@ -940,10 +876,10 @@ describe("harnessStatusPanelViewModel", () => {
         subagentCore: false,
         subagentTeamTools: true,
         subagentRuntime: false,
-        taskRuntime: false,
+        planRuntime: false,
         missingSubagentCoreTools: ["SendMessage"],
         missingSubagentTeamTools: [],
-        missingTaskTools: ["TaskCreate"],
+        missingPlanTools: ["update_plan"],
       }),
     ).toEqual([
       { key: "web_search", title: "WebSearch", missing: ["WebSearch"] },
@@ -953,9 +889,9 @@ describe("harnessStatusPanelViewModel", () => {
         missing: ["SendMessage"],
       },
       {
-        key: "task_runtime",
-        title: "Task current tools",
-        missing: ["TaskCreate"],
+        key: "plan_runtime",
+        title: "Plan current tool",
+        missing: ["update_plan"],
       },
     ]);
   });

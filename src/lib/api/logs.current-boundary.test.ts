@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { cwd } from "node:process";
 import { describe, expect, it } from "vitest";
+import { readAppServerApiSources } from "../../test/appServerApiSources";
 
 const LEGACY_LOG_DIAGNOSTIC_FACADE_COMMANDS = [
   "get_logs",
@@ -23,6 +24,9 @@ const CURRENT_LOG_DIAGNOSTIC_METHOD_CONSTANTS = [
   "APP_SERVER_METHOD_DIAGNOSTICS_SUPPORT_BUNDLE_EXPORT",
   "APP_SERVER_METHOD_DIAGNOSTICS_SERVER_READ",
   "APP_SERVER_METHOD_DIAGNOSTICS_WINDOWS_STARTUP_READ",
+  "APP_SERVER_METHOD_DIAGNOSTICS_TRACE_LIST",
+  "APP_SERVER_METHOD_DIAGNOSTICS_TRACE_READ",
+  "APP_SERVER_METHOD_DIAGNOSTICS_TRACE_EXPORT",
 ];
 
 const CURRENT_LOG_DIAGNOSTIC_CLIENT_HELPERS = [
@@ -34,9 +38,26 @@ const CURRENT_LOG_DIAGNOSTIC_CLIENT_HELPERS = [
   "exportSupportBundle",
   "readServerDiagnostics",
   "readWindowsStartupDiagnostics",
+  "listDiagnosticsTraces",
+  "readDiagnosticsTrace",
+  "exportDiagnosticsTrace",
 ];
 
 const CURRENT_LOG_DIAGNOSTIC_METHODS = [
+  "log/list",
+  "log/persistedTail",
+  "log/clear",
+  "log/diagnosticHistory/clear",
+  "diagnostics/logStorage/read",
+  "diagnostics/supportBundle/export",
+  "diagnostics/server/read",
+  "diagnostics/windowsStartup/read",
+  "diagnostics/trace/list",
+  "diagnostics/trace/read",
+  "diagnostics/trace/export",
+];
+
+const LEGACY_LOG_DIAGNOSTIC_REPLACEMENT_METHODS = [
   "log/list",
   "log/persistedTail",
   "log/clear",
@@ -102,7 +123,7 @@ describe("logs diagnostics current App Server boundary", () => {
     const logsSource = readRepoFile("src/lib/api/logs.ts");
     const serverRuntimeSource = readRepoFile("src/lib/api/serverRuntime.ts");
     const source = `${logsSource}\n${serverRuntimeSource}`;
-    const appServerSource = readRepoFile("src/lib/api/appServer.ts");
+    const appServerSource = readAppServerApiSources();
 
     for (const methodConstant of CURRENT_LOG_DIAGNOSTIC_METHOD_CONSTANTS) {
       expect(appServerSource).toContain(methodConstant);
@@ -116,10 +137,13 @@ describe("logs diagnostics current App Server boundary", () => {
   });
 
   it("App Server protocol 和治理 catalog 应记录日志诊断 current 方法", () => {
-    const appServerSource = readRepoFile("src/lib/api/appServer.ts");
-    const clientProtocolSource = readRepoFile(
-      "packages/app-server-client/src/protocol.ts",
-    );
+    const appServerSource = readAppServerApiSources();
+    const clientProtocolSource = [
+      readRepoFile("packages/app-server-client/src/protocol.ts"),
+      readRepoFile(
+        "packages/app-server-client/src/generated/protocol-types.ts",
+      ),
+    ].join("\n");
     const rustProtocolSource = [
       readRepoFile(
         "ember-rs/crates/app-server-protocol/src/protocol/v0/method_names.rs",
@@ -154,7 +178,7 @@ describe("logs diagnostics current App Server boundary", () => {
       expect(
         (replacements as Record<string, unknown>)[command],
         `${command} should point to current App Server method`,
-      ).toBe(CURRENT_LOG_DIAGNOSTIC_METHODS[index]);
+      ).toBe(LEGACY_LOG_DIAGNOSTIC_REPLACEMENT_METHODS[index]);
     }
   });
 
@@ -180,9 +204,7 @@ describe("logs diagnostics current App Server boundary", () => {
     for (const registration of LEGACY_LOG_TAURI_REGISTRATIONS) {
       expect(runnerSource).not.toContain(registration);
     }
-    expect(existsSync(resolve(cwd(), "ember-rs/src/app/runner.rs"))).toBe(
-      false,
-    );
+    expect(existsSync(resolve(cwd(), "ember-rs/src/app/runner.rs"))).toBe(false);
     expect(
       existsSync(resolve(cwd(), "ember-rs/src/dev_bridge/dispatcher.rs")),
     ).toBe(false);

@@ -3,6 +3,7 @@ import {
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_AUDIO_CREATE,
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_CANCEL,
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_GET,
+  APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_IMAGE_COMPLETE,
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_IMAGE_CREATE,
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_LIST,
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_VIDEO_CREATE,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/api/appServer";
 import type {
   CompleteAudioGenerationTaskArtifactRequest,
+  CompleteImageGenerationTaskArtifactRequest,
   CreateAudioGenerationTaskArtifactRequest,
   CreateImageGenerationTaskArtifactRequest,
   CreateVideoGenerationTaskArtifactRequest,
@@ -17,33 +19,14 @@ import type {
   ListMediaTaskArtifactsRequest,
   MediaTaskArtifactOutput,
   MediaTaskLookupRequest,
-} from "./agentRuntime/types";
-
-export type {
-  CompleteAudioGenerationTaskArtifactRequest,
-  CreateAudioGenerationTaskArtifactRequest,
-  CreateImageGenerationTaskArtifactRequest,
-  CreateVideoGenerationTaskArtifactRequest,
-  ListMediaTaskArtifactsOutput,
-  ListMediaTaskArtifactsRequest,
-  MediaTaskModalityRuntimeContractIndex,
-  MediaTaskModalityRuntimeContractIndexEntry,
-  MediaTaskArtifactOutput,
-  MediaTaskArtifactRecord,
-  MediaTaskAudioOutputStatusCount,
-  MediaTaskEmberCorePolicyEvaluationStatusCount,
-  MediaTaskEmberCorePolicySnapshotStatusCount,
-  MediaTaskListFilters,
-  MediaTaskRoutingOutcomeCount,
-  MediaTaskTranscriptStatusCount,
-  MediaTaskLookupRequest,
-} from "./agentRuntime/types";
+} from "./agentRuntime/mediaTaskTypes";
 
 export {
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_AUDIO_COMPLETE,
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_AUDIO_CREATE,
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_CANCEL,
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_GET,
+  APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_IMAGE_COMPLETE,
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_IMAGE_CREATE,
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_LIST,
   APP_SERVER_METHOD_MEDIA_TASK_ARTIFACT_VIDEO_CREATE,
@@ -67,6 +50,13 @@ export async function createVideoGenerationTaskArtifact(
   request: CreateVideoGenerationTaskArtifactRequest,
 ): Promise<MediaTaskArtifactOutput> {
   return (await createAppServerClient().createVideoMediaTaskArtifact(request))
+    .result as MediaTaskArtifactOutput;
+}
+
+export async function completeImageGenerationTaskArtifact(
+  request: CompleteImageGenerationTaskArtifactRequest,
+): Promise<MediaTaskArtifactOutput> {
+  return (await createAppServerClient().completeImageMediaTaskArtifact(request))
     .result as MediaTaskArtifactOutput;
 }
 

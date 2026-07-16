@@ -128,15 +128,15 @@ export function UpdateNotificationPage() {
   })();
 
   useLayoutEffect(() => {
-    const previousWindow = document.documentElement.dataset.emberWindow;
-    document.documentElement.dataset.emberWindow = "update-notification";
+    const previousWindow = document.documentElement.dataset.limeWindow;
+    document.documentElement.dataset.limeWindow = "update-notification";
 
     return () => {
       if (previousWindow === undefined) {
-        delete document.documentElement.dataset.emberWindow;
+        delete document.documentElement.dataset.limeWindow;
         return;
       }
-      document.documentElement.dataset.emberWindow = previousWindow;
+      document.documentElement.dataset.limeWindow = previousWindow;
     };
   }, []);
 

@@ -20,7 +20,7 @@
 //! export OPENAI_API_KEY=xxx
 //!
 //! # 运行测试
-//! EMBER_REAL_API_TEST=1 cargo test --package voice-core --test asr_e2e_tests -- --ignored --nocapture
+//! LIME_REAL_API_TEST=1 cargo test --package voice-core --test asr_e2e_tests -- --ignored --nocapture
 //! ```
 
 use voice_core::asr_client::{AsrClient, XunfeiClient};
@@ -51,7 +51,7 @@ fn generate_sine_wave_audio(duration_secs: f32, frequency: f32) -> AudioData {
 }
 
 fn real_api_test_enabled() -> bool {
-    std::env::var("EMBER_REAL_API_TEST").as_deref() == Ok("1")
+    std::env::var("LIME_REAL_API_TEST").as_deref() == Ok("1")
         || std::env::var("PROXYCAST_REAL_API_TEST").as_deref() == Ok("1")
 }
 
@@ -69,7 +69,7 @@ mod xunfei {
     }
 
     #[tokio::test]
-    #[ignore = "真实联网测试：设置 EMBER_REAL_API_TEST=1 后执行"]
+    #[ignore = "真实联网测试：设置 LIME_REAL_API_TEST=1 后执行"]
     async fn test_xunfei_connection() {
         let Some((app_id, api_key, api_secret)) = get_xunfei_credentials() else {
             eprintln!("跳过测试: 未设置讯飞凭证环境变量");
@@ -94,7 +94,7 @@ mod xunfei {
     }
 
     #[tokio::test]
-    #[ignore = "真实联网测试：设置 EMBER_REAL_API_TEST=1 后执行"]
+    #[ignore = "真实联网测试：设置 LIME_REAL_API_TEST=1 后执行"]
     async fn test_xunfei_transcribe_audio() {
         let Some((app_id, api_key, api_secret)) = get_xunfei_credentials() else {
             eprintln!("跳过测试: 未设置讯飞凭证环境变量");
@@ -120,10 +120,10 @@ mod xunfei {
     }
 
     #[tokio::test]
-    #[ignore = "真实联网测试：设置 EMBER_REAL_API_TEST=1 后执行"]
+    #[ignore = "真实联网测试：设置 LIME_REAL_API_TEST=1 后执行"]
     async fn test_xunfei_invalid_credentials() {
         if !real_api_test_enabled() {
-            eprintln!("跳过测试: 未设置 EMBER_REAL_API_TEST=1");
+            eprintln!("跳过测试: 未设置 LIME_REAL_API_TEST=1");
             return;
         }
 
@@ -142,7 +142,7 @@ mod xunfei {
     }
 
     #[tokio::test]
-    #[ignore = "真实联网测试：设置 EMBER_REAL_API_TEST=1 后执行"]
+    #[ignore = "真实联网测试：设置 LIME_REAL_API_TEST=1 后执行"]
     async fn test_xunfei_short_audio() {
         let Some((app_id, api_key, api_secret)) = get_xunfei_credentials() else {
             eprintln!("跳过测试: 未设置讯飞凭证环境变量");
@@ -161,7 +161,7 @@ mod xunfei {
     }
 
     #[tokio::test]
-    #[ignore = "真实联网测试：设置 EMBER_REAL_API_TEST=1 后执行"]
+    #[ignore = "真实联网测试：设置 LIME_REAL_API_TEST=1 后执行"]
     async fn test_xunfei_long_audio() {
         let Some((app_id, api_key, api_secret)) = get_xunfei_credentials() else {
             eprintln!("跳过测试: 未设置讯飞凭证环境变量");
@@ -200,7 +200,7 @@ mod baidu {
     }
 
     #[tokio::test]
-    #[ignore = "真实联网测试：设置 EMBER_REAL_API_TEST=1 后执行"]
+    #[ignore = "真实联网测试：设置 LIME_REAL_API_TEST=1 后执行"]
     async fn test_baidu_connection() {
         let Some((api_key, secret_key)) = get_baidu_credentials() else {
             eprintln!("跳过测试: 未设置百度凭证环境变量");
@@ -241,7 +241,7 @@ mod openai {
     }
 
     #[tokio::test]
-    #[ignore = "真实联网测试：设置 EMBER_REAL_API_TEST=1 后执行"]
+    #[ignore = "真实联网测试：设置 LIME_REAL_API_TEST=1 后执行"]
     async fn test_openai_connection() {
         let Some(api_key) = get_openai_credentials() else {
             eprintln!("跳过测试: 未设置 OpenAI 凭证环境变量");
@@ -267,10 +267,10 @@ mod openai {
 
 /// 综合测试：测试所有已配置的 ASR 服务
 #[tokio::test]
-#[ignore = "真实联网测试：设置 EMBER_REAL_API_TEST=1 后执行"]
+#[ignore = "真实联网测试：设置 LIME_REAL_API_TEST=1 后执行"]
 async fn test_all_configured_asr_services() {
     if !real_api_test_enabled() {
-        eprintln!("跳过测试: 未设置 EMBER_REAL_API_TEST=1");
+        eprintln!("跳过测试: 未设置 LIME_REAL_API_TEST=1");
         return;
     }
 

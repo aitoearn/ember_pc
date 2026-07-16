@@ -236,7 +236,7 @@ function readText(filePath: string): string {
 
 function parseReleaseNotesVersion(filePath: string): string | null {
   const content = readText(filePath);
-  const match = content.match(/^##\s+Ember\s+([^\s]+)\s*$/m);
+  const match = content.match(/^##\s+Lime\s+([^\s]+)\s*$/m);
   return match?.[1] ?? null;
 }
 
@@ -610,7 +610,7 @@ export function analyzeReleaseDocsWorkflowReport(
         readmeEnglishLinksReleaseNotesCompanion,
       sourceExists: fileExists(rootReadmePath),
     },
-    schemaVersion: "ember.i18n.releaseDocsWorkflowReport.v1",
+    schemaVersion: "lime.i18n.releaseDocsWorkflowReport.v1",
     summary: {
       contentFileCount,
       docsContentEnglishCompanionFileCount: contentEnglishCompanionFiles.length,

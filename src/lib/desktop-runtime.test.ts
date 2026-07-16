@@ -11,7 +11,7 @@ const LEGACY_HOST_GLOBAL_KEY = ["__TA", "URI__"].join("");
 
 function clearHostGlobals(): void {
   delete (window as any).electronAPI;
-  delete (window as any).__EMBER_ELECTRON__;
+  delete (window as any).__LIME_ELECTRON__;
   delete (window as any)[LEGACY_HOST_INTERNALS_KEY];
   delete (window as any)[LEGACY_HOST_GLOBAL_KEY];
 }
@@ -35,8 +35,8 @@ describe("desktop-runtime", () => {
     expect(hasDesktopHostEventListenerCapability()).toBe(true);
   });
 
-  it("__EMBER_ELECTRON__ 只作为运行时标记，不伪造 invoke 能力", () => {
-    (window as any).__EMBER_ELECTRON__ = true;
+  it("__LIME_ELECTRON__ 只作为运行时标记，不伪造 invoke 能力", () => {
+    (window as any).__LIME_ELECTRON__ = true;
 
     expect(hasDesktopHostRuntimeMarkers()).toBe(true);
     expect(hasDesktopHostInvokeCapability()).toBe(false);

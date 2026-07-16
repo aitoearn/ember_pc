@@ -712,10 +712,6 @@ export function ResourcesPage({ onNavigate, pageParams }: ResourcesPageProps) {
     onNavigate?.("agent", buildHomeAgentParams());
   }, [onNavigate]);
 
-  const handleOpenInspiration = useCallback(() => {
-    onNavigate?.("memory");
-  }, [onNavigate]);
-
   const activeCategoryLabel = getCategoryLabel(viewCategory);
   const ActiveCategoryIcon = resourceCategoryIconMap[viewCategory];
 
@@ -793,7 +789,7 @@ export function ResourcesPage({ onNavigate, pageParams }: ResourcesPageProps) {
   const showFocusStatus = Boolean(focusIntentId && focusStatusTitle);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[color:var(--ember-app-bg)]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[linear-gradient(180deg,rgba(248,250,252,1)_0%,rgba(244,249,248,0.96)_52%,rgba(248,250,252,1)_100%)]">
       <div className="border-b border-slate-200/70 bg-white">
         <div className="mx-auto w-full max-w-[1480px] px-4 py-3 lg:px-6">
           <CanvasBreadcrumbHeader
@@ -919,17 +915,6 @@ export function ResourcesPage({ onNavigate, pageParams }: ResourcesPageProps) {
                   {t("workspace.resources.action.backToGenerate")}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
-                {onNavigate ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="rounded-2xl border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                    onClick={handleOpenInspiration}
-                  >
-                    {t("workspace.resources.action.openInspiration")}
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                ) : null}
               </div>
             </div>
           </section>

@@ -414,7 +414,7 @@ function buildAgentQcEvidencePack({ job, items, options = {} }) {
       `qcloop-${job?.id || "unknown"}-${Date.parse(generatedAt) || Date.now()}`,
     generatedAt,
     subject: {
-      repo: options.repo || "ember",
+      repo: options.repo || "lime",
       ref: options.ref || "unknown",
       diffBase: options.diffBase || "",
       changedFiles: collectChangedFiles(options),

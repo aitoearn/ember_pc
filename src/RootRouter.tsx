@@ -9,7 +9,6 @@ import { UpdateNotificationPage } from "./pages/update-notification";
 import { BrowserRuntimeDebuggerPage } from "./pages";
 import { ResourceManagerPage } from "./features/resource-manager";
 import { BrowserConnectorGuideWindow } from "./components/settings-v2/system/chrome-relay/guide-window";
-import { Toaster } from "./components/ui/sonner";
 import { AppCrashBoundary } from "./components/layout/AppCrashBoundary";
 import { finalizeCrashRecoveryAutoReload } from "./components/layout/CrashRecoveryPanel.helpers";
 import { getRuntimeAppVersion } from "./lib/appVersion";
@@ -21,14 +20,19 @@ const DesignCanvasSmokePage = lazy(() =>
 );
 
 const INDEX_ENTRY_PATH = "/index.html";
-const WINDOW_ROUTE_QUERY_PARAM = "ember_window";
+const WINDOW_ROUTE_QUERY_PARAM = "lime_window";
 const UPDATE_NOTIFICATION_ROUTE_ID = "update-notification";
 const UPDATE_NOTIFICATION_PATH = "/update-notification";
+const RESOURCE_MANAGER_ROUTE_ID = "resource-manager";
+const RESOURCE_MANAGER_PATH = "/resource-manager";
 const BROWSER_CONNECTOR_GUIDE_ROUTE_ID = "browser-connector-guide";
 const BROWSER_CONNECTOR_GUIDE_PATH = "/browser-connector-guide";
 
 function getEffectivePathname(location: Location): string {
-  if (location.pathname !== INDEX_ENTRY_PATH) {
+  if (
+    location.pathname !== INDEX_ENTRY_PATH &&
+    !location.pathname.endsWith(INDEX_ENTRY_PATH)
+  ) {
     return location.pathname;
   }
 
@@ -36,6 +40,9 @@ function getEffectivePathname(location: Location): string {
   const windowRoute = params.get(WINDOW_ROUTE_QUERY_PARAM);
   if (windowRoute === UPDATE_NOTIFICATION_ROUTE_ID) {
     return UPDATE_NOTIFICATION_PATH;
+  }
+  if (windowRoute === RESOURCE_MANAGER_ROUTE_ID) {
+    return RESOURCE_MANAGER_PATH;
   }
   if (windowRoute === BROWSER_CONNECTOR_GUIDE_ROUTE_ID) {
     return BROWSER_CONNECTOR_GUIDE_PATH;
@@ -82,7 +89,6 @@ export function RootRouter() {
     return (
       <AppCrashBoundary>
         <BrowserRuntimeDebuggerPage />
-        <Toaster />
       </AppCrashBoundary>
     );
   }
@@ -91,7 +97,6 @@ export function RootRouter() {
     return (
       <AppCrashBoundary>
         <ResourceManagerPage />
-        <Toaster />
       </AppCrashBoundary>
     );
   }
@@ -100,7 +105,6 @@ export function RootRouter() {
     return (
       <AppCrashBoundary>
         <BrowserConnectorGuideWindow />
-        <Toaster />
       </AppCrashBoundary>
     );
   }
@@ -111,7 +115,6 @@ export function RootRouter() {
         <Suspense fallback={null}>
           <DesignCanvasSmokePage />
         </Suspense>
-        <Toaster />
       </AppCrashBoundary>
     );
   }
@@ -120,7 +123,6 @@ export function RootRouter() {
   return (
     <AppCrashBoundary>
       <App />
-      <Toaster />
     </AppCrashBoundary>
   );
 }

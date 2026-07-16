@@ -7,6 +7,8 @@
         "null"
       ]
     },
+    "articleWorkspaceEditedDraft": true,
+    "articleWorkspaceSelectedObjectRef": true,
     "executionStrategy": {
       "type": [
         "null",
@@ -38,7 +40,6 @@
       ]
     },
     "recentPreferences": true,
-    "recentTeamSelection": true,
     "sessionId": {
       "type": "string"
     },

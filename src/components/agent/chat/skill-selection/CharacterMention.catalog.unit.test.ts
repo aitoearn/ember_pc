@@ -7,7 +7,7 @@ function createMentionableServiceSkill(
 ): ServiceSkillHomeItem {
   return {
     id: "daily-trend-briefing",
-    title: "回归测试巡检",
+    title: "每日趋势摘要",
     summary: "围绕指定平台与关键词输出趋势摘要。",
     entryHint: "把平台和关键词给我，我先整理一份趋势报告。",
     aliases: ["趋势报告", "热点摘要"],
@@ -41,7 +41,7 @@ describe("filterMentionableServiceSkills", () => {
         createMentionableServiceSkill(),
         createMentionableServiceSkill({
           id: "carousel-post-replication",
-          title: "兼容性测试",
+          title: "复制轮播帖",
           aliases: ["轮播帖", "小红书轮播"],
           runnerType: "instant",
           defaultExecutorBinding: "agent_turn",

@@ -2,7 +2,7 @@ import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { BrowserEnvironmentPresetManager } from "./BrowserEnvironmentPresetManager";
 
 const {
@@ -34,7 +34,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
   mockListBrowserEnvironmentPresets.mockResolvedValue([
     {
       id: "env-1",
@@ -100,7 +100,7 @@ describe("BrowserEnvironmentPresetManager", () => {
     expect(container.textContent).toContain("浏览器 Locale");
     expect(container.textContent).toContain("Accept-Language 请求头");
     expect(container.textContent).toContain(
-      "这些值只影响网站看到的环境，不控制 Ember 界面语言或 Agent 回复语言。",
+      "这些值只影响网站看到的环境，不控制 Lime 界面语言或 Agent 回复语言。",
     );
     expect(container.textContent).toContain("美区桌面");
     expect(container.textContent).toContain("America/Los_Angeles");
@@ -113,7 +113,7 @@ describe("BrowserEnvironmentPresetManager", () => {
   });
 
   it("英文界面应使用 workspace namespace 文案", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const onMessage = vi.fn();
     const container = await renderManager({ onMessage });
 
@@ -121,7 +121,7 @@ describe("BrowserEnvironmentPresetManager", () => {
     expect(container.textContent).toContain("Browser locale");
     expect(container.textContent).toContain("Accept-Language header");
     expect(container.textContent).toContain(
-      "These values shape what websites see; they do not control Ember UI language or Agent response language.",
+      "These values shape what websites see; they do not control Lime UI language or Agent response language.",
     );
     expect(container.textContent).toContain("Profile launch environment");
     expect(container.textContent).toContain("No preset");

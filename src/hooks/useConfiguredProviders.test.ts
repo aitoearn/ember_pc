@@ -33,17 +33,18 @@ function createOemRuntime(
   overrides: Partial<OemCloudRuntimeContext> = {},
 ): OemCloudRuntimeContext {
   return {
-    baseUrl: "https://user.emberai.run",
-    controlPlaneBaseUrl: "https://user.emberai.run",
-    sceneBaseUrl: "https://scene.emberai.run",
-    gatewayBaseUrl: "https://llm.emberai.run",
+    baseUrl: "https://user.limeai.run",
+    controlPlaneBaseUrl: "https://user.limeai.run",
+    sceneBaseUrl: "https://scene.limeai.run",
+    gatewayBaseUrl: "https://llm.limeai.run",
     tenantId: "tenant-0001",
     sessionToken: null,
-    hubProviderName: "Ember Cloud",
+    hubProviderName: "Lime 云端",
     loginPath: "/login",
     desktopClientId: "desktop-client",
-    desktopOauthRedirectUrl: "ember://oauth/callback",
+    desktopOauthRedirectUrl: "lime://oauth/callback",
     desktopOauthNextPath: "/welcome",
+    pluginSignatureTrustRoots: [],
     ...overrides,
   };
 }
@@ -86,21 +87,16 @@ describe("buildConfiguredProviders", () => {
     expect(providers).toEqual([]);
   });
 
-  it("Ember Hub 不应出现在已配置 Provider 列表", () => {
+  it("OEM Runtime 未登录时应展示 Lime Hub 登录提示 Provider", () => {
     const providers = buildConfiguredProviders(
       [
         createApiKeyProvider({
-          id: "ember-hub",
-          name: "Ember Hub",
+          id: "lime-hub",
+          name: "Lime 云端",
           type: "openai",
-          api_host: "https://llm.emberai.run",
-          api_key_count: 1,
-          custom_models: ["gpt-5.2-pro"],
-        }),
-        createApiKeyProvider({
-          id: "deepseek",
-          name: "DeepSeek",
-          api_key_count: 1,
+          api_host: "https://llm.limeai.run",
+          api_key_count: 0,
+          custom_models: [],
         }),
       ],
       {
@@ -108,23 +104,122 @@ describe("buildConfiguredProviders", () => {
       },
     );
 
-    expect(providers.map((provider) => provider.key)).toEqual(["deepseek"]);
+    expect(providers).toEqual([
+      expect.objectContaining({
+        key: "lime-hub",
+        providerId: "lime-hub",
+        label: "Lime 云端",
+        authStatus: "login_required",
+        customModels: [],
+      }),
+    ]);
   });
 
-  it("OEM Runtime 未登录时不应合成 Ember Hub 登录提示 Provider", () => {
+  it("OEM Runtime 未登录但托管网关已有声明模型时应作为可选 Provider", () => {
+    const providers = buildConfiguredProviders(
+      [
+        createApiKeyProvider({
+          id: "lime-hub",
+          name: "Lime 云端",
+          type: "openai",
+          api_host: "https://llm.limeai.run#lime_tenant_id=tenant-0001",
+          api_key_count: 0,
+          custom_models: ["agnes-2.0-flash"],
+        }),
+      ],
+      {
+        oemRuntime: createOemRuntime({ sessionToken: null }),
+      },
+    );
+
+    expect(providers).toEqual([
+      expect.objectContaining({
+        key: "lime-hub",
+        providerId: "lime-hub",
+        label: "Lime 云端",
+        authStatus: "ready",
+        customModels: ["agnes-2.0-flash"],
+      }),
+    ]);
+  });
+
+  it("后端未返回 Lime Hub 但 OEM Runtime 未登录时应合成登录提示 Provider", () => {
     const providers = buildConfiguredProviders([], {
       oemRuntime: createOemRuntime({ sessionToken: null }),
     });
 
-    expect(providers).toEqual([]);
+    expect(providers).toEqual([
+      expect.objectContaining({
+        key: "lime-hub",
+        providerId: "lime-hub",
+        label: "Lime 云端",
+        authStatus: "login_required",
+        apiHost: "https://llm.limeai.run#lime_tenant_id=tenant-0001",
+      }),
+    ]);
   });
 
-  it("OEM Runtime 已登录但无 Key 时不应合成 Ember Hub 登录提示 Provider", () => {
+  it("OEM Runtime 已登录但无 Key 时不应合成 Lime Hub 登录提示 Provider", () => {
     const providers = buildConfiguredProviders([], {
       oemRuntime: createOemRuntime({ sessionToken: "session-token" }),
     });
 
     expect(providers).toEqual([]);
+  });
+
+  it("OEM Runtime 已登录且后端返回 tenant Lime Hub 时应视为已配置 Provider", () => {
+    const providers = buildConfiguredProviders(
+      [
+        createApiKeyProvider({
+          id: "lime-hub",
+          name: "Lime Hub",
+          type: "openai",
+          api_host: "https://llm.limeai.run#lime_tenant_id=tenant-0001",
+          api_key_count: 0,
+          custom_models: [],
+        }),
+      ],
+      {
+        oemRuntime: createOemRuntime({ sessionToken: "session-token" }),
+      },
+    );
+
+    expect(providers).toEqual([
+      expect.objectContaining({
+        key: "lime-hub",
+        providerId: "lime-hub",
+        label: "Lime Hub",
+        authStatus: "ready",
+        customModels: ["gpt-5.2-pro"],
+      }),
+    ]);
+  });
+
+  it("tenant Lime Hub 后端暂未返回模型目录时应使用默认聊天模型", () => {
+    const providers = buildConfiguredProviders(
+      [
+        createApiKeyProvider({
+          id: "lime-hub",
+          name: "Lime Hub",
+          type: "openai",
+          api_host: "https://llm.limeai.run#lime_tenant_id=tenant-0001",
+          api_key_count: 0,
+          custom_models: [],
+        }),
+      ],
+      {
+        oemRuntime: createOemRuntime({ sessionToken: null }),
+      },
+    );
+
+    expect(providers).toEqual([
+      expect.objectContaining({
+        key: "lime-hub",
+        providerId: "lime-hub",
+        authStatus: "ready",
+        customModels: ["gpt-5.2-pro"],
+      }),
+    ]);
   });
 
   it("无 Key 的 Ollama 缺少地址或被禁用时不应展示", () => {

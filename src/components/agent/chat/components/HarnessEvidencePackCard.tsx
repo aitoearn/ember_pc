@@ -1,13 +1,15 @@
 import type {
   AgentRuntimeEvidenceBrowserActionIndex,
+  AgentRuntimeEvidenceMcpResourceContentRef,
+  AgentRuntimeEvidenceMcpResourceRead,
   AgentRuntimeEvidencePack,
-} from "@/lib/api/agentRuntime";
+} from "@/lib/api/agentRuntime/evidenceTypes";
 import { FolderOpen, Loader2, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   BrowserActionIndexSummarySection,
-  EmberCorePolicyIndexSummarySection,
+  LimeCorePolicyIndexSummarySection,
 } from "./HarnessEvidenceSummarySections";
 import {
   HarnessExportArtifactList,
@@ -28,6 +30,7 @@ import {
   formatHandoffStatusLabel,
   formatIsoDateTime,
 } from "./harnessStatusPanelViewModel";
+import { formatWorkspaceSkillRuntimeEnableDisplay } from "../utils/toolResultEnvelopeDisplay";
 
 interface HarnessEvidencePackCardProps {
   evidencePack: AgentRuntimeEvidencePack | null;
@@ -54,9 +57,9 @@ export function HarnessEvidencePackCard({
   return (
     <HarnessExportCardFrame
       icon={<ShieldAlert className="h-4 w-4 text-amber-600" />}
-      title={agentText("agentChat.harness.generated.153b1d0f0a", "问题证据包")}
+      title={agentText("agentChat.harness.evidence.title", "问题证据包")}
       description={agentText(
-        "agentChat.harness.generated.1a81e7e23f",
+        "agentChat.harness.evidence.description",
         "把当前 runtime、timeline、最近产物和已知缺口导出为最小证据包，为后续 replay、eval 和故障复盘提供输入。",
       )}
       actions={
@@ -67,7 +70,7 @@ export function HarnessEvidencePackCard({
             variant={evidencePack ? "outline" : "default"}
             className="gap-2"
             aria-label={agentText(
-              "agentChat.harness.generated.f1e4d07649",
+              "agentChat.harness.evidence.action.exportAria",
               "导出问题证据包",
             )}
             disabled={evidenceExporting}
@@ -78,7 +81,15 @@ export function HarnessEvidencePackCard({
             ) : (
               <ShieldAlert className="h-4 w-4" />
             )}
-            {evidencePack ? "刷新证据包" : "导出问题证据包"}
+            {evidencePack
+              ? agentText(
+                  "agentChat.harness.evidence.action.refresh",
+                  "刷新证据包",
+                )
+              : agentText(
+                  "agentChat.harness.evidence.action.export",
+                  "导出问题证据包",
+                )}
           </Button>
           {evidencePack ? (
             <Button
@@ -87,7 +98,7 @@ export function HarnessEvidencePackCard({
               variant="outline"
               className="gap-2"
               aria-label={agentText(
-                "agentChat.harness.generated.d6913f073d",
+                "agentChat.harness.evidence.action.openDirectoryAria",
                 "打开问题证据目录",
               )}
               onClick={() =>
@@ -95,7 +106,10 @@ export function HarnessEvidencePackCard({
               }
             >
               <FolderOpen className="h-4 w-4" />
-              {agentText("agentChat.harness.generated.031c105578", "打开目录")}
+              {agentText(
+                "agentChat.harness.evidence.action.openDirectory",
+                "打开目录",
+              )}
             </Button>
           ) : null}
         </>
@@ -103,7 +117,7 @@ export function HarnessEvidencePackCard({
       error={evidenceExportError}
       hasContent={Boolean(evidencePack)}
       emptyMessage={agentText(
-        "agentChat.harness.generated.913ad2f0a2",
+        "agentChat.harness.evidence.empty",
         "尚未导出问题证据包。建议在出现阻塞、需要复盘失败链路，或准备把真实案例沉淀成 replay / eval 样本前导出一次。",
       )}
     >
@@ -129,6 +143,49 @@ interface EvidencePackContentProps {
   ) => void;
 }
 
+function formatMcpResourceContentRef(
+  ref: AgentRuntimeEvidenceMcpResourceContentRef,
+): string {
+  const parts = [`#${ref.index}`];
+  if (ref.type) {
+    parts.push(ref.type);
+  }
+  if (ref.mime_type) {
+    parts.push(ref.mime_type);
+  }
+  if (typeof ref.text_char_count === "number") {
+    parts.push(`${ref.text_char_count} chars`);
+  }
+  if (typeof ref.blob_base64_bytes === "number") {
+    parts.push(`${ref.blob_base64_bytes} bytes`);
+  }
+  return parts.join(" · ");
+}
+
+function formatMcpResourceReadMeta(
+  read: AgentRuntimeEvidenceMcpResourceRead,
+): string {
+  const parts = [
+    read.server
+      ? agentText(
+          "agentChat.harness.generated.7bb20d9718",
+          "server {{server}}",
+          { server: read.server },
+        )
+      : null,
+    read.status,
+    read.mime_types.length > 0 ? read.mime_types.join(", ") : null,
+    typeof read.content_count === "number"
+      ? agentText(
+          "agentChat.harness.generated.5f3a73a36a",
+          "{{count}} content item(s)",
+          { count: read.content_count },
+        )
+      : null,
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
+
 function EvidencePackContent({
   evidencePack,
   handleOpenPathValue,
@@ -147,10 +204,16 @@ function EvidencePackContent({
     evidencePack.observability_summary?.modality_runtime_contracts
       ?.snapshot_index;
   const browserActionIndex = snapshotIndex?.browser_action_index;
+  const skillInvocations =
+    evidencePack.observability_summary?.skill_invocations ?? [];
+  const skillSearches =
+    evidencePack.observability_summary?.skill_searches ?? [];
+  const mcpResourceReads =
+    evidencePack.observability_summary?.mcp_resource_reads ?? [];
 
   return (
     <>
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid min-w-0 gap-2 [grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr))]">
         <InventoryStatCard
           title={agentText(
             "agentChat.harness.generated.2a36de35aa",
@@ -212,7 +275,7 @@ function EvidencePackContent({
               )}
             </Badge>
           </div>
-          <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-3 grid min-w-0 gap-2 text-xs text-muted-foreground [grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr))]">
             <div>
               {agentText(
                 "agentChat.harness.generated.feb6327847",
@@ -265,6 +328,107 @@ function EvidencePackContent({
         </div>
       ) : null}
 
+      {skillInvocations.length > 0 ? (
+        <div className="rounded-xl border border-border bg-background p-3">
+          <div className="text-sm font-medium text-foreground">
+            {agentText(
+              "agentChat.harness.generated.085f91c13e",
+              "Skill ToolCall：",
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            {skillInvocations.map((invocation, index) => {
+              const runtimeEnableMeta =
+                formatWorkspaceSkillRuntimeEnableDisplay(
+                  invocation.workspace_skill_runtime_enable,
+                  agentText,
+                );
+              return (
+                <div
+                  key={`${invocation.source_event_id || invocation.skill_name}-${index}`}
+                  className="flex flex-wrap items-center gap-1.5"
+                >
+                  <Badge variant="outline" className="font-mono">
+                    {invocation.skill_name}
+                    {invocation.status ? ` · ${invocation.status}` : ""}
+                  </Badge>
+                  {runtimeEnableMeta ? (
+                    <Badge variant="secondary" className="font-mono">
+                      {runtimeEnableMeta}
+                    </Badge>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {skillSearches.length > 0 ? (
+        <div className="rounded-xl border border-border bg-background p-3">
+          <div className="text-sm font-medium text-foreground">
+            {agentText(
+              "agentChat.harness.generated.1a4d9c05b2",
+              "Skill Search：",
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            {skillSearches.map((search, index) => (
+              <Badge
+                key={`${search.source_event_id || search.query || "skill-search"}-${index}`}
+                variant="outline"
+                className="font-mono"
+              >
+                {search.query || "unknown"}
+                {typeof search.result_count === "number"
+                  ? ` · ${search.result_count}/${search.snapshot_skill_count ?? "-"}`
+                  : ""}
+                {search.status ? ` · ${search.status}` : ""}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {mcpResourceReads.length > 0 ? (
+        <div className="rounded-xl border border-border bg-background p-3">
+          <div className="text-sm font-medium text-foreground">
+            {agentText(
+              "agentChat.harness.generated.a95ef38362",
+              "MCP Resource Reads:",
+            )}
+          </div>
+          <div className="mt-2 space-y-2">
+            {mcpResourceReads.map((read, index) => (
+              <div
+                key={`${read.source_event_id || read.uri}-${index}`}
+                className="rounded-lg border border-border/70 bg-muted/30 p-2 text-xs"
+              >
+                <div className="font-mono text-foreground break-all">
+                  {read.uri}
+                </div>
+                <div className="mt-1 text-muted-foreground">
+                  {formatMcpResourceReadMeta(read)}
+                </div>
+                {read.content_refs.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {read.content_refs.map((ref) => (
+                      <Badge
+                        key={`${read.source_event_id}-${ref.index}`}
+                        variant="outline"
+                        className="font-mono"
+                      >
+                        {formatMcpResourceContentRef(ref)}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <HarnessExportDirectoryCard
         title={agentText("agentChat.harness.generated.101e014f74", "证据目录")}
         relativePath={evidencePack.pack_relative_root}
@@ -285,9 +449,9 @@ function EvidencePackContent({
         <HarnessTaskIndexSection index={snapshotIndex.task_index} />
       ) : null}
 
-      {snapshotIndex?.embercore_policy_index ? (
-        <EmberCorePolicyIndexSummarySection
-          index={snapshotIndex.embercore_policy_index}
+      {snapshotIndex?.limecore_policy_index ? (
+        <LimeCorePolicyIndexSummarySection
+          index={snapshotIndex.limecore_policy_index}
         />
       ) : null}
 
@@ -314,9 +478,18 @@ function EvidencePackContent({
       <HarnessExportArtifactList
         artifacts={evidencePack.artifacts}
         formatKindLabel={formatEvidenceArtifactKindLabel}
-        previewDescriptionPrefix="问题证据"
-        previewAriaLabelPrefix="预览问题证据"
-        openAriaLabelPrefix="系统打开问题证据"
+        previewDescription={{
+          key: "agentChat.harness.evidence.artifact.previewDescription",
+          defaultValue: "问题证据 · {{kind}}",
+        }}
+        previewAriaLabel={{
+          key: "agentChat.harness.evidence.artifact.previewAria",
+          defaultValue: "预览问题证据：{{title}}",
+        }}
+        openAriaLabel={{
+          key: "agentChat.harness.evidence.artifact.openAria",
+          defaultValue: "系统打开问题证据：{{path}}",
+        }}
         onOpenPath={handleOpenPathValue}
         onOpenPreview={openPreview}
       />

@@ -13,14 +13,14 @@ const DEFAULTS = {
   intervalMs: 250,
   evidenceDir: path.join(
     process.cwd(),
-    ".ember",
+    ".lime",
     "qc",
     "gui-evidence",
     "connect-deep-link-current",
   ),
   prefix: "connect-deep-link-current",
   deepLinkUrl:
-    "ember://connect?relay=electron-current-smoke&key=sk-connect-smoke-000000000000&name=Electron%20Current%20Smoke&ref=smoke",
+    "lime://connect?relay=electron-current-smoke&key=sk-connect-smoke-000000000000&name=Electron%20Current%20Smoke&ref=smoke",
   appUrl: "",
 };
 
@@ -43,7 +43,7 @@ function printHelp() {
 Connect Deep Link Current Smoke
 
 用途:
-  启动真实 Electron Desktop Host，把 ember://connect URL 作为首启参数交给
+  启动真实 Electron Desktop Host，把 lime://connect URL 作为首启参数交给
   Electron main，验证 renderer preload deepLink bridge 与 App Server JSON-RPC
   current 主链连通，而不是旧 desktop command / renderer mock。
 
@@ -55,7 +55,7 @@ Connect Deep Link Current Smoke
   --deep-link-url <url>   默认使用一次性未验证 relay，只打开确认弹窗，不保存 Key
   --timeout-ms <ms>       总超时，默认 120000
   --interval-ms <ms>      轮询间隔，默认 250
-  --evidence-dir <path>   证据目录，默认 .ember/qc/gui-evidence/connect-deep-link-current
+  --evidence-dir <path>   证据目录，默认 .lime/qc/gui-evidence/connect-deep-link-current
   --prefix <name>         证据文件前缀，默认 connect-deep-link-current
   -h, --help              显示帮助
 `);
@@ -108,8 +108,8 @@ function parseArgs(argv) {
   if (!Number.isFinite(options.intervalMs) || options.intervalMs < 100) {
     throw new Error("--interval-ms 必须是 >= 100 的数字");
   }
-  if (!options.deepLinkUrl.startsWith("ember://connect")) {
-    throw new Error("--deep-link-url 必须是 ember://connect URL");
+  if (!options.deepLinkUrl.startsWith("lime://connect")) {
+    throw new Error("--deep-link-url 必须是 lime://connect URL");
   }
   if (!options.evidenceDir || !options.prefix) {
     throw new Error("--evidence-dir / --prefix 均不能为空");
@@ -287,13 +287,13 @@ async function waitForRendererReady(page, options) {
       const text = document.body?.innerText || "";
       return {
         url: window.location.href,
-        electron: window.__EMBER_ELECTRON__ === true,
+        electron: window.__LIME_ELECTRON__ === true,
         hasDeepLinkBridge:
           typeof window.electronAPI?.deepLink?.getCurrent === "function" &&
           typeof window.electronAPI?.deepLink?.onOpenUrl === "function",
         text,
         startupVisible: Boolean(
-          document.querySelector("[data-ember-startup-shell]"),
+          document.querySelector("[data-lime-startup-shell]"),
         ),
       };
     });
@@ -320,7 +320,7 @@ async function waitForConnectEvidence(page, options) {
     const snapshot = await evaluatePageSnapshot(page, async () => {
       const bodyText = document.body?.innerText || "";
       const traceRaw = window.localStorage.getItem(
-        "ember_invoke_trace_buffer_v1",
+        "lime_invoke_trace_buffer_v1",
       );
       const pendingDeepLinks = window.electronAPI?.deepLink?.getCurrent
         ? await window.electronAPI.deepLink.getCurrent()
@@ -431,9 +431,9 @@ async function run() {
         ...process.env,
         ...appServerEnv,
         ELECTRON_E2E_USER_DATA_DIR: tmpUserDataDir,
-        EMBER_ELECTRON_E2E: "1",
-        EMBER_ELECTRON_BRAND_DEV_APP: "0",
-        EMBER_ELECTRON_CLEAR_RENDERER_CACHE: "0",
+        LIME_ELECTRON_E2E: "1",
+        LIME_ELECTRON_BRAND_DEV_APP: "0",
+        LIME_ELECTRON_CLEAR_RENDERER_CACHE: "0",
         ...(options.appUrl ? { VITE_DEV_SERVER_URL: options.appUrl } : {}),
       },
       timeout: options.timeoutMs,

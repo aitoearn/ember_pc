@@ -1,4 +1,4 @@
-use ember_core::models::AppType;
+use lime_core::models::AppType;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
@@ -13,7 +13,7 @@ pub fn get_prompt_file_path(app: &AppType) -> Option<PathBuf> {
         AppType::Claude => Some(home.join("CLAUDE.md")),
         AppType::Codex => Some(home.join("AGENTS.md")),
         AppType::Gemini => Some(home.join("GEMINI.md")),
-        AppType::Ember => None, // Ember doesn't have a prompt file
+        AppType::Lime => None, // Lime doesn't have a prompt file
     }
 }
 
@@ -24,7 +24,7 @@ pub fn get_prompt_filename(app: &AppType) -> &'static str {
         AppType::Claude => "CLAUDE.md",
         AppType::Codex => "AGENTS.md",
         AppType::Gemini => "GEMINI.md",
-        AppType::Ember => "",
+        AppType::Lime => "",
     }
 }
 

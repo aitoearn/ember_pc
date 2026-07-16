@@ -68,8 +68,8 @@ function createListing(path: string): DirectoryListing {
       parentPath: null,
       entries: [
         {
-          name: "Ember.app",
-          path: "/Applications/Ember.app",
+          name: "Lime.app",
+          path: "/Applications/Lime.app",
           isDir: true,
           size: 0,
           modifiedAt: Date.now(),
@@ -219,7 +219,7 @@ beforeEach(() => {
     createListing(path),
   );
   vi.mocked(getFileIconDataUrl).mockImplementation(async (path: string) =>
-    path === "/Users/demo/Downloads" || path === "/Applications/Ember.app"
+    path === "/Users/demo/Downloads" || path === "/Applications/Lime.app"
       ? APP_ICON_DATA_URL
       : null,
   );
@@ -747,7 +747,7 @@ describe("FileManagerSidebar", () => {
     });
 
     const appEntry = container.querySelector(
-      '[data-testid="file-manager-entry"][data-file-path="/Applications/Ember.app"]',
+      '[data-testid="file-manager-entry"][data-file-path="/Applications/Lime.app"]',
     ) as HTMLButtonElement | null;
 
     expect(appEntry).toBeTruthy();

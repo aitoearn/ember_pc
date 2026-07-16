@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  renderPanel,
+  renderExpandedPanel as renderPanel,
   getHarnessPanelTestMocks,
 } from "./HarnessStatusPanel.testFixtures";
 
@@ -19,7 +19,6 @@ describe("HarnessStatusPanel review", () => {
         model: "gpt-5.4",
         executionStrategy: "react",
         activeTheme: "default",
-        selectedTeamLabel: null,
       },
     });
 

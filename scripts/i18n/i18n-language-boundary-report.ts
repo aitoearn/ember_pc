@@ -76,7 +76,7 @@ const SKIP_SEGMENTS = [
   "/src/i18n/resources/",
   "/src/i18n/legacy-patch/",
   "/ember-rs/target/",
-  "/ember-rs/crates/aster-rust/",
+  "/ember-rs/crates/agent-rust/",
   "/target/",
 ];
 
@@ -258,7 +258,7 @@ function classifyLanguageMarker(
   }
 
   if (
-    normalizedFileLower.includes("/crates/ember-cli/src/main.rs") ||
+    normalizedFileLower.includes("/crates/lime-cli/src/main.rs") ||
     normalizedFileLower.includes("/asrprovider") ||
     normalizedFileLower.includes("/agent/chat/types") ||
     normalizedFileLower.includes("/mediataskmocks") ||
@@ -403,7 +403,7 @@ export function analyzeI18nLanguageBoundaryReport(
     entries: filteredEntries,
     filters: options.category ? { category: options.category } : {},
     rootDir,
-    schemaVersion: "ember.i18n.languageBoundaryReport.v1",
+    schemaVersion: "lime.i18n.languageBoundaryReport.v1",
     scannedFileCount: files.length,
     sourceDirs,
     summary: {

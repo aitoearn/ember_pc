@@ -22,12 +22,12 @@ describe("modalityRuntimeContracts", () => {
       runtimeContract: expect.objectContaining({
         contract_key: "image_generation",
         routing_slot: "image_generation_model",
-        embercore_policy_refs: [
+        limecore_policy_refs: [
           "model_catalog",
           "provider_offer",
           "tenant_feature_flags",
         ],
-        embercore_policy_snapshot: expect.objectContaining({
+        limecore_policy_snapshot: expect.objectContaining({
           status: "local_defaults_evaluated",
           decision: "allow",
           source: "modality_runtime_contract",
@@ -49,7 +49,7 @@ describe("modalityRuntimeContracts", () => {
             expect.objectContaining({
               ref_key: "model_catalog",
               status: "declared_only",
-              value_source: "embercore_pending",
+              value_source: "limecore_pending",
             }),
           ]),
           pending_hit_refs: [
@@ -62,7 +62,7 @@ describe("modalityRuntimeContracts", () => {
         }),
       }),
     });
-    expect(contract.embercorePolicyRefs).toEqual([
+    expect(contract.limecorePolicyRefs).toEqual([
       "model_catalog",
       "provider_offer",
       "tenant_feature_flags",
@@ -91,7 +91,7 @@ describe("modalityRuntimeContracts", () => {
         {
           ref_key: "model_catalog",
           status: "resolved",
-          source: "embercore_policy_hit_resolver",
+          source: "limecore_policy_hit_resolver",
           value_source: "local_model_catalog",
           summary: "命中 gpt-image-1 的 image_generation capability",
           value: {
@@ -102,7 +102,7 @@ describe("modalityRuntimeContracts", () => {
       ],
     });
 
-    expect(contract.embercorePolicySnapshot).toMatchObject({
+    expect(contract.limecorePolicySnapshot).toMatchObject({
       evaluated_refs: ["model_catalog"],
       unresolved_refs: ["provider_offer", "tenant_feature_flags"],
       missing_inputs: ["provider_offer", "tenant_feature_flags"],
@@ -116,7 +116,7 @@ describe("modalityRuntimeContracts", () => {
         }),
       ],
     });
-    expect(contract.embercorePolicySnapshot.policy_inputs).toEqual(
+    expect(contract.limecorePolicySnapshot.policy_inputs).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           ref_key: "model_catalog",
@@ -126,12 +126,12 @@ describe("modalityRuntimeContracts", () => {
         expect.objectContaining({
           ref_key: "provider_offer",
           status: "declared_only",
-          value_source: "embercore_pending",
+          value_source: "limecore_pending",
         }),
       ]),
     );
-    expect(contract.runtimeContract.embercore_policy_snapshot).toBe(
-      contract.embercorePolicySnapshot,
+    expect(contract.runtimeContract.limecore_policy_snapshot).toBe(
+      contract.limecorePolicySnapshot,
     );
   });
 
@@ -164,7 +164,7 @@ describe("modalityRuntimeContracts", () => {
       ],
     });
 
-    expect(contract.embercorePolicySnapshot).toMatchObject({
+    expect(contract.limecorePolicySnapshot).toMatchObject({
       status: "policy_inputs_evaluated",
       decision: "allow",
       decision_source: "policy_input_evaluator",
@@ -210,7 +210,7 @@ describe("modalityRuntimeContracts", () => {
       ],
     });
 
-    expect(contract.embercorePolicySnapshot).toMatchObject({
+    expect(contract.limecorePolicySnapshot).toMatchObject({
       status: "policy_inputs_evaluated",
       decision: "deny",
       decision_source: "policy_input_evaluator",
@@ -298,22 +298,27 @@ describe("modalityRuntimeContracts", () => {
     );
   });
 
-  it("voice_generation contract 应提供 ServiceSkill(voice_runtime) 底层运行字段与上层入口绑定", () => {
+  it("voice_generation contract 在 audio worker 接入前只能提供 metadata-only 入口元数据", () => {
     const contract = resolveVoiceGenerationRuntimeContractBinding();
 
     expect(contract).toMatchObject({
       contractKey: "voice_generation",
       modality: "audio",
       routingSlot: "voice_generation_model",
+      executionProfileKey: "voice_generation_profile",
+      executorAdapterKey: undefined,
       runtimeContract: expect.objectContaining({
         contract_key: "voice_generation",
         routing_slot: "voice_generation_model",
-        executor_binding: expect.objectContaining({
-          executor_kind: "service_skill",
-          binding_key: "voice_runtime",
-        }),
+        route_execution_status: "metadata_only",
+        route_execution_exit_condition:
+          expect.stringContaining("ResolvedModelRoute"),
+        executor_binding: undefined,
+        executor_adapter: undefined,
       }),
     });
+    expect(contract.executionProfile?.lifecycle).toBe("compat");
+    expect(contract.executorAdapter).toBeUndefined();
     expect(contract.requiredCapabilities).toEqual(
       expect.arrayContaining(["text_generation", "voice_generation"]),
     );

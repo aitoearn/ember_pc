@@ -72,12 +72,6 @@ type PreloadApi = {
     getUrls(): Promise<unknown>;
     getCurrent(): Promise<unknown>;
   };
-  scrcpyNode?: {
-    createServer(listener: (socket: unknown) => void): {
-      listen(port?: number): Promise<number>;
-      close(): void;
-    };
-  };
 };
 
 async function loadPreloadApi(): Promise<PreloadApi> {
@@ -105,7 +99,7 @@ describe("electron/preload", () => {
     const api = await loadPreloadApi();
 
     expect(exposeInMainWorld).toHaveBeenCalledWith("electronAPI", api);
-    expect(exposeInMainWorld).toHaveBeenCalledWith("__EMBER_ELECTRON__", true);
+    expect(exposeInMainWorld).toHaveBeenCalledWith("__LIME_ELECTRON__", true);
     expect(api.devBridgeFallback).toBe(false);
     expect(api.supportsCommand(ELECTRON_HOST_COMMANDS[0])).toBe(true);
     expect(api.supportsCommand("capability_draft_list_registered_skills")).toBe(
@@ -187,7 +181,7 @@ describe("electron/preload", () => {
     await api.dialog.save({ defaultPath: "draft.md" });
     await api.shell.open("/tmp/draft.md", "Preview");
     await api.window.show();
-    await api.window.setTitle("Ember");
+    await api.window.setTitle("Lime");
     await api.window.setSize(1024, 768);
     await api.globalShortcut.register("CommandOrControl+L");
     await api.globalShortcut.unregister("CommandOrControl+L");
@@ -216,7 +210,7 @@ describe("electron/preload", () => {
     expect(ipcInvoke).toHaveBeenCalledWith(
       IPC_WINDOW_COMMAND_CHANNEL,
       "setTitle",
-      "Ember",
+      "Lime",
     );
     expect(ipcInvoke).toHaveBeenCalledWith(
       IPC_WINDOW_COMMAND_CHANNEL,
@@ -284,59 +278,5 @@ describe("electron/preload", () => {
     expect(api.convertFileSrc("/tmp/a b.png", "asset")).toBe(
       "asset://%2Ftmp%2Fa%20b.png",
     );
-  });
-
-  it("preload 白名单包含 device_automation_scrcpy_launch", async () => {
-    const api = await loadPreloadApi();
-    expect(ELECTRON_HOST_COMMANDS).toContain("device_automation_scrcpy_launch");
-    expect(api.supportsCommand("device_automation_scrcpy_launch")).toBe(true);
-  });
-
-  it("preload 白名单包含 device_automation_perf_list_apps", async () => {
-    const api = await loadPreloadApi();
-    expect(ELECTRON_HOST_COMMANDS).toContain("device_automation_perf_list_apps");
-    expect(api.supportsCommand("device_automation_perf_list_apps")).toBe(true);
-  });
-
-  it("preload 白名单包含 device_automation_monkey_start", async () => {
-    const api = await loadPreloadApi();
-    expect(ELECTRON_HOST_COMMANDS).toContain("device_automation_monkey_start");
-    expect(api.supportsCommand("device_automation_monkey_start")).toBe(true);
-    expect(api.supportsCommand("device_automation_monkey_stop")).toBe(true);
-    expect(api.supportsCommand("device_automation_monkey_get_status")).toBe(true);
-  });
-
-  it("preload 白名单包含 device_automation_stability_analysis 命令", async () => {
-    const api = await loadPreloadApi();
-    for (const command of [
-      "device_automation_stability_analysis_get_tool_status",
-      "device_automation_stability_analysis_start",
-      "device_automation_stability_analysis_cancel",
-      "device_automation_stability_analysis_get_status",
-      "device_automation_stability_llm_config_read",
-      "device_automation_stability_llm_config_save",
-    ]) {
-      expect(ELECTRON_HOST_COMMANDS).toContain(command);
-      expect(api.supportsCommand(command)).toBe(true);
-    }
-  });
-
-  it("preload 白名单包含 device_automation_perf_trace 命令", async () => {
-    const api = await loadPreloadApi();
-    for (const command of [
-      "device_automation_perf_trace_start",
-      "device_automation_perf_trace_stop",
-      "device_automation_perf_trace_get_status",
-      "device_automation_perf_trace_open_external",
-      "device_automation_perf_trace_delete_local",
-    ]) {
-      expect(ELECTRON_HOST_COMMANDS).toContain(command);
-      expect(api.supportsCommand(command)).toBe(true);
-    }
-  });
-
-  it("暴露 scrcpyNode.createServer 供 renderer 直连 TCP", async () => {
-    const api = await loadPreloadApi();
-    expect(api.scrcpyNode?.createServer).toEqual(expect.any(Function));
   });
 });

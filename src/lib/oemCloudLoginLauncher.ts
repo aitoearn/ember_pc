@@ -30,7 +30,7 @@ import {
 import { isDevBridgeAvailable, safeListen } from "@/lib/dev-bridge";
 
 const DESKTOP_AUTH_LEGACY_CLIENT_IDS: Record<string, string[]> = {
-  "emberhub-desktop": ["lobehub-desktop"],
+  "limehub-desktop": ["lobehub-desktop"],
 };
 
 export interface OemCloudLoginLaunchResult {

@@ -4,17 +4,70 @@ import { createInitialSessionImageWorkbenchState } from "./imageWorkbenchHelpers
 import {
   createParsedCommand,
   mockGenerateAgentRuntimeTitle,
-  renderHook,
+  renderCommandActionHook,
   toast,
 } from "./useWorkspaceImageWorkbenchActionRuntime.testFixtures";
 
-describe("useWorkspaceImageWorkbenchActionRuntime", () => {
+describe("useWorkspaceImageWorkbenchCommandActionRuntime", () => {
+  it("图片 Provider 刷新后同一轮命令应使用最新 selection", async () => {
+    const submitImageWorkbenchAgentCommand = vi.fn().mockResolvedValue(true);
+    let resolveProvidersLoaded: (() => void) | null = null;
+    const ensureImageWorkbenchProvidersLoaded = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveProvidersLoaded = resolve;
+        }),
+    );
+    const { render, getValue } = renderCommandActionHook({
+      ensureImageWorkbenchProvidersLoaded,
+      imageWorkbenchProvidersLoading: true,
+      imageWorkbenchSelectedModelId: "",
+      imageWorkbenchSelectedProviderId: "",
+      submitImageWorkbenchAgentCommand,
+    });
+
+    await render();
+
+    let handledPromise: Promise<boolean> | null = null;
+    await act(async () => {
+      handledPromise = getValue().handleImageWorkbenchCommand({
+        rawText: "@配图 生成 城市夜景主视觉",
+        parsedCommand: createParsedCommand(),
+        images: [],
+      });
+      await Promise.resolve();
+    });
+
+    await render({
+      imageWorkbenchProvidersLoading: false,
+      imageWorkbenchSelectedModelId: "fal-ai/nano-banana-pro",
+      imageWorkbenchSelectedProviderId: "fal",
+    });
+
+    await act(async () => {
+      resolveProvidersLoaded?.();
+      await handledPromise;
+    });
+
+    expect(await handledPromise).toBe(true);
+    expect(ensureImageWorkbenchProvidersLoaded).toHaveBeenCalledTimes(1);
+    expect(submitImageWorkbenchAgentCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestContext: expect.objectContaining({
+          image_task: expect.objectContaining({
+            provider_id: "fal",
+            model: "fal-ai/nano-banana-pro",
+          }),
+        }),
+      }),
+    );
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
   it("应通过 Agent 主链提交图片 skill launch，而不是前端直建 task", async () => {
     const submitImageWorkbenchAgentCommand = vi.fn().mockResolvedValue(true);
-    const createImageGenerationTask = vi.fn();
-    const { render, getValue } = renderHook({
+    const { render, getValue } = renderCommandActionHook({
       submitImageWorkbenchAgentCommand,
-      createImageGenerationTask,
     });
 
     await render();
@@ -58,7 +111,6 @@ describe("useWorkspaceImageWorkbenchActionRuntime", () => {
       previewText: "城市夜景主视觉",
       titleKind: "image_task",
     });
-    expect(createImageGenerationTask).not.toHaveBeenCalled();
     expect(toast.error).not.toHaveBeenCalled();
   });
 
@@ -66,7 +118,7 @@ describe("useWorkspaceImageWorkbenchActionRuntime", () => {
     const submitImageWorkbenchAgentCommand = vi.fn().mockResolvedValue(true);
     const localImageWorkbenchSessionKey =
       "__local_image_workbench__:draft:image";
-    const { render, getValue } = renderHook({
+    const { render, getValue } = renderCommandActionHook({
       submitImageWorkbenchAgentCommand,
       imageWorkbenchSessionKey: localImageWorkbenchSessionKey,
     });
@@ -96,6 +148,61 @@ describe("useWorkspaceImageWorkbenchActionRuntime", () => {
     });
   });
 
+  it("普通图片生成缺少项目时仍应构造 Agent skill launch 上下文", async () => {
+    const { render, getValue } = renderCommandActionHook({
+      projectId: null,
+      projectRootPath: null,
+    });
+
+    await render();
+
+    const skillRequest = getValue().resolveImageWorkbenchCommandRequest({
+      rawText: "@配图 生成 城市夜景主视觉",
+      parsedCommand: createParsedCommand(),
+      images: [],
+    });
+
+    expect(skillRequest).toMatchObject({
+      requestContext: {
+        kind: "image_task",
+        image_task: {
+          mode: "generate",
+          prompt: "城市夜景主视觉",
+          session_id: "session-1",
+          entry_source: "at_image_command",
+        },
+      },
+    });
+    expect(skillRequest?.requestContext["image_task"]).not.toHaveProperty(
+      "project_id",
+    );
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("需要写回画布的配图仍应要求项目上下文", async () => {
+    const { render, getValue } = renderCommandActionHook({
+      projectId: null,
+      projectRootPath: null,
+    });
+
+    await render();
+
+    const skillRequest = getValue().resolveImageWorkbenchCommandRequest({
+      rawText: "@配图 生成 城市夜景主视觉",
+      parsedCommand: createParsedCommand(),
+      images: [],
+      applyTarget: {
+        kind: "canvas-insert",
+        canvasType: "document",
+        actionLabel: "插入文稿",
+        dispatchLabel: "生成并插入文稿",
+      },
+    });
+
+    expect(skillRequest).toBeNull();
+    expect(toast.error).toHaveBeenCalledWith("请先选择项目后再开始配图");
+  });
+
   it("应把编辑命令解析为统一的 skillRequest 上下文", async () => {
     const currentImageWorkbenchState = {
       ...createInitialSessionImageWorkbenchState(),
@@ -117,13 +224,13 @@ describe("useWorkspaceImageWorkbenchActionRuntime", () => {
         },
       ],
     };
-    const { render, getValue } = renderHook({
+    const { render, getValue } = renderCommandActionHook({
       currentImageWorkbenchState,
     });
 
     await render();
 
-    const skillRequest = getValue().resolveImageWorkbenchSkillRequest({
+    const skillRequest = getValue().resolveImageWorkbenchCommandRequest({
       rawText: "@配图 编辑 #img-2 去掉角标，保留主体",
       parsedCommand: {
         rawText: "@配图 编辑 #img-2 去掉角标，保留主体",
@@ -167,8 +274,8 @@ describe("useWorkspaceImageWorkbenchActionRuntime", () => {
     });
   });
 
-  it("当前选中 Provider 尚未就绪时应回退到已解析偏好", async () => {
-    const { render, getValue } = renderHook({
+  it("普通输入 resolver 应把当前图片渠道写成图片执行路由", async () => {
+    const { render, getValue } = renderCommandActionHook({
       imageWorkbenchPreferredModelId: "gpt-images-2",
       imageWorkbenchPreferredProviderId:
         "custom-f0181b00-35b6-4731-94e2-24f17fd247c9",
@@ -178,7 +285,7 @@ describe("useWorkspaceImageWorkbenchActionRuntime", () => {
 
     await render();
 
-    const skillRequest = getValue().resolveImageWorkbenchSkillRequest({
+    const skillRequest = getValue().resolveImageWorkbenchCommandRequest({
       rawText: "@配图 生成 柴犬头像暖色插画",
       parsedCommand: {
         rawText: "@配图 生成 柴犬头像暖色插画",
@@ -195,13 +302,14 @@ describe("useWorkspaceImageWorkbenchActionRuntime", () => {
       images: [],
     });
 
-    expect(skillRequest).toMatchObject({
-      requestContext: {
-        image_task: {
-          provider_id: "custom-f0181b00-35b6-4731-94e2-24f17fd247c9",
-          model: "gpt-images-2",
-        },
-      },
+    const imageTask = skillRequest?.requestContext["image_task"] as Record<
+      string,
+      unknown
+    >;
+    expect(imageTask).toMatchObject({
+      provider_id: "custom-f0181b00-35b6-4731-94e2-24f17fd247c9",
+      model: "gpt-images-2",
+      executor_mode: "images_api",
     });
   });
 });

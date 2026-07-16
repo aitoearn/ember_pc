@@ -157,7 +157,7 @@ describe("http-client", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("旧会话恢复命令应允许绕过短退避重新探测，避免恢复时卡在 cooldown", async () => {
+  it("工作区恢复命令应允许绕过短退避重新探测，避免恢复时卡在 cooldown", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockRejectedValueOnce(new TypeError("Failed to fetch"))
@@ -167,11 +167,8 @@ describe("http-client", () => {
         new Response(
           JSON.stringify({
             result: {
-              id: "session-1",
-              name: "旧会话",
-              messages: [],
-              created_at: 1,
-              updated_at: 2,
+              id: "workspace-1",
+              name: "当前工作区",
             },
           }),
           {
@@ -187,13 +184,10 @@ describe("http-client", () => {
     await expect(healthCheck()).resolves.toBe(false);
 
     await expect(
-      invokeViaHttp("agent_runtime_get_session", {
-        sessionId: "session-1",
-        historyLimit: 40,
-      }),
+      invokeViaHttp("workspace_get", { id: "workspace-1" }),
     ).resolves.toMatchObject({
-      id: "session-1",
-      name: "旧会话",
+      id: "workspace-1",
+      name: "当前工作区",
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
@@ -201,7 +195,7 @@ describe("http-client", () => {
     expect(fetchMock.mock.calls[3]?.[0]).toBe("http://127.0.0.1:3030/invoke");
   });
 
-  it("工作区与会话列表命令应允许绕过短退避重新探测，恢复首页和侧栏", async () => {
+  it("工作区列表命令应允许绕过短退避重新探测，恢复首页和侧栏", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockRejectedValueOnce(new TypeError("Failed to fetch"))
@@ -219,11 +213,9 @@ describe("http-client", () => {
 
     await expect(healthCheck()).resolves.toBe(false);
 
-    await expect(
-      invokeViaHttp("agent_runtime_list_sessions", {
-        request: { workspace_id: "workspace-1", limit: 21 },
-      }),
-    ).resolves.toEqual([{ id: "session-1" }]);
+    await expect(invokeViaHttp("workspace_list")).resolves.toEqual([
+      { id: "session-1" },
+    ]);
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[2]?.[0]).toBe("http://127.0.0.1:3030/health");
@@ -396,34 +388,6 @@ describe("http-client", () => {
     expect(fetchMock.mock.calls[3]?.[0]).toBe("http://127.0.0.1:3030/invoke");
   });
 
-  it("agent runtime 提交命令应保留长请求超时窗口", async () => {
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(electronHostHealthResponse())
-      .mockImplementationOnce(createAbortablePendingFetch());
-    vi.stubGlobal("fetch", fetchMock);
-
-    let settled = false;
-    const invokePromise = invokeViaHttp("agent_runtime_submit_turn").then(
-      () => ({ ok: true as const }),
-      (error) => ({ ok: false as const, error }),
-    );
-    invokePromise.finally(() => {
-      settled = true;
-    });
-
-    await vi.advanceTimersByTimeAsync(2000);
-    expect(settled).toBe(false);
-
-    await vi.advanceTimersByTimeAsync(58000);
-    await expect(invokePromise).resolves.toMatchObject({
-      ok: false,
-      error: expect.objectContaining({
-        message: expect.stringContaining("timeout after 60000ms"),
-      }),
-    });
-  });
-
   it("App Server turn/start JSON-RPC 请求应保留真实运行时超时窗口", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -462,31 +426,39 @@ describe("http-client", () => {
     });
   });
 
-  it("会话列表读取命令应使用较短超时，避免恢复链路卡住 60 秒", async () => {
+  it("App Server 会话列表读取应使用 current read 超时，避免冷启动和迁移期误判失败", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(electronHostHealthResponse())
       .mockImplementationOnce(createAbortablePendingFetch());
     vi.stubGlobal("fetch", fetchMock);
 
-    const listSessionsPromise = invokeViaHttp("agent_runtime_list_sessions", {
-      request: { workspace_id: "workspace-1", limit: 21 },
+    const listSessionsPromise = invokeViaHttp("app_server_handle_json_lines", {
+      request: {
+        lines: [
+          JSON.stringify({
+            id: "list-sessions",
+            method: "agentSession/list",
+            params: { workspaceId: "workspace-1", limit: 21 },
+          }),
+        ],
+      },
     }).then(
       () => ({ ok: true as const }),
       (error) => ({ ok: false as const, error }),
     );
-    await vi.advanceTimersByTimeAsync(8000);
+    await vi.advanceTimersByTimeAsync(30000);
 
     await expect(listSessionsPromise).resolves.toMatchObject({
       ok: false,
       error: expect.objectContaining({
-        message: expect.stringContaining("timeout after 8000ms"),
+        message: expect.stringContaining("timeout after 30000ms"),
       }),
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("旧会话读取命令硬连接失败后应强制健康探测并重试一次", async () => {
+  it("工作区读取命令硬连接失败后应强制健康探测并重试一次", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(electronHostHealthResponse())
@@ -496,11 +468,8 @@ describe("http-client", () => {
         new Response(
           JSON.stringify({
             result: {
-              id: "session-1",
-              name: "旧会话",
-              messages: [],
-              created_at: 1,
-              updated_at: 2,
+              id: "workspace-1",
+              name: "当前工作区",
             },
           }),
           {
@@ -513,39 +482,46 @@ describe("http-client", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const invokePromise = invokeViaHttp("agent_runtime_get_session", {
-      sessionId: "session-1",
-      historyLimit: 40,
+    const invokePromise = invokeViaHttp("workspace_get", {
+      id: "workspace-1",
     });
 
     await expect(invokePromise).resolves.toMatchObject({
-      id: "session-1",
-      name: "旧会话",
+      id: "workspace-1",
+      name: "当前工作区",
     });
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[2]?.[0]).toBe("http://127.0.0.1:3030/health");
     expect(fetchMock.mock.calls[3]?.[0]).toBe("http://127.0.0.1:3030/invoke");
   });
 
-  it("会话后台回填命令应快速超时，避免占用旧会话恢复通道", async () => {
+  it("App Server 会话更新应使用 current read 超时，不回退旧 session facade", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(electronHostHealthResponse())
       .mockImplementationOnce(createAbortablePendingFetch());
     vi.stubGlobal("fetch", fetchMock);
 
-    const invokePromise = invokeViaHttp("agent_runtime_update_session", {
-      request: { session_id: "session-1" },
+    const invokePromise = invokeViaHttp("app_server_handle_json_lines", {
+      request: {
+        lines: [
+          JSON.stringify({
+            id: "update-session",
+            method: "agentSession/update",
+            params: { sessionId: "session-1", title: "新标题" },
+          }),
+        ],
+      },
     }).then(
       () => ({ ok: true as const }),
       (error) => ({ ok: false as const, error }),
     );
 
-    await vi.advanceTimersByTimeAsync(5000);
+    await vi.advanceTimersByTimeAsync(30000);
     await expect(invokePromise).resolves.toMatchObject({
       ok: false,
       error: expect.objectContaining({
-        message: expect.stringContaining("timeout after 5000ms"),
+        message: expect.stringContaining("timeout after 30000ms"),
       }),
     });
   });
@@ -578,7 +554,7 @@ describe("http-client", () => {
     expect(settled).toBe(true);
   });
 
-  it("Agent App UI runtime 启动命令应覆盖后端冷启动等待窗口", async () => {
+  it("Plugin UI runtime 启动命令应覆盖后端冷启动等待窗口", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(electronHostHealthResponse())
@@ -586,7 +562,7 @@ describe("http-client", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     let settled = false;
-    const invokePromise = invokeViaHttp("agent_app_start_ui_runtime", {
+    const invokePromise = invokeViaHttp("plugin_start_ui_runtime", {
       request: {
         appId: "content-factory-app",
         entryKey: "dashboard",
@@ -645,47 +621,117 @@ describe("http-client", () => {
   });
 
   it("启动关键真相命令应保留更长超时窗口，避免冷启动误判后端不可用", () => {
-    expect(resolveBridgeRequestTimeoutMs("aster_agent_init")).toBe(30000);
     expect(resolveBridgeRequestTimeoutMs("workspace_ensure_ready")).toBe(30000);
     expect(
       resolveBridgeRequestTimeoutMs("workspace_ensure_default_ready"),
     ).toBe(30000);
-    expect(resolveBridgeRequestTimeoutMs("agent_runtime_get_session")).toBe(
-      20000,
-    );
-    expect(resolveBridgeRequestTimeoutMs("agent_runtime_list_sessions")).toBe(
-      8000,
-    );
-    expect(resolveBridgeRequestTimeoutMs("agent_app_start_ui_runtime")).toBe(
+    expect(
+      resolveBridgeRequestTimeoutMs("app_server_handle_json_lines", {
+        request: {
+          lines: [
+            JSON.stringify({
+              id: "read-session",
+              method: "agentSession/read",
+              params: { sessionId: "session-1" },
+            }),
+          ],
+        },
+      }),
+    ).toBe(30000);
+    expect(
+      resolveBridgeRequestTimeoutMs("app_server_handle_json_lines", {
+        request: {
+          lines: [
+            JSON.stringify({
+              id: "local-package-inspect",
+              method: "pluginLocalPackage/inspect",
+              params: {
+                appDir:
+                  "/Users/coso/Documents/dev/ai/limecloud/content-factory-app",
+              },
+            }),
+          ],
+        },
+      }),
+    ).toBe(240000);
+    expect(
+      resolveBridgeRequestTimeoutMs("app_server_handle_json_lines", {
+        request: {
+          lines: [
+            JSON.stringify({
+              id: "local-package-export",
+              method: "pluginLocalPackage/export",
+              params: {
+                appDir:
+                  "/Users/coso/Documents/dev/ai/limecloud/content-factory-app",
+              },
+            }),
+          ],
+        },
+      }),
+    ).toBe(240000);
+    expect(
+      resolveBridgeRequestTimeoutMs("app_server_handle_json_lines", {
+        request: {
+          lines: [
+            JSON.stringify({
+              id: "installed-save",
+              method: "pluginInstalled/save",
+              params: { state: { appId: "content-factory-app" } },
+            }),
+          ],
+        },
+      }),
+    ).toBe(240000);
+    expect(
+      resolveBridgeRequestTimeoutMs("app_server_handle_json_lines", {
+        request: {
+          lines: [
+            JSON.stringify({
+              id: "list-sessions",
+              method: "agentSession/list",
+              params: { limit: 20 },
+            }),
+          ],
+        },
+      }),
+    ).toBe(30000);
+    expect(
+      resolveBridgeRequestTimeoutMs("app_server_handle_json_lines", {
+        request: {
+          lines: [
+            JSON.stringify({
+              id: "commit-codex-import",
+              method: "conversationImport/thread/commit",
+              params: {
+                sourceClient: "codex",
+                sourceThreadId: "codex-thread-1",
+              },
+            }),
+          ],
+        },
+      }),
+    ).toBe(30000);
+    expect(resolveBridgeRequestTimeoutMs("plugin_start_ui_runtime")).toBe(
       150000,
     );
-    expect(resolveBridgeRequestTimeoutMs("agent_app_runtime_get_task")).toBe(
+    expect(resolveBridgeRequestTimeoutMs("plugin_runtime_get_task")).toBe(
       60000,
     );
-    expect(resolveBridgeRequestTimeoutMs("agent_app_runtime_start_task")).toBe(
+    expect(resolveBridgeRequestTimeoutMs("plugin_runtime_start_task")).toBe(
       60000,
     );
-    expect(
-      resolveBridgeRequestTimeoutMs("agent_app_inspect_local_package"),
-    ).toBe(1800);
-    expect(
-      resolveBridgeRequestTimeoutMs("agent_app_get_ui_runtime_status"),
-    ).toBe(5000);
+    expect(resolveBridgeRequestTimeoutMs("plugin_inspect_local_package")).toBe(
+      1800,
+    );
+    expect(resolveBridgeRequestTimeoutMs("plugin_select_directory")).toBe(
+      600000,
+    );
+    expect(resolveBridgeRequestTimeoutMs("plugin_get_ui_runtime_status")).toBe(
+      5000,
+    );
     expect(resolveBridgeRequestTimeoutMs("open_external_url")).toBe(5000);
     expect(resolveBridgeRequestTimeoutMs("execute_skill")).toBe(1800);
-    // scrcpy reverse/start 之前落在 default 1800ms，真机 adb + daemon 会话不够用，放宽到 30000ms。
-    expect(
-      resolveBridgeRequestTimeoutMs("device_automation_scrcpy_reverse_tcp"),
-    ).toBe(30000);
-    expect(resolveBridgeRequestTimeoutMs("device_automation_scrcpy_start")).toBe(
-      30000,
-    );
-    expect(resolveBridgeRequestTimeoutMs("device_automation_scrcpy_connect")).toBe(
-      30000,
-    );
-    expect(resolveBridgeRequestTimeoutMs("device_automation_scrcpy_launch")).toBe(
-      30000,
-    );
     expect(
       resolveBridgeRequestTimeoutMs("app_server_handle_json_lines", {
         request: {
@@ -704,8 +750,21 @@ describe("http-client", () => {
         request: {
           lines: [
             JSON.stringify({
+              id: "automation-run-now",
+              method: "automationJob/runNow",
+              params: { id: "job-1" },
+            }),
+          ],
+        },
+      }),
+    ).toBe(150000);
+    expect(
+      resolveBridgeRequestTimeoutMs("app_server_handle_json_lines", {
+        request: {
+          lines: [
+            JSON.stringify({
               id: "ui-runtime-start",
-              method: "agentAppUiRuntime/start",
+              method: "pluginUiRuntime/start",
               params: {
                 appId: "content-factory-sdk-fixture-app",
                 entryKey: "dashboard",
@@ -723,6 +782,19 @@ describe("http-client", () => {
               id: 2,
               method: "workspace/default/ensure",
               params: {},
+            }),
+          ],
+        },
+      }),
+    ).toBe(30000);
+    expect(
+      resolveBridgeRequestTimeoutMs("app_server_handle_json_lines", {
+        request: {
+          lines: [
+            JSON.stringify({
+              id: "automation-history",
+              method: "automationJob/runHistory",
+              params: { id: "job-1" },
             }),
           ],
         },
@@ -759,6 +831,32 @@ describe("http-client", () => {
         request: {
           lines: [
             JSON.stringify({
+              id: "session-files",
+              method: "sessionFile/list",
+              params: { sessionId: "session-1" },
+            }),
+          ],
+        },
+      }),
+    ).toBe(30000);
+    expect(
+      resolveBridgeRequestTimeoutMs("app_server_handle_json_lines", {
+        request: {
+          lines: [
+            JSON.stringify({
+              id: "project-git-status",
+              method: "projectGit/status",
+              params: { rootPath: "/workspace" },
+            }),
+          ],
+        },
+      }),
+    ).toBe(30000);
+    expect(
+      resolveBridgeRequestTimeoutMs("app_server_handle_json_lines", {
+        request: {
+          lines: [
+            JSON.stringify({
               id: "knowledge",
               method: "knowledgePack/list",
               params: {},
@@ -777,9 +875,25 @@ describe("http-client", () => {
         request: {
           lines: [
             JSON.stringify({
-              id: "provider-ui-state",
-              method: "modelProviderUiState/read",
-              params: { key: "selected_provider" },
+              id: "mcp-start",
+              method: "mcpServer/start",
+              params: { name: "context7" },
+            }),
+          ],
+        },
+      }),
+    ).toBe(30000);
+    expect(
+      resolveBridgeRequestTimeoutMs("app_server_handle_json_lines", {
+        request: {
+          lines: [
+            JSON.stringify({
+              id: "mcp-tool-call",
+              method: "mcpTool/call",
+              params: {
+                toolName: "mcp__context7__query-docs",
+                arguments: { libraryId: "/openai/openai-agents-python" },
+              },
             }),
           ],
         },
@@ -797,7 +911,7 @@ describe("http-client", () => {
     let settled = false;
     const invokePromise = invokeViaHttp("save_layered_design_project_export", {
       request: {
-        projectRootPath: "/tmp/ember-layered-design",
+        projectRootPath: "/tmp/lime-layered-design",
         documentId: "design-1",
         files: [],
       },
@@ -836,7 +950,7 @@ describe("http-client", () => {
             id: "knowledge-compile",
             method: "knowledgePack/compile",
             params: {
-              workingDir: "/tmp/ember-knowledge-smoke",
+              workingDir: "/tmp/lime-knowledge-smoke",
               name: "content-ops-acceptance",
             },
           }),
@@ -955,7 +1069,7 @@ describe("http-client", () => {
       configHandler,
     );
     const taskUnlistenPromise = listenViaHttpEvent(
-      "ember://creation_task_submitted",
+      "lime://creation_task_submitted",
       taskHandler,
     );
 
@@ -966,7 +1080,7 @@ describe("http-client", () => {
     const sourceUrl = new URL(source.url);
     expect(JSON.parse(sourceUrl.searchParams.get("events") ?? "[]")).toEqual([
       "config-changed",
-      "ember://creation_task_submitted",
+      "lime://creation_task_submitted",
     ]);
 
     source.emitOpen();
@@ -976,7 +1090,7 @@ describe("http-client", () => {
     ]);
 
     source.emitMessage({
-      event: "ember://creation_task_submitted",
+      event: "lime://creation_task_submitted",
       payload: { taskId: "task-1" },
     });
     expect(taskHandler).toHaveBeenCalledWith({
@@ -986,6 +1100,72 @@ describe("http-client", () => {
 
     configUnlisten();
     taskUnlisten();
+  });
+
+  it("事件连接建立中新增监听时应重建 SSE 并包含新增事件", async () => {
+    class MockEventSource {
+      static instances: MockEventSource[] = [];
+
+      onopen: (() => void) | null = null;
+      onerror: ((error: Event) => void) | null = null;
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      readyState = 0;
+      readonly close = vi.fn(() => {
+        this.readyState = 2;
+      });
+
+      constructor(readonly url: string) {
+        MockEventSource.instances.push(this);
+      }
+
+      emitOpen() {
+        this.readyState = 1;
+        this.onopen?.();
+      }
+    }
+
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(electronHostHealthResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal(
+      "EventSource",
+      MockEventSource as unknown as typeof EventSource,
+    );
+
+    const voiceUnlistenPromise = listenViaHttpEvent(
+      "lime-open-voice-model-settings",
+      vi.fn(),
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect(MockEventSource.instances).toHaveLength(1);
+
+    const shellUnlistenPromise = listenViaHttpEvent(
+      "project-shell-session-event",
+      vi.fn(),
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect(MockEventSource.instances).toHaveLength(1);
+
+    MockEventSource.instances[0]?.emitOpen();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(MockEventSource.instances).toHaveLength(2);
+    expect(MockEventSource.instances[0]?.close).toHaveBeenCalledTimes(1);
+    const nextUrl = new URL(MockEventSource.instances[1]!.url);
+    expect(JSON.parse(nextUrl.searchParams.get("events") ?? "[]")).toEqual([
+      "lime-open-voice-model-settings",
+      "project-shell-session-event",
+    ]);
+
+    MockEventSource.instances[1]?.emitOpen();
+    const [voiceUnlisten, shellUnlisten] = await Promise.all([
+      voiceUnlistenPromise,
+      shellUnlistenPromise,
+    ]);
+
+    voiceUnlisten();
+    shellUnlisten();
   });
 
   it("事件流如果在绑定 onopen 前已经打开，也应立即完成监听注册", async () => {
@@ -1014,7 +1194,7 @@ describe("http-client", () => {
       MockEventSource as unknown as typeof EventSource,
     );
 
-    const unlistenPromise = listenViaHttpEvent("aster_stream_test", vi.fn());
+    const unlistenPromise = listenViaHttpEvent("agent_stream_test", vi.fn());
     await vi.advanceTimersByTimeAsync(0);
 
     await expect(unlistenPromise).resolves.toEqual(expect.any(Function));
@@ -1048,7 +1228,7 @@ describe("http-client", () => {
       MockEventSource as unknown as typeof EventSource,
     );
 
-    const unlistenPromise = listenViaHttpEvent("aster_stream_test", vi.fn());
+    const unlistenPromise = listenViaHttpEvent("agent_stream_test", vi.fn());
     await vi.advanceTimersByTimeAsync(0);
     const source = MockEventSource.instances[0]!;
     source.readyState = 1;
@@ -1089,7 +1269,7 @@ describe("http-client", () => {
       MockEventSource as unknown as typeof EventSource,
     );
 
-    const unlistenPromise = listenViaHttpEvent("aster_stream_test", vi.fn());
+    const unlistenPromise = listenViaHttpEvent("agent_stream_test", vi.fn());
     await vi.advanceTimersByTimeAsync(1_800);
 
     expect(MockEventSource.instances).toHaveLength(1);
@@ -1208,7 +1388,7 @@ describe("http-client", () => {
       MockEventSource as unknown as typeof EventSource,
     );
 
-    const unlistenPromise = listenViaHttpEvent("aster_stream_test", vi.fn());
+    const unlistenPromise = listenViaHttpEvent("agent_stream_test", vi.fn());
     await vi.advanceTimersByTimeAsync(0);
     expect(MockEventSource.instances).toHaveLength(1);
 

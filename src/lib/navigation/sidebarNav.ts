@@ -1,28 +1,20 @@
 import {
   BadgeCheck,
-  BrainCircuit,
   BookOpen,
   Boxes,
-  ClipboardList,
   FlaskConical,
   MessageCircleMore,
   Plus,
   Settings,
-  Smartphone,
   Sparkles,
   Workflow,
-  Waypoints,
   type LucideIcon,
 } from "lucide-react";
-import type {
-  AgentObservabilityPageParams,
-  DeviceAutomationPageParams,
-} from "@/types/page";
 import { CURRENT_SIDEBAR_NAV_SCHEMA_VERSION } from "@/lib/api/appConfigTypes";
 import { type AgentPageParams, type Page, type PageParams } from "@/types/page";
 import { SettingsTabs } from "@/types/settings";
-import { isAgentObservabilityEnabled } from "../../features/agent-observability/featureFlag";
-import { resolveAgentAppHostFlags } from "../../features/agent-app/featureFlag";
+import { resolvePluginHostFlags } from "../../features/plugin/featureFlag";
+import type { PluginHostFlags } from "../../features/plugin/types";
 import { buildHomeAgentParams } from "@/lib/workspace/navigation";
 
 export { CURRENT_SIDEBAR_NAV_SCHEMA_VERSION };
@@ -63,23 +55,6 @@ const BASE_MAIN_SIDEBAR_NAV_ITEMS: SidebarNavItemDefinition[] = [
     configurable: false,
   },
   {
-    id: "device-automation",
-    label: "端自动化",
-    icon: Smartphone,
-    page: "device-automation",
-    params: { view: "list" } satisfies DeviceAutomationPageParams,
-    isActive: (currentPage) => currentPage === "device-automation",
-    configurable: false,
-  },
-  {
-    id: "test-case-management",
-    label: "测试用例",
-    icon: ClipboardList,
-    page: "test-case-management",
-    isActive: (currentPage) => currentPage === "test-case-management",
-    configurable: false,
-  },
-  {
     id: "experts",
     label: "专家",
     icon: BadgeCheck,
@@ -96,63 +71,32 @@ const BASE_MAIN_SIDEBAR_NAV_ITEMS: SidebarNavItemDefinition[] = [
     configurable: false,
   },
   {
-    id: "agent-apps",
-    label: "Agent Apps",
+    id: "plugins",
+    label: "插件",
     icon: Boxes,
-    page: "agent-apps",
-    isActive: (currentPage) => currentPage === "agent-apps",
-    configurable: false,
-  },
-  {
-    id: "knowledge",
-    label: "项目资料",
-    icon: BookOpen,
-    page: "knowledge",
-    isActive: (currentPage) => currentPage === "knowledge",
+    page: "plugins",
+    isActive: (currentPage) => currentPage === "plugins",
     configurable: false,
   },
 ];
 
-const AGENT_OBSERVABILITY_NAV_ITEM: SidebarNavItemDefinition = {
-  id: "agent-observability",
-  label: "Agent 观测",
-  icon: Waypoints,
-  page: "agent-observability",
-  params: { tab: "tracing" } satisfies AgentObservabilityPageParams,
-  isActive: (currentPage) => currentPage === "agent-observability",
-  configurable: false,
-};
-
-const AGENT_APP_LAB_NAV_ITEM: SidebarNavItemDefinition = {
-  id: "agent-app-lab",
-  label: "Agent App Lab",
+const PLUGIN_LAB_NAV_ITEM: SidebarNavItemDefinition = {
+  id: "plugin-lab",
+  label: "Plugin Lab",
   icon: FlaskConical,
-  page: "agent-app-lab",
-  isActive: (currentPage) => currentPage === "agent-app-lab",
+  page: "plugin-lab",
+  isActive: (currentPage) => currentPage === "plugin-lab",
   configurable: false,
 };
-
-export interface MainSidebarNavBuildOptions {
-  labEnabled?: boolean;
-  agentObservabilityEnabled?: boolean;
-}
 
 export function buildMainSidebarNavItems(
-  options: MainSidebarNavBuildOptions = {},
+  flags: Pick<PluginHostFlags, "labEnabled"> = resolvePluginHostFlags(),
 ): SidebarNavItemDefinition[] {
-  const labEnabled =
-    options.labEnabled ?? resolveAgentAppHostFlags().labEnabled;
-  const agentObservabilityEnabled =
-    options.agentObservabilityEnabled ?? isAgentObservabilityEnabled();
+  if (!flags.labEnabled) {
+    return BASE_MAIN_SIDEBAR_NAV_ITEMS;
+  }
 
-  const items: SidebarNavItemDefinition[] = [...BASE_MAIN_SIDEBAR_NAV_ITEMS];
-  if (agentObservabilityEnabled) {
-    items.splice(3, 0, AGENT_OBSERVABILITY_NAV_ITEM);
-  }
-  if (labEnabled) {
-    items.push(AGENT_APP_LAB_NAV_ITEM);
-  }
-  return items;
+  return [...BASE_MAIN_SIDEBAR_NAV_ITEMS, PLUGIN_LAB_NAV_ITEM];
 }
 
 export const MAIN_SIDEBAR_NAV_ITEMS: SidebarNavItemDefinition[] =
@@ -171,11 +115,11 @@ export const FOOTER_SIDEBAR_NAV_ITEMS: SidebarNavItemDefinition[] = [
     configurable: false,
   },
   {
-    id: "memory",
-    label: "灵感",
-    icon: BrainCircuit,
-    page: "memory",
-    isActive: (currentPage) => currentPage === "memory",
+    id: "knowledge",
+    label: "项目资料",
+    icon: BookOpen,
+    page: "knowledge",
+    isActive: (currentPage) => currentPage === "knowledge",
     configurable: false,
   },
   {

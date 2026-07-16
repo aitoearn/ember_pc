@@ -9,6 +9,11 @@ export interface ProposedPlanBlockSegment {
   isComplete: boolean;
 }
 
+export interface ProposedPlanItem {
+  text: string;
+  status: "pending" | "in_progress" | "completed";
+}
+
 export type ProposedPlanSegment =
   | ProposedPlanTextSegment
   | ProposedPlanBlockSegment;
@@ -59,7 +64,7 @@ export function splitProposedPlanSegments(text: string): ProposedPlanSegment[] {
     if (closeIndex === -1) {
       segments.push({
         type: "plan",
-        content: text.slice(planStart).trim(),
+        content: normalizePlanText(text.slice(planStart)).trim(),
         isComplete: false,
       });
       break;
@@ -67,7 +72,7 @@ export function splitProposedPlanSegments(text: string): ProposedPlanSegment[] {
 
     segments.push({
       type: "plan",
-      content: text.slice(planStart, closeIndex).trim(),
+      content: normalizePlanText(text.slice(planStart, closeIndex)).trim(),
       isComplete: true,
     });
     cursor = closeIndex + CLOSE_TAG.length;
@@ -87,4 +92,89 @@ export function stripProposedPlanBlocks(text: string): string {
     .join("")
     .replace(/\n{2,}/g, "\n")
     .trim();
+}
+
+function normalizePlanText(text: string): string {
+  return text.includes("\\n") ? text.replace(/\\n/g, "\n") : text;
+}
+
+function stripPlanMarker(line: string): string {
+  return line
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "")
+    .replace(/^\s*\[[ xX-]\]\s+/, "")
+    .trim();
+}
+
+function readPlanItemStatus(
+  line: string,
+): ProposedPlanItem["status"] | undefined {
+  const withoutListMarker = line.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "");
+  const checkboxMatch = withoutListMarker.match(/^\s*\[([ xX-])\]\s+/);
+  if (!checkboxMatch) {
+    return undefined;
+  }
+
+  const marker = checkboxMatch[1];
+  if (marker === "x" || marker === "X") {
+    return "completed";
+  }
+  if (marker === "-") {
+    return "in_progress";
+  }
+  return "pending";
+}
+
+function promoteNextPendingPlanItem(
+  items: ProposedPlanItem[],
+): ProposedPlanItem[] {
+  if (items.some((item) => item.status === "in_progress")) {
+    return items;
+  }
+
+  const nextPendingIndex = items.findIndex((item) => item.status === "pending");
+  if (nextPendingIndex < 0) {
+    return items;
+  }
+
+  return items.map((item, index) =>
+    index === nextPendingIndex ? { ...item, status: "in_progress" } : item,
+  );
+}
+
+export function parseProposedPlanItems(content: string): ProposedPlanItem[] {
+  const normalized = normalizePlanText(content);
+  const rawLines = normalized
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const candidateLines = rawLines.filter((line) =>
+    /^\s*(?:[-*+]|\d+[.)])\s+/.test(line),
+  );
+  const lines =
+    candidateLines.length > 0 && candidateLines.length === rawLines.length
+      ? candidateLines
+      : rawLines;
+
+  const items = lines
+    .map((line) => ({
+      text: stripPlanMarker(line),
+      status: readPlanItemStatus(line) ?? "pending",
+    }))
+    .filter((item) => item.text.length > 0);
+
+  return promoteNextPendingPlanItem(items);
+}
+
+export function extractLatestProposedPlanItems(
+  text: string | null | undefined,
+): ProposedPlanItem[] {
+  if (!text) {
+    return [];
+  }
+  const planSegments = splitProposedPlanSegments(text).filter(
+    (segment): segment is ProposedPlanBlockSegment => segment.type === "plan",
+  );
+  const latestPlan = planSegments.at(-1);
+  return latestPlan ? parseProposedPlanItems(latestPlan.content) : [];
 }

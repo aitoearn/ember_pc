@@ -35,7 +35,7 @@ describe("skillCatalog", () => {
     ]);
     expect(catalog.groups.map((group) => group.key)).toEqual(["general"]);
 
-    const stored = window.localStorage.getItem("ember:skill-catalog:v1");
+    const stored = window.localStorage.getItem("lime:skill-catalog:v1");
     expect(stored).not.toContain("legacy-site-skill");
   });
 
@@ -67,6 +67,10 @@ describe("skillCatalog", () => {
         summary: "把文本生成线框图、配乐、剧本和短视频串成一条场景链。",
         aliases: ["story-video", "mv-pipeline"],
         linkedSkillId: "sceneapp-service",
+        skillLocator: {
+          source: "catalog",
+          name: "story-video-suite",
+        },
         executionKind: "agent_turn",
         surfaceScopes: ["mention", "workspace"],
       }),
@@ -86,6 +90,10 @@ describe("skillCatalog", () => {
         ],
         binding: {
           skillId: "sceneapp-service",
+          skillLocator: {
+            source: "catalog",
+            name: "voice_runtime",
+          },
           executionKind: "agent_turn",
           requestDefaults: {
             launch_hint: "voice_scene",
@@ -130,6 +138,10 @@ describe("skillCatalog", () => {
     expect(autoSceneEntry).toEqual(
       expect.objectContaining({
         linkedSkillId: "legacy-cloud-scene-skill",
+        skillLocator: {
+          source: "catalog",
+          name: "legacy-cloud-scene-skill",
+        },
         executionKind: "agent_turn",
       }),
     );
@@ -142,7 +154,7 @@ describe("skillCatalog", () => {
       }),
     );
 
-    const stored = window.localStorage.getItem("ember:skill-catalog:v1");
+    const stored = window.localStorage.getItem("lime:skill-catalog:v1");
     expect(stored).toContain('"defaultExecutorBinding":"agent_turn"');
     expect(stored).toContain('"executionLocation":"client_default"');
     expect(stored).not.toContain('"defaultExecutorBinding":"cloud_scene"');

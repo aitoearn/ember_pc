@@ -1,13 +1,13 @@
 mod builders;
 mod files;
 mod metrics;
+mod rollout;
 
 use self::builders::*;
 use self::files::*;
 use self::metrics::*;
-use super::agent_session_status_label;
-use super::artifact_summaries_for_turn;
-use super::events_for_turn;
+use super::artifact_projection;
+use super::soul::locale_copy::runtime_export_copy;
 use super::timestamp;
 use super::EvidencePackRequest;
 use super::RuntimeCore;
@@ -30,9 +30,11 @@ use app_server_protocol::ArtifactSummary;
 use app_server_protocol::EvidenceExportParams;
 use app_server_protocol::EvidenceExportResponse;
 use app_server_protocol::EvidencePackSummary;
+use lime_infra::telemetry::RequestLog;
+use std::collections::BTreeMap;
 use std::fs;
 
-const HANDOFF_BUNDLE_RELATIVE_ROOT: &str = ".ember/harness/sessions";
+const HANDOFF_BUNDLE_RELATIVE_ROOT: &str = ".lime/harness/sessions";
 const HANDOFF_PLAN_FILE_NAME: &str = "plan.md";
 const HANDOFF_PROGRESS_FILE_NAME: &str = "progress.json";
 const HANDOFF_FILE_NAME: &str = "handoff.md";
@@ -52,36 +54,37 @@ impl RuntimeCore {
         &self,
         params: EvidenceExportParams,
     ) -> Result<EvidenceExportResponse, RuntimeCoreError> {
-        let (session, turns, events, artifacts) = {
-            let state = self
-                .state
-                .lock()
-                .expect("runtime core state mutex poisoned");
-            let stored = state
-                .sessions
-                .get(&params.session_id)
-                .ok_or_else(|| RuntimeCoreError::SessionNotFound(params.session_id.clone()))?;
-
-            let turns = match params.turn_id.as_deref() {
-                Some(turn_id) => stored
-                    .turns
-                    .iter()
-                    .filter(|turn| turn.turn_id == turn_id)
-                    .cloned()
-                    .collect(),
-                None => stored.turns.clone(),
-            };
-            let events = if params.include_events.unwrap_or(true) {
-                events_for_turn(&stored.events, params.turn_id.as_deref())
-            } else {
-                Vec::new()
-            };
-            let artifacts = if params.include_artifacts.unwrap_or(true) {
-                artifact_summaries_for_turn(&stored.events, params.turn_id.as_deref())
-            } else {
-                Vec::new()
-            };
-            (stored.session.clone(), turns, events, artifacts)
+        let context = self
+            .load_session_current(AgentSessionReadParams {
+                session_id: params.session_id.clone(),
+                history_limit: None,
+                history_offset: None,
+                history_before_message_id: None,
+            })
+            .await?;
+        let stored = context.stored;
+        let session = stored.session.clone();
+        let turns = match params.turn_id.as_deref() {
+            Some(turn_id) => stored
+                .turns
+                .iter()
+                .filter(|turn| turn.turn_id == turn_id)
+                .cloned()
+                .collect(),
+            None => stored.turns.clone(),
+        };
+        let events = if params.include_events.unwrap_or(true) {
+            artifact_projection::events_for_turn(&stored.events, params.turn_id.as_deref())
+        } else {
+            Vec::new()
+        };
+        let artifacts = if params.include_artifacts.unwrap_or(true) {
+            artifact_projection::stored_artifact_summaries_for_turn(
+                &stored,
+                params.turn_id.as_deref(),
+            )
+        } else {
+            Vec::new()
         };
 
         if let Some(turn_id) = params.turn_id.as_deref() {
@@ -89,6 +92,20 @@ impl RuntimeCore {
                 return Err(RuntimeCoreError::TurnNotActive(turn_id.to_string()));
             }
         }
+        let request_logs =
+            self.request_logs_for_evidence(&session.session_id, params.turn_id.as_deref());
+        let workflow_audit_events =
+            self.workflow_audit_events_for_evidence(&session.session_id, params.turn_id.as_deref());
+        let turn_runtime_metadata = turns
+            .iter()
+            .filter_map(|turn| {
+                stored
+                    .turn_runtime_options
+                    .get(&turn.turn_id)
+                    .and_then(|options| options.runtime_metadata().cloned())
+                    .map(|metadata| (turn.turn_id.clone(), metadata))
+            })
+            .collect::<BTreeMap<_, _>>();
         let evidence_pack = if params.include_evidence_pack.unwrap_or(true) {
             let evidence_pack = self
                 .evidence_export_provider
@@ -97,6 +114,9 @@ impl RuntimeCore {
                     turns: turns.clone(),
                     events: events.clone(),
                     artifacts: artifacts.clone(),
+                    turn_runtime_metadata,
+                    request_logs: request_logs.clone(),
+                    workflow_audit_events: workflow_audit_events.clone(),
                 })
                 .await?;
             self.with_current_objective_completion_audit_summary(
@@ -119,6 +139,69 @@ impl RuntimeCore {
             exported_at: timestamp(),
             evidence_pack,
         })
+    }
+
+    fn request_logs_for_evidence(
+        &self,
+        session_id: &str,
+        turn_id: Option<&str>,
+    ) -> Vec<RequestLog> {
+        let Some(telemetry_store) = &self.telemetry_store else {
+            return Vec::new();
+        };
+
+        let result = match turn_id {
+            Some(turn_id) => {
+                telemetry_store.read_request_logs_for_session_turn(session_id, Some(turn_id))
+            }
+            None => telemetry_store.read_request_logs_for_session(session_id),
+        };
+
+        match result {
+            Ok(logs) => logs,
+            Err(error) => {
+                tracing::warn!(
+                    "failed to read request telemetry for evidence export session={} turn={:?}: {}",
+                    session_id,
+                    turn_id,
+                    error
+                );
+                Vec::new()
+            }
+        }
+    }
+
+    fn workflow_audit_events_for_evidence(
+        &self,
+        session_id: &str,
+        turn_id: Option<&str>,
+    ) -> Vec<AgentEvent> {
+        let Some(event_log_writer) = self.event_log_writer.as_ref() else {
+            return Vec::new();
+        };
+
+        match event_log_writer.read_session_workflow_audit_events(session_id) {
+            Ok(records) => records
+                .into_iter()
+                .map(|record| record.event)
+                .filter(|event| {
+                    turn_id.is_none()
+                        || event
+                            .turn_id
+                            .as_deref()
+                            .is_some_and(|event_turn_id| Some(event_turn_id) == turn_id)
+                })
+                .collect(),
+            Err(error) => {
+                tracing::warn!(
+                    "failed to read workflow audit events for evidence export session={} turn={:?}: {}",
+                    session_id,
+                    turn_id,
+                    error
+                );
+                Vec::new()
+            }
+        }
     }
 
     async fn with_current_objective_completion_audit_summary(
@@ -192,11 +275,11 @@ impl RuntimeCore {
             )));
         }
 
-        let copy = handoff_copy(params.locale.as_deref());
+        let copy = runtime_export_copy(params.locale.as_deref());
         let exported_at = timestamp();
         let bundle_relative_root = format!("{HANDOFF_BUNDLE_RELATIVE_ROOT}/{session_id}");
         let bundle_absolute_root = workspace_root
-            .join(".ember")
+            .join(".lime")
             .join("harness")
             .join("sessions")
             .join(&session_id);
@@ -207,7 +290,7 @@ impl RuntimeCore {
             ))
         })?;
 
-        let metrics = handoff_metrics(&read);
+        let metrics = handoff_metrics(self, &read).await?;
         let recent_artifacts = handoff_recent_artifacts(&read);
         let artifacts = vec![
             write_handoff_bundle_file(
@@ -215,15 +298,21 @@ impl RuntimeCore {
                 &bundle_relative_root,
                 HANDOFF_PLAN_FILE_NAME,
                 "plan",
-                copy.plan_title,
-                build_handoff_plan_markdown(&read, &metrics, &recent_artifacts, &exported_at, copy),
+                copy.handoff.plan_title,
+                build_handoff_plan_markdown(
+                    &read,
+                    &metrics,
+                    &recent_artifacts,
+                    &exported_at,
+                    copy.handoff,
+                ),
             )?,
             write_handoff_bundle_file(
                 &bundle_absolute_root,
                 &bundle_relative_root,
                 HANDOFF_PROGRESS_FILE_NAME,
                 "progress",
-                copy.progress_title,
+                copy.handoff.progress_title,
                 build_handoff_progress_json(
                     &read,
                     &metrics,
@@ -237,24 +326,43 @@ impl RuntimeCore {
                 &bundle_relative_root,
                 HANDOFF_FILE_NAME,
                 "handoff",
-                copy.handoff_title,
-                build_handoff_markdown(&read, &metrics, &recent_artifacts, &exported_at, copy),
+                copy.handoff.handoff_title,
+                build_handoff_markdown(
+                    &read,
+                    &metrics,
+                    &recent_artifacts,
+                    &exported_at,
+                    copy.handoff,
+                ),
             )?,
             write_handoff_bundle_file(
                 &bundle_absolute_root,
                 &bundle_relative_root,
                 HANDOFF_REVIEW_SUMMARY_FILE_NAME,
                 "review_summary",
-                copy.review_summary_title,
+                copy.handoff.review_summary_title,
                 build_handoff_review_summary_markdown(
                     &read,
                     &metrics,
                     &recent_artifacts,
                     &exported_at,
-                    copy,
+                    copy.handoff,
                 ),
             )?,
         ];
+
+        self.write_export_rollout_summary_candidate(
+            &read,
+            &metrics,
+            &recent_artifacts,
+            &workspace_root,
+            &exported_at,
+            &bundle_relative_root,
+            "handoff_bundle",
+            "agentSession/handoffBundle/export",
+            &copy,
+        )
+        .await?;
 
         Ok(AgentSessionHandoffBundleExportResponse {
             session_id: read.session.session_id,
@@ -264,7 +372,7 @@ impl RuntimeCore {
             bundle_relative_root,
             bundle_absolute_root: bundle_absolute_root.to_string_lossy().to_string(),
             exported_at,
-            thread_status: agent_session_status_label(read.session.status).to_string(),
+            thread_status: metrics.thread_status,
             latest_turn_status: metrics.latest_turn_status,
             pending_request_count: metrics.pending_request_count,
             queued_turn_count: metrics.queued_turn_count,
@@ -292,8 +400,9 @@ impl RuntimeCore {
             })
             .await?;
         let workspace_root = canonical_runtime_export_workspace_root(&read, METHOD)?;
+        let copy = runtime_export_copy(params.locale.as_deref());
         let exported_at = timestamp();
-        let metrics = handoff_metrics(&read);
+        let metrics = handoff_metrics(self, &read).await?;
         let recent_artifacts = handoff_recent_artifacts(&read);
         let (handoff_relative_root, evidence_relative_root, _) =
             runtime_export_base_roots(&session_id);
@@ -307,7 +416,7 @@ impl RuntimeCore {
                 &replay_relative_root,
                 REPLAY_CASE_INPUT_FILE_NAME,
                 "input",
-                "Replay input",
+                copy.replay.input_title,
                 build_replay_input_json(&read, &metrics, &recent_artifacts, &exported_at)?,
             )?,
             write_runtime_export_file(
@@ -315,7 +424,7 @@ impl RuntimeCore {
                 &replay_relative_root,
                 REPLAY_CASE_EXPECTED_FILE_NAME,
                 "expected",
-                "Replay expected result",
+                copy.replay.expected_title,
                 build_replay_expected_json(&read, &metrics, &exported_at)?,
             )?,
             write_runtime_export_file(
@@ -323,15 +432,15 @@ impl RuntimeCore {
                 &replay_relative_root,
                 REPLAY_CASE_GRADER_FILE_NAME,
                 "grader",
-                "Replay grader",
-                build_replay_grader_markdown(&read, &metrics, &exported_at),
+                copy.replay.grader_title,
+                build_replay_grader_markdown(&read, &metrics, &exported_at, &copy),
             )?,
             write_runtime_export_file(
                 &replay_absolute_root,
                 &replay_relative_root,
                 REPLAY_CASE_EVIDENCE_LINKS_FILE_NAME,
                 "evidence_links",
-                "Replay evidence links",
+                copy.replay.evidence_links_title,
                 build_replay_evidence_links_json(
                     &session_id,
                     &handoff_relative_root,
@@ -341,6 +450,19 @@ impl RuntimeCore {
                 )?,
             )?,
         ];
+
+        self.write_export_rollout_summary_candidate(
+            &read,
+            &metrics,
+            &recent_artifacts,
+            &workspace_root,
+            &exported_at,
+            &replay_relative_root,
+            "replay_case",
+            METHOD,
+            &copy,
+        )
+        .await?;
 
         Ok(AgentSessionReplayCaseExportResponse {
             session_id: read.session.session_id,
@@ -352,7 +474,7 @@ impl RuntimeCore {
             handoff_bundle_relative_root: handoff_relative_root,
             evidence_pack_relative_root: evidence_relative_root,
             exported_at,
-            thread_status: agent_session_status_label(read.session.status).to_string(),
+            thread_status: metrics.thread_status,
             latest_turn_status: metrics.latest_turn_status,
             pending_request_count: metrics.pending_request_count,
             queued_turn_count: metrics.queued_turn_count,
@@ -378,8 +500,9 @@ impl RuntimeCore {
             })
             .await?;
         let workspace_root = canonical_runtime_export_workspace_root(&read, METHOD)?;
+        let copy = runtime_export_copy(params.locale.as_deref());
         let exported_at = timestamp();
-        let metrics = handoff_metrics(&read);
+        let metrics = handoff_metrics(self, &read).await?;
         let recent_artifacts = handoff_recent_artifacts(&read);
         let (handoff_relative_root, evidence_relative_root, replay_relative_root) =
             runtime_export_base_roots(&session_id);
@@ -387,24 +510,34 @@ impl RuntimeCore {
             runtime_export_root(&workspace_root, &session_id, "analysis");
         ensure_runtime_export_root(&analysis_absolute_root)?;
 
-        let title = "External Analysis Handoff".to_string();
-        let copy_prompt =
-            build_analysis_copy_prompt(&read, &analysis_relative_root, &replay_relative_root);
+        let title = copy.analysis.response_title.to_string();
+        let copy_prompt = build_analysis_copy_prompt(
+            &read,
+            &analysis_relative_root,
+            &replay_relative_root,
+            &copy,
+        );
         let artifacts = vec![
             write_runtime_export_file(
                 &analysis_absolute_root,
                 &analysis_relative_root,
                 ANALYSIS_BRIEF_FILE_NAME,
                 "analysis_brief",
-                "Analysis brief",
-                build_analysis_brief_markdown(&read, &metrics, &recent_artifacts, &exported_at),
+                copy.analysis.brief_artifact_title,
+                build_analysis_brief_markdown(
+                    &read,
+                    &metrics,
+                    &recent_artifacts,
+                    &exported_at,
+                    &copy,
+                ),
             )?,
             write_runtime_export_file(
                 &analysis_absolute_root,
                 &analysis_relative_root,
                 ANALYSIS_CONTEXT_FILE_NAME,
                 "analysis_context",
-                "Analysis context",
+                copy.analysis.context_artifact_title,
                 build_analysis_context_json(
                     &read,
                     &metrics,
@@ -416,6 +549,19 @@ impl RuntimeCore {
                 )?,
             )?,
         ];
+
+        self.write_export_rollout_summary_candidate(
+            &read,
+            &metrics,
+            &recent_artifacts,
+            &workspace_root,
+            &exported_at,
+            &analysis_relative_root,
+            "analysis_handoff",
+            METHOD,
+            &copy,
+        )
+        .await?;
 
         Ok(AgentSessionAnalysisHandoffExportResponse {
             session_id: read.session.session_id,
@@ -429,7 +575,7 @@ impl RuntimeCore {
             evidence_pack_relative_root: evidence_relative_root,
             replay_case_relative_root: replay_relative_root,
             exported_at,
-            thread_status: agent_session_status_label(read.session.status).to_string(),
+            thread_status: metrics.thread_status,
             latest_turn_status: metrics.latest_turn_status,
             pending_request_count: metrics.pending_request_count,
             queued_turn_count: metrics.queued_turn_count,
@@ -443,10 +589,11 @@ impl RuntimeCore {
         &self,
         params: AgentSessionReviewDecisionTemplateExportParams,
     ) -> Result<AgentSessionReviewDecisionTemplateExportResponse, RuntimeCoreError> {
+        let copy = runtime_export_copy(params.locale.as_deref());
         self.sync_review_decision(
             params.session_id,
             params.locale,
-            default_review_decision(),
+            default_review_decision(&copy),
             false,
         )
         .await
@@ -464,7 +611,7 @@ impl RuntimeCore {
     async fn sync_review_decision(
         &self,
         session_id: String,
-        _locale: Option<String>,
+        locale: Option<String>,
         decision: AgentSessionReviewDecision,
         saving: bool,
     ) -> Result<AgentSessionReviewDecisionTemplateExportResponse, RuntimeCoreError> {
@@ -483,8 +630,10 @@ impl RuntimeCore {
             })
             .await?;
         let workspace_root = canonical_runtime_export_workspace_root(&read, method)?;
+        let copy = runtime_export_copy(locale.as_deref());
         let exported_at = timestamp();
-        let metrics = handoff_metrics(&read);
+        let metrics = handoff_metrics(self, &read).await?;
+        let recent_artifacts = handoff_recent_artifacts(&read);
         let (handoff_relative_root, evidence_relative_root, replay_relative_root) =
             runtime_export_base_roots(&session_id);
         let (analysis_relative_root, analysis_absolute_root) =
@@ -500,7 +649,7 @@ impl RuntimeCore {
                 &analysis_relative_root,
                 ANALYSIS_CONTEXT_FILE_NAME,
                 "analysis_context",
-                "Analysis context",
+                copy.analysis.context_artifact_title,
                 build_analysis_context_json(
                     &read,
                     &metrics,
@@ -516,12 +665,13 @@ impl RuntimeCore {
                 &analysis_relative_root,
                 ANALYSIS_BRIEF_FILE_NAME,
                 "analysis_brief",
-                "Analysis brief",
+                copy.analysis.brief_artifact_title,
                 build_analysis_brief_markdown(
                     &read,
                     &metrics,
-                    &handoff_recent_artifacts(&read),
+                    &recent_artifacts,
                     &exported_at,
+                    &copy,
                 ),
             )?,
         ];
@@ -531,13 +681,14 @@ impl RuntimeCore {
                 &review_relative_root,
                 REVIEW_DECISION_MARKDOWN_FILE_NAME,
                 "review_decision_markdown",
-                "Review decision",
+                copy.review.markdown_artifact_title,
                 build_review_decision_markdown(
                     &read,
                     &decision,
                     &analysis_relative_root,
                     &replay_relative_root,
                     &exported_at,
+                    &copy,
                 ),
             )?,
             write_runtime_export_file(
@@ -545,7 +696,7 @@ impl RuntimeCore {
                 &review_relative_root,
                 REVIEW_DECISION_JSON_FILE_NAME,
                 "review_decision_json",
-                "Review decision JSON",
+                copy.review.json_artifact_title,
                 build_review_decision_json(
                     &read,
                     &decision,
@@ -555,6 +706,21 @@ impl RuntimeCore {
                 )?,
             )?,
         ];
+
+        if saving {
+            self.write_export_rollout_summary_candidate(
+                &read,
+                &metrics,
+                &recent_artifacts,
+                &workspace_root,
+                &exported_at,
+                &review_relative_root,
+                "review_decision",
+                method,
+                &copy,
+            )
+            .await?;
+        }
 
         Ok(AgentSessionReviewDecisionTemplateExportResponse {
             session_id: read.session.session_id,
@@ -569,11 +735,11 @@ impl RuntimeCore {
             evidence_pack_relative_root: evidence_relative_root,
             replay_case_relative_root: replay_relative_root,
             exported_at,
-            thread_status: agent_session_status_label(read.session.status).to_string(),
+            thread_status: metrics.thread_status,
             latest_turn_status: metrics.latest_turn_status,
             pending_request_count: metrics.pending_request_count,
             queued_turn_count: metrics.queued_turn_count,
-            title: "Review Decision".to_string(),
+            title: copy.review.response_title.to_string(),
             default_decision_status: "pending_review".to_string(),
             decision,
             decision_status_options: vec![
@@ -589,11 +755,12 @@ impl RuntimeCore {
                 "medium".to_string(),
                 "high".to_string(),
             ],
-            review_checklist: vec![
-                "Confirm current App Server path evidence.".to_string(),
-                "Confirm no legacy agent_runtime_* production fallback is required.".to_string(),
-                "Run targeted regression before accepting.".to_string(),
-            ],
+            review_checklist: copy
+                .review
+                .checklist
+                .iter()
+                .map(|item| (*item).to_string())
+                .collect(),
             analysis_artifacts,
             artifacts,
         })

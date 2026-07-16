@@ -1,11 +1,9 @@
-pub mod agent_runtime_queue_repository;
 pub mod agent_session_repository;
 pub mod dao;
 pub mod managed_objective_repository;
 pub mod migration;
 mod migration_support;
 pub mod migration_v2;
-pub mod migration_v3;
 pub mod migration_v4;
 pub mod migration_v5;
 pub mod migration_v6;
@@ -75,10 +73,19 @@ pub fn init_database() -> Result<DbConnection, String> {
 
 /// 在指定数据根下初始化数据库连接。
 pub fn init_database_with_data_dir(data_dir: impl AsRef<Path>) -> Result<DbConnection, String> {
+    init_database_with_data_dir_resolution(data_dir).map(|(db, _)| db)
+}
+
+/// 在指定数据根下初始化数据库连接，并返回路径迁移解析结果。
+pub fn init_database_with_data_dir_resolution(
+    data_dir: impl AsRef<Path>,
+) -> Result<(DbConnection, app_paths::DatabasePathResolution), String> {
     let data_dir = data_dir.as_ref();
     fs::create_dir_all(data_dir)
         .map_err(|e| format!("无法创建数据库数据目录 {}: {e}", data_dir.display()))?;
-    init_database_at_path(&data_dir.join("ember.db"))
+    let resolution = app_paths::resolve_database_path_for_data_dir_with_migration(data_dir)?;
+    let db = init_database_at_path(&resolution.database_path)?;
+    Ok((db, resolution))
 }
 
 /// 在指定路径初始化数据库连接。
@@ -123,5 +130,27 @@ fn apply_database_pragmas(conn: &Connection) -> Result<(), String> {
             tracing::info!("[数据库] 已回退到 DELETE journal 兼容模式");
             Ok(())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fresh_database_does_not_seed_a_default_playwright_mcp_server() {
+        let temp_dir = tempfile::tempdir().expect("create database fixture directory");
+        let db = init_database_at_path(temp_dir.path().join("lime.db"))
+            .expect("initialize fresh database");
+        let count: i64 = lock_db(&db)
+            .expect("lock database")
+            .query_row(
+                "SELECT COUNT(*) FROM mcp_servers WHERE name = 'playwright'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("count default playwright MCP rows");
+
+        assert_eq!(count, 0);
     }
 }

@@ -42,7 +42,7 @@ import { shouldDisallowMockEventFallbackInBrowser } from "./mockPriorityCommands
 
 function clearElectronBridge(): void {
   delete (window as any).electronAPI;
-  delete (window as any).__EMBER_ELECTRON__;
+  delete (window as any).__LIME_ELECTRON__;
 }
 
 describe("safeInvoke", () => {
@@ -196,7 +196,7 @@ describe("safeInvoke", () => {
   it("Electron invoke 长时间不返回时按命令超时 fail-closed", async () => {
     vi.useFakeTimers();
     try {
-      mocks.resolveBridgeRequestTimeoutMs.mockReturnValueOnce(8000);
+      mocks.resolveBridgeRequestTimeoutMs.mockReturnValueOnce(30000);
       const invoke = vi.fn(() => new Promise<never>(() => {}));
       (window as any).electronAPI = {
         supportsCommand: () => true,
@@ -217,10 +217,10 @@ describe("safeInvoke", () => {
         },
       });
       const timeoutExpectation = expect(invokePromise).rejects.toThrow(
-        'Desktop Host IPC 命令 "app_server_handle_json_lines" 在 8000ms 内未返回',
+        'Desktop Host IPC 命令 "app_server_handle_json_lines" 在 30000ms 内未返回',
       );
 
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(30000);
       await timeoutExpectation;
 
       expect(invoke).toHaveBeenCalledWith("app_server_handle_json_lines", {
@@ -238,7 +238,7 @@ describe("safeInvoke", () => {
         expect.objectContaining({
           command: "app_server_handle_json_lines",
           transport: "electron-ipc",
-          error: expect.stringContaining("8000ms"),
+          error: expect.stringContaining("30000ms"),
         }),
       ]);
       expect(getInvokeTraceBuffer()).toEqual([
@@ -246,7 +246,7 @@ describe("safeInvoke", () => {
           command: "app_server_handle_json_lines",
           transport: "electron-ipc",
           status: "error",
-          error: expect.stringContaining("8000ms"),
+          error: expect.stringContaining("30000ms"),
         }),
       ]);
     } finally {
@@ -291,8 +291,8 @@ describe("safeListen / safeEmit", () => {
       emit: vi.fn(),
     };
 
-    await expect(safeListen("aster_stream_session-1", vi.fn())).rejects.toThrow(
-      '事件 "aster_stream_session-1" 监听失败',
+    await expect(safeListen("agent_stream_session-1", vi.fn())).rejects.toThrow(
+      '事件 "agent_stream_session-1" 监听失败',
     );
   });
 
@@ -327,6 +327,33 @@ describe("safeListen / safeEmit", () => {
 
     expect(mocks.listenViaHttpEvent).toHaveBeenCalledWith(
       "config-changed",
+      expect.any(Function),
+    );
+    expect(unlisten).toHaveBeenCalledTimes(1);
+  });
+
+  it("devBridgeFallback Electron bridge 下事件监听应走 HTTP 事件通道", async () => {
+    const unlisten = vi.fn();
+    const listen = vi.fn();
+    mocks.hasDevBridgeEventListenerCapability.mockReturnValue(true);
+    mocks.listenViaHttpEvent.mockResolvedValueOnce(unlisten);
+    (window as any).electronAPI = {
+      devBridgeFallback: true,
+      invoke: vi.fn(),
+      listen,
+      emit: vi.fn(),
+    };
+
+    const safeUnlisten = await safeListen(
+      "project-shell-session-event",
+      vi.fn(),
+    );
+
+    safeUnlisten();
+
+    expect(listen).not.toHaveBeenCalled();
+    expect(mocks.listenViaHttpEvent).toHaveBeenCalledWith(
+      "project-shell-session-event",
       expect.any(Function),
     );
     expect(unlisten).toHaveBeenCalledTimes(1);

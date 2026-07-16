@@ -1,9 +1,9 @@
 import { safeEmit, safeListen } from "@/lib/dev-bridge";
 
-export const OPEN_VOICE_MODEL_SETTINGS_EVENT = "ember-open-voice-model-settings";
-export const VOICE_MODEL_SETTINGS_SECTION_ID = "ember-voice-model-settings";
+export const OPEN_VOICE_MODEL_SETTINGS_EVENT = "lime-open-voice-model-settings";
+export const VOICE_MODEL_SETTINGS_SECTION_ID = "lime-voice-model-settings";
 export const VOICE_MODEL_SETTINGS_FOCUS_STORAGE_KEY =
-  "ember:voice-model-settings-focus";
+  "lime:voice-model-settings-focus";
 
 export interface VoiceModelSettingsNavigationDetail {
   source?: string;

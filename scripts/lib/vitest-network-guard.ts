@@ -25,7 +25,7 @@ export {
   vitestLiveProviderNetworkAllowed,
 } from "./vitest-network-policy";
 
-const GUARD_STATE_KEY = Symbol.for("ember.vitestNetworkGuard");
+const GUARD_STATE_KEY = Symbol.for("lime.vitestNetworkGuard");
 
 type FetchLike = typeof fetch;
 type HttpRequestLike = typeof http.request;
@@ -118,7 +118,7 @@ function createGuardedFetch(state: GuardState): FetchLike {
     return state.nativeFetch(input, init);
   }) as FetchLike;
 
-  Object.defineProperty(guardedFetch, "__emberVitestNetworkGuard", {
+  Object.defineProperty(guardedFetch, "__limeVitestNetworkGuard", {
     value: true,
   });
 
@@ -255,7 +255,7 @@ function isGuardedFetch(value: unknown): boolean {
   return Boolean(
     value &&
     typeof value === "function" &&
-    (value as { __emberVitestNetworkGuard?: boolean }).__emberVitestNetworkGuard,
+    (value as { __limeVitestNetworkGuard?: boolean }).__limeVitestNetworkGuard,
   );
 }
 
@@ -263,7 +263,7 @@ function isGuardedXmlHttpRequestOpen(value: unknown): boolean {
   return Boolean(
     value &&
     typeof value === "function" &&
-    (value as { __emberVitestNetworkGuard?: boolean }).__emberVitestNetworkGuard,
+    (value as { __limeVitestNetworkGuard?: boolean }).__limeVitestNetworkGuard,
   );
 }
 
@@ -354,7 +354,7 @@ function patchXmlHttpRequest(state: GuardState): void {
     state.guardedXmlHttpRequestOpen = createGuardedXmlHttpRequestOpen(state);
     Object.defineProperty(
       state.guardedXmlHttpRequestOpen,
-      "__emberVitestNetworkGuard",
+      "__limeVitestNetworkGuard",
       {
         value: true,
       },

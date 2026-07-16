@@ -1,5 +1,4 @@
 import { build } from "vite";
-import { cp, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -7,6 +6,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../..");
 const devMode = process.argv.includes("--dev");
 const sharedExternal = ["electron", /^node:/];
+const ssrBundleRuntimeDependencies = { noExternal: true };
 const appServerClientSource = path.resolve(
   repoRoot,
   "packages/app-server-client/src/index.ts",
@@ -15,6 +15,7 @@ const appServerClientSource = path.resolve(
 async function buildMain() {
   await build({
     configFile: false,
+    ssr: ssrBundleRuntimeDependencies,
     resolve: {
       alias: [
         {
@@ -42,6 +43,7 @@ async function buildMain() {
 async function buildPreload() {
   await build({
     configFile: false,
+    ssr: ssrBundleRuntimeDependencies,
     build: {
       target: "node22",
       ssr: "electron/preload.ts",
@@ -58,22 +60,5 @@ async function buildPreload() {
   });
 }
 
-async function stagePerfTracePresets() {
-  const sourceDir = path.resolve(
-    repoRoot,
-    "electron/deviceAutomation/perfTrace/presets",
-  );
-  const outputDir = path.resolve(
-    repoRoot,
-    "dist-electron/device-automation/perf-trace/presets",
-  );
-  await mkdir(outputDir, { recursive: true });
-  const presetFiles = ["scroll_jank.txt", "cold_start.txt", "cpu_sched.txt"];
-  for (const fileName of presetFiles) {
-    await cp(path.join(sourceDir, fileName), path.join(outputDir, fileName));
-  }
-}
-
 await buildMain();
 await buildPreload();
-await stagePerfTracePresets();

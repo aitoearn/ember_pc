@@ -125,7 +125,7 @@ describe("useThemeScopedChatToolPreferences", () => {
 
       expect(
         JSON.parse(
-          localStorage.getItem("ember.chat.tool_preferences.general.v3") ||
+          localStorage.getItem("lime.chat.tool_preferences.general.v3") ||
             "null",
         ),
       ).toEqual({
@@ -159,7 +159,7 @@ describe("useThemeScopedChatToolPreferences", () => {
       });
       expect(
         JSON.parse(
-          localStorage.getItem("ember.chat.tool_preferences.general.v3") ||
+          localStorage.getItem("lime.chat.tool_preferences.general.v3") ||
             "null",
         ),
       ).toEqual({

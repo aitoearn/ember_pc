@@ -24,7 +24,7 @@ const APP_SERVER_METHOD_MODEL_PROVIDER_LIST = "modelProvider/list";
 const TINY_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 
-type ImageGenerationTransport = "responses" | "ember_images_gateway";
+type ImageGenerationTransport = "responses" | "lime_images_gateway";
 type ExpectedExecutorMode = "images_api" | "responses_image_generation";
 
 interface CliOptions {
@@ -75,7 +75,7 @@ function parseArgs(argv: string[]): CliOptions {
       options.selfTest = true;
       continue;
     }
-    if (token === "--ember-local-image-gateway") {
+    if (token === "--lime-local-image-gateway") {
       options.localLimeImageGateway = true;
       continue;
     }
@@ -123,8 +123,8 @@ function parseArgs(argv: string[]): CliOptions {
       case "dev-bridge-invoke-url":
         options.devBridgeInvokeUrl = value;
         break;
-      case "ember-config":
-        options.emberConfigPath = value;
+      case "lime-config":
+        options.limeConfigPath = value;
         break;
       case "image-model":
         options.imageModel = value;
@@ -163,20 +163,20 @@ function usage(): string {
     "  npm exec -- tsx scripts/verify-layered-design-gpt-image-live.ts --self-test --output /tmp/evidence.json",
     "",
     "真实网关验收：",
-    "  IMAGE_API_KEY=... IMAGE_BASE_URL=... npm exec -- tsx scripts/verify-layered-design-gpt-image-live.ts --allow-external-image-generation --output docs/roadmap/ai-layered-design/evidence/gpt-image-live.json --image-output docs/roadmap/ai-layered-design/evidence/gpt-image-live.png",
+    "  IMAGE_API_KEY=... IMAGE_BASE_URL=... npm exec -- tsx scripts/verify-layered-design-gpt-image-live.ts --allow-external-image-generation --output internal/roadmap/ai-layered-design/evidence/gpt-image-live.json --image-output internal/roadmap/ai-layered-design/evidence/gpt-image-live.png",
     "",
-    "复用 Ember 本地配图网关验收：",
-    "  npm exec -- tsx scripts/verify-layered-design-gpt-image-live.ts --ember-local-image-gateway --provider-id <provider-id> --allow-external-image-generation --output docs/roadmap/ai-layered-design/evidence/gpt-image-live.json --image-output docs/roadmap/ai-layered-design/evidence/gpt-image-live.png",
-    "  npm exec -- tsx scripts/verify-layered-design-gpt-image-live.ts --ember-local-image-gateway --auto-provider --allow-external-image-generation --output docs/roadmap/ai-layered-design/evidence/gpt-image-live.json --image-output docs/roadmap/ai-layered-design/evidence/gpt-image-live.png",
+    "复用 Lime 本地配图网关验收：",
+    "  npm exec -- tsx scripts/verify-layered-design-gpt-image-live.ts --lime-local-image-gateway --provider-id <provider-id> --allow-external-image-generation --output internal/roadmap/ai-layered-design/evidence/gpt-image-live.json --image-output internal/roadmap/ai-layered-design/evidence/gpt-image-live.png",
+    "  npm exec -- tsx scripts/verify-layered-design-gpt-image-live.ts --lime-local-image-gateway --auto-provider --allow-external-image-generation --output internal/roadmap/ai-layered-design/evidence/gpt-image-live.json --image-output internal/roadmap/ai-layered-design/evidence/gpt-image-live.png",
     "",
     "可选参数：",
     "  --base-url <Responses 网关基址，通常到 /v1>",
-    "  --ember-local-image-gateway <复用本地 Ember /v1/images/generations 配图网关>",
-    "  --provider-id <本地 Ember API Key Provider ID；也可传 auto>",
+    "  --lime-local-image-gateway <复用本地 Lime /v1/images/generations 配图网关>",
+    "  --provider-id <本地 Lime API Key Provider ID；也可传 auto>",
     "  --auto-provider <通过 DevBridge 自动选择 custom_models 命中图片模型且有启用 key 的 provider>",
     "  --dev-bridge-invoke-url <DevBridge invoke URL，默认 http://127.0.0.1:3030/invoke>",
     "  --allow-external-image-generation <确认会调用真实图片接口并可能消耗额度>",
-    "  --ember-config <本地 Ember config.yaml 路径>",
+    "  --lime-config <本地 Lime config.yaml 路径>",
     "  --dry-run <只做本地网关/参数预检，不生成图片>",
     "  --image-model gpt-images-2",
     "  --outer-model gpt-5.5",
@@ -404,14 +404,14 @@ function extractBase64FromDataUrl(value: string): string | undefined {
 async function extractImagesGatewayResult(response: Response): Promise<ImageGenerationResponse> {
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(`Ember 本地配图网关请求失败 ${response.status}: ${text.slice(0, 1000)}`);
+    throw new Error(`Lime 本地配图网关请求失败 ${response.status}: ${text.slice(0, 1000)}`);
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch (error) {
-    throw new Error(`解析 Ember 本地配图网关响应失败: ${String(error)}`);
+    throw new Error(`解析 Lime 本地配图网关响应失败: ${String(error)}`);
   }
 
   const data = (parsed as { data?: Array<Record<string, unknown>> }).data;
@@ -429,11 +429,11 @@ async function extractImagesGatewayResult(response: Response): Promise<ImageGene
     dataUrlBase64 ||
     (remoteImageUrl ? await downloadImageUrlAsBase64(remoteImageUrl) : undefined);
   if (!imageBase64) {
-    throw new Error("Ember 本地配图网关未返回 b64_json、PNG data URL 或远程图片 URL");
+    throw new Error("Lime 本地配图网关未返回 b64_json、PNG data URL 或远程图片 URL");
   }
 
   return {
-    transport: "ember_images_gateway",
+    transport: "lime_images_gateway",
     imageBase64,
     imageUrl: remoteImageUrl,
     revisedPrompt:
@@ -453,9 +453,9 @@ async function generateImage(params: {
   imageSize: string;
   prompt: string;
 }): Promise<ImageGenerationResponse> {
-  if (params.transport === "ember_images_gateway") {
+  if (params.transport === "lime_images_gateway") {
     if (!params.providerId) {
-      throw new Error("复用 Ember 本地配图网关时必须提供 providerId");
+      throw new Error("复用 Lime 本地配图网关时必须提供 providerId");
     }
     const response = await requestLimeImagesGatewayGeneration({
       apiKey: params.apiKey,
@@ -492,8 +492,8 @@ function createTaskOutput(params: {
   const createdAt = new Date().toISOString();
   const imageUrl = `data:image/png;base64,${params.result.imageBase64}`;
   const imageSource =
-    params.result.transport === "ember_images_gateway"
-      ? "ember_images_gateway"
+    params.result.transport === "lime_images_gateway"
+      ? "lime_images_gateway"
       : "responses_image_generation";
   return {
     success: true,
@@ -502,16 +502,16 @@ function createTaskOutput(params: {
     task_family: "image",
     status: "succeeded",
     normalized_status: "succeeded",
-    path: `.ember/tasks/image_generate/${params.taskId}.json`,
+    path: `.lime/tasks/image_generate/${params.taskId}.json`,
     absolute_path: path.join(
       params.projectRootPath,
-      ".ember/tasks/image_generate",
+      ".lime/tasks/image_generate",
       `${params.taskId}.json`,
     ),
-    artifact_path: `.ember/tasks/image_generate/${params.taskId}.json`,
+    artifact_path: `.lime/tasks/image_generate/${params.taskId}.json`,
     absolute_artifact_path: path.join(
       params.projectRootPath,
-      ".ember/tasks/image_generate",
+      ".lime/tasks/image_generate",
       `${params.taskId}.json`,
     ),
     reused_existing: false,
@@ -582,18 +582,18 @@ function readEnvOrOption(options: CliOptions): { apiKey: string; baseUrl: string
 }
 
 function resolveDefaultLimeConfigPath(): string {
-  if (process.env.EMBER_CONFIG_PATH?.trim()) {
-    return process.env.EMBER_CONFIG_PATH.trim();
+  if (process.env.LIME_CONFIG_PATH?.trim()) {
+    return process.env.LIME_CONFIG_PATH.trim();
   }
 
   const homeDir = os.homedir();
   if (process.platform === "darwin") {
-    return path.join(homeDir, "Library/Application Support/ember/config.yaml");
+    return path.join(homeDir, "Library/Application Support/lime/config.yaml");
   }
   if (process.platform === "win32") {
-    return path.join(process.env.APPDATA ?? path.join(homeDir, "AppData/Roaming"), "ember/config.yaml");
+    return path.join(process.env.APPDATA ?? path.join(homeDir, "AppData/Roaming"), "lime/config.yaml");
   }
-  return path.join(process.env.XDG_CONFIG_HOME ?? path.join(homeDir, ".config"), "ember/config.yaml");
+  return path.join(process.env.XDG_CONFIG_HOME ?? path.join(homeDir, ".config"), "lime/config.yaml");
 }
 
 function readNestedRecord(value: unknown, key: string): Record<string, unknown> {
@@ -737,7 +737,7 @@ async function invokeAppServerMethod(
 async function resolveAutoLocalImageProviderId(options: CliOptions): Promise<string> {
   const invokeUrl =
     options.devBridgeInvokeUrl?.trim() ||
-    process.env.EMBER_DEV_BRIDGE_INVOKE_URL?.trim() ||
+    process.env.LIME_DEV_BRIDGE_INVOKE_URL?.trim() ||
     DEFAULT_DEV_BRIDGE_INVOKE_URL;
   let providersRaw: unknown;
   try {
@@ -787,7 +787,7 @@ async function readLocalLimeGatewayConfig(options: CliOptions): Promise<{
   baseUrl: string;
   providerId: string;
 }> {
-  const configPath = path.resolve(options.emberConfigPath ?? resolveDefaultLimeConfigPath());
+  const configPath = path.resolve(options.limeConfigPath ?? resolveDefaultLimeConfigPath());
   const configText = await readFile(configPath, "utf8");
   const config = parseYaml(configText) as Record<string, unknown>;
   const server = readNestedRecord(config, "server");
@@ -805,16 +805,16 @@ async function readLocalLimeGatewayConfig(options: CliOptions): Promise<{
     ]);
 
   if (!apiKey) {
-    throw new Error(`Ember config 缺少 server.api_key: ${configPath}`);
+    throw new Error(`Lime config 缺少 server.api_key: ${configPath}`);
   }
   if (!providerId && options.autoProvider) {
     providerId = await resolveAutoLocalImageProviderId(options);
   }
   if (!providerId) {
-    throw new Error("复用 Ember 本地配图网关时必须传 --provider-id / --auto-provider，或配置 media_defaults.image.preferred_provider_id");
+    throw new Error("复用 Lime 本地配图网关时必须传 --provider-id / --auto-provider，或配置 media_defaults.image.preferred_provider_id");
   }
   if (!Number.isFinite(port) || port <= 0) {
-    throw new Error(`Ember config server.port 无效: ${String(server.port)}`);
+    throw new Error(`Lime config server.port 无效: ${String(server.port)}`);
   }
 
   return {
@@ -1001,7 +1001,7 @@ async function main() {
   let baseUrl = "";
   let providerId = options.providerId?.trim() || "openai";
   const transport: ImageGenerationTransport = options.localLimeImageGateway
-    ? "ember_images_gateway"
+    ? "lime_images_gateway"
     : "responses";
   const mode = options.selfTest ? "self_test" : "live";
 
@@ -1044,7 +1044,7 @@ async function main() {
       return;
     }
 
-    const projectRootPath = path.join(os.tmpdir(), "ember-layered-design-gpt-image-live");
+    const projectRootPath = path.join(os.tmpdir(), "lime-layered-design-gpt-image-live");
     const verificationLabel = options.verificationLabel?.trim() || "gpt-image-live";
     const document = createLayeredDesignSeedDocument({
       prompt: "@配图 青柠汽水产品主视觉，透明主体图层",
@@ -1113,7 +1113,7 @@ async function main() {
         transport,
         responsesPath: transport === "responses" ? new URL(buildResponsesUrl(baseUrl)).pathname : undefined,
         imagesPath:
-          transport === "ember_images_gateway"
+          transport === "lime_images_gateway"
             ? new URL(buildImagesGenerationUrl(baseUrl)).pathname
             : undefined,
       },

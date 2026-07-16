@@ -10,9 +10,9 @@ import {
 const tempRoots = [];
 
 function makeTempLockDir() {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ember-gui-smoke-lock-"));
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "lime-gui-smoke-lock-"));
   tempRoots.push(tempRoot);
-  return path.join(tempRoot, ".ember", "locks", "gui-smoke.lock");
+  return path.join(tempRoot, ".lime", "locks", "gui-smoke.lock");
 }
 
 afterEach(() => {

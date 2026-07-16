@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import styled, { keyframes } from "styled-components";
-import { WorkbenchInfoTip } from "@/components/media/WorkbenchInfoTip";
 import {
   EMPTY_STATE_CARD_SURFACE_CLASSNAME,
   EMPTY_STATE_ICON_TONE_CLASSNAMES,
@@ -162,8 +161,8 @@ const SloganPulseDot = styled.span`
   height: 12px;
   flex-shrink: 0;
   border-radius: 9999px;
-  background: var(--ember-home-dot-gradient);
-  box-shadow: var(--ember-home-dot-shadow);
+  background: var(--lime-home-dot-gradient);
+  box-shadow: var(--lime-home-dot-shadow);
   animation: ${dotPulse} 4s ease-in-out infinite;
 `;
 
@@ -175,7 +174,7 @@ const SloganText = styled.span`
       transparent 35%,
       rgba(255, 255, 255, 0) 42%,
       rgba(255, 255, 255, 0.4) 47%,
-      var(--ember-brand, rgba(134, 239, 172, 0.8)) 49%,
+      var(--lime-brand, rgba(134, 239, 172, 0.8)) 49%,
       rgba(255, 255, 255, 1) 50%,
       rgba(56, 189, 248, 0.8) 51%,
       rgba(255, 255, 255, 0.4) 53%,
@@ -193,7 +192,7 @@ const SloganText = styled.span`
         rgba(255, 255, 255, 0) 54%,
         transparent 60%
       ),
-    /* Layer 3: Base Text Gradient */ var(--ember-home-title-gradient);
+    /* Layer 3: Base Text Gradient */ var(--lime-home-title-gradient);
   background-size:
     250% 100%,
     250% 100%,
@@ -208,7 +207,7 @@ const SloganText = styled.span`
   font-weight: 700;
   letter-spacing: 0;
 
-  text-shadow: var(--ember-home-title-shadow);
+  text-shadow: var(--lime-home-title-shadow);
   animation: ${sloganShine} 10s ease-in-out infinite;
 `;
 
@@ -300,8 +299,8 @@ const HeroCard = styled.article.attrs({
 
   &:hover {
     transform: translateY(-2px);
-    border-color: var(--ember-home-card-hover-border, #93c5fd);
-    box-shadow: 0 14px 28px -24px var(--ember-shadow-color);
+    border-color: var(--lime-home-card-hover-border, #93c5fd);
+    box-shadow: 0 14px 28px -24px var(--lime-shadow-color);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -335,31 +334,24 @@ const HeroCard = styled.article.attrs({
   }
 `;
 
-const CardTitleRow = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-`;
-
 const CardValueText = styled.div`
   margin-top: 0.2rem;
   font-size: 11.5px;
   font-weight: 600;
   line-height: 1.5;
-  color: var(--ember-text-muted, #6b826b);
+  color: var(--lime-text-muted, #6b826b);
 `;
 
 const CardEyebrow = styled.span`
   border-radius: 9999px;
-  border: 1px solid var(--ember-surface-border, rgba(226, 232, 240, 0.88));
-  background: var(--ember-surface, rgba(255, 255, 255, 0.92));
+  border: 1px solid var(--lime-surface-border, rgba(226, 232, 240, 0.88));
+  background: var(--lime-surface, rgba(255, 255, 255, 0.92));
   padding: 0.18rem 0.5rem;
   font-size: 9px;
   font-weight: 600;
   line-height: 1;
   letter-spacing: 0.02em;
-  color: var(--ember-text-muted, #6b826b);
+  color: var(--lime-text-muted, #6b826b);
 `;
 
 export interface EmptyStateHeroCard {
@@ -423,8 +415,8 @@ export function EmptyStateHero({
                   ) : null}
                   {title ? (
                     <h1
-                      className="max-w-[18ch] text-[28px] font-semibold leading-[1.04] tracking-tight text-[color:var(--ember-text-strong)] md:text-[38px]"
-                      style={{ textShadow: "var(--ember-home-title-shadow)" }}
+                      className="max-w-[18ch] text-[28px] font-semibold leading-[1.04] tracking-tight text-[color:var(--lime-text-strong)] md:text-[38px]"
+                      style={{ textShadow: "var(--lime-home-title-shadow)" }}
                     >
                       {title}
                     </h1>
@@ -463,24 +455,9 @@ export function EmptyStateHero({
                 </div>
 
                 <div className="card-content mt-2.5">
-                  <CardTitleRow>
-                    <div className="card-title text-sm font-semibold text-[color:var(--ember-text-strong)]">
-                      {card.title}
-                    </div>
-                    <WorkbenchInfoTip
-                      ariaLabel={`${card.title}说明`}
-                      variant="icon"
-                      tone={card.tone === "emerald" ? "mint" : "slate"}
-                      side="top"
-                      align="end"
-                      content={
-                        <div style={{ width: "220px" }} className="space-y-1">
-                          <p className="m-0">{card.value}</p>
-                          <p className="m-0">{card.description}</p>
-                        </div>
-                      }
-                    />
-                  </CardTitleRow>
+                  <div className="card-title text-sm font-semibold text-[color:var(--lime-text-strong)]">
+                    {card.title}
+                  </div>
                   <CardValueText>{card.value}</CardValueText>
                 </div>
 
@@ -493,7 +470,7 @@ export function EmptyStateHero({
                           onClick={card.onMediaAction}
                           disabled={card.mediaActionDisabled}
                           aria-label={card.mediaActionLabel || card.title}
-                          className="card-preview block overflow-hidden rounded-[16px] border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface-soft)] text-left transition hover:border-[color:var(--ember-surface-border-strong)] disabled:cursor-default disabled:opacity-70"
+                          className="card-preview block overflow-hidden rounded-[16px] border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface-soft)] text-left transition hover:border-[color:var(--lime-surface-border-strong)] disabled:cursor-default disabled:opacity-70"
                         >
                           <img
                             src={card.imageSrc}
@@ -502,7 +479,7 @@ export function EmptyStateHero({
                           />
                         </button>
                       ) : (
-                        <div className="card-preview overflow-hidden rounded-[16px] border border-[color:var(--ember-surface-border)] bg-[color:var(--ember-surface-soft)]">
+                        <div className="card-preview overflow-hidden rounded-[16px] border border-[color:var(--lime-surface-border)] bg-[color:var(--lime-surface-soft)]">
                           <img
                             src={card.imageSrc}
                             alt={card.imageAlt || card.title}

@@ -339,7 +339,7 @@ function writeJsonResponse(response, statusCode, body) {
   response.writeHead(statusCode, {
     "access-control-allow-origin": "*",
     "access-control-allow-methods": "GET, POST, OPTIONS",
-    "access-control-allow-headers": "content-type,x-ember-smoke-analyzer",
+    "access-control-allow-headers": "content-type,x-lime-smoke-analyzer",
     "content-type": "application/json",
   });
   response.end(JSON.stringify(body));
@@ -354,7 +354,7 @@ async function startFixtureServer(options) {
       response.writeHead(204, {
         "access-control-allow-origin": "*",
         "access-control-allow-methods": "GET, POST, OPTIONS",
-        "access-control-allow-headers": "content-type,x-ember-smoke-analyzer",
+        "access-control-allow-headers": "content-type,x-lime-smoke-analyzer",
       });
       response.end();
       return;

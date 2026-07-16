@@ -149,7 +149,7 @@ describe("run-vitest-layer 运行参数", () => {
         "unit",
         [],
         {},
-        { EMBER_VITEST_UNIT_POOL: "vmThreads" },
+        { LIME_VITEST_UNIT_POOL: "vmThreads" },
       ),
     ).toEqual(["--pool", "vmThreads"]);
   });
@@ -184,7 +184,7 @@ describe("run-vitest-layer 运行参数", () => {
   it("unit 层可通过选项或环境变量强制 single fork", () => {
     expect(shouldUseSingleFork("unit", { singleFork: true }, {})).toBe(true);
     expect(
-      shouldUseSingleFork("unit", {}, { EMBER_VITEST_SINGLE_FORK: "1" }),
+      shouldUseSingleFork("unit", {}, { LIME_VITEST_SINGLE_FORK: "1" }),
     ).toBe(true);
     expect(buildLayerPoolArgs("unit", [], { singleFork: true }, {})).toEqual([
       "--pool",

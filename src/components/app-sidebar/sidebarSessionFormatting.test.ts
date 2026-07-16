@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { AsterSessionInfo } from "@/lib/api/agentRuntime";
+import type { AgentSessionInfo } from "@/lib/api/agentRuntime/sessionTypes";
 import {
   formatSidebarSessionMeta,
   resolveSidebarSessionTitle,
@@ -8,8 +8,8 @@ import {
 const NOW_MS = Date.UTC(2026, 4, 10, 12, 0, 0);
 
 function buildSession(
-  overrides: Partial<AsterSessionInfo> = {},
-): AsterSessionInfo {
+  overrides: Partial<AgentSessionInfo> = {},
+): AgentSessionInfo {
   return {
     id: "session-1",
     name: "最近会话",
@@ -79,5 +79,25 @@ describe("sidebarSessionFormatting", () => {
         "Untitled conversation",
       ),
     ).toBe("Untitled conversation");
+  });
+
+  it("图片任务历史标题不做前端词典改写", () => {
+    expect(
+      resolveSidebarSessionTitle(
+        buildSession({
+          name: "好啊，先来Generate 深圳夏day午后的城市照片，真实摄影Style。",
+        }),
+        "Untitled conversation",
+      ),
+    ).toBe("好啊，先来Generate 深圳夏day午后的城市照片，真实摄影Style。");
+  });
+
+  it("保留正常英文会话标题", () => {
+    expect(
+      resolveSidebarSessionTitle(
+        buildSession({ name: "Generate landing page style guide" }),
+        "Untitled conversation",
+      ),
+    ).toBe("Generate landing page style guide");
   });
 });

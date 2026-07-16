@@ -4,10 +4,12 @@ import { describe, expect, it } from "vitest";
 import {
   appServerBinaryName,
   buildLocalAppServer,
+  isUsableAppServerBinary,
   localAppServerBinaryPath,
   resolveDevAppServerBackendEnv,
   resolveDevAppServerBinary,
   resolveCargoTargetDirectory,
+  shouldRebuildAppServer,
 } from "./electron-dev-sidecar.mjs";
 
 describe("electron dev sidecar", () => {
@@ -20,29 +22,29 @@ describe("electron dev sidecar", () => {
   it("默认解析仓库内 debug app-server 路径", () => {
     expect(
       localAppServerBinaryPath({
-        repoRoot: "/repo/ember",
+        repoRoot: "/repo/lime",
         platform: "darwin",
-        targetDirectory: path.resolve("/repo/ember/ember-rs/target"),
+        targetDirectory: path.resolve("/repo/lime/ember-rs/target"),
       }),
-    ).toBe(path.resolve("/repo/ember/ember-rs/target/debug/app-server"));
+    ).toBe(path.resolve("/repo/lime/ember-rs/target/debug/app-server"));
   });
 
   it("读取仓库 cargo target-dir 配置", () => {
     expect(
       resolveCargoTargetDirectory({
-        repoRoot: "/repo/ember",
+        repoRoot: "/repo/lime",
         readConfigFile: () => '[build]\ntarget-dir = "ember-rs/target"\n',
       }),
-    ).toBe(path.resolve("/repo/ember/ember-rs/target"));
+    ).toBe(path.resolve("/repo/lime/ember-rs/target"));
   });
 
   it("没有 cargo target-dir 配置时回退到 ember-rs/target", () => {
     expect(
       resolveCargoTargetDirectory({
-        repoRoot: "/repo/ember",
+        repoRoot: "/repo/lime",
         readConfigFile: () => "[build]\n",
       }),
-    ).toBe(path.resolve("/repo/ember/ember-rs/target"));
+    ).toBe(path.resolve("/repo/lime/ember-rs/target"));
   });
 
   it("优先使用 APP_SERVER_BIN 环境变量", () => {
@@ -64,26 +66,37 @@ describe("electron dev sidecar", () => {
 
   it("本地二进制存在时直接返回，不触发 cargo build", () => {
     const builds = [];
+    const prepared = [];
     const resolved = resolveDevAppServerBinary({
       env: {},
-      repoRoot: "/repo/ember",
+      repoRoot: "/repo/lime",
       platform: "darwin",
       exists: () => true,
       build(call) {
         builds.push(call);
       },
+      prepareBinary: (...args) => prepared.push(args),
     });
 
-    expect(resolved).toBe(path.resolve("/repo/ember/ember-rs/target/debug/app-server"));
+    expect(resolved).toBe(path.resolve("/repo/lime/ember-rs/target/debug/app-server"));
     expect(builds).toHaveLength(0);
+    expect(prepared).toEqual([
+      [
+        {
+          binaryPath: path.resolve("/repo/lime/ember-rs/target/debug/app-server"),
+          platform: "darwin",
+        },
+      ],
+    ]);
   });
 
   it("本地二进制缺失时先构建再返回二进制路径", () => {
     let existsCalls = 0;
     const builds = [];
+    const prepared = [];
     const resolved = resolveDevAppServerBinary({
       env: {},
-      repoRoot: "/repo/ember",
+      repoRoot: "/repo/lime",
       platform: "darwin",
       exists: () => {
         existsCalls += 1;
@@ -92,22 +105,58 @@ describe("electron dev sidecar", () => {
       build(call) {
         builds.push(call);
       },
+      prepareBinary: (...args) => prepared.push(args),
     });
 
-    expect(resolved).toBe(path.resolve("/repo/ember/ember-rs/target/debug/app-server"));
-    expect(builds).toEqual([{ repoRoot: "/repo/ember", platform: "darwin" }]);
+    expect(resolved).toBe(path.resolve("/repo/lime/ember-rs/target/debug/app-server"));
+    expect(builds).toEqual([{ repoRoot: "/repo/lime", platform: "darwin" }]);
+    expect(prepared).toEqual([
+      [
+        {
+          binaryPath: path.resolve("/repo/lime/ember-rs/target/debug/app-server"),
+          platform: "darwin",
+        },
+      ],
+    ]);
   });
 
   it("构建后仍缺失二进制时报错", () => {
     expect(() =>
       resolveDevAppServerBinary({
         env: {},
-        repoRoot: "/repo/ember",
+        repoRoot: "/repo/lime",
         platform: "darwin",
         exists: () => false,
         build() {},
       }),
     ).toThrow(/app-server binary was not created/);
+  });
+
+  it("空 app-server 文件不算可用二进制", () => {
+    expect(
+      isUsableAppServerBinary("/repo/lime/ember-rs/target/debug/app-server", {
+        exists: () => true,
+        getStats: () => ({ isFile: () => true, size: 0 }),
+      }),
+    ).toBe(false);
+    expect(
+      isUsableAppServerBinary("/repo/lime/ember-rs/target/debug/app-server", {
+        exists: () => true,
+        getStats: () => ({ isFile: () => true, size: 128 }),
+      }),
+    ).toBe(true);
+  });
+
+  it("watcher 不应被 Cargo target 产物触发重建", () => {
+    expect(
+      shouldRebuildAppServer(
+        "target/debug/build/mime_guess/out/mime_types_generated.rs",
+      ),
+    ).toBe(false);
+    expect(
+      shouldRebuildAppServer("crates/agent/src/tools/skill_tool_gate.rs"),
+    ).toBe(true);
+    expect(shouldRebuildAppServer("Cargo.toml")).toBe(true);
   });
 
   it("默认 dev App Server backend 使用 App Server 内部 runtime", () => {
@@ -164,13 +213,15 @@ describe("electron dev sidecar", () => {
 
   it("调用 cargo build 只构建 app-server sidecar", () => {
     const calls = [];
+    const prepared = [];
     buildLocalAppServer({
-      repoRoot: "/repo/ember",
+      repoRoot: "/repo/lime",
       platform: "darwin",
       runner(command, args, options) {
         calls.push({ command, args, options });
         return { status: 0 };
       },
+      prepareBinary: (...args) => prepared.push(args),
     });
 
     expect(calls).toEqual([
@@ -179,25 +230,33 @@ describe("electron dev sidecar", () => {
         args: [
           "build",
           "--manifest-path",
-          path.resolve("/repo/ember/ember-rs/Cargo.toml"),
+          path.resolve("/repo/lime/ember-rs/Cargo.toml"),
           "-p",
           "app-server",
           "--bin",
           "app-server",
         ],
         options: {
-          cwd: "/repo/ember",
+          cwd: "/repo/lime",
           stdio: "inherit",
           shell: false,
         },
       },
+    ]);
+    expect(prepared).toEqual([
+      [
+        {
+          binaryPath: path.resolve("/repo/lime/ember-rs/target/debug/app-server"),
+          platform: "darwin",
+        },
+      ],
     ]);
   });
 
   it("cargo build 失败时抛出错误", () => {
     expect(() =>
       buildLocalAppServer({
-        repoRoot: "/repo/ember",
+        repoRoot: "/repo/lime",
         runner: () => ({ status: 2 }),
       }),
     ).toThrow("cargo build app-server failed with 2");

@@ -63,7 +63,7 @@ describe("buildCreationReplaySlotPrefill", () => {
         version: 1,
         kind: "memory_entry",
         source: {
-          page: "memory",
+          page: "memory_store",
           entry_id: "memory-1",
         },
         data: {
@@ -116,7 +116,7 @@ describe("buildCreationReplaySlotPrefill", () => {
         version: 1,
         kind: "memory_entry",
         source: {
-          page: "memory",
+          page: "memory_store",
           entry_id: "memory-1",
         },
         data: {
@@ -246,7 +246,7 @@ describe("buildCreationReplaySlotPrefill", () => {
         version: 1,
         kind: "memory_entry",
         source: {
-          page: "memory",
+          page: "memory_store",
           entry_id: "memory-trend-1",
         },
         data: {
@@ -376,7 +376,7 @@ describe("buildCreationReplaySlotPrefill", () => {
         version: 1,
         kind: "memory_entry",
         source: {
-          page: "memory",
+          page: "memory_store",
           entry_id: "memory-growth-1",
         },
         data: {
@@ -448,7 +448,7 @@ describe("buildCreationReplaySlotPrefill", () => {
           name: "小红书轮播改写",
           description: "按这个结构同风格扩写一版，但语气更像真实用户分享。",
           source_excerpt: "保留开头钩子、利益点排序和结尾 CTA。",
-          inputs: ["平台：小红书", "品牌名：Ember"],
+          inputs: ["平台：小红书", "品牌名：Lime"],
         },
       },
     );
@@ -456,7 +456,7 @@ describe("buildCreationReplaySlotPrefill", () => {
     expect(result).toEqual({
       slotValues: {
         reference_post:
-          "参考线索：保留开头钩子、利益点排序和结尾 CTA。\n改写目标：按这个结构同风格扩写一版，但语气更像真实用户分享。\n输入约束：平台：小红书；品牌名：Ember",
+          "参考线索：保留开头钩子、利益点排序和结尾 CTA。\n改写目标：按这个结构同风格扩写一版，但语气更像真实用户分享。\n输入约束：平台：小红书；品牌名：Lime",
         delivery_mode: "expand",
         script_mode: "expand",
       },
@@ -497,7 +497,7 @@ describe("buildCreationReplaySlotPrefill", () => {
         version: 1,
         kind: "memory_entry",
         source: {
-          page: "memory",
+          page: "memory_store",
           entry_id: "memory-article-1",
         },
         data: {
@@ -549,7 +549,7 @@ describe("buildCreationReplaySlotPrefill", () => {
         version: 1,
         kind: "memory_entry",
         source: {
-          page: "memory",
+          page: "memory_store",
         },
         data: {
           category: "experience",

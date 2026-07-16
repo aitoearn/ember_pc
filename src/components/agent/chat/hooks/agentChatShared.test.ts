@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { AsterSessionInfo } from "@/lib/api/agentRuntime";
+import type { AgentSessionInfo } from "@/lib/api/agentRuntime/sessionTypes";
 import type { Message } from "../types";
 import {
   buildLiveTaskSnapshot,
@@ -82,11 +82,93 @@ describe("agentChatShared", () => {
     const malformedSession = {
       id: "session-missing-time",
       messages_count: 0,
-    } as Partial<AsterSessionInfo> as AsterSessionInfo;
+    } as Partial<AgentSessionInfo> as AgentSessionInfo;
     const topic = mapSessionToTopic(malformedSession);
 
     expect(topic.title).toBe("新任务");
     expect(topic.title).not.toContain("1970");
+  });
+
+  it("App Server list overview 的未完成状态应投影到最近会话 topic", () => {
+    const freshUpdatedAt = Date.now();
+
+    expect(
+      mapSessionToTopic({
+        id: "session-running",
+        name: "运行中会话",
+        created_at: 1780847017766,
+        updated_at: freshUpdatedAt,
+        messages_count: 2,
+        thread_status: "running",
+        latest_turn_status: "accepted",
+        active_turn_id: "turn-running",
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        status: "running",
+        statusReason: "default",
+        lastPreview: "正在继续输出。",
+      }),
+    );
+
+    expect(
+      mapSessionToTopic({
+        id: "session-waiting",
+        name: "待确认会话",
+        created_at: 1780847017766,
+        updated_at: 1780847020000,
+        messages_count: 2,
+        thread_status: "waitingAction",
+        latest_turn_status: "waitingAction",
+        active_turn_id: "turn-waiting",
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        status: "waiting",
+        statusReason: "user_action",
+        lastPreview: "等待你确认后继续。",
+      }),
+    );
+
+    expect(
+      mapSessionToTopic({
+        id: "session-queued",
+        name: "排队会话",
+        created_at: 1780847017766,
+        updated_at: 1780847020000,
+        messages_count: 2,
+        thread_status: "running",
+        latest_turn_status: "queued",
+        active_turn_id: "turn-running",
+        queued_turn_count: 1,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        status: "queued",
+        statusReason: "default",
+        lastPreview: "仍有排队中的请求。",
+      }),
+    );
+  });
+
+  it("终态 overview 即使带 stale active turn 也不应投影成运行中", () => {
+    expect(
+      mapSessionToTopic({
+        id: "session-completed-stale",
+        name: "已完成会话",
+        created_at: 1780847017766,
+        updated_at: 1780847020000,
+        messages_count: 2,
+        thread_status: "completed",
+        latest_turn_status: "running",
+        active_turn_id: "turn-stale",
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        status: "done",
+        statusReason: "default",
+      }),
+    );
   });
 
   it("待处理 action request 未提交时应优先判定为待处理", () => {
@@ -305,6 +387,22 @@ describe("agentChatShared", () => {
     });
   });
 
+  it("当前线程只有排队请求时应投影为排队中", () => {
+    expect(
+      deriveTaskLiveState({
+        messages: [],
+        isSending: false,
+        pendingActionCount: 0,
+        queuedTurnCount: 1,
+        threadStatus: "queued",
+        workspaceError: false,
+      }),
+    ).toEqual({
+      status: "queued",
+      statusReason: "default",
+    });
+  });
+
   it("首字前等待中的 assistant 草稿不应因 isSending 清空而误判为已完成", () => {
     const messages: Message[] = [
       {
@@ -375,6 +473,22 @@ describe("agentChatShared", () => {
         hasUnread: false,
         tag: null,
         sourceSessionId: "topic-done",
+      },
+      {
+        id: "topic-running",
+        title: "运行中任务",
+        createdAt: new Date("2026-03-15T09:48:00.000Z"),
+        updatedAt: new Date("2026-03-15T09:49:00.000Z"),
+        workspaceId: "workspace-1",
+        messagesCount: 3,
+        executionStrategy: "react" as const,
+        status: "running" as const,
+        statusReason: "default" as const,
+        lastPreview: "正在继续输出。",
+        isPinned: false,
+        hasUnread: false,
+        tag: null,
+        sourceSessionId: "topic-running",
       },
       {
         id: "topic-waiting",

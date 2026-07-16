@@ -1,19 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
+  isHiddenConversationArtifact,
   isHiddenConversationArtifactPath,
   isHiddenInternalArtifactPath,
 } from "./internalArtifactVisibility";
 
 describe("isHiddenInternalArtifactPath", () => {
-  it("应隐藏 .ember/tasks 下的内部任务快照 JSON", () => {
+  it("应隐藏 .lime/tasks 下的内部任务快照 JSON", () => {
     expect(
       isHiddenInternalArtifactPath(
-        ".ember/tasks/image_generate/task-image-1.json",
+        ".lime/tasks/image_generate/task-image-1.json",
       ),
     ).toBe(true);
     expect(
       isHiddenInternalArtifactPath(
-        "/workspace/demo/.ember/tasks/image_generate/task-image-1.json",
+        "/workspace/demo/.lime/tasks/image_generate/task-image-1.json",
       ),
     ).toBe(true);
   });
@@ -24,7 +25,7 @@ describe("isHiddenInternalArtifactPath", () => {
     ).toBe(false);
     expect(
       isHiddenInternalArtifactPath(
-        ".ember/artifacts/thread-1/report.artifact.json",
+        ".lime/artifacts/thread-1/report.artifact.json",
       ),
     ).toBe(false);
     expect(isHiddenInternalArtifactPath("content-posts/demo-cover.png")).toBe(
@@ -32,15 +33,15 @@ describe("isHiddenInternalArtifactPath", () => {
     );
   });
 
-  it("聊天区应隐藏 .ember/artifacts 下的内部 artifact 文稿 JSON", () => {
+  it("聊天区应隐藏 .lime/artifacts 下的内部 artifact 文稿 JSON", () => {
     expect(
       isHiddenConversationArtifactPath(
-        ".ember/artifacts/thread-1/report.artifact.json",
+        ".lime/artifacts/thread-1/report.artifact.json",
       ),
     ).toBe(true);
     expect(
       isHiddenConversationArtifactPath(
-        "/workspace/demo/.ember/artifacts/thread-1/report.artifact.json",
+        "/workspace/demo/.lime/artifacts/thread-1/report.artifact.json",
       ),
     ).toBe(true);
     expect(
@@ -54,17 +55,67 @@ describe("isHiddenInternalArtifactPath", () => {
   it("聊天区应隐藏辅助运行时投影工件", () => {
     expect(
       isHiddenConversationArtifactPath(
-        ".ember/harness/sessions/session-1/auxiliary-runtime/title-generation-aux-1.json",
+        ".lime/harness/sessions/session-1/auxiliary-runtime/title-generation-aux-1.json",
       ),
     ).toBe(true);
     expect(
       isHiddenConversationArtifactPath(
-        "/workspace/demo/.ember/harness/sessions/session-1/auxiliary-runtime/title-generation-aux-1.json",
+        "/workspace/demo/.lime/harness/sessions/session-1/auxiliary-runtime/title-generation-aux-1.json",
       ),
     ).toBe(true);
     expect(
       isHiddenConversationArtifactPath(
-        ".ember/harness/sessions/session-1/evidence/runtime.json",
+        ".lime/harness/sessions/session-1/evidence/runtime.json",
+      ),
+    ).toBe(false);
+  });
+
+  it("聊天区应隐藏 workspace patch 原始工件", () => {
+    expect(
+      isHiddenConversationArtifactPath(
+        ".lime/artifacts/article-workspace/workspace-patch.json",
+      ),
+    ).toBe(true);
+    expect(
+      isHiddenConversationArtifactPath(
+        ".lime/artifacts/content-factory/workspace-patch.json",
+      ),
+    ).toBe(true);
+    expect(
+      isHiddenConversationArtifactPath(
+        ".lime/artifacts/content-factory-workspace-patch.json",
+      ),
+    ).toBe(true);
+    expect(
+      isHiddenConversationArtifact(
+        {
+          title: "内容工厂工作区补丁",
+          content: "{}",
+          meta: {
+            kind: "content_factory.workspace_patch",
+          },
+        },
+        "content-factory-workspace-patch.json",
+      ),
+    ).toBe(true);
+  });
+
+  it("聊天区不应隐藏可见的文章预览产物", () => {
+    expect(
+      isHiddenConversationArtifact(
+        {
+          title: "公众号文章草稿",
+          content: "# 公众号文章草稿\n\n正文",
+          meta: {
+            openedFrom: "right_surface_article_workspace",
+            artifactKind: "report",
+            contentFactoryWorkspacePatch: {
+              appId: "content-factory-app",
+              objects: [],
+            },
+          },
+        },
+        "公众号文章草稿.md",
       ),
     ).toBe(false);
   });

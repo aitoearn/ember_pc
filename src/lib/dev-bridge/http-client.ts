@@ -31,12 +31,17 @@ const DEV_BRIDGE_KNOWLEDGE_COMPILE_TIMEOUT_MS = 180000;
 const DEV_BRIDGE_VOICE_MODEL_DOWNLOAD_TIMEOUT_MS = 30 * 60 * 1000;
 const DEV_BRIDGE_AGENT_RUNTIME_TIMEOUT_MS = 60000;
 const DEV_BRIDGE_APP_SERVER_TURN_START_TIMEOUT_MS = 150000;
-const DEV_BRIDGE_AGENT_APP_PACKAGE_COMMAND_TIMEOUT_MS = 60000;
-const DEV_BRIDGE_AGENT_APP_UI_RUNTIME_START_TIMEOUT_MS = 150000;
+const DEV_BRIDGE_APP_SERVER_LONG_RUNNING_TIMEOUT_MS =
+  DEV_BRIDGE_APP_SERVER_TURN_START_TIMEOUT_MS;
+const DEV_BRIDGE_PLUGIN_INSTALLED_WRITE_TIMEOUT_MS = 240000;
+const DEV_BRIDGE_PLUGIN_PACKAGE_COMMAND_TIMEOUT_MS = 60000;
+const DEV_BRIDGE_PLUGIN_PACKAGE_INSPECT_TIMEOUT_MS = 240000;
+const DEV_BRIDGE_PLUGIN_UI_RUNTIME_START_TIMEOUT_MS = 150000;
+const DEV_BRIDGE_DESKTOP_USER_INTERACTION_TIMEOUT_MS = 10 * 60 * 1000;
 const DEV_BRIDGE_LAYERED_DESIGN_PROJECT_TIMEOUT_MS = 60000;
-const DEV_BRIDGE_DEVICE_AUTOMATION_TIMEOUT_MS = 30000;
 const DEV_BRIDGE_AGENT_SESSION_GET_TIMEOUT_MS = 20000;
-const DEV_BRIDGE_AGENT_SESSION_LIST_TIMEOUT_MS = 8000;
+const DEV_BRIDGE_AGENT_SESSION_LIST_TIMEOUT_MS =
+  DEV_BRIDGE_APP_SERVER_READ_TIMEOUT_MS;
 const DEV_BRIDGE_AGENT_SESSION_PATCH_TIMEOUT_MS = 5000;
 const DEV_BRIDGE_AGENT_SESSION_CREATE_TIMEOUT_MS = 15000;
 const DEV_BRIDGE_HEALTH_TIMEOUT_MS = 3000;
@@ -80,6 +85,7 @@ const bridgeEventListeners = new Map<
 >();
 let bridgeEventConnection: DevBridgeEventConnection | null = null;
 let bridgeEventConnectionPromise: Promise<void> | null = null;
+let bridgeEventConnectionQueued = false;
 let bridgeLastHealthyAt = 0;
 let bridgeConnectionBackoffUntil = 0;
 let bridgeHealthProbePromise: Promise<boolean> | null = null;
@@ -101,22 +107,28 @@ export function resolveBridgeRequestTimeoutMs(
       return DEV_BRIDGE_AGENT_SESSION_CREATE_TIMEOUT_MS;
     case "app-server-turn-start":
       return DEV_BRIDGE_APP_SERVER_TURN_START_TIMEOUT_MS;
+    case "app-server-long-running":
+      return DEV_BRIDGE_APP_SERVER_LONG_RUNNING_TIMEOUT_MS;
     case "app-server-read":
       return DEV_BRIDGE_APP_SERVER_READ_TIMEOUT_MS;
     case "agent-runtime":
       return DEV_BRIDGE_AGENT_RUNTIME_TIMEOUT_MS;
-    case "agent-app-ui-runtime-start":
-      return DEV_BRIDGE_AGENT_APP_UI_RUNTIME_START_TIMEOUT_MS;
-    case "agent-app-package":
-      return DEV_BRIDGE_AGENT_APP_PACKAGE_COMMAND_TIMEOUT_MS;
+    case "plugin-installed-write":
+      return DEV_BRIDGE_PLUGIN_INSTALLED_WRITE_TIMEOUT_MS;
+    case "plugin-ui-runtime-start":
+      return DEV_BRIDGE_PLUGIN_UI_RUNTIME_START_TIMEOUT_MS;
+    case "plugin-package":
+      return DEV_BRIDGE_PLUGIN_PACKAGE_COMMAND_TIMEOUT_MS;
+    case "plugin-package-inspect":
+      return DEV_BRIDGE_PLUGIN_PACKAGE_INSPECT_TIMEOUT_MS;
+    case "desktop-user-interaction":
+      return DEV_BRIDGE_DESKTOP_USER_INTERACTION_TIMEOUT_MS;
     case "knowledge-compile":
       return DEV_BRIDGE_KNOWLEDGE_COMPILE_TIMEOUT_MS;
     case "voice-model-download":
       return DEV_BRIDGE_VOICE_MODEL_DOWNLOAD_TIMEOUT_MS;
     case "layered-design-project":
       return DEV_BRIDGE_LAYERED_DESIGN_PROJECT_TIMEOUT_MS;
-    case "device-automation":
-      return DEV_BRIDGE_DEVICE_AUTOMATION_TIMEOUT_MS;
     case "truth":
       return DEV_BRIDGE_TRUTH_COMMAND_TIMEOUT_MS;
     case "default":
@@ -620,8 +632,14 @@ async function createBridgeEventConnection(
 }
 
 async function ensureBridgeEventConnection(): Promise<void> {
-  if (!bridgeEventConnectionPromise) {
-    bridgeEventConnectionPromise = (async () => {
+  if (bridgeEventConnectionPromise) {
+    bridgeEventConnectionQueued = true;
+    return bridgeEventConnectionPromise;
+  }
+
+  bridgeEventConnectionPromise = (async () => {
+    do {
+      bridgeEventConnectionQueued = false;
       while (true) {
         const snapshot = getBridgeEventSubscriptionSnapshot();
         if (snapshot.events.length === 0) {
@@ -642,13 +660,15 @@ async function ensureBridgeEventConnection(): Promise<void> {
           bridgeEventConnection?.eventsKey ===
           getBridgeEventSubscriptionSnapshot().eventsKey
         ) {
-          return;
+          break;
         }
       }
-    })().finally(() => {
-      bridgeEventConnectionPromise = null;
-    });
-  }
+    } while (bridgeEventConnectionQueued);
+  })().finally(() => {
+    bridgeEventConnectionPromise = null;
+    bridgeEventConnectionQueued = false;
+  });
+
   return bridgeEventConnectionPromise;
 }
 
@@ -793,6 +813,7 @@ export function __resetDevBridgeHttpStateForTests(): void {
   bridgeConnectionBackoffUntil = 0;
   bridgeHealthProbePromise = null;
   bridgeEventConnectionPromise = null;
+  bridgeEventConnectionQueued = false;
   closeBridgeEventConnection();
   bridgeEventListeners.clear();
 }

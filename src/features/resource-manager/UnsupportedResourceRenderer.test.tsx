@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { UnsupportedResourceRenderer } from "./UnsupportedResourceRenderer";
 import type { ResourceManagerItem } from "./types";
 
@@ -23,7 +23,7 @@ function renderUnsupported(item: ResourceManagerItem) {
 describe("UnsupportedResourceRenderer", () => {
   beforeEach(async () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
   });
 
   afterEach(async () => {
@@ -31,7 +31,7 @@ describe("UnsupportedResourceRenderer", () => {
       act(() => item.root.unmount());
       item.container.remove();
     }
-    await changeEmberLocale("zh-CN");
+    await changeLimeLocale("zh-CN");
     vi.unstubAllGlobals();
   });
 
@@ -47,7 +47,7 @@ describe("UnsupportedResourceRenderer", () => {
       "Unknown resource preview is not supported yet",
     );
     expect(container.textContent).toContain(
-      "Ember has identified this resource entry, but there is no safe built-in renderer for it yet.",
+      "Lime has identified this resource entry, but there is no safe built-in renderer for it yet.",
     );
     expect(container.textContent).toContain("Untitled resource");
     expect(container.textContent).toContain("Type: application/x-custom");

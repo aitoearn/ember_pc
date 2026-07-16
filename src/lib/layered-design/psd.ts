@@ -284,7 +284,7 @@ function createTextLayerSemanticBlock(layer: TextLayer): Uint8Array {
     "LmTx",
     encodeUtf8(
       JSON.stringify({
-        kind: "ember.layered-design.text-layer",
+        kind: "lime.layered-design.text-layer",
         writerVersion: LAYERED_DESIGN_TRIAL_PSD_WRITER_VERSION,
         id: layer.id,
         name: layer.name,

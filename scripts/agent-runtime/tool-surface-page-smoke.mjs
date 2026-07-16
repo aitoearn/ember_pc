@@ -24,9 +24,9 @@ const CODE_FIXTURE_SOURCE_FILE_PATH = "src/components/ImageCard.tsx";
 const CODE_FIXTURE_FILE_PATH = "src/components/ImageCard.test.tsx";
 const CODE_FIXTURE_CHECKPOINT_ID = "checkpoint-code-runtime-image-card";
 const CODE_FIXTURE_CHECKPOINT_SNAPSHOT_PATH =
-  ".ember/checkpoints/session-code-runtime-smoke/image-card-v1.json";
+  ".lime/checkpoints/session-code-runtime-smoke/image-card-v1.json";
 const CODE_FIXTURE_RESTORE_BACKUP_PATH =
-  ".ember/checkpoints/session-code-runtime-smoke/image-card-live-backup.json";
+  ".lime/checkpoints/session-code-runtime-smoke/image-card-live-backup.json";
 const CODE_FIXTURE_TEST_OUTPUT = "PASS ImageCard.test.tsx\n1 test passed";
 const CODE_FIXTURE_APPROVAL_REQUEST_ID = "approval-code-runtime-write";
 const CODE_FIXTURE_APPROVAL_PROMPT = "确认写入图片卡片历史切换回归测试";
@@ -71,10 +71,11 @@ const APP_SERVER_METHOD_AGENT_SESSION_START = "agentSession/start";
 const APP_SERVER_METHOD_AGENT_SESSION_UPDATE = "agentSession/update";
 const APP_SERVER_METHOD_AGENT_SESSION_READ = "agentSession/read";
 const APP_SERVER_METHOD_AGENT_SESSION_LIST = "agentSession/list";
-const APP_SERVER_METHOD_AGENT_SESSION_TURN_START =
-  "agentSession/turn/start";
+const APP_SERVER_METHOD_AGENT_SESSION_TURN_START = "agentSession/turn/start";
 const APP_SERVER_METHOD_AGENT_SESSION_ACTION_RESPOND =
   "agentSession/action/respond";
+const APP_SERVER_METHOD_AGENT_SESSION_TOOL_INVENTORY_READ =
+  "agentSession/toolInventory/read";
 const APP_SERVER_METHOD_AGENT_SESSION_FILE_CHECKPOINT_LIST =
   "agentSession/fileCheckpoint/list";
 const APP_SERVER_METHOD_AGENT_SESSION_FILE_CHECKPOINT_GET =
@@ -101,7 +102,7 @@ const FORBIDDEN_AGENT_RUNTIME_CURRENT_METHOD_COMMANDS = new Set([
   "agent_runtime_restore_file_checkpoint",
 ]);
 const WORKSPACE_HARNESS_DEBUG_OVERRIDE_KEY =
-  "ember:debug:workspace-harness-enabled:v1";
+  "lime:debug:workspace-harness-enabled:v1";
 const RUNTIME_TOOL_AVAILABILITY_OVERRIDE = {
   known: true,
   agentInitialized: true,
@@ -116,15 +117,7 @@ const RUNTIME_TOOL_AVAILABILITY_OVERRIDE = {
   missingSubagentTeamTools: [],
   missingTaskTools: [],
 };
-const REQUIRED_RUNTIME_SUMMARY_FLAGS = [
-  "hasWorkbench",
-  "hasRuntimeSummary",
-  "hasWebSearchReady",
-  "hasSubagentReady",
-  "hasTeamReady",
-  "hasTaskReady",
-  "hasReadyBanner",
-];
+const REQUIRED_RUNTIME_SUMMARY_FLAGS = ["hasWorkbench"];
 const REQUIRED_AGENT_RUNTIME_TASK_FLAGS = [
   "hasPlainCodingPrompt",
   "hasAgentRuntimeStrip",
@@ -147,15 +140,14 @@ const REQUIRED_AGENT_RUNTIME_TASK_FLAGS = [
 ];
 const FORBIDDEN_PAGE_WARNINGS = [
   "当前 runtime tool surface 还没有暴露 WebSearch，联网搜索偏好本轮可能不会生效。",
-  "当前 runtime tool surface 缺少 Agent / SendMessage / Team* current tools，任务拆分偏好本轮可能不会完全生效。",
 ];
 
 function printHelp() {
   console.log(`
-Ember Runtime Tool Surface Page Smoke
+Lime Runtime Tool Surface Page Smoke
 
 用途:
-  通过真实 Ember 页面验证 runtime inventory -> Harness -> Runtime 能力摘要的主链，
+  通过真实 Lime 页面验证 runtime inventory -> Harness -> Runtime 能力摘要的主链，
   同时确认自然语言工具任务从输入框进入 current Agent runtime，不需要 @代码 或前置策略选择。
 
 用法:
@@ -280,16 +272,16 @@ async function waitForHealth(options) {
 
 function buildHarnessBootstrapScript() {
   return `(() => {
-    localStorage.setItem("ember_onboarding_complete", "true");
-    localStorage.setItem("ember_onboarding_version", ${JSON.stringify(ONBOARDING_VERSION)});
-    localStorage.setItem("ember_user_profile", "developer");
+    localStorage.setItem("lime_onboarding_complete", "true");
+    localStorage.setItem("lime_onboarding_version", ${JSON.stringify(ONBOARDING_VERSION)});
+    localStorage.setItem("lime_user_profile", "developer");
     localStorage.setItem(
       ${JSON.stringify(WORKSPACE_HARNESS_DEBUG_OVERRIDE_KEY)},
       "true"
     );
-    localStorage.setItem("ember.chat.harness-panel.visible.v1", "true");
+    localStorage.setItem("lime.chat.harness-panel.visible.v1", "true");
     localStorage.setItem(
-      "ember:debug:runtime-tool-availability:v1",
+      "lime:debug:runtime-tool-availability:v1",
       JSON.stringify(${JSON.stringify(RUNTIME_TOOL_AVAILABILITY_OVERRIDE)})
     );
     return true;
@@ -354,8 +346,8 @@ function buildEnsureAgentHomeScript() {
         return (
           text === "回到首页" ||
           aria === "回到首页" ||
-          aria.includes("Ember 首页") ||
-          title.includes("Ember 首页")
+          aria.includes("Lime 首页") ||
+          title.includes("Lime 首页")
         );
       });
 
@@ -645,7 +637,6 @@ function buildCodeRuntimeSessionFixture(
       updated_at: nowIso,
     },
     todo_items: [],
-    child_subagent_sessions: [],
   };
 }
 
@@ -859,7 +850,7 @@ function buildCodeRuntimeModelFixture() {
   const nowSeconds = Math.floor(Date.now() / 1000);
   return {
     id: CODE_FIXTURE_MODEL_ID,
-    display_name: "GPT-5 Codex Smoke",
+    display_name: "GPT-5 Reasoning Smoke",
     provider_id: CODE_FIXTURE_PROVIDER_ID,
     provider_name: "Smoke OpenAI",
     family: "gpt-5",
@@ -1056,12 +1047,12 @@ function buildCodeRuntimeSseBody(
   payloads = buildCodeRuntimeStreamEvents(),
 ) {
   const runtimeEventNames = eventNames.filter((eventName) =>
-    eventName.startsWith("aster_stream_"),
+    eventName.startsWith("agent_stream_"),
   );
   const messages = runtimeEventNames.flatMap((eventName) =>
     payloads.map((payload) => formatBridgeSseMessage(eventName, payload)),
   );
-  return `: ember-agent-runtime-smoke\n\n${messages.join("")}`;
+  return `: lime-agent-runtime-smoke\n\n${messages.join("")}`;
 }
 
 function buildCodeRuntimeEventSourceFixtureScript(eventsUrl) {
@@ -1141,10 +1132,10 @@ function buildCodeRuntimeEventSourceFixtureScript(eventsUrl) {
         this.dispatchEvent(openEvent);
 
         const runtimeEventNames = subscribedEvents.filter((eventName) =>
-          eventName.startsWith("aster_stream_"),
+          eventName.startsWith("agent_stream_"),
         );
         const queueModeEnabled = Boolean(
-          window.__emberCodeRuntimeQueueModeEnabled,
+          window.__limeCodeRuntimeQueueModeEnabled,
         );
         const payloadsToSend = diagnostics.mainRuntimeStreamSent
           ? queueModeEnabled
@@ -1215,7 +1206,7 @@ function buildCodeRuntimeEventSourceFixtureScript(eventsUrl) {
       this.readyState = SmokeEventSource.CLOSED;
     };
 
-    window.__emberCodeRuntimeEventSourceFixtureDiagnostics = diagnostics;
+    window.__limeCodeRuntimeEventSourceFixtureDiagnostics = diagnostics;
     window.EventSource = SmokeEventSource;
   })()`;
 }
@@ -1307,7 +1298,7 @@ async function installCodeRuntimeDevBridgeFixture(page, options) {
         return buildAppServerJsonRpcResult(message.id, {
           workspace: workspaceFixture,
         });
-      case "agentAppInstalled/list":
+      case "pluginInstalled/list":
         return buildAppServerJsonRpcResult(message.id, {
           states: [],
           issues: [],
@@ -1428,29 +1419,12 @@ async function installCodeRuntimeDevBridgeFixture(page, options) {
         const turnParams = params && typeof params === "object" ? params : {};
         const submitRequest = {
           message: turnParams.input?.text ?? "",
-          session_id: turnParams.sessionId,
-          event_name: turnParams.runtimeOptions?.eventName,
-          workspace_id:
-            turnParams.runtimeOptions?.hostOptions?.asterChatRequest
-              ?.workspace_id,
-          turn_id: turnParams.turnId,
-          turn_config: {
-            provider_preference:
-              turnParams.runtimeOptions?.providerPreference,
-            model_preference: turnParams.runtimeOptions?.modelPreference,
-            metadata: turnParams.runtimeOptions?.metadata,
-            execution_strategy:
-              turnParams.runtimeOptions?.hostOptions?.asterChatRequest
-                ?.execution_strategy,
-            web_search:
-              turnParams.runtimeOptions?.hostOptions?.asterChatRequest
-                ?.web_search,
-            search_mode:
-              turnParams.runtimeOptions?.hostOptions?.asterChatRequest
-                ?.search_mode,
-          },
-          queue_if_busy: turnParams.queueIfBusy,
-          queued_turn_id: turnParams.runtimeOptions?.queuedTurnId,
+          sessionId: turnParams.sessionId,
+          eventName: turnParams.runtimeOptions?.eventName,
+          turnId: turnParams.turnId,
+          runtimeRequest: turnParams.runtimeOptions?.runtimeRequest ?? {},
+          queueIfBusy: turnParams.queueIfBusy,
+          queuedTurnId: turnParams.runtimeOptions?.queuedTurnId,
           appServerParams: turnParams,
         };
         submitTurnRequests.push(submitRequest);
@@ -1540,7 +1514,7 @@ async function installCodeRuntimeDevBridgeFixture(page, options) {
     }
 
     const runtimeEventNames = eventNames.filter((eventName) =>
-      eventName.startsWith("aster_stream_"),
+      eventName.startsWith("agent_stream_"),
     );
     const ssePayloads =
       runtimeEventNames.length > 0 && mainRuntimeSseSent
@@ -1652,22 +1626,6 @@ async function installCodeRuntimeDevBridgeFixture(page, options) {
       });
       return;
     }
-    if (command === "aster_agent_init") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          result: {
-            initialized: true,
-            provider_configured: true,
-            provider_name: CODE_FIXTURE_PROVIDER_ID,
-            provider_selector: CODE_FIXTURE_PROVIDER_ID,
-            model_name: CODE_FIXTURE_MODEL_ID,
-          },
-        }),
-      });
-      return;
-    }
     if (FORBIDDEN_AGENT_RUNTIME_CURRENT_METHOD_COMMANDS.has(command)) {
       await route.fulfill({
         status: 500,
@@ -1681,15 +1639,6 @@ async function installCodeRuntimeDevBridgeFixture(page, options) {
       });
       return;
     }
-    if (command === "agent_runtime_get_thread_read") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ result: fixture.thread_read }),
-      });
-      return;
-    }
-
     await route.fallback();
   });
   return {
@@ -1997,22 +1946,34 @@ function buildWorkbenchButtonCheckScript() {
 
 function buildOpenSubmittedCodeSessionScript() {
   return `(() => {
-    const harnessButton = Array.from(document.querySelectorAll("button")).find(
-      (candidate) =>
-        ((candidate.textContent || "").trim() === "Harness" ||
-          (candidate.getAttribute("aria-label") || "").includes("Harness") ||
-          (candidate.getAttribute("title") || "").includes("Harness")) &&
-        candidate instanceof HTMLButtonElement,
-    );
-    if (harnessButton) {
+    const targetSessionId = ${JSON.stringify(CODE_FIXTURE_SESSION_ID)};
+    const targetWorkspaceId = ${JSON.stringify(CODE_FIXTURE_WORKSPACE_ID)};
+    const targetTitle = "自然语言任务 runtime smoke";
+    const targetPrompt = ${JSON.stringify(PROMPT_TEXT)};
+    const text = document.body ? document.body.innerText : "";
+    const hasRuntimeProjection =
+      Boolean(document.querySelector('[data-testid="agent-runtime-strip"]')) ||
+      Boolean(document.querySelector('[data-harness-section="writes"]')) ||
+      Boolean(document.querySelector('[data-harness-section="outputs"]')) ||
+      Boolean(document.querySelector('[data-harness-section="approvals"]')) ||
+      Boolean(document.querySelector('[data-harness-section="file_review"]'));
+    const hasTargetTaskContent =
+      text.includes(targetPrompt) ||
+      text.includes(${JSON.stringify(CODE_FIXTURE_FILE_PATH)}) ||
+      text.includes(${JSON.stringify(CODE_FIXTURE_APPROVAL_PROMPT)}) ||
+      text.includes(${JSON.stringify(CODE_FIXTURE_TEST_OUTPUT)});
+
+    if (hasTargetTaskContent || hasRuntimeProjection) {
       return {
         ok: true,
-        reason: "harness-ready",
+        reason: "target-session-open",
+        hasTargetTaskContent,
+        hasRuntimeProjection,
         url: window.location.href,
       };
     }
 
-    const clickedKey = "__emberCodeRuntimeSmokeRecentSessionClicked";
+    const clickedKey = "__limeCodeRuntimeSmokeRecentSessionClicked";
     const recentButton =
       document.querySelector('[data-testid="entry-recent-session-resume"]') ||
       Array.from(document.querySelectorAll("button")).find((button) => {
@@ -2051,6 +2012,9 @@ function buildOpenSubmittedCodeSessionScript() {
         ? "recent-session-already-clicked-or-disabled"
         : "recent-session-entry-missing",
       url: window.location.href,
+      hasTargetTitle: text.includes(targetTitle),
+      hasTargetTaskContent,
+      hasRuntimeProjection,
       bodyTextSample: (document.body?.innerText || "").slice(0, 1200),
       buttons: Array.from(document.querySelectorAll("button"))
         .slice(0, 80)
@@ -2099,7 +2063,7 @@ function buildRuntimeSmokeDiagnosticsScript() {
         '[data-testid="agent-runtime-strip"][data-runtime-kind="runtime"]',
       ).length,
       eventSourceFixture:
-        window.__emberCodeRuntimeEventSourceFixtureDiagnostics || null,
+        window.__limeCodeRuntimeEventSourceFixtureDiagnostics || null,
       harnessSectionCounts: {
         writes: document.querySelectorAll('[data-harness-section="writes"]').length,
         outputs: document.querySelectorAll('[data-harness-section="outputs"]').length,
@@ -2115,6 +2079,9 @@ function buildRuntimeSummaryCheckScript() {
   return `(() => {
     const text = document.body ? document.body.innerText : "";
     const agentRuntimeStrip = document.querySelector('[data-testid="agent-runtime-strip"]');
+    const runtimeSurfaceStatus = document.querySelector(
+      '[data-testid="agent-runtime-strip-status-runtime_surface"][data-status-key="runtime_surface"]',
+    );
     const writesSection = document.querySelector('[data-harness-section="writes"]');
     const outputsSection = document.querySelector('[data-harness-section="outputs"]');
     const approvalsSection = document.querySelector('[data-harness-section="approvals"]');
@@ -2133,6 +2100,10 @@ function buildRuntimeSummaryCheckScript() {
     return {
       hasWorkbench: text.includes("处理工作台"),
       hasRuntimeSummary: text.includes("Runtime 能力摘要"),
+      hasRuntimeSurfaceEvidence:
+        Boolean(runtimeSurfaceStatus) ||
+        text.includes("Runtime 能力摘要") ||
+        text.includes("runtime current surface"),
       hasPlainCodingPrompt: text.includes(${JSON.stringify(PROMPT_TEXT)}),
       hasAgentRuntimeStrip: Boolean(agentRuntimeStrip),
       hasReactRuntimeStrategy: Boolean(
@@ -2513,15 +2484,13 @@ function isExpectedApprovalResponseRequest(request) {
 }
 
 function isExpectedPlainCodeRuntimeSubmitRequest(request) {
-  const harnessMetadata = request?.turn_config?.metadata?.harness;
   return (
     request?.message === PROMPT_TEXT &&
     !String(request?.message || "")
       .trim()
       .startsWith("@代码") &&
-    request?.session_id === CODE_FIXTURE_SESSION_ID &&
-    request?.turn_config?.metadata?.harness?.code_command === undefined &&
-    harnessMetadata?.fast_response_routing === undefined
+    request?.sessionId === CODE_FIXTURE_SESSION_ID &&
+    request?.runtimeRequest?.metadata?.harness?.code_command === undefined
   );
 }
 
@@ -2531,9 +2500,9 @@ function isExpectedPlainCodeRuntimeQueuedSubmitRequest(request) {
     !String(request?.message || "")
       .trim()
       .startsWith("@代码") &&
-    request?.session_id === CODE_FIXTURE_SESSION_ID &&
-    request?.queue_if_busy === true &&
-    request?.turn_config?.metadata?.harness?.code_command === undefined
+    request?.sessionId === CODE_FIXTURE_SESSION_ID &&
+    request?.queueIfBusy === true &&
+    request?.runtimeRequest?.metadata?.harness?.code_command === undefined
   );
 }
 
@@ -2552,6 +2521,13 @@ function isExpectedCodeRuntimeSessionCreateRequest(request) {
 
 function hasAppServerMethodCount(diagnostics, method, minCount = 1) {
   return (diagnostics?.appServerMethodCounts?.[method] ?? 0) >= minCount;
+}
+
+function hasRuntimeToolInventoryRead(diagnostics) {
+  return hasAppServerMethodCount(
+    diagnostics,
+    APP_SERVER_METHOD_AGENT_SESSION_TOOL_INVENTORY_READ,
+  );
 }
 
 function findForbiddenAgentRuntimeCurrentMethodCommands(diagnostics) {
@@ -2670,7 +2646,7 @@ async function main() {
   await waitForHealth(options);
   await sleep(POST_HEALTH_SETTLE_MS);
   const userDataDir = fs.mkdtempSync(
-    path.join(os.tmpdir(), `ember-runtime-tool-surface-page-${process.pid}-`),
+    path.join(os.tmpdir(), `lime-runtime-tool-surface-page-${process.pid}-`),
   );
   let context = null;
 
@@ -2695,7 +2671,7 @@ async function main() {
     });
 
     logStage("wait-page-storage-ready");
-    await waitForCheck(options, "Ember 首页 origin 可访问", async () => {
+    await waitForCheck(options, "Lime 首页 origin 可访问", async () => {
       const value = await evaluateScript(
         page,
         buildPageStorageReadyScript(options.appUrl),
@@ -2800,11 +2776,10 @@ async function main() {
           );
           const nextDiagnostics = fixtureRuntime.getDiagnostics();
           return {
-            ok:
-              hasAppServerMethodCount(
-                nextDiagnostics,
-                APP_SERVER_METHOD_AGENT_SESSION_TURN_START,
-              ),
+            ok: hasAppServerMethodCount(
+              nextDiagnostics,
+              APP_SERVER_METHOD_AGENT_SESSION_TURN_START,
+            ),
             value: {
               fallbackSubmitted,
               diagnostics: nextDiagnostics,
@@ -2896,7 +2871,7 @@ async function main() {
         page,
         `(() => {
         const diagnostics =
-          window.__emberCodeRuntimeEventSourceFixtureDiagnostics || null;
+          window.__limeCodeRuntimeEventSourceFixtureDiagnostics || null;
         const sent = diagnostics?.eventsSent || [];
         const text = document.body ? document.body.innerText : "";
         const hasProjectedRuntimeEvents =
@@ -2926,7 +2901,7 @@ async function main() {
     await evaluateScript(
       page,
       `(() => {
-        window.__emberCodeRuntimeQueueModeEnabled = true;
+        window.__limeCodeRuntimeQueueModeEnabled = true;
         return true;
       })()`,
     );
@@ -3108,13 +3083,21 @@ async function main() {
             value?.hasGapBanner;
           const hasForbiddenWarning =
             value?.hasLegacyWebSearchWarning || value?.hasLegacySubagentWarning;
+          const diagnostics = fixtureRuntime.getDiagnostics();
+          const hasRuntimeToolInventory =
+            hasRuntimeToolInventoryRead(diagnostics);
           return {
             ok:
               hasAllRequired &&
+              hasRuntimeToolInventory &&
               hasRuntimeTask &&
               !hasRuntimeGap &&
               !hasForbiddenWarning,
-            value,
+            value: {
+              ...value,
+              hasRuntimeToolInventory,
+              appServerMethodCounts: diagnostics.appServerMethodCounts,
+            },
           };
         },
       );
@@ -3313,8 +3296,7 @@ async function main() {
               hasAppServerMethodCount(
                 diagnostics,
                 APP_SERVER_METHOD_AGENT_SESSION_ACTION_RESPOND,
-              ) &&
-              isExpectedApprovalResponseRequest(latestRequest),
+              ) && isExpectedApprovalResponseRequest(latestRequest),
             value: {
               latestRequest,
               diagnostics,
@@ -3356,10 +3338,12 @@ async function main() {
       findForbiddenAgentRuntimeCurrentMethodCommands(finalDiagnostics);
     assert(
       forbiddenCurrentMethodCommands.length === 0,
-      `页面 smoke 不应再调用已有 current 覆盖的旧 agent_runtime facade: ${JSON.stringify({
-        forbiddenCurrentMethodCommands,
-        diagnostics: finalDiagnostics,
-      })}`,
+      `页面 smoke 不应再调用已有 current 覆盖的旧 agent_runtime facade: ${JSON.stringify(
+        {
+          forbiddenCurrentMethodCommands,
+          diagnostics: finalDiagnostics,
+        },
+      )}`,
     );
 
     console.log("[smoke:agent-runtime-tool-surface-page] 通过");

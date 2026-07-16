@@ -59,10 +59,7 @@ fn normalize_permission_tool_name(tool_name: &str) -> String {
         "Edit" | "edit" | "edit_file" => "edit_file".to_string(),
         "Glob" | "glob" => "glob".to_string(),
         "Grep" | "grep" => "grep".to_string(),
-        "LSP" | "lsp" | "lsp_query" => "lsp_query".to_string(),
-        "Bash" | "bash" | "PowerShell" | "powershell" | "shell" | "execute_command" => {
-            "bash".to_string()
-        }
+        "exec_command" => "exec_command".to_string(),
         other => other.to_string(),
     }
 }
@@ -203,7 +200,6 @@ impl ToolPermissionChecker {
             ("grep", "搜索文件内容"),
             ("glob", "按模式查找文件"),
             ("list_directory", "列出目录内容"),
-            ("lsp_query", "LSP 查询"),
         ];
         let reversible = &[
             ("write_file", "写入文件"),
@@ -281,7 +277,10 @@ mod tests {
         let checker = ToolPermissionChecker::new();
         assert_eq!(checker.risk_level("Read"), ToolRiskLevel::ReadOnly);
         assert_eq!(checker.risk_level("Edit"), ToolRiskLevel::Reversible);
-        assert_eq!(checker.risk_level("Bash"), ToolRiskLevel::Destructive);
+        assert_eq!(
+            checker.risk_level("exec_command"),
+            ToolRiskLevel::Destructive
+        );
         assert_eq!(checker.risk_level("read_file"), ToolRiskLevel::ReadOnly);
         assert_eq!(checker.risk_level("edit_file"), ToolRiskLevel::Reversible);
         assert_eq!(
@@ -351,7 +350,7 @@ mod tests {
         let mut checker = ToolPermissionChecker::new();
         // 将 bash 从 Destructive 降级为 Reversible
         checker.register_tool(ToolPermissionMeta {
-            tool_name: "bash".to_string(),
+            tool_name: "exec_command".to_string(),
             risk_level: ToolRiskLevel::Reversible,
             description: "受限 Shell".to_string(),
             requires_confirmation: false,

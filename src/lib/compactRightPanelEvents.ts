@@ -1,4 +1,4 @@
-const COMPACT_RIGHT_PANEL_OPEN_EVENT = "ember:compact-right-panel-open";
+const COMPACT_RIGHT_PANEL_OPEN_EVENT = "lime:compact-right-panel-open";
 
 type CompactRightPanelSource = "chat" | "workbench";
 

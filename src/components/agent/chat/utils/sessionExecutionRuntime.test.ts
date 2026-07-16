@@ -6,14 +6,11 @@ import {
   createExecutionRuntimeFromSessionDetail,
   createChatToolPreferencesFromExecutionRuntime,
   createSessionRecentPreferencesFromChatToolPreferences,
-  createSessionRecentTeamSelectionFromTeamDefinition,
   createSessionModelPreferenceFromExecutionRuntime,
-  createTeamDefinitionFromExecutionRuntimeRecentTeamSelection,
   getExecutionRuntimeProviderLabel,
   getExecutionRuntimeSummaryLabel,
   getOutputSchemaRuntimeLabel,
 } from "./sessionExecutionRuntime";
-import { createTeamDefinitionFromPreset } from "./teamDefinitions";
 
 describe("sessionExecutionRuntime", () => {
   it("应根据 turn_context 事件同步 output schema runtime", () => {
@@ -40,7 +37,7 @@ describe("sessionExecutionRuntime", () => {
     });
   });
 
-  it("应根据 turn_context 事件同步后端 effective execution strategy", () => {
+  it("应将 turn_context 里的 legacy execution strategy 归一到 current react", () => {
     const runtime = applyTurnContextExecutionRuntime(null, {
       type: "turn_context",
       session_id: "session-code",
@@ -132,6 +129,64 @@ describe("sessionExecutionRuntime", () => {
     });
   });
 
+  it("图片生成 runtime 不应回流为普通会话模型偏好", () => {
+    expect(
+      createSessionModelPreferenceFromExecutionRuntime({
+        provider_selector: "custom-image-provider",
+        provider_name: "custom-image-provider",
+        model_name: "gpt-image-1",
+      }),
+    ).toBeNull();
+  });
+
+  it("本地历史导入来源模型不应伪装为当前会话模型偏好", () => {
+    expect(
+      createSessionModelPreferenceFromExecutionRuntime({
+        provider_selector: null,
+        provider_name: "openai",
+        model_name: "gpt-5.4",
+        source_client: "codex",
+        imported_continuation: {
+          modelProvider: "openai",
+          model: "gpt-5.4",
+        },
+      }),
+    ).toBeNull();
+  });
+
+  it("camelCase 本地历史导入来源模型同样不应伪装为当前会话模型偏好", () => {
+    expect(
+      createSessionModelPreferenceFromExecutionRuntime({
+        provider_selector: null,
+        provider_name: "openai",
+        model_name: "gpt-5.4",
+        sourceClient: "codex",
+        importedContinuation: {
+          modelProvider: "openai",
+          model: "gpt-5.4",
+        },
+      } as never),
+    ).toBeNull();
+  });
+
+  it("本地历史导入会话已写入当前 provider_selector 后可还原模型偏好", () => {
+    expect(
+      createSessionModelPreferenceFromExecutionRuntime({
+        provider_selector: "custom-current-provider",
+        provider_name: "openai",
+        model_name: "gpt-5.4",
+        source_client: "codex",
+        imported_continuation: {
+          modelProvider: "openai",
+          model: "gpt-5.4",
+        },
+      }),
+    ).toEqual({
+      providerType: "custom-current-provider",
+      model: "gpt-5.4",
+    });
+  });
+
   it("应将 legacy general workbench alias recent_session_mode 归一为 general_workbench", () => {
     expect(
       createExecutionRuntimeFromSessionDetail({
@@ -203,84 +258,6 @@ describe("sessionExecutionRuntime", () => {
     ).toEqual({
       task: true,
       subagent: false,
-    });
-  });
-
-  it("应从 execution runtime 的 recent_team_selection 还原自定义 Team", () => {
-    expect(
-      createTeamDefinitionFromExecutionRuntimeRecentTeamSelection({
-        disabled: false,
-        theme: "general",
-        preferredTeamPresetId: "code-triage-team",
-        selectedTeamId: "custom-team-1",
-        selectedTeamSource: "custom",
-        selectedTeamLabel: "前端联调团队",
-        selectedTeamDescription: "分析、实现、验证三段式推进。",
-        selectedTeamRoles: [
-          {
-            id: "explorer",
-            label: "分析",
-            summary: "负责定位问题与影响范围。",
-            profileId: "code-explorer",
-            roleKey: "explorer",
-            skillIds: ["repo-exploration"],
-          },
-        ],
-      }),
-    ).toEqual({
-      id: "custom-team-1",
-      source: "custom",
-      label: "前端联调团队",
-      description: "分析、实现、验证三段式推进。",
-      theme: "general",
-      presetId: "code-triage-team",
-      roles: [
-        {
-          id: "explorer",
-          label: "分析",
-          summary: "负责定位问题与影响范围。",
-          profileId: "code-explorer",
-          roleKey: "explorer",
-          skillIds: ["repo-exploration"],
-        },
-      ],
-      updatedAt: expect.any(Number),
-    });
-  });
-
-  it("应把 TeamDefinition 转成 session recent_team_selection 请求载荷", () => {
-    const builtinTeam = createTeamDefinitionFromPreset("code-triage-team");
-
-    expect(
-      createSessionRecentTeamSelectionFromTeamDefinition(
-        builtinTeam,
-        "general",
-      ),
-    ).toEqual({
-      disabled: false,
-      theme: "general",
-      preferredTeamPresetId: "code-triage-team",
-      selectedTeamId: "code-triage-team",
-      selectedTeamSource: "builtin",
-      selectedTeamLabel: "代码排障 profile",
-      selectedTeamDescription: builtinTeam?.description,
-      selectedTeamSummary: expect.any(String),
-      selectedTeamRoles: expect.arrayContaining([
-        expect.objectContaining({
-          id: "explorer",
-          label: "分析",
-          profileId: "code-explorer",
-        }),
-      ]),
-    });
-  });
-
-  it("空 Team 应转换成显式 disabled recent_team_selection", () => {
-    expect(
-      createSessionRecentTeamSelectionFromTeamDefinition(null, "general"),
-    ).toEqual({
-      disabled: true,
-      theme: "general",
     });
   });
 });

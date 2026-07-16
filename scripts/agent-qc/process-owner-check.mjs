@@ -80,11 +80,11 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Agent QC Process Owner Check
+Lime Agent QC Process Owner Check
 
 用法:
   npm run agent-qc:process-owner-check
-  node scripts/agent-qc/process-owner-check.mjs --format json --output ./.ember/qc/gui-process-owner-current.json --markdown-output ./.ember/qc/gui-process-owner-current.md
+  node scripts/agent-qc/process-owner-check.mjs --format json --output ./.lime/qc/gui-process-owner-current.json --markdown-output ./.lime/qc/gui-process-owner-current.md
 
 选项:
   --format FMT                summary | json，默认 summary

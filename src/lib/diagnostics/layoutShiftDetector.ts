@@ -24,7 +24,7 @@ class LayoutShiftDetector {
   constructor() {
     this.enabled =
       typeof window !== "undefined" &&
-      (window.localStorage.getItem("ember.debug.layout-shift") === "true" ||
+      (window.localStorage.getItem("lime.debug.layout-shift") === "true" ||
         new URLSearchParams(window.location.search).has("debug-layout-shift"));
 
     if (this.enabled && typeof PerformanceObserver !== "undefined") {

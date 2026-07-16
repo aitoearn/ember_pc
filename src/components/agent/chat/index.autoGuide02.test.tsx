@@ -187,9 +187,7 @@ describe("AgentChatPage 自动引导", { timeout: 20_000 }, () => {
 
     expect(sharedSendMessageMock).toHaveBeenCalledTimes(1);
     const sendCall = getSendMessageCall();
-    expect(sendCall.content).toBe(
-      "/content_post_with_cover 请基于当前上下文直接开始生成首版社媒主稿。",
-    );
+    expect(sendCall.content).toBe("请基于当前上下文直接开始生成首版社媒主稿。");
     expect(sendCall.images).toEqual([]);
     expect(sendCall.webSearch).toBeUndefined();
     expect(sendCall.thinking).toBeUndefined();
@@ -457,36 +455,6 @@ describe("AgentChatPage 自动引导", { timeout: 20_000 }, () => {
       body: "# 主稿标题\n\n这是主稿正文。",
     });
 
-    const latestInputbarProps = mockInputbar.mock.calls.at(-1)?.[0] as
-      | {
-          taskFiles?: Array<{
-            id: string;
-            name: string;
-            type: string;
-            content?: string;
-          }>;
-          onTaskFileClick?: (file: {
-            id: string;
-            name: string;
-            type: string;
-            content?: string;
-          }) => void;
-        }
-      | undefined;
-
-    expect(latestInputbarProps?.taskFiles).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          name: "content-posts/demo-post.md",
-          type: "document",
-        }),
-      ]),
-    );
-    expect(
-      latestInputbarProps?.taskFiles?.some((file) =>
-        file.name.endsWith(".publish-pack.json"),
-      ),
-    ).toBe(false);
   });
 
 });

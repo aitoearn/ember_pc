@@ -96,7 +96,7 @@ describe("useOemCloudAccess", () => {
       tenantId: "tenant-0001",
       userId: "user-001",
       name: "Desktop Key",
-      tokenMasked: "sk-ember-***abcd",
+      tokenMasked: "sk-lime-***abcd",
       scopes: ["llm:invoke"],
       allowedModels: [],
       status: "active",
@@ -109,7 +109,7 @@ describe("useOemCloudAccess", () => {
     );
     controlPlaneMocks.createClientAccessToken.mockResolvedValue({
       token: accessToken,
-      apiKey: "sk-ember-once",
+      apiKey: "sk-lime-once",
     });
     restoreStoredSession();
 
@@ -141,9 +141,9 @@ describe("useOemCloudAccess", () => {
         monthlyCreditLimit: undefined,
       },
     );
-    expect(latestState?.lastIssuedRawToken).toBe("sk-ember-once");
+    expect(latestState?.lastIssuedRawToken).toBe("sk-lime-once");
     expect(latestState?.infoMessage).toContain(
-      "Ember API Key created. The secret is shown only once on this page.",
+      "Lime API Key created. The secret is shown only once on this page.",
     );
 
     act(() => {
@@ -205,7 +205,7 @@ describe("useOemCloudAccess", () => {
             kind: "plan_order",
             status: "success",
             sourceUrl:
-              "ember://payment/return?tenantId=tenant-0001&orderId=order-001&kind=plan_order&status=success",
+              "lime://payment/return?tenantId=tenant-0001&orderId=order-001&kind=plan_order&status=success",
             receivedAt: Date.now(),
           },
         }),
@@ -226,7 +226,7 @@ describe("useOemCloudAccess", () => {
       status: "waiting",
     });
     expect(latestState?.infoMessage).toContain(
-      "Back in Ember. Syncing payment status, entitlements, and ledger.",
+      "Back in Lime. Syncing payment status, entitlements, and ledger.",
     );
   });
 
@@ -236,22 +236,22 @@ describe("useOemCloudAccess", () => {
       deviceCode: "device-code-001",
       tenantId: "tenant-0001",
       clientId: "desktop-client",
-      clientName: "Ember Desktop",
+      clientName: "Lime Desktop",
       provider: "google",
-      desktopRedirectUri: "ember://oauth/callback",
+      desktopRedirectUri: "lime://oauth/callback",
       status: "pending_login",
       expiresInSeconds: 600,
       pollIntervalSeconds: 1,
       authorizeUrl:
-        "https://user.emberai.run/oauth/desktop/device-code-001/signin",
+        "https://user.limeai.run/oauth/desktop/device-code-001/signin",
     });
     controlPlaneMocks.pollClientDesktopAuthSession.mockResolvedValue({
       deviceCode: "device-code-001",
       tenantId: "tenant-0001",
       clientId: "desktop-client",
-      clientName: "Ember Desktop",
+      clientName: "Lime Desktop",
       provider: "google",
-      desktopRedirectUri: "ember://oauth/callback",
+      desktopRedirectUri: "lime://oauth/callback",
       status: "approved",
       expiresInSeconds: 590,
       pollIntervalSeconds: 1,
@@ -299,7 +299,7 @@ describe("useOemCloudAccess", () => {
     expect(
       systemBrowserMocks.openExternalUrlWithSystemBrowser,
     ).toHaveBeenCalledWith(
-      "https://user.emberai.run/oauth/desktop/device-code-001/signin",
+      "https://user.limeai.run/oauth/desktop/device-code-001/signin",
     );
     expect(
       controlPlaneMocks.createClientDesktopAuthSession,
@@ -331,14 +331,14 @@ describe("useOemCloudAccess", () => {
       deviceCode: "device-code-001",
       tenantId: "tenant-0001",
       clientId: "desktop-client",
-      clientName: "Ember Desktop",
+      clientName: "Lime Desktop",
       provider: "google",
-      desktopRedirectUri: "ember://oauth/callback",
+      desktopRedirectUri: "lime://oauth/callback",
       status: "pending_login",
       expiresInSeconds: 600,
       pollIntervalSeconds: 1,
       authorizeUrl:
-        "https://user.emberai.run/oauth/desktop/device-code-001/signin",
+        "https://user.limeai.run/oauth/desktop/device-code-001/signin",
     });
     systemBrowserMocks.openExternalUrlWithSystemBrowser.mockRejectedValue(
       new Error("permission denied"),
@@ -355,7 +355,7 @@ describe("useOemCloudAccess", () => {
     expect(
       systemBrowserMocks.openExternalUrlWithSystemBrowser,
     ).toHaveBeenCalledWith(
-      "https://user.emberai.run/oauth/desktop/device-code-001/signin",
+      "https://user.limeai.run/oauth/desktop/device-code-001/signin",
     );
     expect(latestState?.errorMessage).toContain(
       "Failed to open the system browser: permission denied",
@@ -385,7 +385,7 @@ describe("useOemCloudAccess", () => {
       .calls[0]?.[0] as string;
     const parsedUrl = new URL(openedUrl);
 
-    expect(parsedUrl.origin).toBe("https://user.emberai.run");
+    expect(parsedUrl.origin).toBe("https://user.limeai.run");
     expect(parsedUrl.pathname).toBe("/login");
     expect(parsedUrl.searchParams.get("tenant")).toBe("tenant-0001");
     expect(parsedUrl.searchParams.get("tenantId")).toBe("tenant-0001");
@@ -395,7 +395,7 @@ describe("useOemCloudAccess", () => {
     expect(parsedUrl.searchParams.get("redirect")).toBe("/welcome");
     expect(latestState?.errorMessage).toBeNull();
     expect(latestState?.infoMessage).toContain(
-      "The Ember cloud sign-in page is open. Complete authorization in the browser and the desktop app will sync the result automatically.",
+      "The Lime cloud sign-in page is open. Complete authorization in the browser and the desktop app will sync the result automatically.",
     );
   });
 
@@ -439,9 +439,9 @@ describe("useOemCloudAccess", () => {
   });
 
   it("Desktop Host 桌面登录会用本机回调桥覆盖静态 localhost 回调配置", async () => {
-    window.__EMBER_OEM_CLOUD__ = {
+    window.__LIME_OEM_CLOUD__ = {
       enabled: true,
-      baseUrl: "https://user.emberai.run",
+      baseUrl: "https://user.limeai.run",
       tenantId: "tenant-0001",
       desktopOauthRedirectUrl: "http://localhost:17834/callback",
     };

@@ -1,6 +1,6 @@
 //! GUI-safe process helpers.
 //!
-//! Ember is a desktop GUI app, so background subprocesses must not create
+//! Lime is a desktop GUI app, so background subprocesses must not create
 //! platform terminal windows unless the user explicitly asks for one.
 
 #[cfg(windows)]

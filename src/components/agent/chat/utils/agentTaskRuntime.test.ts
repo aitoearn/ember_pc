@@ -1,9 +1,44 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "../types";
-import { buildAgentTaskRuntimeCardModel } from "./agentTaskRuntime";
+import type { CanonicalAgentStatus } from "../projection/canonicalChildThreadSummary";
+import {
+  buildAgentTaskRuntimeCardModel,
+  summarizeAgentTaskChildren,
+} from "./agentTaskRuntime";
 import { buildInputbarRuntimeStatusLineModel } from "./inputbarRuntimeStatusLine";
 
 describe("agentTaskRuntime", () => {
+  it("应按 canonical child 七态统计子任务", () => {
+    const statuses = [
+      "pendingInit",
+      "running",
+      "interrupted",
+      "completed",
+      "errored",
+      "shutdown",
+      "notFound",
+    ] satisfies CanonicalAgentStatus[];
+
+    expect(
+      summarizeAgentTaskChildren(
+        statuses.map((status, index) => ({
+          name: `child-${index}`,
+          parentThreadId: "thread-parent",
+          sessionId: `session-child-${index}`,
+          status,
+          threadId: `thread-child-${index}`,
+          updatedAtMs: index,
+        })),
+      ),
+    ).toEqual({
+      total: 7,
+      active: 2,
+      queued: 1,
+      completed: 2,
+      failed: 3,
+    });
+  });
+
   it("简单直接回答完成后不应继续显示主任务卡", () => {
     const model = buildAgentTaskRuntimeCardModel({
       messages: [
@@ -16,7 +51,7 @@ describe("agentTaskRuntime", () => {
         {
           id: "msg-assistant-hello",
           role: "assistant",
-          content: "你好！我是 Ember 助手。",
+          content: "测试回复已完成。",
           timestamp: new Date("2026-04-14T10:00:02.000Z"),
           usage: {
             input_tokens: 2048,
@@ -97,22 +132,22 @@ describe("agentTaskRuntime", () => {
         thread_id: "thread-1",
         status: "running",
       },
-      childSubagentSessions: [
+      canonicalChildren: [
         {
-          id: "sub-1",
           name: "代码浏览",
-          created_at: now.getTime(),
-          updated_at: now.getTime(),
-          session_type: "subagent",
-          runtime_status: "running",
+          parentThreadId: "thread-1",
+          sessionId: "sub-1",
+          status: "running",
+          threadId: "thread-sub-1",
+          updatedAtMs: now.getTime(),
         },
         {
-          id: "sub-2",
           name: "回归检查",
-          created_at: now.getTime(),
-          updated_at: now.getTime(),
-          session_type: "subagent",
-          runtime_status: "completed",
+          parentThreadId: "thread-1",
+          sessionId: "sub-2",
+          status: "completed",
+          threadId: "thread-sub-2",
+          updatedAtMs: now.getTime(),
         },
       ],
       isSending: true,
@@ -182,7 +217,7 @@ describe("agentTaskRuntime", () => {
     expect(model?.detail).toContain("等待你确认");
   });
 
-  it("turn_completed 早于 final_done 时不应把等待首个输出的助手草稿标记为已完成", () => {
+  it("turn_completed 没有可见输出时不应把等待首个输出的助手草稿标记为已完成", () => {
     const messages: Message[] = [
       {
         id: "msg-user-streaming",
@@ -239,6 +274,57 @@ describe("agentTaskRuntime", () => {
     expect(taskModel?.phase).toBe("reasoning");
     expect(inputbarModel?.status).toBe("running");
     expect(inputbarModel?.completedAt).toBeNull();
+  });
+
+  it("可恢复模型通道错误重试时应在输入栏保留运行状态详情", () => {
+    const messages: Message[] = [
+      {
+        id: "msg-user-retry",
+        role: "user",
+        content: "整理今天的国际新闻",
+        timestamp: new Date("2026-06-07T10:00:00.000Z"),
+      },
+      {
+        id: "msg-assistant-retry",
+        role: "assistant",
+        content: "",
+        timestamp: new Date("2026-06-07T10:00:01.000Z"),
+        isThinking: true,
+        runtimeStatus: {
+          phase: "retrying",
+          title: "正在恢复模型输出",
+          detail: "模型通道在尾段暂时中断，正在补齐最终答复。",
+          checkpoints: ["已保留本轮已有工具结果和部分输出"],
+        },
+      },
+    ];
+
+    const inputbarModel = buildInputbarRuntimeStatusLineModel({
+      messages,
+      turns: [
+        {
+          id: "turn-retry",
+          thread_id: "thread-retry",
+          prompt_text: "整理今天的国际新闻",
+          status: "running",
+          started_at: "2026-06-07T10:00:00Z",
+          created_at: "2026-06-07T10:00:00Z",
+          updated_at: "2026-06-07T10:00:04Z",
+        },
+      ],
+      currentTurnId: "turn-retry",
+      threadRead: {
+        thread_id: "thread-retry",
+        status: "running",
+      },
+    });
+
+    expect(inputbarModel).toMatchObject({
+      status: "running",
+      latestRuntimePhase: "retrying",
+      detail: "模型通道在尾段暂时中断，正在补齐最终答复。",
+      completedAt: null,
+    });
   });
 
   it("复杂任务完成后应自动折叠，回到消息级 usage 与结算展示", () => {

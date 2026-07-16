@@ -24,7 +24,7 @@ export function createDefaultLayeredDesignTextOcrWorker(): Worker {
   }
 
   return new Worker(new URL("./textOcr.worker.ts", import.meta.url), {
-    name: "ember-layered-design-text-ocr",
+    name: "lime-layered-design-text-ocr",
     type: "module",
   });
 }

@@ -2,7 +2,7 @@ import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { QueuedTurnsPanel } from "./QueuedTurnsPanel";
 
 const mountedRoots: Array<{ root: Root; container: HTMLDivElement }> = [];
@@ -13,7 +13,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 afterEach(() => {
@@ -59,7 +59,7 @@ function renderQueuedTurnsPanel(
 
 describe("QueuedTurnsPanel", () => {
   it("排队消息 chrome 文案应跟随 en-US 资源", async () => {
-    await changeEmberLocale("en-US");
+    await changeLimeLocale("en-US");
     const container = renderQueuedTurnsPanel({
       queuedTurns: [
         {
@@ -79,13 +79,33 @@ describe("QueuedTurnsPanel", () => {
     expect(container.textContent).toContain("2 images attached");
     expect(container.textContent).toContain("View");
     expect(
-      container.querySelector('button[aria-label="Run queued message now"]'),
-    ).toBeTruthy();
+      container.querySelector<HTMLButtonElement>(
+        'button[aria-label="Run queued message now"]',
+      )?.disabled,
+    ).toBe(true);
     expect(
-      container.querySelector('button[aria-label="Remove queued message"]'),
-    ).toBeTruthy();
+      container.querySelector<HTMLButtonElement>(
+        'button[aria-label="Remove queued message"]',
+      )?.disabled,
+    ).toBe(true);
     expect(container.textContent).not.toContain("稍后处理");
     expect(container.textContent).not.toContain("附图");
+  });
+
+  it("缺少 current action handler 时不应暴露可点击假入口", () => {
+    const container = renderQueuedTurnsPanel();
+
+    const promoteButton = container.querySelector<HTMLButtonElement>(
+      '[data-testid="inputbar-queued-turn-promote"]',
+    );
+    const removeButton = container.querySelector<HTMLButtonElement>(
+      '[data-testid="inputbar-queued-turn-remove"]',
+    );
+
+    expect(promoteButton?.disabled).toBe(true);
+    expect(promoteButton?.dataset.actionAvailable).toBe("false");
+    expect(removeButton?.disabled).toBe(true);
+    expect(removeButton?.dataset.actionAvailable).toBe("false");
   });
 
   it("应展示立即执行按钮，并触发 promote 回调", async () => {

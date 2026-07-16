@@ -103,14 +103,14 @@ const retiredModelRegistryFacadeCommands = new Set([
   "get_provider_alias_config",
   "get_all_alias_configs",
 ]);
-const retiredAgentAppPackageFacadeCommands = new Set([
-  "agent_app_fetch_cloud_package",
-  "agent_app_inspect_local_package",
-  "agent_app_list_installed",
-  "agent_app_save_installed_state",
-  "agent_app_set_disabled",
-  "agent_app_uninstall",
-  "agent_app_uninstall_rehearsal",
+const retiredPluginPackageFacadeCommands = new Set([
+  "plugin_fetch_cloud_package",
+  "plugin_inspect_local_package",
+  "plugin_list_installed",
+  "plugin_save_installed_state",
+  "plugin_set_disabled",
+  "plugin_uninstall",
+  "plugin_uninstall_rehearsal",
 ]);
 const retiredUsageStatsElectronFacadeCommands = new Set([
   "get_usage_stats",
@@ -198,14 +198,12 @@ const retiredVoiceRealtimeFacadeCommands = new Set([
   "cancel_recording",
   "get_recording_status",
 ]);
-const currentAgentAppShellDesktopHostCommands = new Set([
-  "agent_app_launch_shell",
-]);
-const currentAgentAppRuntimeDesktopHostCommands = new Set([
-  "agent_app_runtime_start_task",
-  "agent_app_runtime_cancel_task",
-  "agent_app_runtime_get_task",
-  "agent_app_runtime_submit_host_response",
+const currentPluginShellDesktopHostCommands = new Set(["plugin_launch_shell"]);
+const currentPluginRuntimeDesktopHostCommands = new Set([
+  "plugin_runtime_start_task",
+  "plugin_runtime_cancel_task",
+  "plugin_runtime_get_task",
+  "plugin_runtime_submit_host_response",
 ]);
 const currentTrayDesktopHostShellCommands = new Set([
   "sync_tray_model_shortcuts",
@@ -298,14 +296,14 @@ const retiredAgentRuntimeObjectiveContinuationGatewayCommands = new Set([
   "agent_runtime_continue_objective",
   "agent_runtime_audit_objective",
 ]);
-const retiredAgentRuntimeProcessAsterRustCommands = new Set([
+const retiredAgentRuntimeProcessRustCommands = new Set([
   "agent_start_process",
   "agent_stop_process",
   "agent_get_process_status",
-  "aster_agent_init",
-  "aster_agent_status",
-  "aster_agent_configure_provider",
-  "aster_agent_reset",
+  "agent_init",
+  "agent_status",
+  "agent_configure_provider",
+  "agent_reset",
 ]);
 const retiredAgentRuntimeExportRustCommands = new Set([
   "agent_runtime_export_analysis_handoff",
@@ -335,7 +333,7 @@ const retiredSkillManagementFacadeCommands = new Set([
   "add_skill_repo",
   "remove_skill_repo",
   "refresh_skill_cache",
-  "get_installed_ember_skills",
+  "get_installed_lime_skills",
   "inspect_local_skill_for_app",
   "create_skill_scaffold_for_app",
   "import_local_skill_for_app",
@@ -512,7 +510,7 @@ const retiredAgentRuntimeRustCommands = new Set([
   ...retiredAgentRuntimeCoreCurrentBridgeRustCommands,
   ...retiredAgentRuntimeCheckpointQueueReplayRustCommands,
   ...retiredAgentRuntimeCompactObjectiveRustCommands,
-  ...retiredAgentRuntimeProcessAsterRustCommands,
+  ...retiredAgentRuntimeProcessRustCommands,
   ...retiredAgentRuntimeExportRustCommands,
 ]);
 const currentFileBrowserDesktopHostShellCommands = new Set([
@@ -741,32 +739,20 @@ const currentElectronHostRequiredCommands = new Set([
   ...currentSkillDesktopHostShellCommands,
   ...currentLayeredDesignDesktopHostShellCommands,
   ...currentFileBrowserDesktopHostShellCommands,
-  "aster_agent_init",
-  "agent_runtime_create_session",
-  "agent_runtime_submit_turn",
-  "agent_runtime_interrupt_turn",
-  "agent_runtime_update_session",
-  "agent_runtime_respond_action",
-  "agent_runtime_get_thread_read",
-  "agent_runtime_export_evidence_pack",
-  "agent_runtime_get_tool_inventory",
-  "agent_runtime_list_sessions",
-  "agent_runtime_get_session",
-  "agent_runtime_list_workspace_skill_bindings",
-  "agent_app_launch_shell",
-  "agent_app_select_directory",
-  "agent_app_get_ui_runtime_status",
-  "agent_app_start_ui_runtime",
-  "agent_app_stop_ui_runtime",
-  "agent_app_runtime_start_task",
-  "agent_app_runtime_cancel_task",
-  "agent_app_runtime_get_task",
-  "agent_app_runtime_submit_host_response",
+  "plugin_launch_shell",
+  "plugin_select_directory",
+  "plugin_get_ui_runtime_status",
+  "plugin_start_ui_runtime",
+  "plugin_stop_ui_runtime",
+  "plugin_runtime_start_task",
+  "plugin_runtime_cancel_task",
+  "plugin_runtime_get_task",
+  "plugin_runtime_submit_host_response",
   "get_default_provider",
+  "get_environment_preview",
   "get_experimental_config",
   "open_external_url",
   "open_system_settings_url",
-  "project_memory_get",
   "save_experimental_config",
   "start_oem_cloud_oauth_callback_bridge",
   "workspace_ensure",
@@ -783,7 +769,6 @@ const currentElectronHostRequiredCommands = new Set([
 const currentDevBridgeTruthRequiredCommands = new Set([
   "open_external_url",
   "start_oem_cloud_oauth_callback_bridge",
-  "project_memory_get",
 ]);
 
 const electronDiagnosticFacadeCommands = new Set([
@@ -794,7 +779,6 @@ const electronDiagnosticFacadeCommands = new Set([
   "get_chrome_bridge_endpoint_info",
   "get_chrome_bridge_status",
   "get_chrome_profile_sessions",
-  "get_environment_preview",
 ]);
 
 function normalizePath(filePath) {
@@ -878,38 +862,15 @@ function collectFrontendCommandUsage() {
   for (const root of sourceRoots) {
     const absoluteRoot = path.join(repoRoot, root);
     for (const relativePath of walkDirectory(absoluteRoot)) {
-      const absolutePath = path.join(repoRoot, relativePath);
-      const sourceCode = fs.readFileSync(absolutePath, "utf8");
+      const sourceCode = readSourceIfExists(relativePath);
+      if (sourceCode === null) {
+        continue;
+      }
       for (const command of extractCommandsFromSource(sourceCode)) {
         addUsage(commandUsage, command, relativePath);
       }
     }
   }
-  return commandUsage;
-}
-
-function collectAgentRuntimeSchemaUsage() {
-  const commandUsage = new Map();
-  const schemaPath = path.join(
-    repoRoot,
-    "src/lib/governance/agentRuntimeCommandSchema.json",
-  );
-  if (!fs.existsSync(schemaPath)) {
-    return commandUsage;
-  }
-
-  const relativePath = normalizePath(path.relative(repoRoot, schemaPath));
-  const parsed = JSON.parse(fs.readFileSync(schemaPath, "utf8"));
-  const schemaCommands = Array.isArray(parsed?.commands) ? parsed.commands : [];
-
-  for (const entry of schemaCommands) {
-    const command = String(entry?.command ?? "").trim();
-    if (!command) {
-      continue;
-    }
-    addUsage(commandUsage, command, relativePath);
-  }
-
   return commandUsage;
 }
 
@@ -1101,6 +1062,21 @@ function readSource(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
 }
 
+function readSourceIfExists(relativePath) {
+  const absolutePath = path.join(repoRoot, relativePath);
+  if (!fs.existsSync(absolutePath)) {
+    return null;
+  }
+  try {
+    return fs.readFileSync(absolutePath, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  }
+}
+
 function readExistingProductionSourceForGuard(relativePath) {
   const absolutePath = path.join(repoRoot, relativePath);
   if (!fs.existsSync(absolutePath)) {
@@ -1286,7 +1262,10 @@ function collectProductionMockOnlyUsageFailures() {
         continue;
       }
 
-      const sourceCode = readSource(relativePath);
+      const sourceCode = readSourceIfExists(relativePath);
+      if (sourceCode === null) {
+        continue;
+      }
       if (
         /from\s+["'`](?:@\/lib\/dev-bridge\/explicitMockFallback|\.{1,2}\/[^"'`]*explicitMockFallback|\.\/explicitMockFallback)["'`]/.test(
           sourceCode,
@@ -1306,7 +1285,7 @@ function collectProductionMockOnlyUsageFailures() {
       ) {
         failures.push({
           file: relativePath,
-          message: "生产源码不能导入 Agent App mock SDK 测试夹具",
+          message: "生产源码不能导入 Plugin mock SDK 测试夹具",
           token: "testFixtures",
         });
       }
@@ -1318,7 +1297,7 @@ function collectProductionMockOnlyUsageFailures() {
       ) {
         failures.push({
           file: relativePath,
-          message: "生产源码不能导入 Agent App mock SDK host/profile",
+          message: "生产源码不能导入 Plugin mock SDK host/profile",
           token: "MockCapabilityHost/mockCapabilityProfile",
         });
       }
@@ -1521,13 +1500,29 @@ function collectProductionBridgeGuardFailures() {
     appServerHostSource,
     "function resolveAppServerRequestTimeoutMs",
   );
+  if (
+    !runtimeRequestTimeoutBody.includes(
+      "resolveDefaultAppServerRequestTimeoutMs(method)",
+    )
+  ) {
+    failures.push({
+      file: appServerHostPath,
+      message:
+        "Electron App Server host 的请求 timeout override 必须以默认 method timeout 为下限",
+      token: "resolveDefaultAppServerRequestTimeoutMs(method)",
+    });
+  }
+  const runtimeDefaultRequestTimeoutBody = extractNamedFunctionBody(
+    appServerHostSource,
+    "function resolveDefaultAppServerRequestTimeoutMs",
+  );
   for (const snippet of [
     "method !== APP_SERVER_TURN_START_METHOD",
     "process.env.APP_SERVER_BACKEND_TIMEOUT_MS",
     "APP_SERVER_BACKEND_TIMEOUT_GRACE_MS",
     "DEFAULT_APP_SERVER_REQUEST_TIMEOUT_MS",
   ]) {
-    if (!runtimeRequestTimeoutBody.includes(snippet)) {
+    if (!runtimeDefaultRequestTimeoutBody.includes(snippet)) {
       failures.push({
         file: appServerHostPath,
         message:
@@ -1581,19 +1576,31 @@ function collectProductionBridgeGuardFailures() {
 
   const electronHostCommandsPath = "electron/hostCommands.ts";
   const electronHostCommandsSource = readSource(electronHostCommandsPath);
-  if (electronHostCommandsSource.includes('"aster_compat"')) {
-    failures.push({
-      file: electronHostCommandsPath,
-      message: "Electron 设置页诊断 facade 不能恢复 legacy Aster 浏览器后端",
-      token: '"aster_compat"',
-    });
-  }
-  if (electronHostCommandsSource.includes("auto_fallback: true")) {
-    failures.push({
-      file: electronHostCommandsPath,
-      message: "Electron 设置页诊断 facade 不能默认启用浏览器后端自动回退",
-      token: "auto_fallback: true",
-    });
+  const electronSystemUtilityHostPath = "electron/systemUtilityHost.ts";
+  const electronSystemUtilityHostSource = readSource(
+    electronSystemUtilityHostPath,
+  );
+  for (const { path: sourcePath, source } of [
+    { path: electronHostCommandsPath, source: electronHostCommandsSource },
+    {
+      path: electronSystemUtilityHostPath,
+      source: electronSystemUtilityHostSource,
+    },
+  ]) {
+    if (source.includes('"current"')) {
+      failures.push({
+        file: sourcePath,
+        message: "Electron 设置页诊断 facade 不能恢复 legacy Agent 浏览器后端",
+        token: '"current"',
+      });
+    }
+    if (source.includes("auto_fallback: true")) {
+      failures.push({
+        file: sourcePath,
+        message: "Electron 设置页诊断 facade 不能默认启用浏览器后端自动回退",
+        token: "auto_fallback: true",
+      });
+    }
   }
   for (const command of electronDiagnosticFacadeCommands) {
     if (!electronHostCommandsSource.includes(`"${command}"`)) {
@@ -1604,17 +1611,19 @@ function collectProductionBridgeGuardFailures() {
       });
     }
     const diagnosticMetaPattern = new RegExp(
-      `#diagnosticMeta\\([\\s\\S]*?["'\`]${escapeRegExp(command)}["'\`][\\s\\S]*?\\)`,
+      `diagnosticMeta\\([\\s\\S]*?["'\`]${escapeRegExp(command)}["'\`][\\s\\S]*?\\)`,
     );
     const emptyDiagnosticListPattern = new RegExp(
-      `#emptyDiagnosticList\\([\\s\\S]*?["'\`]${escapeRegExp(command)}["'\`][\\s\\S]*?\\)`,
+      `emptyDiagnosticList\\([\\s\\S]*?["'\`]${escapeRegExp(command)}["'\`][\\s\\S]*?\\)`,
     );
     const hasDiagnosticProjection =
+      diagnosticMetaPattern.test(electronSystemUtilityHostSource) ||
+      emptyDiagnosticListPattern.test(electronSystemUtilityHostSource) ||
       diagnosticMetaPattern.test(electronHostCommandsSource) ||
       emptyDiagnosticListPattern.test(electronHostCommandsSource);
     if (!hasDiagnosticProjection) {
       failures.push({
-        file: electronHostCommandsPath,
+        file: electronSystemUtilityHostPath,
         message:
           "设置页 Electron 诊断命令必须显式标注 electron-host-diagnostic degraded",
         token: command,
@@ -1680,72 +1689,71 @@ function collectProductionBridgeGuardFailures() {
     }
   }
 
-  const agentAppFeatureFlagPath = "src/features/agent-app/featureFlag.ts";
-  const agentAppFeatureFlagSource = readSource(agentAppFeatureFlagPath);
+  const pluginFeatureFlagPath = "src/features/plugin/featureFlag.ts";
+  const pluginFeatureFlagSource = readSource(pluginFeatureFlagPath);
   addRequiredSubstringFailures(
     failures,
-    agentAppFeatureFlagPath,
-    agentAppFeatureFlagSource,
+    pluginFeatureFlagPath,
+    pluginFeatureFlagSource,
     [
       {
         substring: "function isTestEnvironment()",
-        message: "Agent App mock SDK flag 必须只允许测试环境启用",
+        message: "Plugin mock SDK flag 必须只允许测试环境启用",
       },
       {
         substring: "!import.meta.env?.PROD",
-        message: "Agent App mock SDK flag 必须在生产构建中硬关闭",
+        message: "Plugin mock SDK flag 必须在生产构建中硬关闭",
       },
       {
         substring: 'import.meta.env?.MODE === "test"',
-        message: "Agent App mock SDK flag 只能接受测试 mode",
+        message: "Plugin mock SDK flag 只能接受测试 mode",
       },
       {
         substring: "import.meta.env?.VITEST",
-        message: "Agent App mock SDK flag 只能接受 Vitest 测试夹具",
+        message: "Plugin mock SDK flag 只能接受 Vitest 测试夹具",
       },
       {
         substring: "const mockSdkEnabled = isTestEnvironment()",
-        message:
-          "Agent App mockSdkEnabled 不能由生产 env/localStorage 直接打开",
+        message: "Plugin mockSdkEnabled 不能由生产 env/localStorage 直接打开",
       },
     ],
   );
 
-  const agentAppMockEnvironmentPath =
-    "src/features/agent-app/sdk/mockEnvironment.ts";
-  const agentAppMockEnvironmentSource = readSource(agentAppMockEnvironmentPath);
+  const pluginMockEnvironmentPath =
+    "src/features/plugin/sdk/mockEnvironment.ts";
+  const pluginMockEnvironmentSource = readSource(pluginMockEnvironmentPath);
   addRequiredSubstringFailures(
     failures,
-    agentAppMockEnvironmentPath,
-    agentAppMockEnvironmentSource,
+    pluginMockEnvironmentPath,
+    pluginMockEnvironmentSource,
     [
       {
         substring: "assertTestMockSdkEnvironment",
-        message: "Agent App mock SDK 必须有统一测试环境断言",
+        message: "Plugin mock SDK 必须有统一测试环境断言",
       },
       {
         substring: "!import.meta.env?.PROD",
-        message: "Agent App mock SDK 断言必须在生产构建中硬关闭",
+        message: "Plugin mock SDK 断言必须在生产构建中硬关闭",
       },
       {
         substring:
           "生产路径必须进入 Electron Desktop Host IPC / App Server JSON-RPC",
-        message: "Agent App mock SDK 非测试环境必须说明真实生产主链",
+        message: "Plugin mock SDK 非测试环境必须说明真实生产主链",
       },
     ],
   );
 
   for (const [mockPath, snippet] of [
     [
-      "src/features/agent-app/sdk/mockCapabilityProfile.ts",
+      "src/features/plugin/sdk/mockCapabilityProfile.ts",
       'assertTestMockSdkEnvironment("buildMockCapabilityProfile")',
     ],
     [
-      "src/features/agent-app/sdk/MockCapabilityHost.ts",
+      "src/features/plugin/sdk/MockCapabilityHost.ts",
       'assertTestMockSdkEnvironment("MockCapabilityHost")',
     ],
     [
-      "src/features/agent-app/sdk/__tests__/testFixtures.ts",
+      "src/features/plugin/sdk/__tests__/testFixtures.ts",
       'assertTestMockSdkEnvironment("createMockLimeCapabilityTransport")',
     ],
   ]) {
@@ -1753,36 +1761,36 @@ function collectProductionBridgeGuardFailures() {
     addRequiredSubstringFailures(failures, mockPath, mockSource, [
       {
         substring: snippet,
-        message: "Agent App mock SDK 出口必须只允许测试环境使用",
+        message: "Plugin mock SDK 出口必须只允许测试环境使用",
       },
     ]);
   }
 
-  const agentAppSdkPublicPaths = [
-    "src/features/agent-app/sdk/index.ts",
-    "src/features/agent-app/index.ts",
-    "src/features/agent-app/sdk/capabilityContract.ts",
-    "src/features/agent-app/sdk/index.d.ts",
-    "src/features/agent-app/sdk/capabilityContract.d.ts",
+  const pluginSdkPublicPaths = [
+    "src/features/plugin/sdk/index.ts",
+    "src/features/plugin/index.ts",
+    "src/features/plugin/sdk/capabilityContract.ts",
+    "src/features/plugin/sdk/index.d.ts",
+    "src/features/plugin/sdk/capabilityContract.d.ts",
   ];
-  for (const sdkPath of agentAppSdkPublicPaths) {
+  for (const sdkPath of pluginSdkPublicPaths) {
     const sdkSource = readSource(sdkPath);
     addForbiddenSubstringFailures(failures, sdkPath, sdkSource, [
       {
         substring: "createMockLimeCapabilityTransport",
-        message: "Agent App public SDK / contract 不能导出 mock transport",
+        message: "Plugin public SDK / contract 不能导出 mock transport",
       },
       {
         substring: "MockCapabilityHost",
-        message: "Agent App public SDK 不能导出 mock host",
+        message: "Plugin public SDK 不能导出 mock host",
       },
       {
         substring: "buildMockCapabilityProfile",
-        message: "Agent App public SDK 不能导出 mock capability profile",
+        message: "Plugin public SDK 不能导出 mock capability profile",
       },
       {
         substring: "LimeCapabilityMock",
-        message: "Agent App public SDK / contract 不能导出 mock handler 类型",
+        message: "Plugin public SDK / contract 不能导出 mock handler 类型",
       },
     ]);
   }
@@ -1952,9 +1960,10 @@ function collectRetiredMcpDesktopFacadeSourceFailures() {
         "已迁到 App Server MCP current API 的旧 MCP 命令不能继续作为 mock priority command",
     },
     {
-      path: "src/lib/desktop-host/mcpMocks.ts",
+      path: "src/lib/desktop-host/core.ts",
       message:
-        "已迁到 App Server MCP current API 的旧 MCP 命令不能继续保留 desktop-host mock fixture",
+        "已迁到 App Server MCP current API 的旧 MCP mock 模块不能继续被 desktop-host 默认 mock loader 加载",
+      commands: ["mcpMocks"],
     },
     {
       path: "ember-rs/src/app/runner.rs",
@@ -1973,6 +1982,20 @@ function collectRetiredMcpDesktopFacadeSourceFailures() {
       commands: ["mcp_cmd"],
     },
   ];
+
+  for (const retiredMockModulePath of [
+    "src/lib/desktop-host/mcpMocks.ts",
+    "src/lib/desktop-host/mcpMocks.d.ts",
+  ]) {
+    if (fs.existsSync(path.join(repoRoot, retiredMockModulePath))) {
+      failures.push({
+        file: retiredMockModulePath,
+        message:
+          "MCP desktop-host 默认 mock 模块已退役；旧 MCP 命令只能停留在 retired guard / contract forbidden snippet 中",
+        token: retiredMockModulePath,
+      });
+    }
+  }
 
   for (const source of restrictedSources) {
     const paths = source.paths ?? [source.path];
@@ -1994,39 +2017,39 @@ function collectRetiredMcpDesktopFacadeSourceFailures() {
   return failures;
 }
 
-function collectRetiredAgentAppPackageFacadeSourceFailures() {
+function collectRetiredPluginPackageFacadeSourceFailures() {
   const failures = [];
   const restrictedSources = [
     {
       path: "src/lib/dev-bridge/commandPolicy.ts",
       message:
-        "已迁到 App Server agentApp* 的旧 Agent App package/install 命令不能继续作为 DevBridge truth command",
+        "已迁到 App Server plugin* 的旧 Plugin package/install 命令不能继续作为 DevBridge truth command",
     },
     {
       path: "src/lib/dev-bridge/mockPriorityCommands.ts",
       message:
-        "已迁到 App Server agentApp* 的旧 Agent App package/install 命令不能继续作为 mock priority command",
+        "已迁到 App Server plugin* 的旧 Plugin package/install 命令不能继续作为 mock priority command",
     },
     {
-      path: "src/lib/desktop-host/agentAppMocks.ts",
+      path: "src/lib/desktop-host/pluginMocks.ts",
       message:
-        "已迁到 App Server agentApp* 的旧 Agent App package/install 命令不能继续保留 desktop-host mock fixture",
+        "已迁到 App Server plugin* 的旧 Plugin package/install 命令不能继续保留 desktop-host mock fixture",
     },
     {
       path: "ember-rs/src/app/runner.rs",
       message:
-        "已迁到 App Server agentApp* 的旧 Agent App package/install 命令不能回到 legacy Tauri generate_handler",
+        "已迁到 App Server plugin* 的旧 Plugin package/install 命令不能回到 legacy Tauri generate_handler",
     },
     {
-      path: "ember-rs/src/dev_bridge/dispatcher/agent_apps.rs",
+      path: "ember-rs/src/dev_bridge/dispatcher/plugins.rs",
       message:
-        "已迁到 App Server agentApp* 的旧 Agent App package/install 命令不能回到 Rust DevBridge dispatcher",
+        "已迁到 App Server plugin* 的旧 Plugin package/install 命令不能回到 Rust DevBridge dispatcher",
     },
     {
       path: "ember-rs/src/commands/mod.rs",
       message:
-        "已迁到 App Server agentApp* 的旧 Agent App package/install 命令不能重新暴露 legacy Tauri Agent App command module；commands/** 只允许清理旧逻辑",
-      commands: ["agent_app_cmd"],
+        "已迁到 App Server plugin* 的旧 Plugin package/install 命令不能重新暴露 legacy Tauri Plugin command module；commands/** 只允许清理旧逻辑",
+      commands: ["plugin_cmd"],
     },
   ];
 
@@ -2035,7 +2058,7 @@ function collectRetiredAgentAppPackageFacadeSourceFailures() {
       continue;
     }
     const sourceCode = readProductionSourceForGuard(source.path);
-    for (const command of retiredAgentAppPackageFacadeCommands) {
+    for (const command of retiredPluginPackageFacadeCommands) {
       if (hasStandaloneIdentifier(sourceCode, command)) {
         failures.push({
           file: source.path,
@@ -2377,7 +2400,7 @@ function collectRetiredGatewayTunnelFacadeSourceFailures() {
 
   const runnerPath = "ember-rs/src/app/runner.rs";
   const runnerSource = readProductionSourceForGuard(runnerPath);
-  for (const token of ["GatewayTunnelState", "ember_gateway::tunnel::"]) {
+  for (const token of ["GatewayTunnelState", "lime_gateway::tunnel::"]) {
     if (runnerSource.includes(token)) {
       failures.push({
         file: runnerPath,
@@ -2391,39 +2414,39 @@ function collectRetiredGatewayTunnelFacadeSourceFailures() {
   return failures;
 }
 
-function collectCurrentAgentAppShellDesktopHostSourceFailures() {
+function collectCurrentPluginShellDesktopHostSourceFailures() {
   const failures = [];
   const restrictedSources = [
     {
       path: "src/lib/dev-bridge/commandPolicy.ts",
       message:
-        "agent_app_launch_shell 已迁到 Electron Desktop Host + App Server agentAppShell/prepare，不能继续作为 DevBridge truth command",
+        "plugin_launch_shell 已迁到 Electron Desktop Host + App Server pluginShell/prepare，不能继续作为 DevBridge truth command",
     },
     {
       path: "src/lib/dev-bridge/mockPriorityCommands.ts",
       message:
-        "agent_app_launch_shell 已迁到 Electron Desktop Host + App Server agentAppShell/prepare，不能继续作为 mock priority command",
+        "plugin_launch_shell 已迁到 Electron Desktop Host + App Server pluginShell/prepare，不能继续作为 mock priority command",
     },
     {
-      path: "src/lib/desktop-host/agentAppMocks.ts",
+      path: "src/lib/desktop-host/pluginMocks.ts",
       message:
-        "agent_app_launch_shell 已迁到 Electron Desktop Host + App Server agentAppShell/prepare，不能继续保留 desktop-host mock fixture",
+        "plugin_launch_shell 已迁到 Electron Desktop Host + App Server pluginShell/prepare，不能继续保留 desktop-host mock fixture",
     },
     {
       path: "ember-rs/src/app/runner.rs",
       message:
-        "agent_app_launch_shell 已迁到 Electron Desktop Host + App Server agentAppShell/prepare，不能回到 legacy Tauri generate_handler",
+        "plugin_launch_shell 已迁到 Electron Desktop Host + App Server pluginShell/prepare，不能回到 legacy Tauri generate_handler",
     },
     {
-      path: "ember-rs/src/dev_bridge/dispatcher/agent_apps.rs",
+      path: "ember-rs/src/dev_bridge/dispatcher/plugins.rs",
       message:
-        "agent_app_launch_shell 已迁到 Electron Desktop Host + App Server agentAppShell/prepare，不能回到 Rust DevBridge dispatcher",
+        "plugin_launch_shell 已迁到 Electron Desktop Host + App Server pluginShell/prepare，不能回到 Rust DevBridge dispatcher",
     },
     {
       path: "ember-rs/src/commands/mod.rs",
       message:
-        "Agent App shell / picker 已迁到 Electron Desktop Host，不能重新暴露 legacy Tauri Agent App command module；commands/** 只允许清理旧逻辑",
-      commands: ["agent_app_cmd"],
+        "Plugin shell / picker 已迁到 Electron Desktop Host，不能重新暴露 legacy Tauri Plugin command module；commands/** 只允许清理旧逻辑",
+      commands: ["plugin_cmd"],
     },
   ];
 
@@ -2432,7 +2455,7 @@ function collectCurrentAgentAppShellDesktopHostSourceFailures() {
       continue;
     }
     const sourceCode = readProductionSourceForGuard(source.path);
-    for (const command of currentAgentAppShellDesktopHostCommands) {
+    for (const command of currentPluginShellDesktopHostCommands) {
       if (hasStandaloneIdentifier(sourceCode, command)) {
         failures.push({
           file: source.path,
@@ -2446,26 +2469,25 @@ function collectCurrentAgentAppShellDesktopHostSourceFailures() {
   return failures;
 }
 
-function collectCurrentAgentAppRuntimeDesktopHostSourceFailures() {
+function collectCurrentPluginRuntimeDesktopHostSourceFailures() {
   const failures = [];
   const restrictedSources = [
     {
       path: "ember-rs/src/app/runner.rs",
       message:
-        "agent_app_runtime_* 已迁到 Electron Desktop Host + App Server agentSession current，不能回到 legacy Tauri generate_handler",
+        "plugin_runtime_* 已迁到 Electron Desktop Host + App Server agentSession current，不能回到 legacy Tauri generate_handler",
     },
     {
       path: "ember-rs/src/commands/mod.rs",
       message:
-        "agent_app_runtime_cmd 已退为 cleanup-only residual，不能重新暴露为 legacy Tauri command module",
-      commands: ["agent_app_runtime_cmd"],
+        "plugin_runtime_cmd 已退为 cleanup-only residual，不能重新暴露为 legacy Tauri command module",
+      commands: ["plugin_runtime_cmd"],
     },
   ];
 
   for (const source of restrictedSources) {
     const sourceCode = readProductionSourceForGuard(source.path);
-    const commands =
-      source.commands ?? currentAgentAppRuntimeDesktopHostCommands;
+    const commands = source.commands ?? currentPluginRuntimeDesktopHostCommands;
     for (const command of commands) {
       if (hasStandaloneIdentifier(sourceCode, command)) {
         failures.push({
@@ -2925,11 +2947,6 @@ function collectRetiredVoiceInputConfigFacadeSourceFailures() {
       path: "ember-rs/src/dev_bridge/dispatcher/voice.rs",
       message:
         "已收敛到 app config current 网关的旧 Voice Input config 命令不能回到 Rust DevBridge voice dispatcher",
-    },
-    {
-      path: "ember-rs/src/commands/aster_agent_cmd/runtime_turn/bootstrap.rs",
-      message:
-        "Aster Config tool 可以读取 voice config service / 内部 helper，不能继续调用旧 Voice Input config Tauri command wrapper",
     },
   ];
 
@@ -3450,6 +3467,15 @@ function collectCurrentLayeredDesignDesktopHostShellSourceFailures() {
 
 function collectRetiredAgentRuntimeRustSourceFailures() {
   const failures = [];
+  const retiredCommandsRoot = "ember-rs/src/commands";
+  if (fs.existsSync(path.join(repoRoot, retiredCommandsRoot))) {
+    failures.push({
+      file: retiredCommandsRoot,
+      message:
+        "旧 Tauri command tree 已删除；Agent runtime 只能经 App Server JSON-RPC 进入 current 主链",
+      token: retiredCommandsRoot,
+    });
+  }
   const restrictedSources = [
     {
       path: "ember-rs/src/app/runner.rs",
@@ -3459,80 +3485,13 @@ function collectRetiredAgentRuntimeRustSourceFailures() {
     {
       path: "ember-rs/src/dev_bridge/dispatcher/agent_sessions.rs",
       message:
-        "Agent Runtime session CRUD / public subagent facade / core current bridge / checkpoint queue replay / compact objective / process Aster 旧入口已撤下，不能回到 Rust DevBridge dispatcher",
+        "Agent Runtime session CRUD / public subagent facade / core current bridge / checkpoint queue replay / compact objective / process Agent 旧入口已撤下，不能回到 Rust DevBridge dispatcher",
     },
     {
       path: "ember-rs/src/dev_bridge/dispatcher/providers.rs",
       message:
-        "Agent Runtime process/Aster 旧 DevBridge provider dispatcher 已撤下，不能恢复旧 Rust DevBridge dispatcher",
-      commands: retiredAgentRuntimeProcessAsterRustCommands,
-    },
-    {
-      path: "ember-rs/src/commands/agent_cmd.rs",
-      message:
-        "Agent process 旧 Tauri wrapper 已撤下，不能在 agent_cmd.rs 恢复可调用 Rust wrapper",
-      commands: retiredAgentRuntimeProcessAsterRustCommands,
-    },
-    {
-      path: "ember-rs/src/commands/aster_agent_cmd/action_runtime.rs",
-      message:
-        "Agent Runtime delete session / respond action 旧 Tauri wrapper 已撤下，不能在 commands/** 恢复可调用 Rust wrapper",
-      commands: [
-        "agent_runtime_delete_session",
-        "agent_runtime_respond_action",
-      ],
-    },
-    {
-      path: "ember-rs/src/commands/aster_agent_cmd/command_api/session_api.rs",
-      message:
-        "Agent Runtime session CRUD 旧 Tauri wrapper 已撤下，不能在 commands/** 恢复可调用 Rust wrapper",
-    },
-    {
-      path: "ember-rs/src/commands/aster_agent_cmd/command_api/subagent_api.rs",
-      message:
-        "Agent Runtime public subagent 旧 Tauri wrapper 已撤下，不能在 commands/** 恢复可调用 Rust wrapper",
-      commands: retiredAgentRuntimeSubagentRustCommands,
-    },
-    {
-      path: "ember-rs/src/commands/aster_agent_cmd/command_api.rs",
-      message:
-        "Agent Runtime session CRUD / public subagent / core current bridge / checkpoint queue replay / compact objective / process Aster 旧 Tauri wrapper 已撤下，不能在 command_api.rs 重新导出 legacy wrapper",
-    },
-    {
-      path: "ember-rs/src/commands/aster_agent_cmd/mod.rs",
-      message:
-        "Agent Runtime session CRUD / public subagent / core current bridge / checkpoint queue replay / compact objective / process Aster 旧 Tauri wrapper 已撤下，不能在 aster_agent_cmd/mod.rs 重新导出 legacy wrapper",
-    },
-    {
-      path: "ember-rs/src/commands/aster_agent_cmd/command_api/provider_api.rs",
-      message:
-        "Aster provider/status/reset 旧 Tauri wrapper 已撤下，不能在 commands/** 恢复可调用 Rust wrapper",
-      commands: retiredAgentRuntimeProcessAsterRustCommands,
-    },
-    {
-      path: "ember-rs/src/commands/aster_agent_cmd/command_api/objective_api.rs",
-      message:
-        "Agent Runtime objective 旧 Tauri wrapper 已撤下，不能在 commands/** 恢复可调用 Rust wrapper",
-      commands: retiredAgentRuntimeCompactObjectiveRustCommands,
-    },
-    {
-      path: "ember-rs/src/commands/aster_agent_cmd/command_api/objective_audit.rs",
-      message:
-        "Agent Runtime objective audit 旧 Tauri wrapper 已撤下，不能在 commands/** 恢复可调用 Rust wrapper",
-      commands: retiredAgentRuntimeCompactObjectiveRustCommands,
-    },
-    {
-      path: "ember-rs/src/commands/aster_agent_cmd/command_api/runtime_api.rs",
-      message:
-        "Agent Runtime session read / core current bridge / checkpoint queue replay / compact resume / export residual 旧 Tauri wrapper 已撤下，不能在 runtime_api.rs 恢复 legacy wrapper",
-      commands: [
-        "agent_runtime_get_session",
-        ...retiredAgentRuntimeCoreCurrentBridgeRustCommands,
-        ...retiredAgentRuntimeCheckpointQueueReplayRustCommands,
-        "agent_runtime_compact_session",
-        "agent_runtime_resume_thread",
-        ...retiredAgentRuntimeExportRustCommands,
-      ],
+        "Agent Runtime process 旧 DevBridge provider dispatcher 已撤下，不能恢复旧 Rust DevBridge dispatcher",
+      commands: retiredAgentRuntimeProcessRustCommands,
     },
   ];
 
@@ -4000,7 +3959,6 @@ function collectRetiredMediaTaskArtifactFacadeSourceFailures() {
 
   for (const retiredPath of [
     "ember-rs/src/commands/media_task_cmd.rs",
-    "ember-rs/src/commands/aster_agent_cmd/tool_runtime/creation_tools.rs",
     "ember-rs/src/dev_bridge/dispatcher/media_tasks.rs",
   ]) {
     if (fs.existsSync(path.join(repoRoot, retiredPath))) {
@@ -4031,18 +3989,13 @@ function collectRetiredVideoGenerationPromptSourceFailures() {
   const failures = [];
   const restrictedSources = [
     {
-      path: "ember-rs/src/commands/aster_agent_cmd/video_skill_launch.rs",
-      message:
-        "Video skill launch 必须走 video_generate -> App Server mediaTaskArtifact/video/* current 主链，不能提示模型回退旧 video generation facade",
-    },
-    {
       path: "ember-rs/resources/default-skills/video_generate/SKILL.md",
       message:
         "默认 video_generate skill 必须走 CLI/App Server mediaTaskArtifact/video/* current 主链，不能允许或提示回退旧 video generation facade",
     },
   ];
   const retiredPromptTokens = new Set([
-    "ember_create_video_generation_task",
+    "lime_create_video_generation_task",
     ...retiredVideoGenerationFacadeCommands,
   ]);
 
@@ -4629,12 +4582,6 @@ function printGuardFailures(title, failures) {
 
 function main() {
   const frontendUsage = collectFrontendCommandUsage();
-  const agentRuntimeSchemaUsage = collectAgentRuntimeSchemaUsage();
-  for (const [command, files] of agentRuntimeSchemaUsage.entries()) {
-    for (const file of files) {
-      addUsage(frontendUsage, command, file);
-    }
-  }
   const frontendCommands = new Set(frontendUsage.keys());
   const registeredCommands = collectElectronHostCommands();
   const mockPriorityCommands = collectMockPriorityCommands();
@@ -4655,8 +4602,8 @@ function main() {
     collectRetiredApiKeyProviderFacadeSourceFailures();
   const retiredMcpDesktopFacadeSourceFailures =
     collectRetiredMcpDesktopFacadeSourceFailures();
-  const retiredAgentAppPackageFacadeSourceFailures =
-    collectRetiredAgentAppPackageFacadeSourceFailures();
+  const retiredPluginPackageFacadeSourceFailures =
+    collectRetiredPluginPackageFacadeSourceFailures();
   const retiredLogFacadeSourceFailures =
     collectRetiredLogFacadeSourceFailures();
   const retiredConfigFacadeSourceFailures =
@@ -4665,10 +4612,10 @@ function main() {
     collectRetiredChannelSideEffectFacadeSourceFailures();
   const retiredGatewayTunnelFacadeSourceFailures =
     collectRetiredGatewayTunnelFacadeSourceFailures();
-  const currentAgentAppShellDesktopHostSourceFailures =
-    collectCurrentAgentAppShellDesktopHostSourceFailures();
-  const currentAgentAppRuntimeDesktopHostSourceFailures =
-    collectCurrentAgentAppRuntimeDesktopHostSourceFailures();
+  const currentPluginShellDesktopHostSourceFailures =
+    collectCurrentPluginShellDesktopHostSourceFailures();
+  const currentPluginRuntimeDesktopHostSourceFailures =
+    collectCurrentPluginRuntimeDesktopHostSourceFailures();
   const currentTrayDesktopHostShellSourceFailures =
     collectCurrentTrayDesktopHostShellSourceFailures();
   const currentHotkeyDesktopHostShellSourceFailures =
@@ -4757,18 +4704,18 @@ function main() {
       (command) => !bridgeTruthCommands.has(command),
     ),
   );
-  const agentAppRuntimeDevBridgeTruthLeaks = new Set(
-    [...currentAgentAppRuntimeDesktopHostCommands].filter((command) =>
+  const pluginRuntimeDevBridgeTruthLeaks = new Set(
+    [...currentPluginRuntimeDesktopHostCommands].filter((command) =>
       bridgeTruthCommands.has(command),
     ),
   );
-  const missingAgentAppRuntimeNoMockCompatCommands = new Set(
-    [...currentAgentAppRuntimeDesktopHostCommands].filter(
+  const missingPluginRuntimeNoMockCompatCommands = new Set(
+    [...currentPluginRuntimeDesktopHostCommands].filter(
       (command) => !noMockFallbackCompatCommands.has(command),
     ),
   );
-  const agentAppRuntimeMockPriorityLeaks = new Set(
-    [...currentAgentAppRuntimeDesktopHostCommands].filter((command) =>
+  const pluginRuntimeMockPriorityLeaks = new Set(
+    [...currentPluginRuntimeDesktopHostCommands].filter((command) =>
       mockPriorityCommands.has(command),
     ),
   );
@@ -4819,8 +4766,8 @@ function main() {
         capabilityDraftCommands.has(command),
     ),
   );
-  const retiredAgentAppPackageFacadeLeaks = new Set(
-    [...retiredAgentAppPackageFacadeCommands].filter(
+  const retiredPluginPackageFacadeLeaks = new Set(
+    [...retiredPluginPackageFacadeCommands].filter(
       (command) =>
         registeredCommands.has(command) ||
         bridgeTruthCommands.has(command) ||
@@ -5000,17 +4947,15 @@ function main() {
         capabilityDraftCommands.has(command),
     ),
   );
-  const retiredAgentRuntimeProcessAsterSurfaceLeaks = new Set(
-    [...retiredAgentRuntimeProcessAsterRustCommands]
-      .filter((command) => command !== "aster_agent_init")
-      .filter(
-        (command) =>
-          registeredCommands.has(command) ||
-          bridgeTruthCommands.has(command) ||
-          mockPriorityCommands.has(command) ||
-          runtimeGatewayCommands.has(command) ||
-          capabilityDraftCommands.has(command),
-      ),
+  const retiredAgentRuntimeProcessSurfaceLeaks = new Set(
+    [...retiredAgentRuntimeProcessRustCommands].filter(
+      (command) =>
+        registeredCommands.has(command) ||
+        bridgeTruthCommands.has(command) ||
+        mockPriorityCommands.has(command) ||
+        runtimeGatewayCommands.has(command) ||
+        capabilityDraftCommands.has(command),
+    ),
   );
   const retiredAgentRuntimeDeleteSessionSurfaceLeaks = new Set(
     ["agent_runtime_delete_session"].filter(
@@ -5339,27 +5284,27 @@ function main() {
     );
   }
 
-  if (agentAppRuntimeDevBridgeTruthLeaks.size > 0) {
+  if (pluginRuntimeDevBridgeTruthLeaks.size > 0) {
     hasError = true;
     printCommandGroup(
-      "Agent App runtime task compat 命令不能回到 DevBridge truth surface",
-      agentAppRuntimeDevBridgeTruthLeaks,
+      "Plugin runtime task compat 命令不能回到 DevBridge truth surface",
+      pluginRuntimeDevBridgeTruthLeaks,
     );
   }
 
-  if (missingAgentAppRuntimeNoMockCompatCommands.size > 0) {
+  if (missingPluginRuntimeNoMockCompatCommands.size > 0) {
     hasError = true;
     printCommandGroup(
-      "Agent App runtime task compat 命令必须保留 no-mock fail-closed 分类",
-      missingAgentAppRuntimeNoMockCompatCommands,
+      "Plugin runtime task compat 命令必须保留 no-mock fail-closed 分类",
+      missingPluginRuntimeNoMockCompatCommands,
     );
   }
 
-  if (agentAppRuntimeMockPriorityLeaks.size > 0) {
+  if (pluginRuntimeMockPriorityLeaks.size > 0) {
     hasError = true;
     printCommandGroup(
-      "Agent App runtime task compat 命令不能回到 mock priority surface",
-      agentAppRuntimeMockPriorityLeaks,
+      "Plugin runtime task compat 命令不能回到 mock priority surface",
+      pluginRuntimeMockPriorityLeaks,
     );
   }
 
@@ -5469,19 +5414,19 @@ function main() {
     );
   }
 
-  if (retiredAgentAppPackageFacadeLeaks.size > 0) {
+  if (retiredPluginPackageFacadeLeaks.size > 0) {
     hasError = true;
     printCommandGroup(
-      "已迁到 App Server agentApp* 的旧 Agent App lifecycle 命令不能回到 Electron Host、DevBridge truth、mock priority 或 runtime surface",
-      retiredAgentAppPackageFacadeLeaks,
+      "已迁到 App Server plugin* 的旧 Plugin lifecycle 命令不能回到 Electron Host、DevBridge truth、mock priority 或 runtime surface",
+      retiredPluginPackageFacadeLeaks,
     );
   }
 
-  if (retiredAgentAppPackageFacadeSourceFailures.length > 0) {
+  if (retiredPluginPackageFacadeSourceFailures.length > 0) {
     hasError = true;
     printGuardFailures(
-      "已迁到 App Server agentApp* 的旧 Agent App package/install 命令不能回到旧客户端源码",
-      retiredAgentAppPackageFacadeSourceFailures,
+      "已迁到 App Server plugin* 的旧 Plugin package/install 命令不能回到旧客户端源码",
+      retiredPluginPackageFacadeSourceFailures,
     );
   }
 
@@ -5644,11 +5589,11 @@ function main() {
     );
   }
 
-  if (retiredAgentRuntimeProcessAsterSurfaceLeaks.size > 0) {
+  if (retiredAgentRuntimeProcessSurfaceLeaks.size > 0) {
     hasError = true;
     printCommandGroup(
-      "已退役的 Agent Runtime process / Aster side-effect facade 不能回到 Electron Host、DevBridge truth、mock priority 或 runtime surface",
-      retiredAgentRuntimeProcessAsterSurfaceLeaks,
+      "已退役的 Agent Runtime process side-effect facade 不能回到 Electron Host、DevBridge truth、mock priority 或 runtime surface",
+      retiredAgentRuntimeProcessSurfaceLeaks,
     );
   }
 
@@ -5785,7 +5730,7 @@ function main() {
   if (retiredUnifiedMemoryFacadeLeaks.size > 0) {
     hasError = true;
     printCommandGroup(
-      "Unified Memory 已迁到 App Server unifiedMemory/* current，旧 unified_memory_* 不能回到前端调用、DevBridge truth、mock priority、runtime catalog 或 deferred 白名单",
+      "旧 unified_memory_* 已被 memoryStore/* current 取代，不能回到前端调用、DevBridge truth、mock priority、runtime catalog 或 deferred 白名单",
       retiredUnifiedMemoryFacadeLeaks,
       frontendUsage,
     );
@@ -5895,19 +5840,19 @@ function main() {
     );
   }
 
-  if (currentAgentAppShellDesktopHostSourceFailures.length > 0) {
+  if (currentPluginShellDesktopHostSourceFailures.length > 0) {
     hasError = true;
     printGuardFailures(
-      "已迁到 Electron Desktop Host + App Server agentAppShell/prepare 的 shell launch 命令不能回到旧客户端源码",
-      currentAgentAppShellDesktopHostSourceFailures,
+      "已迁到 Electron Desktop Host + App Server pluginShell/prepare 的 shell launch 命令不能回到旧客户端源码",
+      currentPluginShellDesktopHostSourceFailures,
     );
   }
 
-  if (currentAgentAppRuntimeDesktopHostSourceFailures.length > 0) {
+  if (currentPluginRuntimeDesktopHostSourceFailures.length > 0) {
     hasError = true;
     printGuardFailures(
-      "已迁到 Electron Desktop Host + App Server agentSession 的 Agent App runtime task 命令不能回到旧客户端源码",
-      currentAgentAppRuntimeDesktopHostSourceFailures,
+      "已迁到 Electron Desktop Host + App Server agentSession 的 Plugin runtime task 命令不能回到旧客户端源码",
+      currentPluginRuntimeDesktopHostSourceFailures,
     );
   }
 

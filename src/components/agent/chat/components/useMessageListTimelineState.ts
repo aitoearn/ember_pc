@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { scheduleMinimumDelayIdleTask } from "@/lib/utils/scheduleMinimumDelayIdleTask";
-import type {
-  AsterSubagentSessionInfo,
-  AgentRuntimeThreadReadModel,
-  QueuedTurnSnapshot,
-} from "@/lib/api/agentRuntime";
+import type { AgentRuntimeThreadReadModel } from "@/lib/api/agentRuntime/sessionTypes";
+import type { QueuedTurnSnapshot } from "@/lib/api/queuedTurn";
+import type { CanonicalChildThreadSummary } from "../projection/canonicalChildThreadSummary";
 import { buildInputbarRuntimeStatusLineModel } from "../utils/inputbarRuntimeStatusLine";
 import {
   filterConversationThreadItemsForRenderedTurns,
@@ -13,6 +11,7 @@ import {
 } from "../projection/threadTimelineWindowProjection";
 import {
   buildCurrentTurnTimelineProjection,
+  buildDeferredTimelineByMessageIdProjection,
   buildMessageGroupsProjection,
   buildMessageRenderGroupsProjection,
   buildTimelineByMessageIdProjection,
@@ -35,29 +34,29 @@ import { measureMessageListComputation } from "./messageListPerformance";
 
 interface UseMessageListTimelineStateOptions {
   activePendingA2UISource: PendingA2UISource | null;
-  childSubagentSessions: AsterSubagentSessionInfo[];
+  canonicalChildren: CanonicalChildThreadSummary[];
   currentTurnId: string | null;
   expandedHistoricalTimelineKeys: Set<string>;
   focusedTimelineItemId: string | null;
   hiddenHistoryCount: number;
   isRestoredHistoryWindow: boolean;
   isSending: boolean;
-  pendingActions: ActionRequired[];
+  pendingActions: readonly ActionRequired[];
   persistedHiddenHistoryCount: number;
   progressiveInitialRenderCount: number;
-  queuedTurns: QueuedTurnSnapshot[];
+  queuedTurns: readonly QueuedTurnSnapshot[];
   renderedAssistantMessageCount: number;
   renderedMessageCount: number;
   renderedMessages: Message[];
-  submittedActionsInFlight: ActionRequired[];
-  threadItems: AgentThreadItem[];
+  submittedActionsInFlight: readonly ActionRequired[];
+  threadItems: readonly AgentThreadItem[];
   threadRead: AgentRuntimeThreadReadModel | null;
-  turns: AgentThreadTurn[];
+  turns: readonly AgentThreadTurn[];
 }
 
 export function useMessageListTimelineState({
   activePendingA2UISource,
-  childSubagentSessions,
+  canonicalChildren,
   currentTurnId,
   expandedHistoricalTimelineKeys,
   focusedTimelineItemId,
@@ -122,13 +121,27 @@ export function useMessageListTimelineState({
       threadItems[threadItems.length - 1]?.id ?? "no-item"
     }`,
   ].join("|");
-  const shouldDeferHistoricalTimeline =
-    !isSending &&
+  const hasLargeHistoricalThreadItems =
+    threadItems.length >= MESSAGE_LIST_TIMELINE_DEFER_ITEM_THRESHOLD;
+  const hasHistoricalWindow =
+    isRestoredHistoryWindow ||
+    hiddenHistoryCount > 0 ||
+    persistedHiddenHistoryCount > 0;
+  const shouldProtectHistoricalWindowDuringSending =
+    isSending &&
+    hasHistoricalWindow &&
     !activeCurrentTurnId &&
     !focusedTimelineItemId &&
-    threadItems.length >= MESSAGE_LIST_TIMELINE_DEFER_ITEM_THRESHOLD &&
-    (isRestoredHistoryWindow ||
-      renderedMessages.length >= MESSAGE_LIST_TIMELINE_DEFER_MESSAGE_THRESHOLD);
+    hasLargeHistoricalThreadItems;
+  const shouldDeferHistoricalTimeline =
+    !activeCurrentTurnId &&
+    !focusedTimelineItemId &&
+    hasLargeHistoricalThreadItems &&
+    (shouldProtectHistoricalWindowDuringSending ||
+      (!isSending &&
+        (isRestoredHistoryWindow ||
+          renderedMessages.length >=
+            MESSAGE_LIST_TIMELINE_DEFER_MESSAGE_THRESHOLD)));
   const shouldDeferHistoricalTimelineDetails =
     !focusedTimelineItemId &&
     (shouldDeferHistoricalTimeline ||
@@ -176,10 +189,13 @@ export function useMessageListTimelineState({
   const shouldDeferRestoredThreadItemsUntilExpand =
     isRestoredHistoryWindow &&
     !focusedTimelineItemId &&
-    !isSending &&
     !activeCurrentTurnId &&
-    expandedHistoricalTimelineKeys.size === 0 &&
-    threadItems.length >= MESSAGE_LIST_TIMELINE_DEFER_ITEM_THRESHOLD;
+    (!isSending || shouldProtectHistoricalWindowDuringSending) &&
+    canBuildHistoricalTimeline &&
+    !renderedTurns.some((turn) =>
+      expandedHistoricalTimelineKeys.has(`leading:${turn.id}`),
+    ) &&
+    hasLargeHistoricalThreadItems;
   const shouldDeferThreadItemsScan =
     !activeCurrentTurnId &&
     ((shouldDeferHistoricalTimeline && !isHistoricalTimelineReady) ||
@@ -199,18 +215,24 @@ export function useMessageListTimelineState({
   const timelineByMessageIdMeasurement = useMemo(
     () =>
       measureMessageListComputation(() =>
-        buildTimelineByMessageIdProjection({
-          canBuildHistoricalTimeline,
-          renderedMessages,
-          renderedTurns,
-          renderedThreadItems,
-        }),
+        shouldDeferThreadItemsScan
+          ? buildDeferredTimelineByMessageIdProjection({
+              renderedMessages,
+              renderedTurns,
+            })
+          : buildTimelineByMessageIdProjection({
+              canBuildHistoricalTimeline,
+              renderedMessages,
+              renderedTurns,
+              renderedThreadItems,
+            }),
       ),
     [
       canBuildHistoricalTimeline,
       renderedMessages,
       renderedThreadItems,
       renderedTurns,
+      shouldDeferThreadItemsScan,
     ],
   );
   const timelineByMessageId = timelineByMessageIdMeasurement.value;
@@ -226,33 +248,41 @@ export function useMessageListTimelineState({
     queuedTurns.length > 0 ||
     (threadRead?.pending_requests?.length ?? 0) > 0 ||
     Boolean(activePendingA2UISource);
-  const activeConversationRuntimeStatusLine = useMemo(
-    () =>
-      buildInputbarRuntimeStatusLineModel({
-        messages: renderedMessages,
-        turns: renderedTurns,
-        threadItems: renderedThreadItems,
-        currentTurnId: activeCurrentTurnId,
-        threadRead,
-        pendingActions,
-        submittedActionsInFlight,
-        queuedTurns,
-        childSubagentSessions,
-        isSending,
-      }),
-    [
-      activeCurrentTurnId,
-      childSubagentSessions,
-      isSending,
-      pendingActions,
-      queuedTurns,
-      renderedMessages,
-      renderedThreadItems,
-      renderedTurns,
-      submittedActionsInFlight,
+  const hasRuntimeStatusLineEvidence =
+    hasActiveInteractiveRuntime ||
+    turns.length > 0 ||
+    threadItems.length > 0 ||
+    canonicalChildren.length > 0;
+  const activeConversationRuntimeStatusLine = useMemo(() => {
+    if (!hasRuntimeStatusLineEvidence) {
+      return null;
+    }
+
+    return buildInputbarRuntimeStatusLineModel({
+      messages: renderedMessages,
+      turns: renderedTurns,
+      threadItems: renderedThreadItems,
+      currentTurnId: activeCurrentTurnId,
       threadRead,
-    ],
-  );
+      pendingActions,
+      submittedActionsInFlight,
+      queuedTurns,
+      canonicalChildren,
+      isSending,
+    });
+  }, [
+    activeCurrentTurnId,
+    canonicalChildren,
+    hasRuntimeStatusLineEvidence,
+    isSending,
+    pendingActions,
+    queuedTurns,
+    renderedMessages,
+    renderedThreadItems,
+    renderedTurns,
+    submittedActionsInFlight,
+    threadRead,
+  ]);
   const tailRuntimeStatusLine = useMemo(() => {
     if (!lastAssistantMessageId || shouldDeferTailRuntimeStatusLine) {
       return null;

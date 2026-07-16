@@ -9,12 +9,12 @@ const KNOWLEDGE_MATCHERS = [
   exact("RELEASE_NOTES.md"),
   exact("docs/README.md"),
   exact("package.json"),
-  prefix("docs/roadmap/knowledge/"),
-  prefix("docs/knowledge/skills/"),
+  prefix("internal/roadmap/knowledge/"),
+  prefix("internal/knowledge/skills/"),
   prefix("scripts/knowledge-"),
   prefix("scripts/knowledge/"),
   prefix("ember-rs/crates/knowledge/"),
-  exact("ember-rs/src/commands/aster_agent_cmd/runtime_turn.rs"),
+  exact("ember-rs/src/commands/agent_cmd/runtime_turn.rs"),
   exact("ember-rs/src/dev_bridge/dispatcher.rs"),
   exact("ember-rs/src/dev_bridge/dispatcher/files.rs"),
   exact("ember-rs/src/skills/default_skills.rs"),
@@ -52,8 +52,8 @@ const KNOWLEDGE_MATCHERS = [
 ];
 
 const NON_KNOWLEDGE_MATCHERS = [
-  exact("docs/aiprompts/commands.md"),
-  prefix("docs/roadmap/ai-layered-design/"),
+  exact("internal/aiprompts/commands.md"),
+  prefix("internal/roadmap/ai-layered-design/"),
   prefix("scripts/benchmark-layered-design"),
   prefix("scripts/design-canvas"),
   prefix("scripts/layered-design"),

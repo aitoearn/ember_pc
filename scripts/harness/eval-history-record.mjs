@@ -18,10 +18,10 @@ function parseArgs(argv) {
     cleanupJson: "",
     cleanupMarkdown: "",
     dashboardHtml: "",
-    dashboardTitle: "Ember Harness Dashboard",
+    dashboardTitle: "Lime Harness Dashboard",
     format: "text",
     help: false,
-    historyDir: "./.ember/harness/history",
+    historyDir: "./.lime/harness/history",
     manifest: "",
     outputJson: "",
     retain: 30,
@@ -141,15 +141,15 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Harness Eval History Record
+Lime Harness Eval History Record
 
 用法:
   node scripts/harness/eval-history-record.mjs
   node scripts/harness/eval-history-record.mjs --workspace-root "/path/to/workspace"
-  node scripts/harness/eval-history-record.mjs --history-dir "./.ember/harness/history" --output-json "./tmp/harness-history-record.json"
+  node scripts/harness/eval-history-record.mjs --history-dir "./.lime/harness/history" --output-json "./tmp/harness-history-record.json"
 
 选项:
-  --history-dir PATH        summary 历史目录，默认 ./.ember/harness/history
+  --history-dir PATH        summary 历史目录，默认 ./.lime/harness/history
   --workspace-root PATH     生成当前 summary 时使用的工作区根目录
   --manifest PATH          透传给 harness eval runner，覆盖默认 manifest
   --retain N               历史窗口保留数量，默认 30
@@ -314,90 +314,90 @@ function renderOutput(result, format) {
   }
 
   const lines = [
-    "[ember] harness eval history record",
-    `[ember] history dir: ${result.historyDir}`,
-    `[ember] recorded summary: ${result.recordedSummaryPath}`,
-    `[ember] history count: ${result.historyCount}`,
-    `[ember] trimmed files: ${result.trimmedPaths.length}`,
+    "[lime] harness eval history record",
+    `[lime] history dir: ${result.historyDir}`,
+    `[lime] recorded summary: ${result.recordedSummaryPath}`,
+    `[lime] history count: ${result.historyCount}`,
+    `[lime] trimmed files: ${result.trimmedPaths.length}`,
   ];
 
   if (result.summary) {
     if (result.summary.outputJsonPath) {
-      lines.push(`[ember] summary json: ${result.summary.outputJsonPath}`);
+      lines.push(`[lime] summary json: ${result.summary.outputJsonPath}`);
     }
     if (result.summary.outputMarkdownPath) {
       lines.push(
-        `[ember] summary markdown: ${result.summary.outputMarkdownPath}`,
+        `[lime] summary markdown: ${result.summary.outputMarkdownPath}`,
       );
     }
   }
 
   if (result.trend) {
-    lines.push(`[ember] trend sample count: ${result.trend.sampleCount}`);
+    lines.push(`[lime] trend sample count: ${result.trend.sampleCount}`);
     lines.push(
-      `[ember] trend current observability gap cases: ${result.trend.currentObservabilityGapCaseCount}`,
+      `[lime] trend current observability gap cases: ${result.trend.currentObservabilityGapCaseCount}`,
     );
     lines.push(
-      `[ember] trend degraded observability gap cases: ${result.trend.degradedObservabilityGapCaseCount}`,
+      `[lime] trend degraded observability gap cases: ${result.trend.degradedObservabilityGapCaseCount}`,
     );
     lines.push(
-      `[ember] trend current recovered baseline cases: ${result.trend.currentRecoveredVerificationCaseCount}`,
+      `[lime] trend current recovered baseline cases: ${result.trend.currentRecoveredVerificationCaseCount}`,
     );
     if (result.trend.currentRecoveredBaselineFocus.length > 0) {
       lines.push(
-        `[ember] trend current recovered baseline: ${result.trend.currentRecoveredBaselineFocus.join(", ")}`,
+        `[lime] trend current recovered baseline: ${result.trend.currentRecoveredBaselineFocus.join(", ")}`,
       );
     }
     if (result.trend.outputJsonPath) {
-      lines.push(`[ember] trend json: ${result.trend.outputJsonPath}`);
+      lines.push(`[lime] trend json: ${result.trend.outputJsonPath}`);
     }
   }
 
   if (result.cleanup) {
     lines.push(
-      `[ember] cleanup trend samples: ${result.cleanup.trendSampleCount}`,
+      `[lime] cleanup trend samples: ${result.cleanup.trendSampleCount}`,
     );
     lines.push(
-      `[ember] cleanup current observability gap cases: ${result.cleanup.currentObservabilityGapCaseCount}`,
+      `[lime] cleanup current observability gap cases: ${result.cleanup.currentObservabilityGapCaseCount}`,
     );
     lines.push(
-      `[ember] cleanup degraded observability gap cases: ${result.cleanup.degradedObservabilityGapCaseCount}`,
+      `[lime] cleanup degraded observability gap cases: ${result.cleanup.degradedObservabilityGapCaseCount}`,
     );
     if (result.cleanup.verificationFailureOutcomeFocus.length > 0) {
       lines.push(
-        `[ember] cleanup verification failure outcomes: ${result.cleanup.verificationFailureOutcomeFocus.join(", ")}`,
+        `[lime] cleanup verification failure outcomes: ${result.cleanup.verificationFailureOutcomeFocus.join(", ")}`,
       );
     }
     lines.push(
-      `[ember] cleanup verification failure cases: ${result.cleanup.verificationFailureCaseCount}`,
+      `[lime] cleanup verification failure cases: ${result.cleanup.verificationFailureCaseCount}`,
     );
     lines.push(
-      `[ember] cleanup verification blocking failure cases: ${result.cleanup.verificationBlockingFailureCaseCount}`,
+      `[lime] cleanup verification blocking failure cases: ${result.cleanup.verificationBlockingFailureCaseCount}`,
     );
     lines.push(
-      `[ember] cleanup verification advisory failure cases: ${result.cleanup.verificationAdvisoryFailureCaseCount}`,
+      `[lime] cleanup verification advisory failure cases: ${result.cleanup.verificationAdvisoryFailureCaseCount}`,
     );
     lines.push(
-      `[ember] cleanup degraded blocking verification failure cases: ${result.cleanup.verificationDegradedBlockingFailureCaseCount}`,
+      `[lime] cleanup degraded blocking verification failure cases: ${result.cleanup.verificationDegradedBlockingFailureCaseCount}`,
     );
     lines.push(
-      `[ember] cleanup verification recovered cases: ${result.cleanup.verificationRecoveredCaseCount}`,
+      `[lime] cleanup verification recovered cases: ${result.cleanup.verificationRecoveredCaseCount}`,
     );
     lines.push(
-      `[ember] cleanup current recovered baseline cases: ${result.cleanup.currentVerificationRecoveredCaseCount}`,
+      `[lime] cleanup current recovered baseline cases: ${result.cleanup.currentVerificationRecoveredCaseCount}`,
     );
     if (result.cleanup.currentRecoveredBaselineFocus.length > 0) {
       lines.push(
-        `[ember] cleanup current recovered baseline: ${result.cleanup.currentRecoveredBaselineFocus.join(", ")}`,
+        `[lime] cleanup current recovered baseline: ${result.cleanup.currentRecoveredBaselineFocus.join(", ")}`,
       );
     }
     if (result.cleanup.outputJsonPath) {
-      lines.push(`[ember] cleanup json: ${result.cleanup.outputJsonPath}`);
+      lines.push(`[lime] cleanup json: ${result.cleanup.outputJsonPath}`);
     }
   }
 
   if (result.dashboard?.outputHtmlPath) {
-    lines.push(`[ember] dashboard html: ${result.dashboard.outputHtmlPath}`);
+    lines.push(`[lime] dashboard html: ${result.dashboard.outputHtmlPath}`);
   }
 
   return `${lines.join("\n")}\n`;

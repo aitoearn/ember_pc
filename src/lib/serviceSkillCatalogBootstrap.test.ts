@@ -60,7 +60,7 @@ function buildBaseSetupPackage() {
       {
         id: "bootstrap-bundle",
         source: "remote",
-        path_or_uri: "ember://bundles/bootstrap",
+        path_or_uri: "lime://bundles/bootstrap",
         kind: "skill_bundle",
       },
     ],
@@ -131,14 +131,14 @@ function buildBaseSetupPackage() {
 describe("serviceSkillCatalogBootstrap", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_SERVICE_SKILL_CATALOG__;
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_SERVICE_SKILL_CATALOG__;
   });
 
   afterEach(() => {
     window.localStorage.clear();
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_SERVICE_SKILL_CATALOG__;
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_SERVICE_SKILL_CATALOG__;
   });
 
   it("应支持从 bootstrap 包装层提取服务型技能目录", () => {
@@ -195,10 +195,10 @@ describe("serviceSkillCatalogBootstrap", () => {
 
   it("启动时应在专用全局快照无效时回退读取 bootstrap payload", async () => {
     const catalog = buildRemoteCatalog();
-    window.__EMBER_SERVICE_SKILL_CATALOG__ = {
+    window.__LIME_SERVICE_SKILL_CATALOG__ = {
       invalid: true,
     };
-    window.__EMBER_BOOTSTRAP__ = {
+    window.__LIME_BOOTSTRAP__ = {
       serviceSkillCatalog: catalog,
     };
 

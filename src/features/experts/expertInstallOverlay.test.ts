@@ -30,7 +30,7 @@ describe("expertInstallOverlay", () => {
 
   it("应过滤非法 overlay 记录", () => {
     window.localStorage.setItem(
-      "ember:expert-install-overlay:v1",
+      "lime:expert-install-overlay:v1",
       JSON.stringify([
         { expertId: "x" },
         { expertId: "ok", releaseId: "rel", installedAt: 1, lastUsedAt: null },

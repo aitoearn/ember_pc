@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 const { mockGetConfig, mockGetEnvironmentPreview, mockSaveConfig } = vi.hoisted(
   () => ({
@@ -124,7 +124,7 @@ beforeEach(async () => {
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
   vi.clearAllMocks();
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 
   mockGetConfig.mockResolvedValue({
     environment: {
@@ -189,7 +189,7 @@ afterEach(async () => {
   }
 
   vi.clearAllMocks();
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("EnvironmentSettings", () => {
@@ -307,7 +307,7 @@ describe("EnvironmentSettings", () => {
 
     const fieldTip = await hoverTip("Import timeout details");
     expect(getBodyText()).toContain(
-      "If the import times out, Ember falls back to explicit overrides only and does not block the runtime.",
+      "If the import times out, Lime falls back to explicit overrides only and does not block the runtime.",
     );
     await leaveTip(fieldTip);
   });

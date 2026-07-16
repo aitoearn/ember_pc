@@ -6,13 +6,13 @@ const ENTRY_MODULE_TIMEOUT_MS = 6_000;
 const OPTIMIZED_DEPS_TIMEOUT_MS = 6_000;
 const REUSE_ONLY_TIMEOUT_MS = 10_000;
 const REUSE_ONLY_INTERVAL_MS = 500;
-const ROOT_MARKERS = ["<title>Ember</title>", '<div id="root"></div>'];
+const ROOT_MARKERS = ["<title>Lime</title>", '<div id="root"></div>'];
 const OPTIMIZED_DEP_FILES = [
   "react.js",
   "react-dom_client.js",
   "react_jsx-dev-runtime.js",
 ];
-const HOST_BRIDGE_MODULE_PATH = "/src/features/agent-app/runtime/hostBridge.ts";
+const HOST_BRIDGE_MODULE_PATH = "/src/features/plugin/runtime/hostBridge.ts";
 const DESKTOP_HOST_DIALOG_MOCK_MARKER = "/src/lib/desktop-host/plugin-dialog";
 
 function isLimeDevShell(html) {
@@ -46,7 +46,7 @@ async function fetchText(url, timeoutMs) {
 function createEnv() {
   const env = { ...process.env };
 
-  env.EMBER_BROWSER_BRIDGE = "1";
+  env.LIME_BROWSER_BRIDGE = "1";
 
   return env;
 }
@@ -157,7 +157,7 @@ async function waitForExistingDevServer(url, options) {
     if (lastProbe.reachable && !lastProbe.isLimeDevShell) {
       const statusLabel = `${lastProbe.status} ${lastProbe.statusText}`.trim();
       throw new Error(
-        `[${options.logLabel}] ${options.devUrl} 已被其他服务占用，且返回内容不是 Ember dev shell（${statusLabel}）。请先关闭占用进程后重试。`,
+        `[${options.logLabel}] ${options.devUrl} 已被其他服务占用，且返回内容不是 Lime dev shell（${statusLabel}）。请先关闭占用进程后重试。`,
       );
     }
 
@@ -177,7 +177,7 @@ async function waitForExistingDevServer(url, options) {
   }
 
   throw new Error(
-    `[${options.logLabel}] 要求复用已有 Ember dev server，但 ${url} 在 ${REUSE_ONLY_TIMEOUT_MS}ms 内未完成入口模块与优化依赖预热。`,
+    `[${options.logLabel}] 要求复用已有 Lime dev server，但 ${url} 在 ${REUSE_ONLY_TIMEOUT_MS}ms 内未完成入口模块与优化依赖预热。`,
   );
 }
 
@@ -267,7 +267,7 @@ export async function runViteDevServerBootstrap({
 
   if (reuseExistingOnly) {
     await waitForExistingDevServer(devUrl, options);
-    console.log(`[${logLabel}] 复用已存在的 Ember dev server: ${devUrl}`);
+    console.log(`[${logLabel}] 复用已存在的 Lime dev server: ${devUrl}`);
     await waitForExitSignal();
     return;
   }
@@ -278,7 +278,7 @@ export async function runViteDevServerBootstrap({
     if (!existingServer.isLimeDevShell) {
       const statusLabel = `${existingServer.status} ${existingServer.statusText}`.trim();
       throw new Error(
-        `[${logLabel}] ${devUrl} 已被其他服务占用，且返回内容不是 Ember dev shell（${statusLabel}）。请先关闭占用进程后重试。`,
+        `[${logLabel}] ${devUrl} 已被其他服务占用，且返回内容不是 Lime dev shell（${statusLabel}）。请先关闭占用进程后重试。`,
       );
     }
 
@@ -291,7 +291,7 @@ export async function runViteDevServerBootstrap({
     }
 
     console.log(
-      `[${logLabel}] 复用已存在的 Ember dev server: ${devUrl}（入口模块与优化依赖均已就绪）`,
+      `[${logLabel}] 复用已存在的 Lime dev server: ${devUrl}（入口模块与优化依赖均已就绪）`,
     );
     await waitForExitSignal();
     return;

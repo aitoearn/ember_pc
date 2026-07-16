@@ -4,45 +4,31 @@ import { normalizeLegacyToolSurfaceName } from "./agentTextNormalization";
 
 const REFERENCE_JS_TOOL_SURFACE_MAPPINGS = [
   ["AgentTool", "Agent"],
-  ["AskUserQuestionTool", "AskUserQuestion"],
   ["BashTool", "Bash"],
   ["developer__shell", "Bash"],
   ["mcp__system__shell", "Bash"],
   ["shell_command", "Bash"],
   ["exec_command", "Bash"],
   ["local_shell_call", "Bash"],
-  ["BriefTool", "SendUserMessage"],
-  ["ConfigTool", "Config"],
-  ["EnterPlanModeTool", "EnterPlanMode"],
-  ["EnterWorktreeTool", "EnterWorktree"],
-  ["ExitPlanModeTool", "ExitPlanMode"],
-  ["ExitWorktreeTool", "ExitWorktree"],
-  ["FileEditTool", "Edit"],
+  ["request_user_input", "request_user_input"],
+  ["RequestUserInputTool", "request_user_input"],
+  ["clock.sleep", "sleep"],
+  ["sleep", "sleep"],
+  ["update_plan", "update_plan"],
+  ["UpdatePlanTool", "update_plan"],
   ["FileReadTool", "Read"],
-  ["FileWriteTool", "Write"],
   ["read_file", "Read"],
   ["developer__read", "Read"],
   ["mcp__system__read_file", "Read"],
-  ["write_file", "Write"],
-  ["create_file", "Write"],
-  ["mcp__system__write_file", "Write"],
-  ["edit_file", "Edit"],
-  ["developer__text_editor", "Edit"],
-  ["mcp__system__edit_file", "Edit"],
   ["GlobTool", "Glob"],
   ["mcp__system__glob", "Glob"],
   ["GrepTool", "Grep"],
   ["mcp__system__grep", "Grep"],
-  ["LSPTool", "LSP"],
-  ["ListMcpResourcesTool", "ListMcpResourcesTool"],
-  ["NotebookEditTool", "NotebookEdit"],
+  ["ListMcpResourcesTool", "list_mcp_resources"],
   ["PowerShellTool", "PowerShell"],
-  ["ReadMcpResourceTool", "ReadMcpResourceTool"],
-  ["RemoteTriggerTool", "RemoteTrigger"],
-  ["ScheduleCronTool", "CronCreate"],
+  ["ReadMcpResourceTool", "read_mcp_resource"],
   ["SendMessageTool", "SendMessage"],
   ["SkillTool", "Skill"],
-  ["SleepTool", "Sleep"],
   ["SyntheticOutputTool", "StructuredOutput"],
   ["TaskCreateTool", "TaskCreate"],
   ["TaskGetTool", "TaskGet"],
@@ -72,8 +58,8 @@ describe("agentTextNormalization", () => {
       expect(normalizeLegacyToolSurfaceName(toolName)).toBe(expected);
     }
 
-    expect(normalizeLegacyToolSurfaceName("RequestUserInputTool")).toBe(
-      "AskUserQuestion",
+    expect(normalizeLegacyToolSurfaceName("AskUserQuestionTool")).toBe(
+      "AskUserQuestionTool",
     );
     expect(normalizeLegacyToolSurfaceName("SyntheticOutputTool")).toBe(
       "StructuredOutput",
@@ -88,5 +74,22 @@ describe("agentTextNormalization", () => {
     expect(normalizeLegacyToolSurfaceName("MCPTool")).toBe("MCPTool");
     expect(normalizeLegacyToolSurfaceName("McpAuthTool")).toBe("McpAuthTool");
     expect(normalizeLegacyToolSurfaceName("REPLTool")).toBe("REPLTool");
+    expect(normalizeLegacyToolSurfaceName("ConfigTool")).toBe("ConfigTool");
+    expect(normalizeLegacyToolSurfaceName("EnterWorktreeTool")).toBe(
+      "EnterWorktreeTool",
+    );
+    expect(normalizeLegacyToolSurfaceName("ExitWorktreeTool")).toBe(
+      "ExitWorktreeTool",
+    );
+    expect(normalizeLegacyToolSurfaceName("NotebookEditTool")).toBe(
+      "NotebookEditTool",
+    );
+    expect(normalizeLegacyToolSurfaceName("RemoteTriggerTool")).toBe(
+      "RemoteTriggerTool",
+    );
+    expect(normalizeLegacyToolSurfaceName("ScheduleCronTool")).toBe(
+      "ScheduleCronTool",
+    );
+    expect(normalizeLegacyToolSurfaceName("SleepTool")).toBe("SleepTool");
   });
 });

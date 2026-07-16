@@ -1,6 +1,7 @@
 import type { EnhancedModelMetadata } from "@/lib/types/modelRegistry";
 import { normalizeThemeType } from "@/lib/workspace/workbenchContract";
 import { modelSupportsTaskFamily } from "@/lib/model/inferModelCapabilities";
+import { isLikelyImageGenerationSearchText } from "@/lib/imageGen/providerMatchers";
 
 export interface ThemeModelFilterResult {
   models: EnhancedModelMetadata[];
@@ -8,22 +9,6 @@ export interface ThemeModelFilterResult {
   filteredOutCount: number;
   policyName: string;
 }
-
-const IMAGE_INCLUDE_KEYWORDS = [
-  "image",
-  "imagen",
-  "dall-e",
-  "flux",
-  "stable-diffusion",
-  "sdxl",
-  "sd3",
-  "midjourney",
-  "mj",
-  "picture",
-  "绘图",
-  "图像",
-  "生图",
-];
 
 const IMAGE_EXCLUDE_KEYWORDS = [
   "embedding",
@@ -90,7 +75,7 @@ function looksLikeImageGenerationModel(model: EnhancedModelMetadata): boolean {
     return false;
   }
 
-  if (containsAnyKeyword(text, IMAGE_INCLUDE_KEYWORDS)) {
+  if (isLikelyImageGenerationSearchText(text)) {
     return true;
   }
 
@@ -159,20 +144,11 @@ export function filterModelsByTheme(
 
   if (normalizeThemeType(theme) === "general") {
     const chatModels = safeModels.filter(looksLikeChatModel);
-    if (chatModels.length > 0) {
-      return {
-        models: chatModels,
-        usedFallback: false,
-        filteredOutCount: safeModels.length - chatModels.length,
-        policyName: "chat-only",
-      };
-    }
-
     return {
-      models: safeModels,
-      usedFallback: true,
-      filteredOutCount: 0,
-      policyName: "fallback-all",
+      models: chatModels,
+      usedFallback: false,
+      filteredOutCount: safeModels.length - chatModels.length,
+      policyName: "chat-only",
     };
   }
 

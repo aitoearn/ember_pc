@@ -18,14 +18,14 @@ describe("layeredDesignProject API", () => {
     vi.mocked(safeInvoke).mockResolvedValueOnce({
       projectRootPath: "/workspace",
       exportDirectoryPath:
-        "/workspace/.ember/layered-designs/doc.layered-design",
-      exportDirectoryRelativePath: ".ember/layered-designs/doc.layered-design",
+        "/workspace/.lime/layered-designs/doc.layered-design",
+      exportDirectoryRelativePath: ".lime/layered-designs/doc.layered-design",
       designPath:
-        "/workspace/.ember/layered-designs/doc.layered-design/design.json",
+        "/workspace/.lime/layered-designs/doc.layered-design/design.json",
       manifestPath:
-        "/workspace/.ember/layered-designs/doc.layered-design/export-manifest.json",
+        "/workspace/.lime/layered-designs/doc.layered-design/export-manifest.json",
       previewPngPath:
-        "/workspace/.ember/layered-designs/doc.layered-design/preview.png",
+        "/workspace/.lime/layered-designs/doc.layered-design/preview.png",
       assetCount: 0,
       fileCount: 1,
       bytesWritten: 128,
@@ -108,12 +108,12 @@ describe("layeredDesignProject API", () => {
     vi.mocked(safeInvoke).mockResolvedValueOnce({
       projectRootPath: "/workspace",
       exportDirectoryPath:
-        "/workspace/.ember/layered-designs/doc.layered-design",
-      exportDirectoryRelativePath: ".ember/layered-designs/doc.layered-design",
+        "/workspace/.lime/layered-designs/doc.layered-design",
+      exportDirectoryRelativePath: ".lime/layered-designs/doc.layered-design",
       designPath:
-        "/workspace/.ember/layered-designs/doc.layered-design/design.json",
+        "/workspace/.lime/layered-designs/doc.layered-design/design.json",
       manifestPath:
-        "/workspace/.ember/layered-designs/doc.layered-design/export-manifest.json",
+        "/workspace/.lime/layered-designs/doc.layered-design/export-manifest.json",
       assetCount: 0,
       fileCount: 1,
       bytesWritten: 128,
@@ -140,10 +140,10 @@ describe("layeredDesignProject API", () => {
     vi.mocked(safeInvoke).mockResolvedValueOnce({
       projectRootPath: "/workspace",
       exportDirectoryPath:
-        "/workspace/.ember/layered-designs/doc.layered-design",
-      exportDirectoryRelativePath: ".ember/layered-designs/doc.layered-design",
+        "/workspace/.lime/layered-designs/doc.layered-design",
+      exportDirectoryRelativePath: ".lime/layered-designs/doc.layered-design",
       designPath:
-        "/workspace/.ember/layered-designs/doc.layered-design/design.json",
+        "/workspace/.lime/layered-designs/doc.layered-design/design.json",
       designJson: "{}",
       assetCount: 0,
       fileCount: 1,
@@ -151,7 +151,7 @@ describe("layeredDesignProject API", () => {
 
     const request = {
       projectRootPath: "/workspace",
-      exportDirectoryRelativePath: ".ember/layered-designs/doc.layered-design",
+      exportDirectoryRelativePath: ".lime/layered-designs/doc.layered-design",
     };
 
     await expect(readLayeredDesignProjectExport(request)).resolves.toEqual(
@@ -186,10 +186,10 @@ describe("layeredDesignProject API", () => {
       .mockResolvedValueOnce({
         projectRootPath: "/workspace",
         exportDirectoryPath:
-          "/workspace/.ember/layered-designs/doc.layered-design",
-        exportDirectoryRelativePath: ".ember/layered-designs/doc.layered-design",
+          "/workspace/.lime/layered-designs/doc.layered-design",
+        exportDirectoryRelativePath: ".lime/layered-designs/doc.layered-design",
         designPath:
-          "/workspace/.ember/layered-designs/doc.layered-design/design.json",
+          "/workspace/.lime/layered-designs/doc.layered-design/design.json",
         assetCount: 0,
         fileCount: 1,
       })
@@ -214,10 +214,10 @@ describe("layeredDesignProject API", () => {
     vi.mocked(safeInvoke).mockResolvedValueOnce({
       projectRootPath: "/workspace",
       exportDirectoryPath:
-        "/workspace/.ember/layered-designs/doc.layered-design",
-      exportDirectoryRelativePath: ".ember/layered-designs/doc.layered-design",
+        "/workspace/.lime/layered-designs/doc.layered-design",
+      exportDirectoryRelativePath: ".lime/layered-designs/doc.layered-design",
       designPath:
-        "/workspace/.ember/layered-designs/doc.layered-design/design.json",
+        "/workspace/.lime/layered-designs/doc.layered-design/design.json",
       designJson: "{}",
       assetCount: 0,
       fileCount: 1,

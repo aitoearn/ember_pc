@@ -269,7 +269,7 @@ export interface KnowledgePackMetadata {
     [key: string]: unknown;
   } | null;
   metadata?: {
-    emberTemplate?: string;
+    limeTemplate?: string;
     primaryDocument?: string;
     producedBy?: {
       kind?: string;

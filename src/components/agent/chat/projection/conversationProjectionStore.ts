@@ -50,7 +50,8 @@ export interface ConversationDiagnosticsSlice {
   latestStreamDiagnosticBySession: Record<string, ConversationStreamDiagnostic>;
 }
 
-export type ConversationAgentUiProjectionSlice = AgentUiProjectionEventStoreState;
+export type ConversationAgentUiProjectionSlice =
+  AgentUiProjectionEventStoreState;
 
 export interface ConversationSessionProjectionSlice {
   version: number;
@@ -82,6 +83,10 @@ export type ConversationProjectionListener = () => void;
 export interface ConversationProjectionStore {
   getSnapshot: () => ConversationProjectionState;
   subscribe: (listener: ConversationProjectionListener) => () => void;
+  subscribeToSlice: (
+    slice: ConversationProjectionSlice,
+    listener: ConversationProjectionListener,
+  ) => () => void;
   recordStreamDiagnostic: (
     diagnostic: Omit<ConversationStreamDiagnostic, "id">,
   ) => ConversationStreamDiagnostic;
@@ -94,6 +99,17 @@ export interface ConversationProjectionStore {
 
 const MAX_STREAM_DIAGNOSTICS = 500;
 const MAX_AGENT_UI_PROJECTION_EVENTS = 1000;
+const CANONICAL_TOOL_SOURCE_TYPES = new Set([
+  "item_started",
+  "item_updated",
+  "item_completed",
+]);
+const LEGACY_TOOL_LIFECYCLE_EVENT_TYPES = new Set([
+  "tool.started",
+  "tool.args",
+  "tool.result",
+  "tool.failed",
+]);
 
 function createInitialState(): ConversationProjectionState {
   return {
@@ -109,20 +125,100 @@ function createInitialState(): ConversationProjectionState {
   };
 }
 
+export const EMPTY_CONVERSATION_AGENT_UI_PROJECTION_SLICE =
+  createEmptyAgentUiProjectionEventStoreState();
+
 function normalizeSessionKey(
   diagnostic: Pick<ConversationStreamDiagnostic, "sessionId" | "requestId">,
 ): string | null {
   return diagnostic.sessionId ?? diagnostic.requestId ?? null;
 }
 
+function toolEventScopeKey(event: AgentUiProjectionEvent): string | null {
+  if (!event.toolCallId) {
+    return null;
+  }
+  return [
+    event.sessionId ?? "",
+    event.threadId ?? "",
+    event.turnId ?? "",
+    event.toolCallId,
+  ].join("\u001f");
+}
+
+function isCanonicalToolEvent(event: AgentUiProjectionEvent): boolean {
+  return (
+    event.owner === "tool" &&
+    event.scope === "tool_call" &&
+    Boolean(event.toolCallId) &&
+    CANONICAL_TOOL_SOURCE_TYPES.has(event.sourceType)
+  );
+}
+
+function isLegacyToolLifecycleEvent(event: AgentUiProjectionEvent): boolean {
+  return (
+    event.owner === "tool" &&
+    event.scope === "tool_call" &&
+    Boolean(event.toolCallId) &&
+    !CANONICAL_TOOL_SOURCE_TYPES.has(event.sourceType) &&
+    LEGACY_TOOL_LIFECYCLE_EVENT_TYPES.has(event.type)
+  );
+}
+
+function normalizeAgentUiProjectionEventsForItemFirstToolLifecycle(
+  events: AgentUiProjectionEvent[],
+): AgentUiProjectionEvent[] {
+  const canonicalToolKeys = new Set<string>();
+  for (const event of events) {
+    if (!isCanonicalToolEvent(event)) {
+      continue;
+    }
+    const key = toolEventScopeKey(event);
+    if (key) {
+      canonicalToolKeys.add(key);
+    }
+  }
+
+  return events.filter((event) => {
+    const key = toolEventScopeKey(event);
+    if (
+      isLegacyToolLifecycleEvent(event) &&
+      key &&
+      canonicalToolKeys.has(key)
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
 export function createConversationProjectionStore(): ConversationProjectionStore {
   let state = createInitialState();
   let nextDiagnosticId = 1;
   const listeners = new Set<ConversationProjectionListener>();
+  const sliceListeners = new Map<
+    ConversationProjectionSlice,
+    Set<ConversationProjectionListener>
+  >();
 
-  function emit(): void {
+  function emit(slices: ConversationProjectionSlice[]): void {
+    const notified = new Set<ConversationProjectionListener>();
     for (const listener of listeners) {
+      notified.add(listener);
       listener();
+    }
+    for (const slice of slices) {
+      const listenersForSlice = sliceListeners.get(slice);
+      if (!listenersForSlice) {
+        continue;
+      }
+      for (const listener of listenersForSlice) {
+        if (notified.has(listener)) {
+          continue;
+        }
+        notified.add(listener);
+        listener();
+      }
     }
   }
 
@@ -133,6 +229,19 @@ export function createConversationProjectionStore(): ConversationProjectionStore
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
+      };
+    },
+
+    subscribeToSlice(slice, listener) {
+      const listenersForSlice =
+        sliceListeners.get(slice) ?? new Set<ConversationProjectionListener>();
+      listenersForSlice.add(listener);
+      sliceListeners.set(slice, listenersForSlice);
+      return () => {
+        listenersForSlice.delete(listener);
+        if (listenersForSlice.size === 0) {
+          sliceListeners.delete(slice);
+        }
       };
     },
 
@@ -166,7 +275,7 @@ export function createConversationProjectionStore(): ConversationProjectionStore
           latestStreamDiagnosticBySession,
         },
       };
-      emit();
+      emit(["diagnostics"]);
       return entry;
     },
 
@@ -175,7 +284,12 @@ export function createConversationProjectionStore(): ConversationProjectionStore
         return [];
       }
 
-      const nextEvents = [...state.agentUi.events, ...events];
+      const recorded =
+        normalizeAgentUiProjectionEventsForItemFirstToolLifecycle([
+          ...state.agentUi.events,
+          ...events,
+        ]);
+      const nextEvents = recorded;
       if (nextEvents.length > MAX_AGENT_UI_PROJECTION_EVENTS) {
         nextEvents.splice(
           0,
@@ -192,8 +306,8 @@ export function createConversationProjectionStore(): ConversationProjectionStore
           ...indexedEvents,
         },
       };
-      emit();
-      return events;
+      emit(["agentUi"]);
+      return events.filter((event) => nextEvents.includes(event));
     },
 
     clearAgentUiProjectionEvents() {
@@ -208,7 +322,7 @@ export function createConversationProjectionStore(): ConversationProjectionStore
           ...createEmptyAgentUiProjectionEventIndex(),
         },
       };
-      emit();
+      emit(["agentUi"]);
     },
 
     clearDiagnostics() {
@@ -228,12 +342,56 @@ export function createConversationProjectionStore(): ConversationProjectionStore
         },
       };
       nextDiagnosticId = 1;
-      emit();
+      emit(["diagnostics"]);
     },
   };
 }
 
 export const conversationProjectionStore = createConversationProjectionStore();
+
+let queuedAgentUiProjectionEvents: AgentUiProjectionEvent[] = [];
+let agentUiProjectionFlushScheduled = false;
+
+function scheduleAgentUiProjectionFlush(task: () => void): void {
+  if (typeof queueMicrotask === "function") {
+    queueMicrotask(task);
+    return;
+  }
+  void Promise.resolve().then(task);
+}
+
+export function flushQueuedAgentUiProjectionEvents(): AgentUiProjectionEvent[] {
+  const queuedEvents = queuedAgentUiProjectionEvents;
+  queuedAgentUiProjectionEvents = [];
+  agentUiProjectionFlushScheduled = false;
+  if (queuedEvents.length === 0) {
+    return [];
+  }
+  return conversationProjectionStore.recordAgentUiProjectionEvents(
+    queuedEvents,
+  );
+}
+
+export function enqueueAgentUiProjectionEvents(
+  events: AgentUiProjectionEvent[],
+): void {
+  if (events.length === 0) {
+    return;
+  }
+  queuedAgentUiProjectionEvents.push(...events);
+  if (agentUiProjectionFlushScheduled) {
+    return;
+  }
+  agentUiProjectionFlushScheduled = true;
+  scheduleAgentUiProjectionFlush(() => {
+    flushQueuedAgentUiProjectionEvents();
+  });
+}
+
+function clearQueuedAgentUiProjectionEvents(): void {
+  queuedAgentUiProjectionEvents = [];
+  agentUiProjectionFlushScheduled = false;
+}
 
 export function selectConversationStreamDiagnostics(
   state: ConversationProjectionState,
@@ -257,11 +415,24 @@ export function selectAgentUiProjectionEvents(
   return selectAgentUiProjectionEventsFromStore(state.agentUi);
 }
 
+export function selectAgentUiProjectionEventsFromSlice(
+  agentUi: ConversationAgentUiProjectionSlice,
+): AgentUiProjectionEvent[] {
+  return selectAgentUiProjectionEventsFromStore(agentUi);
+}
+
 export function selectAgentUiProjectionEventsForScope(
   state: ConversationProjectionState,
   filter: AgentUiProjectionScopeFilter | null | undefined,
 ): AgentUiProjectionEvent[] {
   return selectAgentUiProjectionEventsForScopeFromStore(state.agentUi, filter);
+}
+
+export function selectAgentUiProjectionEventsForScopeFromSlice(
+  agentUi: ConversationAgentUiProjectionSlice,
+  filter: AgentUiProjectionScopeFilter | null | undefined,
+): AgentUiProjectionEvent[] {
+  return selectAgentUiProjectionEventsForScopeFromStore(agentUi, filter);
 }
 
 export function selectAgentUiProjectionEventsByType(
@@ -305,6 +476,18 @@ export function selectAgentUiProjectionEventsBySurfaceForScope(
   );
 }
 
+export function selectAgentUiProjectionEventsBySurfaceForScopeFromSlice(
+  agentUi: ConversationAgentUiProjectionSlice,
+  surface: AgentUiSurface,
+  filter: AgentUiProjectionScopeFilter | null | undefined,
+): AgentUiProjectionEvent[] {
+  return selectAgentUiProjectionEventsBySurfaceForScopeFromStore(
+    agentUi,
+    surface,
+    filter,
+  );
+}
+
 export function selectLatestAgentUiProjectionEventForScope(
   state: ConversationProjectionState,
   filter: AgentUiProjectionScopeFilter | null | undefined,
@@ -319,10 +502,7 @@ export function selectLatestAgentUiProjectionEventByType(
   state: ConversationProjectionState,
   type: AgentUiEventClass,
 ): AgentUiProjectionEvent | null {
-  return selectLatestAgentUiProjectionEventByTypeFromStore(
-    state.agentUi,
-    type,
-  );
+  return selectLatestAgentUiProjectionEventByTypeFromStore(state.agentUi, type);
 }
 
 export function selectLatestAgentUiProjectionEventForRun(
@@ -385,6 +565,7 @@ export function recordAgentUiProjectionEvents(
 }
 
 export function clearAgentUiProjectionEvents(): void {
+  clearQueuedAgentUiProjectionEvents();
   conversationProjectionStore.clearAgentUiProjectionEvents();
 }
 

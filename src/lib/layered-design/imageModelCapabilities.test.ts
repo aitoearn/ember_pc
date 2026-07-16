@@ -28,7 +28,7 @@ function createGenerationRequest(
 }
 
 describe("layered-design image model capabilities", () => {
-  it("应识别 gpt-image-2 与 Ember 内部 gpt-images-2 别名", () => {
+  it("应识别 gpt-image-2 与 Lime 内部 gpt-images-2 别名", () => {
     expect(isGptImage2Model("gpt-image-2")).toBe(true);
     expect(isGptImage2Model("gpt-images-2")).toBe(true);
     expect(isGptImage2Model("openai/gpt-images-2")).toBe(true);

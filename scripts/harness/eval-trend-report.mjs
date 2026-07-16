@@ -88,7 +88,7 @@ function parseArgs(argv) {
 
 function printHelp() {
   console.log(`
-Ember Harness Eval Trend Report
+Lime Harness Eval Trend Report
 
 用法:
   node scripts/harness/eval-trend-report.mjs
@@ -791,7 +791,7 @@ function renderText(report) {
 
 function renderMarkdown(report) {
   const lines = [
-    "# Ember Harness Eval Trend",
+    "# Lime Harness Eval Trend",
     "",
     `- 生成时间：${report.generatedAt}`,
     `- 样本数：${report.sampleCount}`,

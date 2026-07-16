@@ -60,7 +60,7 @@ export function createLastDelivery(
     success: false,
     message: "写入本地文件失败: permission denied",
     channel: "local_file",
-    target: "/tmp/ember/browser-output.json",
+    target: "/tmp/lime/browser-output.json",
     output_kind: "json",
     output_schema: "json",
     output_format: "json",
@@ -98,7 +98,7 @@ export function createBrowserJob(
     delivery: {
       mode: "announce",
       channel: "local_file",
-      target: "/tmp/ember/browser-output.json",
+      target: "/tmp/lime/browser-output.json",
       best_effort: false,
       output_schema: "json",
       output_format: "json",
@@ -135,6 +135,8 @@ export function createAgentTurnJob(
     payload: {
       kind: "agent_turn",
       prompt: "请输出日报摘要",
+      session_id: "session-agent-1",
+      thread_id: "thread-agent-1",
       system_prompt: null,
       web_search: false,
     },
@@ -195,7 +197,9 @@ export function createAutomationHealth(
   };
 }
 
-export function createAutomationRun(overrides: Partial<AgentRun> = {}): AgentRun {
+export function createAutomationRun(
+  overrides: Partial<AgentRun> = {},
+): AgentRun {
   return {
     id: "run-browser-1",
     source: "automation",
@@ -336,6 +340,8 @@ export function setupSceneAppAutomationMocks(mocks: AutomationMockSetters) {
     payload: {
       kind: "agent_turn",
       prompt: "请执行 SceneApp 自动化任务。",
+      session_id: "session-sceneapp-1",
+      thread_id: "thread-sceneapp-1",
       system_prompt: null,
       web_search: false,
       request_metadata: {
@@ -368,7 +374,7 @@ export function setupSceneAppAutomationMocks(mocks: AutomationMockSetters) {
       success: true,
       message: "写入成功",
       channel: "local_file",
-      target: "/tmp/ember/story-video-suite/brief.md",
+      target: "/tmp/lime/story-video-suite/brief.md",
       output_kind: "document",
       output_schema: "text",
       output_format: "text",
@@ -416,6 +422,8 @@ export function setupManagedObjectiveAutomationMocks(
     payload: {
       kind: "agent_turn",
       prompt: "请继续推进目标。",
+      session_id: "session-managed-objective-1",
+      thread_id: "thread-managed-objective-1",
       system_prompt: null,
       web_search: false,
       request_metadata: {
@@ -428,7 +436,7 @@ export function setupManagedObjectiveAutomationMocks(
             success_criteria: ["生成 Markdown", "附带证据包"],
             state: "active",
             last_evidence_pack_ref:
-              ".ember/harness/job-managed-objective-1/evidence",
+              ".lime/harness/job-managed-objective-1/evidence",
             last_artifact_refs: ["reports/daily.md"],
           },
         },

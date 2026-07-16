@@ -10,7 +10,7 @@ describe("imageWorkbenchStatusText", () => {
     const legacySummary = [
       "任务类型：image_generate",
       "任务 ID：task-image-skill-1",
-      "任务文件：.ember/tasks/image_generate/task-image-skill-1.json",
+      "任务文件：.lime/tasks/image_generate/task-image-skill-1.json",
       "状态：pending_submit",
     ].join("\n");
 

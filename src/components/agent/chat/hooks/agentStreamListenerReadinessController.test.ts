@@ -26,15 +26,15 @@ describe("agentStreamListenerReadinessController", () => {
     expect(
       extractAgentStreamRuntimeEventSchemaVersion({
         type: "turn.submitted",
-        schemaVersion: "ember-profile-0.4.0",
+        schemaVersion: "lime-profile-0.4.0",
       }),
-    ).toBe("ember-profile-0.4.0");
+    ).toBe("lime-profile-0.4.0");
     expect(
       extractAgentStreamRuntimeEventSchemaVersion({
         type: "turn.submitted",
-        schema_version: "ember-profile-0.4.0",
+        schema_version: "lime-profile-0.4.0",
       }),
-    ).toBe("ember-profile-0.4.0");
+    ).toBe("lime-profile-0.4.0");
     expect(
       extractAgentStreamRuntimeEventSchemaVersion({ schemaVersion: "   " }),
     ).toBeNull();

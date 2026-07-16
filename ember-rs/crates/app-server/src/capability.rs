@@ -5,7 +5,7 @@ use app_server_protocol::METHOD_AGENT_SESSION_READ;
 use app_server_protocol::METHOD_AGENT_SESSION_START;
 use app_server_protocol::METHOD_AGENT_SESSION_TURN_CANCEL;
 use app_server_protocol::METHOD_AGENT_SESSION_TURN_START;
-use ember_agent::agent_tools::catalog::{
+use lime_agent::agent_tools::catalog::{
     tool_catalog_entries_for_surface, ToolLifecycle, WorkspaceToolSurface,
 };
 use serde::Deserialize;

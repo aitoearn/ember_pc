@@ -5,7 +5,7 @@
 //! # 使用示例
 //!
 //! ```ignore
-//! use ember::stream::pipeline::{StreamPipeline, PipelineConfig};
+//! use lime::stream::pipeline::{StreamPipeline, PipelineConfig};
 //!
 //! let config = PipelineConfig::aws_event_stream_to_anthropic("claude-sonnet-4-5".to_string());
 //! let pipeline = StreamPipeline::new(config);

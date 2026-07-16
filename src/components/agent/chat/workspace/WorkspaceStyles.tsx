@@ -4,8 +4,12 @@ import { LayoutTransition } from "@/components/workspace/layout/LayoutTransition
 import type { LayoutMode } from "@/lib/workspace/workbenchContract";
 import type { SyncStatus } from "../hooks/useContentSync";
 import {
-  EMBER_STAGE_SURFACE,
-  EMBER_STAGE_SURFACE_SOFT,
+  FLOATING_CONVERSATION_CONTENT_WIDTH,
+  INLINE_CONVERSATION_CONTENT_WIDTH,
+} from "../styles/conversationLayoutTokens";
+import {
+  LIME_STAGE_SURFACE,
+  LIME_STAGE_SURFACE_SOFT,
 } from "./taskCenterChromeTokens";
 
 export const PageContainer = styled.div<{ $compact?: boolean }>`
@@ -14,16 +18,22 @@ export const PageContainer = styled.div<{ $compact?: boolean }>`
   width: 100%;
   position: relative;
   min-height: 0;
-  gap: ${({ $compact }) => ($compact ? "8px" : "20px")};
-  padding: ${({ $compact }) => ($compact ? "4px 10px 10px" : "12px 20px 20px")};
+  gap: ${({ $compact }) => ($compact ? "8px" : "16px")};
+  padding: ${({ $compact }) => ($compact ? "4px 10px 10px" : "10px 16px 16px")};
   box-sizing: border-box;
   overflow: hidden;
   isolation: isolate;
-  background: ${EMBER_STAGE_SURFACE};
+  background: ${LIME_STAGE_SURFACE};
 
   > * {
     position: relative;
     z-index: 1;
+  }
+
+  @media (max-width: 1440px) {
+    gap: ${({ $compact }) => ($compact ? "8px" : "12px")};
+    padding: ${({ $compact }) =>
+      $compact ? "4px 10px 10px" : "8px 12px 12px"};
   }
 `;
 
@@ -39,7 +49,7 @@ export const MainArea = styled.div<{
   overflow: hidden;
   position: relative;
   background: ${({ $taskCenterSurface }) =>
-    $taskCenterSurface ? EMBER_STAGE_SURFACE : "transparent"};
+    $taskCenterSurface ? LIME_STAGE_SURFACE : "transparent"};
   border: none;
   box-shadow: none;
 `;
@@ -66,9 +76,9 @@ export const AutoHideNavbarBackdrop = styled.button<{ $visible: boolean }>`
   margin: 0;
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--ember-surface-soft, #f8fcf9) 34%, transparent) 0%,
-    color-mix(in srgb, var(--ember-surface-soft, #f8fcf9) 52%, transparent) 26%,
-    color-mix(in srgb, var(--ember-surface-soft, #f8fcf9) 60%, transparent) 100%
+    color-mix(in srgb, var(--lime-surface-soft, #f8fcf9) 34%, transparent) 0%,
+    color-mix(in srgb, var(--lime-surface-soft, #f8fcf9) 52%, transparent) 26%,
+    color-mix(in srgb, var(--lime-surface-soft, #f8fcf9) 60%, transparent) 100%
   );
   backdrop-filter: blur(18px) saturate(1.04);
   opacity: ${({ $visible }) => ($visible ? 1 : 0)};
@@ -84,14 +94,14 @@ export const AutoHideNavbarHandle = styled.button<{ $visible: boolean }>`
   width: 28px;
   height: 28px;
   padding: 0;
-  border: 1px solid var(--ember-surface-border, rgba(226, 240, 226, 0.95));
+  border: 1px solid var(--lime-surface-border, rgba(226, 240, 226, 0.95));
   border-radius: 999px;
-  background: var(--ember-home-card-surface-strong);
+  background: var(--lime-home-card-surface-strong);
   color: ${({ $visible }) =>
     $visible
-      ? "var(--ember-text-strong, #0f172a)"
-      : "var(--ember-text-muted, #6b826b)"};
-  box-shadow: 0 10px 24px -18px var(--ember-shadow-color);
+      ? "var(--lime-text-strong, #0f172a)"
+      : "var(--lime-text-muted, #6b826b)"};
+  box-shadow: 0 10px 24px -18px var(--lime-shadow-color);
   pointer-events: auto;
   transition:
     color 0.16s ease,
@@ -100,8 +110,8 @@ export const AutoHideNavbarHandle = styled.button<{ $visible: boolean }>`
     transform 0.16s ease;
 
   &:hover {
-    color: var(--ember-text-strong, #0f172a);
-    border-color: var(--ember-surface-border-strong, #bbf7d0);
+    color: var(--lime-text-strong, #0f172a);
+    border-color: var(--lime-surface-border-strong, #bbf7d0);
     transform: translateY(-1px);
   }
 `;
@@ -130,28 +140,28 @@ function resolveContentSyncTone(status: SyncStatus): {
   switch (status) {
     case "syncing":
       return {
-        text: "var(--ember-text, #1a3b2b)",
-        background: "var(--ember-home-card-surface)",
-        border: "var(--ember-surface-border, rgba(226, 240, 226, 0.9))",
+        text: "var(--lime-text, #1a3b2b)",
+        background: "var(--lime-home-card-surface)",
+        border: "var(--lime-surface-border, rgba(226, 240, 226, 0.9))",
       };
     case "success":
       return {
-        text: "var(--ember-brand-strong, #166534)",
-        background: "var(--ember-brand-soft, #ecfdf5)",
-        border: "var(--ember-surface-border-strong, #bbf7d0)",
+        text: "var(--lime-brand-strong, #166534)",
+        background: "var(--lime-brand-soft, #ecfdf5)",
+        border: "var(--lime-surface-border-strong, #bbf7d0)",
       };
     case "error":
       return {
-        text: "var(--ember-danger, #be123c)",
-        background: "var(--ember-danger-soft, #fff1f2)",
-        border: "var(--ember-danger-border, #fecdd3)",
+        text: "var(--lime-danger, #be123c)",
+        background: "var(--lime-danger-soft, #fff1f2)",
+        border: "var(--lime-danger-border, #fecdd3)",
       };
     case "idle":
     default:
       return {
-        text: "var(--ember-text-muted, #6b826b)",
-        background: "var(--ember-home-card-surface)",
-        border: "var(--ember-surface-border, rgba(226, 240, 226, 0.88))",
+        text: "var(--lime-text-muted, #6b826b)",
+        background: "var(--lime-home-card-surface)",
+        border: "var(--lime-surface-border, rgba(226, 240, 226, 0.88))",
       };
   }
 }
@@ -197,31 +207,43 @@ export const ChatContainerInner = styled.div<{ $taskCenterSurface?: boolean }>`
   overflow: hidden;
   background: ${({ $taskCenterSurface }) =>
     $taskCenterSurface
-      ? EMBER_STAGE_SURFACE
-      : "var(--ember-stage-surface, var(--ember-app-bg, #f4f7f1))"};
+      ? LIME_STAGE_SURFACE
+      : "var(--lime-stage-surface, var(--lime-app-bg, #f4f7f1))"};
 `;
 
 export const EntryBanner = styled.div`
   display: flex;
-  align-items: center;
+  min-width: 0;
+  align-items: flex-start;
+  flex-wrap: wrap;
   gap: 8px;
-  margin: 8px 12px 0;
-  padding: 10px 12px;
-  border-radius: 18px;
-  border: 1px solid var(--ember-surface-border, rgba(226, 240, 226, 0.9));
-  background: var(--ember-home-card-surface);
-  color: var(--ember-text, #1a3b2b);
-  font-size: 13px;
+  margin: 6px 10px 0;
+  padding: 8px 10px;
+  border-radius: 16px;
+  border: 1px solid var(--lime-surface-border, rgba(226, 240, 226, 0.9));
+  background: var(--lime-home-card-surface);
+  color: var(--lime-text, #1a3b2b);
+  font-size: 12px;
+  line-height: 1.45;
   box-shadow: 0 10px 22px -20px rgba(15, 23, 42, 0.16);
+
+  > span {
+    min-width: 0;
+    flex: 1 1 240px;
+    overflow-wrap: anywhere;
+  }
 `;
 
 export const EntryBannerClose = styled.button`
   margin-left: auto;
+  align-self: flex-start;
   border: none;
   background: transparent;
-  color: var(--ember-text-muted, #6b826b);
+  color: var(--lime-text-muted, #6b826b);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: nowrap;
 `;
 
 export const ChatContent = styled.div<{ $compact?: boolean }>`
@@ -243,16 +265,18 @@ export const MessageViewport = styled.div<{ $bottomPadding?: string }>`
 
 export const ChatInputSlot = styled.div`
   flex: 0 0 auto;
-  width: min(calc(100% - 20px), 900px);
+  width: ${INLINE_CONVERSATION_CONTENT_WIDTH};
   max-width: 100%;
   margin: 0 auto;
 `;
 
-export const GeneralWorkbenchInputOverlay = styled.div`
+export const GeneralWorkbenchInputOverlay = styled.div<{
+  $bottomInset: string;
+}>`
   position: absolute;
   left: 24px;
   right: 24px;
-  bottom: 20px;
+  bottom: calc(20px + ${({ $bottomInset }) => $bottomInset});
   z-index: 25;
   pointer-events: none;
   display: flex;
@@ -261,7 +285,7 @@ export const GeneralWorkbenchInputOverlay = styled.div`
 
   > * {
     pointer-events: auto;
-    width: min(calc(100% - 16px), 900px);
+    width: ${FLOATING_CONVERSATION_CONTENT_WIDTH};
     max-width: 100%;
   }
 `;
@@ -276,17 +300,21 @@ export const GeneralWorkbenchLayoutShell = styled.div<{
   min-height: 0;
   box-sizing: border-box;
   background: ${({ $taskCenterSurface }) =>
-    $taskCenterSurface ? EMBER_STAGE_SURFACE_SOFT : "transparent"};
+    $taskCenterSurface ? LIME_STAGE_SURFACE_SOFT : "transparent"};
   padding-bottom: ${({ $bottomInset }) => $bottomInset};
   transition: padding-bottom 0.2s ease;
 `;
 
 const GeneralWorkbenchCanvasHost = styled.div`
   flex: 1;
+  width: 100%;
+  min-width: 0;
   min-height: 0;
 
   > * {
+    width: 100%;
     height: 100%;
+    min-width: 0;
   }
 `;
 
@@ -297,21 +325,21 @@ export const GeneralWorkbenchLeftExpandButton = styled.button`
   transform: translateY(-50%);
   width: 24px;
   height: 78px;
-  border: 1px solid var(--ember-surface-border, rgba(226, 240, 226, 0.92));
+  border: 1px solid var(--lime-surface-border, rgba(226, 240, 226, 0.92));
   border-radius: 14px;
-  background: var(--ember-home-card-surface);
-  color: var(--ember-text-muted, #6b826b);
+  background: var(--lime-home-card-surface);
+  color: var(--lime-text-muted, #6b826b);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   z-index: 30;
-  box-shadow: 0 14px 28px -24px var(--ember-shadow-color);
+  box-shadow: 0 14px 28px -24px var(--lime-shadow-color);
 
   &:hover {
-    color: var(--ember-text-strong, #0f172a);
-    border-color: var(--ember-surface-border-strong, #bbf7d0);
-    background: var(--ember-home-card-surface-strong);
+    color: var(--lime-text-strong, #0f172a);
+    border-color: var(--lime-surface-border-strong, #bbf7d0);
+    background: var(--lime-home-card-surface-strong);
   }
 `;
 
@@ -321,6 +349,8 @@ interface LayoutTransitionRenderGateProps {
   canvasContent: ReactNode;
   chatPanelWidth?: string;
   chatPanelMinWidth?: string;
+  chatPanelTopInset?: string;
+  canvasPanelTopInset?: string;
   forceOpenChatPanel?: boolean;
 }
 
@@ -331,6 +361,8 @@ export const LayoutTransitionRenderGate = memo(
     canvasContent,
     chatPanelWidth,
     chatPanelMinWidth,
+    chatPanelTopInset,
+    canvasPanelTopInset,
     forceOpenChatPanel = false,
   }: LayoutTransitionRenderGateProps) => (
     <GeneralWorkbenchCanvasHost>
@@ -341,6 +373,8 @@ export const LayoutTransitionRenderGate = memo(
         chatPanelChrome="plain"
         chatPanelWidth={chatPanelWidth}
         chatPanelMinWidth={chatPanelMinWidth}
+        chatPanelTopInset={chatPanelTopInset}
+        canvasPanelTopInset={canvasPanelTopInset}
         forceOpenChatPanel={forceOpenChatPanel}
       />
     </GeneralWorkbenchCanvasHost>
@@ -351,6 +385,8 @@ export const LayoutTransitionRenderGate = memo(
     previous.canvasContent === next.canvasContent &&
     previous.chatPanelWidth === next.chatPanelWidth &&
     previous.chatPanelMinWidth === next.chatPanelMinWidth &&
+    previous.chatPanelTopInset === next.chatPanelTopInset &&
+    previous.canvasPanelTopInset === next.canvasPanelTopInset &&
     previous.forceOpenChatPanel === next.forceOpenChatPanel,
 );
 
@@ -360,5 +396,8 @@ export const TEAM_PRIMARY_CHAT_PANEL_WIDTH =
   "min(100%, clamp(420px, 34%, 560px))";
 export const TEAM_PRIMARY_CHAT_PANEL_MIN_WIDTH = "400px";
 export const CODE_WORKBENCH_CHAT_PANEL_WIDTH =
-  "min(100%, clamp(360px, 28%, 460px))";
-export const CODE_WORKBENCH_CHAT_PANEL_MIN_WIDTH = "340px";
+  "min(100%, clamp(640px, 54%, 1180px))";
+export const CODE_WORKBENCH_CHAT_PANEL_MIN_WIDTH = "560px";
+export const RIGHT_SURFACE_CHAT_PANEL_WIDTH =
+  "min(100%, clamp(680px, 60%, 1040px))";
+export const RIGHT_SURFACE_CHAT_PANEL_MIN_WIDTH = "560px";

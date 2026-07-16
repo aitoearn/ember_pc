@@ -8,12 +8,13 @@ import {
   createClientDesktopAuthSession,
   claimClientReferral,
   getClientActiveAccessToken,
-  getClientAgentApps,
+  getClientPlugins,
   getClientCloudActivation,
   getClientCreditTopupOrder,
   getClientOrder,
   getClientBootstrap,
   getClientCreditsDashboard,
+  getClientPluginMarketplace,
   getClientSceneSkillPreferences,
   getPublicAuthCatalog,
   getClientProviderOffer,
@@ -25,30 +26,32 @@ import {
   listClientTopupPackages,
   pollClientDesktopAuthSession,
   rotateClientAccessToken,
-  submitClientAgentAppRegistrationCode,
+  reportClientPluginInstallState,
+  submitClientPluginMarketplaceRegistrationCode,
+  submitClientPluginRegistrationCode,
   updateClientSceneSkillPreferences,
 } from "./oemCloudControlPlane";
 
-const AGENT_APP_PACKAGE_HASH =
+const PLUGIN_PACKAGE_HASH =
   "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-const AGENT_APP_MANIFEST_HASH =
+const PLUGIN_MANIFEST_HASH =
   "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 describe("oemCloudControlPlane desktop auth", () => {
   beforeEach(() => {
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_SESSION_TOKEN__;
-    window.__EMBER_OEM_CLOUD__ = {
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_SESSION_TOKEN__;
+    window.__LIME_OEM_CLOUD__ = {
       enabled: true,
-      baseUrl: "https://user.emberai.run",
+      baseUrl: "https://user.limeai.run",
       tenantId: "tenant-0001",
     };
   });
 
   afterEach(() => {
-    delete window.__EMBER_BOOTSTRAP__;
-    delete window.__EMBER_OEM_CLOUD__;
-    delete window.__EMBER_SESSION_TOKEN__;
+    delete window.__LIME_BOOTSTRAP__;
+    delete window.__LIME_OEM_CLOUD__;
+    delete window.__LIME_SESSION_TOKEN__;
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -67,12 +70,12 @@ describe("oemCloudControlPlane desktop auth", () => {
           clientId: "desktop-client",
           clientName: "Desktop Client",
           provider: "google",
-          desktopRedirectUri: "ember://oauth/callback",
+          desktopRedirectUri: "lime://oauth/callback",
           status: "pending_login",
           expiresInSeconds: 600,
           pollIntervalSeconds: 2,
           authorizeUrl:
-            "https://user.emberai.run/oauth/desktop/device-code-001/authorize?provider=google",
+            "https://user.limeai.run/oauth/desktop/device-code-001/authorize?provider=google",
         },
       }),
     }));
@@ -81,11 +84,11 @@ describe("oemCloudControlPlane desktop auth", () => {
     const result = await createClientDesktopAuthSession("tenant-0001", {
       clientId: "desktop-client",
       provider: "google",
-      desktopRedirectUri: "ember://oauth/callback",
+      desktopRedirectUri: "lime://oauth/callback",
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://user.emberai.run/api/v1/public/tenants/tenant-0001/desktop/auth-sessions",
+      "https://user.limeai.run/api/v1/public/tenants/tenant-0001/desktop/auth-sessions",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
@@ -95,7 +98,7 @@ describe("oemCloudControlPlane desktop auth", () => {
         body: JSON.stringify({
           clientId: "desktop-client",
           provider: "google",
-          desktopRedirectUri: "ember://oauth/callback",
+          desktopRedirectUri: "lime://oauth/callback",
         }),
       }),
     );
@@ -106,12 +109,12 @@ describe("oemCloudControlPlane desktop auth", () => {
       clientId: "desktop-client",
       clientName: "Desktop Client",
       provider: "google",
-      desktopRedirectUri: "ember://oauth/callback",
+      desktopRedirectUri: "lime://oauth/callback",
       status: "pending_login",
       expiresInSeconds: 600,
       pollIntervalSeconds: 2,
       authorizeUrl:
-        "https://user.emberai.run/oauth/desktop/device-code-001/authorize?provider=google",
+        "https://user.limeai.run/oauth/desktop/device-code-001/authorize?provider=google",
     });
   });
 
@@ -141,7 +144,7 @@ describe("oemCloudControlPlane desktop auth", () => {
     const result = await pollClientDesktopAuthSession("device-code-001");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://user.emberai.run/api/v1/public/desktop/auth-sessions/device-code-001/poll",
+      "https://user.limeai.run/api/v1/public/desktop/auth-sessions/device-code-001/poll",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
@@ -193,7 +196,7 @@ describe("oemCloudControlPlane desktop auth", () => {
     const catalog = await getPublicAuthCatalog("tenant-0001");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://user.emberai.run/api/v1/public/tenants/tenant-0001/client/auth-catalog",
+      "https://user.limeai.run/api/v1/public/tenants/tenant-0001/client/auth-catalog",
       expect.objectContaining({
         method: "GET",
         headers: expect.objectContaining({
@@ -222,7 +225,7 @@ describe("oemCloudControlPlane desktop auth", () => {
   });
 
   it("应解析 bootstrap 中缓存的邀请开关与分享事实源", async () => {
-    window.__EMBER_SESSION_TOKEN__ = "session-token-001";
+    window.__LIME_SESSION_TOKEN__ = "session-token-001";
 
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -233,15 +236,15 @@ describe("oemCloudControlPlane desktop auth", () => {
         data: {
           session: {
             token: "session-token-001",
-            tenant: { id: "tenant-0001", name: "Ember" },
+            tenant: { id: "tenant-0001", name: "Lime" },
             user: { id: "user-001", displayName: "晚风" },
             session: { id: "session-001", provider: "google" },
           },
           app: {
             id: "app-001",
-            key: "ember",
-            name: "Ember",
-            slug: "ember",
+            key: "lime",
+            name: "Lime",
+            slug: "lime",
             category: "official",
             status: "active",
             distributionChannels: ["desktop"],
@@ -258,8 +261,8 @@ describe("oemCloudControlPlane desktop auth", () => {
           features: {
             referralEnabled: true,
           },
-          agentAppCatalog: {
-            schemaVersion: "agent-app-cloud-bootstrap/v1",
+          pluginCatalog: {
+            schemaVersion: "plugin-cloud-bootstrap/v1",
             tenantId: "tenant-0001",
             generatedAt: "2026-05-15T00:00:00.000Z",
             apps: [
@@ -275,12 +278,12 @@ describe("oemCloudControlPlane desktop auth", () => {
                 licenseState: "active",
                 enabled: true,
                 packageUrl:
-                  "https://packages.embercloud.example/apps/content-factory-app-0.3.0.lapp",
-                packageHash: AGENT_APP_PACKAGE_HASH,
-                manifestHash: AGENT_APP_MANIFEST_HASH,
+                  "https://packages.limecloud.example/apps/content-factory-app-0.3.0.lapp",
+                packageHash: PLUGIN_PACKAGE_HASH,
+                manifestHash: PLUGIN_MANIFEST_HASH,
                 capabilityRequirements: {
-                  "ember.ui": "^0.3.0",
-                  "ember.storage": "^0.3.0",
+                  "lime.ui": "^0.3.0",
+                  "lime.storage": "^0.3.0",
                 },
                 defaultEntries: ["dashboard"],
                 policyDefaults: {
@@ -320,11 +323,11 @@ describe("oemCloudControlPlane desktop auth", () => {
             rewards: [],
             invitedBy: {},
             share: {
-              brandName: "Ember",
+              brandName: "Lime",
               code: "LIME-2026",
               landingUrl: "https://limeai.run/invite?code=LIME-2026",
               downloadUrl: "https://limeai.run",
-              shareText: "邀请你体验Ember",
+              shareText: "邀请你体验Lime",
             },
           },
         },
@@ -335,7 +338,7 @@ describe("oemCloudControlPlane desktop auth", () => {
     const bootstrap = await getClientBootstrap("tenant-0001");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://user.emberai.run/api/v1/public/tenants/tenant-0001/client/bootstrap",
+      "https://user.limeai.run/api/v1/public/tenants/tenant-0001/client/bootstrap",
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: "Bearer session-token-001",
@@ -344,21 +347,21 @@ describe("oemCloudControlPlane desktop auth", () => {
     );
     expect(bootstrap.features.referralEnabled).toBe(true);
     expect(bootstrap.referral?.share).toMatchObject({
-      brandName: "Ember",
+      brandName: "Lime",
       code: "LIME-2026",
       downloadUrl: "https://limeai.run",
     });
-    expect(bootstrap.agentAppCatalog?.apps[0]).toMatchObject({
+    expect(bootstrap.pluginCatalog?.apps[0]).toMatchObject({
       appId: "content-factory-app",
       releaseId: "release-001",
-      packageHash: AGENT_APP_PACKAGE_HASH,
-      manifestHash: AGENT_APP_MANIFEST_HASH,
+      packageHash: PLUGIN_PACKAGE_HASH,
+      manifestHash: PLUGIN_MANIFEST_HASH,
       enabled: true,
     });
   });
 
-  it("应通过正式 client/agent-apps 接口读取 Agent App 云目录", async () => {
-    window.__EMBER_SESSION_TOKEN__ = "session-token-001";
+  it("应通过正式 client/plugins 接口读取 Plugin 云目录", async () => {
+    window.__LIME_SESSION_TOKEN__ = "session-token-001";
 
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -367,7 +370,7 @@ describe("oemCloudControlPlane desktop auth", () => {
         code: 200,
         message: "success",
         data: {
-          schemaVersion: "agent-app-cloud-bootstrap/v1",
+          schemaVersion: "plugin-cloud-bootstrap/v1",
           tenantId: "tenant-0001",
           generatedAt: "2026-05-15T00:00:00.000Z",
           fetchedAt: "2026-05-15T00:00:01.000Z",
@@ -385,12 +388,12 @@ describe("oemCloudControlPlane desktop auth", () => {
               enabled: false,
               disabledReason: "license revoked",
               packageUrl:
-                "https://packages.embercloud.example/apps/content-factory-app-0.3.0.lapp",
-              packageHash: AGENT_APP_PACKAGE_HASH,
-              manifestHash: AGENT_APP_MANIFEST_HASH,
+                "https://packages.limecloud.example/apps/content-factory-app-0.3.0.lapp",
+              packageHash: PLUGIN_PACKAGE_HASH,
+              manifestHash: PLUGIN_MANIFEST_HASH,
               capabilityRequirements: {
-                "ember.ui": "^0.3.0",
-                "ember.storage": "^0.3.0",
+                "lime.ui": "^0.3.0",
+                "lime.storage": "^0.3.0",
               },
               defaultEntries: ["dashboard"],
               policyDefaults: {
@@ -410,10 +413,10 @@ describe("oemCloudControlPlane desktop auth", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const catalog = await getClientAgentApps("tenant-0001");
+    const catalog = await getClientPlugins("tenant-0001");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://user.emberai.run/api/v1/public/tenants/tenant-0001/client/agent-apps",
+      "https://user.limeai.run/api/v1/public/tenants/tenant-0001/client/plugins",
       expect.objectContaining({
         method: "GET",
         headers: expect.objectContaining({
@@ -423,7 +426,7 @@ describe("oemCloudControlPlane desktop auth", () => {
       }),
     );
     expect(catalog).toMatchObject({
-      schemaVersion: "agent-app-cloud-bootstrap/v1",
+      schemaVersion: "plugin-cloud-bootstrap/v1",
       tenantId: "tenant-0001",
       apps: [
         {
@@ -436,8 +439,8 @@ describe("oemCloudControlPlane desktop auth", () => {
     });
   });
 
-  it("应提交 Agent App 注册码并解析刷新后的云目录", async () => {
-    window.__EMBER_SESSION_TOKEN__ = "session-token-001";
+  it("应通过正式 client/plugins/marketplace 接口读取插件市场目录", async () => {
+    window.__LIME_SESSION_TOKEN__ = "session-token-001";
 
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -446,7 +449,103 @@ describe("oemCloudControlPlane desktop auth", () => {
         code: 200,
         message: "success",
         data: {
-          schemaVersion: "agent-app-cloud-bootstrap/v1",
+          schemaVersion: "plugin-marketplace/v1",
+          tenantId: "tenant-0001",
+          generatedAt: "2026-06-25T00:00:00.000Z",
+          marketplaceName: "limecloud",
+          marketplaceDisplayName: "LimeCloud Marketplace",
+          items: [
+            {
+              pluginKey: "research-kit@embercloud",
+              pluginName: "research-kit",
+              marketplaceName: "limecloud",
+              marketplaceDisplayName: "LimeCloud Marketplace",
+              displayName: "Research Kit",
+              description: "Research plugin package",
+              version: "1.2.3",
+              category: "research",
+              categories: ["research"],
+              keywords: ["research", "research-style"],
+              capabilities: ["lime.skills"],
+              sourceKind: "plugin_catalog",
+              sourceRef: "release-001",
+              appId: "research-kit",
+              enabled: true,
+              installState: "available",
+              activationState: "activatable",
+              policy: {
+                installation: "AVAILABLE",
+                authentication: "ON_USE",
+              },
+              package: {
+                releaseId: "release-001",
+                packageUrl:
+                  "https://packages.limecloud.example/plugins/research-kit-1.2.3.lpkg",
+                packageHash: PLUGIN_PACKAGE_HASH,
+                manifestHash: PLUGIN_MANIFEST_HASH,
+              },
+              manifestSummary: {
+                name: "research-kit",
+              },
+            },
+          ],
+        },
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const marketplace = await getClientPluginMarketplace("tenant-0001", {
+      query: "research style",
+      category: "research",
+      sort: "name",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://user.limeai.run/api/v1/public/tenants/tenant-0001/client/plugins/marketplace?query=research+style&category=research&sort=name",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          Accept: "application/json",
+          Authorization: "Bearer session-token-001",
+        }),
+      }),
+    );
+    expect(marketplace).toMatchObject({
+      schemaVersion: "plugin-marketplace/v1",
+      tenantId: "tenant-0001",
+      marketplaceName: "limecloud",
+      items: [
+        {
+          pluginKey: "research-kit@embercloud",
+          pluginName: "research-kit",
+          sourceKind: "plugin_catalog",
+          installState: "available",
+          activationState: "activatable",
+          policy: {
+            installation: "AVAILABLE",
+            authentication: "ON_USE",
+          },
+          package: {
+            releaseId: "release-001",
+            packageHash: PLUGIN_PACKAGE_HASH,
+            manifestHash: PLUGIN_MANIFEST_HASH,
+          },
+        },
+      ],
+    });
+  });
+
+  it("应提交 Plugin 注册码并解析刷新后的云目录", async () => {
+    window.__LIME_SESSION_TOKEN__ = "session-token-001";
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        code: 200,
+        message: "success",
+        data: {
+          schemaVersion: "plugin-cloud-bootstrap/v1",
           tenantId: "tenant-0001",
           generatedAt: "2026-05-15T00:02:00.000Z",
           apps: [
@@ -458,9 +557,9 @@ describe("oemCloudControlPlane desktop auth", () => {
               registrationState: "active",
               enabled: true,
               packageUrl:
-                "https://packages.embercloud.example/apps/content-factory-app-0.3.0.lapp",
-              packageHash: AGENT_APP_PACKAGE_HASH,
-              manifestHash: AGENT_APP_MANIFEST_HASH,
+                "https://packages.limecloud.example/apps/content-factory-app-0.3.0.lapp",
+              packageHash: PLUGIN_PACKAGE_HASH,
+              manifestHash: PLUGIN_MANIFEST_HASH,
               capabilityRequirements: {},
               defaultEntries: ["dashboard"],
               policyDefaults: {},
@@ -472,14 +571,14 @@ describe("oemCloudControlPlane desktop auth", () => {
     }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const catalog = await submitClientAgentAppRegistrationCode(
+    const catalog = await submitClientPluginRegistrationCode(
       "tenant-0001",
       "content-factory-app",
       { code: "CF-REG-2026" },
     );
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://user.emberai.run/api/v1/public/tenants/tenant-0001/client/agent-apps/content-factory-app/registration",
+      "https://user.limeai.run/api/v1/public/tenants/tenant-0001/client/plugins/content-factory-app/registration",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ code: "CF-REG-2026" }),
@@ -492,12 +591,153 @@ describe("oemCloudControlPlane desktop auth", () => {
       appId: "content-factory-app",
       registrationRequired: true,
       registrationState: "active",
-      packageHash: AGENT_APP_PACKAGE_HASH,
+      packageHash: PLUGIN_PACKAGE_HASH,
+    });
+  });
+
+  it("应提交原生插件注册码并解析刷新后的插件市场目录", async () => {
+    window.__LIME_SESSION_TOKEN__ = "session-token-001";
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        code: 200,
+        message: "success",
+        data: {
+          schemaVersion: "plugin-marketplace/v1",
+          tenantId: "tenant-0001",
+          generatedAt: "2026-06-25T00:03:00.000Z",
+          marketplaceName: "limecloud",
+          items: [
+            {
+              pluginKey: "research-kit@embercloud",
+              pluginName: "research-kit",
+              marketplaceName: "limecloud",
+              displayName: "Research Kit",
+              description: "Research plugin package",
+              version: "1.2.3",
+              category: "research",
+              categories: ["research"],
+              sourceKind: "plugin_catalog",
+              sourceRef: "release-001",
+              enabled: true,
+              installState: "available",
+              activationState: "activatable",
+              policy: {
+                installation: "AVAILABLE",
+                authentication: "ON_INSTALL",
+              },
+              package: {
+                releaseId: "release-001",
+                packageUrl:
+                  "https://packages.limecloud.example/plugins/research-kit-1.2.3.lpkg",
+                packageHash: PLUGIN_PACKAGE_HASH,
+                manifestHash: PLUGIN_MANIFEST_HASH,
+              },
+            },
+          ],
+        },
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const catalog = await submitClientPluginMarketplaceRegistrationCode(
+      "tenant-0001",
+      "research-kit",
+      { code: "PLUGIN-REG-2026" },
+      "limecloud",
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://user.limeai.run/api/v1/public/tenants/tenant-0001/client/plugins/research-kit/registration?marketplaceName=limecloud",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ code: "PLUGIN-REG-2026" }),
+        headers: expect.objectContaining({
+          Authorization: "Bearer session-token-001",
+        }),
+      }),
+    );
+    expect(catalog.items[0]).toMatchObject({
+      pluginKey: "research-kit@embercloud",
+      sourceKind: "plugin_catalog",
+      installState: "available",
+      activationState: "activatable",
+      package: {
+        releaseId: "release-001",
+        packageHash: PLUGIN_PACKAGE_HASH,
+      },
+    });
+  });
+
+  it("应上报客户端插件安装态并解析服务端记录", async () => {
+    window.__LIME_SESSION_TOKEN__ = "session-token-001";
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        code: 200,
+        message: "success",
+        data: {
+          tenantId: "tenant-0001",
+          userId: "user-001",
+          pluginName: "research-kit",
+          marketplaceName: "limecloud",
+          pluginKey: "research-kit@embercloud",
+          sourceKind: "plugin_catalog",
+          sourceRef: "release-001",
+          state: "enabled",
+          releaseId: "release-001",
+          packageHash: PLUGIN_PACKAGE_HASH,
+          manifestHash: PLUGIN_MANIFEST_HASH,
+          reportedAt: "2026-06-26T08:00:00.000Z",
+          updatedAt: "2026-06-26T08:00:01.000Z",
+        },
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const report = await reportClientPluginInstallState(
+      "tenant-0001",
+      "research-kit",
+      {
+        state: "enabled",
+        releaseId: "release-001",
+        packageHash: PLUGIN_PACKAGE_HASH,
+        manifestHash: PLUGIN_MANIFEST_HASH,
+        reportedAt: "2026-06-26T08:00:00.000Z",
+      },
+      "limecloud",
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://user.limeai.run/api/v1/public/tenants/tenant-0001/client/plugins/research-kit/install-state?marketplaceName=limecloud",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          state: "enabled",
+          releaseId: "release-001",
+          packageHash: PLUGIN_PACKAGE_HASH,
+          manifestHash: PLUGIN_MANIFEST_HASH,
+          reportedAt: "2026-06-26T08:00:00.000Z",
+        }),
+        headers: expect.objectContaining({
+          Authorization: "Bearer session-token-001",
+        }),
+      }),
+    );
+    expect(report).toMatchObject({
+      pluginKey: "research-kit@embercloud",
+      sourceKind: "plugin_catalog",
+      state: "enabled",
+      packageHash: PLUGIN_PACKAGE_HASH,
     });
   });
 
   it("应读取并更新首页场景技能偏好", async () => {
-    window.__EMBER_SESSION_TOKEN__ = "session-token-001";
+    window.__LIME_SESSION_TOKEN__ = "session-token-001";
 
     const preferencePayload = {
       tenantId: "tenant-0001",
@@ -554,7 +794,7 @@ describe("oemCloudControlPlane desktop auth", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "https://user.emberai.run/api/v1/public/tenants/tenant-0001/client/scene-skill-preferences",
+      "https://user.limeai.run/api/v1/public/tenants/tenant-0001/client/scene-skill-preferences",
       expect.objectContaining({
         method: "GET",
         headers: expect.objectContaining({
@@ -564,7 +804,7 @@ describe("oemCloudControlPlane desktop auth", () => {
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "https://user.emberai.run/api/v1/public/tenants/tenant-0001/client/scene-skill-preferences",
+      "https://user.limeai.run/api/v1/public/tenants/tenant-0001/client/scene-skill-preferences",
       expect.objectContaining({
         method: "PUT",
         body: JSON.stringify({
@@ -577,7 +817,7 @@ describe("oemCloudControlPlane desktop auth", () => {
   });
 
   it("应解析服务端下发的云端治理字段", async () => {
-    window.__EMBER_SESSION_TOKEN__ = "session-token-001";
+    window.__LIME_SESSION_TOKEN__ = "session-token-001";
 
     const fetchMock = vi
       .fn()
@@ -590,8 +830,8 @@ describe("oemCloudControlPlane desktop auth", () => {
           data: {
             items: [
               {
-                providerKey: "ember-hub-main",
-                displayName: "Ember Hub 主服务",
+                providerKey: "lime-hub-main",
+                displayName: "Lime Hub 主服务",
                 source: "oem_cloud",
                 state: "available_ready",
                 visible: true,
@@ -621,8 +861,8 @@ describe("oemCloudControlPlane desktop auth", () => {
           code: 200,
           message: "success",
           data: {
-            providerKey: "ember-hub-main",
-            displayName: "Ember Hub 主服务",
+            providerKey: "lime-hub-main",
+            displayName: "Lime Hub 主服务",
             source: "oem_cloud",
             state: "available_ready",
             visible: true,
@@ -653,7 +893,7 @@ describe("oemCloudControlPlane desktop auth", () => {
 
     const [offers, detail] = await Promise.all([
       listClientProviderOffers("tenant-0001"),
-      getClientProviderOffer("tenant-0001", "ember-hub-main"),
+      getClientProviderOffer("tenant-0001", "lime-hub-main"),
     ]);
 
     expect(offers[0]).toMatchObject({
@@ -680,7 +920,7 @@ describe("oemCloudControlPlane desktop auth", () => {
   });
 
   it("应解析服务端直接下发的 OEM 模型 taxonomy 字段", async () => {
-    window.__EMBER_SESSION_TOKEN__ = "session-token-001";
+    window.__LIME_SESSION_TOKEN__ = "session-token-001";
 
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -719,7 +959,7 @@ describe("oemCloudControlPlane desktop auth", () => {
 
     const models = await listClientProviderOfferModels(
       "tenant-0001",
-      "ember-hub-main",
+      "lime-hub-main",
     );
 
     expect(models).toEqual([
@@ -739,7 +979,7 @@ describe("oemCloudControlPlane desktop auth", () => {
   });
 
   it("应读取客户端邀请看板并以云端 share 作为事实源", async () => {
-    window.__EMBER_SESSION_TOKEN__ = "session-token-001";
+    window.__LIME_SESSION_TOKEN__ = "session-token-001";
 
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -778,12 +1018,12 @@ describe("oemCloudControlPlane desktop auth", () => {
           rewards: [],
           invitedBy: {},
           share: {
-            brandName: "Ember",
+            brandName: "Lime",
             code: "LIME-2026",
             landingUrl: "https://limeai.run/invite?code=LIME-2026",
             downloadUrl: "https://limeai.run",
             shareText:
-              "邀请你体验Ember，让AI做牛做马，我们来做牛人！前往 https://limeai.run 下载客户端，复制邀请码 LIME-2026 激活并注册账号参与内测",
+              "邀请你体验Lime，让AI做牛做马，我们来做牛人！前往 https://limeai.run 下载客户端，复制邀请码 LIME-2026 激活并注册账号参与内测",
             headline: "登录后自动领取奖励",
             rules: "复制邀请码后完成注册即可参与内测。",
           },
@@ -795,7 +1035,7 @@ describe("oemCloudControlPlane desktop auth", () => {
     const dashboard = await getClientReferralDashboard("tenant-0001");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://user.emberai.run/api/v1/public/tenants/tenant-0001/client/referral",
+      "https://user.limeai.run/api/v1/public/tenants/tenant-0001/client/referral",
       expect.objectContaining({
         method: "GET",
         headers: expect.objectContaining({
@@ -806,7 +1046,7 @@ describe("oemCloudControlPlane desktop auth", () => {
     );
     expect(dashboard.share).toEqual(
       expect.objectContaining({
-        brandName: "Ember",
+        brandName: "Lime",
         code: "LIME-2026",
         downloadUrl: "https://limeai.run",
       }),
@@ -816,7 +1056,7 @@ describe("oemCloudControlPlane desktop auth", () => {
   });
 
   it("应调用客户端邀请码领取接口", async () => {
-    window.__EMBER_SESSION_TOKEN__ = "session-token-001";
+    window.__LIME_SESSION_TOKEN__ = "session-token-001";
 
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -849,7 +1089,7 @@ describe("oemCloudControlPlane desktop auth", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://user.emberai.run/api/v1/public/tenants/tenant-0001/client/referrals/claim",
+      "https://user.limeai.run/api/v1/public/tenants/tenant-0001/client/referrals/claim",
       expect.objectContaining({
         method: "POST",
         headers: expect.objectContaining({
@@ -868,15 +1108,15 @@ describe("oemCloudControlPlane desktop auth", () => {
   });
 
   it("应接入套餐、积分、订单和 API Key 控制面接口", async () => {
-    window.__EMBER_SESSION_TOKEN__ = "session-token-001";
+    window.__LIME_SESSION_TOKEN__ = "session-token-001";
 
     const accessToken = {
       id: "token-001",
       tenantId: "tenant-0001",
       userId: "user-001",
       name: "Desktop Key",
-      tokenMasked: "sk-ember-***abcd",
-      tokenPrefix: "sk-ember-abcd",
+      tokenMasked: "sk-lime-***abcd",
+      tokenPrefix: "sk-lime-abcd",
       scopes: ["llm:invoke"],
       allowedModels: ["glm-4.6"],
       status: "active",
@@ -993,8 +1233,8 @@ describe("oemCloudControlPlane desktop auth", () => {
               tenantId: "tenant-0001",
               provider: "epay",
               displayName: "易支付",
-              notifyUrl: "https://user.emberai.run/pay/notify",
-              returnUrl: "https://user.emberai.run/pay/return",
+              notifyUrl: "https://user.limeai.run/pay/notify",
+              returnUrl: "https://user.limeai.run/pay/return",
               enabled: true,
               methods: [
                 {
@@ -1028,14 +1268,14 @@ describe("oemCloudControlPlane desktop auth", () => {
       .mockResolvedValueOnce(response({ items: [topupPackage] }))
       .mockResolvedValueOnce(response({ hasActive: true, token: accessToken }))
       .mockResolvedValueOnce(
-        response({ token: accessToken, apiKey: "sk-ember-new" }, 201),
+        response({ token: accessToken, apiKey: "sk-lime-new" }, 201),
       )
       .mockResolvedValueOnce(
         response(
           {
             previousToken: { ...accessToken, status: "revoked" },
             newToken: { ...accessToken, id: "token-002" },
-            apiKey: "sk-ember-rotated",
+            apiKey: "sk-lime-rotated",
           },
           200,
         ),
@@ -1099,17 +1339,17 @@ describe("oemCloudControlPlane desktop auth", () => {
       getClientActiveAccessToken("tenant-0001"),
     ).resolves.toMatchObject({
       hasActive: true,
-      token: { tokenMasked: "sk-ember-***abcd" },
+      token: { tokenMasked: "sk-lime-***abcd" },
     });
     await expect(
       createClientAccessToken("tenant-0001", {
         name: "Desktop Key",
         scopes: ["llm:invoke"],
       }),
-    ).resolves.toMatchObject({ apiKey: "sk-ember-new" });
+    ).resolves.toMatchObject({ apiKey: "sk-lime-new" });
     await expect(
       rotateClientAccessToken("tenant-0001", "token-001"),
-    ).resolves.toMatchObject({ apiKey: "sk-ember-rotated" });
+    ).resolves.toMatchObject({ apiKey: "sk-lime-rotated" });
     await expect(
       createClientOrder("tenant-0001", {
         planId: "plan-pro",
@@ -1144,7 +1384,7 @@ describe("oemCloudControlPlane desktop auth", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://user.emberai.run/api/v1/public/tenants/tenant-0001/client/orders",
+      "https://user.limeai.run/api/v1/public/tenants/tenant-0001/client/orders",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
@@ -1156,7 +1396,7 @@ describe("oemCloudControlPlane desktop auth", () => {
       }),
     );
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://user.emberai.run/api/v1/public/tenants/tenant-0001/client/orders/order-001/checkout",
+      "https://user.limeai.run/api/v1/public/tenants/tenant-0001/client/orders/order-001/checkout",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ paymentMethod: "alipay" }),
@@ -1165,15 +1405,15 @@ describe("oemCloudControlPlane desktop auth", () => {
   });
 
   it("应解析云端激活聚合状态和订单详情", async () => {
-    window.__EMBER_SESSION_TOKEN__ = "session-token-001";
+    window.__LIME_SESSION_TOKEN__ = "session-token-001";
 
     const paymentConfig = {
       id: "pay-alipay",
       tenantId: "tenant-0001",
       provider: "epay",
       displayName: "易支付",
-      notifyUrl: "https://user.emberai.run/pay/notify",
-      returnUrl: "https://user.emberai.run/pay/return",
+      notifyUrl: "https://user.limeai.run/pay/notify",
+      returnUrl: "https://user.limeai.run/pay/return",
       enabled: true,
       methods: [{ key: "alipay", displayName: "支付宝", enabled: true }],
       providerOptions: { payAddress: "https://pay.example.com" },
@@ -1253,7 +1493,7 @@ describe("oemCloudControlPlane desktop auth", () => {
     };
     const model = {
       id: "model-kimi-coding",
-      offerId: "offer-emberhub",
+      offerId: "offer-limehub",
       modelId: "kimi-coding-plan",
       displayName: "Kimi Coding Plan",
       abilities: ["Coding", "Anthropic 协议"],
@@ -1273,17 +1513,17 @@ describe("oemCloudControlPlane desktop auth", () => {
       .mockResolvedValueOnce(
         response({
           gateway: {
-            basePath: "https://llm.emberai.run",
-            openAIBaseUrl: "https://llm.emberai.run/v1",
-            anthropicBaseUrl: "https://llm.emberai.run",
+            basePath: "https://llm.limeai.run",
+            openAIBaseUrl: "https://llm.limeai.run/v1",
+            anthropicBaseUrl: "https://llm.limeai.run",
             chatCompletionsPath: "/v1/chat/completions",
             authorizationHeader: "Authorization",
             authorizationScheme: "Bearer",
-            tenantHeader: "X-Ember-Tenant-ID",
+            tenantHeader: "X-Lime-Tenant-ID",
           },
-          llmBaseUrl: "https://llm.emberai.run",
-          openAIBaseUrl: "https://llm.emberai.run/v1",
-          anthropicBaseUrl: "https://llm.emberai.run",
+          llmBaseUrl: "https://llm.limeai.run",
+          openAIBaseUrl: "https://llm.limeai.run/v1",
+          anthropicBaseUrl: "https://llm.limeai.run",
           readiness: {
             status: "payment_pending",
             title: "存在待支付订单",
@@ -1327,8 +1567,8 @@ describe("oemCloudControlPlane desktop auth", () => {
           },
           providerOffers: [
             {
-              providerKey: "emberhub",
-              displayName: "EmberHub",
+              providerKey: "limehub",
+              displayName: "LimeHub",
               source: "oem_cloud",
               state: "available_ready",
               visible: true,
@@ -1348,8 +1588,8 @@ describe("oemCloudControlPlane desktop auth", () => {
             },
           ],
           selectedOffer: {
-            providerKey: "emberhub",
-            displayName: "EmberHub",
+            providerKey: "limehub",
+            displayName: "LimeHub",
             source: "oem_cloud",
             state: "available_ready",
             visible: true,
@@ -1367,7 +1607,7 @@ describe("oemCloudControlPlane desktop auth", () => {
             availableModelCount: 1,
             fallbackToLocalAllowed: false,
             access: {
-              offerId: "offer-emberhub",
+              offerId: "offer-limehub",
               accessMode: "session",
               hubTokenEnabled: true,
             },
@@ -1377,7 +1617,7 @@ describe("oemCloudControlPlane desktop auth", () => {
             tenantId: "tenant-0001",
             userId: "user-001",
             providerSource: "oem_cloud",
-            providerKey: "emberhub",
+            providerKey: "limehub",
             needsValidation: false,
             updatedAt: "2026-04-27T00:00:00.000Z",
           },
@@ -1394,8 +1634,8 @@ describe("oemCloudControlPlane desktop auth", () => {
     await expect(
       getClientCloudActivation("tenant-0001"),
     ).resolves.toMatchObject({
-      openAIBaseUrl: "https://llm.emberai.run/v1",
-      gateway: { tenantHeader: "X-Ember-Tenant-ID" },
+      openAIBaseUrl: "https://llm.limeai.run/v1",
+      gateway: { tenantHeader: "X-Lime-Tenant-ID" },
       readiness: { status: "payment_pending" },
       pendingPayment: { orderId: "order-001" },
       providerModels: [{ modelId: "kimi-coding-plan" }],
@@ -1412,7 +1652,7 @@ describe("oemCloudControlPlane desktop auth", () => {
   });
 
   it("客户端激活应容忍未开通订阅只返回状态摘要", async () => {
-    window.__EMBER_SESSION_TOKEN__ = "session-token-001";
+    window.__LIME_SESSION_TOKEN__ = "session-token-001";
     const response = (data: unknown) => ({
       ok: true,
       status: 200,
@@ -1421,8 +1661,8 @@ describe("oemCloudControlPlane desktop auth", () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
       response({
         gateway: {
-          basePath: "https://llm.emberai.run",
-          openAIBaseUrl: "https://llm.emberai.run/v1",
+          basePath: "https://llm.limeai.run",
+          openAIBaseUrl: "https://llm.limeai.run/v1",
         },
         readiness: {
           status: "ready",

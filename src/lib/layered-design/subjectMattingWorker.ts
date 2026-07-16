@@ -5,11 +5,11 @@ import type {
 } from "./subjectMatting";
 
 export const LAYERED_DESIGN_SUBJECT_MATTING_WORKER_REQUEST =
-  "ember.layered_design.subject_matting.request" as const;
+  "lime.layered_design.subject_matting.request" as const;
 export const LAYERED_DESIGN_SUBJECT_MATTING_WORKER_RESULT =
-  "ember.layered_design.subject_matting.result" as const;
+  "lime.layered_design.subject_matting.result" as const;
 export const LAYERED_DESIGN_SUBJECT_MATTING_WORKER_ERROR =
-  "ember.layered_design.subject_matting.error" as const;
+  "lime.layered_design.subject_matting.error" as const;
 
 export interface LayeredDesignSubjectMattingWorkerRequest {
   type: typeof LAYERED_DESIGN_SUBJECT_MATTING_WORKER_REQUEST;

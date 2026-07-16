@@ -1,6 +1,6 @@
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { AgentRuntimeReviewDecisionTemplate } from "@/lib/api/agentRuntime";
+import type { AgentRuntimeReviewDecisionTemplate } from "@/lib/api/agentRuntime/evidenceTypes";
 import {
   findButtonByText,
   mountHarnessElement,
@@ -21,19 +21,19 @@ describe("HarnessStatusPanel reviewGuard", () => {
       workspace_id: "workspace-review-user-lock",
       workspace_root: "/tmp/workspace-review-user-lock",
       review_relative_root:
-        ".ember/harness/sessions/session-review-user-lock/review",
+        ".lime/harness/sessions/session-review-user-lock/review",
       review_absolute_root:
-        "/tmp/workspace-review-user-lock/.ember/harness/sessions/session-review-user-lock/review",
+        "/tmp/workspace-review-user-lock/.lime/harness/sessions/session-review-user-lock/review",
       analysis_relative_root:
-        ".ember/harness/sessions/session-review-user-lock/analysis",
+        ".lime/harness/sessions/session-review-user-lock/analysis",
       analysis_absolute_root:
-        "/tmp/workspace-review-user-lock/.ember/harness/sessions/session-review-user-lock/analysis",
+        "/tmp/workspace-review-user-lock/.lime/harness/sessions/session-review-user-lock/analysis",
       handoff_bundle_relative_root:
-        ".ember/harness/sessions/session-review-user-lock",
+        ".lime/harness/sessions/session-review-user-lock",
       evidence_pack_relative_root:
-        ".ember/harness/sessions/session-review-user-lock/evidence",
+        ".lime/harness/sessions/session-review-user-lock/evidence",
       replay_case_relative_root:
-        ".ember/harness/sessions/session-review-user-lock/replay",
+        ".lime/harness/sessions/session-review-user-lock/replay",
       exported_at: "2026-05-06T10:00:00.000Z",
       title: "模型锁定能力缺口审核",
       thread_status: "failed",
@@ -131,7 +131,6 @@ describe("HarnessStatusPanel reviewGuard", () => {
         model: "gpt-5.4",
         executionStrategy: "react",
         activeTheme: "default",
-        selectedTeamLabel: null,
       },
     });
 

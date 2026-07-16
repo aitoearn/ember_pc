@@ -13,11 +13,13 @@ import styled from "styled-components";
 import { useTranslation } from "react-i18next";
 import { withI18nPatch } from "./i18n/withI18nPatch";
 import { AppPageContent } from "./components/AppPageContent";
+import type { AgentBackgroundSessionRuntimeSnapshot } from "./components/agent/chat";
+import { AppServerConfigWarningToastBridge } from "./components/AppServerConfigWarningToastBridge";
+import { McpServerElicitationDialog } from "./components/agent/chat/components/McpServerElicitationDialog";
 import { SplashScreen } from "./components/SplashScreen";
 import { AppSidebar } from "./components/AppSidebar";
 import { startupTracker } from "./lib/diagnostics/startupPerformance";
 import { preloadDefaultProject } from "./lib/api/project";
-import { prefetchDeviceAutomationStartup } from "./features/device-automation/deviceAutomationPrefetch";
 import {
   ProjectType,
   createProject,
@@ -31,10 +33,10 @@ import { useAppNavigation } from "./hooks/useAppNavigation";
 import { useAppShellLayout } from "./hooks/useAppShellLayout";
 import { useAppStartupEffects } from "./hooks/useAppStartupEffects";
 import { useGlobalTrayModelSync } from "./hooks/useGlobalTrayModelSync";
-import { useOemEmberHubProviderSync } from "./hooks/useOemEmberHubProviderSync";
+import { useClawTraceRegressionAlertMonitor } from "./hooks/useClawTraceRegressionAlertMonitor";
+import { useOemLimeHubProviderSync } from "./hooks/useOemLimeHubProviderSync";
 import { useSkillPackageOpenRequests } from "./hooks/useSkillPackageOpenRequests";
 import { ComponentDebugProvider } from "./contexts/ComponentDebugContext";
-import { SoundProvider } from "./contexts/SoundProvider";
 import { ComponentDebugOverlay } from "./components/dev";
 import {
   useResourceManagerNavigationIntents,
@@ -62,12 +64,23 @@ import {
   listenOpenVoiceModelSettingsRequest,
   persistVoiceModelSettingsFocusRequest,
 } from "./lib/voiceModelSettingsNavigation";
+import type { PluginRightSurfaceLaunchTarget } from "./features/plugin/ui/pluginRightSurfaceLaunch";
+import { normalizePluginRightSurfaceLaunchTarget } from "./features/plugin/ui/pluginLaunchTargetPolicy";
+import {
+  DEFAULT_PLUGIN_RIGHT_SURFACE_TARGET_LIMIT,
+  loadPluginRightSurfaceLaunchTargetsFromStorage,
+  savePluginRightSurfaceLaunchTargetsToStorage,
+  upsertPluginRightSurfaceLaunchTarget,
+  type PluginLaunchTargetStorage,
+} from "./features/plugin/ui/pluginLaunchTargetPersistence";
+import type { AgentPageParams } from "./types/page";
+import { McpServerElicitationController } from "./lib/api/mcpServerElicitation";
 
 const AppContainer = styled.div`
   display: flex;
   height: 100vh;
   width: 100vw;
-  background: var(--ember-app-bg, hsl(var(--background)));
+  background: var(--lime-app-bg, hsl(var(--background)));
   overflow: hidden;
 `;
 
@@ -78,10 +91,11 @@ const MainContent = styled.main<{ $withSidebarGap?: boolean }>`
   flex-direction: column;
   min-height: 0;
   padding-left: ${(props) => (props.$withSidebarGap ? "10px" : "0")};
-  background: var(--ember-app-bg, hsl(var(--background)));
+  background: var(--lime-app-bg, hsl(var(--background)));
 `;
 
 const WINDOW_DRAG_TOP_HEIGHT = 30;
+const WINDOW_DRAG_TOP_HANDLE_WIDTH = 360;
 const WINDOW_DRAG_EDGE_WIDTH = 8;
 const WINDOW_DRAG_DEFAULT_SAFE_LEFT = 160;
 const WINDOW_DRAG_MAC_SAFE_LEFT = 92;
@@ -100,7 +114,7 @@ const WindowTopDragRegion = styled.div<{ $reserveMacWindowControls?: boolean }>`
     $reserveMacWindowControls
       ? `${WINDOW_DRAG_MAC_SAFE_LEFT}px`
       : `${WINDOW_DRAG_DEFAULT_SAFE_LEFT}px`};
-  right: 0;
+  width: ${WINDOW_DRAG_TOP_HANDLE_WIDTH}px;
   height: ${WINDOW_DRAG_TOP_HEIGHT}px;
   pointer-events: auto;
   user-select: none;
@@ -135,6 +149,33 @@ const ConnectConfirmDialog = lazy(() =>
     default: module.ConnectConfirmDialog,
   })),
 );
+
+interface AgentSessionTargetState {
+  active: PluginRightSurfaceLaunchTarget | null;
+  recent: PluginRightSurfaceLaunchTarget[];
+}
+
+function getAgentSessionTargetStorage(): PluginLaunchTargetStorage | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function loadInitialAgentSessionTargetState(): AgentSessionTargetState {
+  const recent = loadPluginRightSurfaceLaunchTargetsFromStorage(
+    getAgentSessionTargetStorage(),
+  );
+  return {
+    active: recent[0] ?? null,
+    recent,
+  };
+}
+
 function AppContent() {
   startupTracker.mark("AppContent: render start");
 
@@ -143,15 +184,33 @@ function AppContent() {
   const nativeStartupScreenAvailable = hasNativeStartupScreen();
   const reserveMacWindowControls = shouldReserveMacWindowControls();
   const [showSplash, setShowSplash] = useState(!nativeStartupScreenAvailable);
+  const [mcpServerElicitationController] = useState(
+    () => new McpServerElicitationController(),
+  );
   const {
     currentPage,
     pageParams,
     requestedPage,
     requestedPageParams,
-    navigationRequestId,
     handleNavigate,
   } = useAppNavigation();
   const [agentHasMessages, setAgentHasMessages] = useState(false);
+  const [activeAgentSessionId, setActiveAgentSessionId] = useState<
+    string | null
+  >(null);
+  const [activeAgentStreaming, setActiveAgentStreaming] = useState(false);
+  const [backgroundAgentSessionRuntime, setBackgroundAgentSessionRuntime] =
+    useState<AgentBackgroundSessionRuntimeSnapshot | null>(null);
+  const [agentSessionTargetState, setAgentSessionTargetState] =
+    useState<AgentSessionTargetState>(loadInitialAgentSessionTargetState);
+  const activeAgentPage = requestedPage ?? currentPage;
+  const activeAgentPageParams = requestedPageParams ?? pageParams;
+  const activeAgentRouteSessionId =
+    activeAgentPage === "agent"
+      ? ((
+          activeAgentPageParams as AgentPageParams | undefined
+        )?.initialSessionId?.trim() ?? null)
+      : null;
 
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [pendingRecommendation, setPendingRecommendation] = useState<{
@@ -162,9 +221,14 @@ function AppContent() {
   } | null>(null);
 
   useSkillCatalogBootstrap();
+  useEffect(
+    () => mcpServerElicitationController.attach(),
+    [mcpServerElicitationController],
+  );
   useServiceSkillCatalogBootstrap();
   useSiteAdapterCatalogBootstrap();
-  useOemEmberHubProviderSync();
+  useOemLimeHubProviderSync();
+  useClawTraceRegressionAlertMonitor();
   const handleResourceManagerNavigationHandled = useCallback(
     ({
       destination,
@@ -296,7 +360,7 @@ function AppContent() {
 
         const title = resolveWebsiteSkillTitle(payload.slug) ?? payload.slug;
         try {
-          await installOfficialMarketplaceSkill(payload.slug, "ember");
+          await installOfficialMarketplaceSkill(payload.slug, "lime");
           toast.success(
             t("common.app.websiteDeepLink.install.success.title", { title }),
             {
@@ -394,9 +458,6 @@ function AppContent() {
 
     // Splash 完成后立即预加载默认项目
     preloadDefaultProject();
-    if (hasDesktopHostInvokeCapability()) {
-      prefetchDeviceAutomationStartup();
-    }
   }, []);
 
   useEffect(() => {
@@ -406,15 +467,63 @@ function AppContent() {
 
     startupTracker.mark("Native startup screen: renderer ready");
     preloadDefaultProject();
-    if (hasDesktopHostInvokeCapability()) {
-      prefetchDeviceAutomationStartup();
-    }
     hideNativeStartupOverlayWhenReady();
   }, [nativeStartupScreenAvailable, showSplash]);
 
   const handleWindowDragStart = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
       void startWindowDragFromMouseEvent(event, { source: "app_shell" });
+    },
+    [],
+  );
+  useEffect(() => {
+    savePluginRightSurfaceLaunchTargetsToStorage(
+      getAgentSessionTargetStorage(),
+      agentSessionTargetState.recent,
+    );
+  }, [agentSessionTargetState.recent]);
+  useEffect(() => {
+    if (activeAgentPage !== "agent") {
+      setActiveAgentSessionId(null);
+      setActiveAgentStreaming(false);
+      return;
+    }
+
+    setActiveAgentSessionId(activeAgentRouteSessionId);
+  }, [activeAgentPage, activeAgentRouteSessionId]);
+
+  const handleAgentSessionTargetChange = useCallback(
+    (target: PluginRightSurfaceLaunchTarget | null) => {
+      const normalized = normalizePluginRightSurfaceLaunchTarget(target);
+      if (!normalized?.sessionId) {
+        setAgentSessionTargetState((current) => ({
+          ...current,
+          active: null,
+        }));
+        return;
+      }
+      setAgentSessionTargetState((current) => {
+        const recent = upsertPluginRightSurfaceLaunchTarget(
+          current.recent,
+          normalized,
+          DEFAULT_PLUGIN_RIGHT_SURFACE_TARGET_LIMIT,
+        );
+        return {
+          active: recent[0] ?? normalized,
+          recent,
+        };
+      });
+    },
+    [],
+  );
+  const handleBackgroundSessionRuntimeChange = useCallback(
+    (snapshot: AgentBackgroundSessionRuntimeSnapshot | null) => {
+      const sessionId = snapshot?.sessionId.trim();
+      if (!sessionId || !snapshot) {
+        setBackgroundAgentSessionRuntime(null);
+        return;
+      }
+      setBackgroundAgentSessionRuntime({ sessionId, status: snapshot.status });
     },
     [],
   );
@@ -427,99 +536,110 @@ function AppContent() {
   startupTracker.mark("AppContent: rendering main app");
 
   return (
-    <SoundProvider>
-      <ComponentDebugProvider>
-        <AppContainer>
-          {hasDesktopHostRuntime ? (
-            <WindowDragLayer aria-hidden="true">
-              <WindowTopDragRegion
-                $reserveMacWindowControls={reserveMacWindowControls}
-                data-ember-window-drag-region
-                onMouseDown={handleWindowDragStart}
-              />
-              <WindowSideDragRegion
-                $side="left"
-                data-ember-window-drag-region
-                onMouseDown={handleWindowDragStart}
-              />
-              <WindowSideDragRegion
-                $side="right"
-                data-ember-window-drag-region
-                onMouseDown={handleWindowDragStart}
-              />
-            </WindowDragLayer>
-          ) : null}
-          {shouldShowAppSidebar && (
-            <AppSidebar
+    <ComponentDebugProvider>
+      <AppContainer>
+        {hasDesktopHostRuntime ? (
+          <WindowDragLayer aria-hidden="true">
+            <WindowTopDragRegion
+              $reserveMacWindowControls={reserveMacWindowControls}
+              data-lime-window-drag-region
+              onMouseDown={handleWindowDragStart}
+            />
+            <WindowSideDragRegion
+              $side="left"
+              data-lime-window-drag-region
+              onMouseDown={handleWindowDragStart}
+            />
+            <WindowSideDragRegion
+              $side="right"
+              data-lime-window-drag-region
+              onMouseDown={handleWindowDragStart}
+            />
+          </WindowDragLayer>
+        ) : null}
+        {shouldShowAppSidebar && (
+          <AppSidebar
+            currentPage={currentPage}
+            currentPageParams={pageParams}
+            activeAgentSessionId={activeAgentSessionId}
+            activeAgentStreaming={activeAgentStreaming}
+            backgroundAgentSessionRuntime={backgroundAgentSessionRuntime}
+            requestedPage={requestedPage}
+            requestedPageParams={requestedPageParams}
+            onNavigate={handleNavigate}
+            onStartWindowDrag={handleWindowDragStart}
+          />
+        )}
+        <MainContent
+          $withSidebarGap={shouldAddMainContentGap}
+          data-lime-window-drag-region
+          onMouseDown={(event) => {
+            void startWindowDragFromMouseEvent(event, {
+              allowDescendantTargets: false,
+              source: "main_content",
+            });
+          }}
+        >
+          <Suspense fallback={pageLoadingFallback}>
+            <AppPageContent
               currentPage={currentPage}
-              currentPageParams={pageParams}
+              pageParams={pageParams}
               requestedPage={requestedPage}
               requestedPageParams={requestedPageParams}
               onNavigate={handleNavigate}
-              onStartWindowDrag={handleWindowDragStart}
+              onAgentHasMessagesChange={setAgentHasMessages}
+              onAgentSessionChange={setActiveAgentSessionId}
+              onAgentStreamingChange={setActiveAgentStreaming}
+              onBackgroundSessionRuntimeChange={
+                handleBackgroundSessionRuntimeChange
+              }
+              activeAgentSessionTarget={agentSessionTargetState.active}
+              agentSessionTargets={agentSessionTargetState.recent}
+              onAgentSessionTargetChange={handleAgentSessionTargetChange}
             />
-          )}
-          <MainContent
-            className="ember-workbench-theme-scope"
-            $withSidebarGap={shouldAddMainContentGap}
-            data-ember-window-drag-region
-            onMouseDown={(event) => {
-              void startWindowDragFromMouseEvent(event, {
-                allowDescendantTargets: false,
-                source: "main_content",
-              });
+          </Suspense>
+        </MainContent>
+        <Suspense fallback={null}>
+          <RecentImageInsertFloating onNavigate={handleNavigate} />
+        </Suspense>
+
+        <Suspense fallback={null}>
+          <ConnectConfirmDialog
+            open={isDialogOpen}
+            relay={relayInfo}
+            relayId={connectPayload?.relay ?? ""}
+            apiKey={connectPayload?.key ?? ""}
+            keyName={connectPayload?.name}
+            isVerified={isVerified}
+            isSaving={isSaving}
+            error={error}
+            onConfirm={handleConfirm}
+            onCancel={handleCancel}
+          />
+        </Suspense>
+
+        <Suspense fallback={null}>
+          <CreateProjectDialog
+            open={projectDialogOpen}
+            onOpenChange={(open) => {
+              setProjectDialogOpen(open);
+              if (!open) {
+                setPendingRecommendation(null);
+              }
             }}
-          >
-            <Suspense fallback={pageLoadingFallback}>
-              <AppPageContent
-                currentPage={currentPage}
-                pageParams={pageParams}
-                requestedPage={requestedPage}
-                requestedPageParams={requestedPageParams}
-                navigationRequestId={navigationRequestId}
-                onNavigate={handleNavigate}
-                onAgentHasMessagesChange={setAgentHasMessages}
-              />
-            </Suspense>
-          </MainContent>
-          <Suspense fallback={null}>
-            <RecentImageInsertFloating onNavigate={handleNavigate} />
-          </Suspense>
+            onSubmit={handleCreateProjectFromRecommendation}
+            defaultType={pendingRecommendation?.projectType}
+            defaultName={pendingRecommendation?.projectName}
+          />
+        </Suspense>
 
-          <Suspense fallback={null}>
-            <ConnectConfirmDialog
-              open={isDialogOpen}
-              relay={relayInfo}
-              relayId={connectPayload?.relay ?? ""}
-              apiKey={connectPayload?.key ?? ""}
-              keyName={connectPayload?.name}
-              isVerified={isVerified}
-              isSaving={isSaving}
-              error={error}
-              onConfirm={handleConfirm}
-              onCancel={handleCancel}
-            />
-          </Suspense>
-
-          <Suspense fallback={null}>
-            <CreateProjectDialog
-              open={projectDialogOpen}
-              onOpenChange={(open) => {
-                setProjectDialogOpen(open);
-                if (!open) {
-                  setPendingRecommendation(null);
-                }
-              }}
-              onSubmit={handleCreateProjectFromRecommendation}
-              defaultType={pendingRecommendation?.projectType}
-              defaultName={pendingRecommendation?.projectName}
-            />
-          </Suspense>
-
-          <ComponentDebugOverlay />
-        </AppContainer>
-      </ComponentDebugProvider>
-    </SoundProvider>
+        <ComponentDebugOverlay />
+        <AppServerConfigWarningToastBridge />
+        <McpServerElicitationDialog
+          controller={mcpServerElicitationController}
+        />
+      </AppContainer>
+    </ComponentDebugProvider>
   );
 }
 

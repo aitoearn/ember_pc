@@ -84,7 +84,7 @@ if (entryFilePath && currentFilePath === entryFilePath) {
   const repoRoot = path.resolve(path.dirname(currentFilePath), "..");
   const version = readWorkspaceAppVersion(repoRoot);
   if (!version) {
-    console.error("[ember] 无法从 ember-rs/Cargo.toml 读取 workspace 版本");
+    console.error("[lime] 无法从 ember-rs/Cargo.toml 读取 workspace 版本");
     process.exit(1);
   }
   process.stdout.write(version);

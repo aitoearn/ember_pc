@@ -72,10 +72,63 @@ describe("ToolCallDisplay site and media results", () => {
     expect(container.textContent).not.toContain("skill_markdown_content");
   });
 
+  it("完整 SkillTool 结果卡应隐藏 gate proof 协议包络", () => {
+    const { container } = renderTool({
+      id: "skill:gate-proof-1",
+      name: "Skill",
+      arguments: JSON.stringify({
+        skill: "analysis",
+        input: "分析当前问题",
+      }),
+      status: "completed",
+      result: {
+        success: true,
+        output: JSON.stringify({
+          phase: "skill_tool_gate.completed",
+          request: {
+            toolName: "SkillTool",
+            skillName: "analysis",
+          },
+          decision: {
+            action: "allow",
+            gate: "workspaceSkillRuntimeEnableAttached",
+          },
+          result: {
+            status: "allowed",
+          },
+          sourceMetadata: {
+            source: "skill-source-session",
+            permissionBehavior: "workspaceSkillRuntimeEnableAttached",
+          },
+        }),
+      },
+      startTime: new Date("2026-06-21T12:05:00.000Z"),
+      endTime: new Date("2026-06-21T12:05:01.000Z"),
+    });
+
+    act(() => {
+      const toggle = container.querySelector(
+        'button[title="查看结果"]',
+      ) as HTMLButtonElement | null;
+      toggle?.click();
+    });
+
+    expect(
+      container.querySelector('[data-testid="tool-call-rendered-result"]'),
+    ).not.toBeNull();
+    expect(container.textContent).toContain("已执行技能 analysis");
+    expect(container.textContent).not.toContain("permissionBehavior");
+    expect(container.textContent).not.toContain(
+      "workspaceSkillRuntimeEnableAttached",
+    );
+    expect(container.textContent).not.toContain("sourceMetadata");
+    expect(container.textContent).not.toContain("skill-source-session");
+  });
+
   it("站点能力工具结果应展示自动保存结果与脚本来源", () => {
     const { container } = renderTool({
       id: "tool-site-run-1",
-      name: "ember_site_run",
+      name: "lime_site_run",
       arguments: JSON.stringify({
         adapter_name: "github/search",
         args: { query: "mcp" },
@@ -140,10 +193,10 @@ describe("ToolCallDisplay site and media results", () => {
     const { container } = renderTool(
       {
         id: "tool-site-run-open-1",
-        name: "ember_site_run",
+        name: "lime_site_run",
         arguments: JSON.stringify({
           adapter_name: "github/search",
-          args: { query: "ember" },
+          args: { query: "lime" },
         }),
         status: "completed",
         result: {
@@ -154,7 +207,7 @@ describe("ToolCallDisplay site and media results", () => {
             saved_content: {
               content_id: "content-open-1",
               project_id: "project-open-1",
-              title: "Ember 搜索结果",
+              title: "Lime 搜索结果",
             },
             saved_by: "context_project",
           },
@@ -182,7 +235,7 @@ describe("ToolCallDisplay site and media results", () => {
     expect(onOpenSavedSiteContent).toHaveBeenCalledWith({
       projectId: "project-open-1",
       contentId: "content-open-1",
-      title: "Ember 搜索结果",
+      title: "Lime 搜索结果",
     });
   });
 
@@ -191,7 +244,7 @@ describe("ToolCallDisplay site and media results", () => {
     const { container } = renderTool(
       {
         id: "tool-site-run-open-markdown-1",
-        name: "ember_site_run",
+        name: "lime_site_run",
         arguments: JSON.stringify({
           adapter_name: "x/article",
           args: { url: "https://x.com/google/article/1" },
@@ -246,7 +299,7 @@ describe("ToolCallDisplay site and media results", () => {
   it("工具结果图片预览浮层应使用浅色主题遮罩", () => {
     const { container } = renderTool({
       id: "tool-image-preview-1",
-      name: "ember_image_search",
+      name: "lime_image_search",
       arguments: JSON.stringify({ query: "青绿色海报" }),
       status: "completed",
       result: {
@@ -292,14 +345,14 @@ describe("ToolCallDisplay site and media results", () => {
   it("图片生成任务失败结果面板不应展示内部协议错误", () => {
     const { container } = renderTool({
       id: "tool-image-generate-failed-1",
-      name: "ember_create_image_generation_task",
+      name: "lime_create_image_generation_task",
       arguments: JSON.stringify({
         prompt: "A comic book style illustration of a formal statue",
       }),
       status: "failed",
       result: {
         success: false,
-        error: "-32603: -32002: ember_create_image_generation_task",
+        error: "-32603: -32002: lime_create_image_generation_task",
         output: "",
       },
       startTime: new Date("2026-05-14T10:22:00.000Z"),
@@ -323,21 +376,21 @@ describe("ToolCallDisplay site and media results", () => {
     expect(container.textContent).not.toContain("-32603");
     expect(container.textContent).not.toContain("-32002");
     expect(container.textContent).not.toContain(
-      "ember_create_image_generation_task",
+      "lime_create_image_generation_task",
     );
   });
 
   it("内容工作台任务失败结果面板不应展示内部协议错误", () => {
     const { container } = renderTool({
       id: "tool-video-generate-failed-1",
-      name: "ember_create_video_generation_task",
+      name: "lime_create_video_generation_task",
       arguments: JSON.stringify({
         prompt: "生成一个产品演示视频",
       }),
       status: "failed",
       result: {
         success: false,
-        error: "-32603: -32002: ember_create_video_generation_task",
+        error: "-32603: -32002: lime_create_video_generation_task",
         output: "",
       },
       startTime: new Date("2026-05-14T10:22:00.000Z"),
@@ -347,7 +400,7 @@ describe("ToolCallDisplay site and media results", () => {
     expect(container.textContent).toContain("视频生成失败");
     expect(container.textContent).not.toContain("-32603");
     expect(container.textContent).not.toContain(
-      "ember_create_video_generation_task",
+      "lime_create_video_generation_task",
     );
 
     act(() => {
@@ -360,17 +413,17 @@ describe("ToolCallDisplay site and media results", () => {
     expect(container.textContent).toContain("视频生成失败");
     expect(container.textContent).not.toContain("-32002");
     expect(container.textContent).not.toContain(
-      "ember_create_video_generation_task",
+      "lime_create_video_generation_task",
     );
   });
 
   it("站点能力工具失败时应展示未保存原因", () => {
     const { container } = renderTool({
       id: "tool-site-run-2",
-      name: "ember_site_run",
+      name: "lime_site_run",
       arguments: JSON.stringify({
         adapter_name: "zhihu/search",
-        args: { query: "ember" },
+        args: { query: "lime" },
       }),
       status: "failed",
       result: {

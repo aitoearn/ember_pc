@@ -57,7 +57,7 @@ describe("AgentThreadTimelineViewModel", () => {
           "运行时权限声明需要真实确认，当前 turn 已在模型执行前等待用户确认：confirmationStatus=not_requested，askProfileKeys=web_search。已创建真实权限确认请求；请确认后重试或恢复本轮执行。",
       }),
       baseItem("artifact-hidden", "file_artifact", {
-        path: ".ember/tasks/image_generate/task-image-1.json",
+        path: ".lime/tasks/image_generate/task-image-1.json",
         content: "{}",
       }),
       baseItem("tool-1", "tool_call", {
@@ -106,7 +106,7 @@ describe("AgentThreadTimelineViewModel", () => {
     ).toBe("default");
   });
 
-  it("应让历史完成单条 reasoning 默认只显示摘要壳，结构化 reasoning 则 inline 展示", () => {
+  it("应让历史完成单条 reasoning 默认保留摘要壳，结构化预览继续 inline", () => {
     const reasoningBlock = block({
       items: [
         baseItem("reasoning-1", "reasoning", {
@@ -126,7 +126,7 @@ describe("AgentThreadTimelineViewModel", () => {
       }),
     ).toMatchObject({
       isThinkingOnlyBlock: true,
-      shouldSummarizeSingleThinkingInline: true,
+      shouldSummarizeSingleThinkingInline: false,
       shouldRenderSingleItemInline: false,
       shouldMaterializeDetailEntries: false,
     });
@@ -134,6 +134,40 @@ describe("AgentThreadTimelineViewModel", () => {
     expect(
       buildTimelineBlockRenderPlan({
         block: reasoningBlock,
+        isExpanded: false,
+        preferInlineDetails: false,
+        deferCompletedSingleDetails: true,
+        hasStructuredThinkingInlinePreview: hasStructuredPreview,
+      }),
+    ).toMatchObject({
+      shouldRenderSingleItemInline: true,
+      shouldMaterializeDetailEntries: false,
+    });
+
+    const turnSummaryBlock = block({
+      items: [
+        baseItem("summary-1", "turn_summary", {
+          text: "已完成思考",
+        }),
+      ],
+    });
+
+    expect(
+      buildTimelineBlockRenderPlan({
+        block: turnSummaryBlock,
+        isExpanded: false,
+        preferInlineDetails: false,
+        deferCompletedSingleDetails: true,
+        hasStructuredThinkingInlinePreview: noStructuredPreview,
+      }),
+    ).toMatchObject({
+      shouldSummarizeSingleThinkingInline: true,
+      shouldRenderSingleItemInline: false,
+    });
+
+    expect(
+      buildTimelineBlockRenderPlan({
+        block: turnSummaryBlock,
         isExpanded: false,
         preferInlineDetails: false,
         deferCompletedSingleDetails: true,
@@ -213,6 +247,44 @@ describe("AgentThreadTimelineViewModel", () => {
       shouldRenderArtifactCardsInline: true,
       shouldMaterializeDetailEntries: true,
       shouldRenderSingleItemInline: false,
+    });
+  });
+
+  it("本地历史导入过程块即使是完成态历史，也应允许默认物化详情", () => {
+    expect(
+      buildTimelineBlockRenderPlan({
+        block: block({
+          kind: "process",
+          status: "completed",
+          defaultExpanded: true,
+          forceExpanded: true,
+          items: [
+            baseItem("command-imported", "command_execution", {
+              command: "npm test",
+              cwd: "/workspace/imported-codex",
+              metadata: {
+                imported: true,
+                source_client: "codex",
+              },
+            }),
+            baseItem("search-imported", "web_search", {
+              query: "Lime history import",
+              action: "search_query",
+              metadata: {
+                imported: true,
+                source_client: "codex",
+              },
+            }),
+          ],
+        }),
+        isExpanded: true,
+        preferInlineDetails: false,
+        deferCompletedSingleDetails: true,
+        hasStructuredThinkingInlinePreview: noStructuredPreview,
+      }),
+    ).toMatchObject({
+      shouldRenderGroupedToolRows: true,
+      shouldMaterializeDetailEntries: true,
     });
   });
 });

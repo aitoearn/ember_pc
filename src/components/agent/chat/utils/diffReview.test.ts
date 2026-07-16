@@ -47,7 +47,7 @@ describe("diffReview", () => {
         "-const count = 1;",
         "+const count = 2;",
         "+const enabled = true;",
-        " export const name = \"ember\";",
+        " export const name = \"lime\";",
       ].join("\n"),
     );
 
@@ -108,12 +108,12 @@ describe("diffReview", () => {
           updatedCount: 1,
         },
       ],
-      { fallbackPath: ".ember/artifacts/thread/demo.artifact.json" },
+      { fallbackPath: ".lime/artifacts/thread/demo.artifact.json" },
     );
 
     expect(summary).not.toBeNull();
     expect(summary?.files[0]?.path).toBe(
-      ".ember/artifacts/thread/demo.artifact.json",
+      ".lime/artifacts/thread/demo.artifact.json",
     );
     expect(summary?.additions).toBe(2);
     expect(summary?.deletions).toBe(1);
@@ -136,7 +136,7 @@ describe("diffReview", () => {
         "+const ready = true;",
         "*** Update File: README.md",
         "@@",
-        "+Ember supports diff review.",
+        "+Lime supports diff review.",
         "*** End Patch",
       ].join("\n"),
     );
@@ -188,7 +188,7 @@ describe("diffReview", () => {
         "+const newPanel = true;",
         "*** Update File: README.md",
         "@@",
-        "+Ember supports file tree review.",
+        "+Lime supports file tree review.",
         "*** End Patch",
       ].join("\n"),
     );
@@ -236,7 +236,7 @@ describe("diffReview", () => {
         "--- a/src/app.ts",
         "+++ b/src/app.ts",
         "@@ -1,3 +1,4 @@",
-        " export const name = \"ember\";",
+        " export const name = \"lime\";",
         "-const count = 1;",
         "+const count = 2;",
         "+const enabled = true;",
@@ -257,8 +257,8 @@ describe("diffReview", () => {
         }),
         expect.objectContaining({
           kind: "context",
-          before: 'export const name = "ember";',
-          after: 'export const name = "ember";',
+          before: 'export const name = "lime";',
+          after: 'export const name = "lime";',
         }),
         expect.objectContaining({
           kind: "change",

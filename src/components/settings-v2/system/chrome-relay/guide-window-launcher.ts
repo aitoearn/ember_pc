@@ -8,7 +8,7 @@ export type { BrowserConnectorGuideMode };
 
 const GUIDE_ROUTE = "/browser-connector-guide";
 const GUIDE_WINDOW_SHELL_ROUTE = "index.html";
-const GUIDE_WINDOW_ROUTE_PARAM = "ember_window";
+const GUIDE_WINDOW_ROUTE_PARAM = "lime_window";
 const GUIDE_WINDOW_ROUTE_ID = "browser-connector-guide";
 
 export function buildBrowserConnectorGuideUrl(

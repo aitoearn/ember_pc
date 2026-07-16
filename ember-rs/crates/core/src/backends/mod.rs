@@ -23,8 +23,8 @@
 //! # 使用示例
 //!
 //! ```ignore
-//! use ember::backends::KiroBackend;
-//! use ember::backends::traits::Backend;
+//! use lime::backends::KiroBackend;
+//! use lime::backends::traits::Backend;
 //!
 //! let backend = KiroBackend::new(credentials);
 //! let response = backend.call_stream(&cw_request).await?;

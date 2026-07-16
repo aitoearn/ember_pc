@@ -14,7 +14,7 @@ const DEFAULTS = {
   intervalMs: 1_000,
   evidenceDir: path.join(
     process.cwd(),
-    ".ember",
+    ".lime",
     "qc",
     "gui-evidence",
     "model-registry-current",
@@ -67,7 +67,7 @@ Model Registry Current Smoke
   --invoke-url <url>     DevBridge invoke 地址，默认 http://127.0.0.1:3030/invoke
   --timeout-ms <ms>      总超时，默认 120000
   --interval-ms <ms>     健康检查轮询间隔，默认 1000
-  --evidence-dir <path>  证据目录，默认 .ember/qc/gui-evidence/model-registry-current
+  --evidence-dir <path>  证据目录，默认 .lime/qc/gui-evidence/model-registry-current
   --prefix <name>        证据文件前缀，默认 model-registry-current
   --headed               使用有界面 Chrome
   -h, --help             显示帮助

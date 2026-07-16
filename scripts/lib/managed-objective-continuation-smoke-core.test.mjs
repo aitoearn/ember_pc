@@ -47,7 +47,7 @@ function finalObjective(overrides = {}) {
     blocker_reason: "自动续跑已达到最大轮数 1/1",
     last_audit_summary:
       "auto_continuation_guard decision=budget_limited:自动续跑已达到最大轮数 1/1; auto_turns=1/1; max_elapsed_ms=180000; estimated_cost=0.000000; max_estimated_cost=1.000000",
-    last_evidence_pack_ref: ".ember/harness/sessions/session-1/evidence",
+    last_evidence_pack_ref: ".lime/harness/sessions/session-1/evidence",
     last_artifact_refs: ["reports/daily.md"],
     ...overrides,
   };
@@ -113,7 +113,7 @@ describe("managed-objective-continuation-smoke-core", () => {
       status: "completed",
       blocker_reason: null,
       last_audit_summary:
-        "auto_continuation_guard decision=completed; evidence_pack=.ember/harness/sessions/session-1/evidence; artifacts=1",
+        "auto_continuation_guard decision=completed; evidence_pack=.lime/harness/sessions/session-1/evidence; artifacts=1",
     });
     const evidence = buildEvidence({
       options: {
@@ -150,7 +150,7 @@ describe("managed-objective-continuation-smoke-core", () => {
       status: "completed",
       blocker_reason: null,
       last_audit_summary:
-        "auto_continuation_guard decision=completed; evidence_pack=.ember/harness/sessions/session-1/evidence; artifacts=1",
+        "auto_continuation_guard decision=completed; evidence_pack=.lime/harness/sessions/session-1/evidence; artifacts=1",
     });
     const evidencePack = {
       sessionId: "session-1",
@@ -184,7 +184,7 @@ describe("managed-objective-continuation-smoke-core", () => {
       status: "needs_input",
       blocker_reason: "等待用户补充信息",
       last_audit_summary:
-        "auto_continuation_guard decision=needs_input; pending_request_count=1; evidence_pack=.ember/harness/sessions/session-1/evidence",
+        "auto_continuation_guard decision=needs_input; pending_request_count=1; evidence_pack=.lime/harness/sessions/session-1/evidence",
       last_artifact_refs: [],
     });
     const evidence = buildEvidence({
@@ -500,7 +500,7 @@ describe("managed-objective-continuation-smoke-core", () => {
           artifacts: [],
           exportedAt: "2026-05-25T00:00:00.000Z",
           evidencePack: {
-            packRelativeRoot: ".ember/harness/sessions/session-current/evidence",
+            packRelativeRoot: ".lime/harness/sessions/session-current/evidence",
             exportedAt: "2026-05-25T00:00:00.000Z",
             threadStatus: "completed",
             turnCount: 2,
@@ -582,7 +582,7 @@ describe("managed-objective-continuation-smoke-core", () => {
         message: "请只回复 OK",
         eventName: "event-current",
         turnId: "turn-current",
-        turnConfig: {
+        runtimeRequest: {
           providerPreference: "fixture-provider",
           modelPreference: "fixture-model",
           approvalPolicy: "never",
@@ -625,7 +625,7 @@ describe("managed-objective-continuation-smoke-core", () => {
       expect(continuation?.submitted).toBe(true);
       expect(auditedObjective?.status).toBe("completed");
       expect(evidencePack?.packRelativeRoot).toBe(
-        ".ember/harness/sessions/session-current/evidence",
+        ".lime/harness/sessions/session-current/evidence",
       );
       expect(observedMethods).toEqual([
         "agentSession/start",
@@ -678,22 +678,13 @@ describe("managed-objective-continuation-smoke-core", () => {
         },
         runtimeOptions: {
           eventName: "event-current",
-          providerPreference: "fixture-provider",
-          modelPreference: "fixture-model",
-          metadata: { source: "test" },
-          hostOptions: {
-            asterChatRequest: {
-              message: "请只回复 OK",
-              session_id: "session-current",
-              workspace_id: "workspace-current",
-              event_name: "event-current",
-              turn_id: "turn-current",
-              provider_preference: "fixture-provider",
-              model_preference: "fixture-model",
-              approval_policy: "never",
-              sandbox_policy: "read-only",
-              metadata: { source: "test" },
-            },
+          runtimeRequest: {
+            workspaceId: "workspace-current",
+            providerPreference: "fixture-provider",
+            modelPreference: "fixture-model",
+            approvalPolicy: "never",
+            sandboxPolicy: "read-only",
+            metadata: { source: "test" },
           },
         },
         skipPreSubmitResume: true,

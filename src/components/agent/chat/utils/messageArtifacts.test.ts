@@ -20,7 +20,7 @@ function createArtifact(overrides: Partial<Artifact> = {}): Artifact {
     meta: {
       filePath:
         overrides.meta?.filePath ??
-        ".ember/artifacts/thread-1/report.artifact.json",
+        ".lime/artifacts/thread-1/report.artifact.json",
       filename: overrides.meta?.filename ?? "report.artifact.json",
       ...overrides.meta,
     },
@@ -71,7 +71,7 @@ describe("messageArtifacts.buildArtifactFromWrite", () => {
     };
 
     const artifact = buildArtifactFromWrite({
-      filePath: ".ember/artifacts/thread-1/report.artifact.json",
+      filePath: ".lime/artifacts/thread-1/report.artifact.json",
       content: "",
       context: {
         artifactId: "artifact-snapshot-1",
@@ -102,7 +102,7 @@ describe("messageArtifacts.buildArtifactFromWrite", () => {
   it("metadata 仅保留 schema 时应复用已有 artifactDocument", () => {
     const previousArtifact = createArtifact({
       meta: {
-        filePath: ".ember/artifacts/thread-1/report.artifact.json",
+        filePath: ".lime/artifacts/thread-1/report.artifact.json",
         filename: "report.artifact.json",
         artifactSchema: ARTIFACT_DOCUMENT_SCHEMA_VERSION,
         artifactDocument: {
@@ -127,7 +127,7 @@ describe("messageArtifacts.buildArtifactFromWrite", () => {
     });
 
     const artifact = buildArtifactFromWrite({
-      filePath: ".ember/artifacts/thread-1/report.artifact.json",
+      filePath: ".lime/artifacts/thread-1/report.artifact.json",
       content: "",
       context: {
         artifact: previousArtifact,
@@ -153,7 +153,7 @@ describe("messageArtifacts.buildArtifactFromWrite", () => {
 
   it("content 命中文档协议时应把 metadata 中补充的 sources 合并回内容", () => {
     const artifact = buildArtifactFromWrite({
-      filePath: ".ember/artifacts/thread-1/report.artifact.json",
+      filePath: ".lime/artifacts/thread-1/report.artifact.json",
       content: JSON.stringify({
         schemaVersion: ARTIFACT_DOCUMENT_SCHEMA_VERSION,
         artifactId: "artifact-doc-3",
@@ -289,7 +289,7 @@ describe("messageArtifacts.resolveDefaultArtifactViewMode", () => {
       type: "canvas:design",
       status: "complete",
       meta: {
-        filePath: ".ember/layered-designs/demo.layered-design/design.json",
+        filePath: ".lime/layered-designs/demo.layered-design/design.json",
         filename: "design.json",
       },
     });
@@ -307,7 +307,7 @@ describe("messageArtifacts 路径归一", () => {
           title: "output_image.jpg",
           meta: {
             filePath:
-              "/Users/coso/Documents/dev/ai/aitoearn/ember_pc/.ember/tasks/image/output_image.jpg",
+              "/Users/coso/Documents/dev/ai/aiclientproxy/lime/.lime/tasks/image/output_image.jpg",
             filename: "output_image.jpg",
           },
         }),
@@ -321,7 +321,7 @@ describe("messageArtifacts 路径归一", () => {
     ).toBe("artifact-output-image");
     expect(
       findMessageArtifact(message, {
-        filePath: ".ember/tasks/image/output_image.jpg",
+        filePath: ".lime/tasks/image/output_image.jpg",
       })?.id,
     ).toBe("artifact-output-image");
   });
@@ -342,7 +342,7 @@ describe("messageArtifacts 路径归一", () => {
         updatedAt: 3,
         meta: {
           filePath:
-            "/Users/coso/Documents/dev/ai/aitoearn/ember_pc/.ember/tasks/image/output_image.jpg",
+            "/Users/coso/Documents/dev/ai/aiclientproxy/lime/.lime/tasks/image/output_image.jpg",
           filename: "output_image.jpg",
         },
       }),
@@ -350,7 +350,7 @@ describe("messageArtifacts 路径归一", () => {
 
     expect(merged).toHaveLength(1);
     expect(merged[0]?.meta.filePath).toBe(
-      "/Users/coso/Documents/dev/ai/aitoearn/ember_pc/.ember/tasks/image/output_image.jpg",
+      "/Users/coso/Documents/dev/ai/aiclientproxy/lime/.lime/tasks/image/output_image.jpg",
     );
   });
 

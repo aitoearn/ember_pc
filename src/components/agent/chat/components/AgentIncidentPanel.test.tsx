@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { AgentIncidentPanel } from "./AgentIncidentPanel";
 import type { ThreadReliabilityIncidentDisplay } from "../utils/threadReliabilityView";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 
 interface MountedHarness {
   container: HTMLDivElement;
@@ -20,7 +20,7 @@ beforeEach(async () => {
       IS_REACT_ACT_ENVIRONMENT?: boolean;
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
 });
 
 afterEach(async () => {
@@ -33,7 +33,7 @@ afterEach(async () => {
     mounted.container.remove();
   }
   document.body.innerHTML = "";
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 function renderPanel(incidents: ThreadReliabilityIncidentDisplay[]) {

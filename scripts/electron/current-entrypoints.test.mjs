@@ -2,8 +2,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
+const bundledElectronRuntimePackages = new Set([
+  "@embercloud/app-server-client",
+]);
+
+function readPackageJson() {
+  return JSON.parse(fs.readFileSync("package.json", "utf8"));
+}
+
 function readPackageScripts() {
-  return JSON.parse(fs.readFileSync("package.json", "utf8")).scripts ?? {};
+  return readPackageJson().scripts ?? {};
 }
 
 function readFile(filePath) {
@@ -77,6 +85,46 @@ function expectNoElectronRuntimeEsmImport(content, label) {
   expect(runtimeImportLines, label).toEqual([]);
 }
 
+function barePackageName(specifier) {
+  if (
+    specifier.startsWith(".") ||
+    specifier.startsWith("/") ||
+    specifier.startsWith("#") ||
+    specifier.startsWith("node:") ||
+    specifier === "electron"
+  ) {
+    return null;
+  }
+  if (specifier.startsWith("@")) {
+    return specifier.split("/").slice(0, 2).join("/");
+  }
+  return specifier.split("/")[0] ?? null;
+}
+
+function collectRuntimeBareImports(filePath) {
+  const content = readFile(filePath);
+  const imports = new Set();
+  const importFromPattern =
+    /^\s*import\s+(?!type\b)[^;]*?\s+from\s+["']([^"']+)["']/gm;
+  const sideEffectImportPattern = /^\s*import\s+["']([^"']+)["']/gm;
+  const requirePattern = /\brequire\(\s*["']([^"']+)["']\s*\)/g;
+
+  for (const pattern of [
+    importFromPattern,
+    sideEffectImportPattern,
+    requirePattern,
+  ]) {
+    for (const match of content.matchAll(pattern)) {
+      const packageName = barePackageName(match[1]);
+      if (packageName) {
+        imports.add(packageName);
+      }
+    }
+  }
+
+  return [...imports].sort();
+}
+
 function listFiles(root, predicate = () => true) {
   const entries = fs.readdirSync(root, { withFileTypes: true });
   const files = [];
@@ -123,6 +171,19 @@ function currentElectronEntrypointFiles() {
       /\.(ya?ml|json|md|mjs|js|ts|tsx)$/i.test(filePath),
     ),
   ];
+}
+
+function electronProductionSourceFiles() {
+  return listFiles("electron", (filePath) => {
+    const normalized = filePath.replace(/\\/g, "/");
+    return (
+      /\.(?:mjs|js|ts)$/i.test(normalized) &&
+      !normalized.endsWith(".d.ts") &&
+      !normalized.endsWith(".test.ts") &&
+      !normalized.endsWith(".test.mjs") &&
+      !normalized.endsWith(".test.js")
+    );
+  });
 }
 
 describe("Electron current package entrypoints", () => {
@@ -182,7 +243,7 @@ describe("Electron current package entrypoints", () => {
       "scripts/check-app-version-consistency.mjs",
     );
 
-    expect(forgeConfig).toContain('const PRODUCT_NAME = "Ember"');
+    expect(forgeConfig).toContain('const PRODUCT_NAME = "Lime"');
     expect(forgeConfig).toContain('const APP_ID = "com.embercloud.ember"');
     expect(forgeConfig).toContain("app-server.release.json");
     expect(forgeConfig).toContain("new MakerDMG");
@@ -222,6 +283,30 @@ describe("Electron current package entrypoints", () => {
     expectNoElectronRuntimeEsmImport(runtime, "electron/electronRuntime.ts");
   });
 
+  it("Electron production runtime bare imports stay in packaged dependencies", () => {
+    const packageJson = readPackageJson();
+    const runtimeDependencies = new Set(
+      Object.keys(packageJson.dependencies ?? {}),
+    );
+    const missing = [];
+
+    for (const filePath of electronProductionSourceFiles()) {
+      for (const packageName of collectRuntimeBareImports(filePath)) {
+        if (
+          !runtimeDependencies.has(packageName) &&
+          !bundledElectronRuntimePackages.has(packageName)
+        ) {
+          missing.push(`${filePath}: ${packageName}`);
+        }
+      }
+    }
+
+    expect(
+      missing,
+      "Forge package uses prune=true, so Electron production runtime imports must be root dependencies.",
+    ).toEqual([]);
+  });
+
   it("legacy verify-gui-smoke script delegates to Electron smoke", () => {
     const content = readFile("scripts/verify-gui-smoke.mjs");
 
@@ -235,19 +320,115 @@ describe("Electron current package entrypoints", () => {
 
   it("Electron smoke gates Claw workbench shell and composer readiness", () => {
     const mainContent = readFile("electron/main.ts");
+    const memorySmokeContent = readFile("electron/smokeMemorySettings.ts");
+    const smokeChecksContent = readFile("electron/smokeChecks.ts");
+    const smokeEvidenceContent = readFile("electron/smokeEvidence.ts");
     const smokeScript = readFile("scripts/electron/smoke.mjs");
 
-    expect(mainContent).toContain("waitForElectronSmokeWorkbenchReady");
-    expect(mainContent).toContain('[data-testid="workspace-shell-scene"]');
-    expect(mainContent).toContain('[data-testid="inputbar-core-container"]');
-    expect(mainContent).toContain('textarea[name="agent-chat-message"]');
-    expect(mainContent).toContain("claw workbench shell ready");
+    expect(mainContent).toContain("createElectronSmokeRunner");
+    expect(mainContent).not.toContain("function runElectronSmokeChecks");
+    expect(smokeChecksContent).toContain("waitForElectronSmokeWorkbenchReady");
+    expect(smokeChecksContent).toContain(
+      "waitForElectronSmokeMemorySettingsReady",
+    );
+    expect(mainContent).toContain("showMainWindowDuringStartup");
+    expect(mainContent).toContain("shouldShowMainWindowDuringStartup");
+    expect(mainContent).toContain("LIME_ELECTRON_SMOKE_VISIBLE");
+    expect(mainContent).toContain("window.showInactive()");
+    expect(smokeChecksContent).toContain(
+      '[data-testid="workspace-shell-scene"]',
+    );
+    expect(smokeChecksContent).toContain(
+      '[data-testid="inputbar-core-container"]',
+    );
+    expect(smokeChecksContent).toContain('textarea[name="agent-chat-message"]');
+    expect(smokeChecksContent).toContain("claw workbench shell ready");
+    expect(smokeChecksContent).toContain("memory settings ready");
+    expect(smokeChecksContent).toContain("reloadElectronSmokeRenderer");
+    expect(smokeChecksContent).toContain(
+      "claw workbench shell ready after reload",
+    );
+    expect(smokeChecksContent).toContain("collectRendererPageErrorCount");
+    expect(memorySmokeContent).toContain(
+      '[data-testid="app-sidebar-account-model-settings"]',
+    );
+    expect(memorySmokeContent).toContain(
+      '[data-testid="settings-sidebar-tab-memory"]',
+    );
+    expect(memorySmokeContent).toContain(
+      '[data-testid="settings-floating-nav-button"]',
+    );
+    expect(memorySmokeContent).toContain(
+      '[data-testid="settings-floating-tab-memory"]',
+    );
+    expect(memorySmokeContent).toContain(
+      '[data-testid="settings-memory-store-panel"]',
+    );
+    expect(memorySmokeContent).toContain(
+      '[data-testid="settings-memory-review-refresh"]',
+    );
+    expect(memorySmokeContent).toContain(
+      '[data-testid="settings-memory-index-rebuild"]',
+    );
+    expect(memorySmokeContent).toContain(
+      '[data-testid="settings-memory-consolidate"]',
+    );
+    expect(memorySmokeContent).toContain(
+      '[data-testid="settings-memory-rollout-refresh"]',
+    );
+    expect(memorySmokeContent).toContain(
+      '[data-testid="settings-memory-rollout-consolidate"]',
+    );
+    expect(memorySmokeContent).toContain(
+      '[data-testid="settings-memory-soul-panel"]',
+    );
+    expect(memorySmokeContent).toContain(
+      '[data-testid="settings-memory-advanced-panel"]',
+    );
+    expect(memorySmokeContent).toContain("/灵感库/");
+    expect(memorySmokeContent).toContain("/MemoryPage/");
     expect(mainContent).not.toContain('"agentSession/turn/start"');
     expect(mainContent).not.toContain('"test_api_key_provider_chat"');
+    expect(smokeChecksContent).toContain("LIME_GATE_RUN_ID");
+    expect(smokeChecksContent).toContain("LIME_ELECTRON_SMOKE_EVIDENCE_DIR");
+    expect(smokeChecksContent).toContain("app_server_handle_json_lines");
+    expect(smokeChecksContent).toContain("electron-ipc");
+    expect(smokeChecksContent).toContain("capturePage");
+    expect(smokeChecksContent).toContain("legacyCommandHitCount");
+    expect(smokeChecksContent).toContain("mockFallbackHitCount");
+    expect(smokeChecksContent).toContain("pageErrorCount");
+    expect(smokeChecksContent).toContain("rendererCrashCount");
+    expect(smokeEvidenceContent).toContain(
+      'ELECTRON_SMOKE_PROOF_LEVEL = "Gate B-F"',
+    );
+    expect(smokeEvidenceContent).toContain("currentAppServerMethodObserved");
+    expect(smokeEvidenceContent).toContain("noMockFallbackHits");
+    expect(smokeEvidenceContent).toContain("screenshotCaptured");
+    expect(smokeEvidenceContent).toContain('surfaceId: "SHELL-01"');
+    expect(smokeEvidenceContent).toContain('proof: "gate-b-f"');
+    expect(smokeEvidenceContent).toContain('complete: result === "pass"');
+    expect(smokeEvidenceContent).toContain("workbenchReloadReady");
     expect(smokeScript).toContain("mkdtempSync");
     expect(smokeScript).toContain("ELECTRON_E2E_USER_DATA_DIR");
-    expect(smokeScript).toContain('EMBER_ELECTRON_E2E: "1"');
+    expect(smokeScript).toContain('LIME_ELECTRON_E2E: "1"');
+    expect(smokeScript).toContain("LIME_ELECTRON_SMOKE_VISIBLE");
+    expect(smokeScript).toContain("LIME_GATE_RUN_ID");
+    expect(smokeScript).toContain("LIME_ELECTRON_SMOKE_EVIDENCE_DIR");
+    expect(smokeScript).toContain('path.join(evidenceDir, "summary.json")');
     expect(smokeScript).toContain("timed out waiting for renderer/workbench");
+  });
+
+  it("dev launcher can expose a guarded Electron CDP port for real GUI续测", () => {
+    const runDev = readFile("scripts/electron/run-dev.mjs");
+
+    expect(runDev).toContain("LIME_ELECTRON_REMOTE_DEBUGGING_PORT");
+    expect(runDev).toContain("--remote-debugging-port=");
+    expect(runDev).toContain("normalizeRemoteDebuggingPort");
+    expect(runDev).toContain("must be between 1 and 65535");
+    expect(runDev).toContain("resolveElectronDevLaunchEnv");
+    expect(runDev).toContain("ELECTRON_E2E_USER_DATA_DIR");
+    expect(runDev).toContain("LIME_ELECTRON_E2E");
+    expect(runDev).toContain("LIME_ELECTRON_DEV_HTTP_BRIDGE");
   });
 
   it("Electron packaged renderer uses relative assets under file URLs", () => {
@@ -260,19 +441,25 @@ describe("Electron current package entrypoints", () => {
       "scripts/electron/renderer-build-env.mjs",
     );
 
-    expect(buildRenderer).toContain("EMBER_ELECTRON_RENDERER");
+    expect(buildRenderer).toContain("LIME_ELECTRON_RENDERER");
     expect(buildRenderer).toContain("rendererBuildEnv");
     expect(buildRenderer).toContain("startRendererBuildHeartbeat");
-    expect(smokeBuildRenderer).toContain("EMBER_ELECTRON_RENDERER");
+    expect(smokeBuildRenderer).toContain("LIME_ELECTRON_RENDERER");
+    expect(smokeBuildRenderer).toContain("LIME_VITE_EMPTY_OUT_DIR");
+    expect(smokeBuildRenderer).not.toContain(
+      'LIME_VITE_EMPTY_OUT_DIR = "0"',
+    );
     expect(smokeBuildRenderer).toContain("rendererBuildEnv");
     expect(smokeBuildRenderer).toContain("startRendererBuildHeartbeat");
     expect(rendererBuildEnv).toContain("--max-old-space-size=8192");
     expect(rendererBuildEnv).toContain("NODE_OPTIONS");
     expect(rendererBuildEnv).toContain("still running after");
     expect(viteConfig).toContain("base:");
+    expect(viteConfig).toContain("emptyOutDir:");
+    expect(viteConfig).toContain("keepExistingOutDir ? false : undefined");
     expect(viteConfig).toContain('isElectronRenderer ? "./" : undefined');
     expect(viteConfig).toContain('find: "@embercloud/app-server-client"');
-    expect(viteConfig).toContain("./packages/app-server-client/src/index.ts");
+    expect(viteConfig).toContain("./packages/app-server-client/src/browser.ts");
   });
 
   it("build monitor observes Electron package output instead of retired host bundles", () => {

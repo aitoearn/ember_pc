@@ -1,4 +1,5 @@
-process.env.EMBER_ELECTRON_RENDERER = "1";
+process.env.LIME_ELECTRON_RENDERER = "1";
+process.env.LIME_VITE_EMPTY_OUT_DIR = "1";
 
 const { spawn } = await import("node:child_process");
 const { rendererBuildEnv, startRendererBuildHeartbeat } =
@@ -6,7 +7,7 @@ const { rendererBuildEnv, startRendererBuildHeartbeat } =
 
 const stopHeartbeat = startRendererBuildHeartbeat();
 try {
-  await run("npx", ["vite", "build"]);
+  await run("npx", ["vite", "build", "--base", "./"]);
 } finally {
   stopHeartbeat();
 }

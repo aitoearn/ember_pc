@@ -14,7 +14,7 @@ const DEFAULTS = {
   intervalMs: 1_000,
   evidenceDir: path.join(
     process.cwd(),
-    ".ember",
+    ".lime",
     "qc",
     "gui-evidence",
     "settings-current",
@@ -28,13 +28,14 @@ const SETTINGS_TABS = [
   "个人资料",
   "数据统计",
   "外观",
-  "快捷键",
   "记忆",
+  "已归档对话",
   "AI 服务商",
   "服务模型",
   "MCP 服务器",
   "网络搜索",
   "环境变量",
+  "执行策略",
   "连接器",
   "自动化设置",
   "开发者与实验功能",
@@ -75,7 +76,7 @@ Settings Current Smoke
   --invoke-url <url>     DevBridge invoke 地址，默认 http://127.0.0.1:3030/invoke
   --timeout-ms <ms>      总超时，默认 120000
   --interval-ms <ms>     健康检查轮询间隔，默认 1000
-  --evidence-dir <path>  证据目录，默认 .ember/qc/gui-evidence/settings-current
+  --evidence-dir <path>  证据目录，默认 .lime/qc/gui-evidence/settings-current
   --prefix <name>        证据文件前缀，默认 settings-current
   --headed               使用有界面 Chrome
   -h, --help             显示帮助
@@ -245,6 +246,8 @@ async function waitForAppShellReady(page, timeoutMs = 45_000) {
               button.getAttribute("aria-label") === "打开用户菜单" ||
               button.getAttribute("data-testid") ===
                 "app-sidebar-search-button" ||
+              button.getAttribute("data-testid") ===
+                "app-sidebar-invite-button" ||
               button.textContent?.includes("新建任务") ||
               button.textContent?.includes("打开用户菜单"),
           ),
@@ -422,7 +425,7 @@ function resolveLocalChromeExecutablePath() {
 
 function readInvokeErrorBuffer() {
   try {
-    const raw = localStorage.getItem("ember_invoke_error_buffer_v1");
+    const raw = localStorage.getItem("lime_invoke_error_buffer_v1");
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed)
       ? parsed.map((entry) => ({
@@ -438,7 +441,7 @@ function readInvokeErrorBuffer() {
 
 function readInvokeTraceBuffer() {
   try {
-    const raw = localStorage.getItem("ember_invoke_trace_buffer_v1");
+    const raw = localStorage.getItem("lime_invoke_trace_buffer_v1");
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed)
       ? parsed.map((entry) => ({
@@ -455,8 +458,8 @@ function readInvokeTraceBuffer() {
 
 function clearInvokeBuffers() {
   try {
-    localStorage.removeItem("ember_invoke_error_buffer_v1");
-    localStorage.removeItem("ember_invoke_trace_buffer_v1");
+    localStorage.removeItem("lime_invoke_error_buffer_v1");
+    localStorage.removeItem("lime_invoke_trace_buffer_v1");
   } catch {
     // ignore
   }
@@ -589,8 +592,8 @@ async function snapshotSettingsPage(page, tabName, subTabName = null) {
       };
       const clearInvokeBuffersInPage = () => {
         try {
-          localStorage.removeItem("ember_invoke_error_buffer_v1");
-          localStorage.removeItem("ember_invoke_trace_buffer_v1");
+          localStorage.removeItem("lime_invoke_error_buffer_v1");
+          localStorage.removeItem("lime_invoke_trace_buffer_v1");
         } catch {
           // ignore
         }
@@ -601,14 +604,14 @@ async function snapshotSettingsPage(page, tabName, subTabName = null) {
         const match = text.match(pattern);
         return match ? [match[0]] : [];
       });
-      const errors = readJsonArray("ember_invoke_error_buffer_v1").map(
+      const errors = readJsonArray("lime_invoke_error_buffer_v1").map(
         (entry) => ({
           command: entry.command,
           transport: entry.transport,
           error: sanitizeTextInPage(entry.error),
         }),
       );
-      const traces = readJsonArray("ember_invoke_trace_buffer_v1").map(
+      const traces = readJsonArray("lime_invoke_trace_buffer_v1").map(
         (entry) => ({
           command: entry.command,
           transport: entry.transport,
@@ -745,9 +748,16 @@ async function enterSettings(page, options) {
   await page.waitForTimeout(300);
 
   const opened = await page.evaluate(() => {
-    const settings = [...document.querySelectorAll("button")].find(
-      (button) => button.textContent?.trim() === "设置",
-    );
+    const settings =
+      document.querySelector('[data-testid="app-sidebar-account-model-settings"]') ||
+      [...document.querySelectorAll("button")].find(
+        (button) => button.textContent?.trim() === "模型设置",
+      ) ||
+      [...document.querySelectorAll("button")].find(
+        (button) =>
+          button.textContent?.trim() === "关于" ||
+          button.getAttribute("aria-label") === "关于",
+      );
     if (!settings) {
       return false;
     }
@@ -775,8 +785,8 @@ async function enterSettings(page, options) {
 async function clickSettingsTabs(page, options) {
   const results = [];
   await page.evaluate(() => {
-    localStorage.removeItem("ember_invoke_error_buffer_v1");
-    localStorage.removeItem("ember_invoke_trace_buffer_v1");
+    localStorage.removeItem("lime_invoke_error_buffer_v1");
+    localStorage.removeItem("lime_invoke_trace_buffer_v1");
   });
 
   for (const tab of SETTINGS_TABS) {

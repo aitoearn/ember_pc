@@ -1,5 +1,4 @@
-import type { AsterSubagentSessionInfo } from "@/lib/api/agentRuntime";
-import type { ActionRequired } from "../types";
+import type { CanonicalChildThreadSummary } from "../projection/canonicalChildThreadSummary";
 import type { HarnessSessionState } from "../utils/harnessState";
 import type {
   FileDisplayMode,
@@ -26,12 +25,6 @@ interface HarnessActivitySectionsProps {
   t: TranslationFunction;
   handleOpenExternalLink: (url: string) => void | Promise<void>;
   handleOpenPathValue: (path: string) => void | Promise<void>;
-  handleApprovalResponse: (
-    item: ActionRequired,
-    accepted: boolean,
-  ) => void | Promise<void>;
-  submittedActionIds: ReadonlySet<string>;
-  canRespondToActions: boolean;
   fileFilterOptions: ReadonlyArray<{ value: FileFilterValue; label: string }>;
   fileFilter: FileFilterValue;
   setFileFilter: (value: FileFilterValue) => void;
@@ -41,7 +34,7 @@ interface HarnessActivitySectionsProps {
   groupedFileEvents: FileEventGroup[];
   openPreview: (request: FilePreviewRequest) => void | Promise<void>;
   realTeamSummary: ChildSubagentSessionSummary;
-  childSubagentSessions: AsterSubagentSessionInfo[];
+  canonicalChildren: CanonicalChildThreadSummary[];
   onOpenSubagentSession?: (sessionId: string) => void;
   environment: HarnessEnvironmentSummary;
 }
@@ -52,9 +45,6 @@ export function HarnessActivitySections({
   t,
   handleOpenExternalLink,
   handleOpenPathValue,
-  handleApprovalResponse,
-  submittedActionIds,
-  canRespondToActions,
   fileFilterOptions,
   fileFilter,
   setFileFilter,
@@ -64,7 +54,7 @@ export function HarnessActivitySections({
   groupedFileEvents,
   openPreview,
   realTeamSummary,
-  childSubagentSessions,
+  canonicalChildren,
   onOpenSubagentSession,
   environment,
 }: HarnessActivitySectionsProps) {
@@ -76,9 +66,6 @@ export function HarnessActivitySections({
         t={t}
         handleOpenExternalLink={handleOpenExternalLink}
         handleOpenPathValue={handleOpenPathValue}
-        handleApprovalResponse={handleApprovalResponse}
-        submittedActionIds={submittedActionIds}
-        canRespondToActions={canRespondToActions}
       />
       <HarnessFileActivitySection
         recentFileEvents={harnessState.recentFileEvents}
@@ -104,7 +91,7 @@ export function HarnessActivitySections({
         registerSectionRef={registerSectionRef}
         handleOpenExternalLink={handleOpenExternalLink}
         realTeamSummary={realTeamSummary}
-        childSubagentSessions={childSubagentSessions}
+        canonicalChildren={canonicalChildren}
         onOpenSubagentSession={onOpenSubagentSession}
       />
       <HarnessContextCapabilitiesSections

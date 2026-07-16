@@ -23,7 +23,7 @@ vi.mock("@/lib/desktop-host/window", () => ({
 
 function appendLoadedStartupLogo() {
   const logo = document.createElement("img");
-  logo.setAttribute("data-ember-startup-logo", "");
+  logo.setAttribute("data-lime-startup-logo", "");
   Object.defineProperty(logo, "complete", {
     configurable: true,
     value: true,

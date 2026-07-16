@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { AgentThreadItem, AgentThreadTurn } from "@/lib/api/agentProtocol";
-import type {
-  AsterSessionExecutionRuntime,
-  QueuedTurnSnapshot,
-} from "@/lib/api/agentRuntime";
+import type { AgentSessionExecutionRuntime } from "@/lib/api/agentExecutionRuntime";
+import type { QueuedTurnSnapshot } from "@/lib/api/queuedTurn";
 import type { ActiveStreamState } from "./agentStreamSubmissionLifecycle";
 import type { WorkspacePathMissingState } from "./agentChatShared";
 import { dispatchPreparedAgentStreamSend } from "./agentStreamPreparedSendDispatch";
@@ -68,8 +66,10 @@ describe("agentStreamPreparedSendDispatch", () => {
       runtime: {} as never,
       ensureSession: async () => "session-1",
       attemptSilentTurnRecovery: async () => false,
+      refreshSessionReadModel: async () => true,
       executionStrategy: "react",
       accessMode: "current",
+      clawTraceEnabled: false,
       providerTypeRef: { current: "openai" } as MutableRefObject<string>,
       modelRef: { current: "gpt-5.4" } as MutableRefObject<string>,
       reasoningEffortRef: { current: "" } as MutableRefObject<string>,
@@ -78,7 +78,7 @@ describe("agentStreamPreparedSendDispatch", () => {
       isThreadBusy: () => false,
       hasPendingPreparedSubmit: () => false,
       runPreparedSubmit,
-      getRequiredWorkspaceId: () => "workspace-1",
+      getWorkspaceIdForSubmit: () => "workspace-1",
       getSyncedSessionModelPreference: () => null,
       getSyncedSessionExecutionStrategy: (_sessionId) => "react",
       listenerMapRef: { current: new Map() },
@@ -92,13 +92,11 @@ describe("agentStreamPreparedSendDispatch", () => {
       setThreadItems: noopDispatch<AgentThreadItem[]>(),
       setThreadTurns: noopDispatch<AgentThreadTurn[]>(),
       setCurrentTurnId: noopDispatch<string | null>(),
-      setExecutionRuntime: noopDispatch<AsterSessionExecutionRuntime | null>(),
+      setExecutionRuntime: noopDispatch<AgentSessionExecutionRuntime | null>(),
       setQueuedTurns: noopDispatch<QueuedTurnSnapshot[]>(),
       setPendingActions: noopDispatch<ActionRequired[]>(),
       setWorkspacePathMissing: noopDispatch<WorkspacePathMissingState | null>(),
       setIsSending: noopDispatch<boolean>(),
-      playToolcallSound: () => {},
-      playTypewriterSound: () => {},
       appendThinkingToParts: (parts) => parts,
     };
   }

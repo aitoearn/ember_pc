@@ -47,24 +47,24 @@ describe("desktop-host desktop capabilities", () => {
   it("Deep Link 能力委托 Electron bridge", async () => {
     const unlisten = vi.fn();
     const onOpenUrlBridge = vi.fn((handler: (urls: string[]) => void) => {
-      handler(["ember://callback"]);
+      handler(["lime://callback"]);
       return unlisten;
     });
     (window as any).electronAPI = {
       invoke: vi.fn(),
       deepLink: {
         onOpenUrl: onOpenUrlBridge,
-        getUrls: vi.fn().mockResolvedValue(["ember://callback"]),
-        getCurrent: vi.fn().mockResolvedValue(["ember://current"]),
+        getUrls: vi.fn().mockResolvedValue(["lime://callback"]),
+        getCurrent: vi.fn().mockResolvedValue(["lime://current"]),
       },
     };
     const handler = vi.fn();
 
     const resultUnlisten = await onOpenUrl(handler);
 
-    await expect(getUrls()).resolves.toEqual(["ember://callback"]);
-    await expect(getCurrent()).resolves.toEqual(["ember://current"]);
-    expect(handler).toHaveBeenCalledWith(["ember://callback"]);
+    await expect(getUrls()).resolves.toEqual(["lime://callback"]);
+    await expect(getCurrent()).resolves.toEqual(["lime://current"]);
+    expect(handler).toHaveBeenCalledWith(["lime://callback"]);
     resultUnlisten();
     expect(unlisten).toHaveBeenCalledTimes(1);
   });

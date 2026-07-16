@@ -18,7 +18,7 @@ export async function resolveSkillInstallPromptConfirmation(
   translate: AgentWorkspaceTranslator,
 ): Promise<string> {
   try {
-    const result = await installSkillFromPromptInstruction(instruction, "ember");
+    const result = await installSkillFromPromptInstruction(instruction, "lime");
     return translate("agentChat.skillInstallPrompt.installedConfirmation", {
       skill: result.directory,
     });

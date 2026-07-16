@@ -90,6 +90,6 @@ export function parseBrowserWorkbenchCommand(
         : "required",
     browserRequirementReason:
       requirementMatch?.reason ||
-      "当前命令显式要求使用真实浏览器执行，请优先走 Ember 浏览器运行时，而不是退回 WebSearch 或普通聊天。",
+      "当前命令显式要求使用真实浏览器执行，请优先走 Lime 浏览器运行时，而不是退回 WebSearch 或普通聊天。",
   };
 }

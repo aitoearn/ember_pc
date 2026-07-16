@@ -125,7 +125,7 @@ describe("agent-qc-completion-audit-core", () => {
     };
     facts.realEvidenceSidecars = [
       {
-        path: ".ember/qc/agent-qc-evidence.p0-v2.json",
+        path: ".lime/qc/agent-qc-evidence.p0-v2.json",
         status: "fail",
         scenarioCount: 8,
         scenarioIds: ["command-bridge-contract"],
@@ -152,7 +152,7 @@ describe("agent-qc-completion-audit-core", () => {
     };
     facts.qcloopStatusSidecars = [
       {
-        path: ".ember/qc/qcloop-status.isolated-p0-full-v1-stale-check.json",
+        path: ".lime/qc/qcloop-status.isolated-p0-full-v1-stale-check.json",
         verdictStatus: "stale",
         counts: { success: 4, running: 1, pending: 3, stale: 1 },
       },
@@ -181,7 +181,7 @@ describe("agent-qc-completion-audit-core", () => {
     };
     facts.qcloopStatusSidecars = [
       {
-        path: ".ember/qc/qcloop-status.fastmini-readonly-p0-v1-current.json",
+        path: ".lime/qc/qcloop-status.fastmini-readonly-p0-v1-current.json",
         verdictStatus: "running",
         counts: { success: 0, running: 1, pending: 2, stale: 0 },
       },
@@ -204,7 +204,7 @@ describe("agent-qc-completion-audit-core", () => {
     const facts = completeFacts();
     facts.qcloopStatusSidecars = [
       {
-        path: ".ember/qc/qcloop-status.old-pending.json",
+        path: ".lime/qc/qcloop-status.old-pending.json",
         generatedAt: "2026-05-10T18:28:17.000Z",
         jobId: "job-pending",
         jobStatus: "pending",
@@ -240,14 +240,14 @@ describe("agent-qc-completion-audit-core", () => {
     };
     facts.qcloopStatusSidecars = [
       {
-        path: ".ember/qc/qcloop-status.pre-intervention-20260511-022817.json",
+        path: ".lime/qc/qcloop-status.pre-intervention-20260511-022817.json",
         generatedAt: "2026-05-10T18:28:17.000Z",
         jobId: "job-1",
         verdictStatus: "stale",
         counts: { success: 4, running: 1, pending: 3, stale: 1 },
       },
       {
-        path: ".ember/qc/qcloop-status.isolated-p0-full-v1-current.json",
+        path: ".lime/qc/qcloop-status.isolated-p0-full-v1-current.json",
         generatedAt: "2026-05-10T18:38:51.000Z",
         jobId: "job-1",
         verdictStatus: "fail",

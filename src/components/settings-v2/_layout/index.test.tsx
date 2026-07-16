@@ -1,8 +1,9 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { changeEmberLocale } from "@/i18n/createI18n";
+import { changeLimeLocale } from "@/i18n/createI18n";
 import { SettingsTabs } from "@/types/settings";
+import type { ProviderSettingsFocusContext } from "@/types/page";
 
 const {
   mockSettingsSidebar,
@@ -11,6 +12,7 @@ const {
   mockSettingsHomePage,
   mockDeveloperLabSettings,
   mockArchivedConversationsSettings,
+  mockExecutionPolicySettings,
 } = vi.hoisted(() => ({
   mockSettingsSidebar: vi.fn(),
   mockPreloadDeveloperDefaultSections: vi.fn(),
@@ -18,6 +20,7 @@ const {
   mockSettingsHomePage: vi.fn(),
   mockDeveloperLabSettings: vi.fn(),
   mockArchivedConversationsSettings: vi.fn(),
+  mockExecutionPolicySettings: vi.fn(),
 }));
 
 const { mockResolveOemCloudRuntimeContext } = vi.hoisted(() => ({
@@ -65,9 +68,6 @@ vi.mock("../system/about", () => ({
 vi.mock("../agent/skills", () => ({
   ExtensionsSettings: () => <div>skills</div>,
 }));
-vi.mock("../general/hotkeys", () => ({
-  HotkeysSettings: () => <div>hotkeys</div>,
-}));
 vi.mock("../agent/media-services", () => ({
   MediaServicesSettings: () => <div>media-services</div>,
 }));
@@ -91,6 +91,12 @@ vi.mock("@/components/mcp", () => ({
 }));
 vi.mock("../system/environment", () => ({
   EnvironmentSettings: () => <div>environment</div>,
+}));
+vi.mock("../system/execution-policy", () => ({
+  ExecutionPolicySettings: () => {
+    mockExecutionPolicySettings();
+    return <div>execution-policy</div>;
+  },
 }));
 vi.mock("../system/web-search", () => ({
   WebSearchSettings: () => <div>web-search</div>,
@@ -120,6 +126,7 @@ function renderComponent(
   initialTab: SettingsTabs,
   onNavigate?: (page: string) => void,
   initialProviderView?: "settings" | "cloud",
+  initialProviderFocus?: ProviderSettingsFocusContext | null,
 ) {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -130,6 +137,7 @@ function renderComponent(
       <SettingsLayoutV2
         initialTab={initialTab}
         initialProviderView={initialProviderView}
+        initialProviderFocus={initialProviderFocus}
         onNavigate={onNavigate as any}
       />,
     );
@@ -154,7 +162,7 @@ beforeEach(async () => {
     }
   ).IS_REACT_ACT_ENVIRONMENT = true;
 
-  await changeEmberLocale("en-US");
+  await changeLimeLocale("en-US");
   mockResolveOemCloudRuntimeContext.mockReturnValue({
     baseUrl: "https://user.example.com",
   });
@@ -169,6 +177,7 @@ afterEach(async () => {
   mockSettingsHomePage.mockReset();
   mockDeveloperLabSettings.mockReset();
   mockArchivedConversationsSettings.mockReset();
+  mockExecutionPolicySettings.mockReset();
 
   while (mounted.length > 0) {
     const current = mounted.pop();
@@ -182,7 +191,7 @@ afterEach(async () => {
     current.container.remove();
   }
 
-  await changeEmberLocale("zh-CN");
+  await changeLimeLocale("zh-CN");
 });
 
 describe("SettingsLayoutV2 Profile Tab", () => {
@@ -210,6 +219,21 @@ describe("SettingsLayoutV2 Profile Tab", () => {
 });
 
 describe("SettingsLayoutV2 Experimental Tab", () => {
+  it("旧快捷键设置直达入口应回退到设置首页", async () => {
+    const container = renderComponent(SettingsTabs.Hotkeys);
+    await flushEffects();
+    const text = container.textContent ?? "";
+    const sidebarProps = mockSettingsSidebar.mock.calls.at(-1)?.[0] as
+      | {
+          activeTab?: SettingsTabs;
+        }
+      | undefined;
+
+    expect(text).toContain("home");
+    expect(text).not.toContain("hotkeys");
+    expect(sidebarProps?.activeTab).toBe(SettingsTabs.Home);
+  });
+
   it("旧的执行轨迹页入口应直接回退到首页", async () => {
     const container = renderComponent(SettingsTabs.ExecutionTracker);
     await flushEffects();
@@ -260,7 +284,7 @@ describe("SettingsLayoutV2 Developer Tab", () => {
     expect(header).not.toBeNull();
     expect(header?.textContent ?? "").not.toContain("设置中心");
     expect(header?.textContent ?? "").not.toContain("设置");
-    expect(header?.classList.contains("ember-settings-theme-scope")).toBe(true);
+    expect(header?.classList.contains("lime-settings-theme-scope")).toBe(true);
     expect(header?.getAttribute("data-window-controls-reserved")).toBe("true");
     expect(button).not.toBeNull();
     expect(button?.textContent ?? "").toContain("Back Home");
@@ -300,7 +324,7 @@ describe("SettingsLayoutV2 Developer Tab", () => {
       container.querySelector('[data-testid="settings-content-atmosphere"]'),
     ).not.toBeNull();
     expect(
-      container.querySelector(".ember-settings-theme-scope"),
+      container.querySelector(".lime-settings-theme-scope"),
     ).not.toBeNull();
   });
 
@@ -346,6 +370,38 @@ describe("SettingsLayoutV2 Developer Tab", () => {
     expect(mockCloudProviderSettings).toHaveBeenCalled();
     expect(mockCloudProviderSettings.mock.calls.at(-1)?.[0]).toMatchObject({
       initialView: "settings",
+    });
+  });
+
+  it("直达执行策略页时应渲染真实策略设置入口", async () => {
+    const container = renderComponent(SettingsTabs.ExecutionPolicy);
+    await flushEffects();
+
+    expect(container.textContent ?? "").toContain("execution-policy");
+    expect(mockExecutionPolicySettings).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SettingsLayoutV2 Provider Focus", () => {
+  it("服务商设置页应透传 provider focus 给 Provider 设置组件", async () => {
+    const providerFocus: ProviderSettingsFocusContext = {
+      providerId: "custom-coder",
+      modelId: "coder-large",
+      reasonCode: "missing_enabled_api_key",
+      recoveryAction: "add_enabled_api_key",
+    };
+
+    renderComponent(
+      SettingsTabs.Providers,
+      undefined,
+      "settings",
+      providerFocus,
+    );
+    await flushEffects();
+
+    expect(mockCloudProviderSettings.mock.calls.at(-1)?.[0]).toMatchObject({
+      initialView: "settings",
+      initialFocus: providerFocus,
     });
   });
 });

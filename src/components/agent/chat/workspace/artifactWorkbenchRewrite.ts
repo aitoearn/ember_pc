@@ -426,7 +426,7 @@ function buildRewritePrompt(input: {
   ).map(serializeSourceForPrompt);
 
   const sections = [
-    "你正在执行 Ember Artifact Workbench 的局部改写任务。",
+    "你正在执行 Lime Artifact Workbench 的局部改写任务。",
     "请只改写当前一个 block，并返回符合 Artifact rewrite 合同的结构化结果。",
     "",
     "当前文档",

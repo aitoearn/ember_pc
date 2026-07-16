@@ -10,10 +10,9 @@ const mountedRoots: Array<{ root: Root; container: HTMLDivElement }> = [];
 
 const TEST_CHROME_COPY: Pick<
   HomeSurfaceChromeCopy,
-  "galleryDescription" | "galleryTitle"
+  "galleryTitle"
 > = {
   galleryTitle: "你可以从这些任务开始",
-  galleryDescription: "往下看更多任务样例；真正执行仍会回到生成里继续补充。",
 };
 
 beforeEach(() => {
@@ -27,7 +26,7 @@ beforeEach(() => {
 function createItem(): HomeSkillSurfaceItem {
   return {
     id: "daily-trend-briefing",
-    title: "冒烟检查清单",
+    title: "每日趋势摘要",
     summary: "先收一版内容趋势。",
     category: "social",
     sourceKind: "curated_task",
@@ -84,7 +83,10 @@ describe("HomeSkillGallery", () => {
     const { container, onSelectItem } = renderGallery([item]);
 
     expect(container.textContent).toContain("你可以从这些任务开始");
-    expect(container.textContent).toContain("冒烟检查清单");
+    expect(container.textContent).toContain("每日趋势摘要");
+    expect(container.textContent).not.toContain(
+      "往下看更多任务样例；真正执行仍会回到生成里继续补充。",
+    );
 
     const button = container.querySelector(
       '[data-testid="home-gallery-entry-recommended-daily-trend-briefing"]',

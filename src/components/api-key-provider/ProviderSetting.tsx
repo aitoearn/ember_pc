@@ -35,12 +35,14 @@ import {
   fetchProviderModelsAuto,
   normalizeFetchProviderModelsSource,
 } from "@/lib/api/modelRegistry";
+import { isLikelyImageGenerationModelId } from "@/lib/imageGen/providerMatchers";
 import {
   findModelBoundImageCommandEntryForModel,
   getCurrentSkillCatalogSnapshot,
   subscribeSkillCatalogChanged,
   upsertLocalModelBoundImageCommandBinding,
 } from "@/lib/api/skillCatalog";
+import { resolveLayeredDesignImageExecutorMode } from "@/lib/layered-design/imageModelCapabilities";
 import { getProviderModelAutoFetchCapability } from "@/lib/model/providerModelFetchSupport";
 import { getProviderPromptCacheMode } from "@/lib/model/providerPromptCacheSupport";
 import {
@@ -60,10 +62,10 @@ import {
   extractApiModelIds,
   isFalProviderLike,
   isLikelyFalImageModel,
-  isResponsesImageModel,
   isProviderApiKeyRequired,
   type ProviderModelFetchStatusCopy,
 } from "./providerModelFetchHelpers";
+import type { ProviderSettingsFocusContext } from "@/types/page";
 
 // ============================================================================
 // 类型定义
@@ -72,6 +74,8 @@ import {
 export interface ProviderSettingProps {
   /** Provider 数据（包含 API Keys） */
   provider: ProviderWithKeysDisplay | null;
+  /** 从运行诊断进入设置页时的焦点 */
+  focus?: ProviderSettingsFocusContext | null;
   /** 当前授权状态 */
   authStatus?: "ready" | "login_required";
   /** 触发登录或授权 */
@@ -117,12 +121,17 @@ type ImageModelCommandExecutorMode =
 // 辅助函数
 // ============================================================================
 
-function formatProviderHost(apiHost: string): string {
+function normalizeProviderHostValue(apiHost: unknown): string {
+  return typeof apiHost === "string" ? apiHost : "";
+}
+
+function formatProviderHost(apiHost: unknown): string {
+  const normalizedApiHost = normalizeProviderHostValue(apiHost);
   try {
-    const url = new URL(apiHost);
+    const url = new URL(normalizedApiHost);
     return `${url.host}${url.pathname === "/" ? "" : url.pathname}`;
   } catch {
-    return apiHost;
+    return normalizedApiHost;
   }
 }
 
@@ -142,18 +151,7 @@ function hasConfiguredApiKey(provider: ProviderWithKeysDisplay): boolean {
 }
 
 function isLikelyImageModelCommandModel(modelId: string): boolean {
-  const normalized = modelId.trim().toLowerCase();
-  if (!normalized) {
-    return false;
-  }
-
-  return (
-    isResponsesImageModel(normalized) ||
-    isLikelyFalImageModel(normalized) ||
-    /(image|images|nano-banana|banana|flux|seedream|kontext|recraft|ideogram|sdxl|stable-diffusion)/.test(
-      normalized,
-    )
-  );
+  return isLikelyImageGenerationModelId(modelId);
 }
 
 function titleCaseAsciiWords(value: string): string {
@@ -188,16 +186,11 @@ function buildSuggestedImageCommandTrigger(modelId: string): string {
 function resolveSuggestedImageCommandExecutorMode(
   provider: ProviderWithKeysDisplay,
   modelId: string,
-): ImageModelCommandExecutorMode | undefined {
-  if (isResponsesImageModel(modelId)) {
-    return "responses_image_generation";
-  }
-
-  if (isFalProviderLike(provider) || isLikelyFalImageModel(modelId)) {
-    return "images_api";
-  }
-
-  return undefined;
+): ImageModelCommandExecutorMode {
+  return resolveLayeredDesignImageExecutorMode({
+    providerId: provider.id,
+    model: modelId,
+  });
 }
 
 function readCommandTriggerLabel(entry: {
@@ -266,6 +259,15 @@ function formatProviderRuntimeError(
 ) {
   const rawMessage = error?.trim() || fallback;
   return resolveAgentRuntimeErrorPresentation(rawMessage).displayMessage;
+}
+
+function isMissingApiKeyFocus(
+  focus: ProviderSettingsFocusContext | null | undefined,
+): boolean {
+  return (
+    focus?.recoveryAction === "add_enabled_api_key" ||
+    focus?.reasonCode === "missing_enabled_api_key"
+  );
 }
 
 // ============================================================================
@@ -343,7 +345,7 @@ export const ProviderSetting: React.FC<ProviderSettingProps> = (props) => {
                   <p className="mt-2 text-sm leading-6 text-amber-800">
                     {t(
                       "settings.providers.setting.loginRequired.description",
-                      "登录后会自动同步 Ember Hub 的可用模型和本地托管访问凭证；未登录时不会展示本地兜底模型。",
+                      "登录后会自动同步 Lime Hub 的可用模型和本地托管访问凭证；未登录时不会展示本地兜底模型。",
                     )}
                   </p>
                 </div>
@@ -379,6 +381,7 @@ export const ProviderSetting: React.FC<ProviderSettingProps> = (props) => {
 
 const ProviderSettingBody: React.FC<ProviderSettingBodyProps> = ({
   provider,
+  focus,
   onUpdate,
   onAddApiKey,
   onTestConnection,
@@ -404,7 +407,9 @@ const ProviderSettingBody: React.FC<ProviderSettingBodyProps> = ({
   const [apiKeyDirty, setApiKeyDirty] = useState(false);
   const [savingApiKey, setSavingApiKey] = useState(false);
   const [apiKeyStatus, setApiKeyStatus] = useState<InlineStatus | null>(null);
-  const [apiHostDraft, setApiHostDraft] = useState(provider.api_host);
+  const [apiHostDraft, setApiHostDraft] = useState(() =>
+    normalizeProviderHostValue(provider.api_host),
+  );
   const [apiHostDirty, setApiHostDirty] = useState(false);
   const [savingApiHost, setSavingApiHost] = useState(false);
   const [apiHostStatus, setApiHostStatus] = useState<InlineStatus | null>(null);
@@ -433,7 +438,7 @@ const ProviderSettingBody: React.FC<ProviderSettingBodyProps> = ({
     setApiKeyDirty(false);
     setSavingApiKey(false);
     setApiKeyStatus(null);
-    setApiHostDraft(provider.api_host);
+    setApiHostDraft(normalizeProviderHostValue(provider.api_host));
     setApiHostDirty(false);
     setSavingApiHost(false);
     setApiHostStatus(null);
@@ -448,13 +453,18 @@ const ProviderSettingBody: React.FC<ProviderSettingBodyProps> = ({
     });
   }, []);
 
-  const providerHostLabel = formatProviderHost(provider.api_host);
+  const normalizedProviderApiHost = normalizeProviderHostValue(
+    provider.api_host,
+  );
+  const providerHostLabel = formatProviderHost(normalizedProviderApiHost);
   const apiKeyMask = getFirstVisibleApiKey(provider);
   const hasApiKey = hasConfiguredApiKey(provider);
-  const effectiveApiHost = apiHostDirty ? apiHostDraft : provider.api_host;
+  const effectiveApiHost = apiHostDirty
+    ? apiHostDraft
+    : normalizedProviderApiHost;
   const trimmedApiHostDraft = apiHostDraft.trim();
   const hasPendingApiHost =
-    apiHostDirty && trimmedApiHostDraft !== provider.api_host.trim();
+    apiHostDirty && trimmedApiHostDraft !== normalizedProviderApiHost.trim();
   const accessHelp = getProviderAccessHelp({
     providerId: provider.id,
     providerName: provider.name,
@@ -504,6 +514,17 @@ const ProviderSettingBody: React.FC<ProviderSettingBodyProps> = ({
         : availableApiModels,
     [availableApiModels, normalizedApiModelQuery],
   );
+  const focusedModelId = focus?.modelId?.trim() || "";
+  const focusModelMissing = Boolean(
+    focusedModelId && !normalizedModelSet.has(focusedModelId.toLowerCase()),
+  );
+  const showProviderFocusBanner = Boolean(
+    focus?.providerId ||
+    focus?.modelId ||
+    focus?.reasonCode ||
+    focus?.recoveryAction,
+  );
+  const needsApiKeyFromFocus = isMissingApiKeyFocus(focus);
   const imageModelCommandByModel = useMemo(() => {
     void skillCatalogRevision;
     const catalog = getCurrentSkillCatalogSnapshot();
@@ -531,7 +552,7 @@ const ProviderSettingBody: React.FC<ProviderSettingBodyProps> = ({
     getProviderPromptCacheMode(
       provider.type,
       provider.prompt_cache_mode,
-      provider.api_host,
+      normalizedProviderApiHost,
     ) === "explicit_only";
   const canSaveApiKey =
     !loading &&
@@ -600,7 +621,7 @@ const ProviderSettingBody: React.FC<ProviderSettingBodyProps> = ({
 
   const persistDraftApiHost = useCallback(async () => {
     const nextApiHost = apiHostDraft.trim();
-    if (!apiHostDirty || nextApiHost === provider.api_host.trim()) {
+    if (!apiHostDirty || nextApiHost === normalizedProviderApiHost.trim()) {
       return;
     }
 
@@ -621,7 +642,14 @@ const ProviderSettingBody: React.FC<ProviderSettingBodyProps> = ({
     await onUpdate(provider.id, { api_host: nextApiHost });
     setApiHostDraft(nextApiHost);
     setApiHostDirty(false);
-  }, [apiHostDirty, apiHostDraft, onUpdate, provider.api_host, provider.id, t]);
+  }, [
+    apiHostDirty,
+    apiHostDraft,
+    normalizedProviderApiHost,
+    onUpdate,
+    provider.id,
+    t,
+  ]);
 
   const handleSaveApiHost = useCallback(async () => {
     if (!apiHostDirty) {
@@ -1191,6 +1219,84 @@ const ProviderSettingBody: React.FC<ProviderSettingBodyProps> = ({
           </header>
 
           <div className="mt-6 space-y-6">
+            {showProviderFocusBanner ? (
+              <div
+                className={cn(
+                  "rounded-[18px] border px-4 py-3 text-sm",
+                  needsApiKeyFromFocus || focusModelMissing
+                    ? "border-amber-200 bg-amber-50 text-amber-900"
+                    : "border-sky-200 bg-sky-50 text-sky-900",
+                )}
+                data-testid="provider-focus-banner"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="font-semibold">
+                      {needsApiKeyFromFocus
+                        ? t(
+                            "settings.providers.setting.focus.needApiKey.title",
+                            "补齐 API 密钥后可继续运行",
+                          )
+                        : focusModelMissing
+                          ? t(
+                              "settings.providers.setting.focus.needModel.title",
+                              "补齐模型后可继续运行",
+                            )
+                          : t(
+                              "settings.providers.setting.focus.title",
+                              "运行诊断定位到这里",
+                            )}
+                    </div>
+                    <p className="mt-1 leading-5">
+                      {needsApiKeyFromFocus
+                        ? t(
+                            "settings.providers.setting.focus.needApiKey.description",
+                            "请在下方填写并保存可用的 API 密钥，然后试跑当前模型。",
+                          )
+                        : focusModelMissing
+                          ? t(
+                              "settings.providers.setting.focus.needModel.description",
+                              {
+                                model: focusedModelId,
+                              },
+                            )
+                          : t(
+                              "settings.providers.setting.focus.description",
+                              "请检查该服务商的密钥、模型优先级和连接状态。",
+                            )}
+                    </p>
+                    {focus?.reasonCode ? (
+                      <p className="mt-1 break-all text-xs opacity-70">
+                        {t("settings.providers.setting.focus.reason", {
+                          reason: focus.reasonCode,
+                          defaultValue: "诊断原因：{{reason}}",
+                        })}
+                      </p>
+                    ) : null}
+                  </div>
+                  {focusModelMissing ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 shrink-0 rounded-full border-amber-300 bg-white px-3 text-amber-900 hover:bg-amber-100"
+                      onClick={() => {
+                        void addModels([focusedModelId]);
+                      }}
+                      disabled={loading || !focusedModelId}
+                      data-testid="provider-focus-add-model-button"
+                    >
+                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      {t(
+                        "settings.providers.setting.focus.action.addModel",
+                        "加入模型优先级",
+                      )}
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
             {providerActionStatus ? (
               <div
                 className={cn(

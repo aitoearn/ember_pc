@@ -11,10 +11,8 @@ type SlashSkillPreflightEnv = Pick<
   | "setIsSending"
   | "setActiveStream"
   | "clearActiveStreamIfMatch"
-  | "playTypewriterSound"
-  | "playToolcallSound"
   | "onWriteFile"
-  | "getRequiredWorkspaceId"
+  | "getWorkspaceIdForSubmit"
 >;
 
 interface MaybeHandleSlashSkillBeforeSendOptions {

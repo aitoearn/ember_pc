@@ -5,7 +5,7 @@ describe("oemCloudDesktopAuth", () => {
   it("应解析桌面端 OAuth 回调", () => {
     expect(
       parseOemCloudDesktopOAuthCallbackUrl(
-        "ember://oauth/callback?tenantId=tenant-0001&token=session-token&next=%2Fwelcome",
+        "lime://oauth/callback?tenantId=tenant-0001&token=session-token&next=%2Fwelcome",
       ),
     ).toEqual({
       tenantId: "tenant-0001",
@@ -18,7 +18,7 @@ describe("oemCloudDesktopAuth", () => {
   it("缺少 next 时应回退默认欢迎页", () => {
     expect(
       parseOemCloudDesktopOAuthCallbackUrl(
-        "ember://oauth/callback?tenantId=tenant-0001&token=session-token",
+        "lime://oauth/callback?tenantId=tenant-0001&token=session-token",
       ),
     ).toEqual({
       tenantId: "tenant-0001",

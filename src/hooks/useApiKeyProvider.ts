@@ -24,7 +24,7 @@ import {
   subscribeProviderDataChanged,
 } from "@/lib/providerDataEvents";
 import { isDebugFlagEnabled } from "@/lib/perfDebug";
-import { isOemManagedHubProvider } from "@/lib/oemEmberHubProvider";
+import { isOemManagedHubProvider } from "@/lib/oemLimeHubProvider";
 
 // ============================================================================
 // Hook 返回类型
@@ -128,7 +128,7 @@ const UI_STATE_KEYS = {
   PROVIDER_SORT_ORDERS: "provider_sort_orders",
 } as const;
 
-const PROVIDER_DEBUG_KEY = "ember:provider-debug";
+const PROVIDER_DEBUG_KEY = "lime:provider-debug";
 
 interface ProviderCacheState {
   providers: ProviderWithKeysDisplay[] | null;

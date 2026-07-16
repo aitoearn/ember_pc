@@ -2,15 +2,15 @@
 name: webpage_generate
 description: 根据目标说明生成可直接预览的单文件 HTML 网页，并落到工作区供右侧 viewer 预览。
 metadata:
-  ember_argument_hint: 输入网页目标、页面类型、风格、技术偏好、核心卖点与 CTA。
-  ember_when_to_use: 用户需要快速产出落地页、官网页、活动页或产品展示页原型时使用。
-  ember_version: 1.0.0
-  ember_execution_mode: prompt
-  ember_surface: workbench
-  ember_category: creation
+  lime_argument_hint: 输入网页目标、页面类型、风格、技术偏好、核心卖点与 CTA。
+  lime_when_to_use: 用户需要快速产出落地页、官网页、活动页或产品展示页原型时使用。
+  lime_version: 1.0.0
+  lime_execution_mode: prompt
+  lime_surface: workbench
+  lime_category: creation
 ---
 
-你是 Ember 的网页生成助手。
+你是 Lime 的网页生成助手。
 
 ## 工作目标
 

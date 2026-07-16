@@ -16,26 +16,6 @@ import {
 
 export type SkillsWorkspaceView = "store" | "builtin" | "installed";
 
-/** Skills 技能广场仅展示测试相关类目。 */
-export const SKILLS_WORKSPACE_STORE_CATEGORIES = [
-  "专项测试",
-  "测试运营",
-] as const;
-
-export function isSkillsWorkspaceStoreServiceSkill(
-  skill: Pick<ServiceSkillHomeItem, "category">,
-): boolean {
-  return (SKILLS_WORKSPACE_STORE_CATEGORIES as readonly string[]).includes(
-    skill.category,
-  );
-}
-
-export function filterSkillsWorkspaceStoreServiceSkills(
-  skills: ServiceSkillHomeItem[],
-): ServiceSkillHomeItem[] {
-  return skills.filter(isSkillsWorkspaceStoreServiceSkill);
-}
-
 export type SkillStoreItem =
   | {
       source: "official";
@@ -79,7 +59,7 @@ function buildMarketplaceCoverPlaceholder(
   title: string,
   category?: string,
 ): SkillMarketplaceVisualAsset {
-  const safeTitle = escapeSvgText(title || "Ember Skill");
+  const safeTitle = escapeSvgText(title || "Lime Skill");
   const safeCategory = escapeSvgText(category || "Official");
   return {
     kind: "svg",
@@ -90,7 +70,7 @@ function buildMarketplaceCoverPlaceholder(
 export function buildMarketplaceIconPlaceholder(
   title: string,
 ): SkillMarketplaceVisualAsset {
-  const safeTitle = escapeSvgText(title || "Ember");
+  const safeTitle = escapeSvgText(title || "Lime");
   const initial = escapeSvgText([...safeTitle][0] || "L");
   return {
     kind: "svg",
@@ -162,7 +142,7 @@ export function isMarketplaceSkillInstalledAsLocalSkill({
   return (
     candidates.has(localSkill.directory) ||
     candidates.has(localSkill.name) ||
-    localSkill.metadata?.ember_marketplace_skill_name === marketplaceSkill.name
+    localSkill.metadata?.lime_marketplace_skill_name === marketplaceSkill.name
   );
 }
 
@@ -223,11 +203,7 @@ export function buildSkillStoreItems({
     }));
   }
 
-  const visibleServiceSkills = filterSkillsWorkspaceStoreServiceSkills(
-    workspaceServiceSkills,
-  );
-
-  return visibleServiceSkills.slice(0, fallbackLimit).map((serviceSkill) => ({
+  return workspaceServiceSkills.slice(0, fallbackLimit).map((serviceSkill) => ({
     source: "local_fallback",
     skill: buildFallbackMarketplaceItem(serviceSkill),
     serviceSkill,

@@ -38,7 +38,7 @@
     {
       "id": "agent-compat-gateway",
       "classification": "dead-candidate",
-      "description": "已删除的 Agent / Aster compat API 网关",
+      "description": "已删除的 Agent / Agent compat API 网关",
       "targets": ["src/lib/api/agentCompat.ts"],
       "allowedPaths": []
     },
@@ -47,6 +47,13 @@
       "classification": "dead-candidate",
       "description": "已删除 Agent API 门面入口",
       "targets": ["src/lib/api/agent.ts"],
+      "allowedPaths": []
+    },
+    {
+      "id": "rust-agent-duplicate-protocol-agent-control",
+      "classification": "dead",
+      "description": "已删除的 lime-agent 根层 AgentControl protocol 重复实现；唯一 current owner 是 src/protocol/protocol_agent_control.rs，不得恢复平级旧副本",
+      "targets": ["ember-rs/crates/agent/src/protocol_agent_control.rs"],
       "allowedPaths": []
     },
     {
@@ -75,6 +82,23 @@
       "targets": [
         "scripts/startup-layout-e2e.mjs",
         "scripts/startup-layout-guide.mjs"
+      ],
+      "allowedPaths": []
+    },
+    {
+      "id": "plugin-marketplace-page-legacy-ui-surface",
+      "classification": "dead",
+      "description": "已删除的旧 PluginMarketplacePage 页面、详情弹窗和历史/注册侧栏；插件中心 current 入口只允许收敛到 src/features/plugin/ui/PluginsPage.tsx 的内嵌详情页，不得恢复旧页面壳或旧详情弹窗",
+      "targets": [
+        "src/features/plugin/PluginMarketplacePage.tsx",
+        "src/features/plugin/PluginMarketplacePage.test.tsx",
+        "src/features/plugin/PluginMarketplacePage.visibleBlockers.test.tsx",
+        "src/features/plugin/PluginMarketplacePageNavigation.ts",
+        "src/features/plugin/PluginMarketplaceDetailPanel.tsx",
+        "src/features/plugin/PluginMarketplaceHistorySessionPanel.tsx",
+        "src/features/plugin/PluginMarketplaceRegistrationPanel.tsx",
+        "src/features/plugin/PluginMarketplaceRegistrationPanelModel.ts",
+        "src/features/plugin/PluginMarketplaceSkillPanel.tsx"
       ],
       "allowedPaths": []
     },
@@ -133,13 +157,10 @@
     },
     {
       "id": "agent-chat-legacy-history-sidebar-runtime-entry",
-      "classification": "dead-candidate",
-      "description": "旧会话历史侧栏已退出 WorkspaceShell 生产主路径；多对话打开与切换必须收敛到任务中心 tab/dropdown，不得重新从运行时代码 import ChatSidebar",
+      "classification": "dead",
+      "description": "已删除的旧会话历史侧栏；多对话打开与切换必须收敛到任务中心 tab/dropdown，不得重新从运行时代码 import ChatSidebar",
       "targets": ["src/components/agent/chat/components/ChatSidebar.tsx"],
-      "allowedPaths": [
-        "src/components/agent/chat/components/ChatSidebar.testFixtures.tsx",
-        "src/components/agent/chat/index.testFixtures.tsx"
-      ]
+      "allowedPaths": []
     },
     {
       "id": "sceneapps-workflow-rail-entry",
@@ -151,7 +172,7 @@
     {
       "id": "sceneapp-active-launch-surface",
       "classification": "dead",
-      "description": "已删除的 SceneApp 首页卡片、Workspace 启动 Hook 与 launch draft 运行链；Agent App current 后不得恢复独立 SceneApp 启动入口",
+      "description": "已删除的 SceneApp 首页卡片、Workspace 启动 Hook 与 launch draft 运行链；Plugin current 后不得恢复独立 SceneApp 启动入口",
       "targets": [
         "src/components/agent/chat/sceneappEntryTypes.ts",
         "src/components/agent/chat/workspace/useWorkspaceSceneAppEntryActions.ts",
@@ -165,7 +186,7 @@
     {
       "id": "sceneapp-catalog-projection-surface",
       "classification": "dead",
-      "description": "已删除的 SceneApp catalog 编译 / 存储投影；应用目录事实源已切到 Agent App，不允许恢复独立 SceneApp catalog 入口",
+      "description": "已删除的 SceneApp catalog 编译 / 存储投影；应用目录事实源已切到 Plugin，不允许恢复独立 SceneApp catalog 入口",
       "targets": ["src/lib/sceneapp/catalog.ts"],
       "allowedPaths": []
     },
@@ -322,13 +343,6 @@
       "targets": [
         "ember-rs/crates/core/src/plugin/examples/credential_monitor.rs"
       ],
-      "allowedPaths": []
-    },
-    {
-      "id": "agent-legacy-hook-entry",
-      "classification": "dead-candidate",
-      "description": "旧 Agent Chat Hook 入口",
-      "targets": ["src/components/agent/chat/hooks/useAgentChat.ts"],
       "allowedPaths": []
     },
     {
@@ -554,6 +568,27 @@
       "targets": [
         "src/components/agent/chat/components/Inputbar/hooks/useThemeWorkbenchInputState.ts",
         "src/components/agent/chat/components/Inputbar/hooks/useThemeWorkbenchInputState.test.ts"
+      ],
+      "allowedPaths": []
+    },
+    {
+      "id": "workspace-use-workflow-legacy-hook-shell",
+      "classification": "dead",
+      "description": "已物理删除的旧 workspace useWorkflow Hook；真实 Workflow facts 必须来自 App Server Workflow Read Model，不得恢复旧 steps Hook",
+      "targets": [
+        "src/components/workspace/hooks/useWorkflow.ts",
+        "src/components/workspace/hooks/useWorkflow.test.ts"
+      ],
+      "allowedPaths": []
+    },
+    {
+      "id": "workflow-runtime-host-legacy-dsl-files",
+      "classification": "dead",
+      "description": "已物理删除的前端 WorkflowRuntimeHost DSL 与 runtimePolicy；Workflow current 执行事实源为 App Server workflow control/read model，不得恢复本地 DSL runtime",
+      "targets": [
+        "src/features/plugin/runtime/workflowRuntimeHost.ts",
+        "src/features/plugin/runtime/workflowRuntimeHost.test.ts",
+        "src/features/plugin/runtime/runtimePolicy.ts"
       ],
       "allowedPaths": []
     },
@@ -1046,7 +1081,7 @@
     {
       "id": "agent-chat-code-workbench-command-parser-entry",
       "classification": "dead",
-      "description": "已删除的旧工作台专用 parser 与测试入口；编程底座当前收敛到 command catalog agent_turn route 与 code_orchestrated runtime，不得恢复这些文件",
+      "description": "已删除的旧工作台专用 parser 与测试入口；编程底座当前收敛到 command catalog agent_turn route 与 react Agent runtime 主链，legacy code_orchestrated 只能在兼容边界归一到 react，不得恢复这些文件",
       "targets": [
         "src/components/agent/chat/utils/codeWorkbenchCommand.ts",
         "src/components/agent/chat/utils/codeWorkbenchCommand.test.ts"
@@ -1281,7 +1316,7 @@
     {
       "id": "companion-pet-main-surface",
       "classification": "dead",
-      "description": "已删除的桌宠主实现面，Ember 主仓不再提供 Ember Pet 启动、状态监听、Provider 摘要同步或桌宠能力偏好入口",
+      "description": "已删除的桌宠主实现面，Lime 主仓不再提供 Lime Pet 启动、状态监听、Provider 摘要同步或桌宠能力偏好入口",
       "targets": [
         "src/lib/api/companion.ts",
         "src/lib/api/companion.d.ts",
@@ -1378,13 +1413,92 @@
     },
     {
       "id": "memory-feedback-frontend-surface",
-      "classification": "dead-candidate",
-      "description": "已删除的记忆反馈旧前端组件与 API 网关，当前记忆页面主链不再暴露该独立反馈侧链",
+      "classification": "dead",
+      "description": "已删除的记忆反馈旧前端组件与 API 网关；文件化记忆主线不再恢复旧 MemoryPage 附属反馈侧链",
       "targets": [
         "src/components/memory/MemoryFeedback.tsx",
         "src/components/memory/FeedbackStats.tsx",
         "src/lib/api/memoryFeedback.ts",
         "src/lib/api/memoryFeedback.test.ts"
+      ],
+      "allowedPaths": []
+    },
+    {
+      "id": "memory-page-inspiration-library-surface",
+      "classification": "dead",
+      "description": "旧 MemoryPage 灵感库 / 高级诊断混合视图；文件化记忆主线只允许通过 memory store、MemoryBackend、memory tools 与 settings.memory.soul 继续演进，不得恢复 GUI 主入口",
+      "targets": [
+        "src/components/memory/index.ts",
+        "src/components/memory/inspirationProjection.ts",
+        "src/components/memory/memoryLayerMetrics.ts",
+        "src/components/memory/memoryLayerMetrics.test.ts",
+        "src/components/memory/MemoryCuratedTaskSuggestionPanel.tsx",
+        "src/components/memory/MemoryCuratedTaskSuggestionPanel.test.tsx",
+        "src/components/memory/MemoryPage.tsx",
+        "src/components/memory/MemoryPage.test.tsx",
+        "src/components/agent/chat/utils/messageInspirationDraft.ts",
+        "src/components/agent/chat/utils/messageInspirationDraft.test.ts",
+        "src/components/agent/chat/utils/saveSceneAppExecutionAsInspiration.ts",
+        "src/components/agent/chat/utils/saveSceneAppExecutionAsInspiration.test.ts",
+        "src/components/agent/chat/utils/sceneAppExecutionInspirationDraft.ts",
+        "src/components/agent/chat/utils/sceneAppExecutionInspirationDraft.test.ts",
+        "src/lib/api/unifiedMemory.ts",
+        "src/lib/api/unifiedMemory.test.ts"
+      ],
+      "allowedPaths": []
+    },
+    {
+      "id": "memory-retired-project-crud-gateway-surface",
+      "classification": "dead",
+      "description": "已删除的旧 src/lib/api/memory.ts 聚合网关；projectMemory/read 已收敛到 projectMemory current API，角色 / 世界观 / 大纲旧 CRUD 壳不得恢复为记忆主链",
+      "targets": ["src/lib/api/memory.ts", "src/lib/api/memory.test.ts"],
+      "allowedPaths": []
+    },
+    {
+      "id": "memory-runtime-retired-gateway-surface",
+      "classification": "dead",
+      "description": "旧 memoryRuntime 前端网关和运行时召回 DTO；文件化记忆主线必须走 memoryStore/*、MemoryBackend 与 memory tools，配置类型只允许保留在 memoryConfigTypes / memory.soul",
+      "targets": [
+        "src/lib/api/memoryRuntime.ts",
+        "src/lib/api/memoryRuntime.test.ts",
+        "src/lib/api/memoryRuntimeTypes.ts",
+        "src/lib/runtimeMemoryPrefetchHistory.ts",
+        "src/lib/runtimeMemoryPrefetchHistory.test.ts",
+        "src/components/agent/chat/components/AgentThreadMemoryPrefetchPreview.tsx",
+        "src/components/agent/chat/components/AgentThreadMemoryPrefetchPreview.test.tsx",
+        "src/components/agent/chat/components/AgentThreadMemoryPrefetchBaselineCard.tsx"
+      ],
+      "allowedPaths": []
+    },
+    {
+      "id": "memory-crate-retired-sqlite-surface",
+      "classification": "dead",
+      "description": "已删除的旧 SQLite memory crate；文件化 memory store 由 App Server MemoryBackend 承接，不得恢复独立 memory crate、反馈侧链或旧 unified_memory 迁移",
+      "targets": [
+        "ember-rs/crates/memory/Cargo.toml",
+        "ember-rs/crates/memory/migrations/001_unified_memory.sql",
+        "ember-rs/crates/memory/migrations/003_feedback.sql",
+        "ember-rs/crates/memory/src/extractor.rs",
+        "ember-rs/crates/memory/src/feedback.rs",
+        "ember-rs/crates/memory/src/gatekeeper.rs",
+        "ember-rs/crates/memory/src/lib.rs",
+        "ember-rs/crates/memory/src/migration.rs",
+        "ember-rs/crates/memory/src/migrations/mod.rs",
+        "ember-rs/crates/memory/src/migrations/v1_unified_memory.rs",
+        "ember-rs/crates/memory/src/migrations/v1_unified_memory.sql",
+        "ember-rs/crates/memory/src/models/mod.rs",
+        "ember-rs/crates/memory/src/models/unified.rs",
+        "ember-rs/crates/memory/src/search.rs"
+      ],
+      "allowedPaths": []
+    },
+    {
+      "id": "memory-app-server-unified-retired-surface",
+      "classification": "dead",
+      "description": "已删除的 App Server 旧 unified memory 处理器和数据源；current 记忆读写只允许走 memoryStore/*、MemoryBackend 与 memory_store processor",
+      "targets": [
+        "ember-rs/crates/app-server/src/local_data_source/unified_memory.rs",
+        "ember-rs/crates/app-server/src/processor/unified.rs"
       ],
       "allowedPaths": []
     },
@@ -1903,15 +2017,15 @@
     },
     {
       "id": "content-workflow-legacy-api-gateway",
-      "classification": "dead-candidate",
-      "description": "已退出现役工作区主链的旧 content workflow API 网关",
+      "classification": "dead",
+      "description": "已退出现役工作区主链的旧 content workflow API 网关；Workflow current 事实源为 App Server workflow.* event 与 Workflow Read Model",
       "targets": ["src/lib/api/content-workflow.ts"],
       "allowedPaths": []
     },
     {
       "id": "content-workflow-rust-command-module",
-      "classification": "dead-candidate",
-      "description": "已退出 旧桌面宿主命令注册的旧 content workflow 命令模块",
+      "classification": "dead",
+      "description": "已退出旧桌面宿主命令注册的旧 content workflow 命令模块；不得恢复旧 Tauri command wrapper",
       "targets": ["ember-rs/src/commands/content_workflow_cmd.rs"],
       "allowedPaths": []
     },
@@ -2069,7 +2183,7 @@
     {
       "id": "plugin-center-module-surface",
       "classification": "dead",
-      "description": "已删除的插件中心页面、前端网关、桌面插件命令与文档入口；当前 GUI 不再暴露插件安装、管理或动态插件侧栏入口",
+      "description": "已删除的旧 components/plugins 页面、旧 pluginUI 网关、旧桌面插件命令与文档入口；Plugin current 主链收敛到 src/features/plugin 与 src/lib/api/plugins.ts，不得恢复旧插件中心实现",
       "targets": [
         "src/components/plugins/PluginInstallDialog.tsx",
         "src/components/plugins/PluginItemContextMenu.tsx",
@@ -2078,8 +2192,6 @@
         "src/components/plugins/PluginUninstallDialog.tsx",
         "src/components/plugins/PluginsPage.tsx",
         "src/components/plugins/README.md",
-        "src/lib/api/plugins.ts",
-        "src/lib/api/plugins.test.ts",
         "src/lib/api/pluginUI.ts",
         "src/lib/api/pluginUI.test.ts",
         "ember-rs/src/commands/plugin_cmd.rs",
@@ -2089,7 +2201,7 @@
         "ember-rs/src/plugin/mod.rs",
         "ember-rs/src/plugin/ui_events.rs",
         "ember-rs/src/plugin/README.md",
-        "docs/aiprompts/plugins.md",
+        "internal/aiprompts/plugins.md",
         "docs/content/02.user-guide/13.plugins.md",
         "docs/plugins/README.md",
         "plugins/README.md",
@@ -2100,7 +2212,7 @@
     {
       "id": "sceneapps-independent-page-surface",
       "classification": "dead",
-      "description": "已下线的 SceneApps 独立页面、目录页运行时与最近访问入口；Agent App 是 current 应用主链，不允许恢复 sceneapps 页面路由",
+      "description": "已下线的 SceneApps 独立页面、目录页运行时与最近访问入口；Plugin 是 current 应用主链，不允许恢复 sceneapps 页面路由",
       "targets": [
         "src/components/sceneapps/SceneAppsPage.tsx",
         "src/components/sceneapps/useSceneAppsPageRuntime.ts",
@@ -2175,8 +2287,8 @@
     },
     {
       "id": "content-workflow-legacy-commands",
-      "classification": "dead-candidate",
-      "description": "已退出工作区现役主链的旧 content workflow 命令边界",
+      "classification": "dead",
+      "description": "已退出工作区现役主链的旧 content workflow 命令边界；新增 Workflow 控制面必须走 App Server current method",
       "commands": [
         "content_workflow_create",
         "content_workflow_get",
@@ -2591,7 +2703,7 @@
     {
       "id": "sceneapp-legacy-desktop-host-command-surface",
       "classification": "dead",
-      "description": "SceneApp 独立 旧桌面宿主命令已随 Agent App current 主链下线，不得恢复前端网关、Rust 注册、DevBridge 或 mock",
+      "description": "SceneApp 独立 旧桌面宿主命令已随 Plugin current 主链下线，不得恢复前端网关、Rust 注册、DevBridge 或 mock",
       "commands": [
         "sceneapp_list_catalog",
         "sceneapp_get_descriptor",
@@ -2607,6 +2719,29 @@
     }
   ],
   "frontendText": [
+    {
+      "id": "plugin-marketplace-page-legacy-i18n-keys",
+      "classification": "dead",
+      "description": "旧 PluginMarketplacePage 专属详情/历史/注册/管理文案已被 current plugin.apps.center.* 详情页取代；五语言资源不得恢复旧页面 key",
+      "patterns": [
+        "plugin.marketplace.action.detail",
+        "plugin.marketplace.action.disable",
+        "plugin.marketplace.action.uninstallKeepData",
+        "plugin.marketplace.detailActionTitle",
+        "plugin.marketplace.detail.",
+        "plugin.marketplace.openActionTitle",
+        "plugin.marketplace.historyActionTitle",
+        "plugin.marketplace.historySelection.",
+        "plugin.marketplace.management.",
+        "plugin.marketplace.registration.",
+        "plugin.marketplace.history.entryBanner",
+        "plugin.marketplace.skillActionTitle",
+        "plugin.marketplace.writeActionTitle",
+        "plugin.marketplace.readOnlyAction"
+      ],
+      "includePathPrefixes": ["src/i18n/resources"],
+      "allowedPaths": []
+    },
     {
       "id": "frontend-provider-pool-api-key-old-imports",
       "classification": "dead-candidate",
@@ -2626,7 +2761,7 @@
       "patterns": ["ViewTree", "ProcessTree"],
       "includePathPrefixes": [
         "src/components/agent",
-        "src/features/agent-app",
+        "src/features/plugin",
         "src/lib/api/agentRuntime"
       ],
       "allowedPaths": []
@@ -2646,8 +2781,10 @@
         "packages/agent-runtime-projection",
         "packages/agent-runtime-ui",
         "packages/agent-runtime-client",
-        "docs/aiprompts/agent-ui-runtime-standard.md",
-        "docs/aiprompts/playwright-e2e.md",
+        "internal/aiprompts/agent-ui-runtime-standard.md",
+        "internal/aiprompts/playwright-e2e.md",
+        "internal/prd/next/implementation-roadmap.md",
+        "internal/roadmap/agentworkbench",
         "src/components/agent/chat/projection",
         "src/components/agent/chat/workspace",
         "src/i18n/resources"
@@ -2667,22 +2804,22 @@
       ],
       "includePathPrefixes": [
         "src/components/agent",
-        "src/features/agent-app",
+        "src/features/plugin",
         "src/lib/api/agentRuntime"
       ],
       "allowedPaths": []
     },
     {
-      "id": "agent-app-host-drawer-local-process-fallback",
+      "id": "plugin-host-drawer-local-process-fallback",
       "classification": "dead",
-      "description": "Agent App HostDrawer 主路径不得重新调用本地 process fallback；主抽屉必须始终渲染标准 AgentRunProjectionPanel，空态也交给标准 projection",
+      "description": "Plugin HostDrawer 主路径不得重新调用本地 process fallback；主抽屉必须始终渲染标准 AgentRunProjectionPanel，空态也交给标准 projection",
       "patterns": [
         "AgentRunHostDrawerFallback",
         "AgentRunLocalProcessFallback",
         "shouldRenderLocalProcessFallback",
         "shouldRenderProjection ? ("
       ],
-      "includePathPrefixes": ["src/features/agent-app/ui/AgentRunHostDrawer.tsx"],
+      "includePathPrefixes": ["src/features/plugin/ui/AgentRunHostDrawer.tsx"],
       "allowedPaths": []
     },
     {
@@ -2698,7 +2835,7 @@
       ],
       "includePathPrefixes": [
         "src/components/agent",
-        "src/features/agent-app",
+        "src/features/plugin",
         "src/lib/api/agentRuntime"
       ],
       "allowedPaths": []
@@ -2722,7 +2859,7 @@
         "saveCustomTeams",
         "loadCustomTeams(",
         "buildWorkspaceSettingsWithCustomTeams",
-        "ember.chat.custom_teams.v1",
+        "lime.chat.custom_teams.v1",
         "team-workspace-board/",
         "TeamWorkspaceBoard",
         "TeamWorkspaceDock",
@@ -2808,18 +2945,6 @@
       ]
     },
     {
-      "id": "agent-legacy-stream-action-helpers",
-      "classification": "dead-candidate",
-      "description": "已零引用的旧 Aster stream/action helper 回流",
-      "allowedPaths": [],
-      "patterns": [
-        "sendAsterMessageStream(",
-        "confirmAsterAction(",
-        "submitAsterElicitationResponse(",
-        "stopAsterSession("
-      ]
-    },
-    {
       "id": "frontend-browser-preflight-legacy-tokens",
       "classification": "dead-candidate",
       "description": "前端不允许恢复旧浏览器 preflight 状态机、状态原因与顶栏兼容 props，当前统一收口到 browser requirement metadata + browser-runtime handoff",
@@ -2842,19 +2967,6 @@
         "onPrepareBrowserTaskPreflight",
         "maybeStartBrowserTaskPreflight",
         "handlePermissionResponseWithBrowserPreflight"
-      ]
-    },
-    {
-      "id": "aster-session-helper-direct-usage",
-      "classification": "dead-candidate",
-      "description": "已零引用的前端 direct Aster session helper 回流",
-      "allowedPaths": [],
-      "patterns": [
-        "createAsterSession(",
-        "listAsterSessions(",
-        "getAsterSession(",
-        "deleteAsterSession(",
-        "renameAsterSession("
       ]
     },
     {
@@ -3336,7 +3448,9 @@
       "description": "AI 图片生成 runtime 不允许继续扩散新的 useImageGen 主入口，当前只允许 Claw 工作台复用",
       "patterns": ["useImageGen({"],
       "includePathPrefixes": ["src/components"],
-      "allowedPaths": ["src/components/agent/chat/AgentChatWorkspace.tsx"]
+      "allowedPaths": [
+        "src/components/agent/chat/workspace/useWorkspaceImageWorkbenchProviderRuntime.ts"
+      ]
     },
     {
       "id": "image-generation-runtime-barrel-imports",
@@ -3717,6 +3831,59 @@
       "allowedPaths": []
     },
     {
+      "id": "workflow-runtime-host-production-usage",
+      "classification": "dead",
+      "description": "WorkflowRuntimeHost 已物理删除；生产 AI Workflow 必须进入 App Server workflow control/read model 主链",
+      "patterns": ["WorkflowRuntimeHost"],
+      "includePathPrefixes": [
+        "src/components/agent",
+        "src/features/plugin/runtime",
+        "src/lib/api/agentRuntime",
+        "packages/agent-ui-contracts",
+        "packages/agent-runtime-projection",
+        "packages/agent-runtime-ui",
+        "packages/agent-runtime-client"
+      ],
+      "allowedPaths": []
+    },
+    {
+      "id": "plugin-local-workflow-runtime-profile-production-surface",
+      "classification": "dead",
+      "description": "前端本地 workflow runtime profile 只允许停留在测试夹具；生产 Plugin workflow entry 必须 fail closed 或走 App Server workflow/read|cancel|retry|respond",
+      "patterns": [
+        "buildWorkflowRuntimeCapabilityProfile",
+        "workerRuntimeEnabled: true",
+        "P4.2 controlled workflow runtime",
+        "白名单 workflow DSL",
+        "allow-listed workflow DSL"
+      ],
+      "includePathPrefixes": ["src/features/plugin", "src/i18n/resources"],
+      "allowedPaths": [
+        "src/features/plugin/testing/workflowRuntimeCapabilityProfile.ts",
+        "src/features/plugin/testing/capabilityDispatcherTestFixtures.ts",
+        "src/features/plugin/runtime/agentRuntimeCapabilityHost.test.ts",
+        "src/features/plugin/runtime/entryRuntimeGuard.test.ts",
+        "src/features/plugin/adapters/AdapterCapabilityHost.test.ts",
+        "src/features/plugin/install/labInstallFlow.test.ts",
+        "src/features/plugin/ui/PluginManagerPanel.test.tsx",
+        "src/features/plugin/ui/PluginRuntimePage.testFixtures.tsx",
+        "src/features/plugin/ui/PluginsPage.runtime.test.tsx",
+        "src/features/plugin/ui/PluginsPage.test.tsx",
+        "src/features/plugin/ui/PluginsPage.testFixtures.tsx",
+        "src/features/plugin/ui/PluginsPageViewModel.unit.test.ts"
+      ]
+    },
+    {
+      "id": "plugin-adapter-local-workflow-entry-success-runner",
+      "classification": "dead",
+      "description": "AdapterCapabilityHost 不得在本地对 workflow entry 生成成功 run；workflow entry 必须走 App Server Workflow API 或 fail closed",
+      "patterns": ["humanReview: entry.kind === \"workflow\""],
+      "includePathPrefixes": [
+        "src/features/plugin/adapters/AdapterCapabilityHost.ts"
+      ],
+      "allowedPaths": []
+    },
+    {
       "id": "inputbar-core-legacy-allow-empty-send-prop",
       "classification": "dead-candidate",
       "description": "InputbarCore 不允许恢复零调用的 allowEmptySend 输入区透传，发送可用性判断应继续收敛在现役输入主链",
@@ -3839,7 +4006,7 @@
     {
       "id": "agent-chat-code-workbench-workspace-send-hardcode",
       "classification": "dead",
-      "description": "Workspace 发送主链不得重新为 @代码 / code_runtime 增加专用 parser、专用命令键判断、正文关键词路由或独立 code_command metadata；编程底座必须由 code_orchestrated 主链承载，@代码 只允许作为 command catalog 的 agent_turn 快捷入口",
+      "description": "Workspace 发送主链不得重新为 @代码 / code_runtime 增加专用 parser、专用命令键判断、正文关键词路由或独立 code_command metadata；编程底座必须由 react Agent runtime 主链承载，@代码 只允许作为 command catalog 的 agent_turn 快捷入口，legacy code_orchestrated 只能在兼容边界归一到 react",
       "patterns": [
         "parseCodeWorkbenchCommand",
         "commandKey: \"code_runtime\"",
@@ -3864,6 +4031,107 @@
       "allowedPaths": []
     },
     {
+      "id": "agent-chat-coding-workbench-legacy-thread-item-facts",
+      "classification": "dead",
+      "description": "Coding Workbench current presentation/runtime 不得直接消费 legacy thread item fact 类型；旧 file_artifact / command_execution / approval_request 只能留在历史测试/fixture 中，不得恢复为生产适配器",
+      "patterns": [
+        "file_artifact",
+        "command_execution",
+        "approval_request",
+        "code_orchestrated"
+      ],
+      "includePathPrefixes": [
+        "src/components/agent/chat/workspace/codingSessionOverviewProjection.ts",
+        "src/components/agent/chat/workspace/workspaceConversationCodingViews.tsx",
+        "src/components/agent/chat/workspace/workspaceConversationSessionViewModel.ts",
+        "src/components/agent/chat/workspace/useWorkspaceConversationSceneRuntime.tsx",
+        "src/components/agent/chat/workspace/CodingWorkbenchOutputPanel.tsx",
+        "src/components/agent/chat/workspace/CodingWorkbenchLogPanel.tsx",
+        "src/components/agent/chat/workspace/CodingWorkbenchActionPanel.tsx",
+        "src/components/agent/chat/workspace/CodingWorkbenchDiagnosticPanel.tsx",
+        "src/components/agent/chat/components/CanvasSessionOverviewPanel.tsx",
+        "src/components/agent/chat/components/CanvasWorkbenchLayout.tsx",
+        "src/components/agent/chat/components/canvas-workbench/"
+      ],
+      "allowedPaths": []
+    },
+    {
+      "id": "agent-chat-coding-workbench-legacy-adapter-reexport",
+      "classification": "dead",
+      "description": "已删除的 legacy thread item adapter 不得重新被 current workspaceConversationSceneViewModel / Workbench facade re-export；任何恢复都视为旧路回流",
+      "patterns": ["workspaceConversationLegacyThreadItemAdapter"],
+      "regexPatterns": [
+        "\\bexport\\s*\\{\\s*buildCanvasWorkbenchChangeView\\s*,\\s*buildCodingRuntimeEventsFromThreadItems\\s*,\\s*buildCodingWorkbenchProjectionFromThreadItems\\s*,\\s*buildFileArtifactChangeItem\\s*\\}\\s*from\\s*[\"']\\./workspaceConversationLegacyThreadItemAdapter[\"']"
+      ],
+      "includePathPrefixes": [
+        "src/components/agent/chat/workspace/workspaceConversationSceneViewModel.ts",
+        "src/components/agent/chat/workspace/workspaceConversationWorkbenchViewModel.ts"
+      ],
+      "allowedPaths": []
+    },
+    {
+      "id": "agent-chat-code-orchestrated-current-entry-ban",
+      "classification": "dead",
+      "description": "current 发送/协议/运行时入口不得把 code_orchestrated 当成现役 execution strategy；它只允许在 session store、协议兼容归一或测试夹具里出现，current 主链必须统一回 react",
+      "patterns": [
+        "execution_strategy: \"code_orchestrated\"",
+        "executionStrategy: \"code_orchestrated\"",
+        "effectiveExecutionStrategy: \"code_orchestrated\"",
+        "code_orchestrated_defaults",
+        "codeOrchestratedDefaults"
+      ],
+      "includePathPrefixes": [
+        "src/lib/api/agentProtocol.ts",
+        "src/components/agent/chat/skill-selection/runtimeInputCapabilityCatalog.ts",
+        "src/components/agent/chat/hooks/",
+        "src/components/agent/chat/utils/",
+        "src/components/agent/chat/workspace/"
+      ],
+      "allowedPaths": [
+        "src/lib/api/agentProtocol.test.ts",
+        "src/components/agent/chat/skill-selection/runtimeInputCapabilityCatalog.test.tsx",
+        "src/components/agent/chat/hooks/agentSessionRefresh.test.ts",
+        "src/components/agent/chat/hooks/agentChatStorage.test.ts",
+        "src/components/agent/chat/hooks/agentSessionTopicViewModel.unit.test.ts",
+        "src/components/agent/chat/utils/sessionExecutionRuntime.test.ts",
+        "src/components/agent/chat/utils/submitOpRuntimeCompaction.test.ts"
+      ]
+    },
+    {
+      "id": "agent-runtime-execution-strategy-compat-helper-single-boundary",
+      "classification": "dead",
+      "description": "execution strategy 历史值归一只能走单一 compat helper；agentProtocol 和 runtimeInputCapabilityCatalog 不得各自维护独立的 code_orchestrated/auto 归一逻辑，也不得继续暴露旧 wrapper 名",
+      "patterns": ["code_orchestrated"],
+      "regexPatterns": [
+        "\\bnormalizeLegacyExecutionStrategyToCurrentReact\\s*\\(",
+        "\\bnormalizeCatalogExecutionStrategyCompat\\s*\\(",
+        "\\bfn\\s+normalize_execution_strategy\\s*\\(",
+        "\\bnormalizeLegacyExecutionStrategy\\s*\\(",
+        "\\bnormalizeLegacyCatalogExecutionStrategy\\s*\\("
+      ],
+      "includePathPrefixes": [
+        "src/lib/api/agentProtocol.ts",
+        "src/components/agent/chat/skill-selection/runtimeInputCapabilityCatalog.ts",
+        "src/lib/api/agentRuntime/executionStrategyCompat.ts"
+      ],
+      "allowedPaths": [
+        "src/lib/api/agentRuntime/executionStrategyCompat.ts",
+        "src/lib/api/agentRuntime/executionStrategyCompat.test.ts",
+        "src/components/agent/chat/skill-selection/runtimeInputCapabilityCatalog.test.tsx"
+      ]
+    },
+    {
+      "id": "agent-runtime-current-unavailable-legacy-command-recovery-text",
+      "classification": "dead",
+      "description": "Agent Runtime current 生产报错不得把 legacy agent_runtime_* command 写成恢复路径；App Server lifecycle 不可用时必须 fail closed 并指向 current lifecycle channel",
+      "patterns": [
+        "current Agent runtime cannot use legacy agent_runtime_* commands",
+        "legacy agent_runtime_* commands"
+      ],
+      "includePathPrefixes": ["src/lib/api/agentRuntime"],
+      "allowedPaths": []
+    },
+    {
       "id": "empty-state-legacy-config-load-strategy-prop",
       "classification": "dead-candidate",
       "description": "首页空态不允许恢复无调用方的 configLoadStrategy 时序开关，配置读取应继续停留在当前默认加载路径",
@@ -3884,7 +4152,7 @@
     {
       "id": "sceneapp-active-launch-frontend-surface",
       "classification": "dead",
-      "description": "前端不得恢复 SceneApp 首页推荐卡片、最近 SceneApp 恢复入口、Workspace 启动 Hook 或 launch bridge；Agent App Lab / service skill scene 是 current",
+      "description": "前端不得恢复 SceneApp 首页推荐卡片、最近 SceneApp 恢复入口、Workspace 启动 Hook 或 launch bridge；Plugin Lab / service skill scene 是 current",
       "patterns": [
         "useWorkspaceSceneAppEntryActions",
         "useSceneAppLaunchRuntime",
@@ -3906,7 +4174,7 @@
     {
       "id": "sceneapp-catalog-product-frontend-surface",
       "classification": "dead",
-      "description": "前端不得恢复 SceneApp 独立 catalog 投影、目录统计卡或目录卡片 view model；应用目录继续收敛到 Agent App current",
+      "description": "前端不得恢复 SceneApp 独立 catalog 投影、目录统计卡或目录卡片 view model；应用目录继续收敛到 Plugin current",
       "patterns": [
         "compileSceneAppCatalogFromPackage",
         "compileSceneAppCatalogFromSnapshot",
@@ -4000,7 +4268,7 @@
       "classification": "dead-candidate",
       "description": "不允许恢复旧 entryRecommendedSolutions 本地推荐运行时；首页推荐任务只从 curatedTaskTemplates/home skill surface 收敛",
       "patterns": [
-        "ember:entry-recommended-solution-usage:v1",
+        "lime:entry-recommended-solution-usage:v1",
         "ENTRY_RECOMMENDED_SOLUTIONS",
         "listEntryRecommendedSolutions(",
         "recordEntryRecommendedSolutionUsage("
@@ -4063,7 +4331,7 @@
     {
       "id": "sceneapps-page-route-frontend-surface",
       "classification": "dead",
-      "description": "前端不得恢复 sceneapps 独立页面路由或页面参数工具；应用目录后续只允许收敛到 Agent App current 主链",
+      "description": "前端不得恢复 sceneapps 独立页面路由或页面参数工具；应用目录后续只允许收敛到 Plugin current 主链",
       "patterns": [
         "\"sceneapps\"",
         "'sceneapps'",
@@ -4075,6 +4343,88 @@
       ],
       "includePathPrefixes": ["src"],
       "allowedPaths": []
+    },
+    {
+      "id": "agent-chat-product-profile-current-surface-key",
+      "classification": "dead",
+      "description": "旧 Product Profile 右栏 surface key 已被 Article Workspace 取代；production UI / host lifecycle / plugin contract / runtime metadata 不得继续声明或兼容读取 productProfile，旧值只允许作为 forbidden snippet 出现在本守卫。",
+      "patterns": [
+        "\"productProfile\"",
+        "productProfileAvailable",
+        "productProfileEnabled",
+        "PluginProductProfile",
+        "agentChat.navbar.productProfile",
+        "agentChat.rightSurface.tabs.productProfile",
+        "plugin.apps.center.host.productProfile"
+      ],
+      "includePathPrefixes": [
+        "src/components/agent/chat/AgentChatWorkspace.tsx",
+        "src/components/agent/chat/components/TaskCenterUtilityToolbar.tsx",
+        "src/components/agent/chat/workspace/right-surface/",
+        "src/components/agent/chat/workspace/workspaceRightSurfaceRuntimeProjection.ts",
+        "src/features/plugin/host/",
+        "src/features/plugin/ui/",
+        "src/features/plugin/activation/",
+        "src/features/plugin/history/",
+        "src/features/plugin/manifest/",
+        "src/i18n/resources/"
+      ],
+      "allowedPaths": [
+        "src/components/agent/chat/workspace/right-surface/rightSurfaceTypes.ts",
+        "src/features/plugin/history/pluginHistoryRestore.ts"
+      ]
+    },
+    {
+      "id": "agent-chat-retired-local-team-formation-preview",
+      "classification": "dead",
+      "description": "Renderer 不得在 canonical child Thread 存在前本地编队或合成 Team dispatch preview；Subagent formation/activity 只允许来自 RuntimeCore AgentControl 与 canonical Thread/Turn/Item projection",
+      "patterns": [
+        "useRuntimeTeamFormation",
+        "prepareRuntimeTeamBeforeSend",
+        "runtimeTeamDispatchPreview",
+        "teamFormationAgentUiProjection",
+        "runtimeTeamCollaborationCopy",
+        "team_formation_projection",
+        "runtime-team-dispatch:"
+      ],
+      "includePathPrefixes": [
+        "packages/agent-ui-contracts/src",
+        "packages/agent-runtime-projection",
+        "src/components/agent/chat",
+        "src/i18n/resources"
+      ],
+      "allowedPaths": [
+        "src/components/agent/chat/AgentChatWorkspace.teamRuntimeBoundaryGuard.test.ts"
+      ]
+    },
+    {
+      "id": "agent-chat-retired-team-runtime-sidecar",
+      "classification": "dead",
+      "description": "Renderer 不得恢复重复订阅 raw subagent status/stream、维护本地 live/draft/tool/queue map 并写回 projection store 的第二 Team runtime；Multi-Agent GUI 只消费 canonical Thread/Turn/Item 与 canonical child roster",
+      "patterns": [
+        "team-workspace-runtime/",
+        "useTeamWorkspaceRuntime",
+        "teamWorkspaceRuntime",
+        "TeamWorkspaceRuntime",
+        "useWorkspaceTeamSessionRuntime",
+        "useWorkspaceTeamSessionControlRuntime",
+        "liveRuntimeProjector",
+        "runtimeEventSubscriptions",
+        "restoredTeamFactsProjection",
+        "liveRuntimeBySessionId",
+        "liveActivityBySessionId",
+        "activityRefreshVersionBySessionId",
+        "agentChat.teamWorkspace.liveRuntime.",
+        "agentChat.teamWorkspace.runtimeStatus.",
+        "agentChat.teamWorkspace.control."
+      ],
+      "includePathPrefixes": [
+        "src/components/agent/chat",
+        "src/i18n/resources"
+      ],
+      "allowedPaths": [
+        "src/components/agent/chat/AgentChatWorkspace.teamRuntimeBoundaryGuard.test.ts"
+      ]
     }
   ],
   "rustText": [
@@ -4110,7 +4460,7 @@
       "patterns": [
         "pub mod theme_context_cmd;",
         "commands::theme_context_cmd::",
-        "aster_agent_theme_context_search"
+        "agent_theme_context_search"
       ],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
       "allowedPaths": []
@@ -4173,9 +4523,9 @@
       "description": "已零引用的 Rust 外部模块 direct pending/legacy general 子模块",
       "patterns": [
         "crate::database::legacy_general_chat::",
-        "ember_core::database::legacy_general_chat::",
+        "lime_core::database::legacy_general_chat::",
         "crate::database::pending_general_chat::",
-        "ember_core::database::pending_general_chat::"
+        "lime_core::database::pending_general_chat::"
       ],
       "allowedPaths": []
     },
@@ -4206,8 +4556,8 @@
     {
       "id": "rust-cross-crate-general-chat-compat",
       "classification": "dead-candidate",
-      "description": "已零引用的跨 crate ember_services::general_chat 兼容壳回流",
-      "patterns": ["ember_services::general_chat::"],
+      "description": "已零引用的跨 crate lime_services::general_chat 兼容壳回流",
+      "patterns": ["lime_services::general_chat::"],
       "allowedPaths": []
     },
     {
@@ -4220,7 +4570,7 @@
     {
       "id": "rust-provider-pool-dead-provider-runtime-modules",
       "classification": "dead-candidate",
-      "description": "已删除的旧凭证池 Provider runtime 模块不允许重新进入 ember-providers 编译图",
+      "description": "已删除的旧凭证池 Provider runtime 模块不允许重新进入 lime-providers 编译图",
       "patterns": [
         "pub mod antigravity;",
         "pub mod kiro;",
@@ -4428,7 +4778,7 @@
         "ember-rs/crates/services/src/ai_summary_service.rs",
         "ember-rs/crates/services/src/provider_type_mapping.rs",
         "ember-rs/crates/services/src/api_key_provider_service.rs",
-        "ember-rs/crates/skills/src/ember_llm_provider.rs"
+        "ember-rs/crates/skills/src/lime_llm_provider.rs"
       ],
       "allowedPaths": []
     },
@@ -4525,7 +4875,7 @@
         "ember-rs/crates/server/src/handlers/provider_calls.rs",
         "ember-rs/crates/server/src/handlers/websocket.rs",
         "ember-rs/crates/services/src/api_key_provider_service.rs",
-        "ember-rs/crates/skills/src/ember_llm_provider.rs"
+        "ember-rs/crates/skills/src/lime_llm_provider.rs"
       ],
       "allowedPaths": []
     },
@@ -4547,7 +4897,7 @@
         "ember-rs/crates/server/src/handlers/provider_calls.rs",
         "ember-rs/crates/server/src/handlers/websocket.rs",
         "ember-rs/crates/services/src/api_key_provider_service.rs",
-        "ember-rs/crates/skills/src/ember_llm_provider.rs"
+        "ember-rs/crates/skills/src/lime_llm_provider.rs"
       ],
       "allowedPaths": []
     },
@@ -4641,22 +4991,19 @@
     },
     {
       "id": "rust-memory-profile-prompt-helper-leak",
-      "classification": "deprecated",
-      "description": "低层 build_memory_profile_prompt helper 泄漏到统一装配边界之外",
+      "classification": "dead",
+      "description": "已删除的旧 build_memory_profile_prompt helper 回流；文件化记忆主线不再从旧 ember-rs/src prompt helper 装配记忆",
       "patterns": ["build_memory_profile_prompt("],
       "includePathPrefixes": ["ember-rs/src"],
-      "allowedPaths": ["ember-rs/src/services/memory_profile_prompt_service.rs"]
+      "allowedPaths": []
     },
     {
       "id": "rust-memory-sources-prompt-helper-leak",
-      "classification": "deprecated",
-      "description": "低层 build_memory_sources_prompt helper 泄漏到统一装配边界之外",
+      "classification": "dead",
+      "description": "已删除的旧 build_memory_sources_prompt helper 回流；文件化记忆主线不再从旧 ember-rs/src prompt helper 装配记忆来源",
       "patterns": ["build_memory_sources_prompt("],
       "includePathPrefixes": ["ember-rs/src"],
-      "allowedPaths": [
-        "ember-rs/src/services/memory_profile_prompt_service.rs",
-        "ember-rs/src/services/memory_source_resolver_service.rs"
-      ]
+      "allowedPaths": []
     },
     {
       "id": "rust-project-session-config-helper-leak",
@@ -4760,7 +5107,7 @@
     {
       "id": "rust-three-stage-workflow-tool-leak",
       "classification": "dead-candidate",
-      "description": "legacy three_stage_workflow 工具名重新回到 Ember Rust 编译图",
+      "description": "legacy three_stage_workflow 工具名重新回到 Lime Rust 编译图",
       "patterns": ["\"three_stage_workflow\"", "three_stage_workflow"],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
       "allowedPaths": []
@@ -4842,7 +5189,7 @@
       "description": "已零引用的 request_tool_policy 旧服务壳回流",
       "patterns": [
         "crate::services::request_tool_policy_prompt_service::",
-        "ember_lib::services::request_tool_policy_prompt_service::",
+        "lime_lib::services::request_tool_policy_prompt_service::",
         "services::request_tool_policy_prompt_service::"
       ],
       "allowedPaths": []
@@ -4857,6 +5204,181 @@
         "JOIN agent_sessions s ON s.id = m.session_id"
       ],
       "includePathPrefixes": ["ember-rs/src/services"],
+      "allowedPaths": []
+    },
+    {
+      "id": "rust-agent-messages-production-write-leak",
+      "classification": "deprecated",
+      "description": "agent_messages 只允许 migration/backfill/export 输入；生产新写入必须进入 JSONL Event Log 和 Projection DB",
+      "patterns": [
+        "INSERT INTO agent_messages",
+        "UPDATE agent_messages",
+        "DELETE FROM agent_messages"
+      ],
+      "includePathPrefixes": ["ember-rs/crates"],
+      "allowedPaths": [
+        "ember-rs/crates/app-server/src/local_data_source/legacy_message_backfill_source.rs",
+        "ember-rs/crates/app-server/src/local_data_source/tests.rs",
+        "ember-rs/crates/core/src/database/dao/agent.rs",
+        "ember-rs/crates/core/src/database/dao/chat.rs",
+        "ember-rs/crates/core/src/database/migration/general_chat_migration.rs"
+      ]
+    },
+    {
+      "id": "rust-agent-messages-product-read-fallback-leak",
+      "classification": "deprecated",
+      "description": "agent_messages 不保留长期产品读取 fallback；agentSession/read、evidence/export、usage 统计和 GUI read 必须走 JSONL Event Log + Projection DB / Telemetry DB，旧表只允许 migration/backfill/export 输入",
+      "patterns": [
+        "FROM agent_messages",
+        "JOIN agent_messages",
+        "FROM agent_messages m",
+        "JOIN agent_messages m"
+      ],
+      "includePathPrefixes": ["ember-rs/crates"],
+      "allowedPaths": [
+        "ember-rs/crates/app-server/src/local_data_source/legacy_message_backfill_source.rs",
+        "ember-rs/crates/app-server/src/local_data_source/tests.rs",
+        "ember-rs/crates/core/src/database/dao/agent.rs",
+        "ember-rs/crates/core/src/database/dao/chat.rs",
+        "ember-rs/crates/core/src/database/migration/general_chat_migration.rs",
+        "ember-rs/crates/agent/src/agent_session_store/legacy_conversation.rs",
+        "ember-rs/crates/agent/src/agent_session_store_tests.rs"
+      ]
+    },
+    {
+      "id": "rust-chat-dao-agent-messages-product-api-leak",
+      "classification": "dead-candidate",
+      "description": "产品服务层不得通过 ChatDao 旧消息 API 间接把 agent_messages 当读取或写入 fallback；旧 DAO 只保留 migration/backfill/export/test fixture 输入身份",
+      "patterns": [
+        "ChatDao::add_message",
+        "ChatDao::delete_messages",
+        "ChatDao::get_messages",
+        "ChatDao::get_message_count",
+        "ChatDao::get_session_detail",
+        "ChatDao::list_sessions"
+      ],
+      "includePathPrefixes": [
+        "ember-rs/crates/app-server/src",
+        "ember-rs/crates/server/src",
+        "ember-rs/crates/services/src",
+        "ember-rs/crates/websocket/src"
+      ],
+      "allowedPaths": []
+    },
+    {
+      "id": "rust-agent-thread-items-payload-json-truth-leak",
+      "classification": "deprecated",
+      "description": "agent_thread_items.payload_json 只能作为迁移期 GUI projection 兼容字段；新 runtime event truth 和大正文必须进入 JSONL Event Log + Sidecar，不得继续把 payload_json 当事实源",
+      "patterns": [],
+      "regexPatterns": [
+        "agent_thread_items[\\s\\S]{0,1600}payload_json",
+        "payload_json[\\s\\S]{0,1600}agent_thread_items"
+      ],
+      "includePathPrefixes": ["ember-rs/crates"],
+      "allowedPaths": [
+        "ember-rs/crates/core/src/database/schema.rs",
+        "ember-rs/crates/core/src/database/dao/agent_timeline.rs",
+        "ember-rs/crates/core/src/database/dao/agent_timeline_payload.rs"
+      ]
+    },
+    {
+      "id": "rust-runtime-snapshot-sidecar-ref-boundary-leak",
+      "classification": "deprecated",
+      "description": "runtime snapshot / sidecar 引用字段只能在集中 writer、resolver、projection 和 evidence 边界出现；新事件必须携带 sidecarRef.sha256，不得散落裸 outputSnapshotFile / checkpointSnapshotFile truth",
+      "patterns": [
+        "\"outputSnapshotFile\"",
+        "\"checkpointSnapshotFile\"",
+        "\"sidecarRef\"",
+        "\"contentSha256\""
+      ],
+      "includePathPrefixes": ["ember-rs/crates/app-server/src"],
+      "allowedPaths": [
+        "ember-rs/crates/app-server/src/file_checkpoint.rs",
+        "ember-rs/crates/app-server/src/file_checkpoint_snapshot.rs",
+        "ember-rs/crates/app-server/src/media_task.rs",
+        "ember-rs/crates/app-server/src/media_task/sidecar.rs",
+        "ember-rs/crates/app-server/src/media_task/tests.rs",
+        "ember-rs/crates/app-server/src/runtime/artifact_reader.rs",
+        "ember-rs/crates/app-server/src/runtime/artifact_projection.rs",
+        "ember-rs/crates/app-server/src/runtime/artifact_sidecar.rs",
+        "ember-rs/crates/app-server/src/runtime/context_media.rs",
+        "ember-rs/crates/app-server/src/runtime/context_packet.rs",
+        "ember-rs/crates/app-server/src/runtime/evidence_provider.rs",
+        "ember-rs/crates/app-server/src/runtime/file_checkpoint_projection.rs",
+        "ember-rs/crates/app-server/src/runtime/output_refs.rs",
+        "ember-rs/crates/app-server/src/runtime/output_refs/tests.rs",
+        "ember-rs/crates/app-server/src/runtime/plugin_worker_runtime/tests.rs",
+        "ember-rs/crates/app-server/src/runtime/thread_item_projection/media_result.rs",
+        "ember-rs/crates/app-server/src/runtime/session_media_reader.rs",
+        "ember-rs/crates/app-server/src/runtime/session_media_refs.rs"
+      ]
+    },
+    {
+      "id": "rust-runtime-session-app-data-fallback",
+      "classification": "dead",
+      "description": "Runtime session identity、读取和恢复只能来自 RuntimeCore + EventLog + ProjectionStore；已删除的 app-data session DTO fallback、hydration helper 和 read_agent_session 入口不得回流",
+      "patterns": [
+        "load_app_data_session",
+        "read_agent_session(",
+        "mod session_hydration;"
+      ],
+      "includePathPrefixes": ["ember-rs/crates/app-server/src/runtime"],
+      "allowedPaths": []
+    },
+    {
+      "id": "rust-runtime-artifact-generated-content-inline-leak",
+      "classification": "deprecated",
+      "description": "artifact.snapshot 里的 generatedContent / generated_content 只能在 artifact sidecar writer、reader、evidence 和测试夹具中出现；生成正文必须先落 sidecar，再写 sidecarRef.sha256，不能继续把 inline content 当事实源",
+      "patterns": ["generatedContent", "generated_content"],
+      "includePathPrefixes": ["ember-rs/crates/app-server/src"],
+      "allowedPaths": [
+        "ember-rs/crates/app-server/src/runtime/artifact_sidecar.rs",
+        "ember-rs/crates/app-server/src/runtime/artifact_reader.rs",
+        "ember-rs/crates/app-server/src/runtime/plugin_worker_runtime.rs",
+        "ember-rs/crates/app-server/src/runtime/plugin_worker_runtime/response.rs",
+        "ember-rs/crates/app-server/src/runtime/event_store.rs",
+        "ember-rs/crates/app-server/src/runtime/tests/artifacts.rs",
+        "ember-rs/crates/app-server/src/runtime/tests/evidence_exports.rs"
+      ]
+    },
+    {
+      "id": "rust-runtime-file-checkpoint-inline-content-leak",
+      "classification": "deprecated",
+      "description": "file.changed 里的 previousContent / beforeContent / oldContent 只能在 file checkpoint sidecar writer、projection、evidence、读取/恢复兼容 resolver 和测试夹具中出现；当前 checkpoint 文本必须先写 sidecar，再写 checkpointSnapshotFile",
+      "patterns": ["previousContent", "beforeContent", "oldContent"],
+      "regexPatterns": [
+        "checkpointSnapshotFile[\\s\\S]{0,1600}(previousContent|beforeContent|oldContent)",
+        "(previousContent|beforeContent|oldContent)[\\s\\S]{0,1600}checkpointSnapshotFile"
+      ],
+      "includePathPrefixes": ["ember-rs/crates/app-server/src"],
+      "allowedPaths": [
+        "ember-rs/crates/app-server/src/file_checkpoint.rs",
+        "ember-rs/crates/app-server/src/file_checkpoint_snapshot.rs",
+        "ember-rs/crates/app-server/src/runtime/file_checkpoint_projection.rs",
+        "ember-rs/crates/app-server/src/runtime/evidence_provider.rs",
+        "ember-rs/crates/app-server/src/runtime/tests/coding_events.rs",
+        "ember-rs/crates/app-server/src/runtime/tests/evidence_exports.rs"
+      ]
+    },
+    {
+      "id": "rust-runtime-store-hardcoded-platform-path-leak",
+      "classification": "dead-candidate",
+      "description": "App Server runtime durable store 只能消费 StorageRoots / 显式 data root；不得在 runtime store、sidecar 或 checkpoint writer 内自行发现 home、APPDATA、Application Support、/tmp/lime 或 ~/.lime",
+      "patterns": [
+        "dirs::home_dir(",
+        "dirs::data_dir(",
+        "dirs::data_local_dir(",
+        "\"~/.lime\"",
+        "\"/tmp/lime",
+        "\"APPDATA\"",
+        "\"LOCALAPPDATA\"",
+        "\"Application Support\""
+      ],
+      "includePathPrefixes": [
+        "ember-rs/crates/app-server/src/runtime",
+        "ember-rs/crates/app-server/src/main.rs",
+        "ember-rs/crates/app-server/src/file_checkpoint_snapshot.rs"
+      ],
       "allowedPaths": []
     },
     {
@@ -4884,44 +5406,26 @@
       "allowedPaths": []
     },
     {
-      "id": "rust-agent-runtime-legacy-queue-table-leak",
-      "classification": "deprecated",
-      "description": "legacy runtime queue 表名从数据库迁移边界向外扩散",
-      "patterns": ["agent_runtime_queued_turns"],
-      "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
-      "allowedPaths": [
-        "ember-rs/crates/core/src/database/agent_runtime_queue_repository.rs"
-      ]
-    },
-    {
-      "id": "rust-agent-runtime-legacy-queue-migration-leak",
-      "classification": "deprecated",
-      "description": "legacy runtime queue 启动迁移 helper 只允许停留在 aster runtime support 边界",
-      "patterns": ["migrate_legacy_runtime_queue_to_aster_store("],
-      "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
-      "allowedPaths": ["ember-rs/crates/agent/src/aster_runtime_support.rs"]
-    },
-    {
       "id": "rust-agent-session-legacy-todo-state-leak",
       "classification": "dead-candidate",
-      "description": "已零引用的 Ember 业务层 direct legacy TodoState 读取回流",
+      "description": "已零引用的 Lime 业务层 direct legacy TodoState 读取回流",
       "patterns": ["TodoState::from_extension_data(", "TodoState::new("],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
       "allowedPaths": [
-        "ember-rs/crates/aster-rust/crates/aster/src/session/extension_data.rs"
+        "ember-rs/crates/agent-rust/crates/agent/src/session/extension_data.rs"
       ]
     },
     {
       "id": "rust-agent-session-structured-todo-helper-bypass",
       "classification": "dead-candidate",
-      "description": "已零引用的 Ember 业务层绕过 unified todo helper 直接读取 TodoListState",
+      "description": "已零引用的 Lime 业务层绕过 unified todo helper 直接读取 TodoListState",
       "patterns": [
         "TodoListState::from_extension_data(",
         "TodoListState::from_markdown("
       ],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
       "allowedPaths": [
-        "ember-rs/crates/aster-rust/crates/aster/src/session/extension_data.rs"
+        "ember-rs/crates/agent-rust/crates/agent/src/session/extension_data.rs"
       ]
     },
     {
@@ -4936,26 +5440,28 @@
     },
     {
       "id": "rust-agent-session-direct-record-access",
-      "classification": "deprecated",
-      "description": "Rust 上层模块 direct Agent session 记录与消息读写回流",
+      "classification": "dead-candidate",
+      "description": "已零引用的 Rust 上层模块 direct Agent session 记录与旧消息读写回流；产品读取必须走 JSONL Event Log + Projection DB / 统一 session query 边界",
       "patterns": [
-        "AgentDao::get_session(",
+        "AgentDao::add_message(",
+        "AgentDao::delete_messages(",
+        "AgentDao::update_latest_assistant_message_usage(",
+        "AgentDao::get_message_window_info(",
+        "AgentDao::get_message_timestamp_by_id(",
         "AgentDao::get_session_with_messages(",
-        "AgentDao::list_sessions(",
-        "AgentDao::list_session_overviews(",
         "AgentDao::get_message_count(",
         "AgentDao::get_messages(",
-        "AgentDao::get_session_overview(",
-        "AgentDao::session_exists(",
-        "AgentDao::update_title(",
-        "AgentDao::update_session_time(",
-        "AgentDao::rename_session(",
-        "AgentDao::update_working_dir(",
-        "AgentDao::update_execution_strategy("
+        "AgentDao::get_messages_tail(",
+        "AgentDao::get_messages_tail_page(",
+        "AgentDao::get_messages_before("
       ],
-      "allowedPaths": [
-        "ember-rs/crates/core/src/database/agent_session_repository.rs"
-      ]
+      "includePathPrefixes": [
+        "ember-rs/crates/agent/src",
+        "ember-rs/crates/services/src",
+        "ember-rs/crates/app-server/src",
+        "ember-rs/crates/websocket/src"
+      ],
+      "allowedPaths": []
     },
     {
       "id": "rust-agent-session-direct-delete",
@@ -4992,7 +5498,7 @@
     {
       "id": "rust-agent-session-record-repository-module-leak",
       "classification": "dead-candidate",
-      "description": "ember-agent 本地 session_record_repository 壳重新回到编译图",
+      "description": "lime-agent 本地 session_record_repository 壳重新回到编译图",
       "patterns": ["mod session_record_repository;"],
       "includePathPrefixes": ["ember-rs/crates/agent/src/lib.rs"],
       "allowedPaths": []
@@ -5012,68 +5518,153 @@
     {
       "id": "rust-agent-session-store-public-module-leak",
       "classification": "dead-candidate",
-      "description": "ember-agent 重新对 crate 外暴露 session_store 模块",
+      "description": "lime-agent 重新对 crate 外暴露 session_store 模块",
       "patterns": ["pub mod session_store;"],
       "includePathPrefixes": ["ember-rs/crates/agent/src/lib.rs"],
       "allowedPaths": []
     },
     {
+      "id": "rust-retired-agent-session-store-family",
+      "classification": "dead",
+      "description": "已删除的 lime-agent session_store CRUD、历史读取和子代理聚合不得恢复；会话主链只允许 App Server RuntimeCore、ThreadStore 与 ProjectionStore",
+      "patterns": [
+        "mod session_store;",
+        "mod session_state_snapshot;",
+        "pub use session_store::{",
+        "pub use session_state_snapshot::SessionStateSnapshot;",
+        "create_session_sync(",
+        "get_runtime_session_detail(",
+        "get_session_sync_with_full_timeline_without_messages(",
+        "update_session_execution_strategy_sync("
+      ],
+      "includePathPrefixes": ["ember-rs/crates/agent/src"],
+      "allowedPaths": []
+    },
+    {
+      "id": "rust-retired-execution-strategy-compat",
+      "classification": "dead",
+      "description": "已删除的 lime-agent execution strategy compat 模块不得恢复；Rust request/lowering 只承接 current React-only typed semantics",
+      "patterns": [
+        "mod execution_strategy_compat;",
+        "normalize_execution_strategy_to_react("
+      ],
+      "includePathPrefixes": ["ember-rs/crates/agent/src"],
+      "allowedPaths": []
+    },
+    {
+      "id": "rust-retired-agent-runtime-session-query",
+      "classification": "dead",
+      "description": "已删除的 lime-agent direct execution runtime session query 不得恢复；GUI runtime detail 只允许经 App Server session_metadata/read model 投影",
+      "patterns": [
+        "mod session_execution_runtime_query;",
+        "read_session_execution_runtime_session_projection(",
+        "project_session_record_execution_runtime_session("
+      ],
+      "includePathPrefixes": ["ember-rs/crates/agent/src"],
+      "allowedPaths": []
+    },
+    {
+      "id": "rust-retired-agent-runtime-aggregate",
+      "classification": "dead",
+      "description": "已删除的 lime-agent aggregate execution runtime、lime_runtime metadata parser 与 permission fallback 不得恢复；GUI runtime detail 只允许由 App Server read model 与 agent-runtime current projection 提供",
+      "patterns": [
+        "mod runtime_payload;",
+        "build_session_execution_runtime(",
+        "reconcile_session_execution_runtime_permission_fallback(",
+        "pub struct SessionExecutionRuntime {",
+        "pub enum SessionExecutionRuntimeSource",
+        "pub struct SessionExecutionRuntimePermissionState",
+        "pub struct SessionExecutionRuntimeOemPolicy",
+        "pub struct SessionExecutionRuntimeSummary",
+        "LIME_RUNTIME_METADATA_KEY"
+      ],
+      "includePathPrefixes": ["ember-rs/crates/agent/src"],
+      "allowedPaths": []
+    },
+    {
+      "id": "rust-retired-agent-subagent-sidecars",
+      "classification": "dead",
+      "description": "已删除的 lime-agent 本地 subagent control/profile sidecar 不得恢复；subagent 状态只允许走 agent-runtime DTO 与 App Server canonical graph/mailbox/projection 主链",
+      "patterns": [
+        "mod subagent_control;",
+        "mod subagent_profiles;",
+        "load_subagent_runtime_status(",
+        "SubagentCustomizationState",
+        "SubagentSkillSummary",
+        "subagent_control.v0"
+      ],
+      "includePathPrefixes": ["ember-rs/crates/agent/src"],
+      "allowedPaths": []
+    },
+    {
+      "id": "rust-retired-team-tool-surface",
+      "classification": "dead",
+      "description": "已删除的 Team/collab_agent 工具实现、静态 catalog 与 discovery profile 不得恢复；多代理控制只允许走 per-turn AgentControl gateway 六工具",
+      "patterns": [
+        "pub mod collab_agent;",
+        "collab_agent_tool_definitions(",
+        "collab_agent_canonical_tool_name(",
+        "name: \"Agent\",",
+        "name: \"SendMessage\",",
+        "name: \"TeamCreate\",",
+        "name: \"TeamDelete\",",
+        "name: \"ListPeers\",",
+        "canonical_name: \"Agent\",",
+        "canonical_name: \"SendMessage\",",
+        "canonical_name: \"TeamCreate\",",
+        "canonical_name: \"TeamDelete\",",
+        "canonical_name: \"ListPeers\",",
+        "SUBAGENT_TEAMMATE_ALLOWED_TOOL_NAMES",
+        "SUBAGENT_ALLOWED_NATIVE_TOOL_NAMES",
+        "SUBAGENT_ALLOWED_COORDINATION_TOOL_NAMES",
+        "runtime_turn_tool_exposure_allows_tool_name("
+      ],
+      "includePathPrefixes": [
+        "ember-rs/crates/tool-runtime/src",
+        "ember-rs/crates/agent/src",
+        "ember-rs/crates/core/src"
+      ],
+      "allowedPaths": []
+    },
+    {
       "id": "rust-agent-session-store-direct-module-usage",
       "classification": "dead-candidate",
-      "description": "上层模块重新 direct 依赖 ember_agent::session_store 模块路径",
-      "patterns": ["ember_agent::session_store::"],
+      "description": "上层模块重新 direct 依赖 lime_agent::session_store 模块路径",
+      "patterns": ["lime_agent::session_store::"],
       "includePathPrefixes": ["ember-rs/src"],
       "allowedPaths": []
     },
     {
       "id": "rust-agent-session-get-direct-read",
-      "classification": "deprecated",
-      "description": "session get_session 直读只允许统一 session_query helper 持有",
+      "classification": "dead-candidate",
+      "description": "已零引用的 session get_session 直读回流",
       "patterns": ["SessionManager::get_session("],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
-      "allowedPaths": [
-        "ember-rs/crates/agent/src/session_query.rs",
-        "ember-rs/crates/aster-rust/crates/aster/src/session/query.rs",
-        "ember-rs/crates/aster-rust/crates/aster/src/session/subagent.rs"
-      ]
+      "allowedPaths": []
     },
     {
       "id": "rust-agent-subagent-child-session-direct-read",
-      "classification": "deprecated",
-      "description": "subagent child session 列表直读只允许统一 session_query helper 持有",
+      "classification": "dead-candidate",
+      "description": "已零引用的 subagent child session 列表直读回流",
       "patterns": ["list_subagent_child_sessions("],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
-      "allowedPaths": [
-        "ember-rs/crates/agent/src/session_query.rs",
-        "ember-rs/crates/aster-rust/crates/aster/src/session/query.rs",
-        "ember-rs/crates/aster-rust/crates/aster/src/session/subagent.rs"
-      ]
+      "allowedPaths": []
     },
     {
       "id": "rust-agent-subagent-session-list-direct-read",
-      "classification": "deprecated",
-      "description": "subagent 全量 session 列表直读只允许统一 session_query helper 持有",
+      "classification": "dead-candidate",
+      "description": "已零引用的 subagent 全量 session 列表直读回流",
       "patterns": ["list_subagent_sessions_with_metadata("],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
-      "allowedPaths": [
-        "ember-rs/crates/agent/src/session_query.rs",
-        "ember-rs/crates/aster-rust/crates/aster/src/session/query.rs",
-        "ember-rs/crates/aster-rust/crates/aster/src/session/subagent.rs"
-      ]
+      "allowedPaths": []
     },
     {
       "id": "rust-agent-subagent-metadata-direct-read",
-      "classification": "deprecated",
-      "description": "subagent metadata 直读只允许 query 与 session_store 投影边界持有",
+      "classification": "dead-candidate",
+      "description": "已零引用的 subagent metadata 直读回流",
       "patterns": ["resolve_subagent_session_metadata("],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
-      "allowedPaths": [
-        "ember-rs/crates/agent/src/session_query.rs",
-        "ember-rs/crates/agent/src/session_store.rs",
-        "ember-rs/crates/agent/src/session_store_subagent_context.rs",
-        "ember-rs/crates/aster-rust/crates/aster/src/session/query.rs",
-        "ember-rs/crates/aster-rust/crates/aster/src/session/subagent.rs"
-      ]
+      "allowedPaths": []
     },
     {
       "id": "rust-agent-session-extension-data-direct-update",
@@ -5088,14 +5679,11 @@
     },
     {
       "id": "rust-agent-session-update-direct-call",
-      "classification": "deprecated",
-      "description": "session update_session 直写只允许统一 session_update helper 持有",
+      "classification": "dead-candidate",
+      "description": "已零引用的 session update_session 直写回流",
       "patterns": ["SessionManager::update_session("],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
-      "allowedPaths": [
-        "ember-rs/crates/agent/src/session_update.rs",
-        "ember-rs/crates/aster-rust/crates/aster/src/session/update.rs"
-      ]
+      "allowedPaths": []
     },
     {
       "id": "rust-agent-session-compaction-metrics-direct-update",
@@ -5110,25 +5698,19 @@
     },
     {
       "id": "rust-agent-session-replace-conversation-direct-update",
-      "classification": "deprecated",
-      "description": "session conversation 直写 replace_conversation 只允许统一 session_update helper 持有",
+      "classification": "dead-candidate",
+      "description": "已零引用的 session conversation 直写 replace_conversation 回流",
       "patterns": ["SessionManager::replace_conversation("],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
-      "allowedPaths": [
-        "ember-rs/crates/agent/src/session_update.rs",
-        "ember-rs/crates/aster-rust/crates/aster/src/session/update.rs"
-      ]
+      "allowedPaths": []
     },
     {
       "id": "rust-agent-session-create-direct-update",
-      "classification": "deprecated",
-      "description": "session create_session 直写只允许统一 session_update helper 持有",
+      "classification": "dead-candidate",
+      "description": "已零引用的 session create_session 直写回流",
       "patterns": ["SessionManager::create_session("],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
-      "allowedPaths": [
-        "ember-rs/crates/agent/src/session_update.rs",
-        "ember-rs/crates/aster-rust/crates/aster/src/session/update.rs"
-      ]
+      "allowedPaths": []
     },
     {
       "id": "rust-agent-session-delete-direct-update",
@@ -5137,13 +5719,13 @@
       "patterns": ["SessionManager::delete_session("],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
       "allowedPaths": [
-        "ember-rs/crates/aster-rust/crates/aster/src/session/update.rs"
+        "ember-rs/crates/agent-rust/crates/agent/src/session/update.rs"
       ]
     },
     {
       "id": "rust-agent-session-record-create-api-leak",
       "classification": "dead-candidate",
-      "description": "ember-agent crate 根重新暴露内部 session record 创建 API",
+      "description": "lime-agent crate 根重新暴露内部 session record 创建 API",
       "patterns": ["create_session_record_sync,", "CreateSessionRecordInput,"],
       "includePathPrefixes": ["ember-rs/crates/agent/src/lib.rs"],
       "allowedPaths": []
@@ -5151,15 +5733,15 @@
     {
       "id": "rust-agent-command-subagent-metadata-direct-read",
       "classification": "dead-candidate",
-      "description": "命令层不再 direct 解析 subagent metadata，统一向 ember_agent 读取边界收敛",
+      "description": "命令层不再 direct 解析 subagent metadata，统一向 lime_agent 读取边界收敛",
       "patterns": ["resolve_subagent_session_metadata("],
-      "includePathPrefixes": ["ember-rs/src/commands/aster_agent_cmd"],
+      "includePathPrefixes": ["ember-rs/src/commands/agent_cmd"],
       "allowedPaths": []
     },
     {
       "id": "rust-agent-tool-permission-public-module-leak",
       "classification": "dead-candidate",
-      "description": "ember-agent 重新对 crate 外暴露旧 tool_permissions 模块",
+      "description": "lime-agent 重新对 crate 外暴露旧 tool_permissions 模块",
       "patterns": ["pub mod tool_permissions;"],
       "includePathPrefixes": ["ember-rs/crates/agent/src/lib.rs"],
       "allowedPaths": []
@@ -5167,7 +5749,7 @@
     {
       "id": "rust-agent-shell-security-public-module-leak",
       "classification": "dead-candidate",
-      "description": "ember-agent 重新对 crate 外暴露旧 shell_security 模块",
+      "description": "lime-agent 重新对 crate 外暴露旧 shell_security 模块",
       "patterns": ["pub mod shell_security;"],
       "includePathPrefixes": ["ember-rs/crates/agent/src/lib.rs"],
       "allowedPaths": []
@@ -5175,7 +5757,7 @@
     {
       "id": "rust-agent-tool-permission-module-compiled-leak",
       "classification": "dead-candidate",
-      "description": "旧 tool_permissions 模块重新回到 ember-agent lib.rs 编译图",
+      "description": "旧 tool_permissions 模块重新回到 lime-agent lib.rs 编译图",
       "patterns": ["mod tool_permissions;"],
       "includePathPrefixes": ["ember-rs/crates/agent/src/lib.rs"],
       "allowedPaths": []
@@ -5183,7 +5765,7 @@
     {
       "id": "rust-agent-shell-security-module-compiled-leak",
       "classification": "dead-candidate",
-      "description": "旧 shell_security 模块重新回到 ember-agent lib.rs 编译图",
+      "description": "旧 shell_security 模块重新回到 lime-agent lib.rs 编译图",
       "patterns": ["mod shell_security;"],
       "includePathPrefixes": ["ember-rs/crates/agent/src/lib.rs"],
       "allowedPaths": []
@@ -5191,7 +5773,7 @@
     {
       "id": "rust-agent-tool-permission-root-export-leak",
       "classification": "dead-candidate",
-      "description": "ember-agent crate 根重新暴露旧 tool_permissions 类型出口",
+      "description": "lime-agent crate 根重新暴露旧 tool_permissions 类型出口",
       "patterns": ["pub use tool_permissions::"],
       "includePathPrefixes": ["ember-rs/crates/agent/src/lib.rs"],
       "allowedPaths": []
@@ -5199,7 +5781,7 @@
     {
       "id": "rust-agent-shell-security-root-export-leak",
       "classification": "dead-candidate",
-      "description": "ember-agent crate 根重新暴露旧 shell_security 类型出口",
+      "description": "lime-agent crate 根重新暴露旧 shell_security 类型出口",
       "patterns": ["pub use shell_security::"],
       "includePathPrefixes": ["ember-rs/crates/agent/src/lib.rs"],
       "allowedPaths": []
@@ -5207,27 +5789,27 @@
     {
       "id": "rust-agent-tool-permission-direct-module-usage",
       "classification": "dead-candidate",
-      "description": "上层模块重新 direct 依赖 ember_agent::tool_permissions 模块路径",
-      "patterns": ["ember_agent::tool_permissions::"],
+      "description": "上层模块重新 direct 依赖 lime_agent::tool_permissions 模块路径",
+      "patterns": ["lime_agent::tool_permissions::"],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
       "allowedPaths": []
     },
     {
       "id": "rust-agent-shell-security-direct-module-usage",
       "classification": "dead-candidate",
-      "description": "上层模块重新 direct 依赖 ember_agent::shell_security 模块路径",
-      "patterns": ["ember_agent::shell_security::"],
+      "description": "上层模块重新 direct 依赖 lime_agent::shell_security 模块路径",
+      "patterns": ["lime_agent::shell_security::"],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
       "allowedPaths": []
     },
     {
       "id": "rust-agent-tool-permission-root-type-usage",
       "classification": "dead-candidate",
-      "description": "上层模块重新 direct 依赖 ember_agent 根导出的旧权限类型",
+      "description": "上层模块重新 direct 依赖 lime_agent 根导出的旧权限类型",
       "patterns": [
-        "ember_agent::DynamicPermissionCheck",
-        "ember_agent::PermissionBehavior",
-        "ember_agent::ShellSecurityChecker"
+        "lime_agent::DynamicPermissionCheck",
+        "lime_agent::PermissionBehavior",
+        "lime_agent::ShellSecurityChecker"
       ],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
       "allowedPaths": []
@@ -5235,7 +5817,7 @@
     {
       "id": "rust-agent-tool-permission-internal-module-usage",
       "classification": "dead-candidate",
-      "description": "ember-agent 内部除兼容壳外重新扩散 crate::tool_permissions 模块依赖",
+      "description": "lime-agent 内部除兼容壳外重新扩散 crate::tool_permissions 模块依赖",
       "patterns": ["crate::tool_permissions::"],
       "includePathPrefixes": ["ember-rs/crates/agent/src"],
       "allowedPaths": ["ember-rs/crates/agent/src/shell_security.rs"]
@@ -5273,17 +5855,17 @@
       "allowedPaths": []
     },
     {
-      "id": "rust-aster-runtime-snapshot-helper-leak",
+      "id": "rust-agent-runtime-snapshot-helper-leak",
       "classification": "dead-candidate",
-      "description": "已零引用的 Ember 业务层 direct Aster runtime snapshot helper 回流",
+      "description": "已零引用的 Lime 业务层 direct Agent runtime snapshot helper 回流",
       "patterns": ["load_session_runtime_snapshot("],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
       "allowedPaths": []
     },
     {
-      "id": "rust-aster-runtime-store-leak",
+      "id": "rust-agent-runtime-store-leak",
       "classification": "dead-candidate",
-      "description": "已零引用的 Ember 业务层 direct Aster shared runtime store 回流",
+      "description": "已零引用的 Lime 业务层 direct Agent shared runtime store 回流",
       "patterns": [
         "shared_thread_runtime_store(",
         "initialize_shared_thread_runtime_store(",
@@ -5293,78 +5875,78 @@
       "allowedPaths": []
     },
     {
-      "id": "rust-aster-runtime-store-public-require-api-leak",
+      "id": "rust-agent-runtime-store-public-require-api-leak",
       "classification": "dead-candidate",
-      "description": "Aster runtime support 重新对 crate 外暴露 require_aster_thread_runtime_store",
-      "patterns": ["pub fn require_aster_thread_runtime_store("],
+      "description": "Agent runtime support 重新对 crate 外暴露 require_agent_thread_runtime_store",
+      "patterns": ["pub fn require_agent_thread_runtime_store("],
       "includePathPrefixes": [
-        "ember-rs/crates/agent/src/aster_runtime_support.rs"
+        "ember-rs/crates/agent/src/agent_runtime_support.rs"
       ],
       "allowedPaths": []
     },
     {
-      "id": "rust-aster-runtime-init-return-store-api-leak",
+      "id": "rust-agent-runtime-init-return-store-api-leak",
       "classification": "dead-candidate",
-      "description": "Aster runtime 启动初始化 API 重新向 crate 外返回 runtime store",
+      "description": "Agent runtime 启动初始化 API 重新向 crate 外返回 runtime store",
       "patterns": [
-        "pub fn initialize_aster_thread_runtime_store() -> Result<Arc<dyn ThreadRuntimeStore>, String>"
+        "pub fn initialize_agent_thread_runtime_store() -> Result<Arc<dyn ThreadRuntimeStore>, String>"
       ],
       "includePathPrefixes": [
-        "ember-rs/crates/agent/src/aster_runtime_support.rs"
+        "ember-rs/crates/agent/src/agent_runtime_support.rs"
       ],
       "allowedPaths": []
     },
     {
-      "id": "rust-aster-runtime-public-legacy-init-helper-leak",
+      "id": "rust-agent-runtime-public-legacy-init-helper-leak",
       "classification": "dead-candidate",
-      "description": "Aster runtime support 重新对 crate 外暴露旧 initialize_aster_thread_runtime_store helper",
-      "patterns": ["pub fn initialize_aster_thread_runtime_store("],
+      "description": "Agent runtime support 重新对 crate 外暴露旧 initialize_agent_thread_runtime_store helper",
+      "patterns": ["pub fn initialize_agent_thread_runtime_store("],
       "includePathPrefixes": [
-        "ember-rs/crates/agent/src/aster_runtime_support.rs"
+        "ember-rs/crates/agent/src/agent_runtime_support.rs"
       ],
       "allowedPaths": []
     },
     {
-      "id": "rust-aster-runtime-snapshot-root-export-leak",
+      "id": "rust-agent-runtime-snapshot-root-export-leak",
       "classification": "dead-candidate",
-      "description": "ember-agent crate 根重新暴露 load_aster_runtime_snapshot helper",
-      "patterns": ["load_aster_runtime_snapshot"],
+      "description": "lime-agent crate 根重新暴露 load_agent_runtime_snapshot helper",
+      "patterns": ["load_agent_runtime_snapshot"],
       "includePathPrefixes": ["ember-rs/crates/agent/src/lib.rs"],
       "allowedPaths": []
     },
     {
-      "id": "rust-aster-runtime-queue-service-leak",
+      "id": "rust-agent-runtime-queue-service-leak",
       "classification": "dead-candidate",
-      "description": "已零引用的 Ember 业务层 direct Aster shared runtime queue service 回流",
+      "description": "已零引用的 Lime 业务层 direct Agent shared runtime queue service 回流",
       "patterns": [],
       "regexPatterns": ["(?<!require_)shared_session_runtime_queue_service\\("],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
       "allowedPaths": []
     },
     {
-      "id": "rust-aster-path-root-env-leak",
+      "id": "rust-agent-path-root-env-leak",
       "classification": "dead-candidate",
-      "description": "已零引用的 Ember 业务层 direct ASTER_PATH_ROOT 环境变量处理回流",
-      "patterns": ["\"ASTER_PATH_ROOT\""],
+      "description": "已零引用的 Lime 业务层 direct AGENT_RUNTIME_PATH_ROOT 环境变量处理回流",
+      "patterns": ["\"AGENT_RUNTIME_PATH_ROOT\""],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
       "allowedPaths": [
-        "ember-rs/crates/aster-rust/crates/aster/src/config/paths.rs",
-        "ember-rs/crates/aster-rust/crates/aster/tests/acp_integration_test.rs"
+        "ember-rs/crates/agent-rust/crates/agent/src/config/paths.rs",
+        "ember-rs/crates/agent-rust/crates/agent/tests/acp_integration_test.rs"
       ]
     },
     {
-      "id": "rust-aster-global-session-store-leak",
+      "id": "rust-agent-global-session-store-leak",
       "classification": "dead-candidate",
-      "description": "已零引用的 Aster 全局 session store 注册回流到统一 runtime support 边界之外",
+      "description": "已零引用的 Agent 全局 session store 注册回流到统一 runtime support 边界之外",
       "patterns": ["set_global_session_store("],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
       "allowedPaths": []
     },
     {
-      "id": "rust-hardcoded-aster-runtime-path-leak",
+      "id": "rust-hardcoded-agent-runtime-path-leak",
       "classification": "dead-candidate",
-      "description": "已零引用的 Ember 业务层硬编码 legacy aster runtime 路径回流",
-      "patterns": ["join(\".ember\").join(\"aster\")", "~/.ember/aster"],
+      "description": "已零引用的 Lime 业务层硬编码 legacy agent runtime 路径回流",
+      "patterns": ["join(\".lime\").join(\"agent\")", "~/.lime/agent"],
       "includePathPrefixes": ["ember-rs/src", "ember-rs/crates"],
       "allowedPaths": []
     },
@@ -5377,7 +5959,7 @@
         "services::heartbeat_service::",
         "HeartbeatServiceState",
         "heartbeat_service_adapter",
-        "ember_core::database::dao::heartbeat",
+        "lime_core::database::dao::heartbeat",
         "heartbeat_tool",
         "RunSource::Heartbeat",
         "source = 'heartbeat'",
@@ -5411,7 +5993,7 @@
         "\"migrated_api_keys_to_pool\"",
         "\"migrated_provider_ids_v1\"",
         "\"cleaned_legacy_api_key_credentials\"",
-        "\"migrated_mcp_ember_enabled\"",
+        "\"migrated_mcp_lime_enabled\"",
         "\"migrated_mcp_created_at_to_integer\"",
         "\"model_registry_refresh_needed\"",
         "\"model_registry_version\""
@@ -5432,12 +6014,11 @@
         "migration::check_model_registry_version(",
         "migration::migrate_api_keys_to_pool(",
         "migration::cleanup_legacy_api_key_credentials(",
-        "migration::migrate_mcp_ember_enabled(",
+        "migration::migrate_mcp_lime_enabled(",
         "migration::migrate_mcp_created_at_to_integer(",
         "migration::check_general_chat_migration_status(",
         "migration::migrate_general_chat_to_unified(",
         "migration_v2::migrate_unified_content_system(",
-        "migration_v3::migrate_playwright_mcp_server(",
         "migration_v4::migrate_fix_promise_paths("
       ],
       "allowedPaths": ["ember-rs/crates/core/src/database/startup_migrations.rs"]
@@ -5450,13 +6031,26 @@
         "match migration::migrate_provider_ids(",
         "match migration::migrate_api_keys_to_pool(",
         "match migration::cleanup_legacy_api_key_credentials(",
-        "match migration::migrate_mcp_ember_enabled(",
+        "match migration::migrate_mcp_lime_enabled(",
         "match migration::migrate_mcp_created_at_to_integer(",
         "match migration::migrate_general_chat_to_unified(",
         "match migration_v2::migrate_unified_content_system(",
-        "match migration_v3::migrate_playwright_mcp_server(",
         "match migration_v4::migrate_fix_promise_paths("
       ],
+      "allowedPaths": []
+    },
+    {
+      "id": "rust-retired-default-playwright-mcp-seed",
+      "classification": "dead",
+      "description": "已删除的默认 Playwright MCP seed、marker 与启动调度不得回流；MCP 只允许由用户显式配置或当前管理入口创建",
+      "patterns": [
+        "@modelcontextprotocol/server-playwright",
+        "migrated_playwright_mcp_server_v1",
+        "migration_v3::migrate_playwright_mcp_server(",
+        "mod migration_v3;",
+        "pub mod migration_v3;"
+      ],
+      "includePathPrefixes": ["ember-rs"],
       "allowedPaths": []
     },
     {
@@ -5486,7 +6080,7 @@
       "id": "rust-hardcoded-projects-path-leak",
       "classification": "dead-candidate",
       "description": "已零引用的数据库迁移硬编码 legacy projects 路径",
-      "patterns": ["\".ember/projects\"", "join(\".ember\").join(\"projects\")"],
+      "patterns": ["\".lime/projects\"", "join(\".lime\").join(\"projects\")"],
       "includePathPrefixes": ["ember-rs/crates/core/src/database"],
       "allowedPaths": []
     },
@@ -5494,7 +6088,7 @@
       "id": "rust-hardcoded-session-files-path-leak",
       "classification": "dead-candidate",
       "description": "已零引用的 session files 硬编码 legacy sessions 路径",
-      "patterns": ["~/.ember/sessions", "join(\".ember\").join(\"sessions\")"],
+      "patterns": ["~/.lime/sessions", "join(\".lime\").join(\"sessions\")"],
       "includePathPrefixes": ["ember-rs/crates/core/src/session_files"],
       "allowedPaths": []
     },
@@ -5503,8 +6097,8 @@
       "classification": "dead-candidate",
       "description": "已零引用的数据库迁移硬编码 legacy config 路径",
       "patterns": [
-        "~/.ember/config.json",
-        "join(\".ember\").join(\"config.json\")"
+        "~/.lime/config.json",
+        "join(\".lime\").join(\"config.json\")"
       ],
       "includePathPrefixes": ["ember-rs/crates/core/src/database"],
       "allowedPaths": []
@@ -5513,7 +6107,7 @@
       "id": "rust-hardcoded-workspace-projects-path-leak",
       "classification": "dead-candidate",
       "description": "已零引用的上层命令或桥接层硬编码 workspace projects 路径",
-      "patterns": ["~/.ember/projects", "join(\".ember\").join(\"projects\")"],
+      "patterns": ["~/.lime/projects", "join(\".lime\").join(\"projects\")"],
       "includePathPrefixes": ["ember-rs/src"],
       "allowedPaths": []
     },
@@ -5521,7 +6115,7 @@
       "id": "rust-services-hardcoded-projects-path-leak",
       "classification": "dead-candidate",
       "description": "已零引用的 services crate 硬编码 legacy projects 路径",
-      "patterns": ["~/.ember/projects", "join(\".ember\").join(\"projects\")"],
+      "patterns": ["~/.lime/projects", "join(\".lime\").join(\"projects\")"],
       "includePathPrefixes": ["ember-rs/crates/services/src"],
       "allowedPaths": []
     },
@@ -5529,7 +6123,7 @@
       "id": "rust-hardcoded-logger-path-leak",
       "classification": "dead-candidate",
       "description": "已零引用的 logger fallback 硬编码 legacy logs 路径",
-      "patterns": ["~/.ember/logs", "join(\".ember\").join(\"logs\")"],
+      "patterns": ["~/.lime/logs", "join(\".lime\").join(\"logs\")"],
       "includePathPrefixes": ["ember-rs/crates/core/src/logger.rs"],
       "allowedPaths": []
     },
@@ -5537,7 +6131,7 @@
       "id": "rust-hardcoded-skills-path-leak",
       "classification": "dead-candidate",
       "description": "已零引用的 skills 相关模块硬编码 legacy skills 路径",
-      "patterns": ["~/.ember/skills", "join(\".ember\").join(\"skills\")"],
+      "patterns": ["~/.lime/skills", "join(\".lime\").join(\"skills\")"],
       "includePathPrefixes": ["ember-rs/src"],
       "allowedPaths": []
     },
@@ -5546,10 +6140,10 @@
       "classification": "dead-candidate",
       "description": "已零引用的 memory 相关模块硬编码 legacy memory 或 AGENTS 路径",
       "patterns": [
-        "~/.ember/AGENTS.md",
-        "join(\".ember\").join(\"AGENTS.md\")",
-        "join(\".ember\").join(\"memory\")",
-        ".ember/memory"
+        "~/.lime/AGENTS.md",
+        "join(\".lime\").join(\"AGENTS.md\")",
+        "join(\".lime\").join(\"memory\")",
+        ".lime/memory"
       ],
       "includePathPrefixes": [
         "ember-rs/src",
@@ -5562,7 +6156,7 @@
       "id": "rust-agent-legacy-global-instruction-path-leak",
       "classification": "dead-candidate",
       "description": "已零引用的 agent prompt 层 legacy 全局指令文件名回流",
-      "patterns": ["\".ember/AGENT.md\"", "\".ember/instructions.md\""],
+      "patterns": ["\".lime/AGENT.md\"", "\".lime/instructions.md\""],
       "includePathPrefixes": ["ember-rs/crates/agent/src/prompt"],
       "allowedPaths": []
     },
@@ -5588,7 +6182,7 @@
     {
       "id": "rust-sceneapp-command-module-surface",
       "classification": "dead",
-      "description": "Rust 不得恢复 SceneApp 命令模块、应用服务或 DevBridge dispatcher；执行与目录能力回到 Agent App / agent_runtime current 主链",
+      "description": "Rust 不得恢复 SceneApp 命令模块、应用服务或 DevBridge dispatcher；执行与目录能力回到 Plugin / agent_runtime current 主链",
       "patterns": [
         "commands::sceneapp_cmd::",
         "pub mod sceneapp",

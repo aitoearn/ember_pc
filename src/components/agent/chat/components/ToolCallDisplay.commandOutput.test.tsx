@@ -112,7 +112,7 @@ describe("ToolCallDisplay command output", () => {
         }),
         metadata: {
           exit_code: 1,
-          cwd: "/workspace/ember",
+          cwd: "/workspace/lime",
           stdout_length: 37,
           stderr_length: 42,
           sandboxed: true,
@@ -150,6 +150,47 @@ describe("ToolCallDisplay command output", () => {
       container.querySelector('[data-testid="tool-call-rendered-result"]'),
     ).toBeNull();
     expect(container.textContent).not.toContain('"stdout"');
+  });
+
+  it("Bash JSON stdout 即使包含 metadata/result 也不应被协议包络过滤吞掉", () => {
+    const { container } = renderTool({
+      id: "tool-exec-json-stdout-1",
+      name: "bash",
+      arguments: JSON.stringify({ command: "node scripts/check.mjs" }),
+      status: "completed",
+      result: {
+        success: true,
+        output: JSON.stringify({
+          result: {
+            ok: true,
+          },
+          metadata: {
+            durationMs: 42,
+          },
+        }),
+        metadata: {
+          exit_code: 0,
+          stdout_length: 48,
+          stderr_length: 0,
+        },
+      },
+      startTime: new Date("2026-06-21T12:08:00.000Z"),
+      endTime: new Date("2026-06-21T12:08:01.000Z"),
+    });
+
+    act(() => {
+      const toggle = container.querySelector(
+        'button[title="查看结果"]',
+      ) as HTMLButtonElement | null;
+      toggle?.click();
+    });
+
+    expect(
+      container.querySelector('[data-testid="tool-call-rendered-result"]'),
+    ).not.toBeNull();
+    expect(container.textContent).toContain("命令摘要");
+    expect(container.textContent).toContain("durationMs");
+    expect(container.textContent).toContain("ok");
   });
 
   it("apply_patch 工具应把补丁参数渲染为文件级变更审阅", () => {
@@ -333,7 +374,7 @@ describe("ToolCallDisplay command output", () => {
             "-const count = 1;",
             "+const count = 2;",
             "+const enabled = true;",
-            ' export const name = "ember";',
+            ' export const name = "lime";',
           ].join("\n"),
         }),
         metadata: {
@@ -389,7 +430,7 @@ describe("ToolCallDisplay command output", () => {
           "+let enabled = true;",
           "*** Update File: README.md",
           "@@",
-          "+Ember supports code review from tool results.",
+          "+Lime supports code review from tool results.",
           "*** End Patch",
         ].join("\n"),
       }),
@@ -458,7 +499,7 @@ describe("ToolCallDisplay command output", () => {
         output: "报告生成失败，请检查参数后重试。",
         metadata: {
           exit_code: 2,
-          ember_offloaded: true,
+          lime_offloaded: true,
           output_truncated: true,
           output_file: "exports/reports/final-result.md",
         },
@@ -521,7 +562,7 @@ describe("ToolCallDisplay command output", () => {
   it("正式工具卡不应额外展示原始工具名", () => {
     const { container } = renderTool({
       id: "tool-ask-user-1",
-      name: "AskUserQuestion",
+      name: "request_user_input",
       arguments: JSON.stringify({ question: "需要继续吗？" }),
       status: "completed",
       result: {

@@ -1,6 +1,7 @@
 import { logAgentDebug } from "@/lib/agentDebug";
 import { recordAgentUiPerformanceMetric } from "@/lib/agentUiPerformanceMetrics";
 import { normalizeLegacyThreadItem } from "../agentTextNormalization";
+import type { AgentExecutionStrategy } from "../agentExecutionRuntime";
 import type { AgentThreadItem } from "../agentProtocol";
 import { normalizeQueuedTurnSnapshots } from "../queuedTurn";
 import {
@@ -8,20 +9,17 @@ import {
   type AppServerSessionClient,
   type AppServerSessionRpcClient,
 } from "./appServerSessionClient";
-import {
-  normalizeSubagentParentContext,
-  normalizeSubagentSessionInfo,
-  normalizeThreadReadModel,
-} from "./normalizers";
+import { normalizeThreadReadModel } from "./normalizers";
 import type {
-  AsterExecutionStrategy,
-  AsterSessionDetail,
-  AsterSessionInfo,
   AgentRuntimeCreateSessionOptions,
-  AgentRuntimeListSessionsOptions,
   AgentRuntimeGetSessionOptions,
   AgentRuntimeUpdateSessionRequest,
-} from "./types";
+} from "./requestTypes";
+import type {
+  AgentSessionDetail,
+  AgentSessionInfo,
+  AgentRuntimeListSessionsOptions,
+} from "./sessionTypes";
 
 function isTransientSessionReadError(error: unknown): boolean {
   const message =
@@ -39,9 +37,39 @@ function isTransientSessionReadError(error: unknown): boolean {
   );
 }
 
+function omitUndefinedSessionOptionalFields(
+  detail: AgentSessionDetail,
+): AgentSessionDetail {
+  if (detail.execution_runtime === undefined) {
+    delete detail.execution_runtime;
+  }
+  return detail;
+}
+
 export interface AgentRuntimeSessionClientDeps {
   appServerClient?: AppServerSessionRpcClient;
   appServerSessionClient?: AppServerSessionClient;
+}
+
+export const AGENT_RUNTIME_SESSIONS_CHANGED_EVENT =
+  "lime:agent-runtime-sessions-changed";
+
+export interface AgentRuntimeSessionsChangedDetail {
+  reason: "created" | "updated" | "archived" | "deleted" | "external";
+  sessionId?: string;
+  workspaceId?: string;
+}
+
+export function notifyAgentRuntimeSessionsChanged(
+  detail: AgentRuntimeSessionsChangedDetail,
+): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(AGENT_RUNTIME_SESSIONS_CHANGED_EVENT, { detail }),
+  );
 }
 
 export function createSessionClient({
@@ -49,26 +77,34 @@ export function createSessionClient({
   appServerSessionClient = createAppServerSessionClient({ appServerClient }),
 }: AgentRuntimeSessionClientDeps = {}) {
   async function createAgentRuntimeSession(
-    workspaceId: string,
+    workspaceId?: string,
     name?: string,
-    executionStrategy?: AsterExecutionStrategy,
+    executionStrategy?: AgentExecutionStrategy,
     options?: AgentRuntimeCreateSessionOptions,
   ): Promise<string> {
-    return await appServerSessionClient.createAgentRuntimeSession(
-      workspaceId,
+    const normalizedWorkspaceId = workspaceId?.trim() || undefined;
+    const sessionId = await appServerSessionClient.createAgentRuntimeSession(
+      normalizedWorkspaceId,
       name,
       executionStrategy,
       options,
     );
+    notifyAgentRuntimeSessionsChanged({
+      reason: "created",
+      sessionId,
+      workspaceId: normalizedWorkspaceId,
+    });
+    return sessionId;
   }
 
   async function listAgentRuntimeSessions(
     options?: AgentRuntimeListSessionsOptions,
-  ): Promise<AsterSessionInfo[]> {
+  ): Promise<AgentSessionInfo[]> {
     const startedAt = Date.now();
     let settled = false;
     const includeArchived = options?.includeArchived === true;
     const archivedOnly = options?.archivedOnly === true;
+    const cwd = options?.cwd;
     const workspaceId = options?.workspaceId?.trim();
     const limit =
       typeof options?.limit === "number" &&
@@ -100,6 +136,7 @@ export function createSessionClient({
 
     const listMetricContext = {
       archivedOnly,
+      cwd: cwd ?? null,
       includeArchived,
       limit: limit ?? null,
       workspaceId: workspaceId ?? null,
@@ -114,6 +151,7 @@ export function createSessionClient({
       const sessions = await appServerSessionClient.listAgentRuntimeSessions({
         includeArchived,
         archivedOnly,
+        cwd,
         workspaceId,
         limit,
       });
@@ -129,6 +167,7 @@ export function createSessionClient({
         limit,
         sessionsCount: sessions.length,
         includeArchived,
+        cwd: cwd ?? null,
         workspaceId: workspaceId ?? null,
       });
       return sessions;
@@ -146,6 +185,7 @@ export function createSessionClient({
           durationMs: Date.now() - startedAt,
           error,
           limit,
+          cwd: cwd ?? null,
           workspaceId: workspaceId ?? null,
         },
         { level: "warn" },
@@ -161,10 +201,11 @@ export function createSessionClient({
   async function getAgentRuntimeSession(
     sessionId: string,
     options?: AgentRuntimeGetSessionOptions,
-  ): Promise<AsterSessionDetail> {
+  ): Promise<AgentSessionDetail> {
     const startedAt = Date.now();
     let settled = false;
     const resumeSessionStartHooks = options?.resumeSessionStartHooks === true;
+    const source = options?.source?.trim() || null;
     const historyLimit =
       typeof options?.historyLimit === "number" &&
       Number.isFinite(options.historyLimit) &&
@@ -200,6 +241,7 @@ export function createSessionClient({
                 historyBeforeMessageId: historyBeforeMessageId ?? null,
                 resumeSessionStartHooks,
                 sessionId,
+                source,
               },
               {
                 dedupeKey: `runtimeGetSession.slow:${sessionId}`,
@@ -216,6 +258,7 @@ export function createSessionClient({
       historyBeforeMessageId: historyBeforeMessageId ?? null,
       resumeSessionStartHooks,
       sessionId,
+      source,
     };
     recordAgentUiPerformanceMetric(
       "agentRuntime.getSession.start",
@@ -239,9 +282,9 @@ export function createSessionClient({
             : {}),
         },
       );
-      const normalizedDetail = detail as AsterSessionDetail | null | undefined;
-      const normalizedSessionDetail: AsterSessionDetail = {
-        ...(detail as AsterSessionDetail),
+      const normalizedDetail = detail as AgentSessionDetail | null | undefined;
+      const normalizedSessionDetail: AgentSessionDetail = {
+        ...detail,
         messages: Array.isArray(normalizedDetail?.messages)
           ? normalizedDetail.messages
           : [],
@@ -253,16 +296,6 @@ export function createSessionClient({
               normalizeLegacyThreadItem(item as AgentThreadItem),
             )
           : [],
-        child_subagent_sessions: Array.isArray(
-          normalizedDetail?.child_subagent_sessions,
-        )
-          ? normalizedDetail.child_subagent_sessions.map(
-              normalizeSubagentSessionInfo,
-            )
-          : [],
-        subagent_parent_context: normalizeSubagentParentContext(
-          normalizedDetail?.subagent_parent_context,
-        ),
         queued_turns: normalizeQueuedTurnSnapshots(
           normalizedDetail?.queued_turns,
         ),
@@ -271,11 +304,10 @@ export function createSessionClient({
           ? normalizedDetail.todo_items
           : [],
       };
+      omitUndefinedSessionOptionalFields(normalizedSessionDetail);
       settled = true;
       recordAgentUiPerformanceMetric("agentRuntime.getSession.success", {
         ...getSessionMetricContext,
-        childSubagentSessionsCount:
-          normalizedSessionDetail.child_subagent_sessions?.length ?? 0,
         durationMs: Date.now() - startedAt,
         itemsCount: normalizedSessionDetail.items?.length ?? 0,
         messagesCount: normalizedSessionDetail.messages?.length ?? 0,
@@ -283,8 +315,6 @@ export function createSessionClient({
         turnsCount: normalizedSessionDetail.turns?.length ?? 0,
       });
       logAgentDebug("AgentApi", "runtimeGetSession.success", {
-        childSubagentSessionsCount:
-          normalizedSessionDetail.child_subagent_sessions?.length ?? 0,
         durationMs: Date.now() - startedAt,
         historyLimit: historyLimit ?? null,
         historyOffset: historyOffset ?? null,
@@ -294,6 +324,7 @@ export function createSessionClient({
         queuedTurnsCount: normalizedSessionDetail.queued_turns?.length ?? 0,
         resumeSessionStartHooks,
         sessionId,
+        source,
         turnsCount: normalizedSessionDetail.turns?.length ?? 0,
       });
       return normalizedSessionDetail;
@@ -314,6 +345,7 @@ export function createSessionClient({
           historyBeforeMessageId: historyBeforeMessageId ?? null,
           resumeSessionStartHooks,
           sessionId,
+          source,
         },
         { level: isTransientSessionReadError(error) ? "warn" : "error" },
       );
@@ -327,22 +359,31 @@ export function createSessionClient({
 
   async function updateAgentRuntimeSession(
     request: AgentRuntimeUpdateSessionRequest,
+    notificationReason: AgentRuntimeSessionsChangedDetail["reason"] = "updated",
   ): Promise<void> {
-    return await appServerSessionClient.updateAgentRuntimeSession(request);
+    await appServerSessionClient.updateAgentRuntimeSession(request);
+    notifyAgentRuntimeSessionsChanged({
+      reason: notificationReason,
+      sessionId: request.session_id,
+    });
   }
 
   async function archiveManyAgentRuntimeSessions(
     sessionIds: string[],
-  ): Promise<AsterSessionInfo[]> {
-    return await appServerSessionClient.archiveManyAgentRuntimeSessions(
-      sessionIds,
-    );
+  ): Promise<AgentSessionInfo[]> {
+    const sessions =
+      await appServerSessionClient.archiveManyAgentRuntimeSessions(sessionIds);
+    notifyAgentRuntimeSessionsChanged({
+      reason: "archived",
+    });
+    return sessions;
   }
 
   async function deleteAgentRuntimeSession(sessionId: string): Promise<void> {
-    return await updateAgentRuntimeSession({
-      session_id: sessionId,
-      archived: true,
+    await appServerSessionClient.deleteAgentRuntimeSession(sessionId);
+    notifyAgentRuntimeSessionsChanged({
+      reason: "deleted",
+      sessionId: sessionId.trim(),
     });
   }
 

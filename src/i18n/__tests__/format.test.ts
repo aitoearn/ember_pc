@@ -12,7 +12,7 @@ import {
 describe("i18n format helpers", () => {
   it("应把传入 locale 归一到受支持 locale", () => {
     expect(resolveFormatLocale("en-GB")).toBe("en-US");
-    expect(resolveFormatLocale("zh-Hant")).toBe("zh-CN");
+    expect(resolveFormatLocale("zh-Hant")).toBe("zh-TW");
     expect(resolveFormatLocale("unknown")).toBe("zh-CN");
   });
 
