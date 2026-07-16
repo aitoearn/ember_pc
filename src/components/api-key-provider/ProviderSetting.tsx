@@ -345,7 +345,7 @@ export const ProviderSetting: React.FC<ProviderSettingProps> = (props) => {
                   <p className="mt-2 text-sm leading-6 text-amber-800">
                     {t(
                       "settings.providers.setting.loginRequired.description",
-                      "登录后会自动同步 Lime Hub 的可用模型和本地托管访问凭证；未登录时不会展示本地兜底模型。",
+                      "登录后会自动同步 Ember 云端的可用模型和本地托管访问凭证；未登录时不会展示本地兜底模型。",
                     )}
                   </p>
                 </div>

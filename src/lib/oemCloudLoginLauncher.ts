@@ -215,6 +215,10 @@ function setMissingSearchParam(
   searchParams.set(key, normalized);
 }
 
+function isAbsoluteHttpLoginPath(loginPath: string): boolean {
+  return /^https?:\/\//i.test(loginPath.trim());
+}
+
 export function buildOemCloudLoginUrl(
   runtime: Pick<
     OemCloudRuntimeContext,
@@ -229,6 +233,11 @@ export function buildOemCloudLoginUrl(
     runtime.baseUrl,
     runtime.loginPath,
   );
+
+  // Ember Console 等绝对登录页按配置原样打开，避免追加 tenant/本机 redirectUrl 破坏页面
+  if (isAbsoluteHttpLoginPath(runtime.loginPath)) {
+    return loginUrl;
+  }
 
   try {
     const parsedUrl = new URL(loginUrl);
@@ -657,15 +666,40 @@ export async function openConfiguredOemCloudLoginUrl(
   };
 }
 
-function shouldWaitForLoginUrlCompletion(
-  runtime: OemCloudRuntimeContext,
-  options: OemCloudLoginLaunchOptions,
-) {
+function canReceiveLoginUrlOAuthCallback(runtime: OemCloudRuntimeContext) {
   return (
-    options.waitForCompletion === true &&
     shouldUseOAuthCallbackBridge() &&
     isLoopbackDesktopOauthRedirectUrl(runtime.desktopOauthRedirectUrl)
   );
+}
+
+/**
+ * 普通登录页 / 绝对 Console URL 打开后，持续接收本机 OAuth 回调。
+ * waitForCompletion=false（侧栏）时仍在后台监听，避免打开浏览器后立刻卸载导致登录态不回写。
+ */
+async function settleLoginUrlLaunch(
+  runtime: OemCloudRuntimeContext,
+  options: OemCloudLoginLaunchOptions,
+  oauthCompletedPromise: Promise<void>,
+  disposeOauthCompletedListener: () => void,
+): Promise<void> {
+  if (!canReceiveLoginUrlOAuthCallback(runtime)) {
+    disposeOauthCompletedListener();
+    return;
+  }
+
+  if (options.waitForCompletion ?? true) {
+    try {
+      await oauthCompletedPromise;
+    } finally {
+      disposeOauthCompletedListener();
+    }
+    return;
+  }
+
+  void oauthCompletedPromise.catch((error) => {
+    console.warn("云端登录后台同步失败:", error);
+  });
 }
 
 export async function startOemCloudLogin(
@@ -710,20 +744,29 @@ export async function startOemCloudLogin(
           };
         });
 
+  // 配置了绝对登录 URL（如 Ember Console）时，直接打开该页，不再优先走 Google Desktop Auth
+  if (isAbsoluteHttpLoginPath(loginRuntime.loginPath)) {
+    const result = await openConfiguredOemCloudLoginUrl(loginRuntime, options);
+    await settleLoginUrlLaunch(
+      loginRuntime,
+      options,
+      oauthCompletedPromise,
+      disposeOauthCompletedListener,
+    );
+    return result;
+  }
+
   let authSession: OemCloudDesktopAuthSessionStartResponse | null = null;
   try {
     authSession = await createGoogleDesktopAuthSession(loginRuntime);
   } catch (_error) {
     const result = await openConfiguredOemCloudLoginUrl(loginRuntime, options);
-    if (shouldWaitForLoginUrlCompletion(loginRuntime, options)) {
-      try {
-        await oauthCompletedPromise;
-      } finally {
-        disposeOauthCompletedListener();
-      }
-    } else {
-      disposeOauthCompletedListener();
-    }
+    await settleLoginUrlLaunch(
+      loginRuntime,
+      options,
+      oauthCompletedPromise,
+      disposeOauthCompletedListener,
+    );
     return result;
   }
 

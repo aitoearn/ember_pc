@@ -73,10 +73,9 @@ describe("AppSidebar account menu", () => {
     expect(accountMenu?.textContent).toContain("用户中心");
     expect(accountMenu?.textContent).toContain("退出登录");
     expect(accountMenu?.textContent).toContain("界面语言");
-    expect(accountMenu?.textContent).toContain("项目资料");
     expect(accountMenu?.textContent).toContain("模型设置");
     expect(accountMenu?.textContent).toContain("关于");
-    expect(accountMenu?.textContent).not.toContain("登录 Lime 云端");
+    expect(accountMenu?.textContent).not.toContain("登录 Ember 云端");
     expect(accountMenu?.textContent).not.toContain("开源");
     expect(accountMenu?.textContent).not.toContain("主题");
     expect(accountMenu?.textContent).not.toContain("帮助中心");
@@ -148,10 +147,10 @@ describe("AppSidebar account menu", () => {
       "https://user.limeai.run/billing?tab=usage",
       { browserTarget: null },
     );
-    expect(mockToastSuccess).toHaveBeenCalledWith("已打开 Lime 云端 用户中心");
+    expect(mockToastSuccess).toHaveBeenCalledWith("已打开 Ember 云端 用户中心");
   });
 
-  it("未连接 Lime 云端时应只提示登录并保留登录入口", async () => {
+  it("未连接 Ember 云端时应只提示登录并保留登录入口", async () => {
     const container = mountSidebarContainer({
       currentPage: "agent",
       currentPageParams: {
@@ -161,7 +160,7 @@ describe("AppSidebar account menu", () => {
     await flushEffects(2);
 
     expect(container.textContent).toContain("设置");
-    expect(container.textContent).not.toContain("登录 Lime 云端");
+    expect(container.textContent).not.toContain("登录 Ember 云端");
     expect(container.textContent).not.toContain("未登录");
     expect(container.textContent).not.toContain("开源");
     expect(container.textContent).not.toContain("升级");
@@ -178,24 +177,21 @@ describe("AppSidebar account menu", () => {
     const accountMenu = container.querySelector(
       '[data-testid="app-sidebar-account-menu"]',
     );
-    expect(accountMenu?.textContent).toContain("登录 Lime 云端");
+    expect(accountMenu?.textContent).toContain("登录 Ember 云端");
     expect(accountMenu?.textContent).toContain(
-      "登录 Lime 云端 后同步账号、积分和套餐信息。",
+      "登录 Ember 云端 后同步账号、积分和套餐信息。",
     );
-    expect(accountMenu?.textContent).toContain("项目资料");
+    expect(accountMenu?.textContent).toContain("连接 Ember 云端");
     expect(accountMenu?.textContent).toContain("界面语言");
     expect(accountMenu?.textContent).toContain("模型设置");
     expect(accountMenu?.textContent).toContain("关于");
     expect(accountMenu?.textContent).not.toContain("开源");
     expect(accountMenu?.textContent).not.toContain("退出登录");
-    expect(
-      accountMenu?.querySelector('button[aria-label="Lime 云端"]'),
-    ).toBeNull();
 
     await act(async () => {
       accountMenu
         ?.querySelector<HTMLButtonElement>(
-          'button[aria-label="登录 Lime 云端"]',
+          'button[aria-label="连接 Ember 云端"]',
         )
         ?.click();
       await Promise.resolve();
@@ -207,7 +203,7 @@ describe("AppSidebar account menu", () => {
       waitForCompletion: false,
     });
     expect(mockToastSuccess).toHaveBeenCalledWith(
-      "已打开 Lime 云端 登录页，请在浏览器完成授权",
+      "已打开 Ember 云端 登录页，请在浏览器完成授权",
     );
   });
 
@@ -227,7 +223,7 @@ describe("AppSidebar account menu", () => {
 
     await act(async () => {
       container
-        .querySelector<HTMLButtonElement>('button[aria-label="登录 Lime 云端"]')
+        .querySelector<HTMLButtonElement>('button[aria-label="连接 Ember 云端"]')
         ?.click();
       await Promise.resolve();
     });
@@ -237,9 +233,9 @@ describe("AppSidebar account menu", () => {
       waitForCompletion: false,
     });
     expect(mockToastSuccess).toHaveBeenCalledWith(
-      "已打开 Lime 云端 登录页，请在浏览器完成授权",
+      "已打开 Ember 云端 登录页，请在浏览器完成授权",
     );
-    expect(mockToastSuccess).not.toHaveBeenCalledWith("Lime 云端 登录已同步");
+    expect(mockToastSuccess).not.toHaveBeenCalledWith("Ember 云端 登录已同步");
     expect(container.textContent).not.toContain("正在打开...");
   });
 
@@ -255,7 +251,7 @@ describe("AppSidebar account menu", () => {
     await flushEffects(2);
 
     expect(container.textContent).toContain("Settings");
-    expect(container.textContent).not.toContain("Log in to Lime Cloud");
+    expect(container.textContent).not.toContain("Log in to Ember Cloud");
     expect(container.textContent).not.toContain("Signed out");
     expect(container.textContent).not.toContain("Open Source");
     expect(container.textContent).not.toContain("开源");
@@ -265,10 +261,11 @@ describe("AppSidebar account menu", () => {
     const accountMenu = container.querySelector(
       '[data-testid="app-sidebar-account-menu"]',
     );
-    expect(accountMenu?.textContent).toContain("Log in to Lime Cloud");
+    expect(accountMenu?.textContent).toContain("Log in to Ember Cloud");
     expect(accountMenu?.textContent).toContain(
-      "Log in to Lime Cloud to sync your account, credits, and plan.",
+      "Log in to Ember Cloud to sync your account, credits, and plan.",
     );
+    expect(accountMenu?.textContent).toContain("Connect Ember Cloud");
     expect(accountMenu?.textContent).toContain("Interface Language");
     expect(accountMenu?.textContent).toContain("Model Settings");
     expect(accountMenu?.textContent).toContain("About");
@@ -277,18 +274,18 @@ describe("AppSidebar account menu", () => {
     await act(async () => {
       accountMenu
         ?.querySelector<HTMLButtonElement>(
-          'button[aria-label="Log in to Lime Cloud"]',
+          'button[aria-label="Connect Ember Cloud"]',
         )
         ?.click();
       await Promise.resolve();
     });
 
     expect(mockToastSuccess).toHaveBeenCalledWith(
-      "Opened the Lime Cloud login page. Finish authorization in your browser.",
+      "Opened the Ember Cloud login page. Finish authorization in your browser.",
     );
   });
 
-  it("Lime 云端登录完成后侧边栏应从未登录态刷新为账号信息", async () => {
+  it("Ember 云端登录完成后侧边栏应从未登录态刷新为账号信息", async () => {
     const container = mountSidebarContainer({
       currentPage: "agent",
       currentPageParams: {
@@ -298,7 +295,7 @@ describe("AppSidebar account menu", () => {
     await flushEffects(2);
 
     expect(container.textContent).toContain("设置");
-    expect(container.textContent).not.toContain("登录 Lime 云端");
+    expect(container.textContent).not.toContain("登录 Ember 云端");
     expect(container.textContent).not.toContain("开源");
 
     await act(async () => {

@@ -50,6 +50,11 @@ function normalizeAppPath(value: unknown): string | null {
     return null;
   }
 
+  // 绝对登录 URL（如 Ember Console）需原样保留，避免被改成相对路径
+  if (/^https?:\/\//i.test(normalized)) {
+    return normalized;
+  }
+
   if (normalized === "/") {
     return normalized;
   }

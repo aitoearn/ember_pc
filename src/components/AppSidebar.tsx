@@ -38,6 +38,7 @@ import {
   resolveEnabledSidebarNavItems,
   type SidebarNavItemDefinition,
 } from "@/lib/navigation/sidebarNav";
+import { prefetchDeviceAutomationStartup } from "@/features/device-automation/deviceAutomationPrefetch";
 import {
   Tooltip,
   TooltipContent,
@@ -217,7 +218,7 @@ export function AppSidebar({
   );
   const accountDefaultCloudBrandLabel = t(
     "navigation.sidebar.account.defaultCloudBrand",
-    "Lime 云端",
+    "Ember 云端",
   );
   const accountCloudSuffixLabel = t(
     "navigation.sidebar.account.cloudSuffix",
@@ -812,12 +813,20 @@ export function AppSidebar({
 
   const renderNavItem = (item: SidebarNavItem) => {
     const active = isActive(item);
+    const prefetchDeviceAutomation =
+      item.id === "device-automation"
+        ? () => {
+            prefetchDeviceAutomationStartup();
+          }
+        : undefined;
     const button = (
       <NavButton
         key={item.id}
         $active={active}
         $collapsed={collapsed}
         onClick={() => handleNavigate(item)}
+        onMouseEnter={prefetchDeviceAutomation}
+        onFocus={prefetchDeviceAutomation}
         title={item.label}
         aria-label={item.label}
         aria-current={active ? "page" : undefined}
@@ -855,7 +864,7 @@ export function AppSidebar({
 
   const accountLoginPromptTitleLabel = t(
     "navigation.sidebar.account.loginPrompt.title",
-    "登录 Lime 云端",
+    "登录 Ember 云端",
   );
   const accountDisplayName = resolveAccountDisplayName(
     cloudSessionState,

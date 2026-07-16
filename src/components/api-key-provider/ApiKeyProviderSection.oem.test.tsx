@@ -127,7 +127,7 @@ describe("ApiKeyProviderSection OEM 登录提示", () => {
     expect(
       container.querySelector('[data-testid="provider-login-required"]'),
     ).not.toBeNull();
-    expect(container.textContent ?? "").toContain("登录后会自动同步 Lime Hub");
+    expect(container.textContent ?? "").toContain("登录后会自动同步 Ember 云端");
 
     const persistedSelections = collectAppServerUiStateWrites().map(
       (params) => params.value,

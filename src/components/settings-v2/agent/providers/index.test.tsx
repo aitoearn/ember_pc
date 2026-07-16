@@ -43,7 +43,7 @@ vi.mock("react-i18next", () => ({
     t: (key: string, values?: Record<string, unknown>) => {
       const dictionary: Record<string, string> = {
         "settings.tab.providers": "AI 服务商",
-        "settings.providers.cloud.brandFallback": "Lime Cloud",
+        "settings.providers.cloud.brandFallback": "Ember Cloud",
         "settings.providers.cloud.message.userCenterMissing":
           "云端用户中心不可用",
         "settings.providers.cloud.message.loginOpened":

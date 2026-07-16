@@ -366,7 +366,7 @@ describe("ProviderSetting", () => {
     expect(container.textContent ?? "").toContain("Lime 云端");
     expect(container.textContent ?? "").toContain("需要登录");
     expect(container.textContent ?? "").toContain(
-      "登录后会自动同步 Lime Hub 的可用模型",
+      "登录后会自动同步 Ember 云端的可用模型",
     );
     expect(container.textContent ?? "").not.toContain("模型优先级");
     expect(container.textContent ?? "").not.toContain("从接口获取");

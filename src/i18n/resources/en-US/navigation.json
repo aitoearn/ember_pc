@@ -99,7 +99,7 @@
   "navigation.sidebar.account.logoutPending": "Logging out...",
   "navigation.sidebar.account.viewPlanDetails": "View plan details",
   "navigation.sidebar.account.viewDetails": "View details",
-  "navigation.sidebar.account.loginPrompt.title": "Log in to Lime Cloud",
+  "navigation.sidebar.account.loginPrompt.title": "Log in to Ember Cloud",
   "navigation.sidebar.account.loginPrompt.description": "Log in to {{brand}} to sync your account, credits, and plan.",
   "navigation.sidebar.account.loginPrompt.badge": "Signed out",
   "navigation.sidebar.invite.entry.label": "Invite friends",

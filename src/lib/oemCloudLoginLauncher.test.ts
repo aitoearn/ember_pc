@@ -5,12 +5,16 @@ import {
   openExternalUrl,
   startOemCloudLogin,
 } from "@/lib/oemCloudLoginLauncher";
-import { setStoredOemCloudSessionState } from "@/lib/oemCloudSession";
+import {
+  getStoredOemCloudSessionState,
+  setStoredOemCloudSessionState,
+} from "@/lib/oemCloudSession";
 
 const shellOpenMock = vi.hoisted(() => vi.fn());
 const controlPlaneMocks = vi.hoisted(() => ({
   createClientDesktopAuthSession: vi.fn(),
   pollClientDesktopAuthSession: vi.fn(),
+  getClientBootstrap: vi.fn(),
 }));
 const systemBrowserMocks = vi.hoisted(() => ({
   openExternalUrlWithSystemBrowser: vi.fn(),
@@ -35,6 +39,7 @@ vi.mock("@/lib/api/oemCloudControlPlane", async (importOriginal) => {
       controlPlaneMocks.createClientDesktopAuthSession,
     pollClientDesktopAuthSession:
       controlPlaneMocks.pollClientDesktopAuthSession,
+    getClientBootstrap: controlPlaneMocks.getClientBootstrap,
   };
 });
 
@@ -98,6 +103,19 @@ describe("oemCloudLoginLauncher", () => {
     });
     controlPlaneMocks.createClientDesktopAuthSession.mockReset();
     controlPlaneMocks.pollClientDesktopAuthSession.mockReset();
+    controlPlaneMocks.getClientBootstrap.mockReset();
+    controlPlaneMocks.getClientBootstrap.mockResolvedValue({
+      session: {
+        token: "session-token",
+        tenant: { id: "tenant-0001", slug: "tenant-0001", name: "Ember" },
+        user: { id: "user-001", displayName: "Tester" },
+        session: { id: "session-001", provider: "google" },
+      },
+      app: { name: "Ember" },
+      features: {},
+      providerPreference: null,
+      providerOffersSummary: [],
+    });
     desktopRuntimeMocks.hasDesktopHostInvokeCapability.mockReset();
     desktopRuntimeMocks.hasDesktopHostRuntimeMarkers.mockReset();
     desktopRuntimeMocks.hasDesktopHostInvokeCapability.mockReturnValue(false);
@@ -335,6 +353,103 @@ describe("oemCloudLoginLauncher", () => {
     );
     expect(parsedUrl.searchParams.get("redirect")).toBe("/welcome");
     expect(parsedUrl.searchParams.get("next")).toBe("/welcome");
+  });
+
+  it("绝对登录 URL 应原样打开 Ember Console，不追加桌面 OAuth 查询参数", () => {
+    const loginUrl = buildOemCloudLoginUrl({
+      baseUrl: "https://user.limeai.run",
+      loginPath: "https://console.ember.aiearn.me/auth?tab=login",
+      tenantId: "tenant-0001",
+      desktopOauthRedirectUrl: "http://127.0.0.1:49222/oauth/callback",
+      desktopOauthNextPath: "/welcome",
+    });
+
+    expect(loginUrl).toBe("https://console.ember.aiearn.me/auth?tab=login");
+  });
+
+  it("配置绝对登录 URL 时应跳过 Google Desktop Auth，直接打开登录页", async () => {
+    const browserTarget = {
+      navigate: vi.fn(() => true),
+      close: vi.fn(),
+    };
+
+    const result = await startOemCloudLogin(
+      {
+        baseUrl: "https://user.limeai.run",
+        controlPlaneBaseUrl: "https://user.limeai.run/api",
+        sceneBaseUrl: "https://user.limeai.run/scene-api",
+        gatewayBaseUrl: "https://llm.limeai.run",
+        tenantId: "tenant-0001",
+        sessionToken: null,
+        hubProviderName: "Ember 云端",
+        loginPath: "https://console.ember.aiearn.me/auth?tab=login",
+        desktopClientId: "desktop-client",
+        desktopOauthRedirectUrl: "lime://oauth/callback",
+        desktopOauthNextPath: "/welcome",
+        pluginSignatureTrustRoots: [],
+      },
+      { browserTarget, waitForCompletion: false },
+    );
+
+    expect(
+      controlPlaneMocks.createClientDesktopAuthSession,
+    ).not.toHaveBeenCalled();
+    expect(result.mode).toBe("login_url");
+    expect(result.openedUrl).toContain(
+      "https://console.ember.aiearn.me/auth?tab=login",
+    );
+    expect(browserTarget.navigate).toHaveBeenCalledWith(
+      expect.stringContaining("https://console.ember.aiearn.me/auth?tab=login"),
+    );
+  });
+
+  it("绝对登录 URL 且 waitForCompletion=false 时仍应后台接收 OAuth 回调并写回会话", async () => {
+    desktopRuntimeMocks.hasDesktopHostInvokeCapability.mockReturnValue(true);
+    desktopRuntimeMocks.hasDesktopHostRuntimeMarkers.mockReturnValue(true);
+
+    const result = await startOemCloudLogin(
+      {
+        baseUrl: "https://user.limeai.run",
+        controlPlaneBaseUrl: "https://user.limeai.run/api",
+        sceneBaseUrl: "https://user.limeai.run/scene-api",
+        gatewayBaseUrl: "https://llm.limeai.run",
+        tenantId: "tenant-0001",
+        sessionToken: null,
+        hubProviderName: "Ember 云端",
+        loginPath: "https://console.ember.aiearn.me/auth?tab=login",
+        desktopClientId: "desktop-client",
+        desktopOauthRedirectUrl: "lime://oauth/callback",
+        desktopOauthNextPath: "/welcome",
+        pluginSignatureTrustRoots: [],
+      },
+      { waitForCompletion: false },
+    );
+
+    expect(result.mode).toBe("login_url");
+    expect(result.openedUrl).toBe(
+      "https://console.ember.aiearn.me/auth?tab=login",
+    );
+    expect(getStoredOemCloudSessionState()).toBeNull();
+
+    window.dispatchEvent(
+      new CustomEvent("oem-cloud-oauth-callback", {
+        detail: {
+          sourcePath: "/oauth/callback",
+          tenantId: "tenant-0001",
+          token: "session-token",
+          next: "/welcome",
+        },
+      }),
+    );
+
+    await vi.waitFor(() => {
+      expect(controlPlaneMocks.getClientBootstrap).toHaveBeenCalledWith(
+        "tenant-0001",
+      );
+      expect(getStoredOemCloudSessionState()?.session.token).toBe(
+        "session-token",
+      );
+    });
   });
 
   it("桌面 OAuth 回调返回内部租户 ID 且本地会话 slug 命中时应完成登录", async () => {

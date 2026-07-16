@@ -58,6 +58,23 @@ describe("oemCloudRuntime", () => {
     });
   });
 
+  it("绝对登录 URL 应原样保留，不被改成相对路径", () => {
+    window.__LIME_OEM_CLOUD__ = {
+      enabled: true,
+      baseUrl: "https://user.limeai.run",
+      gatewayBaseUrl: "https://llm.limeai.run",
+      tenantId: "tenant-0001",
+      hubProviderName: "Ember 云端",
+      loginPath: "https://console.ember.aiearn.me/auth?tab=login",
+    };
+
+    expect(resolveOemCloudRuntimeContext()).toMatchObject({
+      baseUrl: "https://user.limeai.run",
+      hubProviderName: "Ember 云端",
+      loginPath: "https://console.ember.aiearn.me/auth?tab=login",
+    });
+  });
+
   it("未显式提供 gatewayBaseUrl 时应回退到 baseUrl/gateway-api", () => {
     window.__LIME_OEM_CLOUD__ = {
       enabled: true,

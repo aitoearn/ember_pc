@@ -101,7 +101,7 @@ vi.mock("./ProviderSetting", () => ({
       return (
         <div data-testid="provider-login-required">
           {props.provider.name} 需要登录
-          <p>登录后会自动同步 Lime Hub 的可用模型</p>
+          <p>登录后会自动同步 Ember 云端的可用模型</p>
           <button
             type="button"
             data-testid="provider-login-button"
@@ -431,7 +431,7 @@ describe("ApiKeyProviderSection 模型管理布局", () => {
     expect(container.textContent ?? "").toContain("Lime 云端");
     expect(container.textContent ?? "").toContain("需要登录");
     expect(container.textContent ?? "").toContain(
-      "登录后会自动同步 Lime Hub 的可用模型",
+      "登录后会自动同步 Ember 云端的可用模型",
     );
     expect(hookState.selectProvider).not.toHaveBeenCalledWith("deepseek");
 

@@ -400,7 +400,7 @@ describe("ModelSelector", () => {
 
     const pageText = getBodyText();
     expect(pageText).toContain("gpt-5.2-pro");
-    expect(pageText).not.toContain("登录后会自动同步 Lime Hub 的可用模型");
+    expect(pageText).not.toContain("登录后会自动同步 Ember 云端的可用模型");
   });
 
   it("打开选择器后应加载数据并回退到兼容模型", () => {
@@ -874,7 +874,7 @@ describe("ModelSelector", () => {
     expect(pageText).toContain("云端模型");
     expect(pageText).toContain("Lime 云端");
     expect(pageText).toContain("需要登录");
-    expect(pageText).toContain("登录后会自动同步 Lime Hub 的可用模型");
+    expect(pageText).toContain("登录后会自动同步 Ember 云端的可用模型");
     expect(pageText).toContain("去登录");
     expect(pageText).not.toContain("gpt-5.5");
     expect(pageText).not.toContain("gpt-5.4");
