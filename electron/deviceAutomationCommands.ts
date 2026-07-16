@@ -41,6 +41,12 @@ export const DEVICE_AUTOMATION_COMMANDS = [
   "device_automation_perf_trace_analyze",
   "device_automation_perf_trace_open_external",
   "device_automation_perf_trace_delete_local",
+  "ui_agent_start",
+  "ui_agent_cancel",
+  "device_flow_record_manual_start",
+  "device_flow_record_manual_stop",
+  "device_flow_replay_start",
+  "device_flow_replay_cancel",
 ] as const;
 
 export type DeviceAutomationCommand =

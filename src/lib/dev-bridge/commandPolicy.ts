@@ -279,11 +279,17 @@ const bridgeTruthEventPrefixes = [
   "agent_stream_",
   "embedded-browser-view-",
   "device_automation_",
+  "uiAgent:event:",
+  "deviceFlow:",
   "mcp:",
 ];
 
 function isElectronHostDeviceAutomationCommand(command: string): boolean {
-  return command.startsWith("device_automation_");
+  return (
+    command.startsWith("device_automation_") ||
+    command.startsWith("ui_agent_") ||
+    command.startsWith("device_flow_")
+  );
 }
 
 export function isBridgeTruthCommand(command: string): boolean {

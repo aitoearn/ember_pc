@@ -5,7 +5,16 @@ import {
   DEVICE_AUTOMATION_PERF_TRACE_PROGRESS_EVENT,
 } from "../src/features/device-automation/performance/events";
 import { DEVICE_AUTOMATION_STABILITY_ANALYSIS_EVENT } from "../src/features/device-automation/stability/events";
+import type { TestFlow } from "../src/features/device-automation/flow/domain/flowFormat";
+import {
+  METHOD_MODEL_PROVIDER_KEY_NEXT,
+  METHOD_MODEL_PROVIDER_READ,
+} from "@embercloud/app-server-client";
 import { DeviceInventoryWatcher } from "./deviceAutomation/deviceInventoryWatcher";
+import { deviceActivityLock } from "./deviceAutomation/deviceActivityLock";
+import { deviceFlowRecordRuntime } from "./deviceAutomation/deviceFlowRecord";
+import { deviceFlowReplayRuntime } from "./deviceAutomation/deviceFlowReplay";
+import { uiAgentRuntime } from "./deviceAutomation/uiAgent";
 import type { MonkeyStartParams } from "./deviceAutomation/monkeyTest";
 import type { PerfStartParams } from "./deviceAutomation/performanceMonitor";
 import type {
@@ -18,6 +27,16 @@ import type { StabilityLlmConfig } from "../src/features/device-automation/stabi
 
 type HostArgs = Record<string, unknown> | null | undefined;
 type HostEventEmitter = (event: string, payload?: unknown) => void;
+type AppServerRequest = <T>(
+  method: string,
+  params?: Record<string, unknown>,
+) => Promise<T>;
+
+export type DeviceAutomationHostInvokeDeps = {
+  emit: HostEventEmitter;
+  appServerRequest: AppServerRequest;
+  getDefaultProvider: () => Promise<string>;
+};
 import {
   DEVICE_AUTOMATION_COMMANDS,
   type DeviceAutomationCommand,
@@ -34,6 +53,12 @@ export function isDeviceAutomationCommand(
 }
 
 export class ElectronDeviceAutomationHost {
+  readonly #deps?: DeviceAutomationHostInvokeDeps;
+
+  constructor(deps?: DeviceAutomationHostInvokeDeps) {
+    this.#deps = deps;
+  }
+
   async invoke(
     command: string,
     args?: HostArgs,
@@ -55,28 +80,53 @@ export class ElectronDeviceAutomationHost {
           platform: readRequiredString(request, "platform"),
           deviceId: readRequiredString(request, "deviceId"),
         });
-      case "device_automation_send_navigation":
-        return await deviceAutomationRuntime.sendNavigation({
+      case "device_automation_send_navigation": {
+        const navParams = {
           action: readNavigationAction(request),
           platform: readRequiredString(request, "platform"),
           deviceId: readRequiredString(request, "deviceId"),
+        };
+        const result = await deviceAutomationRuntime.sendNavigation(navParams);
+        deviceFlowRecordRuntime.recordNavigationIfActive({
+          deviceId: navParams.deviceId,
+          action: navParams.action,
         });
-      case "device_automation_send_tap":
-        return await deviceAutomationRuntime.sendTap({
+        return result;
+      }
+      case "device_automation_send_tap": {
+        const tapParams = {
           platform: readRequiredString(request, "platform"),
           deviceId: readRequiredString(request, "deviceId"),
           x: readRequiredNumber(request, "x"),
           y: readRequiredNumber(request, "y"),
+        };
+        const result = await deviceAutomationRuntime.sendTap(tapParams);
+        deviceFlowRecordRuntime.recordTapIfActive({
+          deviceId: tapParams.deviceId,
+          x: tapParams.x,
+          y: tapParams.y,
         });
-      case "device_automation_send_swipe":
-        return await deviceAutomationRuntime.sendSwipe({
+        return result;
+      }
+      case "device_automation_send_swipe": {
+        const swipeParams = {
           platform: readRequiredString(request, "platform"),
           deviceId: readRequiredString(request, "deviceId"),
           x1: readRequiredNumber(request, "x1"),
           y1: readRequiredNumber(request, "y1"),
           x2: readRequiredNumber(request, "x2"),
           y2: readRequiredNumber(request, "y2"),
+        };
+        const result = await deviceAutomationRuntime.sendSwipe(swipeParams);
+        deviceFlowRecordRuntime.recordSwipeIfActive({
+          deviceId: swipeParams.deviceId,
+          x1: swipeParams.x1,
+          y1: swipeParams.y1,
+          x2: swipeParams.x2,
+          y2: swipeParams.y2,
         });
+        return result;
+      }
       case "device_automation_ensure_ai_sidecar":
         return await deviceAutomationRuntime.ensureAiSidecar();
       case "device_automation_prepare_ai_session":
@@ -224,6 +274,27 @@ export class ElectronDeviceAutomationHost {
         return deviceAutomationRuntime.deletePerfTraceLocalFile({
           localPath: readRequiredString(request, "localPath"),
         });
+      case "ui_agent_start":
+        return await this.#startUiAgent(request);
+      case "ui_agent_cancel": {
+        const taskId = readRequiredString(request, "taskId");
+        const deviceId = readOptionalString(request, "deviceId") ?? "";
+        const result = uiAgentRuntime.cancel(taskId);
+        if (deviceId) {
+          deviceActivityLock.release(deviceId, taskId);
+        }
+        return result;
+      }
+      case "device_flow_record_manual_start":
+        return deviceFlowRecordRuntime.start(readManualFlowRecordStartParams(request));
+      case "device_flow_record_manual_stop":
+        return deviceFlowRecordRuntime.stop(readManualFlowRecordStopParams(request));
+      case "device_flow_replay_start":
+        return await this.#startDeviceFlowReplay(request);
+      case "device_flow_replay_cancel":
+        return deviceFlowReplayRuntime.cancel(
+          readRequiredString(request, "runId"),
+        );
       default: {
         const unsupported: never = command as never;
         throw new Error(
@@ -231,6 +302,162 @@ export class ElectronDeviceAutomationHost {
         );
       }
     }
+  }
+
+  async #startUiAgent(request: Record<string, unknown>): Promise<{ taskId: string }> {
+    const deps = this.#requireUiAgentDeps();
+    const taskId = readRequiredString(request, "taskId");
+    const instruction = readRequiredString(request, "instruction");
+    const serial = readOptionalString(request, "serial") ?? "";
+    const deviceId = readOptionalString(request, "deviceId") ?? serial;
+    const model = readRequiredString(request, "model");
+
+    let providerId = readOptionalString(request, "providerId")?.trim() ?? "";
+    if (!providerId) {
+      providerId = await deps.getDefaultProvider();
+    }
+    if (!providerId) {
+      throw new Error("未配置可用的模型 Provider，无法启动 UI Agent");
+    }
+
+    const providerResponse = await deps.appServerRequest<{
+      provider?: Record<string, unknown> | null;
+    }>(METHOD_MODEL_PROVIDER_READ, { providerId });
+    const provider = toRecord(providerResponse.provider);
+    const baseUrl =
+      readOptionalString(provider, "api_host") ??
+      readOptionalString(provider, "apiHost") ??
+      "";
+    if (!baseUrl) {
+      throw new Error(`Provider ${providerId} 未配置 api_host（baseUrl）`);
+    }
+
+    const keyResponse = await deps.appServerRequest<{
+      apiKey?: string | null;
+    }>(METHOD_MODEL_PROVIDER_KEY_NEXT, { providerId });
+    const apiKey = keyResponse.apiKey?.trim() ?? "";
+    if (!apiKey) {
+      throw new Error(`Provider ${providerId} 没有可用的 API Key`);
+    }
+
+    const lock = deviceActivityLock.tryAcquire(deviceId, "ui_agent", taskId);
+    if (!lock.ok) {
+      throw new Error(lock.message);
+    }
+
+    try {
+      return uiAgentRuntime.start(
+        {
+          taskId,
+          deviceId,
+          serial,
+          instruction,
+          baseUrl,
+          apiKey,
+          model,
+          maxSteps: readOptionalNumber(request, "maxSteps"),
+          memoryWindow: readOptionalNumber(request, "memoryWindow"),
+          packageName: readOptionalString(request, "packageName"),
+          userNote: readOptionalString(request, "userNote"),
+        },
+        (channel, payload) => {
+          deps.emit(channel, payload);
+          if (
+            payload &&
+            typeof payload === "object" &&
+            "type" in payload &&
+            (payload.type === "done" ||
+              payload.type === "error" ||
+              payload.type === "exit")
+          ) {
+            deviceActivityLock.release(deviceId, taskId);
+          }
+        },
+      );
+    } catch (error) {
+      deviceActivityLock.release(deviceId, taskId);
+      throw error;
+    }
+  }
+
+  async #startDeviceFlowReplay(
+    request: Record<string, unknown>,
+  ): Promise<{ runId: string }> {
+    const deps = this.#requireUiAgentDeps();
+    const runId = readRequiredString(request, "runId");
+    const flowId = readRequiredString(request, "flowId");
+    const deviceId = readRequiredString(request, "deviceId");
+    const serial = readOptionalString(request, "serial") ?? "";
+    const flow = toRecord(request.flow) as TestFlow | undefined;
+    if (!flow) {
+      throw new Error("device_flow_replay_start 需要 flow 对象");
+    }
+    if (flow.platform !== "android") {
+      throw new Error("unsupported_platform");
+    }
+    const selfHealingEnabled =
+      typeof request.selfHealingEnabled === "boolean"
+        ? request.selfHealingEnabled
+        : flow.selfHealingEnabled;
+
+    let baseUrl = "";
+    let apiKey = "";
+    let model = readOptionalString(request, "model") ?? "";
+
+    if (selfHealingEnabled) {
+      let providerId = readOptionalString(request, "providerId")?.trim() ?? "";
+      if (!providerId) {
+        providerId = await deps.getDefaultProvider();
+      }
+      if (!providerId) {
+        throw new Error("自愈需要可用的模型 Provider");
+      }
+      const providerResponse = await deps.appServerRequest<{
+        provider?: Record<string, unknown> | null;
+      }>(METHOD_MODEL_PROVIDER_READ, { providerId });
+      const provider = toRecord(providerResponse.provider);
+      baseUrl =
+        readOptionalString(provider, "api_host") ??
+        readOptionalString(provider, "apiHost") ??
+        "";
+      if (!baseUrl) {
+        throw new Error(`Provider ${providerId} 未配置 api_host`);
+      }
+      const keyResponse = await deps.appServerRequest<{
+        apiKey?: string | null;
+      }>(METHOD_MODEL_PROVIDER_KEY_NEXT, { providerId });
+      apiKey = keyResponse.apiKey?.trim() ?? "";
+      if (!apiKey) {
+        throw new Error(`Provider ${providerId} 没有可用的 API Key`);
+      }
+      if (!model) {
+        model = "qwen3.7-plus";
+      }
+    }
+
+    return deviceFlowReplayRuntime.start(
+      {
+        runId,
+        flowId,
+        deviceId,
+        serial,
+        flow,
+        selfHealingEnabled,
+        baseUrl: baseUrl || undefined,
+        apiKey: apiKey || undefined,
+        model: model || undefined,
+      },
+      deps.emit,
+    );
+  }
+
+  #requireUiAgentDeps(): DeviceAutomationHostInvokeDeps {
+    if (!this.#deps) {
+      throw new Error(
+        "设备自动化 Host 未注入 App Server 依赖，无法处理 ui_agent / device_flow 命令",
+      );
+    }
+    return this.#deps;
   }
 }
 
@@ -280,6 +507,7 @@ export function bootstrapDeviceAutomationHost(
       deviceAutomationRuntime.setMonkeyEventEmitter(null);
       deviceAutomationRuntime.setStabilityAnalysisEventEmitter(null);
       deviceAutomationRuntime.setPerfTraceProgressEmitter(null);
+      uiAgentRuntime.stopAll();
       void deviceAutomationRuntime.stop();
     },
   };
@@ -389,4 +617,49 @@ function readOptionalBoolean(
     throw new Error(`无效参数 "${key}"`);
   }
   return value;
+}
+
+function readOptionalString(
+  request: Record<string, unknown>,
+  key: string,
+): string | undefined {
+  const value = request[key];
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (typeof value !== "string") {
+    throw new Error(`无效参数 "${key}"`);
+  }
+  return value;
+}
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function readManualFlowRecordStartParams(request: Record<string, unknown>): {
+  recordId: string;
+  deviceId: string;
+  serial: string;
+  screenWidth?: number;
+  screenHeight?: number;
+} {
+  const screenWidth = readOptionalNumber(request, "screenWidth");
+  const screenHeight = readOptionalNumber(request, "screenHeight");
+  return {
+    recordId: readRequiredString(request, "recordId"),
+    deviceId: readRequiredString(request, "deviceId"),
+    serial: readOptionalString(request, "serial") ?? "",
+    screenWidth,
+    screenHeight,
+  };
+}
+
+function readManualFlowRecordStopParams(request: Record<string, unknown>): {
+  recordId: string;
+} {
+  return { recordId: readRequiredString(request, "recordId") };
 }

@@ -72,6 +72,12 @@ type PreloadApi = {
     getUrls(): Promise<unknown>;
     getCurrent(): Promise<unknown>;
   };
+  scrcpyNode?: {
+    createServer(listener: (socket: unknown) => void): {
+      listen(port?: number): Promise<number>;
+      close(): void;
+    };
+  };
 };
 
 async function loadPreloadApi(): Promise<PreloadApi> {
@@ -278,5 +284,16 @@ describe("electron/preload", () => {
     expect(api.convertFileSrc("/tmp/a b.png", "asset")).toBe(
       "asset://%2Ftmp%2Fa%20b.png",
     );
+  });
+
+  it("preload 白名单包含 ui_agent_start 与 device_flow_replay_start", async () => {
+    const api = await loadPreloadApi();
+    expect(api.supportsCommand("ui_agent_start")).toBe(true);
+    expect(api.supportsCommand("device_flow_replay_start")).toBe(true);
+  });
+
+  it("暴露 scrcpyNode.createServer 供 renderer 直连 TCP", async () => {
+    const api = await loadPreloadApi();
+    expect(api.scrcpyNode?.createServer).toEqual(expect.any(Function));
   });
 });

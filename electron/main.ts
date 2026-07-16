@@ -83,7 +83,15 @@ const updateHost = new ElectronUpdateHost(broadcast, {
   open: openUpdateNotificationWindow,
   close: closeUpdateNotificationWindow,
 });
-const deviceAutomationHost = new ElectronDeviceAutomationHost();
+const deviceAutomationHost = new ElectronDeviceAutomationHost({
+  emit: broadcast,
+  appServerRequest: (method, params) =>
+    appServerHost.request(method, params ?? {}),
+  getDefaultProvider: async () => {
+    const providerId = await hostCommands.invoke("get_default_provider");
+    return typeof providerId === "string" ? providerId : "";
+  },
+});
 let deviceAutomationBootstrap: DeviceAutomationHostBootstrap | null = null;
 let devHttpBridge: ElectronDevHttpBridge | null = null;
 const pendingDeepLinks: string[] = [];

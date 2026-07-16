@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
+import { scrcpyNodeBridge } from "./preload/scrcpyNodeBridge";
 import {
   ELECTRON_HOST_COMMANDS,
   IPC_DEEP_LINK_GET_CURRENT_CHANNEL,
@@ -138,6 +139,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     getUrls: () => ipcRenderer.invoke(IPC_DEEP_LINK_GET_URLS_CHANNEL),
     getCurrent: () => ipcRenderer.invoke(IPC_DEEP_LINK_GET_CURRENT_CHANNEL),
   },
+  // 对齐 aya：renderer 内 node.createServer 监听 adb reverse 回连，视频零拷贝进 WebCodecs。
+  scrcpyNode: scrcpyNodeBridge,
 });
 
 contextBridge.exposeInMainWorld("__LIME_ELECTRON__", true);

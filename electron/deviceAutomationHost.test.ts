@@ -32,6 +32,8 @@ describe("electron/deviceAutomationHost", () => {
     expect(isDeviceAutomationCommand("device_automation_list_devices")).toBe(
       true,
     );
+    expect(isDeviceAutomationCommand("ui_agent_start")).toBe(true);
+    expect(isDeviceAutomationCommand("device_flow_replay_start")).toBe(true);
     expect(isDeviceAutomationCommand("workspace_list")).toBe(false);
   });
 
