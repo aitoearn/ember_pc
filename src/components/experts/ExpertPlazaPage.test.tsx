@@ -120,7 +120,7 @@ describe("ExpertPlazaPage", () => {
         '[data-testid="expert-card-marketing-strategist"]',
       ),
     ).not.toBeNull();
-    expect(container.textContent).toContain("营销策略专家");
+    expect(container.textContent).toContain("测试策略专家");
     expect(container.textContent).toContain("热门精选");
   });
 
@@ -135,7 +135,7 @@ describe("ExpertPlazaPage", () => {
         '[data-testid="expert-card-marketing-strategist"]',
       ),
     ).not.toBeNull();
-    expect(container.textContent).toContain("营销策略专家");
+    expect(container.textContent).toContain("测试策略专家");
     expect(container.textContent).not.toContain("没有找到匹配的专家");
   });
 
@@ -158,9 +158,9 @@ describe("ExpertPlazaPage", () => {
       expect.objectContaining({
         agentEntry: "claw",
         projectId: "project-current",
-        initialSessionName: "营销策略专家",
+        initialSessionName: "测试策略专家",
         initialUserPrompt:
-          expect.stringContaining("请以「营销策略专家」专家身份工作"),
+          expect.stringContaining("请以「测试策略专家」专家身份工作"),
         autoRunInitialPromptOnMount: true,
         newChatAt: expect.any(Number),
         expertAgentLaunch: expect.objectContaining({
@@ -227,7 +227,7 @@ describe("ExpertPlazaPage", () => {
       expect.objectContaining({
         projectId: "project-current",
         initialUserPrompt:
-          expect.stringContaining("请以「营销策略专家」专家身份工作"),
+          expect.stringContaining("请以「测试策略专家」专家身份工作"),
         autoRunInitialPromptOnMount: true,
         newChatAt: expect.any(Number),
         expertAgentLaunch: expect.objectContaining({
@@ -355,7 +355,7 @@ describe("ExpertPlazaPage", () => {
     expect(onNavigate).toHaveBeenCalledWith(
       "agent",
       expect.objectContaining({
-        initialSessionName: "代码文学家",
+        initialSessionName: "自动化测试专家",
         autoRunInitialPromptOnMount: true,
         newChatAt: expect.any(Number),
         expertAgentLaunch: expect.objectContaining({

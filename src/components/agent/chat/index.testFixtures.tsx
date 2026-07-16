@@ -179,7 +179,7 @@ const {
       requestMetadata?.harness?.expert?.expert_id ||
       "";
     const expertTitle =
-      expertId === "marketing-strategist" ? "营销策略专家" : "专家信息";
+      expertId === "marketing-strategist" ? "测试策略专家" : "专家信息";
 
     return (
       <div data-testid="expert-info-panel" data-layout="right-surface-full">

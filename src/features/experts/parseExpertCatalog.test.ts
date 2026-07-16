@@ -17,7 +17,7 @@ describe("parseExpertCatalog", () => {
     if (parsed) {
       parsed.items[0].title = "已修改";
     }
-    expect(catalog.items[0].title).toBe("营销策略专家");
+    expect(catalog.items[0].title).toBe("测试策略专家");
   });
 
   it("缺少必需 releaseId 时应拒绝目录", () => {

@@ -6,7 +6,7 @@ import { parseExpertCatalog } from "./parseExpertCatalog";
 import { getSeededExpertCatalog } from "./seededExpertCatalog";
 import type { ExpertCatalog } from "./types";
 
-const EXPERT_CATALOG_CACHE_STORAGE_KEY = "lime:expert-catalog-cache:v1";
+const EXPERT_CATALOG_CACHE_STORAGE_KEY = "lime:expert-catalog-cache:v2";
 
 interface ExpertCatalogResponseEnvelope {
   code?: number;
