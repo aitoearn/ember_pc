@@ -256,6 +256,11 @@ internal/research/**
 .lime/artifacts/
 .lime/test/
 
+# 本地 Electron 开发宿主与 Codegraph 索引（禁止入库，避免超 GitHub 100MB 限制）
+.ember/
+.codegraph/*
+!.codegraph/.gitignore
+
 # 开发环境
 **/.local/
 **/.venv/
