@@ -256,6 +256,45 @@ export async function connectDeviceAutomationScrcpy(params: {
   }
 }
 
+export interface HarmonyScrcpyStartResponse {
+  wsUrl: string;
+  port: number;
+  width: number;
+  height: number;
+  scale: number;
+}
+
+/** 启动鸿蒙投屏（hoscrcpy）；返回本地 WebSocket 地址供 renderer 拉取 H264 流。 */
+export async function startHarmonyScrcpy(params: {
+  deviceId: string;
+  scale?: number;
+  bitRate?: number;
+  frameRate?: number;
+}): Promise<HarmonyScrcpyStartResponse> {
+  return await safeInvoke<HarmonyScrcpyStartResponse>(
+    "device_automation_harmony_scrcpy_start",
+    params,
+  );
+}
+
+export async function stopHarmonyScrcpy(): Promise<{ stopped: boolean }> {
+  return await safeInvoke<{ stopped: boolean }>(
+    "device_automation_harmony_scrcpy_stop",
+    {},
+  );
+}
+
+export async function getHarmonyScrcpyStatus(): Promise<{
+  active: boolean;
+  deviceId?: string;
+  port?: number;
+}> {
+  return await safeInvoke<{ active: boolean; deviceId?: string; port?: number }>(
+    "device_automation_harmony_scrcpy_get_status",
+    {},
+  );
+}
+
 function isDesktopHostUnsupportedCommandError(
   error: unknown,
   command: string,

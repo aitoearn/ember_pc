@@ -63,7 +63,7 @@
     "typecheck:electron": "tsc --noEmit --project tsconfig.electron.json",
     "electron:build:assets": "node scripts/electron/copy-desktop-assets.mjs",
     "electron:build:app-server-assets": "node scripts/electron/prepare-app-server-assets.mjs",
-    "electron:build:host:dev": "node scripts/device-automation/ensure-scrcpy-server.mjs && node scripts/device-automation/ensure-fastbot-python.mjs && node scripts/electron/build-host.mjs --dev && npm run electron:build:assets",
+    "electron:build:host:dev": "node scripts/device-automation/ensure-scrcpy-server.mjs && node scripts/device-automation/ensure-fastbot-python.mjs && node scripts/device-automation/ensure-hoscrcpy.mjs && node scripts/electron/build-host.mjs --dev && npm run electron:build:assets",
     "electron:build:host": "npm --prefix \"packages/app-server-client\" run build && npm run typecheck:electron && node scripts/electron/build-host.mjs && npm run electron:build:assets && npm run electron:build:app-server-assets && npm run electron:build:device-automation-assets",
     "electron:build": "npm run generate:extension-site-adapters && npm run verify:app-version && npm run build:renderer:electron && npm run electron:build:host",
     "electron:build:smoke": "npm run generate:extension-site-adapters && npm run verify:app-version && npm run build:renderer:electron:smoke && npm run electron:build:host",

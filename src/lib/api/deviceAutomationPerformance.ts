@@ -98,7 +98,7 @@ export async function listPerformanceApps(params: {
 }
 
 export async function startPerformanceCollection(params: {
-  platform: "android";
+  platform: "android" | "harmony";
   deviceId: string;
   packageName: string;
   metrics: PerfMetricId[];

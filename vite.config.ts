@@ -100,10 +100,26 @@ export default defineConfig(({ command, mode }) => {
             "./packages/agent-runtime-ui/src/index.ts",
           ),
         },
+        // 鸿蒙投屏：与 lmweb 一致使用 jmuxer；本地 vendor，避免 pnpm 私有包阻塞。
+        {
+          find: "jmuxer",
+          replacement: path.resolve(
+            __dirname,
+            "./src/vendor/jmuxer/jmuxer.min.js",
+          ),
+        },
+        {
+          find: "stream",
+          replacement: path.resolve(
+            __dirname,
+            "./src/vendor/jmuxer/stream-stub.cjs",
+          ),
+        },
       ],
     },
     optimizeDeps: {
       force: forceOptimizeDeps,
+      include: ["jmuxer"],
     },
     build: {
       emptyOutDir: keepExistingOutDir ? false : undefined,

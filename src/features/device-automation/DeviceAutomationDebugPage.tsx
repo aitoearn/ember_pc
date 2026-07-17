@@ -19,6 +19,10 @@ import {
   DeviceScrcpyPlayer,
   type DeviceScrcpyPlayerHandle,
 } from "./components/DeviceScrcpyPlayer";
+import {
+  HarmonyScrcpyPlayer,
+  type HarmonyScrcpyPlayerHandle,
+} from "./components/HarmonyScrcpyPlayer";
 import type {
   DeviceAutomationExecutionMode,
   DeviceAutomationPerceptionKernel,
@@ -75,6 +79,7 @@ export function DeviceAutomationDebugPage({
 
   const aiTask = useDeviceAiTask(device, { onUiAgentEvent: handleUiAgentEvent });
   const scrcpyPlayerRef = useRef<DeviceScrcpyPlayerHandle | null>(null);
+  const harmonyPlayerRef = useRef<HarmonyScrcpyPlayerHandle | null>(null);
   const pinnedDeviceRef = useRef<DeviceAutomationCardModel | null>(null);
   if (device?.status === "online") {
     pinnedDeviceRef.current = device;
@@ -139,8 +144,11 @@ export function DeviceAutomationDebugPage({
   }, [device?.agentPlatform, device?.id, device?.platform, device?.status]);
 
   const canUseScrcpy = device?.platform === "android";
+  const canUseHarmonyScrcpy = device?.platform === "harmony";
   const showNavigation =
-    device?.platform === "android" || device?.platform === "ios";
+    device?.platform === "android" ||
+    device?.platform === "ios" ||
+    device?.platform === "harmony";
 
   const handleNavigation = useCallback(
     async (action: "back" | "home") => {
@@ -150,6 +158,14 @@ export function DeviceAutomationDebugPage({
       setNavigationPending(action);
       setNavigationError(null);
       try {
+        if (device.platform === "harmony") {
+          // 鸿蒙投屏导航走 hoscrcpy 控制通道（手势模拟）。
+          const sent = harmonyPlayerRef.current?.sendNavigation(action) ?? false;
+          if (!sent) {
+            throw new Error(t("deviceAutomation.debug.navigationError"));
+          }
+          return;
+        }
         await sendAyaStyleMirrorNavigation({
           action,
           platform: device.agentPlatform,
@@ -240,6 +256,18 @@ export function DeviceAutomationDebugPage({
                 device={playerDevice}
                 directClient={scrcpyClient}
               />
+            </DeviceMirrorShell>
+          ) : canUseHarmonyScrcpy ? (
+            <DeviceMirrorShell
+              device={playerDevice}
+              showNavigation={showNavigation}
+              navigationPending={navigationPending}
+              navigationError={navigationError}
+              onNavigate={(action) => {
+                void handleNavigation(action);
+              }}
+            >
+              <HarmonyScrcpyPlayer ref={harmonyPlayerRef} device={playerDevice} />
             </DeviceMirrorShell>
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center text-sm text-neutral-500">

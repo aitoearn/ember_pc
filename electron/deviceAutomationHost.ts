@@ -11,6 +11,7 @@ import {
   METHOD_MODEL_PROVIDER_READ,
 } from "@embercloud/app-server-client";
 import { DeviceInventoryWatcher } from "./deviceAutomation/deviceInventoryWatcher";
+import { listHarmonyDevices } from "./deviceAutomation/harmonyDeviceInventory";
 import { deviceActivityLock } from "./deviceAutomation/deviceActivityLock";
 import { deviceFlowRecordRuntime } from "./deviceAutomation/deviceFlowRecord";
 import { deviceFlowReplayRuntime } from "./deviceAutomation/deviceFlowReplay";
@@ -202,6 +203,17 @@ export class ElectronDeviceAutomationHost {
           videoBitRate: readOptionalNumber(request, "videoBitRate"),
           audio: readOptionalBoolean(request, "audio"),
         });
+      case "device_automation_harmony_scrcpy_start":
+        return await deviceAutomationRuntime.startHarmonyScrcpy({
+          deviceId: readRequiredString(request, "deviceId"),
+          scale: readOptionalNumber(request, "scale"),
+          bitRate: readOptionalNumber(request, "bitRate"),
+          frameRate: readOptionalNumber(request, "frameRate"),
+        });
+      case "device_automation_harmony_scrcpy_stop":
+        return await deviceAutomationRuntime.stopHarmonyScrcpy();
+      case "device_automation_harmony_scrcpy_get_status":
+        return deviceAutomationRuntime.getHarmonyScrcpyStatus();
       case "device_automation_monkey_start":
         return deviceAutomationRuntime.startMonkeyTest(
           request as MonkeyStartParams,
@@ -482,6 +494,7 @@ export function bootstrapDeviceAutomationHost(
   deviceAutomationRuntime.setAndroidDeviceProvider(() =>
     watcher.getAndroidDevices(),
   );
+  deviceAutomationRuntime.setHarmonyDeviceProvider(() => listHarmonyDevices());
   deviceAutomationRuntime.setInventoryChangeEmitter((payload) => {
     emit(DEVICE_AUTOMATION_INVENTORY_CHANGED_EVENT, payload);
   });
@@ -502,6 +515,7 @@ export function bootstrapDeviceAutomationHost(
     dispose: () => {
       watcher.stop();
       deviceAutomationRuntime.setAndroidDeviceProvider(null);
+      deviceAutomationRuntime.setHarmonyDeviceProvider(null);
       deviceAutomationRuntime.setInventoryChangeEmitter(null);
       deviceAutomationRuntime.setPerfFrameEmitter(null);
       deviceAutomationRuntime.setMonkeyEventEmitter(null);

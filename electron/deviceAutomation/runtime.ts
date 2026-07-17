@@ -36,6 +36,12 @@ import {
 import { autoGlmSidecar } from "./autoGlmSidecar";
 import { resolveScrcpyServerPath } from "./scrcpyServerPath";
 import {
+  getHarmonyScrcpyStatus,
+  startHarmonyScrcpy,
+  stopHarmonyScrcpy,
+  type HarmonyScrcpyStartParams,
+} from "./harmonyScrcpy";
+import {
   prewarmScrcpyJarFast,
   prepareScrcpyReverseTcpFast,
   reverseScrcpyTcpFast,
@@ -143,6 +149,11 @@ type DeviceInventoryChangeEmitter = (payload: {
 
 let deviceListCache: DeviceListCache | null = null;
 let daemonDeviceMergeInFlight: Promise<void> | null = null;
+/**
+ * 鸿蒙设备提供者（hdc list targets）。agent-device CLI 不枚举 HarmonyOS，
+ * 故在构建响应时按需合并；不写入 deviceListCache，避免与缓存的 agent 设备互相污染。
+ */
+let harmonyDeviceProvider: (() => AgentDeviceCliRecord[]) | null = null;
 
 function buildReadyStatus(): DeviceAutomationRuntimeStatus {
   const readyState = probeAgentDeviceInstallation();
@@ -154,10 +165,25 @@ function buildReadyStatus(): DeviceAutomationRuntimeStatus {
   };
 }
 
+function mergeHarmonyDevices(
+  devices: AgentDeviceCliRecord[],
+): AgentDeviceCliRecord[] {
+  const harmonyDevices = harmonyDeviceProvider?.() ?? [];
+  if (harmonyDevices.length === 0) {
+    // 无 provider 或未探测到鸿蒙设备时，仅剔除任何残留的 harmony 记录。
+    return devices.filter((device) => device.platform !== "harmony");
+  }
+  return [
+    ...devices.filter((device) => device.platform !== "harmony"),
+    ...harmonyDevices,
+  ];
+}
+
 async function buildDeviceListResponse(
   devices: AgentDeviceCliRecord[],
 ): Promise<DeviceAutomationDeviceListResponse> {
-  const filtered = filterAgentDevicesForInventory(devices);
+  const withHarmony = mergeHarmonyDevices(devices);
+  const filtered = filterAgentDevicesForInventory(withHarmony);
   const enriched = await enrichAndroidDeviceRecords(filtered);
   return { devices: enriched };
 }
@@ -175,6 +201,11 @@ export class DeviceAutomationRuntime {
 
   setAndroidDeviceProvider(provider: (() => AgentDeviceCliRecord[]) | null): void {
     this.#getAndroidDevices = provider ?? undefined;
+    deviceListCache = null;
+  }
+
+  setHarmonyDeviceProvider(provider: (() => AgentDeviceCliRecord[]) | null): void {
+    harmonyDeviceProvider = provider;
     deviceListCache = null;
   }
 
@@ -200,6 +231,18 @@ export class DeviceAutomationRuntime {
 
   getPerfStatus() {
     return getPerfStatus();
+  }
+
+  startHarmonyScrcpy(params: HarmonyScrcpyStartParams) {
+    return startHarmonyScrcpy(params);
+  }
+
+  stopHarmonyScrcpy() {
+    return stopHarmonyScrcpy();
+  }
+
+  getHarmonyScrcpyStatus() {
+    return getHarmonyScrcpyStatus();
   }
 
   setMonkeyEventEmitter(emitter: MonkeyEventEmitter | null): void {
@@ -708,6 +751,7 @@ export const deviceAutomationRuntime = new DeviceAutomationRuntime();
 export function resetDeviceAutomationRuntimeStateForTests(): void {
   deviceListCache = null;
   daemonDeviceMergeInFlight = null;
+  harmonyDeviceProvider = null;
 }
 
 function extractNonAndroidDevices(

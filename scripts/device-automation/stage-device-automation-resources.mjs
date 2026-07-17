@@ -59,6 +59,7 @@ export async function stageDeviceAutomationResources({
       }),
       adb: await stageAdb({ outputDir, sourceDir, adbDir }),
       fastbot: await stageFastbot({ outputDir, sourceDir }),
+      hoscrcpy: await stageHoscrcpy({ outputDir, sourceDir }),
       agentDevice: await stageAgentDevice({ outputDir, agentDeviceRoot }),
     },
   };
@@ -70,7 +71,8 @@ export async function stageDeviceAutomationResources({
 
   const missing = Object.entries(manifest.resources)
     .filter(([name, resource]) => {
-      if (name === "fastbot") {
+      // fastbot / hoscrcpy 为可选资源（外部授权产物），缺失不阻断打包。
+      if (name === "fastbot" || name === "hoscrcpy") {
         return false;
       }
       return resource.status !== "staged";
@@ -143,6 +145,20 @@ async function stageFastbot({ outputDir, sourceDir }) {
   }
   await cp(source, path.join(outputDir, "fastbot"), { recursive: true });
   return { status: "staged", path: "fastbot", source };
+}
+
+async function stageHoscrcpy({ outputDir, sourceDir }) {
+  const source = firstExistingDirectory([path.join(sourceDir, "hoscrcpy")]);
+  if (!source) {
+    return {
+      status: "missing",
+      path: "hoscrcpy",
+      reason:
+        "未找到 hoscrcpy 资源目录；请将华为 hoscrcpy SDK jar 放到 resources/device-automation/hoscrcpy/ 并运行 ensure-hoscrcpy",
+    };
+  }
+  await cp(source, path.join(outputDir, "hoscrcpy"), { recursive: true });
+  return { status: "staged", path: "hoscrcpy", source };
 }
 
 async function stageAgentDevice({ outputDir, agentDeviceRoot }) {

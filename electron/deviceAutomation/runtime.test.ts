@@ -229,6 +229,45 @@ describe("DeviceAutomationRuntime", () => {
     ]);
   });
 
+  it("合并 HarmonyOS provider 枚举的设备（agent-device 不返回 harmony）", async () => {
+    const runtime = new DeviceAutomationRuntime({
+      getAndroidDevices: () => [
+        {
+          platform: "android",
+          id: "emulator-5554",
+          name: "emulator-5554",
+          kind: "device",
+          target: "emulator-5554",
+          booted: true,
+        },
+      ],
+    });
+    runtime.setHarmonyDeviceProvider(() => [
+      {
+        platform: "harmony",
+        id: "FMR0223C13000680",
+        name: "FMR0223C13000680",
+        kind: "device",
+        target: "FMR0223C13000680",
+        booted: true,
+      },
+    ]);
+
+    const response = await runtime.listDevices({ force: true });
+
+    expect(response.devices).toContainEqual({
+      platform: "harmony",
+      id: "FMR0223C13000680",
+      name: "FMR0223C13000680",
+      kind: "device",
+      target: "FMR0223C13000680",
+      booted: true,
+    });
+    expect(
+      response.devices.some((device) => device.platform === "android"),
+    ).toBe(true);
+  });
+
   it("截图和触控优先走 agent-device daemon，Android 导航走 adb input keyevent 快路径", async () => {
     const agentDeviceCli = await import("./agentDeviceCli");
     const daemonClient = await import("./agentDeviceDaemonClient");

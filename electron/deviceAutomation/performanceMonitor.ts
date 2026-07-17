@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { execAdbSync } from "./scrcpyAdbFastPath";
+import { execHdcSync, type HdcExecSync } from "./resolveHdcPath";
 import type { DeviceAutomationPerfFramePayload } from "../../src/features/device-automation/performance/events";
 import type {
   PerfMetricId,
@@ -17,19 +18,38 @@ import {
   parseThirdPartyPackages,
   type AdbExecSync,
 } from "./performanceMonitor/androidCollectors";
+import {
+  collectHarmonyPerfSample,
+  listHarmonyPackages,
+} from "./performanceMonitor/harmonyCollectors";
 
 const ALLOWED_INTERVALS_MS = [500, 1000, 2000, 5000] as const;
 const MAX_EMPTY_FRAME_STREAK = 10;
 
+/** P1 支持采集的平台。iOS 暂不支持；Perfetto trace（P2）仍限 Android。 */
+export type PerfCollectionPlatform = "android" | "harmony";
+
 export type PerfFrameEmitter = (payload: DeviceAutomationPerfFramePayload) => void;
 
 export type PerfStartParams = {
-  platform: "android";
+  platform: PerfCollectionPlatform;
   deviceId: string;
   packageName: string;
   metrics: PerfMetricId[];
   intervalMs: number;
 };
+
+/** 归一化平台标识：ohos → harmony。 */
+function normalizePerfPlatform(platform: string): PerfCollectionPlatform | "unsupported" {
+  const value = platform.trim().toLowerCase();
+  if (value === "android") {
+    return "android";
+  }
+  if (value === "harmony" || value === "ohos") {
+    return "harmony";
+  }
+  return "unsupported";
+}
 
 export type PerfStartResult = {
   sessionId: string;
@@ -51,6 +71,7 @@ export type PerfStatusResult = {
 
 type ActivePerfSession = {
   sessionId: string;
+  platform: PerfCollectionPlatform;
   deviceId: string;
   packageName: string;
   metrics: Set<PerfMetricId>;
@@ -69,6 +90,7 @@ type ActivePerfSession = {
 let frameEmitter: PerfFrameEmitter | null = null;
 let activeSession: ActivePerfSession | null = null;
 let adbExec: AdbExecSync = execAdbSync;
+let hdcExec: HdcExecSync = execHdcSync;
 
 export function setPerfFrameEmitter(emitter: PerfFrameEmitter | null): void {
   frameEmitter = emitter;
@@ -78,6 +100,10 @@ export function setPerfAdbExecForTests(exec: AdbExecSync | null): void {
   adbExec = exec ?? execAdbSync;
 }
 
+export function setPerfHdcExecForTests(exec: HdcExecSync | null): void {
+  hdcExec = exec ?? execHdcSync;
+}
+
 export function resetPerformanceMonitorForTests(): void {
   if (activeSession?.timer) {
     clearTimeout(activeSession.timer);
@@ -85,15 +111,31 @@ export function resetPerformanceMonitorForTests(): void {
   activeSession = null;
   frameEmitter = null;
   adbExec = execAdbSync;
+  hdcExec = execHdcSync;
 }
 
 export function listPerfApps(params: {
   platform: string;
   deviceId: string;
 }): { apps: { packageName: string; label?: string }[] } {
-  if (params.platform !== "android") {
+  const platform = normalizePerfPlatform(params.platform);
+  if (platform === "unsupported") {
     return { apps: [] };
   }
+
+  if (platform === "harmony") {
+    const packages = listHarmonyPackages({
+      execHdcSync: hdcExec,
+      deviceId: params.deviceId,
+    });
+    if (packages.length === 0) {
+      console.warn("[perf-monitor] 获取 HarmonyOS 应用列表为空或失败");
+    }
+    return {
+      apps: packages.map((packageName: string) => ({ packageName })),
+    };
+  }
+
   const result = adbExec(params.deviceId, ["shell", "pm", "list", "packages", "-3"]);
   if (result.exitCode !== 0) {
     console.warn(
@@ -110,8 +152,9 @@ export function listPerfApps(params: {
 }
 
 export function startPerfCollection(params: PerfStartParams): PerfStartResult {
-  if (params.platform !== "android") {
-    throw new Error("首期仅支持 Android 设备性能采集");
+  const platform = normalizePerfPlatform(params.platform);
+  if (platform === "unsupported") {
+    throw new Error("当前仅支持 Android 与 HarmonyOS 设备性能采集");
   }
   if (!params.deviceId.trim()) {
     throw new Error("deviceId 不能为空");
@@ -126,24 +169,26 @@ export function startPerfCollection(params: PerfStartParams): PerfStartResult {
     throw new Error("采集间隔非法");
   }
 
-  if (activeSession && activeSession.deviceId === params.deviceId) {
-    stopPerfCollection(activeSession.sessionId);
-  } else if (activeSession) {
+  if (activeSession) {
     stopPerfCollection(activeSession.sessionId);
   }
 
-  adbExec(params.deviceId, [
-    "shell",
-    "dumpsys",
-    "gfxinfo",
-    params.packageName,
-    "reset",
-  ]);
+  // Android 需要在采集前重置 gfxinfo 帧计数以便差分；HarmonyOS 由 SP_daemon 直接给出 FPS，无需重置。
+  if (platform === "android") {
+    adbExec(params.deviceId, [
+      "shell",
+      "dumpsys",
+      "gfxinfo",
+      params.packageName,
+      "reset",
+    ]);
+  }
 
   const sessionId = randomUUID();
   const startedAt = new Date().toISOString();
   activeSession = {
     sessionId,
+    platform,
     deviceId: params.deviceId,
     packageName: params.packageName,
     metrics: new Set(params.metrics),
@@ -224,18 +269,31 @@ async function runTick(sessionId: string): Promise<void> {
   session.tickInFlight = true;
   const started = Date.now();
   try {
-    const sample = collectAndroidPerfSample({
-      execAdbSync: adbExec,
-      deviceId: session.deviceId,
-      packageName: session.packageName,
-      metrics: session.metrics,
-      intervalMs: session.intervalMs,
-      procStatPrevious: session.procStatPrevious,
-      gfxFramesPrevious: session.gfxFramesPrevious,
-    });
-    session.procStatPrevious = sample.procStatPrevious;
-    session.gfxFramesPrevious = sample.gfxFramesPrevious;
+    let sampleData: Partial<Record<PerfMetricKey, number>>;
+    if (session.platform === "harmony") {
+      const sample = collectHarmonyPerfSample({
+        execHdcSync: hdcExec,
+        deviceId: session.deviceId,
+        packageName: session.packageName,
+        metrics: session.metrics,
+      });
+      sampleData = sample.data;
+    } else {
+      const sample = collectAndroidPerfSample({
+        execAdbSync: adbExec,
+        deviceId: session.deviceId,
+        packageName: session.packageName,
+        metrics: session.metrics,
+        intervalMs: session.intervalMs,
+        procStatPrevious: session.procStatPrevious,
+        gfxFramesPrevious: session.gfxFramesPrevious,
+      });
+      session.procStatPrevious = sample.procStatPrevious;
+      session.gfxFramesPrevious = sample.gfxFramesPrevious;
+      sampleData = sample.data;
+    }
 
+    const sample = { data: sampleData };
     const hasValidMetric = Object.values(sample.data).some(
       (value) => value !== undefined && Number.isFinite(value),
     );

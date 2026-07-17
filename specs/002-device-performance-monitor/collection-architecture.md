@@ -114,15 +114,32 @@ UI 四档：**500 / 1000 / 2000 / 5000 ms**（非 Perfetto 采样率，是 **轮
 
 ---
 
-## 4. P1 · iOS / Harmony（不采集，仅说明）
+## 4. P1 · HarmonyOS / iOS
+
+### 4.1 HarmonyOS（已实现，2026-07-16 增量）
+
+采用华为 **SmartPerf 设备端命令行工具 `SP_daemon`**，通过 hdc 每 tick 单次采样，与 Android「adb + top/dumpsys」对称。CPU/内存/FPS 三项已支持，复用现有 tick 调度 / IPC 推帧 / 会话摘要 / SQLite 持久化。
+
+| 字段 | 手段 |
+| --- | --- |
+| `cpu_app` | `hdc -t <id> shell SP_daemon -N 1 -PKG <pkg> -c` → `ProcCpuUsage` |
+| `cpu_sys` | 同上 → `TotalcpuUsage`（SP_daemon 直出，无需差分） |
+| `mem_total` | `... -r` → `pss`（KB→MB） |
+| `fps` | `... -f` → `fps`（SP_daemon 直出，无需帧差分） |
+| 应用列表 | `hdc -t <id> shell bm dump -a` |
+
+完整设计见 [`harmony-collection-design.md`](./harmony-collection-design.md)。实现：`electron/deviceAutomation/harmonyHdc.ts`、`electron/deviceAutomation/performanceMonitor/harmonyCollectors.ts`。
+
+**不做**：GPU/温度/功耗/网络等 SmartPerf 其余指标（后续增量）；鸿蒙 htrace/hiperf 深度 Trace（对标 Android P2，单独规划）。
+
+### 4.2 iOS（不采集，仅说明）
 
 | 平台 | P1 | 后续技术路径（文档预留，不实现） |
 | --- | --- | --- |
 | **iOS &lt; 17** | 能力矩阵 + 禁用 | tidevice `Performance` → Instruments DTX（AutoPilot §4.3） |
 | **iOS 17+** | 同上 | pymobiledevice3：tunneld → RSD → InstrumentServer（AutoPilot §4.4） |
-| **HarmonyOS** | 同上 | HDC + 系统 API（AutoPilot 差异表） |
 
-P1 **不启动** 上述链路，避免与 Android P1 争抢工期。
+iOS P1 **不启动** 上述链路，避免争抢工期。
 
 ---
 
@@ -226,9 +243,10 @@ SmartPerfetto（`perf/SmartPerfetto`）做的是：
 | 阶段 | 采集能力 | Perfetto |
 | --- | --- | --- |
 | **P1** | Android CPU/内存/FPS，adb 轮询，IPC 推帧，摘要 SQLite | **无** |
+| **P1（Harmony 增量，已实现）** | HarmonyOS CPU/内存/FPS，hdc + SmartPerf `SP_daemon` 轮询，复用同一管线 | **无** |
 | **P1.1** | Jank、SF 主路径、系统 CPU 双校验 | 无 |
-| **P2** | GPU/网络/电池；**可选 Perfetto trace 录制+pull+ artifact 表** | 文件管理 + 外链 SmartPerfetto |
-| **P3** | iOS/Harmony 实时采集 | iOS 可考虑 Instruments trace → 转 Perfetto（btrace 路线） |
+| **P2** | GPU/网络/电池；**可选 Perfetto trace 录制+pull+ artifact 表**（Android） | 文件管理 + 外链 SmartPerfetto |
+| **P3** | iOS 实时采集；Harmony GPU/温度/功耗 + 深度 Trace（htrace/hiperf） | iOS 可考虑 Instruments trace → 转 Perfetto（btrace 路线） |
 
 ---
 

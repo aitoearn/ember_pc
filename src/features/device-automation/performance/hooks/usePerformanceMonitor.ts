@@ -16,7 +16,10 @@ import {
   PERF_DEFAULT_INTERVAL_MS,
   PERF_DEFAULT_METRIC_IDS,
 } from "../constants/metrics";
-import { isAndroidPerfCollectionSupported } from "../constants/platformMatrix";
+import {
+  isHarmonyPerfCollectionSupported,
+  isPerfCollectionSupported,
+} from "../constants/platformMatrix";
 import {
   appendPerfFrame,
   createEmptyPerfBuffers,
@@ -80,7 +83,7 @@ export function usePerformanceMonitor({ devices }: UsePerformanceMonitorOptions)
     [onlineDevices, selectedDeviceId],
   );
 
-  const canCollect = isAndroidPerfCollectionSupported(selectedDevice?.platform);
+  const canCollect = isPerfCollectionSupported(selectedDevice?.platform);
   const isRunning = phase === "running";
 
   const reloadHistory = useCallback(async (workspace: string) => {
@@ -285,8 +288,11 @@ export function usePerformanceMonitor({ devices }: UsePerformanceMonitorOptions)
     }
     setBuffers(createEmptyPerfBuffers());
     try {
+      const platform = isHarmonyPerfCollectionSupported(selectedDevice.platform)
+        ? "harmony"
+        : "android";
       const result = await startPerformanceCollection({
-        platform: "android",
+        platform,
         deviceId: selectedDevice.id,
         packageName,
         metrics,

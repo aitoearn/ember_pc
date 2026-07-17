@@ -10,6 +10,7 @@ import {
   isAgentDeviceSessionAlreadyActiveFailure,
   isAgentDeviceSessionAlreadyActiveMessage,
 } from "./agentDeviceSessionErrors";
+import { applyHdcPathToEnv, resolveHdcPath } from "./resolveHdcPath";
 import { resolveNodeSpawn } from "./resolveNodeSpawn";
 import { resolveToolRoot } from "./resolveToolRoot";
 
@@ -129,6 +130,7 @@ function runAgentDeviceCli(args: string[]): AgentDeviceCliEnvelope {
 
   const invocation = resolveCliInvocation(rootPath);
   const stateDir = resolveStateDir();
+  const hdcPath = resolveHdcPath(process.env);
   const result = spawnSync(
     invocation.command,
     [
@@ -142,10 +144,13 @@ function runAgentDeviceCli(args: string[]): AgentDeviceCliEnvelope {
     ],
     {
       cwd: invocation.cwd,
-      env: {
-        ...invocation.spawnEnv,
-        AGENT_DEVICE_DAEMON_SERVER_MODE: "http",
-      },
+      env: applyHdcPathToEnv(
+        {
+          ...invocation.spawnEnv,
+          AGENT_DEVICE_DAEMON_SERVER_MODE: "http",
+        },
+        hdcPath,
+      ),
       encoding: "utf8",
       timeout: CLI_TIMEOUT_MS,
       maxBuffer: 16 * 1024 * 1024,

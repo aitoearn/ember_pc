@@ -121,3 +121,4 @@ lime-rs/crates/
 | 2026-06-17 | P2 Plan | research.md + p2-tasks.md + plan 扩展 |
 | 2026-06-17 | P2 实现 | commit `4a76a16e` P2a；Phase 4 US5 L1 分析 + Phase 5 守门（工作区未提交） |
 | 2026-06-17 | P2 自动化验证 | vitest perf/trace/analysis；`cargo test perf_trace`；契约脚本 ✅ |
+| 2026-07-16 | P1 Harmony 增量 | HarmonyOS 实时 APM（CPU/内存/FPS）经 hdc + SmartPerf `SP_daemon` 接入，复用现有管线；设计见 `harmony-collection-design.md`；vitest electron perf + harmonyCollectors ✅；真机 quickstart 待验 |
