@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
   ensureDeviceAutomationSidecar,
+  stopHarmonyScrcpy,
 } from "@/lib/api/deviceAutomation";
 import { sendAyaStyleMirrorNavigation } from "./scrcpy/deviceMirrorNavigation";
 import { scheduleScrcpyPrewarmForDevice } from "./scrcpy/scrcpyPrewarm";
@@ -119,13 +120,17 @@ export function DeviceAutomationDebugPage({
   }, [playerDevice?.id, playerDevice?.platform, playerDevice?.status]);
 
   const handleBack = useCallback(() => {
-    void (async () => {
-      if (playerDevice?.platform === "android") {
-        await destroyDeviceScrcpySession(playerDevice.id);
-      }
-      setScrcpyClient(null);
-      onBack();
-    })();
+    // 先导航回列表，避免被投屏启停 IPC / 顶部拖拽层感知延迟卡住。
+    const deviceId = playerDevice?.id;
+    const platform = playerDevice?.platform;
+    setScrcpyClient(null);
+    onBack();
+    if (platform === "android" && deviceId) {
+      void destroyDeviceScrcpySession(deviceId);
+    }
+    if (platform === "harmony") {
+      void stopHarmonyScrcpy();
+    }
   }, [onBack, playerDevice?.id, playerDevice?.platform]);
 
   useEffect(() => {
@@ -202,7 +207,8 @@ export function DeviceAutomationDebugPage({
   );
 
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col overflow-hidden bg-[#f0f1f3] px-1">
+    // pt-12：避开 App 顶部 48px 窗口拖拽热区（z-index:1000），否则「返回设备列表」点不到。
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col overflow-hidden bg-[#f0f1f3] px-1 pt-12">
       <div className="mb-3 flex shrink-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <Button
@@ -210,6 +216,7 @@ export function DeviceAutomationDebugPage({
             variant="outline"
             size="sm"
             className="mt-0.5 h-8 shrink-0 gap-1.5"
+            data-lime-no-window-drag
             onClick={handleBack}
           >
             <ArrowLeft className="size-4" />

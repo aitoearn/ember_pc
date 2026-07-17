@@ -219,12 +219,16 @@ export const HarmonyScrcpyPlayer = forwardRef<
   }, [device.id]);
 
   // WebSocket / hoscrcpy 会话仅随设备变化；解码重建不重启 sidecar。
+  // 延迟启动：React Strict Mode 开发态会 mount→unmount→mount，
+  // 若不防抖会连续拉起两次 hoscrcpy（各约数秒），首屏体感翻倍。
   useEffect(() => {
     let cancelled = false;
+    let started = false;
     let frameLogAt = 0;
 
     async function connect() {
       try {
+        started = true;
         const session = await startHarmonyScrcpy({ deviceId: device.id });
         if (cancelled) {
           void stopHarmonyScrcpy();
@@ -309,17 +313,25 @@ export const HarmonyScrcpyPlayer = forwardRef<
       }
     }
 
-    void connect();
+    const startTimer = window.setTimeout(() => {
+      if (!cancelled) {
+        void connect();
+      }
+    }, 80);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(startTimer);
       try {
         wsRef.current?.close();
       } catch {
         // ignore
       }
       wsRef.current = null;
-      void stopHarmonyScrcpy();
+      // 仅在确实启动过 sidecar 时 stop，避免 Strict Mode 首次 cleanup 误杀预热会话。
+      if (started) {
+        void stopHarmonyScrcpy();
+      }
     };
   }, [device.id, sendControl, markConnectedIfPlaying]);
 

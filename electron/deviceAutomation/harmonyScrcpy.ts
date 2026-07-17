@@ -64,6 +64,9 @@ type ActiveHarmonyScrcpy = {
   client: HarmonyScrcpySocket | null;
   stdoutBuffer: Buffer;
   stderrBuffer: string;
+  width: number;
+  height: number;
+  scale: number;
   /** 对齐 lmdeviceagent：缓存 SPS/PPS/IDR，新观看者先发关键帧。 */
   cachedSps: Buffer | null;
   cachedPps: Buffer | null;
@@ -71,6 +74,11 @@ type ActiveHarmonyScrcpy = {
 };
 
 let active: ActiveHarmonyScrcpy | null = null;
+/** 同一 deviceId 的并发 start 复用同一 Promise，避免预热+进页双启。 */
+let startInFlight: {
+  deviceId: string;
+  promise: Promise<HarmonyScrcpyStartResult>;
+} | null = null;
 
 /** 在 offset 处识别 Annex-B 起始码长度（3 或 4），否则 0。 */
 function annexBStartCodeLen(frame: Buffer, offset: number): number {
@@ -195,6 +203,43 @@ export async function startHarmonyScrcpy(
   if (!params.deviceId?.trim()) {
     throw new Error("deviceId 不能为空");
   }
+
+  // 已在播同一设备：直接复用（进页预热场景）。
+  if (
+    active &&
+    active.deviceId === params.deviceId &&
+    active.width > 0 &&
+    active.height > 0
+  ) {
+    console.info(`[harmony-scrcpy] 复用已有会话 deviceId=${params.deviceId}`);
+    return {
+      wsUrl: `ws://127.0.0.1:${active.port}`,
+      port: active.port,
+      width: active.width,
+      height: active.height,
+      scale: active.scale,
+    };
+  }
+
+  if (startInFlight && startInFlight.deviceId === params.deviceId) {
+    console.info(`[harmony-scrcpy] 等待进行中的启动 deviceId=${params.deviceId}`);
+    return await startInFlight.promise;
+  }
+
+  const promise = startHarmonyScrcpyInternal(params);
+  startInFlight = { deviceId: params.deviceId, promise };
+  try {
+    return await promise;
+  } finally {
+    if (startInFlight?.promise === promise) {
+      startInFlight = null;
+    }
+  }
+}
+
+async function startHarmonyScrcpyInternal(
+  params: HarmonyScrcpyStartParams,
+): Promise<HarmonyScrcpyStartResult> {
   await stopHarmonyScrcpy();
 
   const jars = resolveHoscrcpyJarPaths();
@@ -243,6 +288,9 @@ export async function startHarmonyScrcpy(
     client: null,
     stdoutBuffer: Buffer.alloc(0),
     stderrBuffer: "",
+    width: 0,
+    height: 0,
+    scale: params.scale && params.scale > 1 ? params.scale : 1,
     cachedSps: null,
     cachedPps: null,
     cachedIdr: null,
@@ -353,12 +401,16 @@ export async function startHarmonyScrcpy(
             if (!settled) {
               settled = true;
               clearTimeout(timer);
+              const scale = meta.scale ?? params.scale ?? 1;
+              session.width = meta.width;
+              session.height = meta.height;
+              session.scale = scale;
               resolve({
                 wsUrl: `ws://127.0.0.1:${port}`,
                 port,
                 width: meta.width,
                 height: meta.height,
-                scale: meta.scale ?? params.scale ?? 1,
+                scale,
               });
             }
           } catch (error) {

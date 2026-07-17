@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   listDeviceAutomationDevices,
   listenDeviceAutomationInventoryChanged,
+  startHarmonyScrcpy,
 } from "@/lib/api/deviceAutomation";
 import type {
   DeviceAutomationPageParams,
@@ -136,6 +137,13 @@ export function DeviceAutomationWorkspace({
 
   const openDebug = useCallback(
     (deviceId: string) => {
+      // 鸿蒙冷启动 hoscrcpy 很慢：点进 Debug 前先预热，进页后复用同一会话。
+      const device = devicesRef.current.find((item) => item.id === deviceId);
+      if (device?.platform === "harmony" && device.status === "online") {
+        void startHarmonyScrcpy({ deviceId }).catch((error) => {
+          console.warn("[harmony-scrcpy] 进页预热失败:", error);
+        });
+      }
       onNavigate?.("device-automation", {
         view: "debug",
         deviceId,
